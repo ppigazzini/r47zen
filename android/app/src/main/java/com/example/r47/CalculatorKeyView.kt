@@ -262,13 +262,57 @@ class CalculatorKeyView @JvmOverloads constructor(
         val primarySize = mainKeyStyleSpec(mainKeyState.styleRole).fontSize * referenceCellToViewWidthScale
         val topLabelTextSize =
             KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale * topLabelPlacement.scale
+        val primaryMaxWidth = primaryLabelMaxWidthPx(referenceCellToViewWidthScale)
 
-        primaryLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, primarySize)
+        primaryLabel.setTextSize(
+            TypedValue.COMPLEX_UNIT_PX,
+            fittedTextSizePx(primaryLabel, primarySize, primaryMaxWidth),
+        )
         primaryLabel.textScaleX = 1f
         fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize)
         gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize)
         letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, KeyVisualPolicy.FOURTH_LABEL_TEXT_SIZE * referenceCellToViewWidthScale)
         primaryLabel.translationX = 0f
+    }
+
+    private fun fittedTextSizePx(labelView: TextView, baseSize: Float, maxWidth: Float): Float {
+        val text = labelView.text?.toString().orEmpty()
+        if (text.isBlank() || maxWidth <= 0f) {
+            return baseSize
+        }
+
+        val paint = Paint(labelView.paint)
+        paint.textSize = baseSize
+        val measured = paint.measureText(text)
+        if (measured <= maxWidth || measured <= 0f) {
+            return baseSize
+        }
+
+        return (baseSize * (maxWidth / measured))
+            .coerceAtLeast(baseSize * KeyVisualPolicy.FITTED_TEXT_MIN_SCALE)
+    }
+
+    private fun primaryLabelMaxWidthPx(referenceCellToViewWidthScale: Float): Float {
+        val buttonWidth = when {
+            buttonView.width > 0 -> buttonView.width.toFloat()
+            designButtonWidth > 0f -> designButtonWidth * referenceCellToViewWidthScale
+            else -> 0f
+        }
+        if (buttonWidth <= 0f) {
+            return 0f
+        }
+
+        val referenceBodyToViewWidthScale =
+            if (designButtonWidth > 0f) buttonWidth / designButtonWidth else 1f
+        val bodyWidth = if (buttonView.width > 0) {
+            updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
+            mainKeyRect.width()
+        } else {
+            buttonWidth - (2f * referenceBodyToViewWidthScale) +
+                (KeyVisualPolicy.MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA * referenceBodyToViewWidthScale)
+        }
+        val horizontalPadding = 12f * referenceBodyToViewWidthScale
+        return (bodyWidth - horizontalPadding).coerceAtLeast(0f)
     }
 
     private fun measureTextWidth(labelView: TextView, textSize: Float = labelView.textSize): Float {

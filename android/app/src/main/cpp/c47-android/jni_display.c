@@ -270,6 +270,26 @@ static void setUtf8Label(char *utf8, size_t utf8Size, const char *value) {
   snprintf(utf8, utf8Size, "%s", value ? value : "");
 }
 
+static bool_t isLatinAlphaCasePair(int16_t upperItem, int16_t lowerItem) {
+  upperItem = mainLabelItemId(upperItem);
+  lowerItem = mainLabelItemId(lowerItem);
+  if (upperItem <= 0 || upperItem >= LAST_ITEM || lowerItem <= 0 ||
+      lowerItem >= LAST_ITEM) {
+    return false;
+  }
+
+  const char *upper = indexOfItems[upperItem].itemSoftmenuName;
+  const char *lower = indexOfItems[lowerItem].itemSoftmenuName;
+  return upper && lower && upper[0] >= 'A' && upper[0] <= 'Z' &&
+         upper[1] == 0 && lower[0] == (upper[0] - 'A' + 'a') &&
+         lower[1] == 0;
+}
+
+static bool_t isLowercaseAlphaSelected(void) {
+  return (alphaCase == AC_LOWER && !shiftF) ||
+         (alphaCase == AC_UPPER && shiftF);
+}
+
 static void projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
                                     const keypadMainLabel_t *label,
                                     bool_t alphaOn, char *utf8,
@@ -281,12 +301,6 @@ static void projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
   int16_t item = mainLabelItemId(label->item);
   if (item == ITM_SPACE && strcmp(utf8, " ") == 0) {
     setUtf8Label(utf8, utf8Size, "\xC2\xB7_\xC2\xB7");
-    return;
-  }
-
-  if (alphaOn && labelType == KEYPAD_LABEL_F &&
-      (item == CHR_caseUP || item == CHR_caseDN)) {
-    setUtf8Label(utf8, utf8Size, "CASE ");
     return;
   }
 
@@ -800,9 +814,21 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
 static int16_t resolveMainKeyItem(const calcKey_t *key, jint type,
                                   bool_t alphaOn, jboolean isDynamic) {
   if (alphaOn) {
+    bool_t previewF = isDynamic && shiftF;
+    bool_t previewG = isDynamic && shiftG;
+    bool_t lowercaseSelected = isLowercaseAlphaSelected();
+    bool_t casePair =
+        isLatinAlphaCasePair(key->primaryAim, key->fShiftedAim);
     switch (type) {
     case KEYPAD_LABEL_PRIMARY:
-      return key->primaryAim;
+      if (previewF) {
+        return key->fShiftedAim;
+      }
+      if (previewG) {
+        return key->gShiftedAim;
+      }
+      return (casePair && lowercaseSelected) ? key->fShiftedAim
+                                             : key->primaryAim;
     case KEYPAD_LABEL_F:
       return key->fShiftedAim;
     case KEYPAD_LABEL_G:
@@ -1060,7 +1086,7 @@ static void fillKeypadMeta(jint *fill, jboolean isDynamic) {
     fill[keypadMetaIndex(KEYPAD_META_STYLE_ROLE_OFFSET, keyCode)] =
         resolveMainStyleRole(key, alphaOn);
     fill[keypadMetaIndex(KEYPAD_META_LABEL_ROLE_OFFSET, keyCode)] =
-        resolveMainLabelRoles(key, keyCode, false, alphaOn);
+        resolveMainLabelRoles(key, keyCode, isDynamic, alphaOn);
     fill[keypadMetaIndex(KEYPAD_META_LAYOUT_CLASS_OFFSET, keyCode)] =
       resolveMainLayoutClass(keyCode, alphaOn);
     fill[keypadMetaIndex(KEYPAD_META_OVERLAY_STATE_OFFSET, keyCode)] = NOVAL;
