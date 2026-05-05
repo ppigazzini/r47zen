@@ -68,11 +68,7 @@ internal object ReplicaKeypadLayout {
             }
         }
 
-        if (overlay.width > 0 && overlay.height > 0) {
-            applyAdaptiveTopLabelPlacements(overlay)
-        } else {
-            overlay.post { applyAdaptiveTopLabelPlacements(overlay) }
-        }
+        overlay.post { applyAdaptiveTopLabelPlacements(overlay) }
     }
 
     private fun addClassicKeypad(

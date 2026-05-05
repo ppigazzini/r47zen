@@ -161,7 +161,10 @@ class CalculatorKeyView @JvmOverloads constructor(
     private val softkeyDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
-    private val faceplateOffsetUpdater = Runnable { updateFaceplateOffsets() }
+    private val faceplateOffsetUpdater = Runnable {
+        updateFontSize(currentShiftFOn, currentShiftGOn)
+        updateFaceplateOffsets()
+    }
 
     init {
         // Critical: Allow drawing outside bounds
@@ -435,16 +438,33 @@ class CalculatorKeyView @JvmOverloads constructor(
         resetLabelLayout()
         val fParams = fLabel.layoutParams as LayoutParams
         val gParams = gLabel.layoutParams as LayoutParams
+        val buttonParams = buttonView.layoutParams as LayoutParams
 
         when (layoutClass) {
+            KeypadSceneContract.LAYOUT_CLASS_ALPHA -> {
+                buttonParams.endToStart = LayoutParams.UNSET
+                buttonParams.endToEnd = LayoutParams.PARENT_ID
+            }
+
             KeypadSceneContract.LAYOUT_CLASS_STATIC_SINGLE -> {
                 fParams.endToStart = LayoutParams.UNSET
                 fParams.endToEnd = LayoutParams.PARENT_ID
                 fParams.horizontalBias = 0.5f
                 gLabel.visibility = View.GONE
             }
+
+            else -> {
+                if (usesLetterSpacer) {
+                    buttonParams.endToStart = letterLabel.id
+                    buttonParams.endToEnd = LayoutParams.UNSET
+                } else {
+                    buttonParams.endToStart = LayoutParams.UNSET
+                    buttonParams.endToEnd = LayoutParams.PARENT_ID
+                }
+            }
         }
 
+        buttonView.layoutParams = buttonParams
         fLabel.layoutParams = fParams
         gLabel.layoutParams = gParams
         scheduleFaceplateOffsetUpdate()
@@ -656,7 +676,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         val hasFLabel = keyState.fLabel.isNotBlank()
         fLabel.visibility = if (hasFLabel) View.VISIBLE else View.INVISIBLE
         gLabel.visibility = if (hasFLabel && keyState.gLabel.isNotBlank()) View.VISIBLE else View.INVISIBLE
-        if (!usesLetterSpacer) {
+        if (!usesLetterSpacer || keyState.layoutClass == KeypadSceneContract.LAYOUT_CLASS_ALPHA) {
             letterLabel.visibility = View.GONE
         } else if (keepLetterSpacerInvisible || keyState.letterLabel.isBlank()) {
             letterLabel.visibility = View.INVISIBLE
@@ -699,10 +719,10 @@ class CalculatorKeyView @JvmOverloads constructor(
             currentShiftFOn = snapshot.shiftF
             currentShiftGOn = snapshot.shiftG || snapshot.alphaOn
             topLabelPlacement = TopLabelLanePlacement.DEFAULT
-            updateFontSize(currentShiftFOn, currentShiftGOn)
             updateLayoutPositioning(keyState.layoutClass)
             applySceneStyling(keyState)
             applyLabelVisibility(keyState)
+            updateFontSize(currentShiftFOn, currentShiftGOn)
             scheduleFaceplateOffsetUpdate()
             contentDescription = buildString {
                 append(keyState.primaryLabel)

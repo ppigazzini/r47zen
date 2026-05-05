@@ -114,6 +114,15 @@ The snapshot also preserves softmenu paging state, dotted-row state, function
 preview state, and per-key enabled state. Android should consume those fields,
 not recreate them from label text.
 
+`LAYOUT_CLASS_ALPHA` is also part of that contract. The native export now uses
+the same broader alphabetic-key gate as the upstream simulator's
+`keyboard.c::determineItem()` path, so AIM, XEQ/PROG, catalog, and related
+alphabetic states export `primaryAim` across the whole keypad. When native
+exports an alpha-mode key, `CalculatorKeyView` suppresses the unused
+fourth-label lane and lets the painted main-key body use the full slot width.
+That keeps those alphabetic states on the scene-driven path instead of leaving
+them confined to the normal faceplate spacer layout.
+
 This keeps content and state on the native side while Android owns measurement,
 projection, and drawing.
 
@@ -192,6 +201,10 @@ It renders:
 - softkey text, auxiliary text, value text, preview accents, reverse-video
   states, strike marks, and overlay-state decorations when the scene contract
   asks for them
+
+For alpha-mode main keys, the same view now applies the exported
+`LAYOUT_CLASS_ALPHA` rule by dropping the unused fourth-label spacer and
+centering the scene-driven alpha legends on the full key slot.
 
 Main keys and softkeys share one view class, but the renderer separates the
 layout slot from the painted body geometry.

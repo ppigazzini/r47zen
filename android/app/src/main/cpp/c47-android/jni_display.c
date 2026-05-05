@@ -151,10 +151,14 @@ static bool_t isUserKeyboardEnabled(void) {
 
 static bool_t isAlphaKeyboardActive(void) {
   extern bool_t getSystemFlag(int32_t sf);
+  bool_t alphaFlag = getSystemFlag(FLAG_ALPHA);
+
   return (calcMode == CM_AIM) ||
-         ((calcMode == CM_PEM || calcMode == CM_ASSIGN) &&
-          getSystemFlag(0x800e)) ||
-         ((tam.mode != 0 || tam.alpha) && getSystemFlag(0x800e));
+         (catalog && catalog != CATALOG_MVAR && calcMode != CM_NIM) ||
+         (calcMode == CM_EIM) || tam.alpha ||
+         (calcMode == CM_ASSIGN &&
+          (previousCalcMode == CM_AIM || previousCalcMode == CM_EIM)) ||
+         (calcMode == CM_PEM && alphaFlag);
 }
 
 static const calcKey_t *getVisibleKeyTable(jboolean isDynamic) {
