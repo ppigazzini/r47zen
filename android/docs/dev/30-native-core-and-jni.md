@@ -22,6 +22,11 @@ Tracked Android stub headers under `c47-android/stubs` and the forced include
 of `android_mocks.h` let the Android build satisfy upstream GTK, GDK, and Cairo
 includes without rewriting staged source files during the Gradle build.
 
+The Android native module currently compiles the staged upstream core in
+`PC_BUILD` mode. That means the Android-owned bridge layer must provide the
+GLib and GTK compatibility behavior used by upstream pause, wait, and progress
+paths instead of treating those entry points as no-op stubs.
+
 `android/app/src/main/cpp/CMakeLists.txt` passes and consumes
 `R47_STAGED_CPP_DIR` so the live Android native build reads shared-native inputs
 from the build-only staging root rather than any retired app-module snapshots.
@@ -79,8 +84,15 @@ supports that model by keeping shared synchronization in native code:
 
 - `screenMutex` is recursive
 - `yieldToAndroidWithMs()` refreshes the LCD, releases the recursive screen
-  lock, lets Android process queued work, sleeps briefly, and then reacquires
-  the lock
+  lock, advances due timer callbacks, lets Android process queued work, sleeps
+  briefly, and then reacquires the lock
+- `android_runtime.c` also supplies Android-backed `PC_BUILD` event-loop shims
+  for `g_main_context_iteration()`, `g_timeout_add()`,
+  `gtk_events_pending()`, and `gtk_main_iteration()` so staged upstream pause
+  and progress loops keep yielding on Android instead of hanging behind no-op
+  mocks; treat these entry points as required compatibility behavior, not as
+  optional stubs, because upstream program workloads depend on them for pause
+  and progress responsiveness
 - native-owned JVM work acquires `JNIEnv` through `jni_acquire_env()` and
   `jni_release_env()` so attach and detach remain scope-bound
 - the bridge can update the current activity reference when the activity is

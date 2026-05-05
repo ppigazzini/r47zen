@@ -255,6 +255,48 @@ Build-safety rule:
   `scripts/android/collect_packaging_evidence.sh` copies the artifact and writes ABI,
   zipalign, ELF `LOAD` segment, SHA256, and provenance evidence beside it.
 
+## Local Start-To-End Pipeline
+
+Use this order when you want the same local maintainer flow that the repo now
+expects from a clean shell:
+
+1. Run `./scripts/build_android.sh --doctor` to confirm SDK, NDK, CMake,
+   font-source, and staged-input readiness.
+2. Run `./scripts/sync_public.sh` to hydrate the authoritative upstream core,
+   the upstream-shaped root build inputs, and the canonical calculator font
+   tree.
+3. If `xlsxio_xlsx2csv` is not installed system-wide, export the cached pinned
+   helper before the simulator lane:
+
+   ```bash
+   export PATH="$HOME/.cache/r47/xlsxio/$(sed -n 's/^R47_DEFAULT_XLSXIO_COMMIT=//p' android/r47-defaults.properties)/bin:$PATH"
+   ```
+
+4. Run `make test` for the root simulator and native suite.
+5. Run `./scripts/build_android.sh` for the full Android lane. That regenerates
+   `build.sim`, refreshes `android/.staged-native/cpp`, writes
+   `android/local.properties`, and assembles the debug APK through host Gradle
+   or the retained wrapper runtime.
+6. Run the Android JVM and instrumentation-assembly lane from `android/` with
+   either host `gradle` or the retained wrapper runtime. The wrapper-runtime
+   fallback is:
+
+   ```bash
+   cd android
+   java -jar gradle/wrapper/gradle-wrapper.jar --max-workers 8 \
+     :app:testDebugUnitTest :app:assembleDebugAndroidTest
+   ```
+
+7. Check `adb devices`. Only run `:app:connectedDebugAndroidTest` when at least
+   one device or emulator is attached. If the emulator is `x86_64`, add
+   `-Pr47.abiFilters=arm64-v8a,x86_64`.
+
+Practical note:
+
+- `./scripts/build_android.sh --doctor` validates the pinned xlsxio cache, but
+  `make test` still needs `xlsxio_xlsx2csv` on `PATH` unless it is installed
+  system-wide.
+
 ## CI lane
 
 The GitHub Actions workflow at `.github/workflows/android-ci.yml` keeps the same
@@ -333,6 +375,9 @@ lane.
 - JNI, HAL, CMake, or packaging changes: `./scripts/build_android.sh`.
 - packaging evidence changes with local proof: `./scripts/build_android.sh --verify-packaging`
 - root core or generator changes: `make test` and then `./scripts/build_android.sh`.
+- root core or generator changes: `make test` and then `./scripts/build_android.sh`.
+  If `xlsxio_xlsx2csv` is only available in the pinned cache, export the cached
+  `~/.cache/r47/xlsxio/<commit>/bin` path first.
 - CI-only changes: verify the touched workflow files against the local build
   contract and the artifact names described above. When one job needs data from
   another, promote it through `jobs.<job_id>.outputs` and consume it via

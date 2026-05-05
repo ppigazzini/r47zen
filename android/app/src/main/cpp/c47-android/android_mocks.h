@@ -61,7 +61,7 @@ typedef void* gpointer;
 typedef int gboolean;
 typedef unsigned int guint;
 typedef long long gint64;
-typedef void* GSourceFunc;
+typedef gboolean (*GSourceFunc)(gpointer);
 typedef void* GMainContext;
 
 #ifndef TRUE
@@ -85,8 +85,8 @@ typedef void* GMainContext;
 extern void triggerQuit(void);
 #define gtk_main_quit() triggerQuit()
 #define gtk_widget_queue_draw(...) (void)0
-#define gtk_events_pending(...) 0
-#define gtk_main_iteration(...) (void)0
+gboolean gtk_events_pending(void);
+gboolean gtk_main_iteration(void);
 #define gtk_clipboard_get(...) NULL
 #define gtk_clipboard_set_text(...) (void)0
 #define gtk_clipboard_clear(...) (void)0
@@ -108,11 +108,12 @@ extern void triggerQuit(void);
 #define gtk_toggle_button_get_active(...) 0
 #define gtk_widget_show(...) (void)0
 #define gtk_widget_hide(...) (void)0
-#define gdk_threads_add_timeout(...) 0
+guint gdk_threads_add_timeout(guint interval, GSourceFunc function,
+                              gpointer data);
 
-#define g_timeout_add(...) 0
-#define g_source_remove(...) (void)0
-#define g_main_context_iteration(...) 0
+guint g_timeout_add(guint interval, GSourceFunc function, gpointer data);
+gboolean g_source_remove(guint tag);
+gboolean g_main_context_iteration(GMainContext *context, gboolean may_block);
 #define g_main_context_default(...) NULL
 
 extern void processCoreTasksNative(void);
