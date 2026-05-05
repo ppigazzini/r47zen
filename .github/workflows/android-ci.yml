@@ -799,7 +799,7 @@ jobs:
           core_version="${core_version:0:8}"
 
           cd android
-          gradle --max-workers "${{ steps.jobs.outputs.jobs }}" \
+          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:assembleDebugAndroidTest \
             --no-daemon --stacktrace --console=plain \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
@@ -822,7 +822,7 @@ jobs:
           core_version="${core_version:0:8}"
 
           cd android
-          gradle --max-workers "${{ steps.jobs.outputs.jobs }}" \
+          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:testDebugUnitTest \
             --no-daemon --stacktrace --console=plain \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
@@ -861,7 +861,7 @@ jobs:
             mkdir -p ../ci-artifacts/logs;
             log_file=../ci-artifacts/logs/android-connected-debug-android-test.log;
             gradle_status=0;
-            gradle --max-workers "${{ steps.jobs.outputs.jobs }}" :app:connectedDebugAndroidTest --no-daemon --stacktrace --console=plain -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} -Pr47.abiFilters="${{ steps.defaults.outputs.android_test_abi_filters }}" -Pr47.coreVersion="$core_version" -Pr47.sourceRepositoryUrl="${{ github.server_url }}/${{ github.repository }}" -Pr47.sourceCommit="${{ github.sha }}" -Pr47.upstreamSourceRepositoryUrl="${{ steps.upstream.outputs.upstream_url }}" -Pr47.upstreamSourceCommit="${{ steps.upstream.outputs.upstream_commit }}" -Pr47.xlsxioSourceRepositoryUrl="${{ steps.defaults.outputs.xlsxio_url }}" -Pr47.xlsxioSourceCommit="${{ steps.defaults.outputs.xlsxio_commit }}" >"$log_file" 2>&1 || gradle_status=$?;
+            ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" :app:connectedDebugAndroidTest --no-daemon --stacktrace --console=plain -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} -Pr47.abiFilters="${{ steps.defaults.outputs.android_test_abi_filters }}" -Pr47.coreVersion="$core_version" -Pr47.sourceRepositoryUrl="${{ github.server_url }}/${{ github.repository }}" -Pr47.sourceCommit="${{ github.sha }}" -Pr47.upstreamSourceRepositoryUrl="${{ steps.upstream.outputs.upstream_url }}" -Pr47.upstreamSourceCommit="${{ steps.upstream.outputs.upstream_commit }}" -Pr47.xlsxioSourceRepositoryUrl="${{ steps.defaults.outputs.xlsxio_url }}" -Pr47.xlsxioSourceCommit="${{ steps.defaults.outputs.xlsxio_commit }}" >"$log_file" 2>&1 || gradle_status=$?;
             cat "$log_file";
             test "$gradle_status" -eq 0
 

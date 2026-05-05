@@ -133,7 +133,7 @@ Public maintainer entrypoints:
   `android/.staged-native/cpp`, regenerates staged native metadata there,
   requires the canonical calculator font assets under repo-root `res/fonts`, writes
   `android/local.properties`, and runs Gradle clean plus `assembleDebug` through
-  a host `gradle` command or the retained wrapper runtime under
+  the repo `./gradlew` launcher backed by the retained wrapper runtime under
   `android/gradle/wrapper/`. It
   also exposes `--doctor` for SDK, NDK, CMake, xlsxio, upstream-lock, and
   staged-input plus font-source status plus `--android-only` for the fast
@@ -147,18 +147,18 @@ Public maintainer entrypoints:
   `android/.staged-native/cpp/STAGED-INPUTS.properties` still matches the
   canonical root, generated inputs, the tracked Android mini-gmp staging
   source, and the current calculator font source.
-- `cd android && gradle assembleDebug` is appropriate only when the staged
+- `cd android && ./gradlew assembleDebug` is appropriate only when the staged
   build-only native tree under `android/.staged-native/cpp` is already current
   and the change is isolated to the Android module.
-- `cd android && gradle :app:bundleRelease` or
--  `cd android && gradle :app:assembleRelease` is the module-local release
+- `cd android && ./gradlew :app:bundleRelease` or
+-  `cd android && ./gradlew :app:assembleRelease` is the module-local release
   lane only when the staged build-only native tree is already current. Release
   builds remain unsigned unless all `r47.releaseStore*` and `r47.releaseKey*`
   inputs are supplied together.
-- `cd android && gradle :app:testDebugUnitTest` validates the Robolectric
+- `cd android && ./gradlew :app:testDebugUnitTest` validates the Robolectric
   and fixture-backed Android JVM suite when the build-only staged native tree
   is already current.
-- `cd android && gradle :app:assembleDebugAndroidTest` compiles and
+- `cd android && ./gradlew :app:assembleDebugAndroidTest` compiles and
   packages the instrumentation suite. `:app:connectedDebugAndroidTest` requires
   a device or emulator, and `-Pr47.abiFilters=arm64-v8a,x86_64` is the
   supported override when that emulator is `x86_64`.
@@ -275,11 +275,9 @@ expects from a clean shell:
 4. Run `make test` for the root simulator and native suite.
 5. Run `./scripts/build_android.sh` for the full Android lane. That regenerates
    `build.sim`, refreshes `android/.staged-native/cpp`, writes
-   `android/local.properties`, and assembles the debug APK through host Gradle
-   or the retained wrapper runtime.
+  `android/local.properties`, and assembles the debug APK through `./gradlew`.
 6. Run the Android JVM and instrumentation-assembly lane from `android/` with
-   either host `gradle` or the retained wrapper runtime. The wrapper-runtime
-   fallback is:
+  `./gradlew`. The lowest-level retained-runtime form remains:
 
    ```bash
    cd android
@@ -360,16 +358,16 @@ lane.
 
 ## Verification by change type
 
-- Kotlin-only Android UI changes: `cd android && gradle assembleDebug` when
+- Kotlin-only Android UI changes: `cd android && ./gradlew assembleDebug` when
   the build-only staged native tree is already current.
 - Android module-only changes with the staged tree already current:
   `./scripts/build_android.sh --android-only`.
 - Host or cache diagnosis before building: `./scripts/build_android.sh --doctor`.
 - Robolectric, fixture, or runtime-seam changes:
-  `cd android && gradle :app:testDebugUnitTest` when the build-only staged
+    `cd android && ./gradlew :app:testDebugUnitTest` when the build-only staged
   native tree is already current.
 - SAF, debug-manifest, or Activity Result lifecycle changes:
-  `cd android && gradle :app:assembleDebugAndroidTest`, then
+    `cd android && ./gradlew :app:assembleDebugAndroidTest`, then
   `:app:connectedDebugAndroidTest` on a device or emulator. Add
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`.
 - JNI, HAL, CMake, or packaging changes: `./scripts/build_android.sh`.

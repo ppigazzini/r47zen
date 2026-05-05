@@ -1,0 +1,18 @@
+#!/bin/sh
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+WRAPPER_JAR="$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.jar"
+JAVA_BIN="java"
+
+if [ ! -f "$WRAPPER_JAR" ]; then
+    echo "ERROR: Missing Gradle wrapper runtime at $WRAPPER_JAR" >&2
+    exit 1
+fi
+
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+    JAVA_BIN="$JAVA_HOME/bin/java"
+fi
+
+exec "$JAVA_BIN" -jar "$WRAPPER_JAR" "$@"

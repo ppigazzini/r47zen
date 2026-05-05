@@ -16,7 +16,7 @@ Public maintainer entrypoints:
 
 - `./scripts/sync_public.sh` hydrates the authoritative upstream core.
 - `./scripts/build_android.sh` is the canonical Android debug-build path.
-- `cd android && gradle ...` is the module-local maintenance lane only when
+- `cd android && ./gradlew ...` is the module-local maintenance lane only when
   staged native inputs are already current.
 
 Repo-owned automation layout:

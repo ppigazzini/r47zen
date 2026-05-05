@@ -27,13 +27,14 @@ C47 source repository https://gitlab.com/rpncalculators/c43.git
   upstream, and staged-input readiness.
 - `./scripts/build_android.sh --android-only` rebuilds the Android module when
   the staged native inputs are already current.
-- `cd android && gradle assembleDebug` is the module-local maintenance command
+- `cd android && ./gradlew assembleDebug` is the module-local maintenance command
   when the staged native inputs are already current.
 - `make test` validates the hydrated upstream simulator and generator lane.
 
-`scripts/build_android.sh` uses a host `gradle` command when it is available on
-Ubuntu and falls back to the retained wrapper runtime under
-`android/gradle/wrapper/` when the host command is absent.
+`scripts/build_android.sh` prefers the repo-local `android/gradlew` launcher
+backed by the retained wrapper runtime under `android/gradle/wrapper/` and
+falls back to a host `gradle` command only when that repo wrapper path is not
+available.
 
 ## Outputs
 

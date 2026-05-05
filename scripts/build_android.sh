@@ -270,18 +270,37 @@ detect_job_count() {
     printf '%s\n' "$detected_jobs"
 }
 
+R47_GRADLE_RUNNER_NOTICE_EMITTED=false
+
 run_gradle() {
-    if command -v gradle >/dev/null 2>&1; then
-        gradle "$@"
+    if [ -x "$ANDROID_PROJECT_DIR/gradlew" ]; then
+        if [ "$R47_GRADLE_RUNNER_NOTICE_EMITTED" = false ]; then
+            echo "--- Using repo Gradle wrapper launcher: $ANDROID_PROJECT_DIR/gradlew ---"
+            R47_GRADLE_RUNNER_NOTICE_EMITTED=true
+        fi
+        "$ANDROID_PROJECT_DIR/gradlew" "$@"
         return 0
     fi
 
     if [ -f "$ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" ] && [ -f "$ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.properties" ]; then
+        if [ "$R47_GRADLE_RUNNER_NOTICE_EMITTED" = false ]; then
+            echo "--- Using retained Gradle wrapper runtime: $ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar ---"
+            R47_GRADLE_RUNNER_NOTICE_EMITTED=true
+        fi
         java -jar "$ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" "$@"
         return 0
     fi
 
-    fail "No usable gradle command found on PATH and no Gradle wrapper runtime is available under $ANDROID_PROJECT_DIR/gradle/wrapper. Install Gradle $R47_DEFAULT_ANDROID_GRADLE_VERSION or restore the wrapper runtime files."
+    if command -v gradle >/dev/null 2>&1; then
+        if [ "$R47_GRADLE_RUNNER_NOTICE_EMITTED" = false ]; then
+            echo "--- Using host gradle command: $(command -v gradle) ---"
+            R47_GRADLE_RUNNER_NOTICE_EMITTED=true
+        fi
+        gradle "$@"
+        return 0
+    fi
+
+    fail "No repo Gradle wrapper launcher or retained wrapper runtime is available under $ANDROID_PROJECT_DIR and no usable host gradle command was found on PATH. Restore the wrapper files or install Gradle $R47_DEFAULT_ANDROID_GRADLE_VERSION."
 }
 
 R47_BUILD_JOBS_INPUT=${R47_BUILD_JOBS-}
