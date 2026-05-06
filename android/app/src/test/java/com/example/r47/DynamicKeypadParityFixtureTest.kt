@@ -1,12 +1,18 @@
 package com.example.r47
 
+import android.app.Activity
+import android.os.Looper
 import android.view.View
+import android.widget.FrameLayout
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -62,8 +68,148 @@ class DynamicKeypadParityFixtureTest {
         assertEquals(assignedBlankFixture, carrierView.contentDescription.toString())
     }
 
+    @Test
+    fun iteration57_unchangedSnapshotDoesNotResetRenderedKeyState() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val container = FrameLayout(activity)
+        activity.setContentView(container)
+
+        val keyView = createAttachedMainKeyView(activity, 12)
+        container.addView(keyView, FrameLayout.LayoutParams(272, 260))
+        container.measure(exactly(400), exactly(300))
+        container.layout(0, 0, 400, 300)
+
+        val snapshot = snapshotWith(
+            12 to KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "7",
+                fLabel = "LASTx",
+                gLabel = "STK",
+                isEnabled = true,
+            ),
+        )
+
+        keyView.updateLabels(snapshot)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        keyView.applyTopLabelPlacement(TopLabelLanePlacement(centerShift = 8f))
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val baselinePrimaryTranslationX = keyView.primaryLabel.translationX
+        val baselineFTranslationX = keyView.fLabel.translationX
+        val baselineGTranslationX = keyView.gLabel.translationX
+
+        keyView.updateLabels(snapshot)
+
+        assertEquals(baselinePrimaryTranslationX, keyView.primaryLabel.translationX, 0.001f)
+        assertEquals(baselineFTranslationX, keyView.fLabel.translationX, 0.001f)
+        assertEquals(baselineGTranslationX, keyView.gLabel.translationX, 0.001f)
+
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(baselinePrimaryTranslationX, keyView.primaryLabel.translationX, 0.001f)
+        assertEquals(baselineFTranslationX, keyView.fLabel.translationX, 0.001f)
+        assertEquals(baselineGTranslationX, keyView.gLabel.translationX, 0.001f)
+    }
+
+    @Test
+    fun iteration57_snapshotRefreshGateSkipsUnchangedSnapshotUntilReset() {
+        val gate = KeypadSnapshotRefreshGate(enabled = true)
+        val snapshot = snapshotWith(
+            12 to KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "7",
+                fLabel = "LASTx",
+                gLabel = "STK",
+                isEnabled = true,
+            ),
+        )
+
+        assertTrue(gate.shouldApply(snapshot))
+        assertFalse(gate.shouldApply(snapshot))
+
+        gate.reset()
+
+        assertTrue(gate.shouldApply(snapshot))
+    }
+
+    @Test
+    fun iteration57_snapshotRefreshGateAllowsRepeatedSnapshotWhenDisabled() {
+        val gate = KeypadSnapshotRefreshGate(enabled = false)
+        val snapshot = snapshotWith(
+            12 to KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "7",
+                fLabel = "LASTx",
+                gLabel = "STK",
+                isEnabled = true,
+            ),
+        )
+
+        assertTrue(gate.shouldApply(snapshot))
+        assertTrue(gate.shouldApply(snapshot))
+
+        gate.reset()
+
+        assertTrue(gate.shouldApply(snapshot))
+    }
+
+    @Test
+    fun iteration57_alphaLayoutKeepsPaintedBodyWidthStable() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val container = FrameLayout(activity)
+        activity.setContentView(container)
+
+        val keyView = createAttachedMainKeyView(activity, 12)
+        container.addView(keyView, FrameLayout.LayoutParams(272, 260))
+
+        val defaultSnapshot = snapshotWith(
+            12 to KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "XEQ",
+                fLabel = "LASTx",
+                gLabel = "STK",
+                letterLabel = "A",
+                layoutClass = KeypadSceneContract.LAYOUT_CLASS_DEFAULT,
+                isEnabled = true,
+            ),
+        )
+        val alphaSnapshot = snapshotWith(
+            12 to KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "PROG",
+                fLabel = "LASTx",
+                gLabel = "STK",
+                layoutClass = KeypadSceneContract.LAYOUT_CLASS_ALPHA,
+                isEnabled = true,
+            ),
+        )
+
+        container.measure(exactly(400), exactly(300))
+        container.layout(0, 0, 400, 300)
+
+        keyView.updateLabels(defaultSnapshot)
+        container.measure(exactly(400), exactly(300))
+        container.layout(0, 0, 400, 300)
+        shadowOf(Looper.getMainLooper()).idle()
+        val defaultBodyWidth = requireNotNull(keyView.buildTopLabelLaneInput()).bodyWidth
+
+        keyView.updateLabels(alphaSnapshot)
+        container.measure(exactly(400), exactly(300))
+        container.layout(0, 0, 400, 300)
+        shadowOf(Looper.getMainLooper()).idle()
+        val alphaBodyWidth = requireNotNull(keyView.buildTopLabelLaneInput()).bodyWidth
+
+        assertEquals(defaultBodyWidth, alphaBodyWidth, 0.001f)
+        assertEquals(View.INVISIBLE, keyView.letterLabel.visibility)
+    }
+
     private fun createMainKeyView(code: Int): CalculatorKeyView {
         return CalculatorKeyView(ApplicationProvider.getApplicationContext()).apply {
+            setKey(
+                KeypadTopology.slotFor(code),
+                KeypadFontSet(standard = null, numeric = null, tiny = null),
+            )
+        }
+    }
+
+    private fun createAttachedMainKeyView(activity: Activity, code: Int): CalculatorKeyView {
+        return CalculatorKeyView(activity).apply {
             setKey(
                 KeypadTopology.slotFor(code),
                 KeypadFontSet(standard = null, numeric = null, tiny = null),
@@ -98,5 +244,9 @@ class DynamicKeypadParityFixtureTest {
             functionPreviewNopOrExecuted = false,
             keyStates = keyStates,
         )
+    }
+
+    private fun exactly(size: Int): Int {
+        return View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY)
     }
 }

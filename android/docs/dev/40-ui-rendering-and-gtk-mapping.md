@@ -119,9 +119,10 @@ the same broader alphabetic-key gate as the upstream simulator's
 `keyboard.c::determineItem()` path, so AIM, XEQ/PROG, catalog, and related
 alphabetic states export `primaryAim` across the whole keypad. When native
 exports an alpha-mode key, `CalculatorKeyView` suppresses the unused
-fourth-label lane and lets the painted main-key body use the full slot width.
-That keeps those alphabetic states on the scene-driven path instead of leaving
-them confined to the normal faceplate spacer layout.
+fourth-label text but keeps the measured painted main-key body width fixed.
+Android retains the spacer as invisible so alphabetic scenes such as XEQ/PROG
+stay on the same body geometry as the default keypad instead of widening to
+the full slot.
 
 This keeps content and state on the native side while Android owns measurement,
 projection, and drawing.
@@ -202,9 +203,10 @@ It renders:
   states, strike marks, and overlay-state decorations when the scene contract
   asks for them
 
-For alpha-mode main keys, the same view now applies the exported
-`LAYOUT_CLASS_ALPHA` rule by dropping the unused fourth-label spacer and
-centering the scene-driven alpha legends on the full key slot.
+For alpha-mode main keys, the same view applies the exported
+`LAYOUT_CLASS_ALPHA` rule by hiding the unused fourth-label text while keeping
+the spacer width reserved, so the scene-driven alpha legends stay centered on
+the canonical painted key body rather than on the full cell width.
 
 Main keys and softkeys share one view class, but the renderer separates the
 layout slot from the painted body geometry.

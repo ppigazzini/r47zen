@@ -275,7 +275,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize)
         gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize)
         letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, KeyVisualPolicy.FOURTH_LABEL_TEXT_SIZE * referenceCellToViewWidthScale)
-        primaryLabel.translationX = 0f
     }
 
     private fun fittedTextSizePx(labelView: TextView, baseSize: Float, maxWidth: Float): Float {
@@ -441,27 +440,20 @@ class CalculatorKeyView @JvmOverloads constructor(
         val buttonParams = buttonView.layoutParams as LayoutParams
 
         when (layoutClass) {
-            KeypadSceneContract.LAYOUT_CLASS_ALPHA -> {
-                buttonParams.endToStart = LayoutParams.UNSET
-                buttonParams.endToEnd = LayoutParams.PARENT_ID
-            }
-
             KeypadSceneContract.LAYOUT_CLASS_STATIC_SINGLE -> {
                 fParams.endToStart = LayoutParams.UNSET
                 fParams.endToEnd = LayoutParams.PARENT_ID
                 fParams.horizontalBias = 0.5f
                 gLabel.visibility = View.GONE
             }
+        }
 
-            else -> {
-                if (usesLetterSpacer) {
-                    buttonParams.endToStart = letterLabel.id
-                    buttonParams.endToEnd = LayoutParams.UNSET
-                } else {
-                    buttonParams.endToStart = LayoutParams.UNSET
-                    buttonParams.endToEnd = LayoutParams.PARENT_ID
-                }
-            }
+        if (usesLetterSpacer) {
+            buttonParams.endToStart = letterLabel.id
+            buttonParams.endToEnd = LayoutParams.UNSET
+        } else {
+            buttonParams.endToStart = LayoutParams.UNSET
+            buttonParams.endToEnd = LayoutParams.PARENT_ID
         }
 
         buttonView.layoutParams = buttonParams
@@ -676,9 +668,13 @@ class CalculatorKeyView @JvmOverloads constructor(
         val hasFLabel = keyState.fLabel.isNotBlank()
         fLabel.visibility = if (hasFLabel) View.VISIBLE else View.INVISIBLE
         gLabel.visibility = if (hasFLabel && keyState.gLabel.isNotBlank()) View.VISIBLE else View.INVISIBLE
-        if (!usesLetterSpacer || keyState.layoutClass == KeypadSceneContract.LAYOUT_CLASS_ALPHA) {
+        if (!usesLetterSpacer) {
             letterLabel.visibility = View.GONE
-        } else if (keepLetterSpacerInvisible || keyState.letterLabel.isBlank()) {
+        } else if (
+            keyState.layoutClass == KeypadSceneContract.LAYOUT_CLASS_ALPHA ||
+                keepLetterSpacerInvisible ||
+                keyState.letterLabel.isBlank()
+        ) {
             letterLabel.visibility = View.INVISIBLE
         } else {
             letterLabel.visibility = View.VISIBLE
@@ -703,6 +699,9 @@ class CalculatorKeyView @JvmOverloads constructor(
 
     internal fun updateLabels(snapshot: KeypadSnapshot) {
         val keyState = snapshot.keyStateFor(keyCode)
+        val resolvedShiftFOn = snapshot.shiftF
+        val resolvedShiftGOn = snapshot.shiftG || snapshot.alphaOn
+
         applyEnabledState(keyState.isEnabled)
 
         if (isFnKey) {
@@ -716,9 +715,8 @@ class CalculatorKeyView @JvmOverloads constructor(
             fLabel.text = keyState.fLabel
             gLabel.text = keyState.gLabel
             letterLabel.text = keyState.letterLabel
-            currentShiftFOn = snapshot.shiftF
-            currentShiftGOn = snapshot.shiftG || snapshot.alphaOn
-            topLabelPlacement = TopLabelLanePlacement.DEFAULT
+            currentShiftFOn = resolvedShiftFOn
+            currentShiftGOn = resolvedShiftGOn
             updateLayoutPositioning(keyState.layoutClass)
             applySceneStyling(keyState)
             applyLabelVisibility(keyState)

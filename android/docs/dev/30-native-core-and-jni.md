@@ -86,6 +86,14 @@ supports that model by keeping shared synchronization in native code:
 - `yieldToAndroidWithMs()` refreshes the LCD, releases the recursive screen
   lock, advances due timer callbacks, lets Android process queued work, sleeps
   briefly, and then reacquires the lock
+- `NativeDisplayRefreshLoop` uses `Choreographer.postFrameCallback(...)` on the
+  main looper to refresh LCD pixels every frame and to poll keypad snapshots on
+  metadata change or the configured idle interval; `ReplicaOverlayController`
+  keeps the whole-snapshot gate available behind
+  `KeypadRefreshPolicy.ENABLE_UNCHANGED_SNAPSHOT_SKIP`, but the current audit
+  leaves that gate disabled so identical snapshots still exercise the keypad
+  view tree, and `CalculatorKeyView` must keep repeated application of the
+  same snapshot geometry-stable
 - `android_runtime.c` also supplies Android-backed `PC_BUILD` event-loop shims
   for `g_main_context_iteration()`, `g_timeout_add()`,
   `gtk_events_pending()`, and `gtk_main_iteration()` so staged upstream pause
