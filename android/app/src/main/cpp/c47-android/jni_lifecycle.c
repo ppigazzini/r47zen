@@ -263,6 +263,7 @@ void r47_force_refresh(void) {
   }
 
   pthread_mutex_lock(&screenMutex);
+  reDraw = true;
   refreshScreen(190);
   refreshLcd(NULL);
   lcd_refresh();
