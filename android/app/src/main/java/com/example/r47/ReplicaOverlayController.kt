@@ -1,7 +1,7 @@
 package com.example.r47
 
 internal object KeypadRefreshPolicy {
-    const val ENABLE_UNCHANGED_SNAPSHOT_SKIP = false
+    const val ENABLE_UNCHANGED_SNAPSHOT_SKIP = true
 }
 
 internal class KeypadSnapshotRefreshGate {

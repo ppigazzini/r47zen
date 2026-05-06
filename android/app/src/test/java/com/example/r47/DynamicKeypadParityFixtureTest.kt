@@ -132,6 +132,22 @@ class DynamicKeypadParityFixtureTest {
     }
 
     @Test
+    fun iteration57_defaultSnapshotRefreshGateSkipsUnchangedSnapshot() {
+        val gate = KeypadSnapshotRefreshGate()
+        val snapshot = snapshotWith(
+            12 to KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "7",
+                fLabel = "LASTx",
+                gLabel = "STK",
+                isEnabled = true,
+            ),
+        )
+
+        assertTrue(gate.shouldApply(snapshot))
+        assertFalse(gate.shouldApply(snapshot))
+    }
+
+    @Test
     fun iteration57_snapshotRefreshGateAllowsRepeatedSnapshotWhenDisabled() {
         val gate = KeypadSnapshotRefreshGate(enabled = false)
         val snapshot = snapshotWith(
