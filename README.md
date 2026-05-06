@@ -36,6 +36,19 @@ backed by the retained wrapper runtime under `android/gradle/wrapper/` and
 falls back to a host `gradle` command only when that repo wrapper path is not
 available.
 
+## Verification Surfaces
+
+- `make test` is the broad upstream-core and simulator verification lane after
+  `./scripts/sync_public.sh` hydrates the canonical source tree.
+- `cd android && ./gradlew :app:testDebugUnitTest` and
+  `:app:connectedDebugAndroidTest` cover Android-owned JVM, Robolectric, and
+  instrumentation behavior.
+- `./scripts/run_keyboard_contract_audits.sh` is the tracked transitional
+  maintainer entrypoint for `__DEV/R47` geometry, derivation, and source-level
+  contract audits.
+- Python under `__DEV/R47` is maintainer support tooling, not the long-term
+  primary lane for Android Kotlin or JNI behavior regression tests.
+
 ## Outputs
 
 - The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.

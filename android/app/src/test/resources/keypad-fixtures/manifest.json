@@ -1,0 +1,19 @@
+{
+  "upstreamCommit": "f73981c55b977ce8d0399a63e96d768677f1d2f4",
+  "sceneContractVersion": 5,
+  "metaLength": 323,
+  "keyCount": 43,
+  "labelsPerKey": 5,
+  "scenarios": [
+    {"name": "default-keypad", "file": "default-keypad.json", "description": "Default keypad scene"},
+    {"name": "shift-f-preview", "file": "shift-f-preview.json", "description": "F-shift preview row"},
+    {"name": "shift-g-preview", "file": "shift-g-preview.json", "description": "G-shift preview row"},
+    {"name": "alpha-upper", "file": "alpha-upper.json", "description": "Uppercase alpha keypad"},
+    {"name": "alpha-lower", "file": "alpha-lower.json", "description": "Lowercase alpha keypad"},
+    {"name": "alpha-prog-transition", "file": "alpha-prog-transition.json", "description": "Alphabetic transition with PROG-facing layout"},
+    {"name": "catalog-state", "file": "catalog-state.json", "description": "Catalog-driven alpha scene"},
+    {"name": "dotted-row-state", "file": "dotted-row-state.json", "description": "Softmenu scene with dotted-row indicator"},
+    {"name": "static-single-scene", "file": "static-single-scene.json", "description": "Static-single top-label layout scene"},
+    {"name": "tam-scene", "file": "tam-scene.json", "description": "TAM layout-class scene"}
+  ]
+}

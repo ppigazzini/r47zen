@@ -145,8 +145,9 @@ internal data class KeypadSnapshot(
     }
 
     companion object {
-        private const val KEY_COUNT = 43
-        private const val LABELS_PER_KEY = 5
+        internal const val KEY_COUNT = 43
+        internal const val LABELS_PER_KEY = 5
+        internal const val SCENE_CONTRACT_VERSION = 5
 
         private const val META_SHIFT_F = 0
         private const val META_SHIFT_G = 1
@@ -177,7 +178,7 @@ internal data class KeypadSnapshot(
         private const val META_SCENE_FLAGS_OFFSET = META_LAYOUT_CLASS_OFFSET + KEY_COUNT
         private const val META_OVERLAY_STATE_OFFSET = META_SCENE_FLAGS_OFFSET + KEY_COUNT
         private const val META_SHOW_VALUE_OFFSET = META_OVERLAY_STATE_OFFSET + KEY_COUNT
-        private const val META_LENGTH = META_SHOW_VALUE_OFFSET + KEY_COUNT
+        internal const val META_LENGTH = META_SHOW_VALUE_OFFSET + KEY_COUNT
 
         private val EMPTY_KEYS = List(KEY_COUNT) { KeypadKeySnapshot.EMPTY }
 

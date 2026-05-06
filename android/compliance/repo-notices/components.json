@@ -15,7 +15,7 @@
       "id": "decnumbericu-icu-license",
       "title": "decNumberICU ICU license notice",
       "summary": "Notice text for the vendored decNumberICU source.",
-      "sourcePath": "dep/decNumberICU/ICU-license.html",
+      "sourcePath": "android/.staged-native/cpp/decNumberICU/ICU-license.html",
       "assetPath": "repo-notices/decnumbericu/ICU-license.html",
       "contentType": "text/html",
       "declaredLicense": "ICU"

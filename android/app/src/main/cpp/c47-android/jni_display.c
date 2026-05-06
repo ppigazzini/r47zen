@@ -7,53 +7,46 @@
 #include <string.h>
 
 enum {
-  KEYPAD_LABEL_PRIMARY = 0,
-  KEYPAD_LABEL_F = 1,
-  KEYPAD_LABEL_G = 2,
-  KEYPAD_LABEL_LETTER = 3,
-  KEYPAD_LABEL_AUX = 4,
-  KEYPAD_LABELS_PER_KEY = 5,
-  KEYPAD_KEY_COUNT = 43,
-  KEYPAD_SCENE_CONTRACT_VERSION = 5,
-  KEYPAD_META_SHIFT_F = 0,
-  KEYPAD_META_SHIFT_G = 1,
-  KEYPAD_META_CALC_MODE = 2,
-  KEYPAD_META_USER_MODE = 3,
-  KEYPAD_META_ALPHA = 4,
-  KEYPAD_META_SOFTMENU_ID = 5,
-  KEYPAD_META_SOFTMENU_FIRST_ITEM = 6,
-  KEYPAD_META_SOFTMENU_ITEM_COUNT = 7,
-  KEYPAD_META_SOFTMENU_VISIBLE_ROW = 8,
-  KEYPAD_META_SOFTMENU_PAGE = 9,
-  KEYPAD_META_SOFTMENU_PAGE_COUNT = 10,
-  KEYPAD_META_SOFTMENU_HAS_PREVIOUS = 11,
-  KEYPAD_META_SOFTMENU_HAS_NEXT = 12,
-  KEYPAD_META_KEY_ENABLED_OFFSET = 13,
-    KEYPAD_META_CONTRACT_VERSION =
-      KEYPAD_META_KEY_ENABLED_OFFSET + KEYPAD_KEY_COUNT,
-    KEYPAD_META_SOFTMENU_DOTTED_ROW = KEYPAD_META_CONTRACT_VERSION + 1,
-    KEYPAD_META_FN_PREVIEW_ACTIVE = KEYPAD_META_SOFTMENU_DOTTED_ROW + 1,
-    KEYPAD_META_FN_PREVIEW_KEY = KEYPAD_META_FN_PREVIEW_ACTIVE + 1,
-    KEYPAD_META_FN_PREVIEW_ROW = KEYPAD_META_FN_PREVIEW_KEY + 1,
-    KEYPAD_META_FN_PREVIEW_STATE = KEYPAD_META_FN_PREVIEW_ROW + 1,
-    KEYPAD_META_FN_PREVIEW_TIMEOUT_ACTIVE = KEYPAD_META_FN_PREVIEW_STATE + 1,
-    KEYPAD_META_FN_PREVIEW_RELEASE_EXEC =
-      KEYPAD_META_FN_PREVIEW_TIMEOUT_ACTIVE + 1,
-    KEYPAD_META_FN_PREVIEW_NOP_OR_EXECUTED =
-      KEYPAD_META_FN_PREVIEW_RELEASE_EXEC + 1,
-    KEYPAD_META_STYLE_ROLE_OFFSET =
-      KEYPAD_META_FN_PREVIEW_NOP_OR_EXECUTED + 1,
-    KEYPAD_META_LABEL_ROLE_OFFSET =
-      KEYPAD_META_STYLE_ROLE_OFFSET + KEYPAD_KEY_COUNT,
-    KEYPAD_META_LAYOUT_CLASS_OFFSET =
-      KEYPAD_META_LABEL_ROLE_OFFSET + KEYPAD_KEY_COUNT,
-    KEYPAD_META_SCENE_FLAGS_OFFSET =
-      KEYPAD_META_LAYOUT_CLASS_OFFSET + KEYPAD_KEY_COUNT,
-    KEYPAD_META_OVERLAY_STATE_OFFSET =
-      KEYPAD_META_SCENE_FLAGS_OFFSET + KEYPAD_KEY_COUNT,
-    KEYPAD_META_SHOW_VALUE_OFFSET =
-      KEYPAD_META_OVERLAY_STATE_OFFSET + KEYPAD_KEY_COUNT,
-    KEYPAD_META_LENGTH = KEYPAD_META_SHOW_VALUE_OFFSET + KEYPAD_KEY_COUNT,
+  KEYPAD_LABEL_PRIMARY = R47_KEYPAD_LABEL_PRIMARY,
+  KEYPAD_LABEL_F = R47_KEYPAD_LABEL_F,
+  KEYPAD_LABEL_G = R47_KEYPAD_LABEL_G,
+  KEYPAD_LABEL_LETTER = R47_KEYPAD_LABEL_LETTER,
+  KEYPAD_LABEL_AUX = R47_KEYPAD_LABEL_AUX,
+  KEYPAD_LABELS_PER_KEY = R47_KEYPAD_LABELS_PER_KEY,
+  KEYPAD_KEY_COUNT = R47_KEYPAD_KEY_COUNT,
+  KEYPAD_SCENE_CONTRACT_VERSION = R47_KEYPAD_SCENE_CONTRACT_VERSION,
+  KEYPAD_META_SHIFT_F = R47_KEYPAD_META_SHIFT_F,
+  KEYPAD_META_SHIFT_G = R47_KEYPAD_META_SHIFT_G,
+  KEYPAD_META_CALC_MODE = R47_KEYPAD_META_CALC_MODE,
+  KEYPAD_META_USER_MODE = R47_KEYPAD_META_USER_MODE,
+  KEYPAD_META_ALPHA = R47_KEYPAD_META_ALPHA,
+  KEYPAD_META_SOFTMENU_ID = R47_KEYPAD_META_SOFTMENU_ID,
+  KEYPAD_META_SOFTMENU_FIRST_ITEM = R47_KEYPAD_META_SOFTMENU_FIRST_ITEM,
+  KEYPAD_META_SOFTMENU_ITEM_COUNT = R47_KEYPAD_META_SOFTMENU_ITEM_COUNT,
+  KEYPAD_META_SOFTMENU_VISIBLE_ROW = R47_KEYPAD_META_SOFTMENU_VISIBLE_ROW,
+  KEYPAD_META_SOFTMENU_PAGE = R47_KEYPAD_META_SOFTMENU_PAGE,
+  KEYPAD_META_SOFTMENU_PAGE_COUNT = R47_KEYPAD_META_SOFTMENU_PAGE_COUNT,
+  KEYPAD_META_SOFTMENU_HAS_PREVIOUS = R47_KEYPAD_META_SOFTMENU_HAS_PREVIOUS,
+  KEYPAD_META_SOFTMENU_HAS_NEXT = R47_KEYPAD_META_SOFTMENU_HAS_NEXT,
+  KEYPAD_META_KEY_ENABLED_OFFSET = R47_KEYPAD_META_KEY_ENABLED_OFFSET,
+  KEYPAD_META_CONTRACT_VERSION = R47_KEYPAD_META_CONTRACT_VERSION,
+  KEYPAD_META_SOFTMENU_DOTTED_ROW = R47_KEYPAD_META_SOFTMENU_DOTTED_ROW,
+  KEYPAD_META_FN_PREVIEW_ACTIVE = R47_KEYPAD_META_FN_PREVIEW_ACTIVE,
+  KEYPAD_META_FN_PREVIEW_KEY = R47_KEYPAD_META_FN_PREVIEW_KEY,
+  KEYPAD_META_FN_PREVIEW_ROW = R47_KEYPAD_META_FN_PREVIEW_ROW,
+  KEYPAD_META_FN_PREVIEW_STATE = R47_KEYPAD_META_FN_PREVIEW_STATE,
+  KEYPAD_META_FN_PREVIEW_TIMEOUT_ACTIVE =
+      R47_KEYPAD_META_FN_PREVIEW_TIMEOUT_ACTIVE,
+  KEYPAD_META_FN_PREVIEW_RELEASE_EXEC = R47_KEYPAD_META_FN_PREVIEW_RELEASE_EXEC,
+  KEYPAD_META_FN_PREVIEW_NOP_OR_EXECUTED =
+      R47_KEYPAD_META_FN_PREVIEW_NOP_OR_EXECUTED,
+  KEYPAD_META_STYLE_ROLE_OFFSET = R47_KEYPAD_META_STYLE_ROLE_OFFSET,
+  KEYPAD_META_LABEL_ROLE_OFFSET = R47_KEYPAD_META_LABEL_ROLE_OFFSET,
+  KEYPAD_META_LAYOUT_CLASS_OFFSET = R47_KEYPAD_META_LAYOUT_CLASS_OFFSET,
+  KEYPAD_META_SCENE_FLAGS_OFFSET = R47_KEYPAD_META_SCENE_FLAGS_OFFSET,
+  KEYPAD_META_OVERLAY_STATE_OFFSET = R47_KEYPAD_META_OVERLAY_STATE_OFFSET,
+  KEYPAD_META_SHOW_VALUE_OFFSET = R47_KEYPAD_META_SHOW_VALUE_OFFSET,
+  KEYPAD_META_LENGTH = R47_KEYPAD_META_LENGTH,
 
     KEYPAD_STYLE_DEFAULT = 0,
     KEYPAD_STYLE_SOFTKEY = 1,
@@ -1050,7 +1043,7 @@ static void fillKeyboardState(jint *fill);
 
 static void fillKeypadMeta(jint *fill, jboolean isDynamic) {
   memset(fill, 0, sizeof(jint) * KEYPAD_META_LENGTH);
-  fillKeyboardState(fill);
+  r47_fill_keyboard_state((int32_t *)fill);
 
   int16_t softmenuId = softmenuStack[0].softmenuId;
   int16_t softmenuItemCount = getCurrentSoftmenuItemCount(softmenuId);
@@ -1168,12 +1161,86 @@ static bool setMainKeypadLabelElement(JNIEnv *env, jobjectArray labels,
   return success;
 }
 
-static void fillKeyboardState(jint *fill) {
+static void setExportedKeypadLabel(
+    char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+               [R47_KEYPAD_LABEL_CAPACITY],
+    int keyCode, int labelType, const char *name) {
+  int index = (keyCode - 1) * KEYPAD_LABELS_PER_KEY + labelType;
+  encodeUtf8Label(name, labels[index], R47_KEYPAD_LABEL_CAPACITY);
+}
+
+static void setExportedMainKeypadLabel(
+    char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+               [R47_KEYPAD_LABEL_CAPACITY],
+    int keyCode, int labelType, const calcKey_t *key,
+    const keypadMainLabel_t *label, bool_t alphaOn) {
+  int index = (keyCode - 1) * KEYPAD_LABELS_PER_KEY + labelType;
+  encodeMainKeypadLabel(key, labelType, label, alphaOn, labels[index],
+                        R47_KEYPAD_LABEL_CAPACITY);
+}
+
+void r47_fill_keyboard_state(int32_t *fill) {
   fill[0] = (jint)shiftF;
   fill[1] = (jint)shiftG;
   fill[2] = (jint)calcMode;
   fill[3] = (jint)isUserKeyboardEnabled();
   fill[4] = (jint)isAlphaKeyboardActive();
+}
+
+void r47_get_keypad_meta(int32_t *fill, bool isDynamic) {
+  if (fill == NULL) {
+    return;
+  }
+
+  memset(fill, 0, sizeof(int32_t) * R47_KEYPAD_META_LENGTH);
+  if (!ram) {
+    return;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  fillKeypadMeta((jint *)fill, isDynamic ? JNI_TRUE : JNI_FALSE);
+  pthread_mutex_unlock(&screenMutex);
+}
+
+void r47_get_keypad_labels(
+    char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+               [R47_KEYPAD_LABEL_CAPACITY],
+    bool isDynamic) {
+  if (labels == NULL) {
+    return;
+  }
+
+  memset(labels, 0,
+         sizeof(char) * R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY *
+             R47_KEYPAD_LABEL_CAPACITY);
+  if (!ram) {
+    return;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  bool_t alphaOn = isAlphaKeyboardActive();
+  const calcKey_t *keys = getVisibleKeyTable(isDynamic ? JNI_TRUE : JNI_FALSE);
+
+  for (int keyCode = 1; keyCode <= 37; keyCode++) {
+    const calcKey_t *key = &keys[keyCode - 1];
+    for (int labelType = 0; labelType < KEYPAD_LABELS_PER_KEY; labelType++) {
+      keypadMainLabel_t label = resolveMainKeyLabelInfo(
+          key, keyCode, labelType, isDynamic ? JNI_TRUE : JNI_FALSE, alphaOn);
+      setExportedMainKeypadLabel(labels, keyCode, labelType, key, &label,
+                                 alphaOn);
+    }
+  }
+
+  for (int fnKeyIndex = 1; fnKeyIndex <= 6; fnKeyIndex++) {
+    keypadSoftkeyScene_t scene;
+    int keyCode = 37 + fnKeyIndex;
+    resolveSoftkeyScene(fnKeyIndex, &scene);
+    setExportedKeypadLabel(labels, keyCode, KEYPAD_LABEL_PRIMARY,
+                          scene.primaryLabel);
+    setExportedKeypadLabel(labels, keyCode, KEYPAD_LABEL_AUX, scene.auxLabel);
+  }
+
+  pthread_mutex_unlock(&screenMutex);
 }
 
 JNIEXPORT jstring JNICALL
@@ -1262,7 +1329,7 @@ Java_com_example_r47_MainActivity_getKeyboardStateNative(JNIEnv *env,
   }
 
   jint fill[5];
-  fillKeyboardState(fill);
+  r47_fill_keyboard_state(fill);
   (*env)->SetIntArrayRegion(env, result, 0, 5, fill);
   if (jni_check_and_clear_exception(env,
                                     "SetIntArrayRegion(getKeyboardStateNative)")) {

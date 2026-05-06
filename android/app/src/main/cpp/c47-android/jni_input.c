@@ -11,15 +11,53 @@ extern void btnReleased(GtkWidget *notUsed, GdkEvent *event, gpointer data);
 static char currentPressedKeyStr[4] = {0};
 static int currentPressedKeyCode = 0;
 
+void r47_send_sim_function(int funcId) {
+  pthread_mutex_lock(&screenMutex);
+  extern void runFunction(int16_t id);
+  runFunction((int16_t)funcId);
+  pthread_mutex_unlock(&screenMutex);
+}
+
+void r47_send_sim_menu(int menuId) {
+  pthread_mutex_lock(&screenMutex);
+  extern void showSoftmenu(int16_t id);
+  showSoftmenu((int16_t)menuId);
+  refreshScreen(1);
+  pthread_mutex_unlock(&screenMutex);
+}
+
+void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
+  if (!ram || isCoreBlockingForIo || keyId == NULL) {
+    return;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  if (isFn) {
+    if (isRelease) {
+      extern void btnFnClickedR(void *w, void *data);
+      btnFnClickedR(NULL, (void *)keyId);
+    } else {
+      extern void btnFnClickedP(void *w, void *data);
+      btnFnClickedP(NULL, (void *)keyId);
+    }
+  } else {
+    if (isRelease) {
+      extern void btnClickedR(void *w, void *data);
+      btnClickedR(NULL, (void *)keyId);
+    } else {
+      extern void btnClickedP(void *w, void *data);
+      btnClickedP(NULL, (void *)keyId);
+    }
+  }
+  pthread_mutex_unlock(&screenMutex);
+}
+
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_sendSimFuncNative(
     JNIEnv *env, jobject thiz, jint funcId) {
   (void)env;
   (void)thiz;
-  pthread_mutex_lock(&screenMutex);
-  extern void runFunction(int16_t id);
-  runFunction((int16_t)funcId);
-  pthread_mutex_unlock(&screenMutex);
+  r47_send_sim_function((int)funcId);
 }
 
 JNIEXPORT void JNICALL
@@ -27,11 +65,7 @@ Java_com_example_r47_MainActivity_sendSimMenuNative(
     JNIEnv *env, jobject thiz, jint menuId) {
   (void)env;
   (void)thiz;
-  pthread_mutex_lock(&screenMutex);
-  extern void showSoftmenu(int16_t id);
-  showSoftmenu((int16_t)menuId);
-  refreshScreen(1);
-  pthread_mutex_unlock(&screenMutex);
+  r47_send_sim_menu((int)menuId);
 }
 
 JNIEXPORT void JNICALL
@@ -50,25 +84,7 @@ Java_com_example_r47_MainActivity_sendSimKeyNative(
     return;
   }
 
-  pthread_mutex_lock(&screenMutex);
-  if (isFn) {
-    if (isRelease) {
-      extern void btnFnClickedR(void *w, void *data);
-      btnFnClickedR(NULL, (void *)nativeKeyId);
-    } else {
-      extern void btnFnClickedP(void *w, void *data);
-      btnFnClickedP(NULL, (void *)nativeKeyId);
-    }
-  } else {
-    if (isRelease) {
-      extern void btnClickedR(void *w, void *data);
-      btnClickedR(NULL, (void *)nativeKeyId);
-    } else {
-      extern void btnClickedP(void *w, void *data);
-      btnClickedP(NULL, (void *)nativeKeyId);
-    }
-  }
-  pthread_mutex_unlock(&screenMutex);
+  r47_send_sim_key(nativeKeyId, isFn, isRelease);
   (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
 }
 

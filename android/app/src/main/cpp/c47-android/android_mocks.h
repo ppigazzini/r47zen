@@ -1,7 +1,7 @@
 #ifndef ANDROID_MOCKS_H
 #define ANDROID_MOCKS_H
 
-#if defined(ANDROID_BUILD)
+#if defined(ANDROID_BUILD) || defined(HOST_TOOL_BUILD)
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -13,12 +13,35 @@
 #define _GNU_SOURCE
 #endif
 #include <pthread.h>
-#include <android/log.h>
 
 #define LOG_TAG "R47Native"
+
+#if defined(HOST_TOOL_BUILD)
+#define LOGI(...)                                                              \
+  do {                                                                         \
+    fprintf(stderr, "I/%s: ", LOG_TAG);                                       \
+    fprintf(stderr, __VA_ARGS__);                                              \
+    fputc('\n', stderr);                                                      \
+  } while (0)
+#define LOGE(...)                                                              \
+  do {                                                                         \
+    fprintf(stderr, "E/%s: ", LOG_TAG);                                       \
+    fprintf(stderr, __VA_ARGS__);                                              \
+    fputc('\n', stderr);                                                      \
+  } while (0)
+#define LOGD(...)                                                              \
+  do {                                                                         \
+    fprintf(stderr, "D/%s: ", LOG_TAG);                                       \
+    fprintf(stderr, __VA_ARGS__);                                              \
+    fputc('\n', stderr);                                                      \
+  } while (0)
+#else
+#include <android/log.h>
+
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#endif
 
 // GMP needs to be here for stubs to be visible
 #include "gmp.h"
@@ -134,6 +157,6 @@ extern bool    forceTamAlpha;
 extern uint32_t deadKey;
 extern uint32_t *screenData;
 
-#endif // ANDROID_BUILD
+#endif // ANDROID_BUILD || HOST_TOOL_BUILD
 
 #endif // ANDROID_MOCKS_H

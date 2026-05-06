@@ -2,15 +2,11 @@
 
 #include <string.h>
 
-jint JNI_OnLoad(JavaVM *vm, void *reserved) {
-  (void)reserved;
-  g_jvm = vm;
+#ifndef PTHREAD_MUTEX_RECURSIVE
+#define PTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX_RECURSIVE_NP
+#endif
 
-  JNIEnv *env;
-  if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) {
-    return JNI_ERR;
-  }
-
+void r47_initialize_native_bridge_state(void) {
   pthread_mutexattr_t attr;
   pthread_mutexattr_init(&attr);
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
@@ -24,6 +20,18 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
   memset(&releaseEvent, 0, sizeof(GdkEvent));
   releaseEvent.type = GDK_BUTTON_RELEASE;
   releaseEvent.button.button = 1;
+}
+
+jint JNI_OnLoad(JavaVM *vm, void *reserved) {
+  (void)reserved;
+  g_jvm = vm;
+
+  JNIEnv *env;
+  if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) {
+    return JNI_ERR;
+  }
+
+  r47_initialize_native_bridge_state();
 
   if (register_main_activity_natives(env) != JNI_OK) {
     return JNI_ERR;

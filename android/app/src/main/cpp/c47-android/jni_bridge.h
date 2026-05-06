@@ -2,17 +2,44 @@
 #define JNI_BRIDGE_H
 
 #include "c47.h"
-#include <android/log.h>
+#include "keypad_fixture_bridge.h"
 #include <jni.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <time.h>
+
+#if !defined(LOGI) || !defined(LOGE) || !defined(LOGD)
+#if defined(HOST_TOOL_BUILD)
+#define LOG_TAG "R47Native"
+#define LOGI(...)                                                              \
+    do {                                                                         \
+        fprintf(stderr, "I/%s: ", LOG_TAG);                                       \
+        fprintf(stderr, __VA_ARGS__);                                              \
+        fputc('\n', stderr);                                                      \
+    } while (0)
+#define LOGE(...)                                                              \
+    do {                                                                         \
+        fprintf(stderr, "E/%s: ", LOG_TAG);                                       \
+        fprintf(stderr, __VA_ARGS__);                                              \
+        fputc('\n', stderr);                                                      \
+    } while (0)
+#define LOGD(...)                                                              \
+    do {                                                                         \
+        fprintf(stderr, "D/%s: ", LOG_TAG);                                       \
+        fprintf(stderr, __VA_ARGS__);                                              \
+        fputc('\n', stderr);                                                      \
+    } while (0)
+#else
+#include <android/log.h>
 
 #define LOG_TAG "R47Native"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#endif
+#endif
 
 #define MAIN_ACTIVITY_CLASS "com/example/r47/MainActivity"
 

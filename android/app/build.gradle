@@ -29,18 +29,20 @@ if (!xlsxioLicenseSourceFile.isFile()) {
 }
 
 def canonicalRuntimeFontDir = new File(repositoryRootDir, 'res/fonts')
+def generatedRuntimeFontDir = new File(project.buildDir, 'generated/assets/runtime/fonts')
+def runtimeFontSourceDir = canonicalRuntimeFontDir.isDirectory() ? canonicalRuntimeFontDir : generatedRuntimeFontDir
 def runtimeFontAssetNames = [
     'C47__StandardFont.ttf',
     'C47__NumericFont.ttf',
     'C47__TinyFont.ttf'
 ]
 
-if (!canonicalRuntimeFontDir.isDirectory()) {
-    throw new GradleException("Missing canonical runtime font directory: ${canonicalRuntimeFontDir}")
+if (!runtimeFontSourceDir.isDirectory()) {
+    throw new GradleException("Missing runtime font directory. Checked ${canonicalRuntimeFontDir} and ${generatedRuntimeFontDir}")
 }
 
 runtimeFontAssetNames.each { fontName ->
-    def fontFile = new File(canonicalRuntimeFontDir, fontName)
+    def fontFile = new File(runtimeFontSourceDir, fontName)
     if (!fontFile.isFile()) {
         throw new GradleException("Missing canonical runtime font asset: ${fontFile}")
     }
@@ -381,18 +383,21 @@ tasks.register('copyGplLicense', Copy) {
 
 tasks.register('generateRuntimeFontAssets') {
     runtimeFontAssetNames.each { fontName ->
-        inputs.file(new File(canonicalRuntimeFontDir, fontName))
+        inputs.file(new File(runtimeFontSourceDir, fontName))
     }
     outputs.dir(generatedRuntimeAssetsDir)
 
     doLast {
         def generatedAssetsDir = file(generatedRuntimeAssetsDir)
         def fontsDir = new File(generatedAssetsDir, 'fonts')
+        if (runtimeFontSourceDir.canonicalFile == fontsDir.canonicalFile) {
+            return
+        }
         delete(generatedAssetsDir)
         fontsDir.mkdirs()
 
         runtimeFontAssetNames.each { fontName ->
-            def sourceFile = new File(canonicalRuntimeFontDir, fontName)
+            def sourceFile = new File(runtimeFontSourceDir, fontName)
             def targetFile = new File(fontsDir, fontName)
             targetFile.bytes = sourceFile.bytes
         }

@@ -100,8 +100,12 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_nativePreInit(
     JNIEnv *env, jobject thiz, jstring path_obj) {
   (void)thiz;
   const char *path = (*env)->GetStringUTFChars(env, path_obj, 0);
-  set_android_base_path(path);
+  r47_native_preinit_path(path);
   (*env)->ReleaseStringUTFChars(env, path_obj, path);
+}
+
+void r47_native_preinit_path(const char *path) {
+  set_android_base_path(path ? path : "");
 
   extern void mp_set_memory_functions(
       void *(*alloc_func)(size_t),
@@ -114,11 +118,7 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_nativePreInit(
   mp_set_memory_functions(allocGmp, reallocGmp, freeGmp);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(
-    JNIEnv *env, jobject thiz, jstring pathObj, jint slotId) {
-  (void)pathObj;
-  Java_com_example_r47_MainActivity_updateNativeActivityRef(env, thiz);
-
+void r47_init_runtime(int slotId) {
   extern int current_slot_id;
   current_slot_id = slotId;
 
@@ -144,12 +144,14 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(
   fnTimerConfig(TO_TIMER_APP, execTimerApp, 0);
   fnTimerConfig(TO_ASM_ACTIVE, refreshFn, TO_ASM_ACTIVE);
 
-  pthread_mutex_lock(&screenMutex);
-  reDraw = true;
-  refreshScreen(190);
-  refreshLcd(NULL);
-  lcd_refresh();
-  pthread_mutex_unlock(&screenMutex);
+  r47_force_refresh();
+}
+
+JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(
+    JNIEnv *env, jobject thiz, jstring pathObj, jint slotId) {
+  (void)pathObj;
+  Java_com_example_r47_MainActivity_updateNativeActivityRef(env, thiz);
+  r47_init_runtime(slotId);
 }
 
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(
@@ -252,6 +254,10 @@ Java_com_example_r47_MainActivity_forceRefreshNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
+  r47_force_refresh();
+}
+
+void r47_force_refresh(void) {
   if (!ram) {
     return;
   }
