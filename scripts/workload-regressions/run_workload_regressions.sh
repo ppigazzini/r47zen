@@ -3,43 +3,30 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 STAGED_CPP_DIR="$PROJECT_ROOT/android/.staged-native/cpp"
-BUILD_DIR="$PROJECT_ROOT/android/build/keypad-fixtures-host"
-OUTPUT_DIR="$PROJECT_ROOT/android/app/src/test/resources/keypad-fixtures"
+BUILD_DIR="$PROJECT_ROOT/android/build/workload-regressions-host"
 TRACKED_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp"
+PROGRAM_ROOT="${PROGRAM_ROOT:-$PROJECT_ROOT/res/PROGRAMS}"
+PREPARE_NATIVE_INPUTS_SCRIPT="$PROJECT_ROOT/scripts/android/prepare_native_build_inputs.sh"
 
-resolve_upstream_commit() {
-    if [[ -n "${UPSTREAM_COMMIT:-}" ]]; then
-        printf '%s\n' "$UPSTREAM_COMMIT"
-        return 0
-    fi
-
-    if [[ -f "$PROJECT_ROOT/upstream.lock" ]]; then
-        local lock_commit
-        lock_commit="$(grep -E '^upstream_commit=' "$PROJECT_ROOT/upstream.lock" | head -n 1 | cut -d= -f2- || true)"
-        if [[ -n "$lock_commit" ]]; then
-            printf '%s\n' "$lock_commit"
-            return 0
-        fi
-    fi
-
-    local resolved_shell
-    resolved_shell="$(cd "$PROJECT_ROOT" && ./scripts/upstream.sh resolve --format shell)"
-    eval "$resolved_shell"
-    if [[ -z "${R47_RESOLVED_UPSTREAM_COMMIT:-}" ]]; then
-        echo "ERROR: Failed to resolve the authoritative upstream commit" >&2
-        exit 1
-    fi
-    printf '%s\n' "$R47_RESOLVED_UPSTREAM_COMMIT"
+fail() {
+    echo "ERROR: $*" >&2
+    exit 1
 }
 
-UPSTREAM_COMMIT_VALUE="$(resolve_upstream_commit)"
+if [[ ! -d "$PROGRAM_ROOT" ]]; then
+    fail "Program root $PROGRAM_ROOT does not exist. Run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock or set PROGRAM_ROOT to an upstream checkout."
+fi
+
+if [[ ! -f "$PROGRAM_ROOT/SPIRALk.p47" ]]; then
+    fail "Program root $PROGRAM_ROOT is missing SPIRALk.p47."
+fi
+
+R47_ANDROID_STAGED_CPP_DIR="$STAGED_CPP_DIR" \
+    bash "$PREPARE_NATIVE_INPUTS_SCRIPT"
 
 mkdir -p "$BUILD_DIR"
-mkdir -p "$OUTPUT_DIR"
-
-bash "$PROJECT_ROOT/scripts/android/generate_staged_native_metadata.sh" --cpp-dir "$STAGED_CPP_DIR"
 
 JAVAC_PATH="$(readlink -f "$(command -v javac)")"
 JDK_HOME="$(cd "$(dirname "$JAVAC_PATH")/.." && pwd)"
@@ -99,15 +86,13 @@ cc -std=c99 -O0 -g -pthread \
     -I"$TRACKED_CPP_DIR/c47-android" \
     -I"$STAGED_CPP_DIR/gmp" \
     -include "$TRACKED_CPP_DIR/c47-android/android_mocks.h" \
-    "$PROJECT_ROOT/scripts/keypad-fixtures/keypad_fixture_exporter.c" \
+    "$PROJECT_ROOT/scripts/workload-regressions/host_workload_regression.c" \
     "${STAGED_C47_SOURCES[@]}" \
     "${STAGED_GENERATED_SOURCES[@]}" \
     "${STAGED_GMP_SOURCES[@]}" \
     "${STAGED_DEC_SOURCES[@]}" \
     "${ANDROID_BRIDGE_SOURCES[@]}" \
     -lm \
-    -o "$BUILD_DIR/r47-keypad-fixture-exporter"
+    -o "$BUILD_DIR/r47-workload-regression"
 
-"$BUILD_DIR/r47-keypad-fixture-exporter" \
-    --output-dir "$OUTPUT_DIR" \
-    --upstream-commit "$UPSTREAM_COMMIT_VALUE"
+"$BUILD_DIR/r47-workload-regression" --program-root "$PROGRAM_ROOT"

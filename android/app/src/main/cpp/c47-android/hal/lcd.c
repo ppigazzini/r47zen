@@ -25,6 +25,18 @@ uint32_t backgroundPixel = 0xFFDFF5CC; // Default Vintage BG
 static uint32_t pixelLookup[256][8];
 static bool lookupInitialized = false;
 
+#if defined(HOST_TOOL_BUILD)
+static uint64_t hostLcdRefreshCount = 0;
+
+uint64_t r47_get_host_lcd_refresh_count(void) {
+  return hostLcdRefreshCount;
+}
+
+void r47_reset_host_lcd_refresh_count(void) {
+  hostLcdRefreshCount = 0;
+}
+#endif
+
 static void updateLookupTable() {
     for (int i = 0; i < 256; i++) {
         for (int j = 0; j < 8; j++) {
@@ -119,6 +131,9 @@ void lcd_clear_buf () {
 
 void lcd_refresh () {
   if (!lcd_buffer) return;
+#if defined(HOST_TOOL_BUILD)
+  hostLcdRefreshCount++;
+#endif
   for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
     if (lcd_buffer[52 * row]) { 
       LCD_write_line(&lcd_buffer[52 * row]);

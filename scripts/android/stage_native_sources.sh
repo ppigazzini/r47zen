@@ -24,7 +24,7 @@ require_dir() {
 
     if [ ! -d "$path" ]; then
         echo "ERROR: Missing $description at $path"
-        echo "Run ./scripts/sync_public.sh and then regenerate Android build.sim assets before staging Android native inputs."
+        echo "Run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock and then regenerate Android build.sim assets before staging Android native inputs."
         exit 1
     fi
 }
@@ -35,7 +35,7 @@ require_file() {
 
     if [ ! -f "$path" ]; then
         echo "ERROR: Missing $description at $path"
-        echo "Run ./scripts/build_android.sh without --android-only or scripts/android/build_sim_assets.sh before staging Android native inputs."
+        echo "Run ./scripts/android/build_android.sh without --android-only or scripts/android/build_sim_assets.sh before staging Android native inputs."
         exit 1
     fi
 }

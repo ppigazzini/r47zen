@@ -47,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          eval "$(bash ./scripts/upstream.sh resolve --latest)"
+          eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --latest)"
 
           echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
@@ -138,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          bash ./scripts/sync_public.sh \
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
 
@@ -244,7 +244,7 @@ jobs:
           printf 'Stripped executable sizes:\n'
           stat -c '%n %s' "$package_dir/c47.exe" "$package_dir/r47.exe"
 
-          bash ./scripts/generate_simulator_notice_artifacts.sh \
+          bash ./scripts/package-notices/generate_simulator_notice_artifacts.sh \
             --platform windows \
             --package-dir "$package_dir" \
             --upstream-source-repository-url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \

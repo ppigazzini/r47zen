@@ -23,10 +23,15 @@ SIM_REQUIRED_SUBDIRS=(
     "src/testSuite"
     "src/c47-gtk"
 )
+SIM_REQUIRED_SOURCE_DIRS=(
+    "src/generated"
+)
 SIM_REQUIRED_ROOT_FILES=(
     "meson.build"
     "meson_options.txt"
     "dep/meson.build"
+    "dep/forcecrc32.c"
+    "docs/code/meson.build"
 )
 
 RESOLVED_UPSTREAM_URL=""
@@ -116,7 +121,7 @@ font_source_dir_has_required_fonts() {
 resolve_upstream_state() {
     local resolved_env=""
 
-    resolved_env=$(bash "$PROJECT_ROOT/scripts/upstream.sh" resolve --auto --write-lock)
+    resolved_env=$(bash "$PROJECT_ROOT/scripts/upstream-sync/upstream.sh" resolve --auto --write-lock)
     eval "$resolved_env"
 
     RESOLVED_UPSTREAM_URL="$R47_RESOLVED_UPSTREAM_URL"
@@ -136,6 +141,7 @@ hydrate_missing_upstream_paths() {
     local need_fonts="false"
     local -a archive_paths=()
     local sim_subdir=""
+    local required_dir=""
     local required_file=""
 
     for sim_subdir in "${SIM_REQUIRED_SUBDIRS[@]}"; do
@@ -146,6 +152,12 @@ hydrate_missing_upstream_paths() {
 
         if [ ! -f "$PROJECT_ROOT/$sim_subdir/meson.build" ]; then
             archive_paths+=("$sim_subdir/meson.build")
+        fi
+    done
+
+    for required_dir in "${SIM_REQUIRED_SOURCE_DIRS[@]}"; do
+        if [ ! -d "$PROJECT_ROOT/$required_dir" ]; then
+            archive_paths+=("$required_dir")
         fi
     done
 
@@ -175,6 +187,9 @@ hydrate_missing_upstream_paths() {
 
     for sim_subdir in "${SIM_REQUIRED_SUBDIRS[@]}"; do
         [ -f "$PROJECT_ROOT/$sim_subdir/meson.build" ] || fail "Missing simulator Meson entrypoint at $PROJECT_ROOT/$sim_subdir/meson.build after targeted hydration."
+    done
+    for required_dir in "${SIM_REQUIRED_SOURCE_DIRS[@]}"; do
+        [ -d "$PROJECT_ROOT/$required_dir" ] || fail "Missing required upstream source directory at $PROJECT_ROOT/$required_dir after targeted hydration."
     done
     for required_file in "${SIM_REQUIRED_ROOT_FILES[@]}"; do
         [ -f "$PROJECT_ROOT/$required_file" ] || fail "Missing required upstream build input at $PROJECT_ROOT/$required_file after targeted hydration."

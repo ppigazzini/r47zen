@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          eval "$(bash ./scripts/upstream.sh resolve --latest)"
+          eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --latest)"
 
           echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
@@ -171,6 +171,12 @@ jobs:
             unzip \
             zip
 
+      - name: Set up Java 17
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
@@ -223,7 +229,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          bash ./scripts/sync_public.sh \
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
 
@@ -234,6 +240,12 @@ jobs:
           make \
             NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
             test
+
+      - name: Run host workload regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/workload-regressions/run_workload_regressions.sh
 
   android-debug:
     name: Build and package Android debug APK
@@ -377,7 +389,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x scripts/build_android.sh scripts/sync_public.sh
+          chmod +x scripts/android/build_android.sh
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
@@ -432,7 +444,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          bash ./scripts/sync_public.sh \
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
@@ -477,7 +489,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ci-artifacts/logs
-          ./scripts/build_android.sh 2>&1 | tee ci-artifacts/logs/build-android.log
+          ./scripts/android/build_android.sh 2>&1 | tee ci-artifacts/logs/build-android.log
 
       - name: Verify Android staging stays build-only
         shell: bash
@@ -694,7 +706,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x scripts/build_android.sh scripts/sync_public.sh
+          chmod +x scripts/android/build_android.sh
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
@@ -749,7 +761,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          bash ./scripts/sync_public.sh \
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
@@ -788,7 +800,7 @@ jobs:
           set -euo pipefail
 
           mkdir -p ci-artifacts/logs
-          ./scripts/build_android.sh 2>&1 | tee ci-artifacts/logs/android-test-build.log
+          ./scripts/android/build_android.sh 2>&1 | tee ci-artifacts/logs/android-test-build.log
 
       - name: Assemble Android instrumentation test APKs
         shell: bash
@@ -954,7 +966,7 @@ jobs:
           - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
 
           This prerelease contains the debug-signed debug APK ${debug_apk_name}
-          built by ./scripts/build_android.sh from GitHub commit ${GITHUB_SHA}.
+          built by ./scripts/android/build_android.sh from GitHub commit ${GITHUB_SHA}.
 
           The calculator core was synchronized from ${upstream_url} at commit
           ${upstream_commit} before the simulator and Android build steps ran.

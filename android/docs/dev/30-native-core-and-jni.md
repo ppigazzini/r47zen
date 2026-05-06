@@ -100,6 +100,12 @@ supports that model by keeping shared synchronization in native code:
   mocks; treat these entry points as required compatibility behavior, not as
   optional stubs, because upstream program workloads depend on them for pause
   and progress responsiveness
+- `scripts/workload-regressions/run_workload_regressions.sh` is the repo-owned Linux host harness
+  for that compatibility contract. It compiles the staged core plus the
+  Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, probes the wait or
+  progress shims in `android_runtime.c`, loads canonical `SPIRALk`, and checks
+  a large `FACTORS` run through the host-only LCD refresh counter exported by
+  `hal/lcd.c`
 - native-owned JVM work acquires `JNIEnv` through `jni_acquire_env()` and
   `jni_release_env()` so attach and detach remain scope-bound
 - the bridge can update the current activity reference when the activity is
@@ -143,6 +149,11 @@ descriptor. Native closes it on the existing `fdopen()` failure path or through
 The runtime base path is separate from the user-selected work directory. The
 base path supports internal files; the work-directory contract supports user
 data organized through SAF.
+
+For host workload runs, `HOST_TOOL_BUILD` bypasses the Android SAF interception
+in `hal/io.c` and uses the runtime base path directly so canonical upstream
+program files can be staged and loaded without an Android document-provider
+round trip.
 
 ## JNI change checklist
 

@@ -5,7 +5,7 @@ set -Eeuo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-    scripts/generate_simulator_notice_artifacts.sh \
+    scripts/package-notices/generate_simulator_notice_artifacts.sh \
     --platform <linux|windows> \
     --package-dir <path> \
     --upstream-source-repository-url <url> \
@@ -16,7 +16,7 @@ EOF
 }
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="$(cd -- "$script_dir/.." && pwd)"
+repo_root="$(cd -- "$script_dir/../.." && pwd)"
 
 platform=""
 package_dir=""

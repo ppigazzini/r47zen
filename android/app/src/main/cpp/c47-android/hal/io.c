@@ -68,6 +68,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
         ioFileClose();
     }
 
+#if !defined(HOST_TOOL_BUILD)
     // Intercept State, Program and Manual Save File operations for Android SAF
     if (path == ioPathSaveStateFile || path == ioPathLoadStateFile ||
         path == ioPathSaveProgram || path == ioPathLoadProgram ||
@@ -128,6 +129,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
         }
         return FILE_OK;
     }
+#endif
 
     if (!has_android_base_path()) {
         return FILE_ERROR;

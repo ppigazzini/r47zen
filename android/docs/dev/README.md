@@ -14,19 +14,22 @@ Keep the maintainer doc split simple:
 
 Public maintainer entrypoints:
 
-- `./scripts/sync_public.sh` hydrates the authoritative upstream core.
-- `./scripts/build_android.sh` is the canonical Android debug-build path.
+- `./scripts/upstream-sync/upstream.sh sync --auto --write-lock` hydrates the
+  authoritative upstream core.
+- `./scripts/android/build_android.sh` is the canonical Android debug-build path.
 - `cd android && ./gradlew ...` is the module-local maintenance lane only when
   staged native inputs are already current.
 
 Repo-owned automation layout:
 
 - `scripts/` owns repo-only automation.
-- `scripts/upstream.sh` owns upstream resolve and sync implementation.
-- `scripts/android/` owns Android staging, packaging, and build-helper
-  implementations.
-- `scripts/build_android.sh` and `scripts/sync_public.sh` are the maintainer
-  entrypoints.
+- `scripts/upstream-sync/` owns grouped upstream resolve and sync
+  implementation.
+- `scripts/android/` owns grouped Android build, staging, packaging, and
+  helper implementations.
+- `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
+  `scripts/workload-regressions/` own the fixture export, notice generation,
+  and host workload lanes.
 
 Read in this order:
 
@@ -46,13 +49,15 @@ authoritative upstream core revision, run the root simulator tests, build the
 debug APK, run Android JVM plus emulator-backed instrumentation tests, then
 publish a main-branch snapshot prerelease only after those jobs pass.
 
-Use `./scripts/build_android.sh --doctor` to inspect host and staging readiness, and
-`./scripts/build_android.sh --android-only` for the fast module-local lane when staged
-native inputs are current. Staging helpers stay internal unless the task is
-specifically about sync or staging internals.
+Use `./scripts/android/build_android.sh --doctor` to inspect host and staging
+readiness, and `./scripts/android/build_android.sh --android-only` for the fast
+module-local lane when staged native inputs are current. Staging helpers stay
+internal unless the task is specifically about sync or staging internals.
 
-Repo-owned implementation scripts now live under `scripts/` and
-`scripts/android/`.
+Repo-owned implementation scripts now live under grouped folders below
+`scripts/`, primarily `scripts/android/`, `scripts/upstream-sync/`,
+`scripts/keypad-fixtures/`, `scripts/package-notices/`, and
+`scripts/workload-regressions/`.
 
 Shared Android SDK, NDK, CMake, build-tools, hosted-emulator, and xlsxio pins
 live in `android/r47-defaults.properties`.

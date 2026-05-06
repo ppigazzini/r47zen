@@ -72,5 +72,7 @@ void r47_get_keypad_labels(
     char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
                [R47_KEYPAD_LABEL_CAPACITY],
     bool isDynamic);
+uint64_t r47_get_host_lcd_refresh_count(void);
+void r47_reset_host_lcd_refresh_count(void);
 
 #endif
