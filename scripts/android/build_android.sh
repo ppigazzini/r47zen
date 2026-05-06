@@ -178,11 +178,6 @@ trap 'on_error "${BASH_LINENO[0]:-$LINENO}"' ERR
 # =============================================================================
 
 # --- 1. Setup Variables ---
-# Ensure Gradle is in path if installed via SDKMAN, but don't hardcode user home
-if [ -d "$HOME/.sdkman/candidates/gradle/current/bin" ]; then
-    export PATH="$HOME/.sdkman/candidates/gradle/current/bin:$PATH"
-fi
-
 resolve_path() {
     local target="$1"
     local dir
@@ -272,35 +267,20 @@ detect_job_count() {
 
 R47_GRADLE_RUNNER_NOTICE_EMITTED=false
 
+ensure_repo_gradle_wrapper() {
+    [ -x "$ANDROID_PROJECT_DIR/gradlew" ] || \
+        fail "Missing repo Gradle wrapper launcher at $ANDROID_PROJECT_DIR/gradlew. Restore the tracked wrapper files for Gradle $R47_DEFAULT_ANDROID_GRADLE_VERSION instead of using a host gradle command."
+}
+
 run_gradle() {
-    if [ -x "$ANDROID_PROJECT_DIR/gradlew" ]; then
-        if [ "$R47_GRADLE_RUNNER_NOTICE_EMITTED" = false ]; then
-            echo "--- Using repo Gradle wrapper launcher: $ANDROID_PROJECT_DIR/gradlew ---"
-            R47_GRADLE_RUNNER_NOTICE_EMITTED=true
-        fi
-        "$ANDROID_PROJECT_DIR/gradlew" "$@"
-        return 0
+    ensure_repo_gradle_wrapper
+
+    if [ "$R47_GRADLE_RUNNER_NOTICE_EMITTED" = false ]; then
+        echo "--- Using repo Gradle wrapper launcher: $ANDROID_PROJECT_DIR/gradlew ---"
+        R47_GRADLE_RUNNER_NOTICE_EMITTED=true
     fi
 
-    if [ -f "$ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" ] && [ -f "$ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.properties" ]; then
-        if [ "$R47_GRADLE_RUNNER_NOTICE_EMITTED" = false ]; then
-            echo "--- Using retained Gradle wrapper runtime: $ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar ---"
-            R47_GRADLE_RUNNER_NOTICE_EMITTED=true
-        fi
-        java -jar "$ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" "$@"
-        return 0
-    fi
-
-    if command -v gradle >/dev/null 2>&1; then
-        if [ "$R47_GRADLE_RUNNER_NOTICE_EMITTED" = false ]; then
-            echo "--- Using host gradle command: $(command -v gradle) ---"
-            R47_GRADLE_RUNNER_NOTICE_EMITTED=true
-        fi
-        gradle "$@"
-        return 0
-    fi
-
-    fail "No repo Gradle wrapper launcher or retained wrapper runtime is available under $ANDROID_PROJECT_DIR and no usable host gradle command was found on PATH. Restore the wrapper files or install Gradle $R47_DEFAULT_ANDROID_GRADLE_VERSION."
+    "$ANDROID_PROJECT_DIR/gradlew" "$@"
 }
 
 R47_BUILD_JOBS_INPUT=${R47_BUILD_JOBS-}

@@ -136,8 +136,9 @@ Public maintainer entrypoints:
   `android/.staged-native/cpp`, regenerates staged native metadata there,
   requires the canonical calculator font assets under repo-root `res/fonts`, writes
   `android/local.properties`, and runs Gradle clean plus `assembleDebug` through
-  the repo `./gradlew` launcher backed by the retained wrapper runtime under
-  `android/gradle/wrapper/`. It
+  the repo `./gradlew` launcher backed by the tracked wrapper runtime under
+  `android/gradle/wrapper/`. Missing wrapper files are a repo-integrity
+  failure, not a signal to fall back to host Gradle. It
   also exposes `--doctor` for SDK, NDK, CMake, xlsxio, upstream-lock, and
   staged-input plus font-source status plus `--android-only` for the fast
   module-local lane that refuses stale staged native inputs.
@@ -293,13 +294,16 @@ expects from a clean shell:
    `build.sim`, refreshes `android/.staged-native/cpp`, writes
   `android/local.properties`, and assembles the debug APK through `./gradlew`.
 6. Run the Android JVM and instrumentation-assembly lane from `android/` with
-  `./gradlew`. The lowest-level retained-runtime form remains:
+  `./gradlew`:
 
    ```bash
    cd android
-   java -jar gradle/wrapper/gradle-wrapper.jar --max-workers 8 \
+   ./gradlew --max-workers 8 \
      :app:testDebugUnitTest :app:assembleDebugAndroidTest
    ```
+
+   Host `gradle` is not a supported fallback. If `./gradlew` or
+   `android/gradle/wrapper/` is missing, restore the tracked wrapper files.
 
 7. Check `adb devices`. Only run `:app:connectedDebugAndroidTest` when at least
    one device or emulator is attached. If the emulator is `x86_64`, add

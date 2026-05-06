@@ -4,10 +4,16 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 WRAPPER_JAR="$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.jar"
+WRAPPER_PROPERTIES="$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.properties"
 JAVA_BIN="java"
 
 if [ ! -f "$WRAPPER_JAR" ]; then
     echo "ERROR: Missing Gradle wrapper runtime at $WRAPPER_JAR" >&2
+    exit 1
+fi
+
+if [ ! -f "$WRAPPER_PROPERTIES" ]; then
+    echo "ERROR: Missing Gradle wrapper properties at $WRAPPER_PROPERTIES" >&2
     exit 1
 fi
 
