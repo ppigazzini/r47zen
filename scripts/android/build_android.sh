@@ -28,16 +28,18 @@ RETIRED_LEGACY_CPP_PATHS=(
 
 ANDROID_ONLY=false
 DOCTOR_MODE=false
+RUN_SIM_TESTS=false
 VERIFY_PACKAGING=false
 VERIFY_PACKAGING_DIR=""
 
 usage() {
     cat <<'EOF'
-Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--verify-packaging] [--verify-packaging-dir <dir>]
+Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--run-sim-tests] [--verify-packaging] [--verify-packaging-dir <dir>]
 
 Modes:
     --android-only         Rebuild only the Android module after confirming staged native inputs are current.
     --doctor               Print SDK, NDK, CMake, xlsxio, upstream lock, and staged-input status.
+    --run-sim-tests        Run the simulator/native Meson test suite from the Android full-build path.
 EOF
 }
 
@@ -140,6 +142,10 @@ while [ "$#" -gt 0 ]; do
             ;;
         --doctor)
             DOCTOR_MODE=true
+            shift
+            ;;
+        --run-sim-tests)
+            RUN_SIM_TESTS=true
             shift
             ;;
         --verify-packaging)
@@ -652,6 +658,10 @@ if [ "$DOCTOR_MODE" = true ]; then
     exit 0
 fi
 
+if [ "$ANDROID_ONLY" = true ] && [ "$RUN_SIM_TESTS" = true ]; then
+    fail "--run-sim-tests requires the full Android build path. Run without --android-only."
+fi
+
 [ -n "$R47_CMAKE_BIN" ] || fail "No usable cmake executable found. Install cmake or Android SDK CMake $R47_CMAKE_VERSION."
 ensure_retired_legacy_cpp_paths_absent
 
@@ -670,6 +680,7 @@ echo "Mode: $( [ "$ANDROID_ONLY" = true ] && printf 'android-only' || printf 'fu
 echo "SDK: $ANDROID_SDK_ROOT"
 echo "NDK: $ANDROID_NDK_ROOT"
 echo "Jobs: $R47_BUILD_JOBS"
+echo "Simulator tests: $( [ "$RUN_SIM_TESTS" = true ] && printf 'enabled' || printf 'disabled' )"
 echo "======================================================="
 
 if [ "$ANDROID_ONLY" = true ]; then
@@ -683,7 +694,11 @@ else
     COMMIT_HASH="$RESOLVED_UPSTREAM_SHORT_COMMIT"
     echo "--- SwissMicros Core Version (resolved): $COMMIT_HASH ---"
 
-    bash "$ANDROID_SCRIPTS_DIR/build_sim_assets.sh" --build-dir "$PROJECT_ROOT/build.sim" --jobs "$R47_BUILD_JOBS"
+    sim_asset_args=(--build-dir "$PROJECT_ROOT/build.sim" --jobs "$R47_BUILD_JOBS")
+    if [ "$RUN_SIM_TESTS" = true ]; then
+        sim_asset_args+=(--run-tests)
+    fi
+    bash "$ANDROID_SCRIPTS_DIR/build_sim_assets.sh" "${sim_asset_args[@]}"
 
     if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_SCRIPTS_DIR/stage_native_sources.sh" --cpp-dir "$STAGED_CPP_DIR"; then
         echo "ERROR: Android native staging failed."

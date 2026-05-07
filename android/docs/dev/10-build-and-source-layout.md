@@ -86,7 +86,10 @@ Current full-lane hard dependencies:
 Current full-lane Android-owned build entry:
 
 - `scripts/android/build_sim_assets.sh`, which reconfigures `build.sim` with
-  `-DRASPBERRY=false -DDECNUMBER_FASTMUL=true` and runs `ninja sim`
+  `-DRASPBERRY=false -DDECNUMBER_FASTMUL=true` and runs `ninja sim`. When the
+  explicit test mode is enabled, it also builds `testPgms`, stages
+  `build.sim/src/generateTestPgms/testPgms.bin` into `res/testPgms/`, and runs
+  `meson test -C build.sim --print-errorlogs`.
 
 Current root surfaces no longer on the Android lane:
 
@@ -132,7 +135,8 @@ Public maintainer entrypoints:
   hydrates that resolved core when `src/c47`, the root Meson inputs,
   `dep/decNumberICU`, or canonical calculator fonts are missing, runs
   `scripts/android/build_sim_assets.sh` to reconfigure `build.sim` through
-  Meson and build `ninja sim`, stages native inputs into
+  Meson and build `ninja sim`,
+  stages native inputs into
   `android/.staged-native/cpp`, regenerates staged native metadata there,
   requires the canonical calculator font assets under repo-root `res/fonts`, writes
   `android/local.properties`, and runs Gradle clean plus `assembleDebug` through
@@ -140,8 +144,10 @@ Public maintainer entrypoints:
   `android/gradle/wrapper/`. Missing wrapper files are a repo-integrity
   failure, not a signal to fall back to host Gradle. It
   also exposes `--doctor` for SDK, NDK, CMake, xlsxio, upstream-lock, and
-  staged-input plus font-source status plus `--android-only` for the fast
-  module-local lane that refuses stale staged native inputs.
+  staged-input plus font-source status, `--run-sim-tests` for the explicit
+  Android and NDK parity lane that forwards test execution into
+  `scripts/android/build_sim_assets.sh --run-tests`, and `--android-only` for
+  the fast module-local lane that refuses stale staged native inputs.
   It also forwards optional extra Gradle arguments from `R47_GRADLE_ARGS`, which
   is how hosted CI applies the temporary multi-ABI emulator override. Add
   `--verify-packaging` when you want the local build to write the same release
@@ -151,6 +157,10 @@ Public maintainer entrypoints:
   `android/.staged-native/cpp/STAGED-INPUTS.properties` still matches the
   canonical root, generated inputs, the tracked Android mini-gmp staging
   source, and the current calculator font source.
+- `./scripts/android/build_android.sh --run-sim-tests` is the preferred local
+  reproduction path for Android-lane simulator parity. It requires the full
+  build path, stages `res/testPgms/testPgms.bin` before the suite runs, and is
+  intentionally incompatible with `--android-only`.
 - `cd android && ./gradlew assembleDebug` is appropriate only when the staged
   build-only native tree under `android/.staged-native/cpp` is already current
   and the change is isolated to the Android module.
@@ -169,7 +179,11 @@ Public maintainer entrypoints:
 - `make sim` is the canonical root simulator and generator validation path for
   the upstream-shaped desktop lane. Android full builds now drive the same
   `build.sim` Meson/Ninja targets through `scripts/android/build_sim_assets.sh`
-  instead of routing through the root Makefile.
+  instead of routing through the root Makefile, while parity on the Android
+  build/test/package lane comes from
+  `./scripts/android/build_android.sh --run-sim-tests`, which stages the
+  generated `testPgms.bin` into `res/testPgms/` before running
+  `meson test -C build.sim`.
 
 Internal helpers:
 
@@ -179,7 +193,8 @@ Internal helpers:
 - `scripts/android/build_android.sh` owns the grouped Android build
   implementation.
 - `scripts/android/build_sim_assets.sh` owns the Android full-lane
-  `build.sim` Meson/Ninja generation step and is normally invoked by
+  `build.sim` Meson/Ninja generation step, plus the optional simulator-native
+  test lane when `--run-tests` is set, and is normally invoked by
   `scripts/android/build_android.sh` or
   `scripts/android/prepare_native_build_inputs.sh`.
 - `scripts/android/stage_native_sources.sh` stages canonical native inputs into
@@ -327,30 +342,33 @@ ownership model as the local build:
 - each consuming job recreates its own `Load shared Android defaults` step.
   Step outputs stay local to the current job unless they are promoted through
   `jobs.<job_id>.outputs` and consumed via `needs.<job_id>.outputs.*`.
-- `simulator-tests` syncs that resolved revision into the workspace through
-  `scripts/upstream-sync/upstream.sh sync --auto --write-lock --commit ...`
-  and runs `make test`.
-- `android-debug` installs the pinned SDK, CMake, and NDK versions, runs
-  `./scripts/android/build_android.sh`, verifies that build-only staged metadata exists under
+- `upstream-simulator-sanity` syncs that resolved revision into the workspace
+  through `scripts/upstream-sync/upstream.sh sync --auto --write-lock --commit ...`
+  and runs `make test` to prove the authoritative upstream simulator core is
+  sane before Android-specific work begins.
+- `android-build-test-package` installs the pinned SDK, CMake, and NDK
+  versions, runs `./scripts/android/build_android.sh --run-sim-tests` to build
+  Android-owned inputs and rerun the simulator-native suite from the Android
+  and NDK path, verifies that build-only staged metadata exists under
   `android/.staged-native/cpp` while the retired app-module snapshot paths stay
-  absent,
-  and records packaging evidence for the default `arm64-v8a` debug APK through
-  `scripts/android/collect_packaging_evidence.sh`.
+  absent, and records packaging evidence for the default `arm64-v8a` debug APK
+  through `scripts/android/collect_packaging_evidence.sh`.
 - `android-tests` uses the same resolved upstream commit and staged-native
   build path, applies the defaults-file `android_test_abi_filters` override
   only for the hosted
   test lane, assembles `:app:assembleDebugAndroidTest`, runs
   `:app:testDebugUnitTest`, enables KVM, and runs
   `:app:connectedDebugAndroidTest` on the defaults-file hosted emulator API.
-- the simulator and Android jobs consume the same resolved upstream commit for
-  a given workflow run.
+- the upstream simulator sanity, Android build/test/package, and Android test
+  jobs consume the same resolved upstream commit for a given workflow run.
 - Android build logs, Android test logs, and test reports are uploaded with
   `if: always()` where later steps can fail.
 - the Windows lane keeps any bootstrap step that runs before
   `msys2/setup-msys2` on an explicit host shell, then uses the job-level
   `msys2 {0}` default only after MSYS2 is installed.
-- `publish-main-snapshot` waits for `simulator-tests`, `android-debug`, and
-  `android-tests` before publishing a main-branch prerelease.
+- `publish-main-snapshot` waits for `upstream-simulator-sanity`,
+  `android-build-test-package`, and `android-tests` before publishing a
+  main-branch prerelease.
 - the uploaded Android artifact contains the debug APK plus `SHA256SUMS.txt`,
   `abis.txt`, `zipalign.txt`, `elf-load-segments.txt`, and `BUILD-METADATA.txt`.
 - pushes to `main` and manual runs on `main` publish a debug-signed prerelease

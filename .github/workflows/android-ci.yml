@@ -109,8 +109,8 @@ jobs:
               ;;
           esac
 
-  simulator-tests:
-    name: Run simulator tests
+  upstream-simulator-sanity:
+    name: Sanity-check authoritative upstream simulator core
     if: needs.upstream-release-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
@@ -233,7 +233,7 @@ jobs:
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
 
-      - name: Run simulator tests
+      - name: Run upstream simulator sanity suite
         shell: bash
         run: |
           set -euo pipefail
@@ -247,8 +247,8 @@ jobs:
           set -euo pipefail
           bash ./scripts/workload-regressions/run_workload_regressions.sh
 
-  android-debug:
-    name: Build and package Android debug APK
+  android-build-test-package:
+    name: Build, test, and package Android debug APK
     if: needs.upstream-release-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
@@ -472,7 +472,7 @@ jobs:
             echo "release_title=R47 Android (Core: ${upstream_short_commit})" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build Android debug APK
+      - name: Build, test, and package Android debug APK
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
@@ -489,7 +489,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ci-artifacts/logs
-          ./scripts/android/build_android.sh 2>&1 | tee ci-artifacts/logs/build-android.log
+          ./scripts/android/build_android.sh --run-sim-tests 2>&1 | tee ci-artifacts/logs/build-android.log
 
       - name: Verify Android staging stays build-only
         shell: bash
@@ -903,8 +903,8 @@ jobs:
       )
     needs:
       - upstream-release-gate
-      - simulator-tests
-      - android-debug
+      - upstream-simulator-sanity
+      - android-build-test-package
       - android-tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -914,7 +914,7 @@ jobs:
       - name: Download Android build artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: ${{ needs.android-debug.outputs.artifact_name }}
+          name: ${{ needs.android-build-test-package.outputs.artifact_name }}
           path: release-assets
 
       - name: Pack packaging evidence archive
@@ -982,7 +982,11 @@ jobs:
           Notes:
           - This is a main-branch snapshot prerelease, not a signed store release.
           - The included APK is signed with the default debug signing config.
-          - The workflow ran the root simulator test suite with parallel make test.
+          - The workflow first sanity-checked the authoritative upstream
+            simulator core with parallel make test.
+          - The Android lane rebuilt assets, reran the simulator-native suite
+            from ./scripts/android/build_android.sh --run-sim-tests, and then
+            packaged the debug APK.
           - The workflow verified packaged ABIs and ran the Android 16 KB zip
             alignment check described in the Android docs.
           - ${evidence_archive_name} preserves the compliance-assets/ directory,
@@ -997,8 +1001,8 @@ jobs:
       - name: Create and publish prerelease
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
-          tag_name: ${{ needs.android-debug.outputs.release_tag }}
-          name: ${{ needs.android-debug.outputs.release_title }}
+          tag_name: ${{ needs.android-build-test-package.outputs.release_tag }}
+          name: ${{ needs.android-build-test-package.outputs.release_title }}
           target_commitish: ${{ github.sha }}
           body_path: release-notes.md
           files: |

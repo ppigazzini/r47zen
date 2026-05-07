@@ -6,11 +6,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BUILD_DIR="$PROJECT_ROOT/build.sim"
 JOB_COUNT=""
+RUN_TESTS=false
+TEST_PGMS_STAGE_DIR="$PROJECT_ROOT/res/testPgms"
+TEST_PGMS_OUTPUT_REL="src/generateTestPgms/testPgms.bin"
 
 usage() {
     cat <<'EOF'
 Usage:
-    scripts/android/build_sim_assets.sh [--build-dir <dir>] [--jobs <count>]
+    scripts/android/build_sim_assets.sh [--build-dir <dir>] [--jobs <count>] [--run-tests]
 EOF
 }
 
@@ -94,6 +97,15 @@ configure_build_dir() {
         -DDECNUMBER_FASTMUL=true
 }
 
+stage_test_programs() {
+    local generated_test_pgms="$BUILD_DIR/$TEST_PGMS_OUTPUT_REL"
+
+    [ -f "$generated_test_pgms" ] || fail "Missing generated test programs at $generated_test_pgms after ninja testPgms."
+
+    mkdir -p "$TEST_PGMS_STAGE_DIR"
+    cp "$generated_test_pgms" "$TEST_PGMS_STAGE_DIR/"
+}
+
 main() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -106,6 +118,9 @@ main() {
                 shift
                 [ "$#" -gt 0 ] || fail "Missing value for --jobs"
                 JOB_COUNT="$1"
+                ;;
+            --run-tests)
+                RUN_TESTS=true
                 ;;
             -h|--help)
                 usage
@@ -123,7 +138,19 @@ main() {
 
     echo "--- Generating core assets (Meson/Ninja sim target) ---"
     configure_build_dir
-    ninja -C "$BUILD_DIR" -j "$JOB_COUNT" sim
+
+    ninja_targets=(sim)
+    if [ "$RUN_TESTS" = true ]; then
+        ninja_targets+=(testPgms src/testSuite/testSuite)
+    fi
+    ninja -C "$BUILD_DIR" -j "$JOB_COUNT" "${ninja_targets[@]}"
+
+    if [ "$RUN_TESTS" = true ]; then
+        echo "--- Staging simulator test programs for Meson testSuite ---"
+        stage_test_programs
+        echo "--- Running simulator tests (Meson testSuite target) ---"
+        meson test -C "$BUILD_DIR" --print-errorlogs
+    fi
 }
 
 main "$@"

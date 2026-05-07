@@ -44,10 +44,12 @@ Read in this order:
 - [90-official-references.md](90-official-references.md): official Android,
   NDK, Kotlin, storage, and view-system references.
 
-The CI lane follows the same ownership model as the local build: resolve one
-authoritative upstream core revision, run the root simulator tests, build the
-debug APK, run Android JVM plus emulator-backed instrumentation tests, then
-publish a main-branch snapshot prerelease only after those jobs pass.
+The CI workflow keeps the lane split explicit: one lane sanity-checks the
+authoritative upstream simulator core with the root host suite, one lane builds,
+tests, and packages Android through
+`./scripts/android/build_android.sh --run-sim-tests`, Android JVM plus
+emulator-backed instrumentation tests run in their own lane, and the
+main-branch snapshot prerelease publishes only after those jobs pass.
 
 Use `./scripts/android/build_android.sh --doctor` to inspect host and staging
 readiness, and `./scripts/android/build_android.sh --android-only` for the fast

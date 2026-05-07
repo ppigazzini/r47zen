@@ -30,5 +30,5 @@ The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 ## Documentation
 
 Use `android/docs/dev/README.md` as the maintainer index.
-Use `android/docs/dev/10-build-and-source-layout.md` for the canonical build and
-ownership contract.
+Use `android/docs/dev/10-build-and-source-layout.md` for the canonical build,
+CI lane, and ownership contract.
