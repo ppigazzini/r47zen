@@ -1,6 +1,50 @@
 #include "jni_bridge.h"
 
 #include <string.h>
+#include <unistd.h>
+
+static pthread_mutex_t r47_file_request_override_mutex =
+    PTHREAD_MUTEX_INITIALIZER;
+static int r47_file_request_override_fd = -1;
+static int r47_file_request_override_file_type = -1;
+static int r47_file_request_override_is_save = -1;
+
+static int takeFileRequestOverride(int isSave, int fileType) {
+  pthread_mutex_lock(&r47_file_request_override_mutex);
+  int fd = -1;
+  if (r47_file_request_override_fd >= 0 &&
+      r47_file_request_override_is_save == isSave &&
+      r47_file_request_override_file_type == fileType) {
+    fd = r47_file_request_override_fd;
+    r47_file_request_override_fd = -1;
+    r47_file_request_override_file_type = -1;
+    r47_file_request_override_is_save = -1;
+  }
+  pthread_mutex_unlock(&r47_file_request_override_mutex);
+  return fd;
+}
+
+void r47_set_file_request_override(int fd, int isSave, int fileType) {
+  pthread_mutex_lock(&r47_file_request_override_mutex);
+  if (r47_file_request_override_fd >= 0) {
+    close(r47_file_request_override_fd);
+  }
+  r47_file_request_override_fd = fd;
+  r47_file_request_override_is_save = isSave;
+  r47_file_request_override_file_type = fileType;
+  pthread_mutex_unlock(&r47_file_request_override_mutex);
+}
+
+void r47_clear_file_request_override(void) {
+  pthread_mutex_lock(&r47_file_request_override_mutex);
+  if (r47_file_request_override_fd >= 0) {
+    close(r47_file_request_override_fd);
+  }
+  r47_file_request_override_fd = -1;
+  r47_file_request_override_file_type = -1;
+  r47_file_request_override_is_save = -1;
+  pthread_mutex_unlock(&r47_file_request_override_mutex);
+}
 
 static int restoreScreenMutexAndReturn(int lockCount, int fd) {
   LOGI("requestAndroidFile: Re-acquiring screenMutex (%d times)", lockCount);
@@ -25,6 +69,13 @@ static int failAndroidFileRequest(int lockCount) {
 int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   LOGI("requestAndroidFile(isSave=%d, defaultName=%s, fileType=%d)", isSave,
        defaultName, fileType);
+
+  int override_fd = takeFileRequestOverride(isSave, fileType);
+  if (override_fd >= 0) {
+    LOGI("requestAndroidFile: using test override fd=%d", override_fd);
+    return override_fd;
+  }
+
   if (!g_requestFileId || !g_mainActivityObj) {
     LOGE("requestAndroidFile: requestFile bridge is not ready");
     return -1;

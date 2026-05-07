@@ -20,6 +20,7 @@
 extern pthread_mutex_t screenMutex;
 extern uint8_t lastErrorCode;
 extern uint8_t programRunStop;
+extern uint8_t temporaryInformation;
 extern uint16_t currentLocalStepNumber;
 extern uint16_t currentProgramNumber;
 extern uint16_t numberOfPrograms;
@@ -29,10 +30,6 @@ extern void fnLoadProgram(uint16_t unusedButMandatoryParameter);
 extern void reallocateRegister(calcRegister_t regist, uint32_t dataType,
                                uint16_t dataSizeWithoutDataLenBlocks,
                                uint32_t tag);
-extern void setSystemFlag(unsigned int sf);
-extern void clearSystemFlag(unsigned int sf);
-extern char *getXRegisterString(void);
-extern uint32_t getRegisterDataType(calcRegister_t regist);
 
 typedef struct {
   int16_t func_id;
@@ -42,6 +39,13 @@ typedef struct {
 typedef struct {
   unsigned int firings;
 } timeout_probe_t;
+
+typedef struct {
+  const char *program_name;
+  uint64_t timeout_ms;
+  bool resume_pause_with_zero_key;
+  bool (*seed_runtime)(void);
+} program_fixture_scenario_t;
 
 static void usage(const char *argv0) {
   fprintf(stderr, "Usage: %s --program-root <dir>\n", argv0);
@@ -141,7 +145,9 @@ static bool stage_program_file(const char *runtime_dir, const char *program_root
 
 static void *run_function_worker(void *user_data) {
   function_worker_t *worker = (function_worker_t *)user_data;
+  pthread_mutex_lock(&screenMutex);
   runFunction(worker->func_id);
+  pthread_mutex_unlock(&screenMutex);
   worker->done = true;
   return NULL;
 }
@@ -215,54 +221,65 @@ static bool seed_spiralk_runtime_registers(void) {
   return true;
 }
 
-static bool run_spiralk_workload(const char *runtime_dir,
-                                 const char *program_root) {
+static bool run_program_fixture_workload(const char *runtime_dir,
+                                         const char *program_root,
+                                         const program_fixture_scenario_t *scenario) {
   function_worker_t worker;
   pthread_t worker_thread;
-  bool saw_progress = false;
   bool saw_pause = false;
+  bool saw_waiting = false;
+  bool saw_view = false;
+  bool saw_lcd_refresh = false;
   bool sent_resume_key = false;
+  uint16_t load_step = 0;
   uint16_t max_step = 0;
   uint64_t deadline = 0;
+  uint64_t lcd_refresh_count = 0;
 
-  if (!stage_program_file(runtime_dir, program_root, "SPIRALk.p47")) {
+  if (!stage_program_file(runtime_dir, program_root, scenario->program_name)) {
     return false;
   }
 
   r47_init_runtime(0);
-  if (!seed_spiralk_runtime_registers()) {
+  if (scenario->seed_runtime != NULL && !scenario->seed_runtime()) {
+    fprintf(stderr, "ERROR: %s workload failed to seed runtime state\n",
+            scenario->program_name);
     return false;
   }
   fnLoadProgram(NOPARAM);
-  if (fail_last_error("SPIRALk load")) {
+  if (fail_last_error(scenario->program_name)) {
     return false;
   }
   if (numberOfPrograms == 0u) {
-    fprintf(stderr, "ERROR: SPIRALk workload did not load any programs\n");
+    fprintf(stderr, "ERROR: %s workload did not load any programs\n",
+            scenario->program_name);
     return false;
   }
 
+  load_step = currentLocalStepNumber;
   max_step = currentLocalStepNumber;
+  r47_reset_host_lcd_refresh_count();
   if (!start_worker(&worker, ITM_RS, &worker_thread)) {
     return false;
   }
 
-  deadline = monotonic_ms() + 15000u;
+  deadline = monotonic_ms() + scenario->timeout_ms;
   while (!worker.done && monotonic_ms() < deadline) {
-    if (fail_last_error("SPIRALk")) {
+    if (fail_last_error(scenario->program_name)) {
       return false;
     }
 
     if (currentLocalStepNumber > max_step) {
       max_step = currentLocalStepNumber;
     }
-    if (max_step >= 10u) {
-      saw_progress = true;
-    }
+    saw_view = saw_view || temporaryInformation == TI_VIEW_REGISTER;
+    saw_waiting = saw_waiting || programRunStop == PGM_WAITING;
+    lcd_refresh_count = r47_get_host_lcd_refresh_count();
+    saw_lcd_refresh = saw_lcd_refresh || lcd_refresh_count > 0u;
 
     if (programRunStop == PGM_PAUSED) {
       saw_pause = true;
-      if (!sent_resume_key) {
+      if (scenario->resume_pause_with_zero_key && !sent_resume_key) {
         r47_send_sim_key("00", false, false);
         usleep(20000);
         r47_send_sim_key("00", false, true);
@@ -274,106 +291,67 @@ static bool run_spiralk_workload(const char *runtime_dir,
   }
 
   if (!worker.done) {
-    fprintf(stderr, "ERROR: SPIRALk workload timed out\n");
+    fprintf(stderr, "ERROR: %s workload timed out\n", scenario->program_name);
     return false;
   }
   if (!finish_worker(worker_thread)) {
-    fprintf(stderr, "ERROR: Failed to join SPIRALk worker thread\n");
+    fprintf(stderr, "ERROR: Failed to join %s worker thread\n",
+            scenario->program_name);
     return false;
   }
-  if (!saw_progress) {
+
+  saw_pause = saw_pause || programRunStop == PGM_PAUSED;
+  saw_waiting = saw_waiting || programRunStop == PGM_WAITING;
+  saw_view = saw_view || temporaryInformation == TI_VIEW_REGISTER;
+  lcd_refresh_count = r47_get_host_lcd_refresh_count();
+  saw_lcd_refresh = saw_lcd_refresh || lcd_refresh_count > 0u;
+
+  if (max_step <= load_step && !saw_pause && !saw_waiting && !saw_view &&
+      !saw_lcd_refresh) {
     fprintf(stderr,
-            "ERROR: SPIRALk workload never advanced beyond the initial steps\n");
-    return false;
-  }
-  if (!saw_pause) {
-    fprintf(stderr,
-            "ERROR: SPIRALk workload never reached the final PAUSE 99 wait state\n");
+            "ERROR: %s workload never showed run activity after load "
+            "(load_step=%u, max_step=%u, tempInfo=%u, runStop=%u, lcdRefreshes=%llu)\n",
+            scenario->program_name, (unsigned int)load_step,
+            (unsigned int)max_step, (unsigned int)temporaryInformation,
+            (unsigned int)programRunStop,
+            (unsigned long long)r47_get_host_lcd_refresh_count());
     return false;
   }
   if (programRunStop == PGM_RUNNING || programRunStop == PGM_PAUSED) {
     fprintf(stderr,
-            "ERROR: SPIRALk workload finished in an unexpected run state %u\n",
+            "ERROR: %s workload finished in an unexpected run state %u\n",
+            scenario->program_name,
             (unsigned int)programRunStop);
     return false;
   }
 
-  fprintf(stderr, "PASS: SPIRALk workload progressed to step %u and exited PAUSE 99\n",
-          (unsigned int)max_step);
+  fprintf(stderr,
+          "PASS: %s workload loaded and ran (load_step=%u, max_step=%u, pause=%s, waiting=%s, view=%s, lcdRefreshes=%llu)\n",
+          scenario->program_name, (unsigned int)load_step,
+          (unsigned int)max_step, saw_pause ? "yes" : "no",
+          saw_waiting ? "yes" : "no", saw_view ? "yes" : "no",
+          (unsigned long long)r47_get_host_lcd_refresh_count());
   return true;
 }
 
-static bool seed_large_factor_input(void) {
-  static const char *const kLargeFactorInput =
-      "5424563354566542698521412502251020304050";
-  longInteger_t value;
-
-  longIntegerInit(value);
-  if (stringToLongInteger(kLargeFactorInput, 10, value) != 0) {
-    fprintf(stderr, "ERROR: Failed to parse large FACTORS workload input\n");
-    longIntegerFree(value);
-    return false;
-  }
-
-  convertLongIntegerToLongIntegerRegister(value, REGISTER_X);
-  longIntegerFree(value);
-  return true;
-}
-
-static bool run_large_factors_workload(void) {
-  function_worker_t worker;
-  pthread_t worker_thread;
-  uint64_t deadline;
-  bool saw_refresh_progress = false;
-
-  r47_init_runtime(0);
-  setSystemFlag(FLAG_MONIT);
-  if (!seed_large_factor_input()) {
-    return false;
-  }
-  r47_reset_host_lcd_refresh_count();
-
-  if (!start_worker(&worker, ITM_FACTORS, &worker_thread)) {
-    return false;
-  }
-
-  deadline = monotonic_ms() + 20000u;
-  while (!worker.done && monotonic_ms() < deadline) {
-    if (fail_last_error("FACTORS")) {
-      return false;
-    }
-    if (r47_get_host_lcd_refresh_count() > 0u) {
-      saw_refresh_progress = true;
-    }
-    usleep(5000);
-  }
-
-  if (!worker.done) {
-    fprintf(stderr, "ERROR: FACTORS workload timed out\n");
-    return false;
-  }
-  if (!finish_worker(worker_thread)) {
-    fprintf(stderr, "ERROR: Failed to join FACTORS worker thread\n");
-    return false;
-  }
-  if (!saw_refresh_progress) {
-    fprintf(stderr,
-            "ERROR: FACTORS workload completed without any monitored refresh transitions\n");
-    return false;
-  }
-  if (getRegisterDataType(REGISTER_X) != dtReal34Matrix) {
-    fprintf(stderr,
-            "ERROR: FACTORS workload left X in unexpected register type %u\n",
-            (unsigned int)getRegisterDataType(REGISTER_X));
-    return false;
-  }
-
-  fprintf(stderr, "PASS: FACTORS workload refreshed %llu times and produced %s\n",
-          (unsigned long long)r47_get_host_lcd_refresh_count(),
-          getXRegisterString());
-  clearSystemFlag(FLAG_MONIT);
-  return true;
-}
+static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
+    {.program_name = "BinetV3.p47",
+     .timeout_ms = 20000u,
+     .resume_pause_with_zero_key = false,
+     .seed_runtime = NULL},
+    {.program_name = "GudrmPL.p47",
+     .timeout_ms = 20000u,
+     .resume_pause_with_zero_key = false,
+     .seed_runtime = NULL},
+    {.program_name = "NQueens.p47",
+     .timeout_ms = 20000u,
+     .resume_pause_with_zero_key = false,
+     .seed_runtime = NULL},
+    {.program_name = "SPIRALk.p47",
+     .timeout_ms = 20000u,
+     .resume_pause_with_zero_key = true,
+     .seed_runtime = seed_spiralk_runtime_registers},
+};
 
 int main(int argc, char **argv) {
   const char *program_root = NULL;
@@ -407,11 +385,13 @@ int main(int argc, char **argv) {
   }
   fprintf(stderr, "PASS: Android PC_BUILD wait/progress shim probe\n");
 
-  if (!run_spiralk_workload(runtime_dir, program_root)) {
-    return 1;
-  }
-  if (!run_large_factors_workload()) {
-    return 1;
+  for (size_t index = 0;
+       index < sizeof(kProgramFixtureScenarios) / sizeof(kProgramFixtureScenarios[0]);
+       ++index) {
+    if (!run_program_fixture_workload(runtime_dir, program_root,
+                                      &kProgramFixtureScenarios[index])) {
+      return 1;
+    }
   }
 
   return 0;

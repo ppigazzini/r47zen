@@ -103,9 +103,20 @@ supports that model by keeping shared synchronization in native code:
 - `scripts/workload-regressions/run_workload_regressions.sh` is the repo-owned Linux host harness
   for that compatibility contract. It compiles the staged core plus the
   Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, probes the wait or
-  progress shims in `android_runtime.c`, loads canonical `SPIRALk`, and checks
-  a large `FACTORS` run through the host-only LCD refresh counter exported by
-  `hal/lcd.c`
+  progress shims in `android_runtime.c`, then loads and runs the canonical
+  upstream fixtures `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and
+  `SPIRALk.p47` through the host-side Android compatibility
+  path
+- `jni_program_load_test.c` exposes the Android instrumentation state snapshot
+  used by `ProgramFixtureInstrumentedTest`, including LCD refresh count. The
+  Android fixture seam uses that redraw signal as valid run evidence for
+  fast-returning fixtures such as `GudrmPL.p47` when step, pause, wait, or
+  `VIEW` markers never surface before a clean return.
+- `display.c` yields to Android after `VIEW` refreshes on `ANDROID_BUILD` so
+  queued work can progress during long `VIEW`-driven programs
+- `runProgram()` in `lblGtoXeq.c` applies a 10-second watchdog only to
+  top-level `VIEW`-driven runs on `ANDROID_BUILD` and `HOST_TOOL_BUILD`; when
+  the runtime remains in `TI_VIEW_REGISTER`, it stops with `PGM_WAITING`
 - native-owned JVM work acquires `JNIEnv` through `jni_acquire_env()` and
   `jni_release_env()` so attach and detach remain scope-bound
 - the bridge can update the current activity reference when the activity is
@@ -141,6 +152,12 @@ The SAF path works as follows:
    `ParcelFileDescriptor` and returned to native code.
 4. Native code wraps the descriptor with `fdopen(...)` and continues using
    standard file I/O.
+
+Android instrumentation uses a one-shot detached-fd override in
+`jni_storage.c` so `ProgramFixtureInstrumentedTest` can drive `READP` through
+the same native load boundary with staged canonical fixtures instead of
+launching a real SAF picker. The override is test-owned and must be cleared
+after each load.
 
 After `detachFd()`, the `ParcelFileDescriptor` wrapper no longer owns that file
 descriptor. Native closes it on the existing `fdopen()` failure path or through

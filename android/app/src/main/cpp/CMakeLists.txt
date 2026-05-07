@@ -90,6 +90,7 @@ set(ANDROID_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_display.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_input.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_lifecycle.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_program_load_test.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_registration.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_storage.c
 )

@@ -186,6 +186,8 @@ void processCoreTasksNative(void);
 void yieldToAndroidWithMs(int ms);
 void yieldToAndroid(void);
 int requestAndroidFile(int isSave, const char *defaultName, int fileType);
+void r47_set_file_request_override(int fd, int isSave, int fileType);
+void r47_clear_file_request_override(void);
 void triggerQuit(void);
 int register_main_activity_natives(JNIEnv *env);
 void releaseNativeActivityReferences(JNIEnv *env);

@@ -45,11 +45,14 @@ Read in this order:
   NDK, Kotlin, storage, and view-system references.
 
 The CI workflow keeps the lane split explicit: one lane sanity-checks the
-authoritative upstream simulator core with the root host suite, one lane builds,
-tests, and packages Android through
-`./scripts/android/build_android.sh --run-sim-tests`, Android JVM plus
-emulator-backed instrumentation tests run in their own lane, and the
-main-branch snapshot prerelease publishes only after those jobs pass.
+authoritative upstream simulator core and runs the host workload regression
+harness, one lane builds, tests, and packages Android through
+`./scripts/android/build_android.sh --run-sim-tests`, and a separate Android
+test lane runs JVM tests plus emulator-backed instrumentation that stages and
+loads and runs the canonical `PROGRAMS` fixture matrix for `BinetV3`,
+`GudrmPL`, `NQueens`, and `SPIRALk` through the Android `READP` path. The
+main-branch
+snapshot prerelease publishes only after those jobs pass.
 
 Use `./scripts/android/build_android.sh --doctor` to inspect host and staging
 readiness, and `./scripts/android/build_android.sh --android-only` for the fast

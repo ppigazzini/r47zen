@@ -36,6 +36,13 @@ def runtimeFontAssetNames = [
     'C47__NumericFont.ttf',
     'C47__TinyFont.ttf'
 ]
+def requestedProgramFixtureNames = [
+    'BinetV3.p47',
+    'GudrmPL.p47',
+    'NQueens.p47',
+    'SPIRALk.p47'
+]
+def programFixtureStagingScript = rootProject.file('../scripts/android/stage_program_fixture_assets.sh').absolutePath
 
 if (!runtimeFontSourceDir.isDirectory()) {
     throw new GradleException("Missing runtime font directory. Checked ${canonicalRuntimeFontDir} and ${generatedRuntimeFontDir}")
@@ -393,7 +400,7 @@ tasks.register('generateRuntimeFontAssets') {
         if (runtimeFontSourceDir.canonicalFile == fontsDir.canonicalFile) {
             return
         }
-        delete(generatedAssetsDir)
+        delete(fontsDir)
         fontsDir.mkdirs()
 
         runtimeFontAssetNames.each { fontName ->
@@ -402,6 +409,18 @@ tasks.register('generateRuntimeFontAssets') {
             targetFile.bytes = sourceFile.bytes
         }
     }
+}
+
+tasks.register('generateProgramFixtureAssets', Exec) {
+    description = 'Stage canonical upstream PROGRAMS fixtures into generated runtime assets for Android instrumentation.'
+    inputs.file(rootProject.file('../upstream.source'))
+    inputs.file(rootProject.file('../scripts/upstream-sync/upstream.sh'))
+    inputs.file(rootProject.file('../scripts/android/stage_program_fixture_assets.sh'))
+    outputs.dir("${generatedRuntimeAssetsDir}/program-fixtures")
+    outputs.upToDateWhen { false }
+
+    workingDir rootProject.file('..')
+    commandLine 'bash', programFixtureStagingScript, '--output-dir', "${generatedRuntimeAssetsDir}/program-fixtures"
 }
 
 tasks.register('generateRepoNoticeAssets') {
@@ -652,6 +671,7 @@ tasks.register('generateSourceManifest') {
 tasks.named('preBuild').configure {
     dependsOn tasks.named('copyGplLicense')
     dependsOn tasks.named('generateRuntimeFontAssets')
+    dependsOn tasks.named('generateProgramFixtureAssets')
     dependsOn tasks.named('generateRepoNoticeAssets')
     dependsOn tasks.named('generateThirdPartySpdx')
     dependsOn tasks.named('generateXlsxioLicense')

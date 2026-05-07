@@ -9,6 +9,12 @@ BUILD_DIR="$PROJECT_ROOT/android/build/workload-regressions-host"
 TRACKED_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp"
 PROGRAM_ROOT="${PROGRAM_ROOT:-$PROJECT_ROOT/res/PROGRAMS}"
 PREPARE_NATIVE_INPUTS_SCRIPT="$PROJECT_ROOT/scripts/android/prepare_native_build_inputs.sh"
+REQUIRED_PROGRAM_FIXTURES=(
+    "BinetV3.p47"
+    "GudrmPL.p47"
+    "NQueens.p47"
+    "SPIRALk.p47"
+)
 
 fail() {
     echo "ERROR: $*" >&2
@@ -19,9 +25,11 @@ if [[ ! -d "$PROGRAM_ROOT" ]]; then
     fail "Program root $PROGRAM_ROOT does not exist. Run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock or set PROGRAM_ROOT to an upstream checkout."
 fi
 
-if [[ ! -f "$PROGRAM_ROOT/SPIRALk.p47" ]]; then
-    fail "Program root $PROGRAM_ROOT is missing SPIRALk.p47."
-fi
+for fixture in "${REQUIRED_PROGRAM_FIXTURES[@]}"; do
+    if [[ ! -f "$PROGRAM_ROOT/$fixture" ]]; then
+        fail "Program root $PROGRAM_ROOT is missing $fixture."
+    fi
+done
 
 R47_ANDROID_STAGED_CPP_DIR="$STAGED_CPP_DIR" \
     bash "$PREPARE_NATIVE_INPUTS_SCRIPT"

@@ -173,9 +173,21 @@ Public maintainer entrypoints:
   and fixture-backed Android JVM suite when the build-only staged native tree
   is already current.
 - `cd android && ./gradlew :app:assembleDebugAndroidTest` compiles and
-  packages the instrumentation suite. `:app:connectedDebugAndroidTest` requires
-  a device or emulator, and `-Pr47.abiFilters=arm64-v8a,x86_64` is the
-  supported override when that emulator is `x86_64`.
+  packages the instrumentation suite and stages generated
+  `program-fixtures/PROGRAMS` assets through `generateProgramFixtureAssets`.
+  `:app:connectedDebugAndroidTest` requires a device or emulator, and
+  `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
+  emulator is `x86_64`. The current required emulator-backed smoke coverage is
+  `ProgramFixtureInstrumentedTest`, which loads and runs `BinetV3.p47`,
+  `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47` through the
+  Android `READP` path.
+- `ProgramFixtureInstrumentedTest` also treats LCD redraw activity from the JNI
+  snapshot as valid run evidence for fast-returning fixtures such as
+  `GudrmPL.p47`, matching the host workload harness instead of requiring only
+  step, pause, wait, or `VIEW` markers.
+- `MANSLV2.p47` remains an upstream example program, but the repo excludes it
+  from the required smoke gate because the upstream export text describes it as
+  a manual solver with no checks and stabilisations.
 - `make sim` is the canonical root simulator and generator validation path for
   the upstream-shaped desktop lane. Android full builds now drive the same
   `build.sim` Meson/Ninja targets through `scripts/android/build_sim_assets.sh`
@@ -207,6 +219,10 @@ Internal helpers:
 - `scripts/android/compute_staged_native_inputs.sh` fingerprints the canonical root,
   generated, calculator-font, and mini-gmp inputs behind `--android-only`
   freshness checks and writes `STAGED-INPUTS.properties` during staging.
+- `scripts/android/stage_program_fixture_assets.sh` stages canonical upstream
+  `res/PROGRAMS` fixtures into generated Android runtime assets for
+  instrumentation coverage and is invoked by `generateProgramFixtureAssets` in
+  `android/app/build.gradle`.
 - `scripts/keypad-fixtures/export_upstream_keypad_fixtures.sh` owns the grouped
   keypad-fixture exporter implementation.
 - `scripts/workload-regressions/run_workload_regressions.sh` owns the grouped
@@ -355,14 +371,22 @@ ownership model as the local build:
   through `scripts/android/collect_packaging_evidence.sh`.
 - `android-tests` uses the same resolved upstream commit and staged-native
   build path, applies the defaults-file `android_test_abi_filters` override
-  only for the hosted
-  test lane, assembles `:app:assembleDebugAndroidTest`, runs
-  `:app:testDebugUnitTest`, enables KVM, and runs
+  only for the hosted test lane, assembles `:app:assembleDebugAndroidTest`,
+  runs `:app:testDebugUnitTest`, enables KVM, and runs
   `:app:connectedDebugAndroidTest` on the defaults-file hosted emulator API.
+  That emulator lane stages canonical upstream `PROGRAMS` fixtures into
+  generated assets and currently requires `ProgramFixtureInstrumentedTest` to
+  load and run `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and
+  `SPIRALk.p47` through the Android `READP` path. The Android test seam also
+  counts LCD redraw activity as valid run evidence for fast-returning
+  workloads so `GudrmPL`-style short runs do not false-fail after a clean
+  return.
 - the upstream simulator sanity, Android build/test/package, and Android test
   jobs consume the same resolved upstream commit for a given workflow run.
 - Android build logs, Android test logs, and test reports are uploaded with
-  `if: always()` where later steps can fail.
+  `if: always()` where later steps can fail. The emulator-backed Gradle step
+  streams output live with `tee` into the uploaded connected-test log so hangs
+  or stalls stay observable before the job exits.
 - the Windows lane keeps any bootstrap step that runs before
   `msys2/setup-msys2` on an explicit host shell, then uses the job-level
   `msys2 {0}` default only after MSYS2 is installed.
@@ -405,10 +429,13 @@ lane.
 - Robolectric, fixture, or runtime-seam changes:
     `cd android && ./gradlew :app:testDebugUnitTest` when the build-only staged
   native tree is already current.
-- SAF, debug-manifest, or Activity Result lifecycle changes:
+- PROGRAMS fixture, SAF, debug-manifest, or Activity Result lifecycle changes:
     `cd android && ./gradlew :app:assembleDebugAndroidTest`, then
   `:app:connectedDebugAndroidTest` on a device or emulator. Add
-  `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`.
+  `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
+  current hosted smoke gate must still pass `ProgramFixtureInstrumentedTest`
+  over the load-and-run matrix for `BinetV3.p47`, `GudrmPL.p47`,
+  `NQueens.p47`, and `SPIRALk.p47`.
 - JNI, HAL, CMake, or packaging changes: `./scripts/android/build_android.sh`.
 - packaging evidence changes with local proof: `./scripts/android/build_android.sh --verify-packaging`
 - root core or generator changes: `make test` and then `./scripts/android/build_android.sh`.
