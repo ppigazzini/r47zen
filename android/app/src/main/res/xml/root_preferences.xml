@@ -54,7 +54,7 @@
         <Preference
             app:key="work_directory"
             app:title="Work Directory"
-            app:summary="Select a folder for organized storage (STATE, PROGRAMS, etc.)" />
+            app:summary="Select a folder for STATE, PROGRAMS, SAVFILES, and SCREENS" />
         <SwitchPreferenceCompat
             app:key="fullscreen_mode"
             app:title="Full Screen Mode"

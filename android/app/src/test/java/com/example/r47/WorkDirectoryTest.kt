@@ -4,10 +4,12 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -19,6 +21,19 @@ class WorkDirectoryTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val contentResolver = context.contentResolver
     private val treeUri = Uri.parse("content://com.example.r47.documents/tree/root")
+
+    @Before
+    @After
+    fun clearPreferences() {
+        context.getSharedPreferences(WorkDirectory.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+    }
 
     @Test
     fun isAccessible_returnsFalseWhenTreeUriCannotBeParsed() {
@@ -75,6 +90,61 @@ class WorkDirectoryTest {
 
         assertEquals(createdUri, resolvedUri)
         assertEquals("STATE", documents.createdDirectoryName)
+    }
+
+    @Test
+    fun readTreeUriString_migratesLegacyPreference() {
+        val legacyPrefs = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        legacyPrefs.edit().putString(WorkDirectory.KEY_TREE_URI, treeUri.toString()).commit()
+
+        val migratedValue = WorkDirectory.readTreeUriString(context)
+
+        assertEquals(treeUri.toString(), migratedValue)
+        assertEquals(
+            treeUri.toString(),
+            context.getSharedPreferences(WorkDirectory.PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(WorkDirectory.KEY_TREE_URI, null),
+        )
+        assertNull(legacyPrefs.getString(WorkDirectory.KEY_TREE_URI, null))
+    }
+
+    @Test
+    fun formatDisplayPath_stripsTreePrefix() {
+        assertEquals("/R47/PROGRAMS", WorkDirectory.formatDisplayPath("/tree/primary:R47/PROGRAMS"))
+        assertEquals("Select a folder", WorkDirectory.formatDisplayPath(null))
+    }
+
+    @Test
+    fun resolveSubfolder_returnsTreeUriForUnknownFileType() {
+        val documents = FakeWorkDirectoryDocuments(parsedUri = treeUri)
+
+        val resolvedUri = WorkDirectory.resolveSubfolder(
+            contentResolver = contentResolver,
+            treeUriString = treeUri.toString(),
+            fileType = 99,
+            documentAccess = documents,
+        )
+
+        assertEquals(treeUri, resolvedUri)
+        assertNull(documents.createdDirectoryName)
+    }
+
+    @Test
+    fun resolveSubfolder_fallsBackToTreeUriWhenCreateDirectoryReturnsNull() {
+        val documents = FakeWorkDirectoryDocuments(
+            parsedUri = treeUri,
+            createdDirectoryUri = null,
+        )
+
+        val resolvedUri = WorkDirectory.resolveSubfolder(
+            contentResolver = contentResolver,
+            treeUriString = treeUri.toString(),
+            fileType = 2,
+            documentAccess = documents,
+        )
+
+        assertEquals(treeUri, resolvedUri)
+        assertEquals("SAVFILES", documents.createdDirectoryName)
     }
 
     private class FakeWorkDirectoryDocuments(

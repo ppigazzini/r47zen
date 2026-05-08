@@ -10,10 +10,19 @@ import android.provider.DocumentsContract
 import android.util.Log
 import android.view.View
 import androidx.activity.ComponentActivity
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+
+internal typealias FirstRunPromptPresenter = (
+    onSelectFolder: () -> Unit,
+    onLater: () -> Unit,
+) -> Unit
+
+internal typealias MissingWorkDirectoryPromptPresenter = (
+    message: String,
+    onSet: () -> Unit,
+) -> Unit
 
 internal class StorageAccessCoordinator(
     private val activity: ComponentActivity,
@@ -25,44 +34,63 @@ internal class StorageAccessCoordinator(
     private val openFileDescriptor: (Uri, String) -> ParcelFileDescriptor? = { uri, mode ->
         activity.contentResolver.openFileDescriptor(uri, mode)
     },
+    private val readWorkDirectoryTreeUri: () -> String? = {
+        WorkDirectory.readTreeUriString(activity)
+    },
+    private val resolveInitialUri: (String?, Int) -> Uri? = { treeUriString, fileType ->
+        WorkDirectory.resolveSubfolder(
+            contentResolver = activity.contentResolver,
+            treeUriString = treeUriString,
+            fileType = fileType,
+        )
+    },
+    private val isWorkDirectoryAccessible: (String?) -> Boolean = { treeUriString ->
+        WorkDirectory.isAccessible(activity.contentResolver, treeUriString)
+    },
+    private val providedSaveIntentLauncher: ((Intent) -> Unit)? = null,
+    private val providedLoadIntentLauncher: ((Intent) -> Unit)? = null,
+    private val showFirstRunPrompt: FirstRunPromptPresenter? = null,
+    private val showWorkDirectoryMissingPrompt: MissingWorkDirectoryPromptPresenter? = null,
 ) {
     companion object {
         private const val TAG = "R47StorageAccess"
     }
 
-    private var saveLauncher: ActivityResultLauncher<Intent>? = null
+    private var saveIntentLauncher: ((Intent) -> Unit)? = providedSaveIntentLauncher
 
-    private var loadLauncher: ActivityResultLauncher<Intent>? = null
+    private var loadIntentLauncher: ((Intent) -> Unit)? = providedLoadIntentLauncher
 
     fun registerLaunchers() {
-        if (saveLauncher != null || loadLauncher != null) {
-            return
+        if (saveIntentLauncher == null) {
+            val launcher = activity.registerForActivityResult(
+                ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                deliverNativeFileResult(
+                    resultCode = result.resultCode,
+                    uri = result.data?.data,
+                    mode = "wt",
+                )
+            }
+            saveIntentLauncher = launcher::launch
         }
 
-        saveLauncher = activity.registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            deliverNativeFileResult(
-                resultCode = result.resultCode,
-                uri = result.data?.data,
-                mode = "wt",
-            )
-        }
-
-        loadLauncher = activity.registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            deliverNativeFileResult(
-                resultCode = result.resultCode,
-                uri = result.data?.data,
-                mode = "r",
-            )
+        if (loadIntentLauncher == null) {
+            val launcher = activity.registerForActivityResult(
+                ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                deliverNativeFileResult(
+                    resultCode = result.resultCode,
+                    uri = result.data?.data,
+                    mode = "r",
+                )
+            }
+            loadIntentLauncher = launcher::launch
         }
     }
 
     fun handleResume() {
         val isFirstRun = appPreferences.getBoolean("first_setup", true)
-        val hasWorkDirectory = WorkDirectory.readTreeUriString(activity) != null
+        val hasWorkDirectory = readWorkDirectoryTreeUri() != null
 
         if (isFirstRun && !hasWorkDirectory) {
             showFirstRunDialog()
@@ -73,30 +101,33 @@ internal class StorageAccessCoordinator(
 
     fun requestNativeFile(isSave: Boolean, defaultName: String, fileType: Int) {
         val launcher = if (isSave) {
-            checkNotNull(saveLauncher) {
+            checkNotNull(saveIntentLauncher) {
                 "StorageAccessCoordinator.registerLaunchers() must be called before requesting files."
             }
         } else {
-            checkNotNull(loadLauncher) {
+            checkNotNull(loadIntentLauncher) {
                 "StorageAccessCoordinator.registerLaunchers() must be called before requesting files."
             }
         }
 
         try {
-            val initialUri = WorkDirectory.resolveSubfolder(
-                contentResolver = activity.contentResolver,
-                treeUriString = WorkDirectory.readTreeUriString(activity),
-                fileType = fileType,
-            )
-
-            if (isSave) {
-                launcher.launch(buildSaveIntent(defaultName, initialUri))
-            } else {
-                launcher.launch(buildLoadIntent(initialUri))
-            }
+            launcher(buildNativeFileRequestIntent(isSave, defaultName, fileType))
         } catch (error: Exception) {
             Log.e(TAG, "Failed to launch SAF", error)
             onNativeFileCancelled()
+        }
+    }
+
+    internal fun buildNativeFileRequestIntent(
+        isSave: Boolean,
+        defaultName: String,
+        fileType: Int,
+    ): Intent {
+        val initialUri = resolveInitialUri(readWorkDirectoryTreeUri(), fileType)
+        return if (isSave) {
+            buildSaveIntent(defaultName, initialUri)
+        } else {
+            buildLoadIntent(initialUri)
         }
     }
 
@@ -149,6 +180,20 @@ internal class StorageAccessCoordinator(
     }
 
     private fun showFirstRunDialog() {
+        val onSelectFolder = {
+            appPreferences.edit().putBoolean("first_setup", false).apply()
+            launchSettings()
+        }
+        val onLater = {
+            appPreferences.edit().putBoolean("first_setup", false).apply()
+            validateWorkDirectory()
+        }
+
+        showFirstRunPrompt?.let { presenter ->
+            presenter(onSelectFolder, onLater)
+            return
+        }
+
         MaterialAlertDialogBuilder(activity)
             .setTitle("Welcome to R47")
             .setMessage(
@@ -156,31 +201,30 @@ internal class StorageAccessCoordinator(
                     "This folder will be used to organize your Programs, State files, " +
                     "and Screenshots safely on your device storage."
             )
-            .setPositiveButton("Select Folder") { _, _ ->
-                appPreferences.edit().putBoolean("first_setup", false).apply()
-                launchSettings()
-            }
-            .setNegativeButton("Later") { _, _ ->
-                appPreferences.edit().putBoolean("first_setup", false).apply()
-                validateWorkDirectory()
-            }
+            .setPositiveButton("Select Folder") { _, _ -> onSelectFolder() }
+            .setNegativeButton("Later") { _, _ -> onLater() }
             .setCancelable(false)
             .show()
     }
 
     private fun validateWorkDirectory() {
-        val treeUriString = WorkDirectory.readTreeUriString(activity)
+        val treeUriString = readWorkDirectoryTreeUri()
         if (treeUriString == null) {
             showWorkDirectoryMissingSnackbar("Work Directory not set")
             return
         }
 
-        if (!WorkDirectory.isAccessible(activity.contentResolver, treeUriString)) {
+        if (!isWorkDirectoryAccessible(treeUriString)) {
             showWorkDirectoryMissingSnackbar("Work Directory is no longer accessible")
         }
     }
 
     private fun showWorkDirectoryMissingSnackbar(message: String) {
+        showWorkDirectoryMissingPrompt?.let { presenter ->
+            presenter(message, launchSettings)
+            return
+        }
+
         Snackbar.make(rootView, message, Snackbar.LENGTH_INDEFINITE)
             .setAction("SET") {
                 launchSettings()
