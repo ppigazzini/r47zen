@@ -430,44 +430,121 @@ collect_windows_runtime_notices() {
     declare -A dll_owners=()
     declare -A dll_owner_versions=()
 
+    resolve_windows_source_path() {
+        local packaged_path="$1"
+        local rel_path="${packaged_path#$package_dir/}"
+
+        if [[ -f "$MINGW_PREFIX/$rel_path" ]]; then
+            printf '%s\n' "$MINGW_PREFIX/$rel_path"
+            return 0
+        fi
+
+        if [[ "$rel_path" != */* && -f "$MINGW_PREFIX/bin/$rel_path" ]]; then
+            printf '%s\n' "$MINGW_PREFIX/bin/$rel_path"
+            return 0
+        fi
+
+        return 1
+    }
+
+    package_version_from_name() {
+        local package_name="$1"
+
+        pacman -Q "$package_name" 2>/dev/null | awk 'NR == 1 { print $2; exit }'
+    }
+
+    ensure_windows_package_metadata() {
+        local runtime_package_name="$1"
+        local package_version="$2"
+
+        if [[ "$runtime_package_name" == "unknown" ]]; then
+            return 0
+        fi
+
+        if [[ -z "$package_version" ]]; then
+            package_version="$(package_version_from_name "$runtime_package_name")"
+        fi
+
+        if [[ -n "${package_versions[$runtime_package_name]:-}" ]]; then
+            if [[ -z "${package_versions[$runtime_package_name]}" && -n "$package_version" ]]; then
+                package_versions["$runtime_package_name"]="$package_version"
+            fi
+            return 0
+        fi
+
+        package_versions["$runtime_package_name"]="$package_version"
+        package_licenses["$runtime_package_name"]="$(pacman_field "$runtime_package_name" 'Licenses')"
+        package_urls["$runtime_package_name"]="$(pacman_field "$runtime_package_name" 'URL')"
+        package_descriptions["$runtime_package_name"]="$(pacman_field "$runtime_package_name" 'Description')"
+
+        license_source_dir="$MINGW_PREFIX/share/licenses/$runtime_package_name"
+        if [[ -d "$license_source_dir" ]]; then
+            mkdir -p "$licenses_dir/$runtime_package_name"
+            cp -R "$license_source_dir"/. "$licenses_dir/$runtime_package_name"/
+            package_license_dirs["$runtime_package_name"]="repo-notices/$platform/licenses/$runtime_package_name"
+        else
+            package_license_dirs["$runtime_package_name"]=""
+        fi
+    }
+
+    append_package_dll() {
+        local runtime_package_name="$1"
+        local dll_name="$2"
+
+        if [[ "$runtime_package_name" == "unknown" ]]; then
+            return 0
+        fi
+
+        if [[ "${package_dlls[$runtime_package_name]:-}" == "non-DLL runtime files" || -z "${package_dlls[$runtime_package_name]:-}" ]]; then
+            package_dlls["$runtime_package_name"]="$dll_name"
+        else
+            package_dlls["$runtime_package_name"]+=", $dll_name"
+        fi
+    }
+
+    mapfile -t runtime_packages < <(
+        find "$package_dir" \
+            \( -path "$package_dir/repo-notices" -o -path "$package_dir/repo-notices/*" \) -prune -o \
+            -type f -print0 |
+        while IFS= read -r -d '' packaged_path; do
+            source_path="$(resolve_windows_source_path "$packaged_path" || true)"
+            [[ -n "$source_path" ]] || continue
+            printf '%s\0' "$source_path"
+        done |
+        xargs -0 -r pacman -Qqo 2>/dev/null |
+        sort -u
+    )
+
+    while IFS= read -r runtime_package; do
+        [[ -n "$runtime_package" ]] || continue
+        ensure_windows_package_metadata "$runtime_package" ""
+        if [[ -z "${package_dlls[$runtime_package]:-}" ]]; then
+            package_dlls["$runtime_package"]="non-DLL runtime files"
+        fi
+    done < <(printf '%s\n' "${runtime_packages[@]}")
+
     printf 'dll\tpackage\tpackage_version\tlicenses\tlicense_dir\n' > "$runtime_inventory_file"
 
     for dll_path in "${dll_paths[@]}"; do
         dll_name="$(basename "$dll_path")"
-        owner_line="$(pacman -Qo "$dll_path" 2>/dev/null || true)"
+        source_path="$(resolve_windows_source_path "$dll_path" || true)"
         runtime_package_name="unknown"
         package_version=""
 
-        if [[ "$owner_line" =~ is[[:space:]]owned[[:space:]]by[[:space:]]([^[:space:]]+)[[:space:]]([^[:space:]]+) ]]; then
-            runtime_package_name="${BASH_REMATCH[1]}"
-            package_version="${BASH_REMATCH[2]}"
+        if [[ -n "$source_path" ]]; then
+            runtime_package_name="$(pacman -Qqo "$source_path" 2>/dev/null | awk 'NR == 1 { print; exit }')"
+            if [[ -n "$runtime_package_name" ]]; then
+                package_version="$(package_version_from_name "$runtime_package_name")"
+            else
+                runtime_package_name="unknown"
+            fi
         fi
 
         dll_owners["$dll_name"]="$runtime_package_name"
         dll_owner_versions["$dll_name"]="$package_version"
 
-        if [[ "$runtime_package_name" != "unknown" && -z "${package_versions[$runtime_package_name]:-}" ]]; then
-            package_versions["$runtime_package_name"]="$package_version"
-            package_licenses["$runtime_package_name"]="$(pacman_field "$runtime_package_name" 'Licenses')"
-            package_urls["$runtime_package_name"]="$(pacman_field "$runtime_package_name" 'URL')"
-            package_descriptions["$runtime_package_name"]="$(pacman_field "$runtime_package_name" 'Description')"
-
-            license_source_dir="$MINGW_PREFIX/share/licenses/$runtime_package_name"
-            if [[ -d "$license_source_dir" ]]; then
-                mkdir -p "$licenses_dir/$runtime_package_name"
-                cp -R "$license_source_dir"/. "$licenses_dir/$runtime_package_name"/
-                package_license_dirs["$runtime_package_name"]="repo-notices/$platform/licenses/$runtime_package_name"
-            else
-                package_license_dirs["$runtime_package_name"]=""
-            fi
-        fi
-
-        if [[ "$runtime_package_name" != "unknown" ]]; then
-            if [[ -n "${package_dlls[$runtime_package_name]:-}" ]]; then
-                package_dlls["$runtime_package_name"]+=", "
-            fi
-            package_dlls["$runtime_package_name"]+="$dll_name"
-        fi
+        ensure_windows_package_metadata "$runtime_package_name" "$package_version"
+        append_package_dll "$runtime_package_name" "$dll_name"
 
         printf '%s\t%s\t%s\t%s\t%s\n' \
             "$dll_name" \
@@ -479,9 +556,9 @@ collect_windows_runtime_notices() {
     done
 
     {
-        echo "Bundled runtime DLL notice summary"
+        echo "Bundled runtime notice summary"
         echo
-        echo "Generated from the packaged DLL set under $artifact_package_name."
+        echo "Generated from MSYS2-managed runtime files resolved from the packaged Windows artifact under $artifact_package_name."
         echo
         while IFS= read -r runtime_package; do
             [[ -n "$runtime_package" ]] || continue
@@ -490,7 +567,7 @@ collect_windows_runtime_notices() {
             echo "Licenses: ${package_licenses[$runtime_package]:-unknown}"
             echo "URL: ${package_urls[$runtime_package]:-unknown}"
             echo "Description: ${package_descriptions[$runtime_package]:-unknown}"
-            echo "DLLs: ${package_dlls[$runtime_package]:-none}"
+            echo "Packaged runtime files: ${package_dlls[$runtime_package]:-none}"
             if [[ -n "${package_license_dirs[$runtime_package]:-}" ]]; then
                 echo "License files: ${package_license_dirs[$runtime_package]}"
             else
@@ -508,7 +585,7 @@ collect_windows_runtime_notices() {
             "${package_urls[$runtime_package]:-NOASSERTION}" \
             "NOASSERTION" \
             "${package_versions[$runtime_package]:-}" \
-            "MSYS2 package providing bundled runtime DLLs: ${package_dlls[$runtime_package]:-none}." \
+            "MSYS2 package providing bundled Windows runtime files: ${package_dlls[$runtime_package]:-none}." \
             "${package_licenses[$runtime_package]:-unknown}" \
             "License files copied to ${package_license_dirs[$runtime_package]:-missing}." \
             "${package_urls[$runtime_package]:-}" \

@@ -107,14 +107,19 @@ jobs:
             make
             unzip
             zip
+            ${{ matrix.package_prefix }}-adwaita-icon-theme
             ${{ matrix.package_prefix }}-ca-certificates
             ${{ matrix.package_prefix }}-cc
             ${{ matrix.package_prefix }}-freetype
+            ${{ matrix.package_prefix }}-glib-networking
+            ${{ matrix.package_prefix }}-gsettings-desktop-schemas
             ${{ matrix.package_prefix }}-gmp
             ${{ matrix.package_prefix }}-gtk3
+            ${{ matrix.package_prefix }}-hicolor-icon-theme
             ${{ matrix.package_prefix }}-meson
             ${{ matrix.package_prefix }}-ninja
             ${{ matrix.package_prefix }}-pkgconf
+            ${{ matrix.package_prefix }}-shared-mime-info
             ${{ matrix.package_prefix }}-xlsxio
 
       - name: Verify MSYS2 toolchain
@@ -124,6 +129,10 @@ jobs:
           ${{ matrix.compiler_check }}
           meson --version
           pkg-config --modversion gtk+-3.0
+          command -v glib-compile-schemas > /dev/null
+          command -v gio-querymodules > /dev/null
+          command -v gtk-query-immodules-3.0 > /dev/null
+          command -v gdk-pixbuf-query-loaders > /dev/null
           command -v xlsxio_xlsx2csv > /dev/null
 
       - name: Detect runner build concurrency
@@ -224,22 +233,111 @@ jobs:
           "$strip_tool" "$package_dir/c47.exe" "$package_dir/r47.exe"
           stripped_count=2
 
-          dlls=$(for exe in "$package_dir/c47.exe" "$package_dir/r47.exe"; do
-            ldd "$exe"
-          done | awk -v prefix="$MINGW_PREFIX/bin/" '
-            $3 ~ ("^" prefix) && $3 ~ /\.dll$/ { print $3 }
-            $1 ~ ("^" prefix) && $1 ~ /\.dll$/ { print $1 }
-          ' | sort -u)
+          copy_runtime_path() {
+            local rel_path="$1"
+            local source_path="$MINGW_PREFIX/$rel_path"
+            local dest_path="$package_dir/$rel_path"
 
-          if [[ -z "$dlls" ]]; then
-            echo "Failed to resolve runtime DLLs from $MINGW_PREFIX/bin." >&2
-            exit 1
-          fi
+            if [[ ! -e "$source_path" ]]; then
+              echo "Missing GTK runtime path: $source_path" >&2
+              exit 1
+            fi
 
-          while IFS= read -r dll; do
-            [[ -n "$dll" ]] || continue
-            cp "$dll" "$package_dir"/
-          done <<< "$dlls"
+            mkdir -p "$(dirname "$dest_path")"
+            cp -R "$source_path" "$dest_path"
+          }
+
+          copy_runtime_file() {
+            local source_path="$1"
+            local dest_path="$2"
+
+            if [[ ! -f "$source_path" ]]; then
+              echo "Missing GTK runtime file: $source_path" >&2
+              exit 1
+            fi
+
+            mkdir -p "$(dirname "$dest_path")"
+
+            if [[ ! -f "$dest_path" ]]; then
+              cp "$source_path" "$dest_path"
+            fi
+          }
+
+          copy_runtime_tool() {
+            local tool_name="$1"
+            local source_path="$MINGW_PREFIX/bin/$tool_name"
+
+            copy_runtime_file "$source_path" "$package_dir/$tool_name"
+          }
+
+          copy_runtime_dll() {
+            local source_path="$1"
+
+            copy_runtime_file "$source_path" "$package_dir/$(basename "$source_path")"
+          }
+
+          resolve_runtime_dlls() {
+            find "$package_dir" -type f \( -name '*.exe' -o -name '*.dll' \) -print0 \
+              | xargs -0 -r ldd \
+              | awk -v prefix="$MINGW_PREFIX/bin/" '
+                  $3 ~ ("^" prefix) && $3 ~ /\.dll$/ { print $3 }
+                  $1 ~ ("^" prefix) && $1 ~ /\.dll$/ { print $1 }
+                ' \
+              | sort -u
+          }
+
+          runtime_paths=(
+            "etc/gtk-3.0"
+            "lib/gdk-pixbuf-2.0"
+            "lib/gio/modules"
+            "lib/gtk-3.0"
+            "share/glib-2.0/schemas"
+            "share/gtk-3.0"
+            "share/icons/Adwaita"
+            "share/icons/hicolor"
+            "share/mime"
+            "share/themes"
+          )
+
+          for rel_path in "${runtime_paths[@]}"; do
+            copy_runtime_path "$rel_path"
+          done
+
+          runtime_tools=(
+            "gdk-pixbuf-query-loaders.exe"
+            "gio-querymodules.exe"
+            "glib-compile-schemas.exe"
+            "gtk-query-immodules-3.0.exe"
+          )
+
+          for tool_name in "${runtime_tools[@]}"; do
+            copy_runtime_tool "$tool_name"
+          done
+
+          previous_dlls=""
+          while :; do
+            dlls="$(resolve_runtime_dlls)"
+
+            if [[ -z "$dlls" ]]; then
+              echo "Failed to resolve runtime DLLs from $MINGW_PREFIX/bin." >&2
+              exit 1
+            fi
+
+            if [[ "$dlls" == "$previous_dlls" ]]; then
+              break
+            fi
+
+            previous_dlls="$dlls"
+
+            while IFS= read -r dll; do
+              [[ -n "$dll" ]] || continue
+              copy_runtime_dll "$dll"
+            done <<< "$dlls"
+          done
+
+          "$package_dir/glib-compile-schemas.exe" "$package_dir/share/glib-2.0/schemas"
+          "$package_dir/gio-querymodules.exe" "$package_dir/lib/gio/modules"
+          cp "$package_dir/c47.cmd" "$package_dir/r47.cmd"
 
           printf 'Stripped executable sizes:\n'
           stat -c '%n %s' "$package_dir/c47.exe" "$package_dir/r47.exe"
@@ -274,6 +372,9 @@ jobs:
           gpl_notice_file=repo-notices/windows/gpl/COPYING.txt
           decnumbericu_notice_file=repo-notices/windows/decnumbericu/ICU-license.html
           xlsxio_notice_file=repo-notices/windows/xlsxio/LICENSE.txt
+          windows_gtk_runtime_dirs=etc/gtk-3.0,lib/gdk-pixbuf-2.0,lib/gio/modules,lib/gtk-3.0,share/glib-2.0/schemas,share/gtk-3.0,share/icons/Adwaita,share/icons/hicolor,share/mime,share/themes
+          windows_gtk_runtime_tools=glib-compile-schemas.exe,gio-querymodules.exe,gtk-query-immodules-3.0.exe,gdk-pixbuf-query-loaders.exe
+          windows_runtime_launcher_files=c47.cmd,r47.cmd
           windows_dll_inventory_file=repo-notices/windows/WINDOWS-RUNTIME-DLLS.txt
           windows_dll_notice_summary_file=repo-notices/windows/WINDOWS-DLL-NOTICES.txt
           windows_dll_notice_dir=repo-notices/windows/licenses
