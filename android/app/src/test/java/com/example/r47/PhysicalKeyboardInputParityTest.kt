@@ -22,13 +22,13 @@ class PhysicalKeyboardInputParityTest {
             KeyEvent.KEYCODE_APOSTROPHE,
             keyEvent(KeyEvent.KEYCODE_APOSTROPHE),
         )
-        assertShortcut(alphaAction, "SEQ_ALPHA")
+        assertShortcut(alphaAction, PhysicalKeyboardShortcutId.ALPHA)
 
         val homeAction = PhysicalKeyboardMapper.resolve(
             KeyEvent.KEYCODE_H,
             keyEvent(KeyEvent.KEYCODE_H, KeyEvent.META_SHIFT_ON),
         )
-        assertShortcut(homeAction, "SEQ_HOME")
+        assertShortcut(homeAction, PhysicalKeyboardShortcutId.HOME)
 
         val functionAction = PhysicalKeyboardMapper.resolve(
             KeyEvent.KEYCODE_F1,
@@ -45,6 +45,63 @@ class PhysicalKeyboardInputParityTest {
     }
 
     @Test
+    fun mapperResolvesNumpadOperatorsAndSiShortcutBindings() {
+        assertNativeKey(
+            PhysicalKeyboardMapper.resolve(
+                KeyEvent.KEYCODE_NUMPAD_ADD,
+                keyEvent(KeyEvent.KEYCODE_NUMPAD_ADD),
+            ),
+            id = "36",
+            isFunctionKey = false,
+        )
+        assertNativeKey(
+            PhysicalKeyboardMapper.resolve(
+                KeyEvent.KEYCODE_NUMPAD_SUBTRACT,
+                keyEvent(KeyEvent.KEYCODE_NUMPAD_SUBTRACT),
+            ),
+            id = "31",
+            isFunctionKey = false,
+        )
+        assertNativeKey(
+            PhysicalKeyboardMapper.resolve(
+                KeyEvent.KEYCODE_NUMPAD_MULTIPLY,
+                keyEvent(KeyEvent.KEYCODE_NUMPAD_MULTIPLY),
+            ),
+            id = "26",
+            isFunctionKey = false,
+        )
+        assertNativeKey(
+            PhysicalKeyboardMapper.resolve(
+                KeyEvent.KEYCODE_NUMPAD_DIVIDE,
+                keyEvent(KeyEvent.KEYCODE_NUMPAD_DIVIDE),
+            ),
+            id = "21",
+            isFunctionKey = false,
+        )
+
+        assertShortcut(
+            PhysicalKeyboardMapper.resolve(KeyEvent.KEYCODE_F7, keyEvent(KeyEvent.KEYCODE_F7)),
+            PhysicalKeyboardShortcutId.SI_N,
+        )
+        assertShortcut(
+            PhysicalKeyboardMapper.resolve(KeyEvent.KEYCODE_F8, keyEvent(KeyEvent.KEYCODE_F8)),
+            PhysicalKeyboardShortcutId.SI_U,
+        )
+        assertShortcut(
+            PhysicalKeyboardMapper.resolve(KeyEvent.KEYCODE_F9, keyEvent(KeyEvent.KEYCODE_F9)),
+            PhysicalKeyboardShortcutId.SI_M,
+        )
+        assertShortcut(
+            PhysicalKeyboardMapper.resolve(KeyEvent.KEYCODE_F10, keyEvent(KeyEvent.KEYCODE_F10)),
+            PhysicalKeyboardShortcutId.SI_K,
+        )
+        assertShortcut(
+            PhysicalKeyboardMapper.resolve(KeyEvent.KEYCODE_F11, keyEvent(KeyEvent.KEYCODE_F11)),
+            PhysicalKeyboardShortcutId.SI_MEGA,
+        )
+    }
+
+    @Test
     fun shortcutDispatchReplaysAlphaAndHomeSequences() {
         assertEquals(
             listOf(
@@ -53,12 +110,12 @@ class PhysicalKeyboardInputParityTest {
                 "key:17:false:false",
                 "key:17:false:true",
             ),
-            dispatchShortcut("SEQ_ALPHA", expectedOperations = 4),
+            dispatchShortcut(PhysicalKeyboardShortcutId.ALPHA, expectedOperations = 4),
         )
 
         assertEquals(
             listOf("menu:-1921"),
-            dispatchShortcut("SEQ_HOME", expectedOperations = 1),
+            dispatchShortcut(PhysicalKeyboardShortcutId.HOME, expectedOperations = 1),
         )
     }
 
@@ -124,7 +181,7 @@ class PhysicalKeyboardInputParityTest {
         )
     }
 
-    private fun dispatchShortcut(id: String, expectedOperations: Int): List<String> {
+    private fun dispatchShortcut(id: PhysicalKeyboardShortcutId, expectedOperations: Int): List<String> {
         val operations = Collections.synchronizedList(mutableListOf<String>())
         val latch = CountDownLatch(expectedOperations)
 
@@ -150,7 +207,7 @@ class PhysicalKeyboardInputParityTest {
         return KeyEvent(0L, 0L, KeyEvent.ACTION_DOWN, keyCode, 0, metaState)
     }
 
-    private fun assertShortcut(action: PhysicalKeyboardAction?, expectedId: String) {
+    private fun assertShortcut(action: PhysicalKeyboardAction?, expectedId: PhysicalKeyboardShortcutId) {
         assertNotNull(action)
         assertTrue(action is PhysicalKeyboardAction.Shortcut)
         assertEquals(expectedId, (action as PhysicalKeyboardAction.Shortcut).id)

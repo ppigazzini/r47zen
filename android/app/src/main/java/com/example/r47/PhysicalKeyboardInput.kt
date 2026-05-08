@@ -9,7 +9,7 @@ internal sealed interface PhysicalKeyboardAction {
         val isFunctionKey: Boolean = false,
     ) : PhysicalKeyboardAction
 
-    data class Shortcut(val id: String) : PhysicalKeyboardAction
+    data class Shortcut(val id: PhysicalKeyboardShortcutId) : PhysicalKeyboardAction
 }
 
 internal object PhysicalKeyboardMapper {
@@ -66,213 +66,215 @@ internal object PhysicalKeyboardShortcuts {
                 offerCoreTask(Runnable { sendMenu(menuId) })
             }
 
-            when (action.id) {
-                "SEQ_PERCENT" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "07")
-                }
-                "SEQ_FACTORIAL" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "02")
-                }
-                "SEQ_DOTD" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "03")
-                }
-                "SEQ_HASH" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "05")
-                }
-                "SEQ_MS" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "02")
-                }
-                "SEQ_LASTX" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "13")
-                }
-                "SEQ_ECONST" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "36", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(
-                        enqueueKey,
-                        "2",
-                        isFunctionKey = true,
-                        pauseAfterReleaseMs = LONG_PAUSE_MS,
-                    )
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "2", isFunctionKey = true)
-                }
-                "SEQ_toREC" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "00")
-                }
-                "SEQ_TAN" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "20")
-                }
-                "SEQ_ATAN" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "20")
-                }
-                "SEQ_XTHROOT" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "03")
-                }
-                "SEQ_UNDO" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "16")
-                }
-                "SEQ_USER" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "09")
-                }
-                "SEQ_IMAG_J" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "00")
-                }
-                "SEQ_DISP" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "14")
-                }
-                "SEQ_10X" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "04")
-                }
-                "SEQ_PI" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "08")
-                }
-                "SEQ_toI" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "04")
-                }
-                "SEQ_HOME" -> enqueueMenu(-1921)
-                "SEQ_MYMENU" -> enqueueMenu(-1349)
-                "SEQ_toPOL" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "01")
-                }
-                "SEQ_IMAG_POL" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "01")
-                }
-                "SEQ_ALPHA" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "17")
-                }
-                "SEQ_SIGMAP" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "21", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(enqueueKey, "1", isFunctionKey = true)
-                }
-                "SEQ_ANGLE" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "06")
-                }
-                "SEQ_SIN" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "18")
-                }
-                "SEQ_ASIN" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "18")
-                }
-                "SEQ_RUP" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "08")
-                }
-                "SEQ_PREFIX" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "15")
-                }
-                "SEQ_GTO" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "17")
-                }
-                "SEQ_EXP" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "15")
-                }
-                "SEQ_COMPLEX" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "12")
-                }
-                "SEQ_STK" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "13")
-                }
-                "SEQ_EXP_E" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "05")
-                }
-                "SEQ_COS" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "19")
-                }
-                "SEQ_ACOS" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "19")
-                }
-                "SEQ_LBL" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "05")
-                }
-                "SEQ_PRGM" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "35")
-                }
-                "SEQ_PREF" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "28")
-                }
-                "SEQ_RTN" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "35")
-                }
-                "SEQ_DRG" -> press(enqueueKey, "09")
-                "SEQ_SI_n" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "3", isFunctionKey = true)
-                }
-                "SEQ_SI_u" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "2", isFunctionKey = true)
-                }
-                "SEQ_SI_m" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "1", isFunctionKey = true)
-                }
-                "SEQ_SI_k" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(enqueueKey, "1", isFunctionKey = true)
-                }
-                "SEQ_SI_M" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(enqueueKey, "2", isFunctionKey = true)
-                }
-                "SEQ_TGLFRT" -> {
-                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "34")
-                }
-                "SEQ_AIM" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "17")
-                }
-                "SEQ_ABS" -> {
-                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(enqueueKey, "06")
-                }
-                else -> return@execute
-            }
+            dispatchShortcut(action.id, enqueueKey, enqueueMenu)
+        }
+    }
+
+    private fun dispatchShortcut(
+        id: PhysicalKeyboardShortcutId,
+        enqueueKey: (String, Boolean, Boolean) -> Unit,
+        enqueueMenu: (Int) -> Unit,
+    ): Unit = when (id) {
+        PhysicalKeyboardShortcutId.PERCENT -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "07")
+        }
+        PhysicalKeyboardShortcutId.FACTORIAL -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "02")
+        }
+        PhysicalKeyboardShortcutId.DOTD -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "03")
+        }
+        PhysicalKeyboardShortcutId.HASH -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "05")
+        }
+        PhysicalKeyboardShortcutId.MS -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "02")
+        }
+        PhysicalKeyboardShortcutId.LASTX -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "13")
+        }
+        PhysicalKeyboardShortcutId.ECONST -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "36", pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(
+                enqueueKey,
+                "2",
+                isFunctionKey = true,
+                pauseAfterReleaseMs = LONG_PAUSE_MS,
+            )
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "2", isFunctionKey = true)
+        }
+        PhysicalKeyboardShortcutId.TO_REC -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "00")
+        }
+        PhysicalKeyboardShortcutId.TAN -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "20")
+        }
+        PhysicalKeyboardShortcutId.ATAN -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "20")
+        }
+        PhysicalKeyboardShortcutId.XTHROOT -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "03")
+        }
+        PhysicalKeyboardShortcutId.UNDO -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "16")
+        }
+        PhysicalKeyboardShortcutId.USER -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "09")
+        }
+        PhysicalKeyboardShortcutId.IMAG_J -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "00")
+        }
+        PhysicalKeyboardShortcutId.DISP -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "14")
+        }
+        PhysicalKeyboardShortcutId.TEN_TO_X -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "04")
+        }
+        PhysicalKeyboardShortcutId.PI -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "08")
+        }
+        PhysicalKeyboardShortcutId.TO_I -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "04")
+        }
+        PhysicalKeyboardShortcutId.HOME -> enqueueMenu(-1921)
+        PhysicalKeyboardShortcutId.MYMENU -> enqueueMenu(-1349)
+        PhysicalKeyboardShortcutId.TO_POL -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "01")
+        }
+        PhysicalKeyboardShortcutId.IMAG_POL -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "01")
+        }
+        PhysicalKeyboardShortcutId.ALPHA,
+        PhysicalKeyboardShortcutId.AIM -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "17")
+        }
+        PhysicalKeyboardShortcutId.SIGMAP -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "21", pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, "1", isFunctionKey = true)
+        }
+        PhysicalKeyboardShortcutId.ANGLE -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "06")
+        }
+        PhysicalKeyboardShortcutId.SIN -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "18")
+        }
+        PhysicalKeyboardShortcutId.ASIN -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "18")
+        }
+        PhysicalKeyboardShortcutId.RUP -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "08")
+        }
+        PhysicalKeyboardShortcutId.PREFIX -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "15")
+        }
+        PhysicalKeyboardShortcutId.GTO -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "17")
+        }
+        PhysicalKeyboardShortcutId.EXP -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "15")
+        }
+        PhysicalKeyboardShortcutId.COMPLEX -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "12")
+        }
+        PhysicalKeyboardShortcutId.STK -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "13")
+        }
+        PhysicalKeyboardShortcutId.EXP_E -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "05")
+        }
+        PhysicalKeyboardShortcutId.COS -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "19")
+        }
+        PhysicalKeyboardShortcutId.ACOS -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "19")
+        }
+        PhysicalKeyboardShortcutId.LBL -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "05")
+        }
+        PhysicalKeyboardShortcutId.PRGM -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "35")
+        }
+        PhysicalKeyboardShortcutId.PREF -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "28")
+        }
+        PhysicalKeyboardShortcutId.RTN -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "35")
+        }
+        PhysicalKeyboardShortcutId.DRG -> press(enqueueKey, "09")
+        PhysicalKeyboardShortcutId.SI_N -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "3", isFunctionKey = true)
+        }
+        PhysicalKeyboardShortcutId.SI_U -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "2", isFunctionKey = true)
+        }
+        PhysicalKeyboardShortcutId.SI_M -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "1", isFunctionKey = true)
+        }
+        PhysicalKeyboardShortcutId.SI_K -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, "1", isFunctionKey = true)
+        }
+        PhysicalKeyboardShortcutId.SI_MEGA -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, "2", isFunctionKey = true)
+        }
+        PhysicalKeyboardShortcutId.TGLFRT -> {
+            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "34")
+        }
+        PhysicalKeyboardShortcutId.ABS -> {
+            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, "06")
         }
     }
 
