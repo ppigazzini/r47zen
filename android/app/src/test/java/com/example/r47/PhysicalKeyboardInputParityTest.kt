@@ -2,6 +2,7 @@ package com.example.r47
 
 import android.view.KeyEvent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -34,6 +35,13 @@ class PhysicalKeyboardInputParityTest {
             keyEvent(KeyEvent.KEYCODE_F1),
         )
         assertNativeKey(functionAction, id = "1", isFunctionKey = true)
+
+        assertNull(
+            PhysicalKeyboardMapper.resolve(
+                KeyEvent.KEYCODE_SHIFT_LEFT,
+                keyEvent(KeyEvent.KEYCODE_SHIFT_LEFT),
+            ),
+        )
     }
 
     @Test
@@ -81,6 +89,38 @@ class PhysicalKeyboardInputParityTest {
         assertEquals(
             listOf("00:false:false", "00:false:true"),
             sentKeys,
+        )
+    }
+
+    @Test
+    fun ctrlTapOnlyFiresWhenModifierWasNotUsed() {
+        val sentActions = mutableListOf<String>()
+        val controller = PhysicalKeyboardInputController(
+            offerCoreTask = { runnable -> runnable.run() },
+            sendSimKeyNative = { id, isFunctionKey, isRelease ->
+                sentActions += "${id}:${isFunctionKey}:${isRelease}"
+            },
+            sendSimMenuNative = { menuId ->
+                sentActions += "menu:${menuId}"
+            },
+        )
+
+        assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_CTRL_LEFT, keyEvent(KeyEvent.KEYCODE_CTRL_LEFT)))
+        assertTrue(controller.onKeyUp(KeyEvent.KEYCODE_CTRL_LEFT))
+        assertEquals(
+            listOf("11:false:false", "11:false:true"),
+            sentActions,
+        )
+
+        sentActions.clear()
+
+        assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_CTRL_LEFT, keyEvent(KeyEvent.KEYCODE_CTRL_LEFT)))
+        assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, keyEvent(KeyEvent.KEYCODE_DPAD_UP, KeyEvent.META_CTRL_ON)))
+        assertTrue(controller.onKeyUp(KeyEvent.KEYCODE_DPAD_UP))
+        assertTrue(controller.onKeyUp(KeyEvent.KEYCODE_CTRL_LEFT))
+        assertEquals(
+            listOf("22:false:false", "22:false:true"),
+            sentActions,
         )
     }
 

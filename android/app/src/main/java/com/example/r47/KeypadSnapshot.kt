@@ -209,46 +209,65 @@ internal data class KeypadSnapshot(
                 return EMPTY
             }
 
-            val resolvedLabels = labels ?: emptyArray()
-            val keyStates = List(KEY_COUNT) { index ->
-                val labelIndex = index * LABELS_PER_KEY
-                KeypadKeySnapshot(
-                    primaryLabel = resolvedLabels.getOrElse(labelIndex) { "" },
-                    fLabel = resolvedLabels.getOrElse(labelIndex + 1) { "" },
-                    gLabel = resolvedLabels.getOrElse(labelIndex + 2) { "" },
-                    letterLabel = resolvedLabels.getOrElse(labelIndex + 3) { "" },
-                    auxLabel = resolvedLabels.getOrElse(labelIndex + 4) { "" },
-                    isEnabled = meta[META_KEY_ENABLED_OFFSET + index] != 0,
-                    styleRole = meta[META_STYLE_ROLE_OFFSET + index],
-                    labelRoles = meta[META_LABEL_ROLE_OFFSET + index],
-                    layoutClass = meta[META_LAYOUT_CLASS_OFFSET + index],
-                    sceneFlags = meta[META_SCENE_FLAGS_OFFSET + index],
-                    overlayState = meta[META_OVERLAY_STATE_OFFSET + index],
-                    showValue = meta[META_SHOW_VALUE_OFFSET + index],
+            return NativeDecoder(meta, labels ?: emptyArray()).decode()
+        }
+
+        private class NativeDecoder(
+            private val meta: IntArray,
+            private val labels: Array<String>,
+        ) {
+            fun decode(): KeypadSnapshot {
+                return KeypadSnapshot(
+                    keyboardState = KeyboardStateSnapshot.fromMeta(meta),
+                    sceneContractVersion = metaAt(META_CONTRACT_VERSION),
+                    softmenuId = metaAt(META_SOFTMENU_ID),
+                    softmenuFirstItem = metaAt(META_SOFTMENU_FIRST_ITEM),
+                    softmenuItemCount = metaAt(META_SOFTMENU_ITEM_COUNT),
+                    softmenuVisibleRowOffset = metaAt(META_SOFTMENU_VISIBLE_ROW),
+                    softmenuPage = metaAt(META_SOFTMENU_PAGE),
+                    softmenuPageCount = metaAt(META_SOFTMENU_PAGE_COUNT),
+                    softmenuHasPreviousPage = flagAt(META_SOFTMENU_HAS_PREVIOUS),
+                    softmenuHasNextPage = flagAt(META_SOFTMENU_HAS_NEXT),
+                    softmenuDottedRow = metaAt(META_SOFTMENU_DOTTED_ROW),
+                    functionPreviewActive = flagAt(META_FN_PREVIEW_ACTIVE),
+                    functionPreviewKeyCode = metaAt(META_FN_PREVIEW_KEY),
+                    functionPreviewRow = metaAt(META_FN_PREVIEW_ROW),
+                    functionPreviewState = metaAt(META_FN_PREVIEW_STATE),
+                    functionPreviewTimeoutActive = flagAt(META_FN_PREVIEW_TIMEOUT_ACTIVE),
+                    functionPreviewReleaseExec = flagAt(META_FN_PREVIEW_RELEASE_EXEC),
+                    functionPreviewNopOrExecuted = flagAt(META_FN_PREVIEW_NOP_OR_EXECUTED),
+                    keyStates = List(KEY_COUNT, ::decodeKeyState),
                 )
             }
 
-            return KeypadSnapshot(
-                keyboardState = KeyboardStateSnapshot.fromMeta(meta),
-                sceneContractVersion = meta[META_CONTRACT_VERSION],
-                softmenuId = meta[META_SOFTMENU_ID],
-                softmenuFirstItem = meta[META_SOFTMENU_FIRST_ITEM],
-                softmenuItemCount = meta[META_SOFTMENU_ITEM_COUNT],
-                softmenuVisibleRowOffset = meta[META_SOFTMENU_VISIBLE_ROW],
-                softmenuPage = meta[META_SOFTMENU_PAGE],
-                softmenuPageCount = meta[META_SOFTMENU_PAGE_COUNT],
-                softmenuHasPreviousPage = meta[META_SOFTMENU_HAS_PREVIOUS] != 0,
-                softmenuHasNextPage = meta[META_SOFTMENU_HAS_NEXT] != 0,
-                softmenuDottedRow = meta[META_SOFTMENU_DOTTED_ROW],
-                functionPreviewActive = meta[META_FN_PREVIEW_ACTIVE] != 0,
-                functionPreviewKeyCode = meta[META_FN_PREVIEW_KEY],
-                functionPreviewRow = meta[META_FN_PREVIEW_ROW],
-                functionPreviewState = meta[META_FN_PREVIEW_STATE],
-                functionPreviewTimeoutActive = meta[META_FN_PREVIEW_TIMEOUT_ACTIVE] != 0,
-                functionPreviewReleaseExec = meta[META_FN_PREVIEW_RELEASE_EXEC] != 0,
-                functionPreviewNopOrExecuted = meta[META_FN_PREVIEW_NOP_OR_EXECUTED] != 0,
-                keyStates = keyStates,
-            )
+            private fun decodeKeyState(index: Int): KeypadKeySnapshot {
+                return KeypadKeySnapshot(
+                    primaryLabel = labelAt(index, KeypadSceneContract.LABEL_PRIMARY),
+                    fLabel = labelAt(index, KeypadSceneContract.LABEL_F),
+                    gLabel = labelAt(index, KeypadSceneContract.LABEL_G),
+                    letterLabel = labelAt(index, KeypadSceneContract.LABEL_LETTER),
+                    auxLabel = labelAt(index, KeypadSceneContract.LABEL_AUX),
+                    isEnabled = keyFlagAt(META_KEY_ENABLED_OFFSET, index),
+                    styleRole = keyMetaAt(META_STYLE_ROLE_OFFSET, index),
+                    labelRoles = keyMetaAt(META_LABEL_ROLE_OFFSET, index),
+                    layoutClass = keyMetaAt(META_LAYOUT_CLASS_OFFSET, index),
+                    sceneFlags = keyMetaAt(META_SCENE_FLAGS_OFFSET, index),
+                    overlayState = keyMetaAt(META_OVERLAY_STATE_OFFSET, index),
+                    showValue = keyMetaAt(META_SHOW_VALUE_OFFSET, index),
+                )
+            }
+
+            private fun labelAt(index: Int, slot: Int): String {
+                return labels.getOrElse(index * LABELS_PER_KEY + slot) { "" }
+            }
+
+            private fun metaAt(offset: Int): Int = meta[offset]
+
+            private fun flagAt(offset: Int): Boolean = metaAt(offset) != 0
+
+            private fun keyMetaAt(offset: Int, index: Int): Int = meta[offset + index]
+
+            private fun keyFlagAt(offset: Int, index: Int): Boolean = keyMetaAt(offset, index) != 0
         }
     }
 }

@@ -32,6 +32,13 @@ engine loop.
 - `KeypadTopology`: owns the Android-local 43-key row, lane, and family
   contract used by layout, touch-grid row membership, and per-key family
   policy.
+- `CalculatorKeyView` and `CalculatorSoftkeyPainter`: keep the per-key drawing
+  split honest. `CalculatorKeyView` owns main-key geometry, faceplate layout,
+  and painted-body placement, while `CalculatorSoftkeyPainter` owns the
+  dedicated softkey drawing, overlay, and content-description path.
+- `PhysicalKeyboardInputController`, `PhysicalKeyboardMapper`, and
+  `PhysicalKeyboardBindingTables`: own external-keyboard interception,
+  table-driven bindings, and dispatch into native-key or shortcut actions.
 - `SettingsActivity`: owns the non-exported settings UI and preference-driven
   Android shell options, then delegates destructive reset work back to
   `MainActivity`.
@@ -39,6 +46,8 @@ engine loop.
 ## Model boundary
 
 - `KeypadSnapshot` is the Kotlin-side projection of the native keypad scene.
+  Its fixed metadata-lane decoding stays local to the snapshot model so other
+  Android layers consume named fields instead of indexing raw native arrays.
 - `KeypadTopology` is the Android-local keypad topology contract for key-code
   row order, family, and touch-grid lane membership. It is consumed by
   `ReplicaKeypadLayout` and `CalculatorKeyView`, not exported by the native
@@ -100,7 +109,8 @@ The Kotlin shell currently accepts input from four paths:
 
 - on-screen keys built by `ReplicaKeypadLayout`
 - accessibility click activation on those same key views once they hold focus
-- physical keyboard mappings handled in `MainActivity`
+- physical keyboard mappings handled by `PhysicalKeyboardInputController`,
+  `PhysicalKeyboardMapper`, and `PhysicalKeyboardBindingTables`
 - display long-press actions coordinated by `DisplayActionController`
 - PiP touch mapping handled by `ReplicaOverlay`
 

@@ -110,6 +110,10 @@ The native side provides two arrays:
 - style roles, layout classes, scene flags, overlay state, and show-value
   fields used by the Android renderer
 
+That fixed metadata-lane decoding stays local to the snapshot model. Other
+Android layers should consume the named `KeypadSnapshot` fields rather than
+re-indexing raw metadata offsets.
+
 The snapshot also preserves softmenu paging state, dotted-row state, function
 preview state, and per-key enabled state. Android should consume those fields,
 not recreate them from label text.
@@ -187,12 +191,14 @@ rather than from a copied GTK screen layout.
 
 ## Per-key renderer
 
-Each key is a `CalculatorKeyView`. The view combines a painted key surface,
-label views, and softkey-specific drawing logic.
+Each key is a `CalculatorKeyView`. Main keys keep their painted key surface,
+label views, faceplate placement, and body-geometry rules there.
 
 Softkeys stay on a dedicated function-key renderer path because the native
 scene contract carries reverse-video, overlay, preview, and value-state rules
-that the main-key path does not.
+that the main-key path does not. `CalculatorSoftkeyPainter` owns that
+softkey-only drawing and content-description path while `CalculatorKeyView`
+continues to decide whether a key is on the main-key or function-key branch.
 
 It renders:
 
@@ -208,8 +214,10 @@ For alpha-mode main keys, the same view applies the exported
 the spacer width reserved, so the scene-driven alpha legends stay centered on
 the canonical painted key body rather than on the full cell width.
 
-Main keys and softkeys share one view class, but the renderer separates the
-layout slot from the painted body geometry.
+Main keys and softkeys still share one view class, but the seam is explicit:
+`CalculatorKeyView` owns main-key geometry and `CalculatorSoftkeyPainter`
+owns softkey text, overlays, value display, preview accents, and related
+content descriptions.
 
 Current native key-surface contract:
 

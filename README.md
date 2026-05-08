@@ -4,6 +4,10 @@
 R47 Android packages the R47 calculator for Android on top of the authoritative
 upstream C47 core from https://gitlab.com/rpncalculators/c43.git.
 
+At runtime the app renders one scene-driven 43-key keypad from native snapshot
+data and accepts both on-screen and external-keyboard input against that same
+calculator state.
+
 This repository contains:
 
 - the Android app under `android/`
