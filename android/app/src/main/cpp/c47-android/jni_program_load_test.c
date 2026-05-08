@@ -107,6 +107,45 @@ Java_com_example_r47_ProgramLoadTestBridge_seedSpiralkInputNative(
 }
 
 JNIEXPORT void JNICALL
+Java_com_example_r47_ProgramLoadTestBridge_forceRefreshNative(
+    JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+  r47_force_refresh();
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_r47_ProgramLoadTestBridge_setRedrawFlagForTestNative(
+    JNIEnv *env, jobject thiz, jboolean enabled) {
+  (void)env;
+  (void)thiz;
+
+  if (!ram) {
+    return;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  reDraw = enabled == JNI_TRUE;
+  pthread_mutex_unlock(&screenMutex);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_ProgramLoadTestBridge_isRedrawFlagSetForTestNative(
+    JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  if (!ram) {
+    return JNI_FALSE;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  jboolean enabled = reDraw ? JNI_TRUE : JNI_FALSE;
+  pthread_mutex_unlock(&screenMutex);
+  return enabled;
+}
+
+JNIEXPORT void JNICALL
 Java_com_example_r47_ProgramLoadTestBridge_resetRuntimeNative(
     JNIEnv *env, jobject thiz) {
   (void)env;

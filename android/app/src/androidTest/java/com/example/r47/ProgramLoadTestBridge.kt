@@ -23,6 +23,16 @@ object ProgramLoadTestBridge {
 
     fun seedSpiralkInput(): Boolean = seedSpiralkInputNative()
 
+    fun forceRefresh() {
+        forceRefreshNative()
+    }
+
+    fun setRedrawFlagForTest(enabled: Boolean) {
+        setRedrawFlagForTestNative(enabled)
+    }
+
+    fun isRedrawFlagSetForTest(): Boolean = isRedrawFlagSetForTestNative()
+
     fun resetRuntime() {
         resetRuntimeNative()
     }
@@ -74,6 +84,9 @@ object ProgramLoadTestBridge {
     private external fun isRuntimeReadyNative(): Boolean
     private external fun seedLargeFactorsInputNative(): Boolean
     private external fun seedSpiralkInputNative(): Boolean
+    private external fun forceRefreshNative()
+    private external fun setRedrawFlagForTestNative(enabled: Boolean)
+    private external fun isRedrawFlagSetForTestNative(): Boolean
     private external fun resetRuntimeNative()
     private external fun sendSimFunctionNative(funcId: Int)
     private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)
