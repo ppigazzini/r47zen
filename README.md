@@ -4,16 +4,9 @@
 R47 Android packages the R47 calculator for Android on top of the authoritative
 upstream C47 core from https://gitlab.com/rpncalculators/c43.git.
 
-At runtime the app renders one scene-driven 43-key keypad from native snapshot
-data and accepts both on-screen and external-keyboard input against that same
-calculator state.
-
-This repository contains:
-
-- the Android app under `android/`
-- the Android-owned native bridge under `android/app/src/main/cpp/c47-android`
-- build and sync automation under `scripts/`
-- maintainer documentation under `android/docs/dev/`
+This repo owns the Android app under `android/`, the Android bridge under
+`android/app/src/main/cpp/c47-android`, repo-only build and sync automation
+under `scripts/`, and maintainer docs under `android/docs/dev/`.
 
 ## Quick Start
 

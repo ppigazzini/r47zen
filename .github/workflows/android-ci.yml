@@ -13,6 +13,9 @@ on:
 permissions:
   contents: read
 
+env:
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -30,18 +33,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-
-      - name: Load shared Android defaults
-        id: defaults
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          . ./android/r47-defaults.properties
-
-          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
 
       - name: Resolve latest upstream core
         id: resolve
@@ -282,7 +273,6 @@ jobs:
 
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "gradle_version=$R47_DEFAULT_ANDROID_GRADLE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
@@ -329,9 +319,8 @@ jobs:
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
-          gradle-version: ${{ steps.defaults.outputs.gradle_version }}
           cache-provider: basic
-          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/github_ci' }}
 
       - name: Select writable Android SDK root
         shell: bash
@@ -599,7 +588,6 @@ jobs:
 
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "gradle_version=$R47_DEFAULT_ANDROID_GRADLE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
@@ -646,9 +634,8 @@ jobs:
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
-          gradle-version: ${{ steps.defaults.outputs.gradle_version }}
           cache-provider: basic
-          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/github_ci' }}
 
       - name: Select writable Android SDK root
         shell: bash
@@ -688,7 +675,9 @@ jobs:
             ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.defaults.outputs.build_tools_version }}
             ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.defaults.outputs.cmake_version }}
             ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}
-          key: ${{ runner.os }}-android-sdk-${{ steps.defaults.outputs.compile_sdk }}-${{ steps.defaults.outputs.build_tools_version }}-${{ steps.defaults.outputs.cmake_version }}-${{ steps.defaults.outputs.ndk_version }}-v1
+            ${{ steps.android-sdk.outputs.sdk_root }}/emulator
+            ${{ steps.android-sdk.outputs.sdk_root }}/system-images/android-${{ steps.defaults.outputs.android_test_api_level }}/default/x86_64
+          key: ${{ runner.os }}-android-sdk-${{ steps.defaults.outputs.compile_sdk }}-${{ steps.defaults.outputs.build_tools_version }}-${{ steps.defaults.outputs.cmake_version }}-${{ steps.defaults.outputs.ndk_version }}-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-v2
 
       - name: Install Android SDK packages
         if: steps.android-sdk-cache.outputs.cache-hit != 'true'
@@ -700,7 +689,9 @@ jobs:
             "platforms;android-${{ steps.defaults.outputs.compile_sdk }}" \
             "build-tools;${{ steps.defaults.outputs.build_tools_version }}" \
             "cmake;${{ steps.defaults.outputs.cmake_version }}" \
-            "ndk;${{ steps.defaults.outputs.ndk_version }}"
+            "ndk;${{ steps.defaults.outputs.ndk_version }}" \
+            "emulator" \
+            "system-images;android-${{ steps.defaults.outputs.android_test_api_level }};default;x86_64"
 
       - name: Make scripts executable
         shell: bash
@@ -848,6 +839,15 @@ jobs:
             -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
             2>&1 | tee ../ci-artifacts/logs/android-test-debug-unit.log
 
+      - name: Restore Android emulator AVD cache
+        id: avd-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: ${{ runner.os }}-android-avd-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-pixel_7-v1
+
       - name: Enable KVM access for Android emulator
         shell: bash
         run: |
@@ -857,6 +857,21 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Create Android emulator snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: ReactiveCircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        with:
+          api-level: ${{ steps.defaults.outputs.android_test_api_level }}
+          target: default
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: false
+          emulator-boot-timeout: 900
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          working-directory: ./android
+          script: echo "Generated Android emulator snapshot."
+
       - name: Run Android instrumentation tests on emulator
         uses: ReactiveCircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
         with:
@@ -864,9 +879,10 @@ jobs:
           target: default
           arch: x86_64
           profile: pixel_7
+          force-avd-creation: false
           emulator-boot-timeout: 900
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           working-directory: ./android
           script: >-
             bash --noprofile --norc -c 'set -euo pipefail;

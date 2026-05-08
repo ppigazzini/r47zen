@@ -30,17 +30,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Load shared Android defaults
-        id: defaults
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          . ./android/r47-defaults.properties
-
-          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
-
       - name: Resolve latest upstream core
         id: resolve
         shell: bash
@@ -337,7 +326,11 @@ jobs:
 
           "$package_dir/glib-compile-schemas.exe" "$package_dir/share/glib-2.0/schemas"
           "$package_dir/gio-querymodules.exe" "$package_dir/lib/gio/modules"
-          cp "$package_dir/c47.cmd" "$package_dir/r47.cmd"
+
+          # Stage the repo-owned launchers so hosted artifacts inherit the
+          # default portrait startup contract from .github/project/.
+          cp ./.github/project/windows-launchers/c47.cmd "$package_dir/c47.cmd"
+          cp ./.github/project/windows-launchers/r47.cmd "$package_dir/r47.cmd"
 
           printf 'Stripped executable sizes:\n'
           stat -c '%n %s' "$package_dir/c47.exe" "$package_dir/r47.exe"
@@ -375,6 +368,7 @@ jobs:
           windows_gtk_runtime_dirs=etc/gtk-3.0,lib/gdk-pixbuf-2.0,lib/gio/modules,lib/gtk-3.0,share/glib-2.0/schemas,share/gtk-3.0,share/icons/Adwaita,share/icons/hicolor,share/mime,share/themes
           windows_gtk_runtime_tools=glib-compile-schemas.exe,gio-querymodules.exe,gtk-query-immodules-3.0.exe,gdk-pixbuf-query-loaders.exe
           windows_runtime_launcher_files=c47.cmd,r47.cmd
+          windows_runtime_launcher_default_args=--portrait
           windows_dll_inventory_file=repo-notices/windows/WINDOWS-RUNTIME-DLLS.txt
           windows_dll_notice_summary_file=repo-notices/windows/WINDOWS-DLL-NOTICES.txt
           windows_dll_notice_dir=repo-notices/windows/licenses

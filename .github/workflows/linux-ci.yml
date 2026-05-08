@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -30,18 +33,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-
-      - name: Load shared Android defaults
-        id: defaults
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          . ./android/r47-defaults.properties
-
-          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
 
       - name: Resolve latest upstream core
         id: resolve
