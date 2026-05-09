@@ -1,5 +1,7 @@
 package com.example.r47
 
+import android.content.Context
+
 internal object KeypadRefreshPolicy {
     const val ENABLE_UNCHANGED_SNAPSHOT_SKIP = true
 }
@@ -32,7 +34,7 @@ internal class KeypadSnapshotRefreshGate {
 }
 
 internal class ReplicaOverlayController(
-    private val activity: MainActivity,
+    private val context: Context,
     private val overlay: ReplicaOverlay,
     private val performHapticClick: () -> Unit,
     private val offerCoreTask: (Runnable) -> Unit,
@@ -42,9 +44,16 @@ internal class ReplicaOverlayController(
     private val isRuntimeReady: () -> Boolean,
     private val refreshGate: KeypadSnapshotRefreshGate = KeypadSnapshotRefreshGate(),
 ) {
+    private var pendingGeometrySceneReplay = false
+    private var geometrySceneReplayPosted = false
+
     fun bindOverlay() {
         overlay.onPiPKeyEvent = { code ->
             offerCoreTask(Runnable { sendKey(code) })
+        }
+        overlay.onGeometryLaidOut = {
+            ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout(overlay)
+            schedulePendingGeometrySceneReplay()
         }
     }
 
@@ -62,37 +71,80 @@ internal class ReplicaOverlayController(
     fun applyChromeMode(mode: String) {
         overlay.setChromeMode(mode)
         rebuildInteractiveZones(mode)
-        if (isRuntimeReady() && mode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
-            refreshDynamicKeys()
-        }
+        markGeometryChange()
+    }
+
+    fun applyScalingMode(mode: String) {
+        overlay.setScalingMode(mode)
+        markGeometryChange()
     }
 
     fun currentKeypadSnapshot(meta: IntArray? = null): KeypadSnapshot {
         val resolvedMeta = meta ?: getKeypadMetaNative(true)
-        return KeypadSnapshot.fromNative(
-            resolvedMeta,
-            getKeypadLabelsNative(true),
-        )
+        return KeypadSnapshot.fromNative(resolvedMeta, getKeypadLabelsNative(true))
     }
 
     fun refreshDynamicKeys(snapshot: KeypadSnapshot? = null) {
+        refreshDynamicKeys(snapshot = snapshot, forceApply = false)
+    }
+
+    fun refreshDynamicKeys(snapshot: KeypadSnapshot? = null, forceApply: Boolean = false) {
         val resolvedSnapshot = snapshot ?: currentKeypadSnapshot()
-        if (!refreshGate.shouldApply(resolvedSnapshot)) {
+        if (!forceApply && !refreshGate.shouldApply(resolvedSnapshot)) {
             return
         }
+        if (forceApply) {
+            refreshGate.reset()
+        }
         ReplicaKeypadLayout.updateDynamicKeys(overlay, resolvedSnapshot)
+    }
+
+    fun onHostResumed() {
+        if (!pendingGeometrySceneReplay) {
+            return
+        }
+
+        overlay.requestLayout()
+        overlay.invalidate()
     }
 
     private fun rebuildInteractiveZones(chromeMode: String) {
         refreshGate.reset()
         ReplicaKeypadLayout.rebuild(
-            activity = activity,
+            context = context,
             overlay = overlay,
             chromeMode = chromeMode,
             performHapticClick = performHapticClick,
             dispatchKey = ::dispatchKey,
             initialSnapshotProvider = { currentKeypadSnapshot() },
         )
+    }
+
+    private fun markGeometryChange() {
+        pendingGeometrySceneReplay = true
+        refreshGate.reset()
+    }
+
+    private fun schedulePendingGeometrySceneReplay() {
+        if (!pendingGeometrySceneReplay || geometrySceneReplayPosted) {
+            return
+        }
+
+        geometrySceneReplayPosted = true
+        overlay.post {
+            geometrySceneReplayPosted = false
+            if (!pendingGeometrySceneReplay || !isRuntimeReady()) {
+                return@post
+            }
+
+            val snapshot = currentKeypadSnapshot()
+            if (snapshot.sceneContractVersion <= 0) {
+                return@post
+            }
+
+            pendingGeometrySceneReplay = false
+            refreshDynamicKeys(snapshot = snapshot, forceApply = true)
+        }
     }
 
     private fun dispatchKey(keyCode: Int) {

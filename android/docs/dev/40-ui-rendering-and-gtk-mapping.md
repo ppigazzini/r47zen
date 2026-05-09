@@ -93,15 +93,19 @@ frame boundary while still having different owners.
 
 ## Keypad conversion model
 
-The rendered keypad path is scene-driven. Android does not poll per-label text
-from separate bridge calls. `r47_texture` still keeps invisible image-backed
-touch zones, but those zones now come from the same normalized touch-cell map
-used by the rendered shells.
+The rendered keypad path is scene-driven. `r47_texture` still keeps invisible
+image-backed touch zones, but those zones now come from the same normalized
+touch-cell map used by the rendered shells.
 
 The native side provides two arrays:
 
 - keypad metadata
 - keypad labels
+
+Android currently reads those arrays through separate JNI bridge calls and
+decodes them directly into `KeypadSnapshot` on the Kotlin side. Label
+placement and faceplate offset correction are separate layout concerns owned by
+the view layer, not by snapshot decoding.
 
 `KeypadSnapshot.fromNative(...)` converts those arrays into:
 
@@ -213,6 +217,67 @@ For alpha-mode main keys, the same view applies the exported
 `LAYOUT_CLASS_ALPHA` rule by hiding the unused fourth-label text while keeping
 the spacer width reserved, so the scene-driven alpha legends stay centered on
 the canonical painted key body rather than on the full cell width.
+
+Visible faceplate-label geometry now follows an explicit layout-owned contract:
+
+- `ReplicaKeypadLayout.updateDynamicKeys()` ignores snapshots until
+  `sceneContractVersion > 0` and requests layout after scene changes that can
+  alter label widths, visibility, or layout class.
+- `CalculatorKeyView` keeps the `f`/`g` vertical lift and the fourth-label
+  offsets on the fixed painted-body formulas and recomputes those per-key
+  anchors from `onLayout` so label translations follow actual button and label
+  bounds.
+- `ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout()` computes one
+  row-local horizontal `centerShift` for the shared `f`/`g` group in each
+  keypad lane after real overlay layout. The live solver keeps the intragap
+  fixed, bounds each group from five intragaps before the physical left
+  neighbor's right border to five intragaps after the physical right
+  neighbor's left border, and also clamps the first and last visible groups to
+  the smartphone screen's lateral edges with no extra corridor extension beyond
+  `0` and `overlay.width`. It first tries a bounded local move of the current
+  offender, then a
+  bounded whole-row translation, then fixed-step scaling on the longest label
+  of the longest offender, then the other label of that same group if needed,
+  down to the preferred `TOP_F_G_LABEL_MIN_SCALE`, and after each successful
+  scale step restarts from centered defaults before it falls back to stronger
+  horizontal movement. The two labels inside one `f`/`g` group may differ by
+  at most one fixed scale step. If one offending group is already fully reduced
+  on both labels and the mandatory `2 * gap` rule is still broken, the
+  colliding neighboring group becomes the next translation and scale target.
+  `__DEV/R47/compute_top_label_lane_layout.py` remains the owner for this lane
+  policy, and `__DEV/R47/test_top_label_lane_layout.py` plus
+  `DynamicKeypadParityFixtureTest.kt` are the focused maintainer regressions
+  that must move with any rule change, including the hard lateral screen-edge
+  rule. If
+  the row is still unresolved at the preferred minimum, the solver retries
+  translation with preferred-shift-budget overflow before it keeps scaling the
+  current worst offender below that preferred minimum until overlap is cleared.
+  `CalculatorKeyView` applies that horizontal shift and per-label scales.
+- neighboring top-label groups in one lane must keep an inter-group gap of at
+  least twice the measured intragap between the `f` and `g` labels inside one
+  group, each solved group must stay inside that widened neighbor corridor, and
+  the first and last visible groups must stay inside the smartphone screen's
+  left and right lateral edges.
+  The per-key shift budget is preferred positioning guidance only; the solver
+  may exceed it when long labels would otherwise overlap or violate the
+  mandatory `2 * gap` inter-group rule.
+- The fourth label stays on its fixed reference-canvas offsets from the painted
+  body right edge and top edge; there is no runtime vertical lane solver,
+  no stagger level, and no broad runtime scale-down in the live contract.
+
+Any future faceplate-offset change must stay on those fixed formulas and layout
+boundaries. Running label placement from a pre-layout `post { ... }`, a refresh
+callback before layout, or reintroducing vertical solving, staggering, or
+multi-label adaptive scaling recreates the first-run and mode-switch bug where
+labels are wrong until some later UI event replaces the rendered scene.
+
+Renderer process rules for live maintenance:
+
+- if a change affects child size or placement, call `requestLayout()` at the
+  owning view or view-group boundary and replay the scene after the next real
+  layout if the snapshot payload itself is unchanged
+- if a change affects drawing only, call `invalidate()` so underline, color,
+  and text-shaping updates do not wait for the next key event
 
 Main keys and softkeys still share one view class, but the seam is explicit:
 `CalculatorKeyView` owns main-key geometry and `CalculatorSoftkeyPainter`

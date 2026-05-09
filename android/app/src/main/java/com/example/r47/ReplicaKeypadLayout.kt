@@ -1,5 +1,6 @@
 package com.example.r47
 
+import android.content.Context
 import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.View
@@ -9,7 +10,7 @@ internal object ReplicaKeypadLayout {
     private const val SOFTKEY_WIDTH = R47ReferenceGeometry.STANDARD_KEY_WIDTH
     private const val SOFTKEY_HEIGHT = R47ReferenceGeometry.ROW_HEIGHT
     private const val NON_SOFTKEY_VIEW_HEIGHT = R47AndroidChromeGeometry.NON_SOFTKEY_VIEW_HEIGHT
-    private val adaptiveTopLabelLanes = listOf(
+    private val topLabelPlacementLanes = listOf(
         KeypadLane.SMALL_ROW_1,
         KeypadLane.SMALL_ROW_2,
         KeypadLane.ENTER_ROW,
@@ -35,7 +36,7 @@ internal object ReplicaKeypadLayout {
     private val baseTouchZonesByCode = baseTouchZones.associateBy { it.code }
 
     fun rebuild(
-        activity: MainActivity,
+        context: Context,
         overlay: ReplicaOverlay,
         chromeMode: String,
         performHapticClick: () -> Unit,
@@ -44,10 +45,10 @@ internal object ReplicaKeypadLayout {
     ) {
         overlay.removeAllViews()
         if (chromeMode == CHROME_MODE_TEXTURE) {
-            addClassicKeypad(activity, overlay, performHapticClick, dispatchKey)
+            addClassicKeypad(context, overlay, performHapticClick, dispatchKey)
         } else {
             addDynamicKeypad(
-                activity,
+                context,
                 overlay,
                 chromeMode,
                 performHapticClick,
@@ -61,25 +62,28 @@ internal object ReplicaKeypadLayout {
         overlay: ReplicaOverlay,
         snapshot: KeypadSnapshot,
     ) {
+        if (snapshot.sceneContractVersion <= 0) {
+            return
+        }
+
         for (index in 0 until overlay.childCount) {
             val child = overlay.getChildAt(index)
             if (child is CalculatorKeyView) {
                 child.updateLabels(snapshot)
             }
         }
-
-        overlay.post { applyAdaptiveTopLabelPlacements(overlay) }
+        overlay.requestLayout()
     }
 
     private fun addClassicKeypad(
-        activity: MainActivity,
+        context: Context,
         overlay: ReplicaOverlay,
         performHapticClick: () -> Unit,
         dispatchKey: (Int) -> Unit,
     ) {
         for (touchZone in baseTouchZones) {
             addTouchZone(
-                activity = activity,
+                context = context,
                 overlay = overlay,
                 code = touchZone.code,
                 performHapticClick = performHapticClick,
@@ -89,7 +93,7 @@ internal object ReplicaKeypadLayout {
     }
 
     private fun addDynamicKeypad(
-        activity: MainActivity,
+        context: Context,
         overlay: ReplicaOverlay,
         chromeMode: String,
         performHapticClick: () -> Unit,
@@ -97,9 +101,9 @@ internal object ReplicaKeypadLayout {
         initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
         val fonts = KeypadFontSet(
-            standard = loadTypeface(activity, "fonts/C47__StandardFont.ttf"),
-            numeric = loadTypeface(activity, "fonts/C47__NumericFont.ttf"),
-            tiny = loadTypeface(activity, "fonts/C47__TinyFont.ttf"),
+            standard = loadTypeface(context, "fonts/C47__StandardFont.ttf"),
+            numeric = loadTypeface(context, "fonts/C47__NumericFont.ttf"),
+            tiny = loadTypeface(context, "fonts/C47__TinyFont.ttf"),
         )
         val initialSnapshot = initialSnapshotProvider().takeIf {
             it.sceneContractVersion > 0
@@ -139,7 +143,7 @@ internal object ReplicaKeypadLayout {
                 NON_SOFTKEY_VIEW_HEIGHT
             }
             addKey(
-                activity = activity,
+                context = context,
                 overlay = overlay,
                 fonts = fonts,
                 initialSnapshot = initialSnapshot,
@@ -155,11 +159,11 @@ internal object ReplicaKeypadLayout {
         }
 
         if (initialSnapshot != null) {
-            overlay.post { applyAdaptiveTopLabelPlacements(overlay) }
+            overlay.requestLayout()
         }
     }
 
-    private fun applyAdaptiveTopLabelPlacements(overlay: ReplicaOverlay) {
+    internal fun applyTopLabelPlacementsAfterLayout(overlay: ReplicaOverlay) {
         val keyViewsByCode = mutableMapOf<Int, CalculatorKeyView>()
         for (index in 0 until overlay.childCount) {
             val child = overlay.getChildAt(index)
@@ -173,9 +177,16 @@ internal object ReplicaKeypadLayout {
         }
 
         val placementsByCode = mutableMapOf<Int, TopLabelLanePlacement>()
-        for (lane in adaptiveTopLabelLanes) {
-            val laneGroups = KeypadTopology.slotsForLane(lane)
-                .mapNotNull { slot -> keyViewsByCode[slot.code]?.buildTopLabelLaneInput() }
+        for (lane in topLabelPlacementLanes) {
+            val laneSlots = KeypadTopology.slotsForLane(lane)
+            val laneGroups = laneSlots.mapNotNull { slot ->
+                val keyView = keyViewsByCode[slot.code] ?: return@mapNotNull null
+                val slotIndex = laneSlots.indexOf(slot)
+                keyView.buildTopLabelLaneInput(
+                    minLeftEdge = if (slotIndex == 0) 0f else Float.NEGATIVE_INFINITY,
+                    maxRightEdge = if (slotIndex == laneSlots.lastIndex) overlay.width.toFloat() else Float.POSITIVE_INFINITY,
+                )
+            }
             if (laneGroups.isEmpty()) {
                 continue
             }
@@ -188,7 +199,7 @@ internal object ReplicaKeypadLayout {
     }
 
     private fun addKey(
-        activity: MainActivity,
+        context: Context,
         overlay: ReplicaOverlay,
         fonts: KeypadFontSet,
         initialSnapshot: KeypadSnapshot?,
@@ -201,7 +212,7 @@ internal object ReplicaKeypadLayout {
         performHapticClick: () -> Unit,
         dispatchKey: (Int) -> Unit,
     ) {
-        val keyView = CalculatorKeyView(activity)
+        val keyView = CalculatorKeyView(context)
         keyView.setKey(slot, fonts)
         keyView.setDrawKeySurfaces(chromeMode != ReplicaOverlay.CHROME_MODE_BACKGROUND)
         keyView.isClickable = true
@@ -217,7 +228,7 @@ internal object ReplicaKeypadLayout {
         }
         initialSnapshot?.let { keyView.updateLabels(it) }
         addTouchZone(
-            activity = activity,
+            context = context,
             overlay = overlay,
             code = slot.code,
             performHapticClick = performHapticClick,
@@ -236,7 +247,7 @@ internal object ReplicaKeypadLayout {
     }
 
     private fun addTouchZone(
-        activity: MainActivity,
+        context: Context,
         overlay: ReplicaOverlay,
         code: Int,
         performHapticClick: () -> Unit,
@@ -244,7 +255,7 @@ internal object ReplicaKeypadLayout {
         pressedView: View? = null,
     ) {
         val touchZoneSpec = touchZoneFor(code)
-        val touchZone = View(activity).apply {
+        val touchZone = View(context).apply {
             isFocusable = false
             isFocusableInTouchMode = false
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -269,9 +280,9 @@ internal object ReplicaKeypadLayout {
         )
     }
 
-    private fun loadTypeface(activity: MainActivity, assetPath: String): Typeface? {
+    private fun loadTypeface(context: Context, assetPath: String): Typeface? {
         return try {
-            Typeface.createFromAsset(activity.assets, assetPath)
+            Typeface.createFromAsset(context.assets, assetPath)
         } catch (_: Exception) {
             null
         }

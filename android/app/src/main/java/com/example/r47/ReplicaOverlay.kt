@@ -49,6 +49,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     var onPiPKeyEvent: ((Int) -> Unit)? = null
     var onLongPressListener: ((Float, Float) -> Unit)? = null
     var onSettingsTapListener: (() -> Unit)? = null
+    var onGeometryLaidOut: (() -> Unit)? = null
     
     private val gestureDetector: GestureDetector
 
@@ -266,6 +267,8 @@ class ReplicaOverlay @JvmOverloads constructor(
             val top = (projection.offsetY + lp.logicalY * projection.scale).roundToInt()
             child.layout(left, top, left + child.measuredWidth, top + child.measuredHeight)
         }
+
+        onGeometryLaidOut?.invoke()
     }
 
     override fun dispatchDraw(canvas: Canvas) {

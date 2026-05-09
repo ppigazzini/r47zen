@@ -41,8 +41,8 @@ internal object KeyVisualPolicy {
     const val TOP_F_G_LABEL_HORIZONTAL_GAP = 10f
     const val TOP_F_G_LABEL_VERTICAL_LIFT = 86f
     const val TOP_F_G_LABEL_MAX_SHIFT_FRACTION = 0.15f
-    const val TOP_F_G_LABEL_STAGGER_STEP_RATIO = 0.75f
     const val TOP_F_G_LABEL_MIN_SCALE = 0.82f
+    const val TOP_F_G_LABEL_SCALE_STEP = 0.06f
     const val SOFTKEY_DECOR_STROKE_WIDTH = 2f
     const val SOFTKEY_OUTER_INSET = 2f
     const val SOFTKEY_PREVIEW_LINE_SIDE_INSET = 10f
@@ -148,11 +148,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         softkeyValueLightColor = softkeyValueLightColor,
         softkeyPreviewColor = softkeyPreviewColor,
     )
-    private val faceplateOffsetUpdater = Runnable {
-        updateFontSize(currentShiftFOn, currentShiftGOn)
-        updateFaceplateOffsets()
-    }
-
     init {
         // Critical: Allow drawing outside bounds
         clipChildren = false
@@ -240,6 +235,11 @@ class CalculatorKeyView @JvmOverloads constructor(
         updateFaceplateOffsets()
     }
 
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        updateFaceplateOffsets()
+    }
+
     private fun updateFontSize(fOn: Boolean, gOn: Boolean) {
         currentShiftFOn = fOn
         currentShiftGOn = gOn
@@ -250,8 +250,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         val referenceCellToViewWidthScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
         val primarySize = mainKeyStyleSpec(mainKeyState.styleRole).fontSize * referenceCellToViewWidthScale
-        val topLabelTextSize =
-            KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale * topLabelPlacement.scale
+        val topLabelTextSize = KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
         val primaryMaxWidth = primaryLabelMaxWidthPx(referenceCellToViewWidthScale)
 
         primaryLabel.setTextSize(
@@ -259,8 +258,8 @@ class CalculatorKeyView @JvmOverloads constructor(
             fittedTextSizePx(primaryLabel, primarySize, primaryMaxWidth),
         )
         primaryLabel.textScaleX = 1f
-        fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize)
-        gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize)
+        fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize * topLabelPlacement.fScale)
+        gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize * topLabelPlacement.gScale)
         letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, KeyVisualPolicy.FOURTH_LABEL_TEXT_SIZE * referenceCellToViewWidthScale)
     }
 
@@ -314,6 +313,13 @@ class CalculatorKeyView @JvmOverloads constructor(
         return paint.measureText(text)
     }
 
+    private fun textBottomOffset(labelView: TextView, textSize: Float = labelView.textSize): Float {
+        val paint = Paint(labelView.paint)
+        paint.textSize = textSize
+        val metrics = paint.fontMetrics
+        return -metrics.ascent + metrics.descent
+    }
+
     private fun resetLabelLayout() {
         val fParams = fLabel.layoutParams as LayoutParams
         val gParams = gLabel.layoutParams as LayoutParams
@@ -332,12 +338,6 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         fLabel.layoutParams = fParams
         gLabel.layoutParams = gParams
-        scheduleFaceplateOffsetUpdate()
-    }
-
-    private fun scheduleFaceplateOffsetUpdate() {
-        removeCallbacks(faceplateOffsetUpdater)
-        post(faceplateOffsetUpdater)
     }
 
     private fun updateFaceplateOffsets() {
@@ -389,8 +389,10 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
 
         val topLabelTranslationY = -topFgLabelVerticalLift
-        fLabel.translationY = topLabelTranslationY - fLabel.top.toFloat()
-        gLabel.translationY = topLabelTranslationY - gLabel.top.toFloat()
+        val baseTopLabelTextSize = KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
+        val targetTextBottomY = topLabelTranslationY + textBottomOffset(fLabel, baseTopLabelTextSize)
+        fLabel.translationY = targetTextBottomY - textBottomOffset(fLabel) - fLabel.top.toFloat()
+        gLabel.translationY = targetTextBottomY - textBottomOffset(gLabel) - gLabel.top.toFloat()
 
         updateFourthLabelOffset(referenceCellToViewWidthScale)
     }
@@ -415,6 +417,25 @@ class CalculatorKeyView @JvmOverloads constructor(
             (buttonView.right.toFloat() - inset + halfWidthBonus).coerceAtMost(width.toFloat() - inset),
             buttonView.bottom.toFloat() - inset,
         )
+    }
+
+    internal fun currentMainKeyBodyWidthForTest(): Float {
+        if (isFnKey) {
+            return 0f
+        }
+
+        val buttonWidth = buttonView.width.toFloat()
+        if (buttonWidth <= 0f || buttonView.height <= 0) {
+            return 0f
+        }
+
+        val referenceBodyToViewWidthScale = if (designButtonWidth > 0f) {
+            buttonWidth / designButtonWidth
+        } else {
+            1f
+        }
+        updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
+        return mainKeyRect.width()
     }
 
     private fun updateLayoutPositioning(layoutClass: Int) {
@@ -446,7 +467,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         buttonView.layoutParams = buttonParams
         fLabel.layoutParams = fParams
         gLabel.layoutParams = gParams
-        scheduleFaceplateOffsetUpdate()
+        requestLayout()
     }
 
     internal fun setKey(slot: KeypadSlotSpec, fonts: KeypadFontSet) {
@@ -473,8 +494,6 @@ class CalculatorKeyView @JvmOverloads constructor(
             gLabel.visibility = View.VISIBLE
             letterLabel.visibility = View.VISIBLE
             primaryLabel.visibility = View.VISIBLE
-            topLabelPlacement = TopLabelLanePlacement.DEFAULT
-
             lastLayoutClass = null
             resetLabelLayout()
             configureMainKeySurface(slot.family)
@@ -601,7 +620,6 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         buttonView.layoutParams = buttonParams
         letterLabel.layoutParams = letterParams
-        scheduleFaceplateOffsetUpdate()
     }
 
     private fun primaryTypefaceFor(): Typeface? {
@@ -708,7 +726,8 @@ class CalculatorKeyView @JvmOverloads constructor(
             applySceneStyling(keyState)
             applyLabelVisibility(keyState)
             updateFontSize(currentShiftFOn, currentShiftGOn)
-            scheduleFaceplateOffsetUpdate()
+            requestLayout()
+            invalidate()
             contentDescription = buildString {
                 append(keyState.primaryLabel)
                 if (keyState.fLabel.isNotBlank()) {
@@ -723,7 +742,10 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
     }
 
-    internal fun buildTopLabelLaneInput(): TopLabelLaneGroupInput? {
+    internal fun buildTopLabelLaneInput(
+        minLeftEdge: Float = Float.NEGATIVE_INFINITY,
+        maxRightEdge: Float = Float.POSITIVE_INFINITY,
+    ): TopLabelLaneGroupInput? {
         if (isFnKey || width <= 0) {
             return null
         }
@@ -752,22 +774,47 @@ class CalculatorKeyView @JvmOverloads constructor(
         updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
 
         val baseTopLabelTextSize = KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
-        val textWidth = measureTextWidth(fLabel, baseTopLabelTextSize) +
-            if (hasGLabel) measureTextWidth(gLabel, baseTopLabelTextSize) else 0f
+        val fTextWidth = measureTextWidth(fLabel, baseTopLabelTextSize)
+        val gTextWidth = if (hasGLabel) measureTextWidth(gLabel, baseTopLabelTextSize) else 0f
         val gapWidth = if (hasGLabel) {
             KeyVisualPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
         } else {
             0f
         }
-
         return TopLabelLaneGroupInput(
             code = keyCode,
             centerX = left + mainKeyRect.centerX(),
             bodyWidth = mainKeyRect.width(),
-            textWidth = textWidth,
+            fTextWidth = fTextWidth,
+            gTextWidth = gTextWidth,
             gapWidth = gapWidth,
             maxShift = mainKeyRect.width() * KeyVisualPolicy.TOP_F_G_LABEL_MAX_SHIFT_FRACTION,
+            minLeftEdge = minLeftEdge,
+            maxRightEdge = maxRightEdge,
         )
+    }
+
+    internal fun currentMainKeyBodyHorizontalBounds(): Pair<Float, Float>? {
+        if (isFnKey) {
+            return null
+        }
+
+        val buttonWidth = buttonView.width.toFloat()
+        if (buttonWidth <= 0f || buttonView.height <= 0) {
+            return null
+        }
+
+        val referenceBodyToViewWidthScale = if (designButtonWidth > 0f) {
+            buttonWidth / designButtonWidth
+        } else {
+            1f
+        }
+        updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
+        return (left + mainKeyRect.left) to (left + mainKeyRect.right)
+    }
+
+    internal fun hasMeasuredTopLabelAnchors(): Boolean {
+        return width > 0 && buttonView.width > 0 && buttonView.height > 0
     }
 
     internal fun applyTopLabelPlacement(placement: TopLabelLanePlacement?) {
@@ -775,11 +822,23 @@ class CalculatorKeyView @JvmOverloads constructor(
         if (topLabelPlacement == resolvedPlacement) {
             return
         }
+        val scaleChanged =
+            topLabelPlacement.fScale != resolvedPlacement.fScale ||
+                topLabelPlacement.gScale != resolvedPlacement.gScale
         topLabelPlacement = resolvedPlacement
-        updateFontSize(currentShiftFOn, currentShiftGOn)
-        scheduleFaceplateOffsetUpdate()
+        if (scaleChanged) {
+            updateFontSize(currentShiftFOn, currentShiftGOn)
+            requestLayout()
+        } else {
+            updateFaceplateOffsets()
+        }
+        invalidate()
     }
-    
+
+    internal fun currentTopLabelPlacementForTest(): TopLabelLanePlacement {
+        return topLabelPlacement
+    }
+
     override fun setPressed(pressed: Boolean) {
         super.setPressed(pressed)
         invalidate()

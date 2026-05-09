@@ -226,7 +226,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         replicaOverlay = binding.replicaOverlay
         replicaOverlayController = ReplicaOverlayController(
-            activity = this,
+            context = this,
             overlay = replicaOverlay,
             performHapticClick = hapticFeedbackController::performClick,
             offerCoreTask = ::offerCoreTask,
@@ -245,7 +245,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             syncAudioSettings = ::syncAudioSettings,
             applyLcdMode = ::applyLcdMode,
             applyChromeMode = replicaOverlayController::applyChromeMode,
-            applyScalingMode = replicaOverlay::setScalingMode,
+            applyScalingMode = replicaOverlayController::applyScalingMode,
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
             normalizeChromeMode = replicaOverlayController::normalizeChromeMode,
         )
@@ -313,6 +313,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     override fun onResume() {
         super.onResume()
         coreRuntime.requestForceRefresh()
+        replicaOverlayController.onHostResumed()
         storageAccessCoordinator.handleResume()
     }
 

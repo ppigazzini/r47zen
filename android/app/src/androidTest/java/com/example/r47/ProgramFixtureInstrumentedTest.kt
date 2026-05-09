@@ -198,27 +198,30 @@ class ProgramFixtureInstrumentedTest {
         var sawWaiting = false
         var sawView = false
         var sawLcdRefresh = false
-        var sentResumeKey = false
+        var wasPaused = false
 
         val completed = waitUntil(fixture.scenario.timeoutMs) {
             val state = ProgramLoadTestBridge.snapshotState()
             if (state.currentLocalStepNumber > maxStep) {
                 maxStep = state.currentLocalStepNumber
             }
-            sawPause = sawPause || state.programRunStop == PGM_PAUSED
+            val isPaused = state.programRunStop == PGM_PAUSED
+            sawPause = sawPause || isPaused
             sawWaiting = sawWaiting || state.programRunStop == PGM_WAITING
             sawView = sawView || state.temporaryInformation == TI_VIEW_REGISTER
             sawLcdRefresh = sawLcdRefresh || state.lcdRefreshCount > 0
 
-            if (state.programRunStop == PGM_PAUSED &&
-                fixture.scenario.resumePauseWithZeroKey &&
-                !sentResumeKey
+            if (
+                isPaused &&
+                !wasPaused &&
+                fixture.scenario.pauseResumePolicy == PauseResumePolicy.RESUME_ZERO_ON_PAUSE_EDGE
             ) {
                 ProgramLoadTestBridge.sendSimKey("00", isFn = false, isRelease = false)
                 SystemClock.sleep(PAUSE_RESUME_SETTLE_MS)
                 ProgramLoadTestBridge.sendSimKey("00", isFn = false, isRelease = true)
-                sentResumeKey = true
             }
+
+            wasPaused = isPaused
 
             state.lastErrorCode != ERROR_NONE || !ProgramLoadTestBridge.isSimFunctionRunning()
         }
@@ -348,13 +351,18 @@ class ProgramFixtureInstrumentedTest {
     private data class ProgramFixtureScenario(
         val fileName: String,
         val timeoutMs: Long,
-        val resumePauseWithZeroKey: Boolean,
+        val pauseResumePolicy: PauseResumePolicy,
         val seedMode: SeedMode,
     )
 
     private enum class SeedMode {
         NONE,
         SPIRALK_J_EQUALS_2,
+    }
+
+    private enum class PauseResumePolicy {
+        NONE,
+        RESUME_ZERO_ON_PAUSE_EDGE,
     }
 
     companion object {
@@ -377,25 +385,25 @@ class ProgramFixtureInstrumentedTest {
             ProgramFixtureScenario(
                 fileName = "BinetV3.p47",
                 timeoutMs = RUN_TIMEOUT_MS,
-                resumePauseWithZeroKey = false,
+                pauseResumePolicy = PauseResumePolicy.NONE,
                 seedMode = SeedMode.NONE,
             ),
             ProgramFixtureScenario(
                 fileName = "GudrmPL.p47",
                 timeoutMs = RUN_TIMEOUT_MS,
-                resumePauseWithZeroKey = false,
+                pauseResumePolicy = PauseResumePolicy.NONE,
                 seedMode = SeedMode.NONE,
             ),
             ProgramFixtureScenario(
                 fileName = "NQueens.p47",
                 timeoutMs = RUN_TIMEOUT_MS,
-                resumePauseWithZeroKey = false,
+                pauseResumePolicy = PauseResumePolicy.NONE,
                 seedMode = SeedMode.NONE,
             ),
             ProgramFixtureScenario(
                 fileName = "SPIRALk.p47",
                 timeoutMs = RUN_TIMEOUT_MS,
-                resumePauseWithZeroKey = true,
+                pauseResumePolicy = PauseResumePolicy.RESUME_ZERO_ON_PAUSE_EDGE,
                 seedMode = SeedMode.SPIRALK_J_EQUALS_2,
             ),
         )

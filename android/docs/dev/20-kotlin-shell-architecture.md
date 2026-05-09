@@ -28,13 +28,15 @@ engine loop.
   normalized shared keypad touch grid, LCD projection, the classic
   `r47_texture` image-backed shell, the full scene-driven key views used by
   `native`, the scene-driven label overlay used by `r47_background`, the
-  shared settings-entry strip, and the PiP interaction surface.
+  shared settings-entry strip, the startup scene-contract guard for dynamic
+  keypad refresh, and the PiP interaction surface.
 - `KeypadTopology`: owns the Android-local 43-key row, lane, and family
   contract used by layout, touch-grid row membership, and per-key family
   policy.
 - `CalculatorKeyView` and `CalculatorSoftkeyPainter`: keep the per-key drawing
   split honest. `CalculatorKeyView` owns main-key geometry, faceplate layout,
-  and painted-body placement, while `CalculatorSoftkeyPainter` owns the
+  faceplate-offset recomputation after key layout, and painted-body placement,
+  while `CalculatorSoftkeyPainter` owns the
   dedicated softkey drawing, overlay, and content-description path.
 - `PhysicalKeyboardInputController`, `PhysicalKeyboardMapper`, and
   `PhysicalKeyboardBindingTables`: own external-keyboard interception,
@@ -73,10 +75,58 @@ Main flow:
 2. `NativeCoreRuntime` serializes native work on the core thread.
 3. The frame callback pulls LCD pixels and keypad metadata from native code.
 4. `MainActivity.currentKeypadSnapshot()` converts native keypad arrays into a
-   `KeypadSnapshot`.
-5. `ReplicaOverlay` and `CalculatorKeyView` redraw from that snapshot.
+  `KeypadSnapshot`.
+5. `ReplicaKeypadLayout` ignores snapshots until `sceneContractVersion > 0`,
+  requests layout after scene changes, and `CalculatorKeyView` recomputes its
+  fixed faceplate offsets from `onLayout` before the shell redraws.
 
 This keeps the UI reactive while the engine remains on one native execution path.
+
+Visible keypad-label placement keeps fixed per-key geometry plus one
+row-local horizontal solve for the shared `f`/`g` group. If a geometry
+decision depends on button bounds or neighboring keys in the same keypad lane,
+keep it tied to the measured reference-canvas formulas in
+`CalculatorKeyView` and only apply the row-local horizontal `centerShift`
+after the overlay has a real layout. Neighboring `f`/`g` groups in the same
+lane must keep an inter-group gap of at least `2 *` the measured intragap used
+inside one `f`/`g` pair, and no group may cross the neighboring key border by
+more than five intragaps. Each group therefore owns one explicit horizontal
+corridor: from five intragaps before the physical left neighbor's right border
+to five intragaps after the physical right neighbor's left border. The first
+and last visible groups in a lane also carry hard lateral bounds from
+`ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout()`: they must stay
+inside the `0 .. overlay.width` smartphone screen edges with no extra corridor
+extension beyond those outer sides. The per-key
+horizontal shift budget is a preferred placement budget, not a hard
+overlap-permitting limit. The live row solver now keeps the intragap fixed and
+runs in stages: first try a bounded local move of the current offender, then a
+bounded whole-row translation, then fixed-step scale-down on the longest label
+of the longest offender, then fixed-step scale-down on the other label if that
+same group is still the worst offender down to the preferred
+`TOP_F_G_LABEL_MIN_SCALE`, while keeping vertical placement fixed.
+`__DEV/R47/compute_top_label_lane_layout.py` is the owner for this lane policy,
+and `__DEV/R47/test_top_label_lane_layout.py` plus
+`DynamicKeypadParityFixtureTest.kt` lock the focused Python and Kotlin
+regressions to the same contract, including the hard outer screen-edge rule. The two
+labels inside one `f`/`g` group may differ by at most one fixed scale step.
+After any successful scale step, the row solve restarts from centered defaults
+so non-offending groups do not stay shifted. If one offending group is already
+fully reduced on both labels and the mandatory `2 * gap` inter-group rule is
+still broken, the colliding neighboring group becomes the next translation and
+scale target. If the row is still unresolved at the preferred minimum, the
+solver retries translation with preferred-shift-budget overflow before it keeps
+scaling the current worst offender below that minimum.
+inter-group gap and the neighbor-border limit, only then may the solver exceed
+the preferred shift budget. Do not reintroduce
+vertical staggering, broad multi-label adaptive scaling, or pre-contract
+snapshot rendering.
+
+Layout-affecting preference changes now follow an explicit renderer process:
+
+- geometry change: request layout, reset the unchanged-snapshot skip, and replay
+  the current scene after the next real overlay layout
+- draw-only content change: invalidate the affected view so paint-flag and text
+  updates redraw immediately
 
 `NativeCoreRuntime` is also the place where LCD refresh cadence and keypad
 metadata polling stay coordinated, so do not duplicate refresh loops elsewhere
