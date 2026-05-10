@@ -63,7 +63,8 @@ upstream commit and applies a release gate:
   `scripts/upstream-sync/upstream.sh resolve --latest`
 - `upstream-release-gate` decides whether the downstream lanes should run and,
   for scheduled executions, skips the release path when the resolved upstream
-  commit already has a matching release tag in this repository
+  commit plus the current Android repository commit already has a matching
+  Android prerelease tag in this repository
 
 ## Job graph
 
@@ -98,7 +99,8 @@ It:
 - verifies that retired app-module native snapshot paths stay absent and that
   staging remains build-only under `android/.staged-native/cpp`
 - collects packaging evidence for the debug APK
-- uploads the build log and packaging artifacts
+- uploads the build log and the Android packaging artifact bundle
+  `r47-android-<upstream short>-<android short>`
 
 This lane is the canonical reference for the full Android debug-build contract.
 
@@ -115,7 +117,8 @@ It:
 - creates or restores an `x86_64` emulator snapshot
 - runs `:app:connectedDebugAndroidTest` with the temporary ABI override from
   `r47.abiFilters`
-- uploads logs plus JVM and instrumentation reports
+- uploads logs plus JVM and instrumentation reports in the Android test artifact
+  bundle `r47-android-tests-<upstream short>-<android short>`
 
 The hosted instrumentation lane currently relies on two distinct Android-owned
 contracts:
@@ -137,7 +140,9 @@ This job runs only on `main` after the release gate passes and all required
 verification jobs succeed.
 
 It downloads the packaged Android artifacts, archives the packaging evidence,
-and publishes the main-branch snapshot prerelease.
+and publishes the main-branch snapshot prerelease tagged
+`r47-android-<upstream short>-<android short>` with the same template used for
+the release title.
 
 ## Shared CI inputs
 
@@ -160,6 +165,11 @@ The workflow publishes three main artifact classes:
 - Android build logs from the packaging lane
 - debug APK packaging evidence and compliance outputs
 - Android JVM and instrumentation test reports and logs
+
+Android artifact names use the two-commit Android identity
+`upstream short + Android short`. Linux and Windows simulator package workflows
+stay upstream-only because they ship the synced core without the Android
+overlay.
 
 The build lane also records packaging metadata such as expected ABIs and source
 provenance. Packaging-sensitive doc changes should stay aligned with those
@@ -193,5 +203,7 @@ the full build script over isolated Gradle invocations.
   triage when the workflow stops before publishing its logs.
 - Keep emulator-only ABI overrides temporary and scoped to the Android test
   lane.
+- Keep the Android artifact identity separate from the upstream-only simulator
+  package identity.
 - Update this page when job names, release gating, artifact names, or local
   reproduction commands change.

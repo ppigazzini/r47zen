@@ -375,7 +375,9 @@ Build-safety rule:
 6. Gradle packages the debug APK as
   `android/app/build/outputs/apk/debug/app-debug.apk`.
 7. When the caller requests packaging verification, the repo-owned helper
-  `scripts/android/collect_packaging_evidence.sh` copies the artifact and writes ABI,
+  `scripts/android/collect_packaging_evidence.sh` copies that APK to the
+  published Android debug artifact name
+  `r47-android-<upstream short>-<android short>-debug.apk` and writes ABI,
   zipalign, ELF `LOAD` segment, SHA256, and provenance evidence beside it.
 
 ## Local Start-To-End Pipeline
@@ -471,10 +473,17 @@ ownership model as the local build:
 - `publish-main-snapshot` waits for `upstream-simulator-sanity`,
   `android-build-test-package`, and `android-tests` before publishing a
   main-branch prerelease.
-- the uploaded Android artifact contains the debug APK plus `SHA256SUMS.txt`,
-  `abis.txt`, `zipalign.txt`, `elf-load-segments.txt`, and `BUILD-METADATA.txt`.
+- the uploaded Android build artifact uses the stem
+  `r47-android-<upstream short>-<android short>` and contains the packaged
+  debug APK `r47-android-<upstream short>-<android short>-debug.apk` plus
+  `SHA256SUMS.txt`, `abis.txt`, `zipalign.txt`, `elf-load-segments.txt`, and
+  `BUILD-METADATA.txt`.
+- the uploaded Android test artifact uses the stem
+  `r47-android-tests-<upstream short>-<android short>`.
 - pushes to `main` and manual runs on `main` publish a debug-signed prerelease
-  tagged with the upstream short SHA and titled from that same core revision.
+  tagged and titled `r47-android-<upstream short>-<android short>`.
+- Linux and Windows simulator package workflows keep their upstream-only
+  artifact identity because they do not depend on the Android overlay commit.
 
 The CI lane verifies packaged ABIs and 16 KB alignment. It is not a store-release
 lane.
@@ -496,6 +505,9 @@ lane.
   zip alignment, and ELF `LOAD` segment alignment. For release it also accepts a
   bundle, mapping file, and native-symbol archive so provenance can travel with
   the output.
+- For debug packaging, the published Android artifact identity is
+  `r47-android-<upstream short>-<android short>`, and the packaged APK copy is
+  `r47-android-<upstream short>-<android short>-debug.apk`.
 
 ## Verification by change type
 
@@ -523,7 +535,9 @@ lane.
   If `xlsxio_xlsx2csv` is only available in the pinned cache, export the cached
   `~/.cache/r47/xlsxio/<commit>/bin` path first.
 - CI-only changes: verify the touched workflow files against the local build
-  contract and the artifact names described above. When one job needs data from
+  contract and the artifact names described above. Keep Android artifact names
+  on the `upstream short + Android short` rule and keep Linux plus Windows
+  simulator package names upstream-only. When one job needs data from
   another, promote it through `jobs.<job_id>.outputs` and consume it via
   `needs.<job_id>.outputs.*` instead of reading another job's
   `steps.<step_id>.outputs.*`. In the Windows lane, keep any step that runs
@@ -556,5 +570,5 @@ Use `./scripts/android/build_android.sh` after any of the following:
   versions or package identity change.
 - If a change affects both the canonical root tree and the staged Android tree,
   change the canonical owner first and restage the build-only Android tree.
-- Keep artifact naming stable unless the workflow, docs, and release notes all
-  change together.
+- Keep the Android artifact identity and the upstream-only simulator package
+  identity aligned across workflow code, release notes, and docs.

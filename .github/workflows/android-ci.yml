@@ -55,12 +55,18 @@ jobs:
       should_run: ${{ steps.decide.outputs.should_run }}
       release_tag: ${{ steps.decide.outputs.release_tag }}
     steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
       - name: Decide whether to build and publish
         id: decide
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          ANDROID_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
 
@@ -68,8 +74,16 @@ jobs:
             echo "Missing resolved upstream commit." >&2
             exit 1
           fi
+          if [[ -z "$ANDROID_COMMIT" ]]; then
+            echo "Missing Android repository commit." >&2
+            exit 1
+          fi
 
-          release_tag="${UPSTREAM_COMMIT:0:8}"
+          eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
+            --upstream-commit "$UPSTREAM_COMMIT" \
+            --android-commit "$ANDROID_COMMIT")"
+
+          release_tag="$R47_ANDROID_RELEASE_TAG"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
 
           if [[ "$GITHUB_EVENT_NAME" != "schedule" ]]; then
@@ -87,11 +101,11 @@ jobs:
 
           case "$status_code" in
             200)
-              echo "Upstream ${UPSTREAM_COMMIT} already has release tag ${release_tag}; skipping scheduled run."
+              echo "Android snapshot ${release_tag} already has a release tag; skipping scheduled run."
               echo "should_run=false" >> "$GITHUB_OUTPUT"
               ;;
             404)
-              echo "Upstream ${UPSTREAM_COMMIT} is new to this repository; running scheduled release lane."
+              echo "Android snapshot ${release_tag} is new to this repository; running scheduled release lane."
               echo "should_run=true" >> "$GITHUB_OUTPUT"
               ;;
             *)
@@ -446,19 +460,26 @@ jobs:
           set -euo pipefail
 
           upstream_commit="${{ steps.upstream.outputs.upstream_commit }}"
+          android_commit="${{ github.sha }}"
           if [[ -z "$upstream_commit" ]]; then
             echo "Missing synchronized upstream commit metadata." >&2
             exit 1
           fi
+          if [[ -z "$android_commit" ]]; then
+            echo "Missing Android repository commit metadata." >&2
+            exit 1
+          fi
 
-          upstream_short_commit="${upstream_commit:0:8}"
-          artifact_name="r47-android-${upstream_short_commit}"
+          eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
+            --upstream-commit "$upstream_commit" \
+            --android-commit "$android_commit")"
 
-          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$R47_ANDROID_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
+          echo "debug_apk_name=$R47_ANDROID_DEBUG_APK_NAME" >> "$GITHUB_OUTPUT"
 
           if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
-            echo "release_tag=$upstream_short_commit" >> "$GITHUB_OUTPUT"
-            echo "release_title=R47 Android (Core: ${upstream_short_commit})" >> "$GITHUB_OUTPUT"
+            echo "release_tag=$R47_ANDROID_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+            echo "release_title=$R47_ANDROID_RELEASE_TITLE" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build, test, and package Android debug APK
@@ -552,7 +573,7 @@ jobs:
             --variant debug \
             --apk android/app/build/outputs/apk/debug/app-debug.apk \
             --output-dir ci-artifacts/release \
-            --artifact-name R47calculator-debug.apk \
+            --artifact-name "${{ steps.meta.outputs.debug_apk_name }}" \
             --expected-abis arm64-v8a \
             --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
             --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
@@ -786,13 +807,21 @@ jobs:
           set -euo pipefail
 
           upstream_commit="${{ steps.upstream.outputs.upstream_commit }}"
+          android_commit="${{ github.sha }}"
           if [[ -z "$upstream_commit" ]]; then
             echo "Missing synchronized upstream commit metadata." >&2
             exit 1
           fi
+          if [[ -z "$android_commit" ]]; then
+            echo "Missing Android repository commit metadata." >&2
+            exit 1
+          fi
 
-          upstream_short_commit="${upstream_commit:0:8}"
-          echo "artifact_name=r47-android-tests-${upstream_short_commit}" >> "$GITHUB_OUTPUT"
+          eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
+            --upstream-commit "$upstream_commit" \
+            --android-commit "$android_commit")"
+
+          echo "artifact_name=$R47_ANDROID_TEST_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
 
       - name: Prepare Android debug build inputs
         shell: bash
@@ -999,21 +1028,27 @@ jobs:
 
           upstream_commit=$(sed -n 's/^upstream_commit=//p' release-assets/BUILD-METADATA.txt)
           upstream_url=$(sed -n 's/^upstream_url=//p' release-assets/BUILD-METADATA.txt)
+          android_commit=$(sed -n 's/^android_source_commit=//p' release-assets/BUILD-METADATA.txt)
           xlsxio_commit=$(sed -n 's/^xlsxio_commit=//p' release-assets/BUILD-METADATA.txt)
           xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-assets/BUILD-METADATA.txt)
           debug_apk_name=$(sed -n 's/^artifact_name=//p' release-assets/BUILD-METADATA.txt)
+          release_tag="${{ needs.android-build-test-package.outputs.release_tag }}"
           if [[ -z "$debug_apk_name" ]]; then
             echo "BUILD-METADATA.txt did not contain artifact_name." >&2
             exit 1
           fi
           upstream_short_commit="${upstream_commit:0:8}"
+          android_short_commit="${android_commit:0:8}"
           evidence_archive_name="${debug_apk_name%.apk}-packaging-evidence.zip"
 
           cat > release-notes.md <<EOF
+          - Snapshot tag ${release_tag}
           - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
+          - Build Android overlay commit [${android_short_commit}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${android_commit})
 
           This prerelease contains the debug-signed debug APK ${debug_apk_name}
-          built by ./scripts/android/build_android.sh from GitHub commit ${GITHUB_SHA}.
+          built by ./scripts/android/build_android.sh from Android repository
+          commit ${android_commit}.
 
           The calculator core was synchronized from ${upstream_url} at commit
           ${upstream_commit} before the simulator and Android build steps ran.

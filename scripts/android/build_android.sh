@@ -751,6 +751,12 @@ fi
 if [ -z "$SOURCE_COMMIT_OVERRIDE" ]; then
     SOURCE_COMMIT_OVERRIDE=$(git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || true)
 fi
+artifact_metadata_args=(
+    --upstream-commit "${UPSTREAM_SOURCE_COMMIT_OVERRIDE:-}"
+    --android-commit "${SOURCE_COMMIT_OVERRIDE:-}"
+)
+eval "$(bash "$ANDROID_SCRIPTS_DIR/resolve_android_artifact_metadata.sh" "${artifact_metadata_args[@]}")"
+PACKAGED_DEBUG_APK_NAME="$R47_ANDROID_DEBUG_APK_NAME"
 COMPILE_SDK_VALUE=${COMPILE_SDK_OVERRIDE:-$R47_DEFAULT_ANDROID_COMPILE_SDK}
 
 if [ "$ANDROID_ONLY" = false ]; then
@@ -775,7 +781,7 @@ if [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; then
         --variant debug \
         --apk "$ANDROID_PROJECT_DIR/$APK_PATH" \
         --output-dir "$PACKAGING_OUTPUT_DIR" \
-        --artifact-name "R47calculator-debug.apk" \
+        --artifact-name "$PACKAGED_DEBUG_APK_NAME" \
         --expected-abis "$PACKAGING_EXPECTED_ABIS" \
         --android-sdk-root "$ANDROID_SDK_ROOT" \
         --ndk-version "$IF_NDK_VERSION" \
