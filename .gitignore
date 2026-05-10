@@ -1,27 +1,13 @@
-# R47 local ignore rules
+# R47 project rules
 
-# Local Python environment and caches
+# Local maintainer workspace
+/__DEV/
+/upstream.lock
 /.venv/
-__pycache__/
-**/__pycache__/
-**/*.py[cod]
-
-# Local editor and OS state
-/.vscode/
-*.code-workspace
-/.idea/
-*.iml
-.DS_Store
-._*
-.directory
-*~
-.fuse_hidden*
-.nfs*
-Thumbs.db
-[Dd]esktop.ini
 
 # Android / Gradle local state and build outputs
 **/.gradle/
+**/.kotlin/
 **/.cxx/
 **/.externalNativeBuild/
 **/build/
@@ -38,6 +24,15 @@ google-services.json
 **/.assemble-run.log
 **/.help-run.log
 
+# Android build-only staging and retired legacy native snapshot paths
+/android/.staged-native/
+/android/app/src/main/cpp/c47/
+/android/app/src/main/cpp/decNumberICU/
+/android/app/src/main/cpp/generated/
+/android/app/src/main/cpp/gmp/
+/android/app/src/main/cpp/STAGED-SOURCE-MANIFEST.txt
+/android/app/src/main/cpp/staged_native_sources.cmake
+
 # Meson / Ninja out-of-source build trees
 /build/
 /build.sim/
@@ -50,59 +45,39 @@ google-services.json
 /.ninja_log
 /compile_commands.json
 
-# Native compilation artefacts
+# Native compilation artifacts
 **/*.o
 **/*.obj
 **/*.so
 
-# Local generated binaries, archives, and runtime data
-/wp43
-/c47
-/r47
-/testSuite
-/generate*
-/ttf2RasterFonts
-/wp43.exe
-/c47.exe
-/r47.exe
-/testSuite.exe
-/generate*.exe
-/ttf2RasterFonts.exe
-backup.bin
-backup.cfg
-backupR47.cfg
-wp43.sav
-wp43.dat
-c47.sav
-c47.dat
-*.s47
-*.zip
-20*.REGS.TSV
-20*.bmp
-tags
-/SAVFILES/
+# GitLab C43 upstream overlay
+# Ignore every root-level upstream payload, then reopen only repo-owned paths.
+/*
+!/.github/
+!/.gitignore
+!/COPYING
+!/README.md
+!/android/
+!/scripts/
+!/upstream.source
 
-# Optional local-only roots omitted from the public checkout
-/LIBRARY/
-/PROGRAMS/
-/res/
+# General local state
 
-# Public-checkout upstream hydration contract
-/Makefile
-/meson.build
-/meson_options.txt
-/src/
-/dep/
-/docs/code/meson.build
-/subprojects/
-/tools/
-/upstream.lock
+# Python caches
+__pycache__/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Android build-only staging and retired legacy native snapshot paths
-/android/.staged-native/
-/android/app/src/main/cpp/c47/
-/android/app/src/main/cpp/decNumberICU/
-/android/app/src/main/cpp/generated/
-/android/app/src/main/cpp/gmp/
-/android/app/src/main/cpp/STAGED-SOURCE-MANIFEST.txt
-/android/app/src/main/cpp/staged_native_sources.cmake
+# Editor and OS state
+/.vscode/
+*.code-workspace
+/.idea/
+*.iml
+._*
+.directory
+*~
+.fuse_hidden*
+.nfs*
