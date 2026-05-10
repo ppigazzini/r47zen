@@ -474,11 +474,32 @@ jobs:
           R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
           R47_XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
-          GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
+          GRADLE_OPTS: '-Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
           mkdir -p ci-artifacts/logs
           ./scripts/android/build_android.sh --run-sim-tests 2>&1 | tee ci-artifacts/logs/build-android.log
+
+      - name: Run Android lint
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p ci-artifacts/logs
+
+          cd android
+          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+            lint \
+            --no-daemon --stacktrace --console=plain --warning-mode all \
+            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+            -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
+            -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -Pr47.sourceCommit=${{ github.sha }} \
+            -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
+            -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
+            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
+            -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
+            2>&1 | tee ../ci-artifacts/logs/android-lint.log
 
       - name: Verify Android staging stays build-only
         shell: bash
@@ -786,7 +807,7 @@ jobs:
           R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
           R47_XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
-          GRADLE_OPTS: -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
+          GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
         run: |
           set -euo pipefail
 

@@ -238,8 +238,8 @@ def resolveRepoNoticeSourceFile = { Map component ->
 }
 
 android {
-    namespace defaultApplicationId
-    compileSdk project.findProperty('r47.compileSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK')
+    namespace = defaultApplicationId
+    compileSdk = project.findProperty('r47.compileSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK')
     def coreVersion = (project.findProperty('r47.coreVersion') ?: "unknown").toString()
     def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z._-]/, "_")
     def releaseVersionCode = Integer.parseInt((project.findProperty('r47.versionCode') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_CODE')).toString())
@@ -248,31 +248,31 @@ android {
     signingConfigs {
         if (isReleaseSigningConfigured) {
             release {
-                storeFile rootProject.file(releaseStoreFilePath)
-                storePassword releaseStorePassword
-                keyAlias releaseKeyAlias
-                keyPassword releaseKeyPassword
-                enableV1Signing true
-                enableV2Signing true
-                enableV3Signing true
-                enableV4Signing true
+                storeFile = rootProject.file(releaseStoreFilePath)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
             }
         }
     }
 
     defaultConfig {
-        applicationId defaultApplicationId
-        minSdk project.findProperty('r47.minSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_MIN_SDK')
-        targetSdk project.findProperty('r47.targetSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_TARGET_SDK')
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        versionCode releaseVersionCode
-        versionName releaseVersionName
+        applicationId = defaultApplicationId
+        minSdk = project.findProperty('r47.minSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_MIN_SDK')
+        targetSdk = project.findProperty('r47.targetSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_TARGET_SDK')
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
         resValue "string", "about_version_summary", "R47 Android ${releaseVersionName} (Core: ${coreVersion})"
         resValue "string", "android_source_repository_url", androidSourceRepositoryUrl
-        
+
         // Use property override if provided, otherwise default to a verified version
         // To use system default, user can pass -Pr47.ndkVersion=
-        ndkVersion project.findProperty('r47.ndkVersion') ?: readDefaultValue('R47_DEFAULT_ANDROID_NDK_VERSION')
+        ndkVersion = project.findProperty('r47.ndkVersion') ?: readDefaultValue('R47_DEFAULT_ANDROID_NDK_VERSION')
 
         externalNativeBuild {
             cmake {
@@ -287,37 +287,37 @@ android {
 
     buildTypes {
         debug {
-            debuggable true
-            jniDebuggable true
+            debuggable = true
+            jniDebuggable = true
             // Keep the debug snapshot lane separate from a future store release.
-            applicationIdSuffix ".debug"
-            versionNameSuffix "-snapshot.${normalizedCoreVersion}"
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-snapshot.${normalizedCoreVersion}"
         }
         release {
-            minifyEnabled releaseMinifyEnabled
-            shrinkResources releaseShrinkResourcesEnabled
+            minifyEnabled = releaseMinifyEnabled
+            shrinkResources = releaseShrinkResourcesEnabled
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             ndk {
-                debugSymbolLevel releaseNativeDebugSymbolLevel
+                debugSymbolLevel = releaseNativeDebugSymbolLevel
             }
             if (isReleaseSigningConfigured) {
-                signingConfig signingConfigs.release
+                signingConfig = signingConfigs.release
             }
         }
     }
 
     buildFeatures {
-        resValues true
-        viewBinding true
+        resValues = true
+        viewBinding = true
     }
-    
+
     externalNativeBuild {
         cmake {
-            path "src/main/cpp/CMakeLists.txt"
-            version project.findProperty('r47.cmakeVersion') ?: readDefaultValue('R47_DEFAULT_ANDROID_CMAKE_VERSION')
+            path = "src/main/cpp/CMakeLists.txt"
+            version = project.findProperty('r47.cmakeVersion') ?: readDefaultValue('R47_DEFAULT_ANDROID_CMAKE_VERSION')
         }
     }
-    
+
     compileOptions {
         sourceCompatibility JavaVersion.toVersion(readDefaultValue('R47_DEFAULT_ANDROID_JAVA_VERSION'))
         targetCompatibility JavaVersion.toVersion(readDefaultValue('R47_DEFAULT_ANDROID_JAVA_VERSION'))
@@ -332,6 +332,10 @@ android {
 
     testOptions {
         unitTests.includeAndroidResources = true
+    }
+
+    lint {
+        checkDependencies = true
     }
 
 }
@@ -358,20 +362,23 @@ def prepareStagedNativeInputs = tasks.register('prepareStagedNativeInputs', Exec
     description = 'Hydrate missing authoritative native inputs, generate build.sim assets through the Android Meson/Ninja helper, and refresh android/.staged-native/cpp for direct Gradle builds.'
     outputs.upToDateWhen { false }
 
+    def configuredBuildJobs = (project.findProperty('r47.buildJobs') ?: System.getenv('R47_BUILD_JOBS') ?: System.getenv('CMAKE_BUILD_PARALLEL_LEVEL') ?: gradle.startParameter.maxWorkerCount ?: Runtime.runtime.availableProcessors()).toString()
+    def cacheBinDir = new File(System.getProperty('user.home'), ".cache/r47/xlsxio/${xlsxioSourceCommit}/bin")
+    def inheritedPath = System.getenv('PATH')
+    def nativePrepWorkingDir = rootProject.file('..')
+
     doFirst {
-        def requestedBuildJobs = (project.findProperty('r47.buildJobs') ?: System.getenv('R47_BUILD_JOBS') ?: System.getenv('CMAKE_BUILD_PARALLEL_LEVEL') ?: gradle.startParameter.maxWorkerCount ?: Runtime.runtime.availableProcessors()).toString()
-        def cacheBinDir = new File(System.getProperty('user.home'), ".cache/r47/xlsxio/${xlsxioSourceCommit}/bin")
         def pathEntries = []
         if (cacheBinDir.isDirectory()) {
             pathEntries << cacheBinDir.absolutePath
         }
-        if (System.getenv('PATH')) {
-            pathEntries << System.getenv('PATH')
+        if (inheritedPath) {
+            pathEntries << inheritedPath
         }
 
-        workingDir rootProject.file('..')
+        workingDir nativePrepWorkingDir
         environment 'PATH', pathEntries.join(File.pathSeparator)
-        environment 'R47_BUILD_JOBS', requestedBuildJobs
+        environment 'R47_BUILD_JOBS', configuredBuildJobs
         environment 'R47_ANDROID_STAGED_CPP_DIR', stagedNativeCppDir
         commandLine 'bash', nativePrepScript
     }

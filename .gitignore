@@ -34,6 +34,9 @@ Thumbs.db
 *.jks
 *.keystore
 google-services.json
+**/.lint-run.log
+**/.assemble-run.log
+**/.help-run.log
 
 # Meson / Ninja out-of-source build trees
 /build/

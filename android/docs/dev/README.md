@@ -17,6 +17,9 @@ Public maintainer entrypoints:
 - `./scripts/upstream-sync/upstream.sh sync --auto --write-lock` hydrates the
   authoritative upstream core.
 - `./scripts/android/build_android.sh` is the canonical Android debug-build path.
+- `cd android && ./gradlew lint` is the maintained Android Lint lane when
+  Kotlin, Java, manifest, resource, or Android Gradle changes need module-local
+  verification and staged native inputs are already current.
 - `cd android && ./gradlew ...` is the module-local maintenance lane only when
   staged native inputs are already current.
 
@@ -47,11 +50,12 @@ Read in this order:
 The CI workflow keeps the lane split explicit: one lane sanity-checks the
 authoritative upstream simulator core and runs the host workload regression
 harness, one lane builds, tests, and packages Android through
-`./scripts/android/build_android.sh --run-sim-tests`, and a separate Android
-test lane runs JVM tests plus emulator-backed instrumentation that stages and
-loads and runs the canonical `PROGRAMS` fixture matrix for `BinetV3`,
-`GudrmPL`, `NQueens`, and `SPIRALk` through the Android `READP` path. The
-main-branch
+`./scripts/android/build_android.sh --run-sim-tests`, explicitly runs
+`cd android && ./gradlew lint` because normal Gradle builds do not run lint
+automatically, and a separate Android test lane runs JVM tests plus emulator-
+backed instrumentation that stages and loads and runs the canonical `PROGRAMS`
+fixture matrix for `BinetV3`, `GudrmPL`, `NQueens`, and `SPIRALk` through the
+Android `READP` path. The main-branch
 snapshot prerelease publishes only after those jobs pass.
 
 Use `./scripts/android/build_android.sh --doctor` to inspect host and staging

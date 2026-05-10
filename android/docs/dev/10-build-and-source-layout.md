@@ -164,6 +164,11 @@ Public maintainer entrypoints:
 - `cd android && ./gradlew assembleDebug` is appropriate only when the staged
   build-only native tree under `android/.staged-native/cpp` is already current
   and the change is isolated to the Android module.
+- `cd android && ./gradlew lint` is the maintained Android Lint lane when
+  Kotlin, Java, manifest, resource, or Android Gradle files change and the
+  staged build-only native tree is already current. Lint is not run
+  automatically by `assembleDebug`, so CI and local maintainer verification
+  need to call it explicitly.
 - `cd android && ./gradlew :app:bundleRelease` or
 -  `cd android && ./gradlew :app:assembleRelease` is the module-local release
   lane only when the staged build-only native tree is already current. Release
