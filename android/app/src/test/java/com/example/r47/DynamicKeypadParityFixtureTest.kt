@@ -940,6 +940,66 @@ class DynamicKeypadParityFixtureTest {
         assertTrue(keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0)
     }
 
+    @Test
+    fun iteration70_pipExitReplaysSameSnapshotAndRestoresStyledLabel() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val overlay = ReplicaOverlay(activity)
+        val fixture = KeypadFixtureResources.load("static-single-scene")
+        val snapshot = fixture.snapshot()
+        val keyCode = (1..37).first { code ->
+            val state = snapshot.keyStateFor(code)
+            state.fLabel.length >= 3 &&
+                state.labelRole(KeypadSceneContract.LABEL_F) == KeypadSceneContract.TEXT_ROLE_F_UNDERLINE
+        }
+        val keyView = createAttachedMainKeyView(activity, keyCode)
+        val controller = ReplicaOverlayController(
+            context = activity,
+            overlay = overlay,
+            performHapticClick = {},
+            offerCoreTask = {},
+            sendKey = {},
+            getKeypadMetaNative = { fixture.meta.copyOf() },
+            getKeypadLabelsNative = { fixture.labels.copyOf() },
+            isRuntimeReady = { true },
+        )
+        controller.bindOverlay()
+
+        overlay.addReplicaView(keyView, 0f, 0f, 272f, 260f)
+        activity.setContentView(overlay)
+        overlay.measure(exactly(1200), exactly(2400))
+        overlay.layout(0, 0, 1200, 2400)
+
+        controller.refreshDynamicKeys(snapshot)
+        overlay.measure(exactly(1200), exactly(2400))
+        overlay.layout(0, 0, 1200, 2400)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val expectedText = snapshot.keyStateFor(keyCode).fLabel
+        assertEquals(expectedText, keyView.fLabel.text.toString())
+        assertTrue(keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0)
+
+        keyView.fLabel.text = expectedText.take(2)
+        keyView.fLabel.paintFlags = keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG.inv()
+
+        controller.handlePictureInPictureModeChanged(true)
+        overlay.measure(exactly(486), exactly(267))
+        overlay.layout(0, 0, 486, 267)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        controller.handlePictureInPictureModeChanged(false)
+        controller.onHostResumed()
+
+        overlay.measure(exactly(1200), exactly(2400))
+        overlay.layout(0, 0, 1200, 2400)
+        shadowOf(Looper.getMainLooper()).idle()
+        overlay.measure(exactly(1200), exactly(2400))
+        overlay.layout(0, 0, 1200, 2400)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(expectedText, keyView.fLabel.text.toString())
+        assertTrue(keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0)
+    }
+
     private fun createMainKeyView(code: Int): CalculatorKeyView {
         return CalculatorKeyView(ApplicationProvider.getApplicationContext()).apply {
             setKey(

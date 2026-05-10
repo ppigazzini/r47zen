@@ -79,6 +79,13 @@ internal class ReplicaOverlayController(
         markGeometryChange()
     }
 
+    fun handlePictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
+        overlay.setPiPMode(isInPictureInPictureMode)
+        if (!isInPictureInPictureMode) {
+            markGeometryChange()
+        }
+    }
+
     fun currentKeypadSnapshot(meta: IntArray? = null): KeypadSnapshot {
         val resolvedMeta = meta ?: getKeypadMetaNative(true)
         return KeypadSnapshot.fromNative(resolvedMeta, getKeypadLabelsNative(true))

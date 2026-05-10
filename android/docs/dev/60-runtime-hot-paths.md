@@ -114,6 +114,9 @@ if it were visible LCD state.
 - `MainActivity.onResume()` for a normal Settings return must also stay passive
   from the native LCD point of view. The display loop is already running and the
   overlay resume path can handle geometry replay without a native force refresh.
+- PiP mode changes stay UI-side as well. The PiP callback must route through
+  `ReplicaOverlayController` so PiP exit reuses the pending geometry replay
+  path for the current keypad snapshot instead of forcing a native redraw.
 - `r47_force_refresh()` remains the explicit redraw path for real state-change
   owners such as runtime init, state load, and test-owned refresh seams.
 
@@ -132,6 +135,9 @@ corrupts a graph or mixes status text into an otherwise stable LCD snapshot.
   `markGeometryChange()` sets a pending flag, and
   `schedulePendingGeometrySceneReplay()` waits until the next real overlay
   layout before forcing one replay.
+- PiP exit now uses that same contract. The restored full-window shell marks a
+  pending geometry replay and the next real overlay layout reapplies the
+  current scene once.
 - After layout, `applyTopLabelPlacementsAfterLayout(...)` reruns the row-local
   top-label solver only for the visible key views in the affected lanes.
 

@@ -161,7 +161,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             mainHandler = mainHandler,
             onPiPModeChanged = { isInPictureInPictureMode ->
                 Log.i(TAG, "Updating overlay for pipMode=$isInPictureInPictureMode")
-                if (::replicaOverlay.isInitialized) {
+                if (::replicaOverlayController.isInitialized) {
+                    replicaOverlayController.handlePictureInPictureModeChanged(isInPictureInPictureMode)
+                } else if (::replicaOverlay.isInitialized) {
                     replicaOverlay.setPiPMode(isInPictureInPictureMode)
                 }
             },

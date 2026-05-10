@@ -39,6 +39,7 @@ flowchart TD
 | shell geometry and LCD frame | `__DEV/R47/compute_shell_geometry.py`, `R47Geometry.kt` | `__DEV/R47/test_shell_geometry.py` | grouped `__DEV/R47` Python contract scripts |
 | key-label and visual policy constants | `__DEV/R47/compute_key_label_geometry.py`, `compute_key_visual_policy.py`, `CalculatorKeyView.kt` | `test_key_label_geometry.py`, `test_key_visual_policy.py` | grouped `__DEV/R47` Python contract scripts |
 | top-label lane solve and alpha-case label export | `compute_top_label_lane_layout.py`, staged `assign.c` and `items.c`, `jni_display.c`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt` | `test_top_label_lane_layout.py`, `test_keypad_alpha_case_labels.py`, `DynamicKeypadParityFixtureTest.kt` | Python contracts first, then `:app:testDebugUnitTest` |
+| overlay geometry replay for unchanged keypad scenes | `MainActivity.kt`, `ReplicaOverlayController.kt`, `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt` | `DynamicKeypadParityFixtureTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | keypad scene export manifest and decoder | `KeypadSnapshot`, exported keypad fixtures, `jni_display.c` | `KeypadFixtureContractTest.kt`, `KeypadSnapshotDecoderTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt` | `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ReplicaOverlayGoldenTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | physical keyboard mapping | `PhysicalKeyboardMapper`, `PhysicalKeyboardInputController` | `PhysicalKeyboardInputParityTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
@@ -85,7 +86,8 @@ Important contract files include:
 - `KeypadSnapshotDecoderTest.kt`: asserts the fixed metadata-lane decode and
   label fallback behavior of `KeypadSnapshot.fromNative(...)`
 - `DynamicKeypadParityFixtureTest.kt`: locks unchanged-snapshot skip behavior,
-  alpha-layout behavior, and layout-class-sensitive keypad rendering
+  alpha-layout behavior, layout-class-sensitive keypad rendering, and
+  controller-owned same-snapshot replay after PiP exit
 - `ExportedKeypadFixtureRenderTest.kt`: proves exported keypad fixtures apply to
   both main keys and softkeys in the live renderer path
 - `CalculatorSoftkeyPainterContractTest.kt` and

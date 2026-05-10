@@ -78,6 +78,10 @@ keypad all look correct locally but are globally misplaced together.
 - `NativeDisplayRefreshLoop` is the only UI-side poller for LCD and keypad
   state; this page covers ownership while `60-runtime-hot-paths.md` covers the
   cadence and skip gates
+- `ReplicaOverlayController` owns geometry-triggered same-snapshot replay for
+  the keypad path. Scaling changes, chrome-mode changes, and PiP exit mark a
+  geometry change, wait for a real overlay layout boundary, then replay the
+  current scene once.
 - `ReplicaOverlay.updateLcd(...)` compares against the cached pixel buffer,
   computes the smallest changed rectangle, updates the backing `Bitmap`, and
   invalidates only that on-screen region
@@ -216,6 +220,9 @@ Renderer process rules for live maintenance:
 - if a change affects child size or placement, call `requestLayout()` at the
   owning view or view-group boundary and replay the scene after the next real
   layout if the snapshot payload itself is unchanged
+- PiP exit is one of those geometry changes; keep it on the controller-owned
+  replay path instead of repairing labels with direct view tweaks or a native
+  redraw
 - if a change affects drawing only, call `invalidate()` so underline, color,
   and text-shaping updates do not wait for the next key event
 
@@ -367,6 +374,10 @@ drawing the full shell and maps horizontal touches across the LCD surface to the
 six softkeys.
 
 That is an interaction contract, not a reduced copy of the full keypad layout.
+PiP exit is also part of the rendering contract: the raw visual mode switch
+stays in `ReplicaOverlay`, but `ReplicaOverlayController` replays the current
+keypad scene after the restored full-window layout so faceplate-label placement
+returns with the shell instead of waiting for a later UI event.
 
 ## Ownership of rendering decisions
 

@@ -54,7 +54,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | activity and settings coordination | `MainActivity`, `SettingsActivity` | startup, preferences, PiP, intent routing, helper wiring | `50-upstream-interface-surfaces.md` |
 | native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop` | one core thread, one task queue, one UI-side poller | `60-runtime-hot-paths.md` |
-| overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, not the geometry formulas themselves | `40-ui-rendering-and-gtk-mapping.md` |
+| overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `40-ui-rendering-and-gtk-mapping.md` |
 | storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, work-directory policy, slot metadata, save and load ordering | `50-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
 | Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `50-upstream-interface-surfaces.md` |
 
@@ -115,8 +115,10 @@ callbacks.
 - `onDestroy()` stops the shared runtime when the activity is actually
   finishing, and the factory-reset path also clears internal app data after the
   runtime has been told to stop.
-- `onPictureInPictureModeChanged()` switches the overlay between normal shell
-  mode and PiP mode.
+- `onPictureInPictureModeChanged()` routes PiP state through
+  `ReplicaOverlayController`, which switches the overlay between normal shell
+  mode and PiP mode and treats PiP exit as a geometry-replay boundary for the
+  current keypad snapshot.
 
 Activity Result launchers are registered from `MainActivity.onCreate()` through
 `StorageAccessCoordinator.registerLaunchers()`. Helper construction must stay
