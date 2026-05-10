@@ -14,9 +14,10 @@ contract-to-regression map that proves these loops.
 | --- | --- | --- | --- | --- |
 | core-thread coordinator | `NativeCoreRuntime` loop while the app is running; drains tasks, calls `tick()`, then sleeps 10 ms | `NativeCoreRuntime.kt`, `jni_lifecycle.c` | every Android-owned action reaches the core through this loop | blocking work or queue growth stalls native progress |
 | native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle |
-| frame refresh loop | one `Choreographer` callback per UI frame while active; keypad labels force refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c` | this is the continuous UI-side polling loop | extra allocations, extra JNI calls, or duplicate pollers hurt frame time |
-| LCD dirty-rect upload | each accepted LCD update scans `R47LcdContract.PIXEL_COUNT`, uploads pixels, and invalidates the dirty screen region | `ReplicaOverlay.kt` | this runs on the UI thread and touches the full pixel array | full-screen invalidation or repeated bitmap work causes redraw cost spikes |
+| frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling runs through packed-row export and keypad labels refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | extra JNI calls, duplicate pollers, or unnecessary redraw triggers hurt frame time |
+| packed LCD row decode | each accepted LCD update copies only dirty packed rows, decodes them to the bitmap, and invalidates the touched display rows | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
 | keypad scene apply | scene changes update all live key views and may request layout | `ReplicaOverlayController.kt`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt` | keypad labels and layout are the largest recurring view updates outside the LCD | bypassing the refresh gate or forcing layout on unchanged scenes creates churn |
+| lifecycle save and explicit refresh | background save waits on the core thread; explicit redraw remains opt-in for real state changes | `NativeCoreRuntime.kt`, `MainActivity.kt`, `jni_lifecycle.c` | lifecycle callbacks are easy places to hide destructive redraw work | synthetic redraws during passive save or resume mutate the LCD without a real calculator transition |
 | yield and SAF I/O boundary | long native waits release `screenMutex`, service Android work, and reacquire the recursive lock | `android_runtime.c`, `jni_storage.c`, `hal/io.c` | this is the most sensitive re-entrancy boundary in the bridge | deadlock, input races, or missed wakeups stall the app |
 
 ## Runtime Loop Graph
@@ -72,7 +73,8 @@ Changes here affect the full runtime even when the Android UI code is untouched.
 
 - `NativeDisplayRefreshLoop` is the only continuous UI-thread poller for live
   native state.
-- Each `doFrame(...)` call reads the LCD through `getDisplayPixels(...)`, then
+- Each `doFrame(...)` call reads the LCD through `getPackedDisplayBuffer(...)`,
+  forwards the packed rows to `ReplicaOverlay.updatePackedLcd(...)`, then
   requests keypad metadata through `getKeypadMetaNative(...)`.
 - Label refresh work runs only when either of these is true:
   - the keypad metadata differs from the last frame
@@ -83,19 +85,40 @@ Changes here affect the full runtime even when the Android UI code is untouched.
 Do not add a second polling loop for LCD pixels, keypad labels, or scene state.
 That would duplicate the most expensive JNI reads in the shell.
 
-## LCD Dirty-Rect Upload Path
+## Packed LCD Row Decode Path
 
-- `jni_display.c::getDisplayPixels(...)` already short-circuits when
-  `screenDataDirty` is false, so Kotlin does not receive a fresh pixel copy on
-  unchanged frames.
-- `ReplicaOverlay.updateLcd(...)` still scans the full `400 x 240` pixel array
-  it receives to find the smallest changed rectangle against `lastLcdPixels`.
-- Only when at least one pixel changes does it call `lcdBitmap.setPixels(...)`,
-  compute the projected dirty rectangle, and issue
-  `postInvalidateOnAnimation(...)` for that region.
+- `jni_display.c::getPackedDisplayBuffer(...)` short-circuits when
+  `lcdBufferDirty` is false, so Kotlin does not receive a fresh packed snapshot
+  on unchanged frames.
+- After a successful copy, the JNI export clears each row's dirty flag in the
+  packed transport buffer. That dirty flag is transport bookkeeping, not part of
+  the visible LCD contract.
+- `ReplicaOverlay.updatePackedLcd(...)` decodes only rows whose packed byte `0`
+  is dirty, copies those rows into `lastPackedLcd`, repaints the changed rows
+  into the bitmap, and invalidates the full LCD width across the touched row
+  span.
+- `ReplicaOverlay.redrawPackedSnapshot()` repaints the cached packed snapshot
+  for palette changes without inventing a new native redraw path.
 
-This path is sensitive because it runs on the UI thread, touches the complete
-pixel array, and immediately affects draw cost.
+This path is sensitive because it runs on the UI thread, owns the live packed
+snapshot cache, and is the easiest place to reintroduce transport-level work as
+if it were visible LCD state.
+
+## Lifecycle Save And Explicit Refresh Path
+
+- `NativeCoreRuntime.saveStateOnPause(...)` posts `saveStateNative()` to the
+  core thread and waits for completion. That makes the save helper part of the
+  activity lifecycle boundary.
+- `r47_save_background_state_locked()` must stay persistence-only. Background
+  save and Settings entry are passive transitions and must not redraw the LCD.
+- `MainActivity.onResume()` for a normal Settings return must also stay passive
+  from the native LCD point of view. The display loop is already running and the
+  overlay resume path can handle geometry replay without a native force refresh.
+- `r47_force_refresh()` remains the explicit redraw path for real state-change
+  owners such as runtime init, state load, and test-owned refresh seams.
+
+This is the place to inspect first when a theme, settings, or lifecycle change
+corrupts a graph or mixes status text into an otherwise stable LCD snapshot.
 
 ## Keypad Scene-Application Path
 

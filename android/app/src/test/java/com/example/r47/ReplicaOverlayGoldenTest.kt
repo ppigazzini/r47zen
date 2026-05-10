@@ -18,6 +18,47 @@ import java.security.MessageDigest
 @Config(sdk = [34], qualifiers = "xxhdpi")
 class ReplicaOverlayGoldenTest {
     @Test
+    fun packedLcd_matchesArgbRendering() {
+        val textColor = 0xFF20313D.toInt()
+        val backgroundColor = 0xFFDCECD0.toInt()
+        val packedBuffer = samplePackedBuffer()
+        val expectedPixels = decodePackedBuffer(packedBuffer, textColor, backgroundColor)
+
+        val packedOverlay = configuredOverlay().apply {
+            setLcdColors(textColor, backgroundColor)
+        }
+        assertTrue(packedOverlay.updatePackedLcd(packedBuffer.copyOf()))
+
+        val argbOverlay = configuredOverlay().apply {
+            setLcdColors(textColor, backgroundColor)
+            updateLcd(expectedPixels)
+        }
+
+        assertEquals(renderHash(argbOverlay), renderHash(packedOverlay))
+    }
+
+    @Test
+    fun packedLcd_recolorsExistingSnapshot() {
+        val initialText = 0xFF20313D.toInt()
+        val initialBackground = 0xFFDCECD0.toInt()
+        val recolorText = 0xFF112A4A.toInt()
+        val recolorBackground = 0xFFF1E6C5.toInt()
+        val packedBuffer = samplePackedBuffer()
+
+        val overlay = configuredOverlay().apply {
+            setLcdColors(initialText, initialBackground)
+        }
+        assertTrue(overlay.updatePackedLcd(packedBuffer.copyOf()))
+        overlay.setLcdColors(recolorText, recolorBackground)
+
+        val expectedOverlay = configuredOverlay().apply {
+            updateLcd(decodePackedBuffer(packedBuffer, recolorText, recolorBackground))
+        }
+
+        assertEquals(renderHash(expectedOverlay), renderHash(overlay))
+    }
+
+    @Test
     fun nativeChrome_matchesGoldenHash() {
         assertGoldenHash(
             ReplicaOverlay.CHROME_MODE_NATIVE,
@@ -42,18 +83,71 @@ class ReplicaOverlayGoldenTest {
     }
 
     private fun assertGoldenHash(mode: String, expectedHash: String) {
-        val overlay = ReplicaOverlay(ApplicationProvider.getApplicationContext())
-        overlay.setChromeMode(mode)
-        overlay.setScalingMode("full_width")
-        overlay.measure(exactly(1080), exactly(2160))
-        overlay.layout(0, 0, 1080, 2160)
+        val overlay = configuredOverlay(mode)
         overlay.updateLcd(sampleLcdPixels())
-
-        val bitmap = Bitmap.createBitmap(1080, 2160, Bitmap.Config.ARGB_8888)
-        overlay.draw(Canvas(bitmap))
-        val actualHash = pngSha256(bitmap)
+        val actualHash = renderHash(overlay)
 
         assertEquals("ReplicaOverlay golden changed for $mode: $actualHash", expectedHash, actualHash)
+    }
+
+    private fun configuredOverlay(mode: String = ReplicaOverlay.CHROME_MODE_NATIVE): ReplicaOverlay {
+        return ReplicaOverlay(ApplicationProvider.getApplicationContext()).apply {
+            setChromeMode(mode)
+            setScalingMode("full_width")
+            measure(exactly(1080), exactly(2160))
+            layout(0, 0, 1080, 2160)
+        }
+    }
+
+    private fun renderHash(overlay: ReplicaOverlay): String {
+        val bitmap = Bitmap.createBitmap(1080, 2160, Bitmap.Config.ARGB_8888)
+        overlay.draw(Canvas(bitmap))
+        return pngSha256(bitmap)
+    }
+
+    private fun samplePackedBuffer(): ByteArray {
+        val buffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(buffer, x = 0, y = 0)
+        setPackedPixel(buffer, x = 17, y = 0)
+        setPackedPixel(buffer, x = 80, y = 60)
+        setPackedPixel(buffer, x = 215, y = 60)
+        setPackedPixel(buffer, x = 399, y = 120)
+        setPackedPixel(buffer, x = 121, y = 239)
+        return buffer
+    }
+
+    private fun setPackedPixel(buffer: ByteArray, x: Int, y: Int) {
+        val rowOffset = y * R47LcdContract.PACKED_ROW_SIZE_BYTES
+        buffer[rowOffset] = 1
+        buffer[rowOffset + 1] = (R47LcdContract.PIXEL_HEIGHT - y - 1).toByte()
+        val byteIndex = R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW - 1 - (x / 8)
+        val bitMask = 1 shl (7 - (x % 8))
+        buffer[rowOffset + 2 + byteIndex] =
+            (buffer[rowOffset + 2 + byteIndex].toInt() or bitMask).toByte()
+    }
+
+    private fun decodePackedBuffer(buffer: ByteArray, textColor: Int, backgroundColor: Int): IntArray {
+        val pixels = IntArray(R47LcdContract.PIXEL_COUNT) { backgroundColor }
+        for (bufferRow in 0 until R47LcdContract.PIXEL_HEIGHT) {
+            val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
+            val rowId = buffer[rowOffset + 1].toInt() and 0xFF
+            val displayRow = (R47LcdContract.PIXEL_HEIGHT - rowId - 1)
+                .coerceIn(0, R47LcdContract.PIXEL_HEIGHT - 1)
+            for (byteIndex in 0 until R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW) {
+                val packedByte = buffer[rowOffset + 2 + byteIndex].toInt() and 0xFF
+                val destX = (R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW - 1 - byteIndex) * 8
+                for (bit in 0 until 8) {
+                    val x = destX + bit
+                    val index = displayRow * R47LcdContract.PIXEL_WIDTH + x
+                    pixels[index] = if ((packedByte and (1 shl (7 - bit))) != 0) {
+                        textColor
+                    } else {
+                        backgroundColor
+                    }
+                }
+            }
+        }
+        return pixels
     }
 
     private fun sampleLcdPixels(): IntArray {

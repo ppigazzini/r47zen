@@ -58,6 +58,27 @@ static bool r47_seed_spiralk_input(void) {
   return true;
 }
 
+static uint64_t r47_capture_display_hash_locked(void) {
+  extern uint8_t *packedDisplayBuffer;
+  extern pthread_mutex_t packedDisplayMutex;
+
+  if (!packedDisplayBuffer) {
+    return 0;
+  }
+
+  uint64_t hash = 1469598103934665603ULL;
+  pthread_mutex_lock(&packedDisplayMutex);
+  for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
+    const uint8_t *snapshot_line = packedDisplayBuffer + row * 52u;
+    for (size_t byte_index = 2; byte_index < 52u; byte_index++) {
+      hash ^= snapshot_line[byte_index];
+      hash *= 1099511628211ULL;
+    }
+  }
+  pthread_mutex_unlock(&packedDisplayMutex);
+  return hash;
+}
+
 JNIEXPORT jboolean JNICALL
 Java_com_example_r47_ProgramLoadTestBridge_isRuntimeReadyNative(
     JNIEnv *env, jobject thiz) {
@@ -112,6 +133,39 @@ Java_com_example_r47_ProgramLoadTestBridge_forceRefreshNative(
   (void)env;
   (void)thiz;
   r47_force_refresh();
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_r47_ProgramLoadTestBridge_saveBackgroundStateForTestNative(
+    JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  if (!ram) {
+    return;
+  }
+
+  extern void r47_save_background_state_locked(void);
+
+  pthread_mutex_lock(&screenMutex);
+  r47_save_background_state_locked();
+  pthread_mutex_unlock(&screenMutex);
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_example_r47_ProgramLoadTestBridge_captureDisplayHashNative(
+    JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  if (!ram) {
+    return 0;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  uint64_t hash = r47_capture_display_hash_locked();
+  pthread_mutex_unlock(&screenMutex);
+  return (jlong)hash;
 }
 
 JNIEXPORT void JNICALL

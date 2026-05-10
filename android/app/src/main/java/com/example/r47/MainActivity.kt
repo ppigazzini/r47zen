@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun applyLcdMode(mode: String, luminancePercent: Int) {
         val palette = resolveLcdPalette(mode, luminancePercent)
+        replicaOverlay.setLcdColors(palette.text, palette.background)
         setLcdColors(palette.text, palette.background)
     }
 
@@ -265,11 +266,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             tick = ::tick,
             saveStateNative = ::saveStateNative,
             forceRefreshNative = ::forceRefreshNative,
-            getDisplayPixels = ::getDisplayPixels,
+            getPackedDisplayBuffer = ::getPackedDisplayBuffer,
             getKeypadMetaNative = ::getKeypadMetaNative,
             useSceneDrivenKeypadProvider = { true },
             getKeypadSnapshot = replicaOverlayController::currentKeypadSnapshot,
-            onLcdPixels = { pixels -> replicaOverlay.updateLcd(pixels) },
+            onPackedLcd = replicaOverlay::updatePackedLcd,
             onDynamicRefresh = replicaOverlayController::refreshDynamicKeys,
         )
         
@@ -316,7 +317,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onResume() {
         super.onResume()
-        coreRuntime.requestForceRefresh()
         replicaOverlayController.onHostResumed()
         storageAccessCoordinator.handleResume()
     }
@@ -375,7 +375,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun forceRefreshNative()
     private external fun setSlotNative(slot: Int)
     private external fun getXRegisterNative(): String
-    private external fun getDisplayPixels(pixels: IntArray)
+    private external fun getPackedDisplayBuffer(buffer: ByteArray)
     private external fun setLcdColors(text: Int, bg: Int)
     
     // Legacy keypad getters kept for bridge compatibility.

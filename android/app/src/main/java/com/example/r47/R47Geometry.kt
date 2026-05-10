@@ -42,4 +42,7 @@ internal object R47LcdContract {
     const val PIXEL_WIDTH = 400
     const val PIXEL_HEIGHT = 240
     const val PIXEL_COUNT = PIXEL_WIDTH * PIXEL_HEIGHT
+    const val PACKED_PIXEL_BYTES_PER_ROW = 50
+    const val PACKED_ROW_SIZE_BYTES = 52
+    const val PACKED_BUFFER_SIZE = PIXEL_HEIGHT * PACKED_ROW_SIZE_BYTES
 }

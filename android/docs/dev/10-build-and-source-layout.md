@@ -251,10 +251,12 @@ Public maintainer entrypoints:
   `program-fixtures/PROGRAMS` assets through `generateProgramFixtureAssets`.
   `:app:connectedDebugAndroidTest` requires a device or emulator, and
   `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
-  emulator is `x86_64`. The current required emulator-backed smoke coverage is
+  emulator is `x86_64`. The current required emulator-backed coverage includes
   `ProgramFixtureInstrumentedTest`, which loads and runs `BinetV3.p47`,
-  `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47` through the
-  Android `READP` path.
+  `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47` through the Android `READP`
+  path, plus `DisplayLifecycleInstrumentedTest`, which proves that background
+  save and a Settings-style pause or resume preserve the visible packed LCD
+  snapshot on a staged `SPIRALk` graph.
 - `ProgramFixtureInstrumentedTest` also treats LCD redraw activity from the JNI
   snapshot as valid run evidence for fast-returning fixtures such as
   `GudrmPL.p47`, matching the host workload harness instead of requiring only
@@ -451,10 +453,12 @@ ownership model as the local build:
   That emulator lane stages canonical upstream `PROGRAMS` fixtures into
   generated assets and currently requires `ProgramFixtureInstrumentedTest` to
   load and run `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and
-  `SPIRALk.p47` through the Android `READP` path. The Android test seam also
-  counts LCD redraw activity as valid run evidence for fast-returning
-  workloads so `GudrmPL`-style short runs do not false-fail after a clean
-  return.
+  `SPIRALk.p47` through the Android `READP` path. It also requires
+  `DisplayLifecycleInstrumentedTest` so passive lifecycle transitions preserve
+  the visible packed LCD snapshot across background save and a Settings-style
+  pause or resume. The Android test seam also counts LCD redraw activity as
+  valid run evidence for fast-returning workloads so `GudrmPL`-style short runs
+  do not false-fail after a clean return.
 - the upstream simulator sanity, Android build/test/package, and Android test
   jobs consume the same resolved upstream commit for a given workflow run.
 - Android build logs, Android test logs, and test reports are uploaded with
@@ -509,7 +513,9 @@ lane.
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
   current hosted smoke gate must still pass `ProgramFixtureInstrumentedTest`
   over the load-and-run matrix for `BinetV3.p47`, `GudrmPL.p47`,
-  `NQueens.p47`, and `SPIRALk.p47`.
+  `NQueens.p47`, and `SPIRALk.p47`. When the change touches background save,
+  Settings return, or packed-LCD lifecycle preservation, the same lane must
+  also pass `DisplayLifecycleInstrumentedTest`.
 - JNI, HAL, CMake, or packaging changes: `./scripts/android/build_android.sh`.
 - packaging evidence changes with local proof: `./scripts/android/build_android.sh --verify-packaging`
 - root core or generator changes: `make test` and then `./scripts/android/build_android.sh`.

@@ -117,6 +117,17 @@ It:
   `r47.abiFilters`
 - uploads logs plus JVM and instrumentation reports
 
+The hosted instrumentation lane currently relies on two distinct Android-owned
+contracts:
+
+- `ProgramFixtureInstrumentedTest` for the READP load-and-run matrix over
+  `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47`
+- `DisplayLifecycleInstrumentedTest` for passive lifecycle LCD preservation so
+  background save and a Settings-style pause or resume keep the visible packed
+  LCD snapshot stable on a staged `SPIRALk` graph, with retrying synthetic
+  `00` resumes while paused and a `90 s` hosted-emulator budget for that
+  heavier probe
+
 Use this lane when the task touches SAF, lifecycle, activity behavior,
 instrumentation fixtures, or Android-only test seams.
 

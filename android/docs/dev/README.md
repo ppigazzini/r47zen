@@ -79,6 +79,24 @@ flowchart TD
   [80-tests-and-contracts.md](80-tests-and-contracts.md) and
   [70-ci-and-release-workflow.md](70-ci-and-release-workflow.md)
 
+## Maintainer Update Workflow
+
+Use one promotion workflow when a non-trivial task changes Android behavior,
+contracts, or verification.
+
+1. Record the task analysis, options, implementation notes, and verification in
+  the current iteration working doc first.
+2. Keep exploratory notes and provisional claims there while the code and test
+  result are still moving.
+3. After the implementation and focused verification settle, promote the final
+  contract changes into every affected maintained page in one pass.
+4. Keep these pages authoritative and durable. Leave dead ends, experiments,
+  and superseded commit ideas in the working doc instead of carrying them into
+  the maintained reference set.
+
+Use authoritative mood in these pages. Name the real owner path, verification
+surface, and stable local reproduction lane whenever the contract changes.
+
 ## Build Entry Points
 
 Maintainer entrypoints:

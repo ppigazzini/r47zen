@@ -10,14 +10,14 @@ internal interface DisplayRefreshLoop {
 internal class NativeDisplayRefreshLoop(
     private val isAppRunning: () -> Boolean,
     private val isNativeInitialized: () -> Boolean,
-    private val getDisplayPixels: (IntArray) -> Unit,
+    private val getPackedDisplayBuffer: (ByteArray) -> Unit,
     private val getKeypadMetaNative: (Boolean) -> IntArray,
     private val useSceneDrivenKeypadProvider: () -> Boolean,
     private val getKeypadSnapshot: (IntArray) -> KeypadSnapshot,
-    private val onLcdPixels: (IntArray) -> Unit,
+    private val onPackedLcd: (ByteArray) -> Boolean,
     private val onDynamicRefresh: (KeypadSnapshot) -> Unit,
 ) : DisplayRefreshLoop {
-    private val lcdPixels = IntArray(R47LcdContract.PIXEL_COUNT)
+    private val packedLcdBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
     private var lastLabelRefresh = 0L
     private var lastKeypadMeta = IntArray(0)
     private var isActive = false
@@ -29,10 +29,8 @@ internal class NativeDisplayRefreshLoop(
             }
 
             if (isNativeInitialized()) {
-                getDisplayPixels(lcdPixels)
-                if (lcdPixels.isNotEmpty()) {
-                    onLcdPixels(lcdPixels)
-                }
+                getPackedDisplayBuffer(packedLcdBuffer)
+                onPackedLcd(packedLcdBuffer)
 
                 val currentMeta = getKeypadMetaNative(useSceneDrivenKeypadProvider())
                 val now = System.currentTimeMillis()
@@ -57,6 +55,8 @@ internal class NativeDisplayRefreshLoop(
         }
 
         isActive = true
+        lastLabelRefresh = 0L
+        lastKeypadMeta = IntArray(0)
         Choreographer.getInstance().postFrameCallback(frameCallback)
     }
 

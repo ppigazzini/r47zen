@@ -101,11 +101,11 @@ class NativeCoreRuntimeTest {
             tick = {},
             saveStateNative = onSaveState,
             forceRefreshNative = {},
-            getDisplayPixels = {},
+            getPackedDisplayBuffer = {},
             getKeypadMetaNative = { IntArray(0) },
             useSceneDrivenKeypadProvider = { false },
             getKeypadSnapshot = { KeypadSnapshot.EMPTY },
-            onLcdPixels = {},
+            onPackedLcd = { false },
             onDynamicRefresh = {},
             displayRefreshLoop = object : DisplayRefreshLoop {
                 override fun start() {}

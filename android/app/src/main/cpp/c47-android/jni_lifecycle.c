@@ -11,6 +11,8 @@ extern void shiftCutoff(uint16_t timerType);
 extern void fnTimerDummy1(uint16_t timerType);
 extern void execTimerApp(uint16_t timerType);
 
+void r47_save_background_state_locked(void);
+
 void releaseNativeActivityReferences(JNIEnv *env) {
   if (g_mainActivityObj != NULL) {
     (*env)->DeleteGlobalRef(env, g_mainActivityObj);
@@ -75,17 +77,6 @@ Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
     return;
   }
   (*env)->DeleteLocalRef(env, clazz);
-
-  if (!ram) {
-    return;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  reDraw = true;
-  refreshScreen(190);
-  refreshLcd(NULL);
-  lcd_refresh();
-  pthread_mutex_unlock(&screenMutex);
 }
 
 JNIEXPORT void JNICALL
@@ -187,25 +178,7 @@ Java_com_example_r47_MainActivity_saveStateNative(JNIEnv *env,
   }
 
   pthread_mutex_lock(&screenMutex);
-
-  size_t bufferSize = SCREEN_HEIGHT * 52;
-  uint8_t *pixelBackup = malloc(bufferSize);
-  if (pixelBackup) {
-    memcpy(pixelBackup, lcd_buffer, bufferSize);
-  }
-
-  printStatus(0, errorMessages[101], 1);
-  lcd_refresh();
-
-  if (pixelBackup) {
-    memcpy(lcd_buffer, pixelBackup, bufferSize);
-    free(pixelBackup);
-    for (int row = 0; row < SCREEN_HEIGHT; row++) {
-      lcd_buffer[row * 52] = 1u;
-    }
-  }
-
-  saveCalc();
+  r47_save_background_state_locked();
 
   pthread_mutex_unlock(&screenMutex);
   LOGI("saveStateNative: Save complete.");
@@ -255,6 +228,10 @@ Java_com_example_r47_MainActivity_forceRefreshNative(
   (void)env;
   (void)thiz;
   r47_force_refresh();
+}
+
+void r47_save_background_state_locked(void) {
+  saveCalc();
 }
 
 void r47_force_refresh(void) {

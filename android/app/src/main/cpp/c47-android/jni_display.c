@@ -1439,28 +1439,38 @@ Java_com_example_r47_MainActivity_getKeypadLabelsNative(JNIEnv *env,
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_getDisplayPixels(
-    JNIEnv *env, jobject thiz, jintArray pixels) {
+Java_com_example_r47_MainActivity_getPackedDisplayBuffer(
+    JNIEnv *env, jobject thiz, jbyteArray buffer) {
   (void)thiz;
-  if (!screenData) {
+  extern uint8_t *packedDisplayBuffer;
+  extern pthread_mutex_t packedDisplayMutex;
+  if (!packedDisplayBuffer) {
     return;
   }
 
-  extern bool screenDataDirty;
-  if (!screenDataDirty) {
+  extern bool lcdBufferDirty;
+  if (!lcdBufferDirty) {
     return;
   }
 
-  if (pthread_mutex_trylock(&screenMutex) != 0) {
+  if ((*env)->GetArrayLength(env, buffer) < SCREEN_HEIGHT * 52) {
     return;
   }
 
-  (*env)->SetIntArrayRegion(env, pixels, 0, 400 * 240, (jint *)screenData);
+  if (pthread_mutex_trylock(&packedDisplayMutex) != 0) {
+    return;
+  }
+
+  (*env)->SetByteArrayRegion(env, buffer, 0, SCREEN_HEIGHT * 52,
+                             (jbyte *)packedDisplayBuffer);
   if (!jni_check_and_clear_exception(env,
-                                     "SetIntArrayRegion(getDisplayPixels)")) {
-    screenDataDirty = false;
+                                     "SetByteArrayRegion(getPackedDisplayBuffer)")) {
+    for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
+      packedDisplayBuffer[52 * row] = 0u;
+    }
+    lcdBufferDirty = false;
   }
-  pthread_mutex_unlock(&screenMutex);
+  pthread_mutex_unlock(&packedDisplayMutex);
 }
 
 void dmcpResetAutoOff() {}

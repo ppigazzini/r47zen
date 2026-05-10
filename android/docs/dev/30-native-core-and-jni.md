@@ -133,10 +133,20 @@ supports that model by keeping shared synchronization in native code:
   upstream fixtures `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and
   `SPIRALk.p47` through the host-side Android compatibility
   path
-- `jni_program_load_test.c` exposes the Android instrumentation state snapshot
-  used by `ProgramFixtureInstrumentedTest`, including LCD refresh count. The
-  Android fixture seam uses that redraw signal as valid run evidence for
-  fast-returning fixtures such as `GudrmPL.p47` when step, pause, wait, or
+- `jni_program_load_test.c` exposes the instrumentation-only bridge used by
+  both `ProgramFixtureInstrumentedTest` and
+  `DisplayLifecycleInstrumentedTest`. It provides READP or RUN worker control,
+  explicit refresh and background-save helpers, LCD refresh count, a
+  packed-LCD snapshot hash, and the synthetic `00` key path used to resume
+  staged `SPIRALk` runs.
+- The lifecycle snapshot helper hashes only visible packed LCD bytes. It does
+  not hash the row-dirty transport flag that `getPackedDisplayBuffer(...)`
+  clears after each successful UI poll.
+- The staged `SPIRALk` lifecycle probe retries the simulated `00` resume while
+  the program remains paused and uses a `90 s` hosted-emulator budget so a
+  missed short pause pulse does not strand CI at the terminal `PAUSE 99`.
+- The Android fixture seam still uses LCD redraw activity as valid run evidence
+  for fast-returning fixtures such as `GudrmPL.p47` when step, pause, wait, or
   `VIEW` markers never surface before a clean return.
 - `display.c` yields to Android after `VIEW` refreshes on `ANDROID_BUILD` so
   queued work can progress during long `VIEW`-driven programs
@@ -158,7 +168,30 @@ Practical rule:
 Final app shutdown uses `releaseNativeRuntime()` to delete the global
 `MainActivity` reference and clear the cached method IDs. Activity recreation
 continues to use `updateNativeActivityRef()` without tearing down the native
-core.
+core. That reattach helper refreshes JNI references and cached method IDs only;
+it must stay display-passive and must not synthesize a redraw.
+
+## Lifecycle Save And Explicit Refresh Contract
+
+`jni_lifecycle.c` owns two different display-affecting paths and they do not
+share the same contract.
+
+- `saveStateNative()` routes pause-side and background persistence through
+  `r47_save_background_state_locked()`. That path must stay display-passive for
+  Settings entry, normal background save, and other lifecycle-only transitions.
+- `forceRefreshNative()` routes to `r47_force_refresh()`, which is the explicit
+  native redraw path for real state-change owners such as runtime init,
+  `loadStateNative()`, and test-owned refresh seams.
+
+The key distinction is whether the calculator state changed.
+
+- `loadStateNative()` may redraw because it reconstructs a different state.
+- `saveStateNative()` must not redraw because persistence alone should not alter
+  the visible LCD snapshot.
+
+Do not reintroduce `requestForceRefresh()` or `forceRefreshNative()` into a
+passive activity lifecycle callback such as a normal Settings return unless the
+owner path can prove that calculator state really changed.
 
 ## File I/O boundary
 

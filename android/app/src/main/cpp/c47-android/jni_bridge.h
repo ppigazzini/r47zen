@@ -232,9 +232,9 @@ JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getXRegisterNative(JNIEnv *env,
                                                             jobject thiz);
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_getDisplayPixels(JNIEnv *env,
-                                                          jobject thiz,
-                                                          jintArray pixels);
+Java_com_example_r47_MainActivity_getPackedDisplayBuffer(JNIEnv *env,
+                                                                jobject thiz,
+                                                                jbyteArray buffer);
 JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
                                                               jobject thiz,

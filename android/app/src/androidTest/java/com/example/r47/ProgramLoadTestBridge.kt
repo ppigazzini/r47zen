@@ -27,6 +27,12 @@ object ProgramLoadTestBridge {
         forceRefreshNative()
     }
 
+    fun saveBackgroundStateForTest() {
+        saveBackgroundStateForTestNative()
+    }
+
+    fun captureDisplayHash(): Long = captureDisplayHashNative()
+
     fun setRedrawFlagForTest(enabled: Boolean) {
         setRedrawFlagForTestNative(enabled)
     }
@@ -85,6 +91,8 @@ object ProgramLoadTestBridge {
     private external fun seedLargeFactorsInputNative(): Boolean
     private external fun seedSpiralkInputNative(): Boolean
     private external fun forceRefreshNative()
+    private external fun saveBackgroundStateForTestNative()
+    private external fun captureDisplayHashNative(): Long
     private external fun setRedrawFlagForTestNative(enabled: Boolean)
     private external fun isRedrawFlagSetForTestNative(): Boolean
     private external fun resetRuntimeNative()

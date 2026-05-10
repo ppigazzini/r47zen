@@ -199,6 +199,8 @@ class ProgramFixtureInstrumentedTest {
         var sawView = false
         var sawLcdRefresh = false
         var wasPaused = false
+        var resumeAttempts = 0
+        var lastResumeAttemptAtMs = 0L
 
         val completed = waitUntil(fixture.scenario.timeoutMs) {
             val state = ProgramLoadTestBridge.snapshotState()
@@ -213,12 +215,14 @@ class ProgramFixtureInstrumentedTest {
 
             if (
                 isPaused &&
-                !wasPaused &&
+                (!wasPaused || SystemClock.elapsedRealtime() - lastResumeAttemptAtMs >= PAUSE_RESUME_RETRY_MS) &&
                 fixture.scenario.pauseResumePolicy == PauseResumePolicy.RESUME_ZERO_ON_PAUSE_EDGE
             ) {
                 ProgramLoadTestBridge.sendSimKey("00", isFn = false, isRelease = false)
                 SystemClock.sleep(PAUSE_RESUME_SETTLE_MS)
                 ProgramLoadTestBridge.sendSimKey("00", isFn = false, isRelease = true)
+                resumeAttempts += 1
+                lastResumeAttemptAtMs = SystemClock.elapsedRealtime()
             }
 
             wasPaused = isPaused
@@ -237,7 +241,7 @@ class ProgramFixtureInstrumentedTest {
                 fixture = fixture,
                 phase = "run",
                 state = finalState,
-                details = "RUN did not return within ${fixture.scenario.timeoutMs} ms",
+                details = "RUN did not return within ${fixture.scenario.timeoutMs} ms (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh, resumeAttempts=$resumeAttempts, finalRunStop=${finalState.programRunStop}, finalStep=${finalState.currentLocalStepNumber})",
             )
         }
         if (finalState.lastErrorCode != ERROR_NONE) {
@@ -380,7 +384,8 @@ class ProgramFixtureInstrumentedTest {
         private const val LOAD_TIMEOUT_MS = 10_000L
         private const val RUN_TIMEOUT_MS = 20_000L
         private const val POLL_INTERVAL_MS = 25L
-        private const val PAUSE_RESUME_SETTLE_MS = 20L
+        private const val PAUSE_RESUME_SETTLE_MS = 50L
+        private const val PAUSE_RESUME_RETRY_MS = 1_000L
         private val REQUIRED_FIXTURE_SCENARIOS = listOf(
             ProgramFixtureScenario(
                 fileName = "BinetV3.p47",

@@ -105,10 +105,13 @@ callbacks.
   runtime, then attaches the core thread.
 - `onNewIntent()` is the reuse path for root-activity actions such as the
   controlled factory-reset request.
-- `onResume()` requests a native refresh and revalidates the work-directory
-  contract.
+- `onResume()` revalidates the work-directory contract and lets the overlay-side
+  resume path run without forcing a native LCD redraw. A normal Settings
+  round-trip must preserve the current calculator snapshot.
 - `onPause()` performs a synchronous native save when auto-save on minimize is
-  enabled and the app is not moving into PiP or a reset-driven relaunch.
+  enabled and the app is not moving into PiP or a reset-driven relaunch. That
+  save is lifecycle-passive from the LCD point of view and must not rebuild the
+  visible screen.
 - `onDestroy()` stops the shared runtime when the activity is actually
   finishing, and the factory-reset path also clears internal app data after the
   runtime has been told to stop.

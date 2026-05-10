@@ -31,6 +31,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         Bitmap.Config.ARGB_8888,
     )
     private val lastLcdPixels = IntArray(R47LcdContract.PIXEL_COUNT)
+    private val lastPackedLcd = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+    private val linePixels = IntArray(R47LcdContract.PIXEL_WIDTH)
     private val lcdRect = Rect(0, 0, R47LcdContract.PIXEL_WIDTH, R47LcdContract.PIXEL_HEIGHT)
     private val lcdDestRect = RectF()
     private val dirtyRect = Rect()
@@ -45,6 +47,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         strokeWidth = 2f * resources.displayMetrics.density
         alpha = 180
     }
+    private var lcdTextColor = 0xFF303030.toInt()
+    private var lcdBackgroundColor = 0xFFDFF5CC.toInt()
 
     var onPiPKeyEvent: ((Int) -> Unit)? = null
     var onLongPressListener: ((Float, Float) -> Unit)? = null
@@ -58,6 +62,11 @@ class ReplicaOverlay @JvmOverloads constructor(
         // Allow drawing outside individual key boundaries
         clipChildren = false
         clipToPadding = false
+
+        for (bufferRow in 0 until R47LcdContract.PIXEL_HEIGHT) {
+            val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
+            lastPackedLcd[rowOffset + 1] = (R47LcdContract.PIXEL_HEIGHT - bufferRow - 1).toByte()
+        }
         
         gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
@@ -99,6 +108,15 @@ class ReplicaOverlay @JvmOverloads constructor(
         invalidate()
     }
 
+    fun setLcdColors(text: Int, background: Int) {
+        if (lcdTextColor == text && lcdBackgroundColor == background) {
+            return
+        }
+        lcdTextColor = text
+        lcdBackgroundColor = background
+        redrawPackedSnapshot()
+    }
+
     fun setNativeChrome() {
         setChromeMode(CHROME_MODE_NATIVE)
     }
@@ -124,8 +142,6 @@ class ReplicaOverlay @JvmOverloads constructor(
     fun updateLcd(pixels: IntArray) {
         val pixelWidth = R47LcdContract.PIXEL_WIDTH
         val pixelHeight = R47LcdContract.PIXEL_HEIGHT
-        val pixelWidthF = pixelWidth.toFloat()
-        val pixelHeightF = pixelHeight.toFloat()
 
         var minX = pixelWidth
         var maxX = 0
@@ -148,17 +164,127 @@ class ReplicaOverlay @JvmOverloads constructor(
 
         if (!changed) return
 
-    lcdBitmap.setPixels(pixels, 0, pixelWidth, 0, 0, pixelWidth, pixelHeight)
+        lcdBitmap.setPixels(pixels, 0, pixelWidth, 0, 0, pixelWidth, pixelHeight)
 
-        // Calculate screen-space dirty rect
+        invalidateLcdRegion(
+            minX = minX,
+            maxX = maxX,
+            minY = minY,
+            maxY = maxY,
+            pixelWidthF = pixelWidth.toFloat(),
+            pixelHeightF = pixelHeight.toFloat(),
+        )
+    }
+
+    fun updatePackedLcd(buffer: ByteArray): Boolean {
+        var minRow = R47LcdContract.PIXEL_HEIGHT
+        var maxRow = -1
+
+        for (bufferRow in 0 until R47LcdContract.PIXEL_HEIGHT) {
+            val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
+            if ((buffer[rowOffset].toInt() and 0xFF) == 0) {
+                continue
+            }
+
+            System.arraycopy(
+                buffer,
+                rowOffset,
+                lastPackedLcd,
+                rowOffset,
+                R47LcdContract.PACKED_ROW_SIZE_BYTES,
+            )
+
+            val rowId = buffer[rowOffset + 1].toInt() and 0xFF
+            val displayRow = (R47LcdContract.PIXEL_HEIGHT - rowId - 1)
+                .coerceIn(0, R47LcdContract.PIXEL_HEIGHT - 1)
+
+            decodePackedRow(buffer, rowOffset, displayRow)
+            buffer[rowOffset] = 0
+            if (displayRow < minRow) minRow = displayRow
+            if (displayRow > maxRow) maxRow = displayRow
+        }
+
+        if (maxRow < minRow) {
+            return false
+        }
+
+        invalidateLcdRegion(
+            minX = 0,
+            maxX = R47LcdContract.PIXEL_WIDTH - 1,
+            minY = minRow,
+            maxY = maxRow,
+            pixelWidthF = R47LcdContract.PIXEL_WIDTH.toFloat(),
+            pixelHeightF = R47LcdContract.PIXEL_HEIGHT.toFloat(),
+        )
+        return true
+    }
+
+    private fun redrawPackedSnapshot() {
+        for (bufferRow in 0 until R47LcdContract.PIXEL_HEIGHT) {
+            val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
+            val rowId = lastPackedLcd[rowOffset + 1].toInt() and 0xFF
+            val displayRow = (R47LcdContract.PIXEL_HEIGHT - rowId - 1)
+                .coerceIn(0, R47LcdContract.PIXEL_HEIGHT - 1)
+            decodePackedRow(lastPackedLcd, rowOffset, displayRow)
+        }
+
+        invalidateLcdRegion(
+            minX = 0,
+            maxX = R47LcdContract.PIXEL_WIDTH - 1,
+            minY = 0,
+            maxY = R47LcdContract.PIXEL_HEIGHT - 1,
+            pixelWidthF = R47LcdContract.PIXEL_WIDTH.toFloat(),
+            pixelHeightF = R47LcdContract.PIXEL_HEIGHT.toFloat(),
+        )
+    }
+
+    private fun decodePackedRow(buffer: ByteArray, rowOffset: Int, displayRow: Int) {
+        for (byteIndex in 0 until R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW) {
+            val packedByte = buffer[rowOffset + 2 + byteIndex].toInt() and 0xFF
+            val destX = (R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW - 1 - byteIndex) * 8
+            for (bit in 0 until 8) {
+                linePixels[destX + bit] = if ((packedByte and (1 shl (7 - bit))) != 0) {
+                    lcdTextColor
+                } else {
+                    lcdBackgroundColor
+                }
+            }
+        }
+
+        lcdBitmap.setPixels(
+            linePixels,
+            0,
+            R47LcdContract.PIXEL_WIDTH,
+            0,
+            displayRow,
+            R47LcdContract.PIXEL_WIDTH,
+            1,
+        )
+    }
+
+    private fun invalidateLcdRegion(
+        minX: Int,
+        maxX: Int,
+        minY: Int,
+        maxY: Int,
+        pixelWidthF: Float,
+        pixelHeightF: Float,
+    ) {
+        if (width <= 0 || height <= 0) {
+            invalidate()
+            return
+        }
+
         val spec = currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, width.toFloat(), height.toFloat())
 
-        // Convert LCD coordinates to Screen coordinates
-        val left = projection.offsetX + (spec.lcdWindowLeft + (minX.toFloat() / pixelWidthF) * spec.lcdWindowWidth) * projection.scale
-        val top = projection.offsetY + (spec.lcdWindowTop + (minY.toFloat() / pixelHeightF) * spec.lcdWindowHeight) * projection.scale
-        val right = projection.offsetX + (spec.lcdWindowLeft + ((maxX.toFloat() + 1f) / pixelWidthF) * spec.lcdWindowWidth) * projection.scale
-        val bottom = projection.offsetY + (spec.lcdWindowTop + ((maxY.toFloat() + 1f) / pixelHeightF) * spec.lcdWindowHeight) * projection.scale
+        // The packed bitmap already contains the cumulative LCD state. Repaint
+        // the full LCD window so scaled graph frames do not leave stale crops
+        // after repeated theme, resume, or settings transitions.
+        val left = projection.offsetX + spec.lcdWindowLeft * projection.scale
+        val top = projection.offsetY + spec.lcdWindowTop * projection.scale
+        val right = projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth) * projection.scale
+        val bottom = projection.offsetY + (spec.lcdWindowTop + spec.lcdWindowHeight) * projection.scale
 
         dirtyRect.set(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
         postInvalidateOnAnimation(dirtyRect.left, dirtyRect.top, dirtyRect.right, dirtyRect.bottom)
