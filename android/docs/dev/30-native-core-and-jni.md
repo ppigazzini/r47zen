@@ -1,5 +1,27 @@
 # Native Core And JNI
 
+This page covers the Android-owned native bridge, CMake integration, JNI
+registration, HAL seams, and packaging constraints. Read
+`50-upstream-interface-surfaces.md` for the broader map of which upstream core
+entry points the Android shell actually depends on. Read
+`80-tests-and-contracts.md` for the JNI, SAF, and host-regression verification
+surfaces.
+
+## JNI And Native Flow
+
+```mermaid
+flowchart LR
+  A[MainActivity external methods]
+  B[JNI registration table]
+  C[c47-android bridge files]
+  D[screenMutex and fileMutex boundaries]
+  E[staged PC_BUILD core]
+  F[activity callbacks requestFile playTone processCoreTasks]
+
+  A --> B --> C --> D --> E
+  E --> C --> F --> A
+```
+
 ## Native library shape
 
 The Android module builds one shared library: `c47-android`. `MainActivity`
@@ -76,6 +98,10 @@ Development rule:
 - Use `jni_acquire_env(...)`, `jni_release_env(...)`, and
   `jni_check_and_clear_exception(...)` for native-owned JVM work instead of
   duplicating attach, detach, and exception logic at each call site.
+
+That alignment rule is the main Android-owned seam. The upstream core remains
+the source of calculator behavior, while the bridge owns registration,
+marshalling, and Android runtime compatibility.
 
 ## Threading and synchronization
 

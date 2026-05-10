@@ -7,130 +7,97 @@ native core. `MainActivity` coordinates Android lifecycle, preferences, slot
 selection, settings, and external integrations. It does not own the calculator
 engine loop.
 
-## Ownership by class
+Use this page for Kotlin-side ownership, coordinator structure, lifecycle, and
+storage flow. Read `50-upstream-interface-surfaces.md` for the upstream bridge
+contract, `60-runtime-hot-paths.md` for the hottest runtime loops, and
+`80-tests-and-contracts.md` for the focused parity and lifecycle regression
+surfaces.
 
-- `MainActivity`: loads `c47-android`, binds the layout, wires helper types,
-  forwards input to the core runtime, and exposes the native methods used by
-  JNI.
-- `NativeCoreRuntime`: owns the persistent core thread, the shared task queue,
-  frame-driven LCD refresh, and keypad snapshot refresh.
-- `SlotStore`: owns slot metadata persistence and the current-slot preference.
-- `AudioEngine`: owns Android-side tone playback and runtime beeper settings.
-- `StorageAccessCoordinator`: owns SAF create and open launcher registration
-  during activity initialization, native file request handoff, direct result
-  delivery used by tests, and work-directory validation on resume.
-- `WorkDirectory`: stores the persisted tree URI in dedicated no-backup
-  preferences and resolves the `STATE`, `PROGRAMS`, `SAVFILES`, and `SCREENS`
-  subfolders.
-- `DisplayActionController`: owns display long-press actions such as copy X
-  register, paste number, and entry into Picture-in-Picture.
-- `ReplicaOverlay` and `ReplicaKeypadLayout`: host the shell chrome modes, the
-  normalized shared keypad touch grid, LCD projection, the classic
-  `r47_texture` image-backed shell, the full scene-driven key views used by
-  `native`, the scene-driven label overlay used by `r47_background`, the
-  shared settings-entry strip, the startup scene-contract guard for dynamic
-  keypad refresh, and the PiP interaction surface.
-- `KeypadTopology`: owns the Android-local 43-key row, lane, and family
-  contract used by layout, touch-grid row membership, and per-key family
-  policy.
-- `CalculatorKeyView` and `CalculatorSoftkeyPainter`: keep the per-key drawing
-  split honest. `CalculatorKeyView` owns main-key geometry, faceplate layout,
-  faceplate-offset recomputation after key layout, and painted-body placement,
-  while `CalculatorSoftkeyPainter` owns the
-  dedicated softkey drawing, overlay, and content-description path.
-- `PhysicalKeyboardInputController`, `PhysicalKeyboardMapper`, and
-  `PhysicalKeyboardBindingTables`: own external-keyboard interception,
-  table-driven bindings, and dispatch into native-key or shortcut actions.
-- `SettingsActivity`: owns the non-exported settings UI and preference-driven
-  Android shell options, then delegates destructive reset work back to
-  `MainActivity`.
+## Kotlin Structure At A Glance
 
-## Model boundary
+- activity entrypoints: `MainActivity.kt`, `SettingsActivity.kt`
+- runtime loops: `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`
+- shell coordination: `ReplicaOverlayController.kt`,
+  `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
+  `WindowModeController.kt`
+- rendering and geometry: `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt`,
+  `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `R47Geometry.kt`,
+  `TopLabelLaneLayout.kt`
+- storage and slots: `StorageAccessCoordinator.kt`, `WorkDirectory.kt`,
+  `SlotSessionController.kt`, `SlotStore.kt`
+- keyboard and keypad models: `PhysicalKeyboardInputController.kt`,
+  `PhysicalKeyboardMapper` support files, `KeypadSnapshot.kt`,
+  `KeypadTopology.kt`
 
-- `KeypadSnapshot` is the Kotlin-side projection of the native keypad scene.
-  Its fixed metadata-lane decoding stays local to the snapshot model so other
-  Android layers consume named fields instead of indexing raw native arrays.
-- `KeypadTopology` is the Android-local keypad topology contract for key-code
-  row order, family, and touch-grid lane membership. It is consumed by
-  `ReplicaKeypadLayout` and `CalculatorKeyView`, not exported by the native
-  calculator core.
-- slot metadata is an Android model owned by `SlotStore`, not by the native
-  calculator core.
-- preference state controls Android shell behavior such as fullscreen mode,
-  chrome mode, scaling mode, haptics, beeper volume, and touch-zone debugging.
-  `chrome_mode` now chooses between the default `r47_texture` shell, the
-  `r47_background` background-backed shell, and the native-drawn shell. All
-  three modes share the same logical touch grid, the same texture-derived LCD
-  placement, and the same adaptive visible-frame crop in `full_width`.
+## Kotlin Runtime Flow
 
-## Runtime and event flow
+```mermaid
+flowchart LR
+    A[MainActivity]
+    B[Helper controllers]
+    C[NativeCoreRuntime offerTask]
+    D[Core thread]
+    E[JNI bridge]
+    F[Upstream runtime]
+    G[NativeDisplayRefreshLoop]
+    H[ReplicaOverlayController]
+    I[ReplicaOverlay and ReplicaKeypadLayout]
 
-Calculator state does not live in `Activity` fields alone. The durable state
-owner is the native core plus `NativeCoreRuntime`'s shared thread and task queue.
+    A --> B --> C --> D --> E --> F
+    D --> G --> H --> I
+    A --> H
+```
+
+## Ownership by slice
+
+| Concern | Primary Kotlin owner | Boundary this page cares about | Read next |
+| --- | --- | --- | --- |
+| activity and settings coordination | `MainActivity`, `SettingsActivity` | startup, preferences, PiP, intent routing, helper wiring | `50-upstream-interface-surfaces.md` |
+| native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop` | one core thread, one task queue, one UI-side poller | `60-runtime-hot-paths.md` |
+| overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, not the geometry formulas themselves | `40-ui-rendering-and-gtk-mapping.md` |
+| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, work-directory policy, slot metadata, save and load ordering | `50-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
+| Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `50-upstream-interface-surfaces.md` |
+
+## Architecture boundary
+
+- the native core owns calculator state, command execution, softmenu semantics,
+  and most shared keypad state
+- `KeypadSnapshot` is the Kotlin projection of native keypad arrays, so
+  downstream Android code consumes named fields instead of re-indexing raw
+  metadata offsets
+- `KeypadTopology`, slot metadata, work-directory preferences, and shell
+  preferences are Android-local models
+- geometry constants, label placement formulas, painter policy, and chrome
+  projection are rendering contracts owned by
+  `40-ui-rendering-and-gtk-mapping.md`, not by this page
+- JNI signatures, cached callbacks, and lock-sensitive bridge behavior are
+  native-interface contracts owned by `30-native-core-and-jni.md` and
+  `50-upstream-interface-surfaces.md`
+
+## Main coordination flow
+
+Calculator state does not live in `Activity` fields. The durable owner is the
+native core plus `NativeCoreRuntime`'s shared thread and task queue.
 
 Main flow:
 
-1. Android touch, keyboard, or menu events call `offerCoreTask(...)` or direct
-   bridge methods exposed by `MainActivity`.
-2. `NativeCoreRuntime` serializes native work on the core thread.
-3. The frame callback pulls LCD pixels and keypad metadata from native code.
-4. `MainActivity.currentKeypadSnapshot()` converts native keypad arrays into a
-  `KeypadSnapshot`.
-5. `ReplicaKeypadLayout` ignores snapshots until `sceneContractVersion > 0`,
-  requests layout after scene changes, and `CalculatorKeyView` recomputes its
-  fixed faceplate offsets from `onLayout` before the shell redraws.
+1. `MainActivity` and helper controllers receive lifecycle, touch, keyboard,
+   menu, PiP, and settings work.
+2. Native work enters `NativeCoreRuntime` through `offerCoreTask(...)` or the
+   small direct bridge methods exposed by `MainActivity`.
+3. `NativeCoreRuntime` serializes calculator execution on one shared core
+   thread.
+4. `NativeDisplayRefreshLoop` is the single UI-side poller for LCD and keypad
+   scene state.
+5. `MainActivity.currentKeypadSnapshot()` converts native arrays into
+   `KeypadSnapshot`, and `ReplicaOverlayController` plus
+   `ReplicaKeypadLayout` apply scene changes after a real layout boundary.
 
-This keeps the UI reactive while the engine remains on one native execution path.
-
-Visible keypad-label placement keeps fixed per-key geometry plus one
-row-local horizontal solve for the shared `f`/`g` group. If a geometry
-decision depends on button bounds or neighboring keys in the same keypad lane,
-keep it tied to the measured reference-canvas formulas in
-`CalculatorKeyView` and only apply the row-local horizontal `centerShift`
-after the overlay has a real layout. Neighboring `f`/`g` groups in the same
-lane must keep an inter-group gap of at least `2 *` the measured intragap used
-inside one `f`/`g` pair, and no group may cross the neighboring key border by
-more than five intragaps. Each group therefore owns one explicit horizontal
-corridor: from five intragaps before the physical left neighbor's right border
-to five intragaps after the physical right neighbor's left border. The first
-and last visible groups in a lane also carry hard lateral bounds from
-`ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout()`: they must stay
-inside the `0 .. overlay.width` smartphone screen edges with no extra corridor
-extension beyond those outer sides. The per-key
-horizontal shift budget is a preferred placement budget, not a hard
-overlap-permitting limit. The live row solver now keeps the intragap fixed and
-runs in stages: first try a bounded local move of the current offender, then a
-bounded whole-row translation, then fixed-step scale-down on the longest label
-of the longest offender, then fixed-step scale-down on the other label if that
-same group is still the worst offender down to the preferred
-`TOP_F_G_LABEL_MIN_SCALE`, while keeping vertical placement fixed.
-`__DEV/R47/compute_top_label_lane_layout.py` is the owner for this lane policy,
-and `__DEV/R47/test_top_label_lane_layout.py` plus
-`DynamicKeypadParityFixtureTest.kt` lock the focused Python and Kotlin
-regressions to the same contract, including the hard outer screen-edge rule. The two
-labels inside one `f`/`g` group may differ by at most one fixed scale step.
-After any successful scale step, the row solve restarts from centered defaults
-so non-offending groups do not stay shifted. If one offending group is already
-fully reduced on both labels and the mandatory `2 * gap` inter-group rule is
-still broken, the colliding neighboring group becomes the next translation and
-scale target. If the row is still unresolved at the preferred minimum, the
-solver retries translation with preferred-shift-budget overflow before it keeps
-scaling the current worst offender below that minimum.
-inter-group gap and the neighbor-border limit, only then may the solver exceed
-the preferred shift budget. Do not reintroduce
-vertical staggering, broad multi-label adaptive scaling, or pre-contract
-snapshot rendering.
-
-Layout-affecting preference changes now follow an explicit renderer process:
-
-- geometry change: request layout, reset the unchanged-snapshot skip, and replay
-  the current scene after the next real overlay layout
-- draw-only content change: invalidate the affected view so paint-flag and text
-  updates redraw immediately
-
-`NativeCoreRuntime` is also the place where LCD refresh cadence and keypad
-metadata polling stay coordinated, so do not duplicate refresh loops elsewhere
-in the shell.
+This page stops at the coordination boundary. Read
+`60-runtime-hot-paths.md` for cadence, skip gates, and lock-sensitive loops;
+`40-ui-rendering-and-gtk-mapping.md` for geometry formulas and label placement;
+and `50-upstream-interface-surfaces.md` for the exact JNI entry points and
+callbacks.
 
 ## Lifecycle contract
 
@@ -155,7 +122,7 @@ without violating the Activity Result lifecycle contract.
 
 ## Input surfaces
 
-The Kotlin shell currently accepts input from four paths:
+The Kotlin shell currently accepts input from five paths:
 
 - on-screen keys built by `ReplicaKeypadLayout`
 - accessibility click activation on those same key views once they hold focus

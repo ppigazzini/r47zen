@@ -3,6 +3,73 @@
 This page is the canonical Android ownership, build, and rebuild contract for
 this repository. Do not split that contract into a second guide.
 
+Read `00-project-and-upstream.md` first. This page starts after the project,
+upstream, and ownership boundary are already established.
+
+Use this page for build entrypoints, source ownership, staged-input boundaries,
+and checkout-sensitive root surfaces. Read
+`70-ci-and-release-workflow.md` for the GitHub Actions lane split and
+`50-upstream-interface-surfaces.md` for the Android-facing upstream
+interface map. Read `80-tests-and-contracts.md` for the contract-to-test and
+rerun-lane map.
+
+## Build At A Glance
+
+- `scripts/upstream-sync/upstream.sh` resolves and hydrates upstream inputs.
+- `scripts/android/build_android.sh` is the canonical full Android build path.
+- `scripts/android/build_sim_assets.sh` rebuilds the required `build.sim`
+  outputs.
+- `scripts/android/stage_native_sources.sh` and related helpers refresh
+  `android/.staged-native/cpp`.
+- Gradle and CMake then compile the Android app against the staged native tree.
+
+## Build-Relevant File Layout
+
+```text
+repo root
+|- upstream.source
+|- scripts/upstream-sync/upstream.sh
+|- scripts/android/build_android.sh
+|- scripts/android/build_sim_assets.sh
+|- scripts/android/stage_native_sources.sh
+|- src/                            # hydrated upstream core
+|- dep/decNumberICU                # hydrated upstream dependency
+|- build.sim/                      # generated Meson outputs
+`- android/
+   |- app/src/main/java/com/example/r47
+   |- app/src/main/cpp/c47-android
+   |- .staged-native/cpp
+   `- gradle/wrapper
+```
+
+## Build Flow
+
+```mermaid
+flowchart TD
+    A[upstream.source or upstream.lock]
+    B[scripts/upstream-sync/upstream.sh]
+    C[Hydrated upstream root inputs]
+    D[scripts/android/build_sim_assets.sh]
+    E[build.sim outputs and generated assets]
+    F[scripts/android/stage_native_sources.sh]
+    G[android/.staged-native/cpp]
+    H[Gradle plus CMake]
+    I[debug APK or test artifacts]
+
+    A --> B --> C --> D --> E --> F --> G --> H --> I
+```
+
+## Checkout-sensitive root surfaces
+
+Public and partial checkouts do not always keep the full upstream-shaped root
+tree present at rest. `scripts/upstream-sync/upstream.sh` and
+`scripts/android/build_android.sh` hydrate or verify the required root inputs
+for the active lane.
+
+Do not treat the absence of one root file in one checkout as proof that the
+Android contract changed. Verify whether the surface is checked in locally,
+hydrated on demand, or only exercised in CI before updating the docs.
+
 ## Checked-in defaults
 
 - machine-readable Android tool defaults live in
@@ -57,12 +124,14 @@ Top-level repo-owned overlay paths:
 - `.github/` and `upstream.source` are repo-owned overlay paths outside the
   Android module.
 
-Shared upstream-shaped top-level surfaces:
+Shared upstream-shaped top-level surfaces when the active lane hydrates them:
 
-- hydrated and ignored `src/` and `res/`
-- hydrated and ignored upstream root build inputs: `Makefile`, `meson.build`,
-  `meson_options.txt`, `dep/`, `docs/code/meson.build`, `subprojects/`, and
-  `tools/`
+- `src/`
+- `dep/decNumberICU` and related upstream root build inputs
+- `meson.build` and `meson_options.txt`
+- repo-root `res/fonts`
+- fuller-hydration or CI-owned upstream surfaces such as `Makefile`,
+  `docs/code/meson.build`, `subprojects/`, and `tools/`
 
 Maintenance rule:
 

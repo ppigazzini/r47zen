@@ -1,139 +1,91 @@
 # UI Rendering And GTK Mapping
 
-## Logical shell model
+This page covers geometry ownership and rendering rules. Read
+`20-kotlin-shell-architecture.md` for lifecycle ownership and
+`50-upstream-interface-surfaces.md` for the scene-export contract and
+`60-runtime-hot-paths.md` for the refresh hot paths. Read
+`80-tests-and-contracts.md` for the geometry, fixture, and visual-regression
+surfaces.
 
-The Android shell now renders against one logical calculator body canvas,
-not against device pixels:
+## Rendering Flow
+
+```mermaid
+flowchart LR
+  A[Native LCD and keypad export]
+  B[KeypadSnapshot and LCD pixel buffers]
+  C[ReplicaOverlayController]
+  D[ReplicaKeypadLayout]
+  E[CalculatorKeyView and CalculatorSoftkeyPainter]
+  F[ReplicaOverlay projection and dirty-rect invalidation]
+
+  A --> B --> C --> D --> E
+  B --> F
+  E --> F
+```
+
+## Geometry owners at a glance
+
+- `R47Geometry.kt` owns the logical canvas, keypad constants, chrome geometry,
+  and LCD pixel contract.
+- `ReplicaChromeLayout` owns projection from logical canvas into the current
+  window.
+- `ReplicaOverlay` owns shell drawing, LCD bitmap updates, and touch-to-logical
+  projection.
+- `KeypadTopology` owns the Android-local 43-key lane, family, and column map.
+- `ReplicaKeypadLayout` owns key placement, touch-cell geometry, and row-local
+  label-lane solving.
+- `CalculatorKeyView` and `CalculatorSoftkeyPainter` own per-key drawing,
+  label placement, and softkey-specific rendering.
+
+## Geometry contract stack
+
+| Contract surface | Owner chain | Source of truth | Locked by |
+| --- | --- | --- | --- |
+| logical canvas, shell chrome, and LCD frame | `R47ReferenceGeometry`, `R47AndroidChromeGeometry`, `R47LcdContract` -> `ReplicaChromeLayout` -> `ReplicaOverlay` | measured reference geometry and density-bucket shell assets | `test_shell_geometry.py`, `ReplicaOverlayGoldenTest.kt` |
+| shared touch grid and key slots | `KeypadTopology` -> `ReplicaKeypadLayout` | `compute_shell_geometry.py`, `compute_touch_grid.py` | `test_shell_geometry.py`, `KeypadFixtureContractTest.kt` |
+| top-label lane placement | `TopLabelLaneLayout` -> `ReplicaKeypadLayout` -> `CalculatorKeyView` | `compute_top_label_lane_layout.py` | `test_top_label_lane_layout.py`, `DynamicKeypadParityFixtureTest.kt` |
+| per-key label offsets and body geometry | `KeyVisualPolicy` -> `CalculatorKeyView` | `compute_key_label_geometry.py`, `compute_key_visual_policy.py` | `test_key_label_geometry.py`, `test_key_visual_policy.py` |
+| softkey visuals and overlay states | `CalculatorSoftkeyPainter` | native scene roles plus `KeyVisualPolicy` constants | `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ExportedKeypadFixtureRenderTest.kt` |
+
+## Shell projection contract
 
 - the live logical canvas is the measured reference frame `1820 x 3403`
-- `r47_texture.webp` and `r47_background.webp` share the same measured shipped
-  size in every density bucket: mdpi `360 x 673`, hdpi `540 x 1010`, xhdpi
+- `r47_texture.webp` and `r47_background.webp` share the same shipped sizes in
+  every density bucket: mdpi `360 x 673`, hdpi `540 x 1010`, xhdpi
   `720 x 1346`, xxhdpi `1080 x 2019`, xxxhdpi `1440 x 2692`
 - all shell chrome, LCD placement, keypad children, and touch zones resolve
-  from the same logical-canvas coordinates before projection into the current
-  window
+  from that logical canvas before projection into the current window
+- `full_width` uses one shared visible-frame trim of `42 / 49 / 42 / 56`
+  logical units across all three chrome modes
+- `physical` caps fit scale to the density-resolved shell-image width divided
+  by `R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH`
+- `ReplicaOverlay` projects three chrome modes from the same logical contract:
+  `r47_texture`, `r47_background`, and `native`
+- `ReplicaKeypadLayout` owns one normalized shared touch-cell map across those
+  modes, and `ReplicaOverlay` owns one shared settings-entry touch strip
+- PiP is intentionally narrower: the overlay draws the LCD full-window and maps
+  horizontal touches across that surface to the six softkeys
 
-In `full_width`, `ReplicaOverlay` now fits one shared visible frame across all
-three modes. The visible-frame trim is `42 / 49 / 42 / 56` logical-canvas units
-for left, top, right, and bottom. `physical` uses the full logical shell and
-caps the fit scale to the density-resolved shell bitmap width divided by
-`R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH`.
+Projection is the first owner to inspect when the whole shell, LCD frame, and
+keypad all look correct locally but are globally misplaced together.
 
-`ReplicaOverlay` projects the active shell into the current window. In normal
-mode it either draws native shell chrome with `Canvas`, draws the restored
-`r47_background` background shell image behind the scene-driven keypad labels
-and softkey state text, or
-draws the restored `r47_texture` classic image shell. `ReplicaKeypadLayout`
-now owns one normalized shared touch-cell map across all chrome modes. The
-grid uses contiguous row bands, shared midline boundaries, and consistent outer
-keypad bounds inside each row group. `r47_texture` uses that map without
-rendered key views, `native` keeps the full scene-driven key views, and
-`r47_background` keeps the scene-driven labels and softkey state text without
-Android-painted key surfaces on top of the same active-cell geometry.
-`ReplicaOverlay` also keeps one shared settings-entry touch strip across all
-chrome modes. All three modes now share one texture-derived LCD placement
-contract, and `full_width` uses one shared visible-frame crop contract across
-the texture, background-backed, and native shells. In PiP mode the overlay draws the LCD bitmap
-full-window and maps horizontal touches across the LCD to the six softkeys.
+## Display and scene handoff
 
-The overlay exposes two scaling modes:
-
-- `full_width`: fit the logical shell inside the trimmed window frame
-- `physical`: cap the fit scale to the measured shared shell-image width for
-  the resolved density bucket, divided by
-  `R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH`
-
-The overlay exposes three shell chrome values:
-
-- `r47_texture`: restore the classic full-image shell and use the shared
-  invisible touch-cell map plus the same settings-entry touch strip as the
-  other modes
-- `r47_background`: draw the density-qualified background shell while
-  keeping the scene-driven label and softkey-state overlay on the shared
-  touch-cell map and the texture-aligned LCD frame
-- `native`: draw the body, bezel, and LCD frame with Android `Canvas` while
-  keeping the same logical keypad geometry, settings-entry touch strip, and
-  texture-aligned LCD frame
-
-The native software shell fills the rounded calculator body with
-`RGB(32, 32, 32)`, drops the separate top and bottom bar pass, and keeps the
-`80`-unit logical-canvas corner radius before projection. The view background
-outside that rounded silhouette stays black.
-
-The projection is the first place to inspect when the shell or LCD looks
-correctly rendered but globally misplaced.
-
-Projection errors usually affect the whole shell, the LCD frame, and the keypad
-children together. A single-key issue is usually lower in the stack.
-
-## LCD path
-
-The native core exposes a `400 x 240` LCD pixel buffer. `NativeCoreRuntime`
-pulls that buffer on the frame callback and hands it to `ReplicaOverlay`.
-
-`ReplicaOverlay.updateLcd(...)`:
-
-- compares the new frame against the cached pixel buffer
-- computes the smallest changed rectangle
-- updates the backing `Bitmap`
-- invalidates only the changed on-screen region
-
-That partial invalidation path is why LCD refresh bugs and keypad-layout bugs
-must be debugged separately.
-
-## Refresh path
-
-`NativeCoreRuntime` pulls LCD pixels every frame while the app is active. It
-also checks keypad metadata on the same frame loop and rebuilds the Kotlin
-snapshot when native keypad state changes or when the fallback refresh interval
-expires.
-
-That means LCD bugs, keypad-state bugs, and rendering bugs can share the same
-frame boundary while still having different owners.
-
-## Keypad conversion model
-
-The rendered keypad path is scene-driven. `r47_texture` still keeps invisible
-image-backed touch zones, but those zones now come from the same normalized
-touch-cell map used by the rendered shells.
-
-The native side provides two arrays:
-
-- keypad metadata
-- keypad labels
-
-Android currently reads those arrays through separate JNI bridge calls and
-decodes them directly into `KeypadSnapshot` on the Kotlin side. Label
-placement and faceplate offset correction are separate layout concerns owned by
-the view layer, not by snapshot decoding.
-
-`KeypadSnapshot.fromNative(...)` converts those arrays into:
-
-- keyboard-wide state such as shift, alpha, and softmenu status
-- one `KeypadKeySnapshot` per key
-- style roles, layout classes, scene flags, overlay state, and show-value
-  fields used by the Android renderer
-
-That fixed metadata-lane decoding stays local to the snapshot model. Other
-Android layers should consume the named `KeypadSnapshot` fields rather than
-re-indexing raw metadata offsets.
-
-The snapshot also preserves softmenu paging state, dotted-row state, function
-preview state, and per-key enabled state. Android should consume those fields,
-not recreate them from label text.
-
-`LAYOUT_CLASS_ALPHA` is also part of that contract. The native export now uses
-the same broader alphabetic-key gate as the upstream simulator's
-`keyboard.c::determineItem()` path, so AIM, XEQ/PROG, catalog, and related
-alphabetic states export `primaryAim` across the whole keypad. When native
-exports an alpha-mode key, `CalculatorKeyView` suppresses the unused
-fourth-label text but keeps the measured painted main-key body width fixed.
-Android retains the spacer as invisible so alphabetic scenes such as XEQ/PROG
-stay on the same body geometry as the default keypad instead of widening to
-the full slot.
-
-This keeps content and state on the native side while Android owns measurement,
-projection, and drawing.
+- the native core exports one `400 x 240` LCD pixel buffer plus separate keypad
+  metadata and label arrays
+- `KeypadSnapshot.fromNative(...)` decodes those arrays into named Kotlin
+  fields; downstream Android code should not re-index raw metadata offsets
+- `NativeDisplayRefreshLoop` is the only UI-side poller for LCD and keypad
+  state; this page covers ownership while `60-runtime-hot-paths.md` covers the
+  cadence and skip gates
+- `ReplicaOverlay.updateLcd(...)` compares against the cached pixel buffer,
+  computes the smallest changed rectangle, updates the backing `Bitmap`, and
+  invalidates only that on-screen region
+- keypad content and state stay native-owned, while Android owns measurement,
+  projection, and drawing
+- `LAYOUT_CLASS_ALPHA` hides the unused fourth-label text but keeps the spacer
+  reserved so XEQ/PROG and related alpha scenes stay on the canonical painted
+  key body width
 
 ## Measured keypad geometry
 
@@ -204,66 +156,54 @@ that the main-key path does not. `CalculatorSoftkeyPainter` owns that
 softkey-only drawing and content-description path while `CalculatorKeyView`
 continues to decide whether a key is on the main-key or function-key branch.
 
-It renders:
+Render split:
 
-- primary label inside the painted key body
-- F and G faceplate labels above the painted key body
-- the fourth label from the right edge of the painted key body
-- softkey text, auxiliary text, value text, preview accents, reverse-video
-  states, strike marks, and overlay-state decorations when the scene contract
-  asks for them
-
-For alpha-mode main keys, the same view applies the exported
-`LAYOUT_CLASS_ALPHA` rule by hiding the unused fourth-label text while keeping
-the spacer width reserved, so the scene-driven alpha legends stay centered on
-the canonical painted key body rather than on the full cell width.
-
-Visible faceplate-label geometry now follows an explicit layout-owned contract:
-
+- `CalculatorKeyView` owns the main-key painted body, primary legend, `f` and
+  `g` faceplate labels, and the fourth-label anchor
+- `CalculatorSoftkeyPainter` owns softkey text, auxiliary text, value text,
+  preview accents, reverse-video states, strike marks, and overlay-state
+  decorations
 - `ReplicaKeypadLayout.updateDynamicKeys()` ignores snapshots until
-  `sceneContractVersion > 0` and requests layout after scene changes that can
-  alter label widths, visibility, or layout class.
-- `CalculatorKeyView` keeps the `f`/`g` vertical lift and the fourth-label
-  offsets on the fixed painted-body formulas and recomputes those per-key
-  anchors from `onLayout` so label translations follow actual button and label
-  bounds.
-- `ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout()` computes one
-  row-local horizontal `centerShift` for the shared `f`/`g` group in each
-  keypad lane after real overlay layout. The live solver keeps the intragap
-  fixed, bounds each group from five intragaps before the physical left
-  neighbor's right border to five intragaps after the physical right
-  neighbor's left border, and also clamps the first and last visible groups to
-  the smartphone screen's lateral edges with no extra corridor extension beyond
-  `0` and `overlay.width`. It first tries a bounded local move of the current
-  offender, then a
-  bounded whole-row translation, then fixed-step scaling on the longest label
-  of the longest offender, then the other label of that same group if needed,
-  down to the preferred `TOP_F_G_LABEL_MIN_SCALE`, and after each successful
-  scale step restarts from centered defaults before it falls back to stronger
-  horizontal movement. The two labels inside one `f`/`g` group may differ by
-  at most one fixed scale step. If one offending group is already fully reduced
-  on both labels and the mandatory `2 * gap` rule is still broken, the
-  colliding neighboring group becomes the next translation and scale target.
-  `__DEV/R47/compute_top_label_lane_layout.py` remains the owner for this lane
-  policy, and `__DEV/R47/test_top_label_lane_layout.py` plus
-  `DynamicKeypadParityFixtureTest.kt` are the focused maintainer regressions
-  that must move with any rule change, including the hard lateral screen-edge
-  rule. If
-  the row is still unresolved at the preferred minimum, the solver retries
-  translation with preferred-shift-budget overflow before it keeps scaling the
-  current worst offender below that preferred minimum until overlap is cleared.
-  `CalculatorKeyView` applies that horizontal shift and per-label scales.
-- neighboring top-label groups in one lane must keep an inter-group gap of at
-  least twice the measured intragap between the `f` and `g` labels inside one
-  group, each solved group must stay inside that widened neighbor corridor, and
-  the first and last visible groups must stay inside the smartphone screen's
-  left and right lateral edges.
-  The per-key shift budget is preferred positioning guidance only; the solver
-  may exceed it when long labels would otherwise overlap or violate the
-  mandatory `2 * gap` inter-group rule.
-- The fourth label stays on its fixed reference-canvas offsets from the painted
-  body right edge and top edge; there is no runtime vertical lane solver,
-  no stagger level, and no broad runtime scale-down in the live contract.
+  `sceneContractVersion > 0` and requests layout when scene changes can affect
+  label widths, visibility, or layout class
+
+## Top-label lane contract
+
+Owner chain:
+
+- `TopLabelLaneLayout.solve(...)` computes per-lane horizontal placement and
+  scale decisions
+- `ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout()` applies those
+  results only after a real overlay layout boundary
+- `CalculatorKeyView` applies the final horizontal shift and per-label scales
+
+Non-negotiable invariants:
+
+- keep the `f` and `g` intragap fixed inside one group
+- keep neighboring groups at or above the mandatory `2 * gap` inter-group rule
+- keep each group inside its widened neighbor corridor: five intragaps before
+  the left neighbor border to five intragaps after the right neighbor border
+- clamp the first and last visible groups to the smartphone screen edges
+  `0 .. overlay.width`
+- keep vertical placement fixed; there is no runtime vertical lane solver or
+  stagger model
+- allow the two labels inside one group to differ by at most one fixed scale
+  step
+
+Solve order:
+
+1. bounded local move of the current offender
+2. bounded whole-row translation
+3. fixed-step scale on the longest label of the worst offender
+4. fixed-step scale on the sibling label if that same group is still worst
+5. preferred-shift-budget overflow only after the preferred minimum scale is
+   exhausted and overlap still remains
+
+Regression surfaces:
+
+- `test_top_label_lane_layout.py`
+- `DynamicKeypadParityFixtureTest.kt`
+- `80-tests-and-contracts.md` for the full contract-to-lane map
 
 Any future faceplate-offset change must stay on those fixed formulas and layout
 boundaries. Running label placement from a pre-layout `post { ... }`, a refresh
@@ -446,22 +386,12 @@ Use this split:
 When a change touches more than one layer, prefer fixing the highest true owner
 first.
 
-## Practical debugging rules
+## Debug by symptom
 
-When a visual mismatch appears, locate it in one of four places before editing:
-
-1. native scene data
-2. logical keypad geometry
-3. overlay projection
-4. per-key drawing behavior
-
-Use that order because a per-key patch is often wrong when the actual defect is
-in scene metadata or logical geometry.
-
-Prefer fixing the owning contract instead of adding per-key exceptions.
-
-As a rule:
-
-- wrong text or wrong mode state means native snapshot first
-- every key shifted together means layout or projection
-- one key drawn wrong with correct content means `CalculatorKeyView`
+| Symptom | First owner to inspect |
+| --- | --- |
+| wrong text, wrong mode state, wrong menu semantics | native scene export and `KeypadSnapshot.fromNative(...)` |
+| every key shifted together | `ReplicaKeypadLayout`, `ReplicaChromeLayout`, or `ReplicaOverlay` |
+| one key drawn wrong but content is right | `CalculatorKeyView` |
+| softkey overlay, preview, value, or strike mismatch | `CalculatorSoftkeyPainter` |
+| shell and LCD both look locally correct but globally misplaced | projection in `ReplicaChromeLayout` or `ReplicaOverlay` |

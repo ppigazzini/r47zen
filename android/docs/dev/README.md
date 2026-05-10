@@ -3,85 +3,119 @@
 This directory is the active Android maintainer documentation surface for the
 checked-in R47 shell.
 
-They are code-facing development notes, not end-user usage docs.
+These pages are code-facing maintainer docs, not end-user usage docs.
 
-Keep the maintainer doc split simple:
+Start with the project page, then the build page. The rest of the set assumes
+you already know what this repo owns, what the upstream C47 project owns, and
+where the Android overlay boundary sits.
 
-- this page is the maintainer index
-- `10-build-and-source-layout.md` is the canonical Android ownership, build,
-  and rebuild contract
-- the numbered topic pages carry the deeper subsystem details
+## Maintainer Doc Flow
 
-Public maintainer entrypoints:
+```mermaid
+flowchart TD
+  A[00 project and upstream]
+  B[10 build and source layout]
+  C[20 Kotlin shell architecture]
+  D[30 native core and JNI]
+  E[40 UI rendering and GTK mapping]
+  F[50 upstream interface surfaces]
+  G[60 runtime hot paths]
+  H[70 CI and release workflow]
+  I[80 tests and contracts]
+  J[90 official references]
 
-- `./scripts/upstream-sync/upstream.sh sync --auto --write-lock` hydrates the
-  authoritative upstream core.
-- `./scripts/android/build_android.sh` is the canonical Android debug-build path.
-- `cd android && ./gradlew lint` is the maintained Android Lint lane when
-  Kotlin, Java, manifest, resource, or Android Gradle changes need module-local
-  verification and staged native inputs are already current.
-- `cd android && ./gradlew ...` is the module-local maintenance lane only when
-  staged native inputs are already current.
+  A --> B
+  B --> C
+  B --> D
+  B --> E
+  C --> F
+  D --> F
+  E --> G
+  F --> G
+  G --> I
+  H --> I
+  I --> J
+```
 
-Repo-owned automation layout:
+## Read In Order
+
+- [00-project-and-upstream.md](00-project-and-upstream.md): what this repo is,
+  what the upstream C47 project is, what this repo owns, and how the Android
+  overlay interfaces with upstream-owned sources and runtime behavior.
+- [10-build-and-source-layout.md](10-build-and-source-layout.md): build
+  entrypoints, ownership boundaries, staged inputs, compile flow, and
+  checkout-sensitive root surfaces.
+- [20-kotlin-shell-architecture.md](20-kotlin-shell-architecture.md): Android
+  lifecycle, helper ownership, storage, settings, slot flow, and input flow.
+- [30-native-core-and-jni.md](30-native-core-and-jni.md): CMake, JNI
+  registration, Android HAL seams, SAF bridge behavior, and native packaging.
+- [40-ui-rendering-and-gtk-mapping.md](40-ui-rendering-and-gtk-mapping.md):
+  logical canvas, LCD projection, keypad geometry, and renderer rules.
+- [50-upstream-interface-surfaces.md](50-upstream-interface-surfaces.md): the
+  detailed interface from the Android shell into upstream-owned runtime
+  behavior.
+- [60-runtime-hot-paths.md](60-runtime-hot-paths.md): the main hot loops,
+  redraw paths, and regression-sensitive lock boundaries.
+- [70-ci-and-release-workflow.md](70-ci-and-release-workflow.md): GitHub
+  Actions lane split, release gating, artifacts, and local reproduction.
+- [80-tests-and-contracts.md](80-tests-and-contracts.md): the maintainer map
+  of verification surfaces, contract owners, focused test suites, and first
+  rerun lanes.
+- [90-official-references.md](90-official-references.md): official Android,
+  NDK, Gradle, Kotlin, GitHub Actions, and upstream reference surfaces.
+
+## By Task
+
+- build break, stale staged inputs, or checkout drift:
+  [10-build-and-source-layout.md](10-build-and-source-layout.md)
+- JNI, SAF, or Android-native bridge change:
+  [30-native-core-and-jni.md](30-native-core-and-jni.md) and
+  [50-upstream-interface-surfaces.md](50-upstream-interface-surfaces.md)
+- renderer, geometry, or keypad-scene drift:
+  [40-ui-rendering-and-gtk-mapping.md](40-ui-rendering-and-gtk-mapping.md),
+  [60-runtime-hot-paths.md](60-runtime-hot-paths.md), and
+  [80-tests-and-contracts.md](80-tests-and-contracts.md)
+- verification planning, contract ownership, or CI test routing:
+  [80-tests-and-contracts.md](80-tests-and-contracts.md) and
+  [70-ci-and-release-workflow.md](70-ci-and-release-workflow.md)
+
+## Build Entry Points
+
+Maintainer entrypoints:
+
+- `./scripts/upstream-sync/upstream.sh sync --auto --write-lock` hydrates or
+  refreshes the authoritative upstream core inputs.
+- `./scripts/android/build_android.sh` is the canonical Android debug-build
+  path.
+- `cd android && ./gradlew lint` is the maintained module-local lint lane when
+  Kotlin, Java, manifest, resource, or Android Gradle changes are in scope and
+  the staged native inputs are already current.
+- `cd android && ./gradlew ...` is the fast module-local maintenance lane only
+  when the staged native inputs are already current.
+
+Two rules govern most Android work in this repository:
+
+1. Shared calculator behavior stays rooted in the synced upstream-shaped tree
+   plus generated outputs from `build.sim`.
+2. The build-only Android native input tree lives under
+   `android/.staged-native/cpp`, while
+   `android/app/src/main/cpp/c47-android` stays the Android-owned bridge, HAL,
+   and stub surface.
+
+## Repo-Owned Automation Layout
 
 - `scripts/` owns repo-only automation.
-- `scripts/upstream-sync/` owns grouped upstream resolve and sync
+- `scripts/upstream-sync/` owns grouped upstream resolution and sync helpers.
+- `scripts/android/` owns Android build, staging, packaging, and helper
   implementation.
-- `scripts/android/` owns grouped Android build, staging, packaging, and
-  helper implementations.
 - `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
   `scripts/workload-regressions/` own the fixture export, notice generation,
   and host workload lanes.
 
-Read in this order:
-
-- [10-build-and-source-layout.md](10-build-and-source-layout.md): toolchain,
-  source ownership, build entry points, rebuild contract, and CI.
-- [20-kotlin-shell-architecture.md](20-kotlin-shell-architecture.md):
-  lifecycle, runtime ownership, input flow, storage, and Kotlin-side structure.
-- [30-native-core-and-jni.md](30-native-core-and-jni.md): CMake, JNI,
-  synchronization, HAL I/O, and packaging constraints.
-- [40-ui-rendering-and-gtk-mapping.md](40-ui-rendering-and-gtk-mapping.md):
-  shell projection, keypad scene data, and GTK-derived rendering rules.
-- [90-official-references.md](90-official-references.md): official Android,
-  NDK, Kotlin, storage, and view-system references.
-
-The CI workflow keeps the lane split explicit: one lane sanity-checks the
-authoritative upstream simulator core and runs the host workload regression
-harness, one lane builds, tests, and packages Android through
-`./scripts/android/build_android.sh --run-sim-tests`, explicitly runs
-`cd android && ./gradlew lint` because normal Gradle builds do not run lint
-automatically, and a separate Android test lane runs JVM tests plus emulator-
-backed instrumentation that stages and loads and runs the canonical `PROGRAMS`
-fixture matrix for `BinetV3`, `GudrmPL`, `NQueens`, and `SPIRALk` through the
-Android `READP` path. The main-branch
-snapshot prerelease publishes only after those jobs pass.
-
 Use `./scripts/android/build_android.sh --doctor` to inspect host and staging
 readiness, and `./scripts/android/build_android.sh --android-only` for the fast
-module-local lane when staged native inputs are current. Staging helpers stay
-internal unless the task is specifically about sync or staging internals.
+module-local lane when staged native inputs are current.
 
-Repo-owned implementation scripts now live under grouped folders below
-`scripts/`, primarily `scripts/android/`, `scripts/upstream-sync/`,
-`scripts/keypad-fixtures/`, `scripts/package-notices/`, and
-`scripts/workload-regressions/`.
-
-Shared Android SDK, NDK, CMake, build-tools, hosted-emulator, and xlsxio pins
-live in `android/r47-defaults.properties`.
-
-Two rules govern most Android work in this repository:
-
-1. The preferred source of truth for shared calculator behavior is the synced
-   root tree plus generated outputs from `build.sim`.
-2. The build-only staged Android native input tree lives under
-  `android/.staged-native/cpp`. The former tracked
-  `android/app/src/main/cpp/{c47,generated,decNumberICU,gmp}` tree has been
-  retired and must stay absent, while `android/app/src/main/cpp/c47-android`
-  stays the Android-owned bridge, HAL, and stub surface. Public checkouts keep
-  only one explicit staging-only mini-gmp fallback under
-  `android/compat/mini-gmp-fallback`.
-
-If a change crosses both Kotlin and native boundaries, read the build page and
-the JNI page before editing.
+If a change crosses Kotlin, JNI, and rendering ownership at the same time, read
+the project page, the build page, the Kotlin page, the JNI page, and the
+upstream-interface page before editing.

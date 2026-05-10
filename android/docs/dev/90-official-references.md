@@ -1,5 +1,41 @@
 # Official References
 
+This page groups the canonical external references that back the maintainer
+docs and the checked-in Android workflow.
+
+## Reference Map
+
+```mermaid
+flowchart TD
+  A[Need external reference]
+  B[Toolchain and build]
+  C[Kotlin and architecture]
+  D[Native and packaging]
+  E[CI and release]
+  F[Storage and manifest]
+  G[View and rendering]
+
+  A --> B
+  A --> C
+  A --> D
+  A --> E
+  A --> F
+  A --> G
+```
+
+## Upstream project surfaces
+
+- [C47 GitLab project](https://gitlab.com/rpncalculators/c43): the authoritative
+  upstream source repository consumed by this Android overlay. The GitLab path
+  still uses the historical `c43` name even though the project identifies
+  itself as C47.
+- [C47 project wiki](https://gitlab.com/rpncalculators/c43/-/wikis/home):
+  upstream project-maintained wiki surface linked from the upstream GitLab
+  project when project-specific behavior or history matters.
+- [C47 community wiki](https://gitlab.com/h2x/c47-wiki/-/wikis/home): community
+  documentation hub that covers the broader C47 ecosystem, including R47
+  variant context and user-facing project documentation.
+
 ## Spring 2026 toolchain references
 
 - [Android Gradle plugin 9.2.0 release notes](https://developer.android.com/build/releases/agp-9-2-0-release-notes):
