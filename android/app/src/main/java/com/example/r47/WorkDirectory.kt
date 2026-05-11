@@ -130,6 +130,25 @@ internal object WorkDirectory {
         legacyPrefs(context).edit().remove(KEY_TREE_URI).apply()
     }
 
+    fun clearTreeUriString(context: Context) {
+        val treeUri = readTreeUriString(context)?.let { storedValue ->
+            AndroidWorkDirectoryDocumentAccess.parseTreeUri(storedValue)
+        }
+        if (treeUri != null) {
+            try {
+                context.contentResolver.releasePersistableUriPermission(
+                    treeUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            } catch (_: SecurityException) {
+                Log.w(TAG, "No persisted permission to release for cleared work directory")
+            }
+        }
+
+        prefs(context).edit().remove(KEY_TREE_URI).apply()
+        legacyPrefs(context).edit().remove(KEY_TREE_URI).apply()
+    }
+
     fun persistSelectedTreeUri(context: Context, uri: Uri): String {
         context.contentResolver.takePersistableUriPermission(
             uri,

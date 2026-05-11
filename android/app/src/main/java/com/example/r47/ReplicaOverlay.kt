@@ -2,6 +2,10 @@ package com.example.r47
 
 import android.content.Context
 import android.graphics.*
+import android.os.SystemClock
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.GestureDetector
@@ -9,7 +13,12 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.util.Log
+import com.google.android.material.color.MaterialColors
+import kotlin.math.PI
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 class ReplicaOverlay @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -47,8 +56,46 @@ class ReplicaOverlay @JvmOverloads constructor(
         strokeWidth = 2f * resources.displayMetrics.density
         alpha = 180
     }
+    private val settingsHintSurfaceColor = MaterialColors.getColor(
+        context,
+        com.google.android.material.R.attr.colorSurfaceContainerHigh,
+        Color.argb(236, 18, 21, 26),
+    )
+    private val settingsHintOnSurfaceColor = MaterialColors.getColor(
+        context,
+        com.google.android.material.R.attr.colorOnSurface,
+        Color.parseColor("#F7F3EA"),
+    )
+    private val settingsHintTopFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = settingsHintSurfaceColor
+    }
+    private val settingsHintTopStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#83B7DF")
+        style = Paint.Style.STROKE
+        strokeWidth = dp(2.5f)
+    }
+    private val settingsHintInfoFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = settingsHintSurfaceColor
+    }
+    private val settingsHintInfoStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#83B7DF")
+        style = Paint.Style.STROKE
+        strokeWidth = dp(2.5f)
+    }
+    private val settingsHintTopTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = settingsHintOnSurfaceColor
+        textAlign = Paint.Align.CENTER
+        textSize = dp(15f)
+        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+    }
+    private val settingsHintInfoTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = settingsHintOnSurfaceColor
+        textSize = dp(14f)
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+    }
     private var lcdTextColor = 0xFF303030.toInt()
     private var lcdBackgroundColor = 0xFFDFF5CC.toInt()
+    private var showSettingsDiscoveryHint = false
 
     var onPiPKeyEvent: ((Int) -> Unit)? = null
     var onLongPressListener: ((Float, Float) -> Unit)? = null
@@ -97,6 +144,15 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     fun setShowTouchZones(show: Boolean) {
         showTouchZones = show
+        invalidate()
+    }
+
+    fun setShowSettingsDiscoveryHint(show: Boolean) {
+        if (showSettingsDiscoveryHint == show) {
+            return
+        }
+
+        showSettingsDiscoveryHint = show
         invalidate()
     }
 
@@ -457,5 +513,78 @@ class ReplicaOverlay @JvmOverloads constructor(
         }
 
         super.dispatchDraw(canvas)
+
+        if (showSettingsDiscoveryHint) {
+            val topPulse = (((sin((SystemClock.uptimeMillis() % 1400L) / 1400.0 * (2.0 * PI)) + 1.0) * 0.5)).toFloat()
+            val bottomPulse = (((sin((SystemClock.uptimeMillis() % 4200L) / 4200.0 * (2.0 * PI)) + 1.0) * 0.5)).toFloat()
+            val maxBannerWidth = shellRect.width() - dp(24f)
+            val desiredBannerWidth = min(dp(360f), shellRect.width() * 0.72f)
+            val bannerWidth = min(maxBannerWidth, max(dp(220f), desiredBannerWidth))
+            val radius = dp(18f)
+            val topBorderAlpha = (150 + topPulse * 105f).roundToInt()
+            val topBorderWidth = dp(2.5f) + topPulse * dp(1.5f)
+            val topBannerRect = RectF(
+                shellRect.centerX() - bannerWidth / 2f,
+                projection.offsetY + dp(8f),
+                shellRect.centerX() + bannerWidth / 2f,
+                projection.offsetY + layoutSpec.topBezelSettingsTapHeight * projection.scale - dp(8f),
+            )
+            val topText = resources.getString(R.string.settings_entry_hint_chip)
+
+            settingsHintTopStrokePaint.alpha = topBorderAlpha
+            settingsHintTopStrokePaint.strokeWidth = topBorderWidth
+            settingsHintTopTextPaint.textSize = (topBannerRect.height() * 0.29f).coerceIn(dp(11f), dp(17f))
+            val topTextWidth = settingsHintTopTextPaint.measureText(topText)
+            val topTextMaxWidth = topBannerRect.width() - dp(28f)
+            if (topTextWidth > topTextMaxWidth && topTextWidth > 0f) {
+                settingsHintTopTextPaint.textSize *= topTextMaxWidth / topTextWidth
+            }
+
+            canvas.drawRoundRect(topBannerRect, radius, radius, settingsHintTopFillPaint)
+            canvas.drawRoundRect(topBannerRect, radius, radius, settingsHintTopStrokePaint)
+
+            val topBaseline = topBannerRect.centerY() - (settingsHintTopTextPaint.descent() + settingsHintTopTextPaint.ascent()) / 2f
+            canvas.drawText(topText, topBannerRect.centerX(), topBaseline, settingsHintTopTextPaint)
+
+            val infoPaddingHorizontal = dp(18f)
+            val infoPaddingVertical = dp(16f)
+            val infoMessage = resources.getString(R.string.settings_entry_hint_message)
+            val infoTextWidth = (bannerWidth - infoPaddingHorizontal * 2f).roundToInt().coerceAtLeast(1)
+            val infoLayout = StaticLayout.Builder
+                .obtain(infoMessage, 0, infoMessage.length, settingsHintInfoTextPaint, infoTextWidth)
+                .setAlignment(Layout.Alignment.ALIGN_CENTER)
+                .setIncludePad(false)
+                .setLineSpacing(dp(4f), 1f)
+                .build()
+            val infoCardHeight = infoLayout.height + infoPaddingVertical * 2f
+            val minInfoTop = max(topBannerRect.bottom + dp(24f), lcdDestRect.bottom + dp(24f))
+            val maxInfoTop = shellRect.bottom - infoCardHeight - dp(24f)
+            val preferredInfoTop = shellRect.centerY() - infoCardHeight / 2f
+            val infoTop = if (maxInfoTop > minInfoTop) {
+                preferredInfoTop.coerceIn(minInfoTop, maxInfoTop)
+            } else {
+                minInfoTop
+            }
+            val infoCardRect = RectF(
+                shellRect.centerX() - bannerWidth / 2f,
+                infoTop,
+                shellRect.centerX() + bannerWidth / 2f,
+                infoTop + infoCardHeight,
+            )
+
+            settingsHintInfoStrokePaint.alpha = (150 + bottomPulse * 105f).roundToInt()
+            settingsHintInfoStrokePaint.strokeWidth = dp(2.5f) + bottomPulse * dp(1.5f)
+            canvas.drawRoundRect(infoCardRect, dp(22f), dp(22f), settingsHintInfoFillPaint)
+            canvas.drawRoundRect(infoCardRect, dp(22f), dp(22f), settingsHintInfoStrokePaint)
+            canvas.save()
+            canvas.translate(
+                infoCardRect.left + infoPaddingHorizontal,
+                infoCardRect.top + infoPaddingVertical,
+            )
+            infoLayout.draw(canvas)
+            canvas.restore()
+
+            postInvalidateOnAnimation()
+        }
     }
 }

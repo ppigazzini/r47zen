@@ -1,26 +1,46 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:orientation="vertical">
 
-    <ScrollView
-        android:id="@+id/notice_text_container"
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/top_app_bar"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurfaceContainer"
+        android:elevation="0dp"
+        android:minHeight="?attr/actionBarSize"
+        android:paddingStart="4dp"
+        android:paddingEnd="8dp" />
 
-        <TextView
-            android:id="@+id/notice_text"
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ScrollView
+            android:id="@+id/notice_text_container"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:padding="16dp"
-            android:textIsSelectable="true"
-            android:textSize="14sp" />
-    </ScrollView>
+            android:layout_height="match_parent">
 
-    <WebView
-        android:id="@+id/notice_webview"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone" />
+            <TextView
+                android:id="@+id/notice_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:padding="16dp"
+                android:textColor="?attr/colorOnSurface"
+                android:textIsSelectable="true"
+                android:textSize="14sp" />
+        </ScrollView>
 
-</FrameLayout>
+        <WebView
+            android:id="@+id/notice_webview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+</LinearLayout>

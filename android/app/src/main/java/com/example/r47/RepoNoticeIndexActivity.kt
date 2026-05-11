@@ -7,6 +7,7 @@ import android.widget.ArrayAdapter
 import android.widget.ListView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONObject
 import java.io.IOException
@@ -16,8 +17,12 @@ class RepoNoticeIndexActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_repo_notice_index)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        title = getString(R.string.repo_notice_catalog_title)
+
+        findViewById<MaterialToolbar>(R.id.top_app_bar)
+            .configureScreenToolbar(
+                titleText = getString(R.string.repo_notice_catalog_title),
+                onNavigateUp = ::finish,
+            )
 
         val entries = try {
             loadEntries()
@@ -29,15 +34,15 @@ class RepoNoticeIndexActivity : AppCompatActivity() {
         val noticeList = findViewById<ListView>(R.id.notice_list)
         noticeList.adapter = object : ArrayAdapter<RepoNoticeEntry>(
             this,
-            android.R.layout.simple_list_item_2,
-            android.R.id.text1,
+            R.layout.item_notice_entry,
+            R.id.notice_entry_title,
             entries
         ) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = super.getView(position, convertView, parent)
                 val entry = getItem(position) ?: return view
-                view.findViewById<TextView>(android.R.id.text1).text = entry.title
-                view.findViewById<TextView>(android.R.id.text2).apply {
+                view.findViewById<TextView>(R.id.notice_entry_title).text = entry.title
+                view.findViewById<TextView>(R.id.notice_entry_summary).apply {
                     text = entry.summary
                     visibility = if (entry.summary.isBlank()) View.GONE else View.VISIBLE
                 }
@@ -56,11 +61,6 @@ class RepoNoticeIndexActivity : AppCompatActivity() {
                 )
             )
         }
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        finish()
-        return true
     }
 
     private fun loadEntries(): List<RepoNoticeEntry> {

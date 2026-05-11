@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     companion object {
         private const val DEFAULT_HAPTIC_INTENSITY = 64
+        private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
 
         init {
             System.loadLibrary("c47-android")
@@ -188,8 +189,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         storageAccessCoordinator = StorageAccessCoordinator(
             activity = this,
-            appPreferences = prefs,
-            rootView = binding.root,
             onNativeFileSelected = ::onFileSelectedNative,
             onNativeFileCancelled = ::onFileCancelledNative,
         )
@@ -282,7 +281,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         
         replicaOverlay.onSettingsTapListener = {
             Log.i(TAG, "Settings tap received in MainActivity")
-            startActivity(Intent(this, SettingsActivity::class.java))
+            completeSettingsDiscovery(openSettings = true)
         }
 
         coreRuntime.attach()
@@ -316,16 +315,34 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         super.onResume()
         replicaOverlayController.onHostResumed()
         storageAccessCoordinator.handleResume()
+        maybeShowSettingsDiscoveryHint()
     }
 
     override fun onPause() {
         super.onPause()
         val isEnteringPiP = windowModeController.isEnteringPictureInPicture()
         Log.i(TAG, "onPause: isEnteringPiP=$isEnteringPiP")
-        
         if (!isEnteringPiP && !factoryResetController.isResetInProgress && appPreferences.getBoolean("auto_save_minimize", true)) {
             Log.i(TAG, "Auto-saving state on pause (synchronous via core thread)...")
             coreRuntime.saveStateOnPause(autoSaveEnabled = true)
+        }
+    }
+
+    private fun maybeShowSettingsDiscoveryHint() {
+        if (!appPreferences.getBoolean(PREF_SETTINGS_DISCOVERY_PENDING, true)) {
+            return
+        }
+        if (factoryResetController.isResetInProgress) {
+            return
+        }
+        replicaOverlay.setShowSettingsDiscoveryHint(true)
+    }
+
+    private fun completeSettingsDiscovery(openSettings: Boolean) {
+        appPreferences.edit().putBoolean(PREF_SETTINGS_DISCOVERY_PENDING, false).apply()
+        replicaOverlay.setShowSettingsDiscoveryHint(false)
+        if (openSettings) {
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
     }
 

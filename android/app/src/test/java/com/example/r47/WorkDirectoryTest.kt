@@ -109,6 +109,18 @@ class WorkDirectoryTest {
     }
 
     @Test
+    fun clearTreeUriString_removesStoredValue() {
+        context.getSharedPreferences(WorkDirectory.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(WorkDirectory.KEY_TREE_URI, treeUri.toString())
+            .commit()
+
+        WorkDirectory.clearTreeUriString(context)
+
+        assertNull(WorkDirectory.readTreeUriString(context))
+    }
+
+    @Test
     fun formatDisplayPath_stripsTreePrefix() {
         assertEquals("/R47/PROGRAMS", WorkDirectory.formatDisplayPath("/tree/primary:R47/PROGRAMS"))
         assertEquals("Select a folder", WorkDirectory.formatDisplayPath(null))

@@ -1,7 +1,6 @@
 package com.example.r47
 
 import android.app.Activity
-import android.content.Context
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import androidx.test.core.app.ActivityScenario
@@ -19,8 +18,6 @@ class StorageAccessCoordinatorInstrumentedTest {
     fun deliverNativeFileResult_detachesFd_andForwardsSelection() {
         ActivityScenario.launch(StorageAccessTestActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
-                val rootView = activity.findViewById<android.view.View>(android.R.id.content)
                 val backingFile = File(activity.cacheDir, "storage-access-success.txt").apply {
                     writeText("r47")
                 }
@@ -29,8 +26,6 @@ class StorageAccessCoordinatorInstrumentedTest {
                 var openedDescriptor: ParcelFileDescriptor? = null
                 val coordinator = StorageAccessCoordinator(
                     activity = activity,
-                    appPreferences = preferences,
-                    rootView = rootView,
                     onNativeFileSelected = { selectedFd = it },
                     onNativeFileCancelled = { cancelCount += 1 },
                     openFileDescriptor = { _, _ ->
@@ -57,14 +52,10 @@ class StorageAccessCoordinatorInstrumentedTest {
     fun deliverNativeFileResult_cancelsOnMissingSelection() {
         ActivityScenario.launch(StorageAccessTestActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
-                val rootView = activity.findViewById<android.view.View>(android.R.id.content)
                 var selectedFd: Int? = null
                 var cancelCount = 0
                 val coordinator = StorageAccessCoordinator(
                     activity = activity,
-                    appPreferences = preferences,
-                    rootView = rootView,
                     onNativeFileSelected = { selectedFd = it },
                     onNativeFileCancelled = { cancelCount += 1 },
                 )

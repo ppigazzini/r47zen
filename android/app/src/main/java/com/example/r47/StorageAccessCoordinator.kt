@@ -2,32 +2,16 @@ package com.example.r47
 
 import android.app.Activity
 import android.content.Intent
-import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.util.Log
-import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.snackbar.Snackbar
-
-internal typealias FirstRunPromptPresenter = (
-    onSelectFolder: () -> Unit,
-    onLater: () -> Unit,
-) -> Unit
-
-internal typealias MissingWorkDirectoryPromptPresenter = (
-    message: String,
-    onSet: () -> Unit,
-) -> Unit
 
 internal class StorageAccessCoordinator(
     private val activity: ComponentActivity,
-    private val appPreferences: SharedPreferences,
-    private val rootView: View,
     private val onNativeFileSelected: (Int) -> Unit,
     private val onNativeFileCancelled: () -> Unit,
     private val openFileDescriptor: (Uri, String) -> ParcelFileDescriptor? = { uri, mode ->
@@ -52,8 +36,6 @@ internal class StorageAccessCoordinator(
     private val providedSaveIntentLauncher: ((Intent) -> Unit)? = null,
     private val providedLoadIntentLauncher: ((Intent) -> Unit)? = null,
     private val providedWorkDirectoryIntentLauncher: ((Uri?) -> Unit)? = null,
-    private val showFirstRunPrompt: FirstRunPromptPresenter? = null,
-    private val showWorkDirectoryMissingPrompt: MissingWorkDirectoryPromptPresenter? = null,
 ) {
     companion object {
         private const val TAG = "R47StorageAccess"
@@ -103,13 +85,9 @@ internal class StorageAccessCoordinator(
     }
 
     fun handleResume() {
-        val isFirstRun = appPreferences.getBoolean("first_setup", true)
-        val hasWorkDirectory = readWorkDirectoryTreeUri() != null
-
-        if (isFirstRun && !hasWorkDirectory) {
-            showFirstRunDialog()
-        } else {
-            validateWorkDirectory()
+        val treeUriString = readWorkDirectoryTreeUri()
+        if (treeUriString != null && !isWorkDirectoryAccessible(treeUriString)) {
+            Log.w(TAG, "Saved work directory is unavailable; falling back to system picker defaults")
         }
     }
 
@@ -149,7 +127,12 @@ internal class StorageAccessCoordinator(
         defaultName: String,
         fileType: Int,
     ): Intent {
-        val initialUri = resolveInitialUri(readWorkDirectoryTreeUri(), fileType)
+        val treeUriString = readWorkDirectoryTreeUri()
+        val initialUri = if (treeUriString != null && isWorkDirectoryAccessible(treeUriString)) {
+            resolveInitialUri(treeUriString, fileType)
+        } else {
+            null
+        }
         return if (isSave) {
             buildSaveIntent(defaultName, initialUri)
         } else {
@@ -215,58 +198,5 @@ internal class StorageAccessCoordinator(
                 putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri)
             }
         }
-    }
-
-    private fun showFirstRunDialog() {
-        val onSelectFolder = {
-            appPreferences.edit().putBoolean("first_setup", false).apply()
-            requestWorkDirectory()
-        }
-        val onLater = {
-            appPreferences.edit().putBoolean("first_setup", false).apply()
-            validateWorkDirectory()
-        }
-
-        showFirstRunPrompt?.let { presenter ->
-            presenter(onSelectFolder, onLater)
-            return
-        }
-
-        MaterialAlertDialogBuilder(activity)
-            .setTitle("Welcome to R47")
-            .setMessage(
-                "To get started, please select a 'Work Directory'.\n\n" +
-                    "This folder will be used to organize your Programs, State files, " +
-                    "and Screenshots safely on your device storage."
-            )
-            .setPositiveButton("Select Folder") { _, _ -> onSelectFolder() }
-            .setNegativeButton("Later") { _, _ -> onLater() }
-            .setCancelable(false)
-            .show()
-    }
-
-    private fun validateWorkDirectory() {
-        val treeUriString = readWorkDirectoryTreeUri()
-        if (treeUriString == null) {
-            showWorkDirectoryMissingSnackbar("Work Directory not set")
-            return
-        }
-
-        if (!isWorkDirectoryAccessible(treeUriString)) {
-            showWorkDirectoryMissingSnackbar("Work Directory is no longer accessible")
-        }
-    }
-
-    private fun showWorkDirectoryMissingSnackbar(message: String) {
-        showWorkDirectoryMissingPrompt?.let { presenter ->
-            presenter(message, ::requestWorkDirectory)
-            return
-        }
-
-        Snackbar.make(rootView, message, Snackbar.LENGTH_INDEFINITE)
-            .setAction("SET") {
-                requestWorkDirectory()
-            }
-            .show()
     }
 }

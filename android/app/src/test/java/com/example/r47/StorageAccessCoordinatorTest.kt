@@ -3,10 +3,8 @@ package com.example.r47
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.view.View
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,16 +18,12 @@ class StorageAccessCoordinatorTest {
     @Test
     fun buildNativeFileRequestIntent_routesSaveRequestsThroughResolvedSubfolder() {
         val activity = buildActivity()
-        val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
-        val rootView = activity.findViewById<View>(android.R.id.content)
         val resolvedUri = Uri.parse("content://com.example.r47.documents/document/screens")
         var capturedTreeUri: String? = null
         var capturedFileType: Int? = null
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            appPreferences = preferences,
-            rootView = rootView,
             onNativeFileSelected = {},
             onNativeFileCancelled = {},
             readWorkDirectoryTreeUri = { "content://com.example.r47.documents/tree/root" },
@@ -38,6 +32,7 @@ class StorageAccessCoordinatorTest {
                 capturedFileType = fileType
                 resolvedUri
             },
+            isWorkDirectoryAccessible = { true },
             providedSaveIntentLauncher = {},
             providedLoadIntentLauncher = {},
         )
@@ -62,16 +57,12 @@ class StorageAccessCoordinatorTest {
     @Test
     fun buildNativeFileRequestIntent_routesLoadRequestsThroughResolvedSubfolder() {
         val activity = buildActivity()
-        val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
-        val rootView = activity.findViewById<View>(android.R.id.content)
         val resolvedUri = Uri.parse("content://com.example.r47.documents/document/programs")
         var capturedTreeUri: String? = null
         var capturedFileType: Int? = null
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            appPreferences = preferences,
-            rootView = rootView,
             onNativeFileSelected = {},
             onNativeFileCancelled = {},
             readWorkDirectoryTreeUri = { "content://com.example.r47.documents/tree/root" },
@@ -80,6 +71,7 @@ class StorageAccessCoordinatorTest {
                 capturedFileType = fileType
                 resolvedUri
             },
+            isWorkDirectoryAccessible = { true },
             providedSaveIntentLauncher = {},
             providedLoadIntentLauncher = {},
         )
@@ -105,16 +97,43 @@ class StorageAccessCoordinatorTest {
     }
 
     @Test
+    fun buildNativeFileRequestIntent_ignoresInaccessibleSavedWorkDirectory() {
+        val activity = buildActivity()
+        var resolveCallCount = 0
+
+        val coordinator = StorageAccessCoordinator(
+            activity = activity,
+            onNativeFileSelected = {},
+            onNativeFileCancelled = {},
+            readWorkDirectoryTreeUri = { "content://com.example.r47.documents/tree/root" },
+            resolveInitialUri = { _, _ ->
+                resolveCallCount += 1
+                Uri.parse("content://com.example.r47.documents/document/programs")
+            },
+            isWorkDirectoryAccessible = { false },
+            providedSaveIntentLauncher = {},
+            providedLoadIntentLauncher = {},
+        )
+
+        val intent = coordinator.buildNativeFileRequestIntent(
+            isSave = false,
+            defaultName = "ignored.p47",
+            fileType = 1,
+        )
+
+        assertEquals(0, resolveCallCount)
+        assertNull(
+            intent.getParcelableExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, Uri::class.java),
+        )
+    }
+
+    @Test
     fun requestNativeFile_cancelsWhenLauncherThrows() {
         val activity = buildActivity()
-        val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
-        val rootView = activity.findViewById<View>(android.R.id.content)
         var cancelCount = 0
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            appPreferences = preferences,
-            rootView = rootView,
             onNativeFileSelected = {},
             onNativeFileCancelled = { cancelCount += 1 },
             providedSaveIntentLauncher = { throw IllegalStateException("boom") },
@@ -131,103 +150,33 @@ class StorageAccessCoordinatorTest {
     }
 
     @Test
-    fun handleResume_promptsForFirstRunAndLaunchesPickerOnPositiveAction() {
+    fun handleResume_doesNotPromptWhenWorkDirectoryIsUnset() {
         val activity = buildActivity()
-        val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
-        preferences.edit().putBoolean("first_setup", true).commit()
-        val rootView = activity.findViewById<View>(android.R.id.content)
         var pickerLaunchCount = 0
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            appPreferences = preferences,
-            rootView = rootView,
             onNativeFileSelected = {},
             onNativeFileCancelled = {},
             readWorkDirectoryTreeUri = { null },
             providedSaveIntentLauncher = {},
             providedLoadIntentLauncher = {},
             providedWorkDirectoryIntentLauncher = { pickerLaunchCount += 1 },
-            showFirstRunPrompt = { onSelectFolder, _ -> onSelectFolder() },
         )
 
         coordinator.handleResume()
 
-        assertEquals(1, pickerLaunchCount)
-        assertFalse(preferences.getBoolean("first_setup", true))
-    }
-
-    @Test
-    fun handleResume_showsMissingWorkDirectorySnackbar() {
-        val activity = buildActivity()
-        val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
-        preferences.edit().putBoolean("first_setup", false).commit()
-        val rootView = activity.findViewById<View>(android.R.id.content)
-        var pickerLaunchCount = 0
-        var missingMessage: String? = null
-
-        val coordinator = StorageAccessCoordinator(
-            activity = activity,
-            appPreferences = preferences,
-            rootView = rootView,
-            onNativeFileSelected = {},
-            onNativeFileCancelled = {},
-            readWorkDirectoryTreeUri = { null },
-            providedSaveIntentLauncher = {},
-            providedLoadIntentLauncher = {},
-            providedWorkDirectoryIntentLauncher = { pickerLaunchCount += 1 },
-            showWorkDirectoryMissingPrompt = { message, onSet ->
-                missingMessage = message
-                onSet()
-            },
-        )
-
-        coordinator.handleResume()
-
-        assertEquals("Work Directory not set", missingMessage)
-        assertEquals(1, pickerLaunchCount)
-    }
-
-    @Test
-    fun handleResume_showsInaccessibleWorkDirectorySnackbar() {
-        val activity = buildActivity()
-        val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
-        preferences.edit().putBoolean("first_setup", false).commit()
-        val rootView = activity.findViewById<View>(android.R.id.content)
-        var missingMessage: String? = null
-
-        val coordinator = StorageAccessCoordinator(
-            activity = activity,
-            appPreferences = preferences,
-            rootView = rootView,
-            onNativeFileSelected = {},
-            onNativeFileCancelled = {},
-            readWorkDirectoryTreeUri = { "content://com.example.r47.documents/tree/root" },
-            isWorkDirectoryAccessible = { false },
-            providedSaveIntentLauncher = {},
-            providedLoadIntentLauncher = {},
-            showWorkDirectoryMissingPrompt = { message, _ ->
-                missingMessage = message
-            },
-        )
-
-        coordinator.handleResume()
-
-        assertEquals("Work Directory is no longer accessible", missingMessage)
+        assertEquals(0, pickerLaunchCount)
     }
 
     @Test
     fun deliverNativeFileResult_cancelsWhenDescriptorOpenFails() {
         val activity = buildActivity()
-        val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
-        val rootView = activity.findViewById<View>(android.R.id.content)
         var cancelCount = 0
         var selectedFd: Int? = null
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            appPreferences = preferences,
-            rootView = rootView,
             onNativeFileSelected = { selectedFd = it },
             onNativeFileCancelled = { cancelCount += 1 },
             openFileDescriptor = { _, _ -> throw IllegalStateException("open failed") },

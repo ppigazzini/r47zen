@@ -1,5 +1,32 @@
 <resources>
     <string name="app_name">R47</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_return_action">Calculator</string>
+    <string name="settings_entry_hint_chip">Tap here to enter Settings</string>
+    <string name="settings_entry_hint_message">R47 always restores your last session in private app storage.
+
+You can set a single Work Directory for portable PROGRAMS, SAVFILES, SCREENS, and STATE files.
+
+Enter Settings to start using your R47 calculator.</string>
+    <string name="settings_session_storage_title">Session Restore Storage</string>
+    <string name="settings_session_storage_summary">Private app storage managed by Android. Restores your last session on restart.</string>
+    <string name="settings_session_storage_dialog_message">R47 restores your running session from Android private app storage at:
+
+%1$s
+
+This app-managed location is separate from the optional external Work Directory. The Work Directory is only for portable STATE, PROGRAMS, SAVFILES, and SCREENS files opened or created through Android\'s document browser.</string>
+    <string name="settings_work_directory_set_title">Work Directory Set</string>
+    <string name="settings_work_directory_set_message">Open and save will start in %1$s. R47 will create portable STATE, PROGRAMS, SAVFILES, and SCREENS folders here as needed. Session restore stays in private app storage.</string>
+    <string name="settings_work_directory_browser_title">Set Work Directory</string>
+    <string name="settings_work_directory_browser_message">The Work Directory is optional. Set a custom external folder only if you want READP, portable STATE files, manual saves, and screenshots to start in one place.
+
+Use Android Default Folder to forget the saved Work Directory and return future open and save actions to Android\'s last-used folder.</string>
+    <string name="settings_work_directory_browser_set_action">Set Work Directory</string>
+    <string name="settings_work_directory_browser_default_action">Use Android Default Folder</string>
+    <string name="settings_work_directory_summary_unset">Optional. Session restore stays in private app storage. Open and save start in Android\'s last-used folder until you choose a Work Directory.</string>
+    <string name="settings_work_directory_summary_set">Using %1$s for portable STATE, PROGRAMS, SAVFILES, and SCREENS files. Session restore still stays in private app storage.</string>
+    <string name="settings_work_directory_summary_inaccessible">The saved Work Directory is no longer accessible. Set a new folder or use Android\'s default folder.</string>
+    <string name="settings_work_directory_summary_unknown_folder">the saved folder</string>
     <string name="about_gpl_license_title">View GNU GPL v3 Notice</string>
     <string name="about_gpl_license_summary">Shows the packaged GPL v3 text and source-delivery guidance for this build</string>
     <string name="about_android_source_title">View Android Source Repository</string>

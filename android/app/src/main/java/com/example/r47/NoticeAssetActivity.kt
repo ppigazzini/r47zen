@@ -8,6 +8,8 @@ import android.webkit.WebView
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.IOException
 
@@ -16,11 +18,15 @@ class NoticeAssetActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_notice_asset)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         val titleText = intent.getStringExtra(EXTRA_TITLE)
             ?: getString(R.string.repo_notice_asset_fallback_title)
-        title = titleText
+
+        findViewById<MaterialToolbar>(R.id.top_app_bar)
+            .configureScreenToolbar(
+                titleText = titleText,
+                onNavigateUp = ::finish,
+            )
 
         val assetPath = intent.getStringExtra(EXTRA_ASSET_PATH)
         if (assetPath.isNullOrBlank()) {
@@ -33,6 +39,7 @@ class NoticeAssetActivity : AppCompatActivity() {
         val textContainer = findViewById<ScrollView>(R.id.notice_text_container)
         val textView = findViewById<TextView>(R.id.notice_text)
         val webView = findViewById<WebView>(R.id.notice_webview)
+        webView.setBackgroundColor(MaterialColors.getColor(webView, com.google.android.material.R.attr.colorSurface))
 
         val content = try {
             assets.open(assetPath).bufferedReader().use { it.readText() }
@@ -64,11 +71,6 @@ class NoticeAssetActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        finish()
-        return true
     }
 
     private fun showMissingAndFinish(message: String) {

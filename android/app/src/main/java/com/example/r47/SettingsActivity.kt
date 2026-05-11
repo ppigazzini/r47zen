@@ -3,11 +3,14 @@ package com.example.r47
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class SettingsActivity : AppCompatActivity() {
@@ -15,23 +18,30 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
+
+        findViewById<MaterialToolbar>(R.id.top_app_bar)
+            .configureScreenToolbar(
+                titleText = getString(R.string.settings_title),
+                actionLabel = getString(R.string.settings_return_action),
+                onNavigateUp = ::finish,
+                onAction = ::finish,
+            )
+
         if (savedInstanceState == null) {
             supportFragmentManager
                 .beginTransaction()
                 .replace(R.id.settings, SettingsFragment())
                 .commit()
         }
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        title = "Settings"
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        finish()
-        return true
     }
 }
 
 class SettingsFragment : PreferenceFragmentCompat() {
+
+    private data class StorageLocationDetails(
+        val sessionSummary: String,
+        val workDirectorySummary: String,
+    )
 
     private fun openUrl(url: String) {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -40,12 +50,12 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private val treeLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             val displayPath = WorkDirectory.persistSelectedTreeUri(requireContext(), uri)
-            findPreference<Preference>("work_directory")?.summary = displayPath
+            updateStoragePreferences()
             
             MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Work Directory Set")
-                .setMessage("Folder selected: $displayPath\nSubfolders (STATE, PROGRAMS, SAVFILES, SCREENS) will be created automatically.")
-                .setPositiveButton("OK", null)
+                .setTitle(R.string.settings_work_directory_set_title)
+                .setMessage(getString(R.string.settings_work_directory_set_message, displayPath))
+                .setPositiveButton(R.string.gpl_license_dialog_close, null)
                 .show()
         }
     }
@@ -54,30 +64,31 @@ class SettingsFragment : PreferenceFragmentCompat() {
         preferenceManager.sharedPreferencesName = SlotStore.APP_PREFS_NAME
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
-        val currentUriStr = WorkDirectory.readTreeUriString(requireContext())
-        if (currentUriStr != null) {
-            try {
-                val uri = Uri.parse(currentUriStr)
-                findPreference<Preference>("work_directory")?.summary = WorkDirectory.formatDisplayPath(uri.path)
-            } catch (e: Exception) {
-                findPreference<Preference>("work_directory")?.summary = "Select a folder"
-            }
+        updateStoragePreferences()
+
+        findPreference<Preference>("session_restore_storage")?.setOnPreferenceClickListener {
+            showSessionStorageDialog()
+            true
         }
 
         findPreference<Preference>("work_directory")?.setOnPreferenceClickListener {
-            treeLauncher.launch(null)
+            showWorkDirectoryBrowserDialog()
             true
         }
 
         findPreference<Preference>("factory_reset")?.setOnPreferenceClickListener {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Confirm Reset")
-                .setMessage("Wipe all internal app data and relaunch R47?\n\nNote: This will NOT delete any files in your selected Work Directory (STATE, PROGRAMS, SAVFILES, SCREENS).")
+                .setMessage(
+                    "Wipe all internal app data and relaunch R47?\n\n" +
+                        "Note: This will NOT delete any files in a saved Work Directory. " +
+                        "External STATE, PROGRAMS, SAVFILES, and SCREENS folders stay untouched."
+                )
+                .setNegativeButton("Cancel", null)
                 .setPositiveButton("Reset") { _, _ ->
                     startActivity(MainActivity.createFactoryResetIntent(requireContext()))
                     requireActivity().finish()
                 }
-                .setNegativeButton("Cancel", null)
                 .show()
             true
         }
@@ -127,5 +138,81 @@ class SettingsFragment : PreferenceFragmentCompat() {
             openUrl("https://gitlab.com/rpncalculators/c43")
             true
         }
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        val surfaceColor = MaterialColors.getColor(view, com.google.android.material.R.attr.colorSurface)
+        view.setBackgroundColor(surfaceColor)
+        listView.setBackgroundColor(surfaceColor)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateStoragePreferences()
+    }
+
+    private fun showWorkDirectoryBrowserDialog() {
+        val context = requireContext()
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.settings_work_directory_browser_title)
+            .setMessage(R.string.settings_work_directory_browser_message)
+            .setNeutralButton("Cancel", null)
+            .setPositiveButton(R.string.settings_work_directory_browser_set_action) { _, _ ->
+                treeLauncher.launch(null)
+            }
+            .setNegativeButton(R.string.settings_work_directory_browser_default_action) { _, _ ->
+                WorkDirectory.clearTreeUriString(context)
+                updateStoragePreferences()
+            }
+            .show()
+    }
+
+    private fun showSessionStorageDialog() {
+        val context = requireContext()
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.settings_session_storage_title)
+            .setMessage(
+                getString(
+                    R.string.settings_session_storage_dialog_message,
+                    context.filesDir.absolutePath,
+                )
+            )
+            .setPositiveButton(R.string.gpl_license_dialog_close, null)
+            .show()
+    }
+
+    private fun updateStoragePreferences() {
+        val context = requireContext()
+        val sessionStoragePreference = findPreference<Preference>("session_restore_storage")
+        val workDirectoryPreference = findPreference<Preference>("work_directory") ?: return
+        val details = resolveStorageLocationDetails(context)
+
+        sessionStoragePreference?.summary = details.sessionSummary
+        workDirectoryPreference.summary = details.workDirectorySummary
+    }
+
+    private fun resolveStorageLocationDetails(context: android.content.Context): StorageLocationDetails {
+        val treeUriString = WorkDirectory.readTreeUriString(context)
+        val sessionSummary = getString(R.string.settings_session_storage_summary)
+
+        val workDirectorySummary = when {
+            treeUriString == null -> getString(R.string.settings_work_directory_summary_unset)
+            WorkDirectory.isAccessible(context.contentResolver, treeUriString) -> {
+                val displayPath = try {
+                    WorkDirectory.formatDisplayPath(Uri.parse(treeUriString).path)
+                } catch (_: Exception) {
+                    getString(R.string.settings_work_directory_summary_unknown_folder)
+                }
+                getString(R.string.settings_work_directory_summary_set, displayPath)
+            }
+            else -> getString(R.string.settings_work_directory_summary_inaccessible)
+        }
+
+        return StorageLocationDetails(
+            sessionSummary = sessionSummary,
+            workDirectorySummary = workDirectorySummary,
+        )
     }
 }

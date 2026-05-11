@@ -1,7 +1,56 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <PreferenceCategory app:title="Preferences">
+    <PreferenceCategory app:title="Files and Storage">
+        <Preference
+            app:key="session_restore_storage"
+            app:title="Session Restore Storage"
+            app:summary="Private app storage managed by Android" />
+        <Preference
+            app:key="work_directory"
+            app:title="Work Directory"
+            app:summary="Optional external folder for portable STATE, PROGRAMS, SAVFILES, and SCREENS files" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Display and Layout">
+        <SwitchPreferenceCompat
+            app:key="fullscreen_mode"
+            app:title="Full Screen Mode"
+            app:summaryOn="Hides status and navigation bars"
+            app:summaryOff="Shows status and navigation bars for button navigation"
+            app:defaultValue="true" />
+        <ListPreference
+            app:key="chrome_mode"
+            app:title="Shell Chrome"
+            app:entries="@array/chrome_entries"
+            app:entryValues="@array/chrome_values"
+            app:defaultValue="native"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:key="scaling_mode"
+            app:title="Scaling"
+            app:entries="@array/scaling_entries"
+            app:entryValues="@array/scaling_values"
+            app:defaultValue="full_width"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:key="lcd_mode"
+            app:title="LCD Mode"
+            app:entries="@array/lcd_entries"
+            app:entryValues="@array/lcd_values"
+            app:defaultValue="high_contrast"
+            app:useSimpleSummaryProvider="true" />
+        <SeekBarPreference
+            app:key="lcd_luminance"
+            app:title="@string/lcd_luminance_title"
+            app:summary="@string/lcd_luminance_summary"
+            app:min="60"
+            android:max="120"
+            app:defaultValue="100"
+            app:showSeekBarValue="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Interaction">
         <SwitchPreferenceCompat
             app:key="haptic_enabled"
             app:title="Enable Haptic Feedback"
@@ -19,23 +68,9 @@
             app:defaultValue="64"
             app:dependency="haptic_enabled"
             app:showSeekBarValue="true" />
-        <SwitchPreferenceCompat
-            app:key="keep_screen_on"
-            app:title="Keep Screen On"
-            app:defaultValue="false" />
-        <SwitchPreferenceCompat
-            app:key="auto_save_minimize"
-            app:title="Auto-Save on Minimize"
-            app:defaultValue="true" />
-        <SwitchPreferenceCompat
-            app:key="force_close_on_exit"
-            app:title="Force Close on f-shift EXIT"
-            app:summaryOn="Finishes activity and removes from recents"
-            app:summaryOff="Minimizes to background (stays in recents)"
-            app:defaultValue="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Audio Settings">
+    <PreferenceCategory app:title="Audio">
         <SwitchPreferenceCompat
             app:key="beeper_enabled"
             app:title="Simulated Beeper"
@@ -50,46 +85,21 @@
             app:showSeekBarValue="true" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Customization">
-        <Preference
-            app:key="work_directory"
-            app:title="Work Directory"
-            app:summary="Select a folder for STATE, PROGRAMS, SAVFILES, and SCREENS" />
+    <PreferenceCategory app:title="App Behavior">
         <SwitchPreferenceCompat
-            app:key="fullscreen_mode"
-            app:title="Full Screen Mode"
-            app:summaryOn="Hides status and navigation bars"
-            app:summaryOff="Shows status and navigation bars (for 3-button navigation)"
+            app:key="keep_screen_on"
+            app:title="Keep Screen On"
+            app:defaultValue="false" />
+        <SwitchPreferenceCompat
+            app:key="auto_save_minimize"
+            app:title="Auto-Save on Minimize"
             app:defaultValue="true" />
-        <ListPreference
-            app:key="chrome_mode"
-            app:title="Shell Chrome"
-            app:entries="@array/chrome_entries"
-            app:entryValues="@array/chrome_values"
-            app:defaultValue="native"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            app:key="lcd_mode"
-            app:title="LCD Mode"
-            app:entries="@array/lcd_entries"
-            app:entryValues="@array/lcd_values"
-            app:defaultValue="high_contrast"
-            app:useSimpleSummaryProvider="true" />
-        <SeekBarPreference
-            app:key="lcd_luminance"
-            app:title="@string/lcd_luminance_title"
-            app:summary="@string/lcd_luminance_summary"
-            app:min="60"
-            android:max="120"
-            app:defaultValue="100"
-            app:showSeekBarValue="true" />
-        <ListPreference
-            app:key="scaling_mode"
-            app:title="Scaling"
-            app:entries="@array/scaling_entries"
-            app:entryValues="@array/scaling_values"
-            app:defaultValue="full_width"
-            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            app:key="force_close_on_exit"
+            app:title="Force Close on f-shift EXIT"
+            app:summaryOn="Finishes activity and removes from recents"
+            app:summaryOff="Minimizes to background (stays in recents)"
+            app:defaultValue="false" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Developer Tools">
