@@ -31,7 +31,6 @@ class StorageAccessCoordinatorInstrumentedTest {
                     activity = activity,
                     appPreferences = preferences,
                     rootView = rootView,
-                    launchSettings = {},
                     onNativeFileSelected = { selectedFd = it },
                     onNativeFileCancelled = { cancelCount += 1 },
                     openFileDescriptor = { _, _ ->
@@ -66,7 +65,6 @@ class StorageAccessCoordinatorInstrumentedTest {
                     activity = activity,
                     appPreferences = preferences,
                     rootView = rootView,
-                    launchSettings = {},
                     onNativeFileSelected = { selectedFd = it },
                     onNativeFileCancelled = { cancelCount += 1 },
                 )

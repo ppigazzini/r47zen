@@ -2,6 +2,7 @@ package com.example.r47
 
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Log
@@ -127,6 +128,15 @@ internal object WorkDirectory {
     fun writeTreeUriString(context: Context, uri: Uri) {
         prefs(context).edit().putString(KEY_TREE_URI, uri.toString()).apply()
         legacyPrefs(context).edit().remove(KEY_TREE_URI).apply()
+    }
+
+    fun persistSelectedTreeUri(context: Context, uri: Uri): String {
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+        )
+        writeTreeUriString(context, uri)
+        return formatDisplayPath(uri.path)
     }
 
     fun formatDisplayPath(uriPath: String?): String {

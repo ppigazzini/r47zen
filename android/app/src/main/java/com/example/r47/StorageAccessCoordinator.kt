@@ -28,7 +28,6 @@ internal class StorageAccessCoordinator(
     private val activity: ComponentActivity,
     private val appPreferences: SharedPreferences,
     private val rootView: View,
-    private val launchSettings: () -> Unit,
     private val onNativeFileSelected: (Int) -> Unit,
     private val onNativeFileCancelled: () -> Unit,
     private val openFileDescriptor: (Uri, String) -> ParcelFileDescriptor? = { uri, mode ->
@@ -47,8 +46,12 @@ internal class StorageAccessCoordinator(
     private val isWorkDirectoryAccessible: (String?) -> Boolean = { treeUriString ->
         WorkDirectory.isAccessible(activity.contentResolver, treeUriString)
     },
+    private val persistSelectedWorkDirectory: (Uri) -> String = { uri ->
+        WorkDirectory.persistSelectedTreeUri(activity, uri)
+    },
     private val providedSaveIntentLauncher: ((Intent) -> Unit)? = null,
     private val providedLoadIntentLauncher: ((Intent) -> Unit)? = null,
+    private val providedWorkDirectoryIntentLauncher: ((Uri?) -> Unit)? = null,
     private val showFirstRunPrompt: FirstRunPromptPresenter? = null,
     private val showWorkDirectoryMissingPrompt: MissingWorkDirectoryPromptPresenter? = null,
 ) {
@@ -59,6 +62,8 @@ internal class StorageAccessCoordinator(
     private var saveIntentLauncher: ((Intent) -> Unit)? = providedSaveIntentLauncher
 
     private var loadIntentLauncher: ((Intent) -> Unit)? = providedLoadIntentLauncher
+
+    private var workDirectoryIntentLauncher: ((Uri?) -> Unit)? = providedWorkDirectoryIntentLauncher
 
     fun registerLaunchers() {
         if (saveIntentLauncher == null) {
@@ -85,6 +90,15 @@ internal class StorageAccessCoordinator(
                 )
             }
             loadIntentLauncher = launcher::launch
+        }
+
+        if (workDirectoryIntentLauncher == null) {
+            val launcher = activity.registerForActivityResult(
+                ActivityResultContracts.OpenDocumentTree()
+            ) { uri ->
+                deliverWorkDirectoryResult(uri)
+            }
+            workDirectoryIntentLauncher = launcher::launch
         }
     }
 
@@ -118,6 +132,18 @@ internal class StorageAccessCoordinator(
         }
     }
 
+    fun requestWorkDirectory() {
+        val launcher = checkNotNull(workDirectoryIntentLauncher) {
+            "StorageAccessCoordinator.registerLaunchers() must be called before requesting the work directory."
+        }
+
+        try {
+            launcher(null)
+        } catch (error: Exception) {
+            Log.e(TAG, "Failed to launch work directory picker", error)
+        }
+    }
+
     internal fun buildNativeFileRequestIntent(
         isSave: Boolean,
         defaultName: String,
@@ -144,6 +170,18 @@ internal class StorageAccessCoordinator(
         } catch (error: Exception) {
             Log.e(TAG, "Failed to open selected SAF file", error)
             onNativeFileCancelled()
+        }
+    }
+
+    internal fun deliverWorkDirectoryResult(uri: Uri?) {
+        if (uri == null) {
+            return
+        }
+
+        try {
+            persistSelectedWorkDirectory(uri)
+        } catch (error: Exception) {
+            Log.e(TAG, "Failed to persist selected work directory", error)
         }
     }
 
@@ -182,7 +220,7 @@ internal class StorageAccessCoordinator(
     private fun showFirstRunDialog() {
         val onSelectFolder = {
             appPreferences.edit().putBoolean("first_setup", false).apply()
-            launchSettings()
+            requestWorkDirectory()
         }
         val onLater = {
             appPreferences.edit().putBoolean("first_setup", false).apply()
@@ -221,13 +259,13 @@ internal class StorageAccessCoordinator(
 
     private fun showWorkDirectoryMissingSnackbar(message: String) {
         showWorkDirectoryMissingPrompt?.let { presenter ->
-            presenter(message, launchSettings)
+            presenter(message, ::requestWorkDirectory)
             return
         }
 
         Snackbar.make(rootView, message, Snackbar.LENGTH_INDEFINITE)
             .setAction("SET") {
-                launchSettings()
+                requestWorkDirectory()
             }
             .show()
     }

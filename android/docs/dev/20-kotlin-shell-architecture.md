@@ -55,7 +55,7 @@ flowchart LR
 | activity and settings coordination | `MainActivity`, `SettingsActivity` | startup, preferences, PiP, intent routing, helper wiring | `50-upstream-interface-surfaces.md` |
 | native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop` | one core thread, one task queue, one UI-side poller | `60-runtime-hot-paths.md` |
 | overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `40-ui-rendering-and-gtk-mapping.md` |
-| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, work-directory policy, slot metadata, save and load ordering | `50-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
+| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, slot metadata, save and load ordering | `50-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
 | Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `50-upstream-interface-surfaces.md` |
 
 ## Architecture boundary
@@ -106,7 +106,10 @@ callbacks.
 - `onNewIntent()` is the reuse path for root-activity actions such as the
   controlled factory-reset request.
 - `onResume()` revalidates the work-directory contract and lets the overlay-side
-  resume path run without forcing a native LCD redraw. A normal Settings
+  resume path run without forcing a native LCD redraw. On first run,
+  `StorageAccessCoordinator` may show the welcome dialog and launch
+  `OpenDocumentTree()` directly from the activity-result registry instead of
+  routing that startup picker through `SettingsActivity`. A normal Settings
   round-trip must preserve the current calculator snapshot.
 - `onPause()` performs a synchronous native save when auto-save on minimize is
   enabled and the app is not moving into PiP or a reset-driven relaunch. That
@@ -145,6 +148,12 @@ Each path ultimately resolves to core-thread work or a small Android-side action
 - slot switching follows one ordered background flow: save current state, update
   slot ID, load target state
 - SAF-backed user files remain outside the internal app directory contract
+- `StorageAccessCoordinator` owns the first-run welcome dialog, the direct
+  startup picker path, and missing-work-directory recovery; `SettingsActivity`
+  owns only explicit manual work-directory changes from the preferences UI
+- `WorkDirectory.persistSelectedTreeUri(...)` centralizes the persistable URI
+  grant plus the stored work-directory tree write shared by startup and manual
+  selection paths
 - the work-directory contract is a user-facing SAF tree, not a replacement for
   the app-internal native base path
 - manifest backup rules intentionally exclude `R47Slots` and the work-directory

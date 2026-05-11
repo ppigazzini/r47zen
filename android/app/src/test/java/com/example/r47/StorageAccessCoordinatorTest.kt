@@ -30,7 +30,6 @@ class StorageAccessCoordinatorTest {
             activity = activity,
             appPreferences = preferences,
             rootView = rootView,
-            launchSettings = {},
             onNativeFileSelected = {},
             onNativeFileCancelled = {},
             readWorkDirectoryTreeUri = { "content://com.example.r47.documents/tree/root" },
@@ -73,7 +72,6 @@ class StorageAccessCoordinatorTest {
             activity = activity,
             appPreferences = preferences,
             rootView = rootView,
-            launchSettings = {},
             onNativeFileSelected = {},
             onNativeFileCancelled = {},
             readWorkDirectoryTreeUri = { "content://com.example.r47.documents/tree/root" },
@@ -117,7 +115,6 @@ class StorageAccessCoordinatorTest {
             activity = activity,
             appPreferences = preferences,
             rootView = rootView,
-            launchSettings = {},
             onNativeFileSelected = {},
             onNativeFileCancelled = { cancelCount += 1 },
             providedSaveIntentLauncher = { throw IllegalStateException("boom") },
@@ -134,29 +131,29 @@ class StorageAccessCoordinatorTest {
     }
 
     @Test
-    fun handleResume_promptsForFirstRunAndLaunchesSettingsOnPositiveAction() {
+    fun handleResume_promptsForFirstRunAndLaunchesPickerOnPositiveAction() {
         val activity = buildActivity()
         val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
         preferences.edit().putBoolean("first_setup", true).commit()
         val rootView = activity.findViewById<View>(android.R.id.content)
-        var launchSettingsCount = 0
+        var pickerLaunchCount = 0
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
             appPreferences = preferences,
             rootView = rootView,
-            launchSettings = { launchSettingsCount += 1 },
             onNativeFileSelected = {},
             onNativeFileCancelled = {},
             readWorkDirectoryTreeUri = { null },
             providedSaveIntentLauncher = {},
             providedLoadIntentLauncher = {},
+            providedWorkDirectoryIntentLauncher = { pickerLaunchCount += 1 },
             showFirstRunPrompt = { onSelectFolder, _ -> onSelectFolder() },
         )
 
         coordinator.handleResume()
 
-        assertEquals(1, launchSettingsCount)
+        assertEquals(1, pickerLaunchCount)
         assertFalse(preferences.getBoolean("first_setup", true))
     }
 
@@ -166,19 +163,19 @@ class StorageAccessCoordinatorTest {
         val preferences = activity.getSharedPreferences("storage-access-test", Context.MODE_PRIVATE)
         preferences.edit().putBoolean("first_setup", false).commit()
         val rootView = activity.findViewById<View>(android.R.id.content)
-        var launchSettingsCount = 0
+        var pickerLaunchCount = 0
         var missingMessage: String? = null
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
             appPreferences = preferences,
             rootView = rootView,
-            launchSettings = { launchSettingsCount += 1 },
             onNativeFileSelected = {},
             onNativeFileCancelled = {},
             readWorkDirectoryTreeUri = { null },
             providedSaveIntentLauncher = {},
             providedLoadIntentLauncher = {},
+            providedWorkDirectoryIntentLauncher = { pickerLaunchCount += 1 },
             showWorkDirectoryMissingPrompt = { message, onSet ->
                 missingMessage = message
                 onSet()
@@ -188,7 +185,7 @@ class StorageAccessCoordinatorTest {
         coordinator.handleResume()
 
         assertEquals("Work Directory not set", missingMessage)
-        assertEquals(1, launchSettingsCount)
+        assertEquals(1, pickerLaunchCount)
     }
 
     @Test
@@ -203,7 +200,6 @@ class StorageAccessCoordinatorTest {
             activity = activity,
             appPreferences = preferences,
             rootView = rootView,
-            launchSettings = {},
             onNativeFileSelected = {},
             onNativeFileCancelled = {},
             readWorkDirectoryTreeUri = { "content://com.example.r47.documents/tree/root" },
@@ -232,7 +228,6 @@ class StorageAccessCoordinatorTest {
             activity = activity,
             appPreferences = preferences,
             rootView = rootView,
-            launchSettings = {},
             onNativeFileSelected = { selectedFd = it },
             onNativeFileCancelled = { cancelCount += 1 },
             openFileDescriptor = { _, _ -> throw IllegalStateException("open failed") },

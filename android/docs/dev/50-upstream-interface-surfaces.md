@@ -146,7 +146,10 @@ flowchart LR
   so queued Android-side work can run while the native core is yielding.
 - `requestFile(...)` posts onto the main handler and hands control to
   `StorageAccessCoordinator`, which owns the SAF launcher registration and the
-  detached file-descriptor handoff.
+  detached file-descriptor handoff. The same coordinator also owns the
+  first-run welcome-dialog handoff into the direct work-directory tree picker
+  and the missing-directory recovery picker path, while `SettingsActivity`
+  remains the explicit manual work-directory surface.
 
 These callbacks are part of the interface contract, not optional convenience
 hooks. If their names or signatures drift, the bridge loses storage, tone, or
@@ -171,6 +174,10 @@ yield behavior.
 - The base path configured by `nativePreInit(...)` and the SAF work-directory
   URI owned by `WorkDirectory` are separate contracts. The docs and code must
   keep them separate.
+- The startup and missing-directory work-directory tree picker route stays on
+  the Kotlin side in `StorageAccessCoordinator` and `WorkDirectory`; it does
+  not cross the native bridge unless a later file open request reaches the
+  detached-fd SAF seam.
 
 ## Event-Loop Compatibility Contract
 

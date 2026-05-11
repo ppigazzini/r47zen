@@ -190,11 +190,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             activity = this,
             appPreferences = prefs,
             rootView = binding.root,
-            launchSettings = {
-                startActivity(Intent(this, SettingsActivity::class.java).apply {
-                    putExtra("trigger_work_dir_picker", true)
-                })
-            },
             onNativeFileSelected = ::onFileSelectedNative,
             onNativeFileCancelled = ::onFileCancelledNative,
         )

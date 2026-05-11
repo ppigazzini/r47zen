@@ -39,13 +39,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     private val treeLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
-            requireContext().contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            )
-            WorkDirectory.writeTreeUriString(requireContext(), uri)
-            
-            val displayPath = WorkDirectory.formatDisplayPath(uri.path)
+            val displayPath = WorkDirectory.persistSelectedTreeUri(requireContext(), uri)
             findPreference<Preference>("work_directory")?.summary = displayPath
             
             MaterialAlertDialogBuilder(requireContext())
@@ -59,11 +53,6 @@ class SettingsFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.sharedPreferencesName = SlotStore.APP_PREFS_NAME
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
-
-        // Automatic trigger if coming from validation Snackbar
-        if (requireActivity().intent.getBooleanExtra("trigger_work_dir_picker", false)) {
-            treeLauncher.launch(null)
-        }
 
         val currentUriStr = WorkDirectory.readTreeUriString(requireContext())
         if (currentUriStr != null) {
