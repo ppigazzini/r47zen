@@ -36,9 +36,9 @@ flowchart TD
 
 | Contract surface | Source of truth | Focused verification surfaces | First rerun lane |
 | --- | --- | --- | --- |
-| shell geometry and LCD frame | `__DEV/R47/compute_shell_geometry.py`, `R47Geometry.kt` | `__DEV/R47/test_shell_geometry.py` | grouped `__DEV/R47` Python contract scripts |
-| key-label and visual policy constants | `__DEV/R47/compute_key_label_geometry.py`, `compute_key_visual_policy.py`, `CalculatorKeyView.kt` | `test_key_label_geometry.py`, `test_key_visual_policy.py` | grouped `__DEV/R47` Python contract scripts |
-| top-label lane solve and alpha-case label export | `compute_top_label_lane_layout.py`, staged `assign.c` and `items.c`, `jni_display.c`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt` | `test_top_label_lane_layout.py`, `test_keypad_alpha_case_labels.py`, `DynamicKeypadParityFixtureTest.kt` | Python contracts first, then `:app:testDebugUnitTest` |
+| shell geometry and LCD frame | `scripts/r47_contracts/derive_shell_geometry.py`, `R47Geometry.kt` | `scripts/r47_contracts/test_shell_geometry_contract.py` | grouped `scripts/r47_contracts` validation lane |
+| key-label and visual policy constants | `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `CalculatorKeyView.kt` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py` | grouped `scripts/r47_contracts` validation lane |
+| top-label lane solve and alpha-case label export | `scripts/r47_contracts/derive_top_label_lane_layout.py`, staged `assign.c` and `items.c`, `jni_display.c`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt` | `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `scripts/r47_contracts/test_alpha_case_export_contract.py`, `DynamicKeypadParityFixtureTest.kt` | grouped contract scripts first, then `:app:testDebugUnitTest` |
 | overlay geometry replay for unchanged keypad scenes | `MainActivity.kt`, `ReplicaOverlayController.kt`, `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt` | `DynamicKeypadParityFixtureTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | keypad scene export manifest and decoder | `KeypadSnapshot`, exported keypad fixtures, `jni_display.c` | `KeypadFixtureContractTest.kt`, `KeypadSnapshotDecoderTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt` | `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ReplicaOverlayGoldenTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
@@ -51,20 +51,32 @@ flowchart TD
 
 ## Python Contract Suite
 
-The `__DEV/R47/` Python scripts are the contract generators and geometry or
-policy checks that keep Android Kotlin constants aligned with measured payloads.
+The canonical R47 contract suite lives under `scripts/r47_contracts/`.
+It keeps the canonical checked-in contract as
+`scripts/r47_contracts/data/r47_geometry.json`, with measured physical-R47
+geometry plus `android_app_contract` data for the implemented Android LCD,
+chrome, and label layout. When a historical external GIMP export needs
+checking, pass its JSON path directly to
+`validate_geometry_dataset.py`; no checked-in GIMP dataset exists in this
+repository.
 
-The checked-in test set currently covers:
+The grouped Python lane currently covers:
 
-- `test_shell_geometry.py`: logical canvas, drawable density buckets, LCD frame,
-  and shell constants against `R47Geometry.kt`
-- `test_key_label_geometry.py`: key-label and key-surface constants against
+- `validate_geometry_dataset.py`: structural and spacing checks for the
+  physical dataset plus `android_app_contract` validation against
+  `R47Geometry.kt` and `CalculatorKeyView.kt`
+- `derive_touch_grid.py`: shared touch-grid payload derivation from measured key
+  centers
+- `test_shell_geometry_contract.py`: logical canvas, drawable density buckets,
+  LCD frame, and shell constants against `R47Geometry.kt`
+- `test_key_label_geometry_contract.py`: key-label and key-surface constants,
+  plus primary, top-label, and fourth-label anchor formulas, against
   `CalculatorKeyView.kt` and `R47Geometry.kt`
-- `test_top_label_lane_layout.py`: spacing, corridor, screen-edge, and scale
-  rules for the top-label solver
-- `test_key_visual_policy.py`: visual-policy constants against
+- `test_top_label_lane_layout_contract.py`: spacing, corridor, screen-edge, and
+  scale rules for the top-label solver
+- `test_key_visual_policy_contract.py`: visual-policy constants against
   `CalculatorKeyView.kt`
-- `test_keypad_alpha_case_labels.py`: staged core alpha-label export rules in
+- `test_alpha_case_export_contract.py`: staged core alpha-label export rules in
   `assign.c`, `items.c`, and `jni_display.c`, plus the Kotlin alpha-layout
   handling in `CalculatorKeyView.kt` and `ReplicaKeypadLayout.kt`
 
@@ -161,8 +173,8 @@ assume the problem is Android UI code.
 
 ## Which Lane To Run First
 
-- geometry or label-policy change rooted in `__DEV/R47/` payloads: run the
-  Python contract scripts first
+- geometry or label-policy change rooted in `scripts/r47_contracts/`: run the
+  grouped contract-script lane first
 - keypad-scene export, decoder, renderer, keyboard, or runtime-coordinator
   change in Kotlin: run `cd android && ./gradlew :app:testDebugUnitTest`
 - SAF, `READP`, redraw-gate, or other Android-only runtime seam change: run

@@ -41,10 +41,10 @@ flowchart LR
 
 | Contract surface | Owner chain | Source of truth | Locked by |
 | --- | --- | --- | --- |
-| logical canvas, shell chrome, and LCD frame | `R47ReferenceGeometry`, `R47AndroidChromeGeometry`, `R47LcdContract` -> `ReplicaChromeLayout` -> `ReplicaOverlay` | measured reference geometry and density-bucket shell assets | `test_shell_geometry.py`, `ReplicaOverlayGoldenTest.kt` |
-| shared touch grid and key slots | `KeypadTopology` -> `ReplicaKeypadLayout` | `compute_shell_geometry.py`, `compute_touch_grid.py` | `test_shell_geometry.py`, `KeypadFixtureContractTest.kt` |
-| top-label lane placement | `TopLabelLaneLayout` -> `ReplicaKeypadLayout` -> `CalculatorKeyView` | `compute_top_label_lane_layout.py` | `test_top_label_lane_layout.py`, `DynamicKeypadParityFixtureTest.kt` |
-| per-key label offsets and body geometry | `KeyVisualPolicy` -> `CalculatorKeyView` | `compute_key_label_geometry.py`, `compute_key_visual_policy.py` | `test_key_label_geometry.py`, `test_key_visual_policy.py` |
+| logical canvas, shell chrome, and LCD frame | `R47ReferenceGeometry`, `R47AndroidChromeGeometry`, `R47LcdContract` -> `ReplicaChromeLayout` -> `ReplicaOverlay` | `scripts/r47_contracts/data/r47_geometry.json` plus `scripts/r47_contracts/derive_shell_geometry.py` | `scripts/r47_contracts/test_shell_geometry_contract.py`, `ReplicaOverlayGoldenTest.kt` |
+| shared touch grid and key slots | `KeypadTopology` -> `ReplicaKeypadLayout` | `scripts/r47_contracts/data/r47_geometry.json` plus `scripts/r47_contracts/derive_touch_grid.py` | grouped `scripts/r47_contracts` validation lane, `KeypadFixtureContractTest.kt` |
+| top-label lane placement | `TopLabelLaneLayout` -> `ReplicaKeypadLayout` -> `CalculatorKeyView` | `scripts/r47_contracts/derive_top_label_lane_layout.py` | `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `DynamicKeypadParityFixtureTest.kt` |
+| per-key label offsets and body geometry | `KeyVisualPolicy` -> `CalculatorKeyView` | `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py` |
 | softkey visuals and overlay states | `CalculatorSoftkeyPainter` | native scene roles plus `KeyVisualPolicy` constants | `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ExportedKeypadFixtureRenderTest.kt` |
 
 ## Shell projection contract
@@ -205,7 +205,7 @@ Solve order:
 
 Regression surfaces:
 
-- `test_top_label_lane_layout.py`
+- `scripts/r47_contracts/test_top_label_lane_layout_contract.py`
 - `DynamicKeypadParityFixtureTest.kt`
 - `80-tests-and-contracts.md` for the full contract-to-lane map
 

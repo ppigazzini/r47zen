@@ -1,0 +1,509 @@
+{
+  "dataset": "r47",
+  "version": 4,
+  "description": "Machine-readable R47 physical-reference geometry plus Android app LCD, chrome, and label contract data.",
+  "contract_scope": {
+    "role": "complete_r47_physical_and_android_geometry_contract",
+    "contains": [
+      "reference_frame",
+      "real_lcd",
+      "measured_key_rows",
+      "measured_key_columns",
+      "android_app_contract.chrome",
+      "android_app_contract.labels"
+    ],
+    "distinction": {
+      "physical_calculator": "reference_frame plus tables",
+      "android_app": "android_app_contract"
+    }
+  },
+  "reference_frame": {
+    "label": "r47",
+    "width": 1820,
+    "height": 3403
+  },
+  "android_app_contract": {
+    "role": "implemented_android_calculator_geometry",
+    "coordinate_space": "logical_canvas",
+    "chrome": {
+      "native_shell_draw_corner_radius": 80,
+      "scaled_mode_fit_trim": {
+        "left": 42,
+        "top": 49,
+        "right": 42,
+        "bottom": 56
+      },
+      "settings_strip_tap_height": 229,
+      "lcd_window": {
+        "left": 86,
+        "top": 229,
+        "width": 1648,
+        "height": 903
+      },
+      "lcd_frame_buffer": {
+        "pixel_width": 400,
+        "pixel_height": 240
+      },
+      "non_softkey_view_height": 236
+    },
+    "labels": {
+      "main_key_draw_corner_radius": 20,
+      "softkey_draw_corner_radius": 20,
+      "main_key_body_optical_width_delta": 6,
+      "main_key_body_height_fraction_of_view": 0.610169,
+      "standard_key_fourth_label_strip_width_fraction": 0.294118,
+      "matrix_key_fourth_label_strip_width_fraction": 0.311178,
+      "first_label_primary": {
+        "horizontal_anchor": "main_key_body_center",
+        "vertical_anchor": "main_key_body_center",
+        "text_sizes": {
+          "default": 76,
+          "numeric": 114,
+          "shifted": 94
+        }
+      },
+      "second_label_f": {
+        "horizontal_anchor": "shared_top_label_group",
+        "vertical_anchor": "shared_top_label_baseline",
+        "text_size": 64,
+        "horizontal_gap": 10,
+        "vertical_lift": 86
+      },
+      "third_label_g": {
+        "horizontal_anchor": "shared_top_label_group",
+        "vertical_anchor": "shared_top_label_baseline",
+        "text_size": 64,
+        "horizontal_gap": 10,
+        "vertical_lift": 86
+      },
+      "fourth_label_right_side": {
+        "horizontal_anchor": "main_key_body_right",
+        "vertical_anchor": "main_key_body_top",
+        "text_size": 66,
+        "x_offset_from_main_key_body_right": 16,
+        "y_offset_from_main_key_body_top": 80
+      },
+      "top_label_solver": {
+        "max_shift_fraction": 0.15,
+        "min_scale": 0.82,
+        "scale_step": 0.06
+      }
+    }
+  },
+  "tables": [
+    {
+      "id": "vertical_main",
+      "label": "vertical spacing - horizontal guides",
+      "axis": "vertical",
+      "span_kind": "height",
+      "entries": [
+        {
+          "id": "frame",
+          "label": "r47",
+          "family": "frame",
+          "start": 0,
+          "start_step": null,
+          "stop": 3403,
+          "stop_step": null,
+          "span": 3403
+        },
+        {
+          "id": "lcd",
+          "label": "LCD",
+          "family": "lcd",
+          "start": 244,
+          "start_step": null,
+          "stop": 1093,
+          "stop_step": null,
+          "span": 849
+        },
+        {
+          "id": "row_1",
+          "label": "row 1",
+          "family": "rows",
+          "index": 1,
+          "start": 1290,
+          "start_step": null,
+          "stop": 1434,
+          "stop_step": null,
+          "span": 144
+        },
+        {
+          "id": "row_2",
+          "label": "row 2",
+          "family": "rows",
+          "index": 2,
+          "start": 1550,
+          "start_step": 260,
+          "stop": 1694,
+          "stop_step": 260,
+          "span": 144
+        },
+        {
+          "id": "row_3",
+          "label": "row 3",
+          "family": "rows",
+          "index": 3,
+          "start": 1810,
+          "start_step": 260,
+          "stop": 1954,
+          "stop_step": 260,
+          "span": 144
+        },
+        {
+          "id": "row_4",
+          "label": "row 4",
+          "family": "rows",
+          "index": 4,
+          "start": 2070,
+          "start_step": 260,
+          "stop": 2214,
+          "stop_step": 260,
+          "span": 144
+        },
+        {
+          "id": "row_5",
+          "label": "row 5",
+          "family": "rows",
+          "index": 5,
+          "start": 2330,
+          "start_step": 260,
+          "stop": 2474,
+          "stop_step": 260,
+          "span": 144
+        },
+        {
+          "id": "row_6",
+          "label": "row 6",
+          "family": "rows",
+          "index": 6,
+          "start": 2590,
+          "start_step": 260,
+          "stop": 2734,
+          "stop_step": 260,
+          "span": 144
+        },
+        {
+          "id": "row_7",
+          "label": "row 7",
+          "family": "rows",
+          "index": 7,
+          "start": 2850,
+          "start_step": 260,
+          "stop": 2994,
+          "stop_step": 260,
+          "span": 144
+        },
+        {
+          "id": "row_8",
+          "label": "row 8",
+          "family": "rows",
+          "index": 8,
+          "start": 3110,
+          "start_step": 260,
+          "stop": 3254,
+          "stop_step": 260,
+          "span": 144
+        }
+      ]
+    },
+    {
+      "id": "horizontal_main",
+      "label": "horizontal spacing - vertical guide",
+      "axis": "horizontal",
+      "span_kind": "width",
+      "entries": [
+        {
+          "id": "frame",
+          "label": "r47",
+          "family": "frame",
+          "start": 0,
+          "start_step": null,
+          "stop": 1820,
+          "stop_step": null,
+          "span": 1820
+        },
+        {
+          "id": "lcd",
+          "label": "LCD",
+          "family": "lcd",
+          "start": 201,
+          "start_step": null,
+          "stop": 1619,
+          "stop_step": null,
+          "span": 1418
+        },
+        {
+          "id": "column_1",
+          "label": "column 1",
+          "family": "standard_columns",
+          "index": 1,
+          "start": 134,
+          "start_step": null,
+          "stop": 326,
+          "stop_step": null,
+          "span": 192
+        },
+        {
+          "id": "column_2",
+          "label": "column 2",
+          "family": "standard_columns",
+          "index": 2,
+          "start": 406,
+          "start_step": 272,
+          "stop": 598,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "column_3",
+          "label": "column 3",
+          "family": "standard_columns",
+          "index": 3,
+          "start": 678,
+          "start_step": 272,
+          "stop": 870,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "column_4",
+          "label": "column 4",
+          "family": "standard_columns",
+          "index": 4,
+          "start": 950,
+          "start_step": 272,
+          "stop": 1142,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "column_5",
+          "label": "column 5",
+          "family": "standard_columns",
+          "index": 5,
+          "start": 1222,
+          "start_step": 272,
+          "stop": 1414,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "column_6",
+          "label": "column 6",
+          "family": "standard_columns",
+          "index": 6,
+          "start": 1494,
+          "start_step": 272,
+          "stop": 1686,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "enter_left",
+          "label": "enter",
+          "family": "enter",
+          "variant": "left_aligned",
+          "start": 134,
+          "start_step": null,
+          "stop": 596,
+          "stop_step": null,
+          "span": 462
+        },
+        {
+          "id": "matrix_4x4_1",
+          "label": "4x4-1",
+          "family": "matrix_4x4",
+          "index": 1,
+          "start": 465,
+          "start_step": 331,
+          "stop": 693,
+          "stop_step": null,
+          "span": 228
+        },
+        {
+          "id": "matrix_4x4_2",
+          "label": "4x4-2",
+          "family": "matrix_4x4",
+          "index": 2,
+          "start": 796,
+          "start_step": 331,
+          "stop": 1024,
+          "stop_step": 331,
+          "span": 228
+        },
+        {
+          "id": "matrix_4x4_3",
+          "label": "4x4-3",
+          "family": "matrix_4x4",
+          "index": 3,
+          "start": 1127,
+          "start_step": 331,
+          "stop": 1355,
+          "stop_step": 331,
+          "span": 228
+        },
+        {
+          "id": "matrix_4x4_4",
+          "label": "4x4-4",
+          "family": "matrix_4x4",
+          "index": 4,
+          "start": 1458,
+          "start_step": 331,
+          "stop": 1686,
+          "stop_step": 331,
+          "span": 228
+        }
+      ]
+    },
+    {
+      "id": "horizontal_symmetry",
+      "label": "horizontal spacing - vertical guide (symmetry check)",
+      "axis": "horizontal",
+      "span_kind": "width",
+      "entries": [
+        {
+          "id": "frame",
+          "label": "r47",
+          "family": "frame",
+          "start": 0,
+          "start_step": null,
+          "stop": 1820,
+          "stop_step": null,
+          "span": 1820
+        },
+        {
+          "id": "lcd",
+          "label": "LCD",
+          "family": "lcd",
+          "start": 201,
+          "start_step": null,
+          "stop": 1619,
+          "stop_step": null,
+          "span": 1418
+        },
+        {
+          "id": "column_6",
+          "label": "column 6",
+          "family": "standard_columns",
+          "index": 6,
+          "start": 1494,
+          "start_step": null,
+          "stop": 1686,
+          "stop_step": null,
+          "span": 192
+        },
+        {
+          "id": "column_5",
+          "label": "column 5",
+          "family": "standard_columns",
+          "index": 5,
+          "start": 1222,
+          "start_step": 272,
+          "stop": 1414,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "column_4",
+          "label": "column 4",
+          "family": "standard_columns",
+          "index": 4,
+          "start": 950,
+          "start_step": 272,
+          "stop": 1142,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "column_3",
+          "label": "column 3",
+          "family": "standard_columns",
+          "index": 3,
+          "start": 678,
+          "start_step": 272,
+          "stop": 870,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "column_2",
+          "label": "column 2",
+          "family": "standard_columns",
+          "index": 2,
+          "start": 406,
+          "start_step": 272,
+          "stop": 598,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "column_1",
+          "label": "column 1",
+          "family": "standard_columns",
+          "index": 1,
+          "start": 134,
+          "start_step": 272,
+          "stop": 326,
+          "stop_step": 272,
+          "span": 192
+        },
+        {
+          "id": "enter_right",
+          "label": "enter",
+          "family": "enter",
+          "variant": "right_aligned",
+          "start": 1224,
+          "start_step": null,
+          "stop": 1686,
+          "stop_step": null,
+          "span": 462
+        },
+        {
+          "id": "matrix_4x4_1",
+          "label": "4x4-1",
+          "family": "matrix_4x4",
+          "index": 1,
+          "start": 1127,
+          "start_step": null,
+          "stop": 1355,
+          "stop_step": 331,
+          "span": 228
+        },
+        {
+          "id": "matrix_4x4_2",
+          "label": "4x4-2",
+          "family": "matrix_4x4",
+          "index": 2,
+          "start": 796,
+          "start_step": 331,
+          "stop": 1024,
+          "stop_step": 331,
+          "span": 228
+        },
+        {
+          "id": "matrix_4x4_3",
+          "label": "4x4-3",
+          "family": "matrix_4x4",
+          "index": 3,
+          "start": 465,
+          "start_step": 331,
+          "stop": 693,
+          "stop_step": 331,
+          "span": 228
+        },
+        {
+          "id": "matrix_4x4_4",
+          "label": "4x4-4",
+          "family": "matrix_4x4",
+          "index": 4,
+          "start": 134,
+          "start_step": 331,
+          "stop": 362,
+          "stop_step": 331,
+          "span": 228
+        }
+      ]
+    }
+  ]
+}
