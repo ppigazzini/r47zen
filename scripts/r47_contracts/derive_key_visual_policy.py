@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from fontTools.ttLib import TTFont
 
 from r47_contracts._contract_data import (
-    load_android_app_contract,
+    load_android_ui_contract,
     mapping_member,
     number_member,
     string_member,
@@ -92,16 +92,26 @@ def _load_font_metrics() -> dict[str, float | str]:
 def build_key_visual_policy_payload() -> dict[str, object]:
     """Build the visual-policy payload used by the Kotlin contract tests."""
     font_metrics = _load_font_metrics()
-    android_app_contract = load_android_app_contract()
+    android_app_contract = load_android_ui_contract()
+    key_surface_contract = mapping_member(
+        android_app_contract,
+        "key_surface",
+        label="android_ui_contract",
+    )
     labels_contract = mapping_member(
         android_app_contract,
-        "labels",
-        label="android_app_contract",
+        "label_layout",
+        label="android_ui_contract",
+    )
+    main_key_surface = mapping_member(
+        key_surface_contract,
+        "main_key",
+        label="android_ui_contract.key_surface",
     )
     fourth_label_contract = mapping_member(
         labels_contract,
-        "fourth_label_right_side",
-        label="android_app_contract.labels",
+        "right_side_letter_legend",
+        label="android_ui_contract.label_layout",
     )
 
     return {
@@ -131,9 +141,9 @@ def build_key_visual_policy_payload() -> dict[str, object]:
         },
         "visual_policy_constants": {
             "MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA": number_member(
-                labels_contract,
-                "main_key_body_optical_width_delta",
-                label="android_app_contract.labels",
+                main_key_surface,
+                "painted_body_width_bonus",
+                label="android_ui_contract.key_surface.main_key",
             ),
             "FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT": number_member(
                 fourth_label_contract,

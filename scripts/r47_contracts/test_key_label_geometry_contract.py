@@ -3,12 +3,13 @@
 import re
 import unittest
 
-from r47_contracts._kotlin_consts import parse_kotlin_const_values
+from r47_contracts._kotlin_consts import parse_kotlin_const_values_from_paths
 from r47_contracts._repo_paths import KOTLIN_R47_ROOT
 from r47_contracts.derive_key_label_geometry import build_key_label_geometry_payload
 
 _KOTLIN_KEY_VIEW_PATH = KOTLIN_R47_ROOT / "CalculatorKeyView.kt"
 _KOTLIN_GEOMETRY_PATH = KOTLIN_R47_ROOT / "R47Geometry.kt"
+_KOTLIN_KEYPAD_POLICY_PATH = KOTLIN_R47_ROOT / "R47KeypadPolicy.kt"
 
 
 def _assert_float_equal(actual: float, expected: float, *, places: int = 6) -> None:
@@ -62,11 +63,15 @@ class KeyLabelGeometryContractTest(unittest.TestCase):
         """Load the shared payload and Kotlin constants once for the module."""
         cls.payload: dict[str, object] = build_key_label_geometry_payload()
         cls.key_view_source = _KOTLIN_KEY_VIEW_PATH.read_text(encoding="utf-8")
-        cls.key_view: dict[str, float] = parse_kotlin_const_values(
-            _KOTLIN_KEY_VIEW_PATH,
+        cls.key_view: dict[str, float] = parse_kotlin_const_values_from_paths(
+            [
+                _KOTLIN_GEOMETRY_PATH,
+                _KOTLIN_KEYPAD_POLICY_PATH,
+                _KOTLIN_KEY_VIEW_PATH,
+            ],
         )
-        cls.geometry: dict[str, float] = parse_kotlin_const_values(
-            _KOTLIN_GEOMETRY_PATH,
+        cls.geometry: dict[str, float] = parse_kotlin_const_values_from_paths(
+            [_KOTLIN_GEOMETRY_PATH],
         )
 
     def test_non_softkey_view_height_matches_rebased_contract(self) -> None:
@@ -312,12 +317,12 @@ class KeyLabelGeometryContractTest(unittest.TestCase):
         )
         _assert_contains(
             self.key_view_source,
-            "KeyVisualPolicy.FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT",
+            "R47LabelLayoutPolicy.FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT",
             name="fourth-label X offset formula",
         )
         _assert_contains(
             self.key_view_source,
-            "KeyVisualPolicy.FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP",
+            "R47LabelLayoutPolicy.FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP",
             name="fourth-label Y offset formula",
         )
 

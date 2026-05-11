@@ -16,4 +16,5 @@ ANDROID_TEST_RESOURCES_ROOT = (
 KEYPAD_FIXTURES_ROOT = ANDROID_TEST_RESOURCES_ROOT / "keypad-fixtures"
 KOTLIN_R47_ROOT = ANDROID_APP_ROOT / "java" / "com" / "example" / "r47"
 STAGED_NATIVE_C47_ROOT = REPO_ROOT / "android" / ".staged-native" / "cpp" / "c47"
-R47_GEOMETRY_DATA_PATH = DATA_ROOT / "r47_geometry.json"
+R47_PHYSICAL_GEOMETRY_DATA_PATH = DATA_ROOT / "r47_physical_geometry.json"
+R47_ANDROID_UI_CONTRACT_PATH = DATA_ROOT / "r47_android_ui_contract.json"

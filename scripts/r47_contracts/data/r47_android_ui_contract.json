@@ -1,0 +1,88 @@
+{
+  "dataset": "r47_android_ui_contract",
+  "version": 1,
+  "description": "Machine-readable Android UI geometry and label policy layered on the measured R47 reference canvas.",
+  "coordinate_space": "logical_canvas",
+  "based_on": {
+    "physical_dataset": "r47_physical_geometry",
+    "physical_version": 1
+  },
+  "logical_canvas": {
+    "width": 1820,
+    "height": 3403
+  },
+  "chrome": {
+    "native_shell_draw_corner_radius": 80,
+    "scaled_mode_fit_trim": {
+      "left": 42,
+      "top": 49,
+      "right": 42,
+      "bottom": 56
+    },
+    "settings_strip_tap_height": 229,
+    "lcd_window": {
+      "left": 86,
+      "top": 229,
+      "width": 1648,
+      "height": 903
+    },
+    "lcd_frame_buffer": {
+      "pixel_width": 400,
+      "pixel_height": 240
+    },
+    "non_softkey_view_height": 236
+  },
+  "key_surface": {
+    "main_key": {
+      "draw_corner_radius": 20,
+      "painted_body_width_bonus": 6,
+      "painted_body_height": 144
+    },
+    "softkey": {
+      "draw_corner_radius": 20
+    },
+    "standard_key": {
+      "right_strip_width": 80
+    },
+    "matrix_key": {
+      "right_strip_width": 103
+    }
+  },
+  "label_layout": {
+    "primary_legend": {
+      "horizontal_anchor": "main_key_body_center",
+      "vertical_anchor": "main_key_body_center",
+      "text_sizes": {
+        "default": 76,
+        "numeric": 114,
+        "shifted": 94
+      }
+    },
+    "top_f_legend": {
+      "horizontal_anchor": "shared_top_label_group",
+      "vertical_anchor": "shared_top_label_baseline",
+      "text_size": 64,
+      "horizontal_gap": 10,
+      "vertical_lift": 86
+    },
+    "top_g_legend": {
+      "horizontal_anchor": "shared_top_label_group",
+      "vertical_anchor": "shared_top_label_baseline",
+      "text_size": 64,
+      "horizontal_gap": 10,
+      "vertical_lift": 86
+    },
+    "right_side_letter_legend": {
+      "horizontal_anchor": "main_key_body_right",
+      "vertical_anchor": "main_key_body_top",
+      "text_size": 66,
+      "x_offset_from_main_key_body_right": 16,
+      "y_offset_from_main_key_body_top": 80
+    }
+  },
+  "top_label_solver": {
+    "max_shift_fraction": 0.15,
+    "min_scale": 0.82,
+    "scale_step": 0.06
+  }
+}

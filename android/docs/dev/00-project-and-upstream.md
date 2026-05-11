@@ -32,11 +32,16 @@ repo root, clean tracked overlay
 |- COPYING
 |- README.md
 |- android/
-|  |- app/src/main/java/com/example/r47
-|  |- app/src/main/cpp/c47-android
-|  `- docs/dev
+|  |- app/src/main/java/com/example/r47/
+|  |  |- R47Geometry.kt
+|  |  `- R47KeypadPolicy.kt
+|  |- app/src/main/cpp/c47-android/
+|  |- docs/dev/
+|  `- r47-defaults.properties
 |- scripts/
 |  |- android/
+|  |- r47_contracts/
+|  |  `- data/
 |  `- upstream-sync/
 `- upstream.source
 ```
@@ -103,8 +108,8 @@ Its main responsibilities are:
 - the Android app module under `android/`
 - the Android-owned native bridge under
   `android/app/src/main/cpp/c47-android`
-- repo-only sync, staging, build, packaging, and workload scripts under
-  `scripts/`
+- repo-only sync, staging, build, packaging, contract, and workload scripts
+  under `scripts/`
 - GitHub Actions workflow and release plumbing under `.github/`
 - maintainer documentation under `android/docs/dev/`
 

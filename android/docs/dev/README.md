@@ -126,6 +126,9 @@ Two rules govern most Android work in this repository:
 - `scripts/upstream-sync/` owns grouped upstream resolution and sync helpers.
 - `scripts/android/` owns Android build, staging, packaging, and helper
   implementation.
+- `scripts/r47_contracts/` owns the checked-in physical and Android UI
+  contract sources plus the Python derivation and validation tools that lock
+  Kotlin geometry and layout owners to those sources.
 - `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
   `scripts/workload-regressions/` own the fixture export, notice generation,
   and host workload lanes.

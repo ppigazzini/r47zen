@@ -114,7 +114,7 @@ internal object TopLabelLaneLayout {
             conflicts = scaleUntilResolved(
                 states = states,
                 conflicts = conflicts,
-                scaleFloor = KeyVisualPolicy.TOP_F_G_LABEL_MIN_SCALE,
+                scaleFloor = R47TopLabelSolverPolicy.TOP_F_G_LABEL_MIN_SCALE,
                 ignorePreferredShiftBudget = false,
             )
         }
@@ -508,10 +508,10 @@ internal object TopLabelLaneLayout {
 
         val primaryScale = labelScale(state, primary)
         val secondaryScale = labelScale(state, secondary)
-        if (primaryScale + KeyVisualPolicy.TOP_F_G_LABEL_SCALE_STEP <= secondaryScale + EPSILON && secondaryCanScale) {
+        if (primaryScale + R47TopLabelSolverPolicy.TOP_F_G_LABEL_SCALE_STEP <= secondaryScale + EPSILON && secondaryCanScale) {
             return secondary
         }
-        if (secondaryScale + KeyVisualPolicy.TOP_F_G_LABEL_SCALE_STEP <= primaryScale + EPSILON && primaryCanScale) {
+        if (secondaryScale + R47TopLabelSolverPolicy.TOP_F_G_LABEL_SCALE_STEP <= primaryScale + EPSILON && primaryCanScale) {
             return primary
         }
 
@@ -614,7 +614,7 @@ internal object TopLabelLaneLayout {
             val currentScale = labelScale(state, label)
             val targetScale = max(
                 scaleFloor,
-                currentScale - KeyVisualPolicy.TOP_F_G_LABEL_SCALE_STEP,
+                currentScale - R47TopLabelSolverPolicy.TOP_F_G_LABEL_SCALE_STEP,
             )
 
             if (targetScale + EPSILON < currentScale) {
@@ -653,7 +653,7 @@ internal object TopLabelLaneLayout {
         var remainingConflicts = conflicts
         val maxScaleSteps = maxOf(
             1,
-            (((1f - scaleFloor) / KeyVisualPolicy.TOP_F_G_LABEL_SCALE_STEP) + 0.999999f).toInt(),
+            (((1f - scaleFloor) / R47TopLabelSolverPolicy.TOP_F_G_LABEL_SCALE_STEP) + 0.999999f).toInt(),
         )
         repeat(states.size * 2 * maxScaleSteps) {
             if (remainingConflicts.isEmpty()) {

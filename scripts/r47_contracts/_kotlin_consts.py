@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
 _CONST_PATTERN = re.compile(
@@ -24,6 +25,9 @@ class _ConstExpressionEvaluator(ast.NodeVisitor):
 
     def visit_Name(self, node: ast.Name) -> float:
         return self.values[node.id]
+
+    def visit_Attribute(self, node: ast.Attribute) -> float:
+        return self.values[node.attr]
 
     def visit_Constant(self, node: ast.Constant) -> float:
         if not isinstance(node.value, int | float):
@@ -59,9 +63,13 @@ class _ConstExpressionEvaluator(ast.NodeVisitor):
         raise TypeError(message)
 
 
-def parse_kotlin_const_values(path: Path) -> dict[str, float]:
+def parse_kotlin_const_values(
+    path: Path,
+    *,
+    initial_values: dict[str, float] | None = None,
+) -> dict[str, float]:
     """Parse simple Kotlin `const val` expressions into evaluated float values."""
-    values: dict[str, float] = {}
+    values = dict(initial_values or {})
     raw_lines = path.read_text(encoding="utf-8").splitlines()
     for expression_parts in _iter_const_expressions(raw_lines):
         joined = " ".join(expression_parts)
@@ -77,6 +85,16 @@ def parse_kotlin_const_values(path: Path) -> dict[str, float]:
         except KeyError, TypeError:
             continue
 
+    return values
+
+
+def parse_kotlin_const_values_from_paths(
+    paths: Sequence[Path],
+) -> dict[str, float]:
+    """Parse `const val` expressions from multiple Kotlin files in order."""
+    values: dict[str, float] = {}
+    for path in paths:
+        values = parse_kotlin_const_values(path, initial_values=values)
     return values
 
 

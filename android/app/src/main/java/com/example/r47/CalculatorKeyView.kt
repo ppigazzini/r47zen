@@ -27,22 +27,7 @@ private data class MainKeyStyleSpec(
 )
 
 internal object KeyVisualPolicy {
-    // Android presentation tuning values. These are UI policy, not measured hardware geometry.
-    const val MAIN_KEY_DRAW_CORNER_RADIUS = 20f
-    const val SOFTKEY_DRAW_CORNER_RADIUS = MAIN_KEY_DRAW_CORNER_RADIUS
-    const val MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA = 6f
-    const val FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT = 16f
-    const val FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP = 80f
-    const val DEFAULT_PRIMARY_LEGEND_TEXT_SIZE = 76f
-    const val NUMERIC_PRIMARY_LEGEND_TEXT_SIZE = 114f
-    const val SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE = 94f
-    const val TOP_F_G_LABEL_TEXT_SIZE = 64f
-    const val FOURTH_LABEL_TEXT_SIZE = 66f
-    const val TOP_F_G_LABEL_HORIZONTAL_GAP = 10f
-    const val TOP_F_G_LABEL_VERTICAL_LIFT = 86f
-    const val TOP_F_G_LABEL_MAX_SHIFT_FRACTION = 0.15f
-    const val TOP_F_G_LABEL_MIN_SCALE = 0.82f
-    const val TOP_F_G_LABEL_SCALE_STEP = 0.06f
+    // Softkey-only presentation tuning values.
     const val SOFTKEY_DECOR_STROKE_WIDTH = 2f
     const val SOFTKEY_OUTER_INSET = 2f
     const val SOFTKEY_PREVIEW_LINE_SIDE_INSET = 10f
@@ -78,7 +63,6 @@ internal object KeyVisualPolicy {
     const val SOFTKEY_OVERLAY_MB_UNDERLINE_START_X = 1f
     const val SOFTKEY_OVERLAY_MB_UNDERLINE_END_X = 6f
     const val SOFTKEY_OVERLAY_MB_UNDERLINE_Y = 4f
-    const val FITTED_TEXT_MIN_SCALE = 0.58f
 }
 
 class CalculatorKeyView @JvmOverloads constructor(
@@ -106,9 +90,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val softkeyMetaLightColor = Color.parseColor("#C9D0D6")
         private val softkeyValueLightColor = Color.parseColor("#F0C77A")
         private val softkeyPreviewColor = Color.parseColor("#E5AE5A")
-        private const val MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW = 0.610169f
-        private const val STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION = 0.294118f
-        private const val MATRIX_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION = 0.311178f
     }
 
     private val buttonView = View(context)
@@ -117,7 +98,7 @@ class CalculatorKeyView @JvmOverloads constructor(
     val gLabel = TextView(context)
     val alphaLabel = TextView(context)
     val letterLabel = TextView(context)
-    
+
     var keyCode: Int = 0
     private var isFnKey: Boolean = false
     private var lastLayoutClass: Int? = null
@@ -153,7 +134,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         clipChildren = false
         clipToPadding = false
         setWillNotDraw(false)
-        
+
         // Letter label (Right side of the view, bottom aligned with button)
         letterLabel.id = View.generateViewId()
         letterLabel.setTextColor(fourthLabelColor)
@@ -164,8 +145,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         letterParams.topToTop = buttonView.id
         letterParams.endToEnd = LayoutParams.PARENT_ID
         letterParams.bottomToBottom = LayoutParams.PARENT_ID
-        letterParams.matchConstraintPercentWidth = STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
-        letterParams.matchConstraintPercentHeight = MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
+        letterParams.matchConstraintPercentWidth = R47KeySurfacePolicy.STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
+        letterParams.matchConstraintPercentHeight = R47KeySurfacePolicy.MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
         addView(letterLabel, letterParams)
 
         // Button background view (Left side)
@@ -176,7 +157,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         btnParams.startToStart = LayoutParams.PARENT_ID
         btnParams.endToStart = letterLabel.id
         btnParams.verticalBias = 0f
-        btnParams.matchConstraintPercentHeight = MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
+        btnParams.matchConstraintPercentHeight = R47KeySurfacePolicy.MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
         buttonView.setBackgroundColor(Color.TRANSPARENT)
         addView(buttonView, btnParams)
 
@@ -192,7 +173,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         primaryParams.startToStart = buttonView.id
         primaryParams.endToEnd = buttonView.id
         addView(primaryLabel, primaryParams)
-        
+
         // F label (Above button)
         fLabel.id = View.generateViewId()
         fLabel.setTextColor(fAccentColor)
@@ -224,7 +205,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         alphaLabel.id = View.generateViewId()
         alphaLabel.visibility = View.GONE
         addView(alphaLabel)
-        
+
         isClickable = false
         buttonView.isClickable = false
     }
@@ -250,7 +231,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         val referenceCellToViewWidthScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
         val primarySize = mainKeyStyleSpec(mainKeyState.styleRole).fontSize * referenceCellToViewWidthScale
-        val topLabelTextSize = KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
+        val topLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
         val primaryMaxWidth = primaryLabelMaxWidthPx(referenceCellToViewWidthScale)
 
         primaryLabel.setTextSize(
@@ -260,7 +241,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         primaryLabel.textScaleX = 1f
         fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize * topLabelPlacement.fScale)
         gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize * topLabelPlacement.gScale)
-        letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, KeyVisualPolicy.FOURTH_LABEL_TEXT_SIZE * referenceCellToViewWidthScale)
+        letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, R47LabelLayoutPolicy.FOURTH_LABEL_TEXT_SIZE * referenceCellToViewWidthScale)
     }
 
     private fun fittedTextSizePx(labelView: TextView, baseSize: Float, maxWidth: Float): Float {
@@ -277,7 +258,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
 
         return (baseSize * (maxWidth / measured))
-            .coerceAtLeast(baseSize * KeyVisualPolicy.FITTED_TEXT_MIN_SCALE)
+            .coerceAtLeast(baseSize * R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE)
     }
 
     private fun primaryLabelMaxWidthPx(referenceCellToViewWidthScale: Float): Float {
@@ -297,7 +278,7 @@ class CalculatorKeyView @JvmOverloads constructor(
             mainKeyRect.width()
         } else {
             buttonWidth - (2f * referenceBodyToViewWidthScale) +
-                (KeyVisualPolicy.MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA * referenceBodyToViewWidthScale)
+                (R47KeySurfacePolicy.MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA * referenceBodyToViewWidthScale)
         }
         val horizontalPadding = 12f * referenceBodyToViewWidthScale
         return (bodyWidth - horizontalPadding).coerceAtLeast(0f)
@@ -346,8 +327,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
 
         val referenceCellToViewWidthScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
-        val topFgLabelVerticalLift = KeyVisualPolicy.TOP_F_G_LABEL_VERTICAL_LIFT * referenceCellToViewWidthScale
-        val topFgLabelHorizontalGap = KeyVisualPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
+        val topFgLabelVerticalLift = R47LabelLayoutPolicy.TOP_F_G_LABEL_VERTICAL_LIFT * referenceCellToViewWidthScale
+        val topFgLabelHorizontalGap = R47LabelLayoutPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
         val buttonWidth = buttonView.width.toFloat()
         if (buttonWidth <= 0f || buttonView.height <= 0) {
             return
@@ -389,7 +370,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
 
         val topLabelTranslationY = -topFgLabelVerticalLift
-        val baseTopLabelTextSize = KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
+        val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
         val targetTextBottomY = topLabelTranslationY + textBottomOffset(fLabel, baseTopLabelTextSize)
         fLabel.translationY = targetTextBottomY - textBottomOffset(fLabel) - fLabel.top.toFloat()
         gLabel.translationY = targetTextBottomY - textBottomOffset(gLabel) - gLabel.top.toFloat()
@@ -400,16 +381,16 @@ class CalculatorKeyView @JvmOverloads constructor(
     private fun updateFourthLabelOffset(referenceCellToViewWidthScale: Float) {
         val letterLeft =
             mainKeyRect.right +
-                KeyVisualPolicy.FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT * referenceCellToViewWidthScale
+                R47LabelLayoutPolicy.FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT * referenceCellToViewWidthScale
         val letterTop =
-            KeyVisualPolicy.FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP * referenceCellToViewWidthScale
+            R47LabelLayoutPolicy.FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP * referenceCellToViewWidthScale
         letterLabel.translationX = letterLeft - letterLabel.left.toFloat()
         letterLabel.translationY = letterTop - letterLabel.top.toFloat()
     }
 
     private fun updateMainKeySurfaceRect(targetRect: RectF, referenceBodyToViewWidthScale: Float) {
         val inset = referenceBodyToViewWidthScale
-        val widthBonus = KeyVisualPolicy.MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA * referenceBodyToViewWidthScale
+        val widthBonus = R47KeySurfacePolicy.MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA * referenceBodyToViewWidthScale
         val halfWidthBonus = widthBonus * 0.5f
         targetRect.set(
             (buttonView.left.toFloat() + inset - halfWidthBonus).coerceAtLeast(inset),
@@ -478,7 +459,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         fLabel.typeface = fonts.standard
         gLabel.typeface = fonts.standard
         letterLabel.typeface = fonts.standard
-        
+
         if (slot.isFunctionKey) {
             softkeyState = KeypadKeySnapshot.EMPTY
             mainKeyState = KeypadKeySnapshot.EMPTY
@@ -530,42 +511,42 @@ class CalculatorKeyView @JvmOverloads constructor(
     private fun mainKeyStyleSpec(styleRole: Int): MainKeyStyleSpec {
         return when (styleRole) {
             KeypadSceneContract.STYLE_SHIFT_F -> MainKeyStyleSpec(
-                fontSize = KeyVisualPolicy.SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE,
+                fontSize = R47LabelLayoutPolicy.SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = fAccentColor,
                 pressedFillColor = fPressedColor,
             )
 
             KeypadSceneContract.STYLE_SHIFT_G -> MainKeyStyleSpec(
-                fontSize = KeyVisualPolicy.SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE,
+                fontSize = R47LabelLayoutPolicy.SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = gAccentColor,
                 pressedFillColor = gPressedColor,
             )
 
             KeypadSceneContract.STYLE_SHIFT_FG -> MainKeyStyleSpec(
-                fontSize = KeyVisualPolicy.SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE,
+                fontSize = R47LabelLayoutPolicy.SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = fgAccentColor,
                 pressedFillColor = fgPressedColor,
             )
 
             KeypadSceneContract.STYLE_ALPHA -> MainKeyStyleSpec(
-                fontSize = KeyVisualPolicy.DEFAULT_PRIMARY_LEGEND_TEXT_SIZE,
+                fontSize = R47LabelLayoutPolicy.DEFAULT_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = alphaAccentColor,
                 pressedFillColor = alphaAccentColor,
             )
 
             KeypadSceneContract.STYLE_NUMERIC -> MainKeyStyleSpec(
-                fontSize = KeyVisualPolicy.NUMERIC_PRIMARY_LEGEND_TEXT_SIZE,
+                fontSize = R47LabelLayoutPolicy.NUMERIC_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryColor,
                 idleFillColor = mainKeyFillColor,
                 pressedFillColor = mainKeyPressedColor,
             )
 
             else -> MainKeyStyleSpec(
-                fontSize = KeyVisualPolicy.DEFAULT_PRIMARY_LEGEND_TEXT_SIZE,
+                fontSize = R47LabelLayoutPolicy.DEFAULT_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryColor,
                 idleFillColor = mainKeyFillColor,
                 pressedFillColor = mainKeyPressedColor,
@@ -579,7 +560,7 @@ class CalculatorKeyView @JvmOverloads constructor(
             KeypadKeyFamily.STANDARD -> {
                 designCellWidth = R47ReferenceGeometry.STANDARD_PITCH
                 designButtonWidth = R47ReferenceGeometry.STANDARD_KEY_WIDTH
-                letterRatio = STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
+                letterRatio = R47KeySurfacePolicy.STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
             }
 
             KeypadKeyFamily.ENTER -> {
@@ -591,7 +572,7 @@ class CalculatorKeyView @JvmOverloads constructor(
             KeypadKeyFamily.NUMERIC_MATRIX -> {
                 designCellWidth = R47ReferenceGeometry.MATRIX_PITCH
                 designButtonWidth = R47ReferenceGeometry.MATRIX_KEY_WIDTH
-                letterRatio = MATRIX_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
+                letterRatio = R47KeySurfacePolicy.MATRIX_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
             }
 
             KeypadKeyFamily.BASE_OPERATOR -> {
@@ -608,7 +589,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         letterParams.topToTop = buttonView.id
         letterParams.bottomToBottom = buttonView.id
         letterParams.matchConstraintPercentWidth = letterRatio
-        letterParams.matchConstraintPercentHeight = MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
+        letterParams.matchConstraintPercentHeight = R47KeySurfacePolicy.MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
 
         if (letterRatio > 0f) {
             buttonParams.endToStart = letterLabel.id
@@ -773,11 +754,11 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
         updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
 
-        val baseTopLabelTextSize = KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
+        val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
         val fTextWidth = measureTextWidth(fLabel, baseTopLabelTextSize)
         val gTextWidth = if (hasGLabel) measureTextWidth(gLabel, baseTopLabelTextSize) else 0f
         val gapWidth = if (hasGLabel) {
-            KeyVisualPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
+            R47LabelLayoutPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
         } else {
             0f
         }
@@ -788,7 +769,7 @@ class CalculatorKeyView @JvmOverloads constructor(
             fTextWidth = fTextWidth,
             gTextWidth = gTextWidth,
             gapWidth = gapWidth,
-            maxShift = mainKeyRect.width() * KeyVisualPolicy.TOP_F_G_LABEL_MAX_SHIFT_FRACTION,
+            maxShift = mainKeyRect.width() * R47TopLabelSolverPolicy.TOP_F_G_LABEL_MAX_SHIFT_FRACTION,
             minLeftEdge = minLeftEdge,
             maxRightEdge = maxRightEdge,
         )
@@ -872,7 +853,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         } else {
             1f
         }
-        val cornerRadius = KeyVisualPolicy.MAIN_KEY_DRAW_CORNER_RADIUS * referenceBodyToViewWidthScale
+        val cornerRadius = R47KeySurfacePolicy.MAIN_KEY_DRAW_CORNER_RADIUS * referenceBodyToViewWidthScale
         updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
 
         val styleSpec = mainKeyStyleSpec(keyState.styleRole)

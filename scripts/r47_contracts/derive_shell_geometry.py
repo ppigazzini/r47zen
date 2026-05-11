@@ -9,17 +9,15 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from r47_contracts._contract_data import (
-    load_android_app_contract,
+    load_android_ui_contract,
+    load_physical_geometry,
 )
-from r47_contracts._contract_data import (
-    mapping_member as contract_mapping_member,
-)
-from r47_contracts._contract_data import (
-    number_member as contract_number_member,
-)
+from r47_contracts._contract_data import mapping_member as contract_mapping_member
+from r47_contracts._contract_data import number_member as contract_number_member
 from r47_contracts._repo_paths import (
     ANDROID_RES_ROOT,
-    R47_GEOMETRY_DATA_PATH,
+    R47_ANDROID_UI_CONTRACT_PATH,
+    R47_PHYSICAL_GEOMETRY_DATA_PATH,
     REPO_ROOT,
 )
 
@@ -141,10 +139,10 @@ def _require_scalar(value: object, *, label: str) -> str | int | float:
     return value
 
 
-def _load_geometry(path: Path = R47_GEOMETRY_DATA_PATH) -> dict[str, object]:
-    with path.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
-    return _require_mapping(payload, label="geometry document")
+def _load_geometry(
+    path: Path = R47_PHYSICAL_GEOMETRY_DATA_PATH,
+) -> dict[str, object]:
+    return _require_mapping(load_physical_geometry(path), label="geometry document")
 
 
 def _index_tables(
@@ -166,6 +164,16 @@ def _index_tables(
 
 
 def _reference_lcd_rect(geometry: dict[str, object]) -> _Rect:
+    raw_real_lcd = geometry.get("real_lcd")
+    if raw_real_lcd is not None:
+        real_lcd = _require_mapping(raw_real_lcd, label="real_lcd")
+        return _Rect(
+            left=_require_number(real_lcd.get("left"), label="real_lcd.left"),
+            top=_require_number(real_lcd.get("top"), label="real_lcd.top"),
+            width=_require_number(real_lcd.get("width"), label="real_lcd.width"),
+            height=_require_number(real_lcd.get("height"), label="real_lcd.height"),
+        )
+
     tables = _index_tables(geometry)
     horizontal_lcd = tables["horizontal_main"]["lcd"]
     vertical_lcd = tables["vertical_main"]["lcd"]
@@ -267,7 +275,7 @@ def build_shell_geometry_payload() -> dict[str, object]:
         label="reference_frame.height",
     )
     drawable_assets = _measure_drawable_assets()
-    android_app_contract = load_android_app_contract()
+    android_app_contract = load_android_ui_contract()
     chrome_contract = contract_mapping_member(
         android_app_contract,
         "chrome",
@@ -366,7 +374,12 @@ def build_shell_geometry_payload() -> dict[str, object]:
     return {
         "source": {
             "dataset": _require_string(geometry.get("dataset"), label="dataset"),
-            "geometry_path": str(R47_GEOMETRY_DATA_PATH.relative_to(REPO_ROOT)),
+            "android_contract_path": str(
+                R47_ANDROID_UI_CONTRACT_PATH.relative_to(REPO_ROOT),
+            ),
+            "geometry_path": str(
+                R47_PHYSICAL_GEOMETRY_DATA_PATH.relative_to(REPO_ROOT),
+            ),
             "version": _require_scalar(geometry.get("version"), label="version"),
             "reference_width": reference_width,
             "reference_height": reference_height,

@@ -2,11 +2,11 @@
 
 import unittest
 
-from r47_contracts._kotlin_consts import parse_kotlin_const_values
+from r47_contracts._kotlin_consts import parse_kotlin_const_values_from_paths
 from r47_contracts._repo_paths import KOTLIN_R47_ROOT
 from r47_contracts.derive_key_visual_policy import build_key_visual_policy_payload
 
-_KOTLIN_VISUAL_POLICY_PATH = KOTLIN_R47_ROOT / "CalculatorKeyView.kt"
+_KOTLIN_VISUAL_POLICY_PATH = KOTLIN_R47_ROOT / "R47KeypadPolicy.kt"
 
 
 def _assert_float_equal(actual: float, expected: float, *, places: int = 6) -> None:
@@ -41,8 +41,8 @@ class KeyVisualPolicyContractTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         """Load the shared payload and Kotlin constants once for the module."""
         cls.payload: dict[str, object] = build_key_visual_policy_payload()
-        cls.kotlin: dict[str, float] = parse_kotlin_const_values(
-            _KOTLIN_VISUAL_POLICY_PATH,
+        cls.kotlin: dict[str, float] = parse_kotlin_const_values_from_paths(
+            [_KOTLIN_VISUAL_POLICY_PATH],
         )
 
     def test_visual_policy_constants_match_python_contract(self) -> None:

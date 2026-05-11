@@ -1,4 +1,4 @@
-"""Derive the touch-grid payload from the canonical R47 geometry dataset."""
+"""Derive the touch-grid payload from the canonical R47 physical dataset."""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ import sys
 from dataclasses import asdict, dataclass
 from itertools import pairwise
 
-from r47_contracts._repo_paths import R47_GEOMETRY_DATA_PATH, REPO_ROOT
+from r47_contracts._contract_data import load_physical_geometry
+from r47_contracts._repo_paths import R47_PHYSICAL_GEOMETRY_DATA_PATH, REPO_ROOT
 
 _UPPER_ROW_IDS = ["row_1", "row_2", "row_3", "row_4"]
 _LOWER_ROW_IDS = ["row_5", "row_6", "row_7", "row_8"]
@@ -157,9 +158,7 @@ def _require_scalar(value: object, *, label: str) -> str | int | float:
 
 
 def _load_geometry() -> dict[str, object]:
-    with R47_GEOMETRY_DATA_PATH.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
-    return _require_mapping(payload, label="geometry document")
+    return _require_mapping(load_physical_geometry(), label="geometry document")
 
 
 def _index_tables(
@@ -301,7 +300,9 @@ def build_touch_grid_payload() -> dict[str, object]:
     return {
         "source": {
             "dataset": _require_string(geometry.get("dataset"), label="dataset"),
-            "geometry_path": str(R47_GEOMETRY_DATA_PATH.relative_to(REPO_ROOT)),
+            "geometry_path": str(
+                R47_PHYSICAL_GEOMETRY_DATA_PATH.relative_to(REPO_ROOT),
+            ),
             "reference_height": reference_height,
             "reference_width": reference_width,
             "version": _require_scalar(geometry.get("version"), label="version"),

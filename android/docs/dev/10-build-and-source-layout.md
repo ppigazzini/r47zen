@@ -28,18 +28,39 @@ rerun-lane map.
 ```text
 repo root
 |- upstream.source
-|- scripts/upstream-sync/upstream.sh
-|- scripts/android/build_android.sh
-|- scripts/android/build_sim_assets.sh
-|- scripts/android/stage_native_sources.sh
-|- src/                            # hydrated upstream core
-|- dep/decNumberICU                # hydrated upstream dependency
-|- build.sim/                      # generated Meson outputs
+|- meson.build
+|- meson_options.txt
+|- src/                                       # hydrated upstream core
+|- dep/decNumberICU                           # hydrated upstream dependency
+|- res/fonts/                                 # tracked Android build input
+|- build.sim/                                 # generated Meson outputs
+|- scripts/
+|  |- android/
+|  |  |- build_android.sh
+|  |  |- build_sim_assets.sh
+|  |  `- stage_native_sources.sh
+|  |- r47_contracts/
+|  |  |- data/
+|  |  |  |- r47_physical_geometry.json
+|  |  |  `- r47_android_ui_contract.json
+|  |  |- validate_geometry_dataset.py
+|  |  |- derive_touch_grid.py
+|  |  |- derive_shell_geometry.py
+|  |  |- derive_key_label_geometry.py
+|  |  |- derive_key_visual_policy.py
+|  |  `- derive_top_label_lane_layout.py
+|  `- upstream-sync/upstream.sh
 `- android/
-   |- app/src/main/java/com/example/r47
-   |- app/src/main/cpp/c47-android
-   |- .staged-native/cpp
-   `- gradle/wrapper
+  |- app/src/main/java/com/example/r47/
+  |  |- R47Geometry.kt
+  |  |- R47KeypadPolicy.kt
+  |  |- CalculatorKeyView.kt
+  |  `- TopLabelLaneLayout.kt
+  |- app/src/main/cpp/c47-android/
+  |- docs/dev/
+  |- .staged-native/cpp/
+  |- gradle/wrapper/
+  `- r47-defaults.properties
 ```
 
 ## Build Flow
@@ -119,8 +140,9 @@ Top-level repo-owned overlay paths:
 - `scripts/` owns repo-only automation, including the stable maintainer
   entrypoints `scripts/android/build_android.sh` and
   `scripts/upstream-sync/upstream.sh`, plus grouped implementations under
-  `scripts/android/`, `scripts/upstream-sync/`, `scripts/keypad-fixtures/`,
-  `scripts/package-notices/`, and `scripts/workload-regressions/`.
+  `scripts/android/`, `scripts/r47_contracts/`, `scripts/upstream-sync/`,
+  `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
+  `scripts/workload-regressions/`.
 - `.github/` and `upstream.source` are repo-owned overlay paths outside the
   Android module.
 

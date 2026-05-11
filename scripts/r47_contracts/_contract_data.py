@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from r47_contracts._repo_paths import R47_GEOMETRY_DATA_PATH
+from r47_contracts._repo_paths import (
+    R47_ANDROID_UI_CONTRACT_PATH,
+    R47_PHYSICAL_GEOMETRY_DATA_PATH,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -63,7 +66,7 @@ def number_member(mapping: dict[str, object], key: str, *, label: str) -> float:
 
 
 def load_contract_document(
-    path: Path = R47_GEOMETRY_DATA_PATH,
+    path: Path,
 ) -> dict[str, object]:
     """Load the canonical R47 contract JSON document."""
     with path.open("r", encoding="utf-8") as handle:
@@ -71,9 +74,15 @@ def load_contract_document(
     return require_mapping(payload, label="geometry document")
 
 
-def load_android_app_contract(
-    path: Path = R47_GEOMETRY_DATA_PATH,
+def load_physical_geometry(
+    path: Path = R47_PHYSICAL_GEOMETRY_DATA_PATH,
 ) -> dict[str, object]:
-    """Load the Android-app geometry and label contract from the JSON document."""
-    root = load_contract_document(path)
-    return mapping_member(root, "android_app_contract", label="geometry document")
+    """Load the canonical measured R47 physical geometry document."""
+    return load_contract_document(path)
+
+
+def load_android_ui_contract(
+    path: Path = R47_ANDROID_UI_CONTRACT_PATH,
+) -> dict[str, object]:
+    """Load the canonical Android UI geometry and policy document."""
+    return load_contract_document(path)

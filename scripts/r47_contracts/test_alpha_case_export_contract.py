@@ -147,7 +147,7 @@ class AlphaCaseExportContractTest(unittest.TestCase):
             in self.key_view,
         )
         _assert_true(
-            ".coerceAtLeast(baseSize * KeyVisualPolicy.FITTED_TEXT_MIN_SCALE)"
+            ".coerceAtLeast(baseSize * R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE)"
             in self.key_view,
         )
 

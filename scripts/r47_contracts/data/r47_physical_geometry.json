@@ -1,94 +1,17 @@
 {
-  "dataset": "r47",
-  "version": 4,
-  "description": "Machine-readable R47 physical-reference geometry plus Android app LCD, chrome, and label contract data.",
-  "contract_scope": {
-    "role": "complete_r47_physical_and_android_geometry_contract",
-    "contains": [
-      "reference_frame",
-      "real_lcd",
-      "measured_key_rows",
-      "measured_key_columns",
-      "android_app_contract.chrome",
-      "android_app_contract.labels"
-    ],
-    "distinction": {
-      "physical_calculator": "reference_frame plus tables",
-      "android_app": "android_app_contract"
-    }
-  },
+  "dataset": "r47_physical_geometry",
+  "version": 1,
+  "description": "Machine-readable measured R47 physical-reference geometry from the maintained reference image.",
   "reference_frame": {
     "label": "r47",
     "width": 1820,
     "height": 3403
   },
-  "android_app_contract": {
-    "role": "implemented_android_calculator_geometry",
-    "coordinate_space": "logical_canvas",
-    "chrome": {
-      "native_shell_draw_corner_radius": 80,
-      "scaled_mode_fit_trim": {
-        "left": 42,
-        "top": 49,
-        "right": 42,
-        "bottom": 56
-      },
-      "settings_strip_tap_height": 229,
-      "lcd_window": {
-        "left": 86,
-        "top": 229,
-        "width": 1648,
-        "height": 903
-      },
-      "lcd_frame_buffer": {
-        "pixel_width": 400,
-        "pixel_height": 240
-      },
-      "non_softkey_view_height": 236
-    },
-    "labels": {
-      "main_key_draw_corner_radius": 20,
-      "softkey_draw_corner_radius": 20,
-      "main_key_body_optical_width_delta": 6,
-      "main_key_body_height_fraction_of_view": 0.610169,
-      "standard_key_fourth_label_strip_width_fraction": 0.294118,
-      "matrix_key_fourth_label_strip_width_fraction": 0.311178,
-      "first_label_primary": {
-        "horizontal_anchor": "main_key_body_center",
-        "vertical_anchor": "main_key_body_center",
-        "text_sizes": {
-          "default": 76,
-          "numeric": 114,
-          "shifted": 94
-        }
-      },
-      "second_label_f": {
-        "horizontal_anchor": "shared_top_label_group",
-        "vertical_anchor": "shared_top_label_baseline",
-        "text_size": 64,
-        "horizontal_gap": 10,
-        "vertical_lift": 86
-      },
-      "third_label_g": {
-        "horizontal_anchor": "shared_top_label_group",
-        "vertical_anchor": "shared_top_label_baseline",
-        "text_size": 64,
-        "horizontal_gap": 10,
-        "vertical_lift": 86
-      },
-      "fourth_label_right_side": {
-        "horizontal_anchor": "main_key_body_right",
-        "vertical_anchor": "main_key_body_top",
-        "text_size": 66,
-        "x_offset_from_main_key_body_right": 16,
-        "y_offset_from_main_key_body_top": 80
-      },
-      "top_label_solver": {
-        "max_shift_fraction": 0.15,
-        "min_scale": 0.82,
-        "scale_step": 0.06
-      }
-    }
+  "real_lcd": {
+    "left": 201,
+    "top": 244,
+    "width": 1418,
+    "height": 849
   },
   "tables": [
     {

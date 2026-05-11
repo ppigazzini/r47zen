@@ -85,7 +85,7 @@ internal class CalculatorSoftkeyPainter(
         softkeyDotPaint.color = decorColor
 
         val softkeySurfaceScale = width / R47ReferenceGeometry.STANDARD_KEY_WIDTH
-        val cornerRadius = KeyVisualPolicy.SOFTKEY_DRAW_CORNER_RADIUS * softkeySurfaceScale
+        val cornerRadius = R47KeySurfacePolicy.SOFTKEY_DRAW_CORNER_RADIUS * softkeySurfaceScale
         if (drawKeySurfaces) {
             drawKeyChrome(
                 canvas = canvas,
@@ -153,7 +153,7 @@ internal class CalculatorSoftkeyPainter(
                 text = keyState.primaryLabel,
                 paint = softkeyTextPaint,
                 typeface = fontSet.standard,
-                baseSize = KeyVisualPolicy.DEFAULT_PRIMARY_LEGEND_TEXT_SIZE * softkeySurfaceScale,
+                baseSize = R47LabelLayoutPolicy.DEFAULT_PRIMARY_LEGEND_TEXT_SIZE * softkeySurfaceScale,
                 maxWidth = softkeyRect.width() - reservedRight - KeyVisualPolicy.SOFTKEY_PRIMARY_SIDE_INSET,
                 x = softkeyRect.centerX(),
                 anchorY = primaryCenterY,
@@ -337,7 +337,7 @@ internal class CalculatorSoftkeyPainter(
         val measured = paint.measureText(text)
         if (measured > maxWidth && measured > 0f) {
             paint.textSize =
-                (baseSize * (maxWidth / measured)).coerceAtLeast(baseSize * KeyVisualPolicy.FITTED_TEXT_MIN_SCALE)
+                (baseSize * (maxWidth / measured)).coerceAtLeast(baseSize * R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE)
         }
 
         val metrics = paint.fontMetrics

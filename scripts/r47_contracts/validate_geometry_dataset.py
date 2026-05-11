@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from r47_contracts._contract_data import (
+    load_android_ui_contract,
     load_contract_document,
 )
 from r47_contracts._contract_data import (
@@ -22,8 +23,12 @@ from r47_contracts._contract_data import (
 from r47_contracts._contract_data import (
     string_member as contract_string_member,
 )
-from r47_contracts._kotlin_consts import parse_kotlin_const_values
-from r47_contracts._repo_paths import KOTLIN_R47_ROOT, R47_GEOMETRY_DATA_PATH
+from r47_contracts._kotlin_consts import parse_kotlin_const_values_from_paths
+from r47_contracts._repo_paths import (
+    KOTLIN_R47_ROOT,
+    R47_ANDROID_UI_CONTRACT_PATH,
+    R47_PHYSICAL_GEOMETRY_DATA_PATH,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -36,6 +41,7 @@ _SUPPORTED_FAMILIES = frozenset({"rows", "standard_columns", "matrix_4x4", "ente
 _FLOAT_TOLERANCE = 1e-6
 
 _KOTLIN_GEOMETRY_PATH = KOTLIN_R47_ROOT / "R47Geometry.kt"
+_KOTLIN_KEYPAD_POLICY_PATH = KOTLIN_R47_ROOT / "R47KeypadPolicy.kt"
 _KOTLIN_KEY_VIEW_PATH = KOTLIN_R47_ROOT / "CalculatorKeyView.kt"
 
 
@@ -68,6 +74,35 @@ class _FamilyAnalysisContext:
     expected_start_pitch: int | None
     expected_stop_pitch: int | None
     expected_gap: int | None
+
+
+@dataclass(frozen=True)
+class _SplitAndroidUiContractContext:
+    physical_root: dict[str, object]
+    android_contract: dict[str, object]
+    reference_width: float
+    reference_height: float
+    based_on: dict[str, object]
+    logical_canvas: dict[str, object]
+    chrome: dict[str, object]
+    key_surface: dict[str, object]
+    lcd_window: dict[str, object]
+    lcd_frame_buffer: dict[str, object]
+    main_key_surface: dict[str, object]
+    standard_key_surface: dict[str, object]
+    matrix_key_surface: dict[str, object]
+    first_label_text_sizes: dict[str, object]
+    second_label: dict[str, object]
+    third_label: dict[str, object]
+    fourth_label: dict[str, object]
+    top_label_solver: dict[str, object]
+    row_height: int
+    standard_key_width: int
+    standard_pitch: int
+    matrix_key_width: int
+    matrix_pitch: int
+    standard_right_strip_width: float
+    matrix_right_strip_width: float
 
 
 def _parse_int(value: object) -> int | None:
@@ -509,6 +544,650 @@ def _matrix_edge_errors(
     ]
 
 
+def _family_metrics(
+    entries: list[RawEntry],
+    *,
+    table: str,
+    family: str,
+) -> tuple[int, int]:
+    matching = [
+        entry for entry in entries if entry.table == table and entry.family == family
+    ]
+    if not matching:
+        message = f"Missing {table}/{family} entries"
+        raise GeometryValidationError(message)
+
+    span = next((entry.span for entry in matching if entry.span is not None), None)
+    pitch = next(
+        (entry.start_step for entry in matching if entry.start_step is not None),
+        None,
+    )
+    if span is None or pitch is None:
+        message = f"Missing span or pitch for {table}/{family}"
+        raise GeometryValidationError(message)
+    return span, pitch
+
+
+def _build_split_android_ui_contract_context(
+    physical_root: dict[str, object],
+    android_contract: dict[str, object],
+    entries: list[RawEntry],
+) -> _SplitAndroidUiContractContext:
+    reference_frame = contract_mapping_member(
+        physical_root,
+        "reference_frame",
+        label="geometry document",
+    )
+    based_on = contract_mapping_member(
+        android_contract,
+        "based_on",
+        label="android_ui_contract",
+    )
+    logical_canvas = contract_mapping_member(
+        android_contract,
+        "logical_canvas",
+        label="android_ui_contract",
+    )
+    chrome = contract_mapping_member(
+        android_contract,
+        "chrome",
+        label="android_ui_contract",
+    )
+    key_surface = contract_mapping_member(
+        android_contract,
+        "key_surface",
+        label="android_ui_contract",
+    )
+    label_layout = contract_mapping_member(
+        android_contract,
+        "label_layout",
+        label="android_ui_contract",
+    )
+    first_label = contract_mapping_member(
+        label_layout,
+        "primary_legend",
+        label="android_ui_contract.label_layout",
+    )
+    main_key_surface = contract_mapping_member(
+        key_surface,
+        "main_key",
+        label="android_ui_contract.key_surface",
+    )
+    standard_key_surface = contract_mapping_member(
+        key_surface,
+        "standard_key",
+        label="android_ui_contract.key_surface",
+    )
+    matrix_key_surface = contract_mapping_member(
+        key_surface,
+        "matrix_key",
+        label="android_ui_contract.key_surface",
+    )
+    row_height, _row_pitch = _family_metrics(
+        entries,
+        table="vertical_main",
+        family="rows",
+    )
+    standard_key_width, standard_pitch = _family_metrics(
+        entries,
+        table="horizontal_main",
+        family="standard_columns",
+    )
+    matrix_key_width, matrix_pitch = _family_metrics(
+        entries,
+        table="horizontal_main",
+        family="matrix_4x4",
+    )
+
+    return _SplitAndroidUiContractContext(
+        physical_root=physical_root,
+        android_contract=android_contract,
+        reference_width=contract_number_member(
+            reference_frame,
+            "width",
+            label="reference_frame",
+        ),
+        reference_height=contract_number_member(
+            reference_frame,
+            "height",
+            label="reference_frame",
+        ),
+        based_on=based_on,
+        logical_canvas=logical_canvas,
+        chrome=chrome,
+        key_surface=key_surface,
+        lcd_window=contract_mapping_member(
+            chrome,
+            "lcd_window",
+            label="android_ui_contract.chrome",
+        ),
+        lcd_frame_buffer=contract_mapping_member(
+            chrome,
+            "lcd_frame_buffer",
+            label="android_ui_contract.chrome",
+        ),
+        main_key_surface=main_key_surface,
+        standard_key_surface=standard_key_surface,
+        matrix_key_surface=matrix_key_surface,
+        first_label_text_sizes=contract_mapping_member(
+            first_label,
+            "text_sizes",
+            label="android_ui_contract.label_layout.primary_legend",
+        ),
+        second_label=contract_mapping_member(
+            label_layout,
+            "top_f_legend",
+            label="android_ui_contract.label_layout",
+        ),
+        third_label=contract_mapping_member(
+            label_layout,
+            "top_g_legend",
+            label="android_ui_contract.label_layout",
+        ),
+        fourth_label=contract_mapping_member(
+            label_layout,
+            "right_side_letter_legend",
+            label="android_ui_contract.label_layout",
+        ),
+        top_label_solver=contract_mapping_member(
+            android_contract,
+            "top_label_solver",
+            label="android_ui_contract",
+        ),
+        row_height=row_height,
+        standard_key_width=standard_key_width,
+        standard_pitch=standard_pitch,
+        matrix_key_width=matrix_key_width,
+        matrix_pitch=matrix_pitch,
+        standard_right_strip_width=contract_number_member(
+            standard_key_surface,
+            "right_strip_width",
+            label="android_ui_contract.key_surface.standard_key",
+        ),
+        matrix_right_strip_width=contract_number_member(
+            matrix_key_surface,
+            "right_strip_width",
+            label="android_ui_contract.key_surface.matrix_key",
+        ),
+    )
+
+
+def _split_android_ui_metadata_errors(
+    context: _SplitAndroidUiContractContext,
+) -> list[str]:
+    errors: list[str] = []
+    if contract_string_member(
+        context.based_on,
+        "physical_dataset",
+        label="android_ui_contract.based_on",
+    ) != contract_string_member(
+        context.physical_root,
+        "dataset",
+        label="geometry document",
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.based_on] physical_dataset must "
+                "match the physical dataset name"
+            ),
+        )
+
+    if contract_number_member(
+        context.based_on,
+        "physical_version",
+        label="android_ui_contract.based_on",
+    ) != contract_number_member(
+        context.physical_root,
+        "version",
+        label="geometry document",
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.based_on] physical_version must "
+                "match the physical dataset version"
+            ),
+        )
+
+    if (
+        contract_string_member(
+            context.android_contract,
+            "coordinate_space",
+            label="android_ui_contract",
+        )
+        != "logical_canvas"
+    ):
+        errors.append(
+            "ERROR [android_ui_contract] coordinate_space must be logical_canvas",
+        )
+
+    if (
+        contract_number_member(
+            context.logical_canvas,
+            "width",
+            label="android_ui_contract.logical_canvas",
+        )
+        != context.reference_width
+        or contract_number_member(
+            context.logical_canvas,
+            "height",
+            label="android_ui_contract.logical_canvas",
+        )
+        != context.reference_height
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.logical_canvas] logical canvas "
+                "must match the physical reference frame"
+            ),
+        )
+
+    return errors
+
+
+def _split_android_ui_layout_errors(
+    context: _SplitAndroidUiContractContext,
+) -> list[str]:
+    errors: list[str] = []
+    if contract_number_member(
+        context.lcd_window,
+        "top",
+        label="android_ui_contract.chrome.lcd_window",
+    ) != contract_number_member(
+        context.chrome,
+        "settings_strip_tap_height",
+        label="android_ui_contract.chrome",
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.chrome] lcd_window.top must equal "
+                "settings_strip_tap_height"
+            ),
+        )
+
+    lcd_window_left = contract_number_member(
+        context.lcd_window,
+        "left",
+        label="android_ui_contract.chrome.lcd_window",
+    )
+    lcd_window_width = contract_number_member(
+        context.lcd_window,
+        "width",
+        label="android_ui_contract.chrome.lcd_window",
+    )
+    if (
+        abs((2.0 * lcd_window_left) + lcd_window_width - context.reference_width)
+        > _FLOAT_TOLERANCE
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.chrome] lcd_window must stay "
+                "horizontally centered in the logical canvas"
+            ),
+        )
+
+    if (
+        contract_number_member(
+            context.main_key_surface,
+            "painted_body_height",
+            label="android_ui_contract.key_surface.main_key",
+        )
+        != context.row_height
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.key_surface.main_key] "
+                "painted_body_height must match the measured row height"
+            ),
+        )
+
+    if (
+        context.standard_key_width + context.standard_right_strip_width
+        != context.standard_pitch
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.key_surface.standard_key] "
+                "right_strip_width plus measured key width must equal the "
+                "standard pitch"
+            ),
+        )
+
+    if (
+        context.matrix_key_width + context.matrix_right_strip_width
+        != context.matrix_pitch
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.key_surface.matrix_key] "
+                "right_strip_width plus measured key width must equal the "
+                "matrix pitch"
+            ),
+        )
+
+    if contract_number_member(
+        context.second_label,
+        "text_size",
+        label="android_ui_contract.label_layout.top_f_legend",
+    ) != contract_number_member(
+        context.third_label,
+        "text_size",
+        label="android_ui_contract.label_layout.top_g_legend",
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.label_layout] top_f_legend and "
+                "top_g_legend must share one text size"
+            ),
+        )
+
+    if contract_number_member(
+        context.second_label,
+        "horizontal_gap",
+        label="android_ui_contract.label_layout.top_f_legend",
+    ) != contract_number_member(
+        context.third_label,
+        "horizontal_gap",
+        label="android_ui_contract.label_layout.top_g_legend",
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.label_layout] top_f_legend and "
+                "top_g_legend must share one horizontal gap"
+            ),
+        )
+
+    if contract_number_member(
+        context.second_label,
+        "vertical_lift",
+        label="android_ui_contract.label_layout.top_f_legend",
+    ) != contract_number_member(
+        context.third_label,
+        "vertical_lift",
+        label="android_ui_contract.label_layout.top_g_legend",
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.label_layout] top_f_legend and "
+                "top_g_legend must share one vertical lift"
+            ),
+        )
+
+    return errors
+
+
+def _split_android_ui_constant_errors(
+    context: _SplitAndroidUiContractContext,
+) -> list[str]:
+    geometry_consts = parse_kotlin_const_values_from_paths([_KOTLIN_GEOMETRY_PATH])
+    key_view_consts = parse_kotlin_const_values_from_paths(
+        [
+            _KOTLIN_GEOMETRY_PATH,
+            _KOTLIN_KEYPAD_POLICY_PATH,
+            _KOTLIN_KEY_VIEW_PATH,
+        ],
+    )
+    errors = _const_mismatch_errors(
+        geometry_consts,
+        (
+            (
+                "NATIVE_SHELL_DRAW_CORNER_RADIUS",
+                contract_number_member(
+                    context.chrome,
+                    "native_shell_draw_corner_radius",
+                    label="android_ui_contract.chrome",
+                ),
+            ),
+            (
+                "TOP_BEZEL_SETTINGS_TAP_HEIGHT",
+                contract_number_member(
+                    context.chrome,
+                    "settings_strip_tap_height",
+                    label="android_ui_contract.chrome",
+                ),
+            ),
+            (
+                "NON_SOFTKEY_VIEW_HEIGHT",
+                contract_number_member(
+                    context.chrome,
+                    "non_softkey_view_height",
+                    label="android_ui_contract.chrome",
+                ),
+            ),
+            (
+                "LCD_WINDOW_LEFT",
+                contract_number_member(
+                    context.lcd_window,
+                    "left",
+                    label="android_ui_contract.chrome.lcd_window",
+                ),
+            ),
+            (
+                "LCD_WINDOW_TOP",
+                contract_number_member(
+                    context.lcd_window,
+                    "top",
+                    label="android_ui_contract.chrome.lcd_window",
+                ),
+            ),
+            (
+                "LCD_WINDOW_WIDTH",
+                contract_number_member(
+                    context.lcd_window,
+                    "width",
+                    label="android_ui_contract.chrome.lcd_window",
+                ),
+            ),
+            (
+                "LCD_WINDOW_HEIGHT",
+                contract_number_member(
+                    context.lcd_window,
+                    "height",
+                    label="android_ui_contract.chrome.lcd_window",
+                ),
+            ),
+            (
+                "PIXEL_WIDTH",
+                contract_number_member(
+                    context.lcd_frame_buffer,
+                    "pixel_width",
+                    label="android_ui_contract.chrome.lcd_frame_buffer",
+                ),
+            ),
+            (
+                "PIXEL_HEIGHT",
+                contract_number_member(
+                    context.lcd_frame_buffer,
+                    "pixel_height",
+                    label="android_ui_contract.chrome.lcd_frame_buffer",
+                ),
+            ),
+        ),
+        kotlin_label="R47Geometry.kt",
+    )
+    errors.extend(
+        _const_mismatch_errors(
+            key_view_consts,
+            (
+                (
+                    "MAIN_KEY_DRAW_CORNER_RADIUS",
+                    contract_number_member(
+                        context.main_key_surface,
+                        "draw_corner_radius",
+                        label="android_ui_contract.key_surface.main_key",
+                    ),
+                ),
+                (
+                    "SOFTKEY_DRAW_CORNER_RADIUS",
+                    contract_number_member(
+                        contract_mapping_member(
+                            context.key_surface,
+                            "softkey",
+                            label="android_ui_contract.key_surface",
+                        ),
+                        "draw_corner_radius",
+                        label="android_ui_contract.key_surface.softkey",
+                    ),
+                ),
+                (
+                    "MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA",
+                    contract_number_member(
+                        context.main_key_surface,
+                        "painted_body_width_bonus",
+                        label="android_ui_contract.key_surface.main_key",
+                    ),
+                ),
+                (
+                    "DEFAULT_PRIMARY_LEGEND_TEXT_SIZE",
+                    contract_number_member(
+                        context.first_label_text_sizes,
+                        "default",
+                        label=(
+                            "android_ui_contract.label_layout.primary_legend.text_sizes"
+                        ),
+                    ),
+                ),
+                (
+                    "NUMERIC_PRIMARY_LEGEND_TEXT_SIZE",
+                    contract_number_member(
+                        context.first_label_text_sizes,
+                        "numeric",
+                        label=(
+                            "android_ui_contract.label_layout.primary_legend.text_sizes"
+                        ),
+                    ),
+                ),
+                (
+                    "SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE",
+                    contract_number_member(
+                        context.first_label_text_sizes,
+                        "shifted",
+                        label=(
+                            "android_ui_contract.label_layout.primary_legend.text_sizes"
+                        ),
+                    ),
+                ),
+                (
+                    "TOP_F_G_LABEL_TEXT_SIZE",
+                    contract_number_member(
+                        context.second_label,
+                        "text_size",
+                        label="android_ui_contract.label_layout.top_f_legend",
+                    ),
+                ),
+                (
+                    "TOP_F_G_LABEL_HORIZONTAL_GAP",
+                    contract_number_member(
+                        context.second_label,
+                        "horizontal_gap",
+                        label="android_ui_contract.label_layout.top_f_legend",
+                    ),
+                ),
+                (
+                    "TOP_F_G_LABEL_VERTICAL_LIFT",
+                    contract_number_member(
+                        context.second_label,
+                        "vertical_lift",
+                        label="android_ui_contract.label_layout.top_f_legend",
+                    ),
+                ),
+                (
+                    "FOURTH_LABEL_TEXT_SIZE",
+                    contract_number_member(
+                        context.fourth_label,
+                        "text_size",
+                        label=(
+                            "android_ui_contract.label_layout.right_side_letter_legend"
+                        ),
+                    ),
+                ),
+                (
+                    "FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT",
+                    contract_number_member(
+                        context.fourth_label,
+                        "x_offset_from_main_key_body_right",
+                        label=(
+                            "android_ui_contract.label_layout.right_side_letter_legend"
+                        ),
+                    ),
+                ),
+                (
+                    "FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP",
+                    contract_number_member(
+                        context.fourth_label,
+                        "y_offset_from_main_key_body_top",
+                        label=(
+                            "android_ui_contract.label_layout.right_side_letter_legend"
+                        ),
+                    ),
+                ),
+                (
+                    "TOP_F_G_LABEL_MAX_SHIFT_FRACTION",
+                    contract_number_member(
+                        context.top_label_solver,
+                        "max_shift_fraction",
+                        label="android_ui_contract.top_label_solver",
+                    ),
+                ),
+                (
+                    "TOP_F_G_LABEL_MIN_SCALE",
+                    contract_number_member(
+                        context.top_label_solver,
+                        "min_scale",
+                        label="android_ui_contract.top_label_solver",
+                    ),
+                ),
+                (
+                    "TOP_F_G_LABEL_SCALE_STEP",
+                    contract_number_member(
+                        context.top_label_solver,
+                        "scale_step",
+                        label="android_ui_contract.top_label_solver",
+                    ),
+                ),
+                (
+                    "MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW",
+                    contract_number_member(
+                        context.main_key_surface,
+                        "painted_body_height",
+                        label="android_ui_contract.key_surface.main_key",
+                    )
+                    / contract_number_member(
+                        context.chrome,
+                        "non_softkey_view_height",
+                        label="android_ui_contract.chrome",
+                    ),
+                ),
+                (
+                    "STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION",
+                    context.standard_right_strip_width / context.standard_pitch,
+                ),
+                (
+                    "MATRIX_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION",
+                    context.matrix_right_strip_width / context.matrix_pitch,
+                ),
+            ),
+            kotlin_label="CalculatorKeyView.kt",
+        ),
+    )
+    return errors
+
+
+def _split_android_ui_contract_errors(
+    physical_root: dict[str, object],
+    android_contract: dict[str, object],
+    entries: list[RawEntry],
+) -> list[str]:
+    context = _build_split_android_ui_contract_context(
+        physical_root,
+        android_contract,
+        entries,
+    )
+    errors = _split_android_ui_metadata_errors(context)
+    errors.extend(_split_android_ui_layout_errors(context))
+    errors.extend(_split_android_ui_constant_errors(context))
+    return errors
+
+
 def _android_app_contract_errors(root: dict[str, object]) -> list[str]:
     errors: list[str] = []
     reference_frame = contract_mapping_member(
@@ -674,8 +1353,14 @@ def _android_app_contract_errors(root: dict[str, object]) -> list[str]:
             ),
         )
 
-    geometry_consts = parse_kotlin_const_values(_KOTLIN_GEOMETRY_PATH)
-    key_view_consts = parse_kotlin_const_values(_KOTLIN_KEY_VIEW_PATH)
+    geometry_consts = parse_kotlin_const_values_from_paths([_KOTLIN_GEOMETRY_PATH])
+    key_view_consts = parse_kotlin_const_values_from_paths(
+        [
+            _KOTLIN_GEOMETRY_PATH,
+            _KOTLIN_KEYPAD_POLICY_PATH,
+            _KOTLIN_KEY_VIEW_PATH,
+        ],
+    )
     errors.extend(
         _const_mismatch_errors(
             geometry_consts,
@@ -974,11 +1659,16 @@ def run_cli(
     root = load_contract_document(args.data)
     entries = load_raw_entries_from_document(root)
     errors = analyze(entries)
-    if (
-        args.data.resolve() == R47_GEOMETRY_DATA_PATH.resolve()
-        or "android_app_contract" in root
-    ):
+    if "android_app_contract" in root:
         errors.extend(_android_app_contract_errors(root))
+    elif args.data.resolve() == R47_PHYSICAL_GEOMETRY_DATA_PATH.resolve():
+        errors.extend(
+            _split_android_ui_contract_errors(
+                root,
+                load_android_ui_contract(R47_ANDROID_UI_CONTRACT_PATH),
+                entries,
+            ),
+        )
 
     _write_lines(build_summary(entries))
 
@@ -1002,10 +1692,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         argv=argv,
         description=(
             "Validate the canonical R47 keypad geometry data recorded in "
-            "scripts/r47_contracts/data/r47_geometry.json"
+            "scripts/r47_contracts/data/r47_physical_geometry.json"
         ),
         data_help="Path to the geometry data JSON file",
-        default_data_path=R47_GEOMETRY_DATA_PATH,
+        default_data_path=R47_PHYSICAL_GEOMETRY_DATA_PATH,
     )
 
 

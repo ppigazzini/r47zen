@@ -52,30 +52,31 @@ flowchart TD
 ## Python Contract Suite
 
 The canonical R47 contract suite lives under `scripts/r47_contracts/`.
-It keeps the canonical checked-in contract as
-`scripts/r47_contracts/data/r47_geometry.json`, with measured physical-R47
-geometry plus `android_app_contract` data for the implemented Android LCD,
-chrome, and label layout. When a historical external GIMP export needs
-checking, pass its JSON path directly to
+It keeps two canonical checked-in source files:
+`scripts/r47_contracts/data/r47_physical_geometry.json` for measured
+physical-R47 geometry and
+`scripts/r47_contracts/data/r47_android_ui_contract.json` for the implemented
+Android logical canvas, chrome, key-surface, label layout, and solver policy.
+When a historical external GIMP export needs checking, pass its JSON path directly to
 `validate_geometry_dataset.py`; no checked-in GIMP dataset exists in this
 repository.
 
 The grouped Python lane currently covers:
 
 - `validate_geometry_dataset.py`: structural and spacing checks for the
-  physical dataset plus `android_app_contract` validation against
-  `R47Geometry.kt` and `CalculatorKeyView.kt`
+  physical dataset plus Android UI contract validation against `R47Geometry.kt`,
+  `R47KeypadPolicy.kt`, and `CalculatorKeyView.kt`
 - `derive_touch_grid.py`: shared touch-grid payload derivation from measured key
   centers
 - `test_shell_geometry_contract.py`: logical canvas, drawable density buckets,
   LCD frame, and shell constants against `R47Geometry.kt`
 - `test_key_label_geometry_contract.py`: key-label and key-surface constants,
   plus primary, top-label, and fourth-label anchor formulas, against
-  `CalculatorKeyView.kt` and `R47Geometry.kt`
+  `CalculatorKeyView.kt`, `R47KeypadPolicy.kt`, and `R47Geometry.kt`
 - `test_top_label_lane_layout_contract.py`: spacing, corridor, screen-edge, and
   scale rules for the top-label solver
 - `test_key_visual_policy_contract.py`: visual-policy constants against
-  `CalculatorKeyView.kt`
+  `R47KeypadPolicy.kt`
 - `test_alpha_case_export_contract.py`: staged core alpha-label export rules in
   `assign.c`, `items.c`, and `jni_display.c`, plus the Kotlin alpha-layout
   handling in `CalculatorKeyView.kt` and `ReplicaKeypadLayout.kt`

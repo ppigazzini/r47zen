@@ -508,7 +508,11 @@ class DynamicKeypadParityFixtureTest {
         assertEquals(1f, leftPlacement.fScale, 0.001f)
         assertEquals(1f, leftPlacement.gScale, 0.001f)
         assertEquals(1f, rightPlacement.fScale, 0.001f)
-        assertEquals(1f - KeyVisualPolicy.TOP_F_G_LABEL_SCALE_STEP, rightPlacement.gScale, 0.001f)
+        assertEquals(
+            1f - R47TopLabelSolverPolicy.TOP_F_G_LABEL_SCALE_STEP,
+            rightPlacement.gScale,
+            0.001f,
+        )
         assertTrue(abs(leftPlacement.centerShift) <= maxShift + 0.001f)
         assertTrue(abs(rightPlacement.centerShift) <= maxShift + 0.001f)
         assertTrue(interGroupGap >= intraGap * 2f - 0.001f)
@@ -725,8 +729,16 @@ class DynamicKeypadParityFixtureTest {
 
         assertEquals(1f, placements.getValue(left.code).fScale, 0.001f)
         assertEquals(1f, placements.getValue(left.code).gScale, 0.001f)
-        assertEquals(1f - KeyVisualPolicy.TOP_F_G_LABEL_SCALE_STEP, placements.getValue(right.code).fScale, 0.001f)
-        assertEquals(1f - KeyVisualPolicy.TOP_F_G_LABEL_SCALE_STEP, placements.getValue(right.code).gScale, 0.001f)
+        assertEquals(
+            1f - R47TopLabelSolverPolicy.TOP_F_G_LABEL_SCALE_STEP,
+            placements.getValue(right.code).fScale,
+            0.001f,
+        )
+        assertEquals(
+            1f - R47TopLabelSolverPolicy.TOP_F_G_LABEL_SCALE_STEP,
+            placements.getValue(right.code).gScale,
+            0.001f,
+        )
         assertNeighborBorderGapRespected(left, right, placements)
     }
 
@@ -755,8 +767,8 @@ class DynamicKeypadParityFixtureTest {
         }
         val fullyScaledIndices = groups.indices.filter { index ->
             val placement = placements.getValue(groups[index].code)
-            abs(placement.fScale - KeyVisualPolicy.TOP_F_G_LABEL_MIN_SCALE) <= 0.001f &&
-                abs(placement.gScale - KeyVisualPolicy.TOP_F_G_LABEL_MIN_SCALE) <= 0.001f
+            abs(placement.fScale - R47TopLabelSolverPolicy.TOP_F_G_LABEL_MIN_SCALE) <= 0.001f &&
+                abs(placement.gScale - R47TopLabelSolverPolicy.TOP_F_G_LABEL_MIN_SCALE) <= 0.001f
         }
 
         assertTrue(scaledIndices.size >= 2)
@@ -811,10 +823,10 @@ class DynamicKeypadParityFixtureTest {
         assertTrue(
             abs(leftPlacement.centerShift) > left.maxShift + 0.001f ||
                 abs(rightPlacement.centerShift) > right.maxShift + 0.001f ||
-                leftPlacement.fScale < KeyVisualPolicy.TOP_F_G_LABEL_MIN_SCALE - 0.001f ||
-                leftPlacement.gScale < KeyVisualPolicy.TOP_F_G_LABEL_MIN_SCALE - 0.001f ||
-                rightPlacement.fScale < KeyVisualPolicy.TOP_F_G_LABEL_MIN_SCALE - 0.001f ||
-                rightPlacement.gScale < KeyVisualPolicy.TOP_F_G_LABEL_MIN_SCALE - 0.001f,
+                leftPlacement.fScale < R47TopLabelSolverPolicy.TOP_F_G_LABEL_MIN_SCALE - 0.001f ||
+                leftPlacement.gScale < R47TopLabelSolverPolicy.TOP_F_G_LABEL_MIN_SCALE - 0.001f ||
+                rightPlacement.fScale < R47TopLabelSolverPolicy.TOP_F_G_LABEL_MIN_SCALE - 0.001f ||
+                rightPlacement.gScale < R47TopLabelSolverPolicy.TOP_F_G_LABEL_MIN_SCALE - 0.001f,
         )
         assertNeighborBorderGapRespected(left, right, placements)
     }
@@ -871,7 +883,7 @@ class DynamicKeypadParityFixtureTest {
         keyView.applyTopLabelPlacement(
             TopLabelLanePlacement(
                 fScale = 1f,
-                gScale = KeyVisualPolicy.TOP_F_G_LABEL_MIN_SCALE,
+                gScale = R47TopLabelSolverPolicy.TOP_F_G_LABEL_MIN_SCALE,
             ),
         )
         shadowOf(Looper.getMainLooper()).idle()
@@ -1125,7 +1137,10 @@ class DynamicKeypadParityFixtureTest {
                 continue
             }
             val placement = placements.getValue(group.code)
-            assertTrue(abs(placement.fScale - placement.gScale) <= KeyVisualPolicy.TOP_F_G_LABEL_SCALE_STEP + 0.001f)
+            assertTrue(
+                abs(placement.fScale - placement.gScale) <=
+                    R47TopLabelSolverPolicy.TOP_F_G_LABEL_SCALE_STEP + 0.001f,
+            )
         }
     }
 
