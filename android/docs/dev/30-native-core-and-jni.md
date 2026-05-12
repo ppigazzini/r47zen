@@ -63,7 +63,8 @@ The Android bridge code is intentionally split by responsibility:
 - `jni_input.c` for key and menu dispatch
 - `jni_display.c` for LCD pixels, keypad snapshots, and X-register queries
 - `jni_storage.c` for SAF-backed blocking file handoff
-- `native-lib.c` for shared JNI bootstrap, registration, and bridge globals
+- `jni_registration.c` for `JNI_OnLoad()` and explicit native registration
+- `jni_activity_bridge.c` for shared JVM, activity callbacks, and bridge globals
 
 ## JNI contract
 

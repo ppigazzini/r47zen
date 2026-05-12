@@ -144,6 +144,16 @@ internal data class KeypadSnapshot(
         return keyStates[code - 1]
     }
 
+    internal fun transformKeyStates(
+        transform: (code: Int, keyState: KeypadKeySnapshot) -> KeypadKeySnapshot,
+    ): KeypadSnapshot {
+        return copy(
+            keyStates = keyStates.mapIndexed { index, keyState ->
+                transform(index + 1, keyState)
+            },
+        )
+    }
+
     companion object {
         internal const val KEY_COUNT = 43
         internal const val LABELS_PER_KEY = 5

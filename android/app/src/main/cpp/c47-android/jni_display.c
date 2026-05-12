@@ -104,10 +104,24 @@ typedef struct {
   bool_t userText;
 } keypadMainLabel_t;
 
+typedef enum {
+  KEYPAD_MAIN_LABEL_MODE_ON = 0,
+  KEYPAD_MAIN_LABEL_MODE_ALPHA = 1,
+  KEYPAD_MAIN_LABEL_MODE_USER = 2,
+  KEYPAD_MAIN_LABEL_MODE_OFF = 3,
+} keypadMainLabelMode_t;
+
+typedef struct {
+  bool_t showAlphaLabels;
+  bool_t showTamLabels;
+  bool_t enableShiftPreview;
+  bool_t useUserKeyboard;
+  bool_t allowDynamicUserText;
+} keypadMainLabelPresentation_t;
+
 static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
                                                  jint keyCode, jint type,
-                                                 jboolean isDynamic,
-                                                 bool_t alphaOn);
+                                                 const keypadMainLabelPresentation_t *presentation);
 static int16_t findSoftmenuIndexByItem(int16_t item);
 static void fillStaticSoftkeyMenuLabel(int16_t item, char *label,
                                        size_t labelSize);
@@ -154,8 +168,65 @@ static bool_t isAlphaKeyboardActive(void) {
          (calcMode == CM_PEM && alphaFlag);
 }
 
-static const calcKey_t *getVisibleKeyTable(jboolean isDynamic) {
-  return (isDynamic && isUserKeyboardEnabled()) ? kbd_usr : kbd_std;
+static keypadMainLabelPresentation_t makeMainLabelPresentation(
+    bool_t showAlphaLabels, bool_t showTamLabels, bool_t enableShiftPreview,
+    bool_t useUserKeyboard, bool_t allowDynamicUserText) {
+  keypadMainLabelPresentation_t presentation = {
+      showAlphaLabels, showTamLabels, enableShiftPreview, useUserKeyboard,
+      allowDynamicUserText};
+  return presentation;
+}
+
+static keypadMainLabelPresentation_t buildLegacyMainLabelPresentation(
+    bool_t isDynamic, bool_t alphaOn, bool_t userKeyboardEnabled) {
+  return makeMainLabelPresentation(alphaOn, tam.mode && !alphaOn, isDynamic,
+                                   isDynamic && userKeyboardEnabled,
+                                   isDynamic);
+}
+
+static keypadMainLabelMode_t normalizeMainLabelMode(jint mainLabelMode) {
+  switch (mainLabelMode) {
+  case KEYPAD_MAIN_LABEL_MODE_ON:
+  case KEYPAD_MAIN_LABEL_MODE_ALPHA:
+  case KEYPAD_MAIN_LABEL_MODE_USER:
+  case KEYPAD_MAIN_LABEL_MODE_OFF:
+    return (keypadMainLabelMode_t)mainLabelMode;
+  default:
+    return KEYPAD_MAIN_LABEL_MODE_ON;
+  }
+}
+
+static keypadMainLabelPresentation_t buildAppMainLabelPresentation(
+    jint mainLabelMode, bool_t alphaOn, bool_t userKeyboardEnabled) {
+  keypadMainLabelMode_t normalizedMode = normalizeMainLabelMode(mainLabelMode);
+  bool_t dynamicGate = false;
+
+  switch (normalizedMode) {
+  case KEYPAD_MAIN_LABEL_MODE_ON:
+    dynamicGate = true;
+    break;
+  case KEYPAD_MAIN_LABEL_MODE_ALPHA:
+    dynamicGate = alphaOn;
+    break;
+  case KEYPAD_MAIN_LABEL_MODE_USER:
+    dynamicGate = userKeyboardEnabled;
+    break;
+  case KEYPAD_MAIN_LABEL_MODE_OFF:
+  default:
+    dynamicGate = false;
+    break;
+  }
+
+  return makeMainLabelPresentation(alphaOn && dynamicGate,
+                                   tam.mode && !alphaOn && dynamicGate,
+                                   dynamicGate,
+                                   userKeyboardEnabled && dynamicGate,
+                                   dynamicGate);
+}
+
+static const calcKey_t *getVisibleKeyTable(
+    const keypadMainLabelPresentation_t *presentation) {
+  return presentation->useUserKeyboard ? kbd_usr : kbd_std;
 }
 
 static int16_t getCurrentSoftmenuItemCount(int16_t softmenuId) {
@@ -289,7 +360,8 @@ static bool_t isLowercaseAlphaSelected(void) {
 
 static void projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
                                     const keypadMainLabel_t *label,
-                                    bool_t alphaOn, char *utf8,
+                                    const keypadMainLabelPresentation_t *presentation,
+                                    char *utf8,
                                     size_t utf8Size) {
   if (!label || label->userText || utf8[0] == 0) {
     return;
@@ -312,7 +384,8 @@ static void projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
     return;
   }
 
-  if (tam.mode && labelType == KEYPAD_LABEL_PRIMARY && key && key->keyId == 55 &&
+  if (presentation->showTamLabels && labelType == KEYPAD_LABEL_PRIMARY &&
+      key && key->keyId == 55 &&
       strcmp(utf8, "/") == 0) {
     setUtf8Label(utf8, utf8Size, "\xC3\xB7");
   }
@@ -320,7 +393,8 @@ static void projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
 
 static void encodeMainKeypadLabel(const calcKey_t *key, jint labelType,
                                   const keypadMainLabel_t *label,
-                                  bool_t alphaOn, char *utf8,
+                                  const keypadMainLabelPresentation_t *presentation,
+                                  char *utf8,
                                   size_t utf8Size) {
   char mapped[64];
   const char *displayName = resolveCpxJMainKeyLabel(label, mapped,
@@ -328,7 +402,8 @@ static void encodeMainKeypadLabel(const calcKey_t *key, jint labelType,
   displayName = resolveMainFaceplateGlyphLabel(labelType, displayName, mapped,
                                                sizeof(mapped));
   encodeUtf8Label(displayName, utf8, utf8Size);
-  projectUtf8MainKeyLabel(key, labelType, label, alphaOn, utf8, utf8Size);
+  projectUtf8MainKeyLabel(key, labelType, label, presentation, utf8,
+                          utf8Size);
 }
 
 static jint packLabelRole(jint slot, jint role) {
@@ -339,11 +414,13 @@ static int keypadMetaIndex(int offset, int keyCode) {
   return offset + keyCode - 1;
 }
 
-static int16_t resolveVisibleMainStyleItem(const calcKey_t *key, bool_t alphaOn) {
-  if (alphaOn) {
+static int16_t resolveVisibleMainStyleItem(
+    const calcKey_t *key,
+    const keypadMainLabelPresentation_t *presentation) {
+  if (presentation->showAlphaLabels) {
     return key->keyLblAim;
   }
-  if (tam.mode) {
+  if (presentation->showTamLabels) {
     return key->primaryTam;
   }
   if (!isSystemFlagSet(FLAG_USER) && Norm_Key_00_key != -1 &&
@@ -363,8 +440,9 @@ static int16_t resolveVisibleMainStyleItem(const calcKey_t *key, bool_t alphaOn)
 }
 
 static bool_t isNumericStyleKey(const calcKey_t *key, int16_t visibleItem,
-                                bool_t alphaOn) {
-  if (alphaOn || tam.alpha || shiftF || shiftG) {
+                                const keypadMainLabelPresentation_t *presentation) {
+  if (presentation->showAlphaLabels || presentation->showTamLabels ||
+      (presentation->enableShiftPreview && (shiftF || shiftG))) {
     return false;
   }
 
@@ -376,8 +454,9 @@ static bool_t isNumericStyleKey(const calcKey_t *key, int16_t visibleItem,
          key->keyId == 85;
 }
 
-static jint resolveMainStyleRole(const calcKey_t *key, bool_t alphaOn) {
-  int16_t visibleItem = resolveVisibleMainStyleItem(key, alphaOn);
+static jint resolveMainStyleRole(const calcKey_t *key,
+                                 const keypadMainLabelPresentation_t *presentation) {
+  int16_t visibleItem = resolveVisibleMainStyleItem(key, presentation);
 
   if (visibleItem == ITM_SHIFTf) {
     return KEYPAD_STYLE_SHIFT_F;
@@ -388,65 +467,73 @@ static jint resolveMainStyleRole(const calcKey_t *key, bool_t alphaOn) {
   if (visibleItem == KEY_fg) {
     return KEYPAD_STYLE_SHIFT_FG;
   }
-  if (!alphaOn && visibleItem == ITM_AIM) {
+  if (!presentation->showAlphaLabels && visibleItem == ITM_AIM) {
     return KEYPAD_STYLE_ALPHA;
   }
-  if (isNumericStyleKey(key, visibleItem, alphaOn)) {
+  if (isNumericStyleKey(key, visibleItem, presentation)) {
     return KEYPAD_STYLE_NUMERIC;
   }
   return KEYPAD_STYLE_DEFAULT;
 }
 
-static bool_t usesLongpressAccentF(const calcKey_t *key, bool_t alphaOn) {
-  int16_t visiblePrimary = alphaOn ? key->primaryAim : key->primary;
+static bool_t usesLongpressAccentF(
+    const calcKey_t *key,
+    const keypadMainLabelPresentation_t *presentation) {
+  int16_t visiblePrimary =
+      presentation->showAlphaLabels ? key->primaryAim : key->primary;
   return isR47FAM &&
          (visiblePrimary == ITM_SHIFTf || visiblePrimary == KEY_fg ||
-          (alphaOn && visiblePrimary == ITM_SHIFTg));
+          (presentation->showAlphaLabels && visiblePrimary == ITM_SHIFTg));
 }
 
-static bool_t usesLongpressAccentG(const calcKey_t *key, bool_t alphaOn) {
-  int16_t visiblePrimary = alphaOn ? key->primaryAim : key->primary;
+static bool_t usesLongpressAccentG(
+    const calcKey_t *key,
+    const keypadMainLabelPresentation_t *presentation) {
+  int16_t visiblePrimary =
+      presentation->showAlphaLabels ? key->primaryAim : key->primary;
   return isR47FAM && (visiblePrimary == ITM_SHIFTg || visiblePrimary == KEY_fg);
 }
 
 static jint resolveMainLabelRoles(const calcKey_t *key, jint keyCode,
-                                  jboolean isDynamic, bool_t alphaOn) {
+                                  const keypadMainLabelPresentation_t *presentation) {
   jint roles = 0;
 
   keypadMainLabel_t primaryLabel = resolveMainKeyLabelInfo(
-      key, keyCode, KEYPAD_LABEL_PRIMARY, isDynamic, alphaOn);
+      key, keyCode, KEYPAD_LABEL_PRIMARY, presentation);
   if (primaryLabel.name[0] != 0) {
     roles |= packLabelRole(KEYPAD_LABEL_PRIMARY, KEYPAD_TEXT_ROLE_PRIMARY);
   }
 
-  keypadMainLabel_t fLabel =
-      resolveMainKeyLabelInfo(key, keyCode, KEYPAD_LABEL_F, isDynamic, alphaOn);
+  keypadMainLabel_t fLabel = resolveMainKeyLabelInfo(
+      key, keyCode, KEYPAD_LABEL_F, presentation);
   if (fLabel.name[0] != 0) {
     jint role = KEYPAD_TEXT_ROLE_F;
-    if (usesLongpressAccentF(key, alphaOn)) {
+    if (usesLongpressAccentF(key, presentation)) {
       role = KEYPAD_TEXT_ROLE_LONGPRESS;
-    } else if ((alphaOn && key->primary < 0) ||
-               (!alphaOn && !tam.mode && key->fShifted < 0)) {
+    } else if ((presentation->showAlphaLabels && key->primary < 0) ||
+               (!presentation->showAlphaLabels && !presentation->showTamLabels &&
+                key->fShifted < 0)) {
       role = KEYPAD_TEXT_ROLE_F_UNDERLINE;
     }
     roles |= packLabelRole(KEYPAD_LABEL_F, role);
   }
 
-  keypadMainLabel_t gLabel =
-      resolveMainKeyLabelInfo(key, keyCode, KEYPAD_LABEL_G, isDynamic, alphaOn);
+  keypadMainLabel_t gLabel = resolveMainKeyLabelInfo(
+      key, keyCode, KEYPAD_LABEL_G, presentation);
   if (gLabel.name[0] != 0) {
     jint role = KEYPAD_TEXT_ROLE_G;
-    if (usesLongpressAccentG(key, alphaOn)) {
+    if (usesLongpressAccentG(key, presentation)) {
       role = KEYPAD_TEXT_ROLE_LONGPRESS;
-    } else if ((alphaOn && key->gShiftedAim < 0) ||
-               (!alphaOn && !tam.mode && key->gShifted < 0)) {
+    } else if ((presentation->showAlphaLabels && key->gShiftedAim < 0) ||
+               (!presentation->showAlphaLabels && !presentation->showTamLabels &&
+                key->gShifted < 0)) {
       role = KEYPAD_TEXT_ROLE_G_UNDERLINE;
     }
     roles |= packLabelRole(KEYPAD_LABEL_G, role);
   }
 
   keypadMainLabel_t letterLabel = resolveMainKeyLabelInfo(
-      key, keyCode, KEYPAD_LABEL_LETTER, isDynamic, alphaOn);
+      key, keyCode, KEYPAD_LABEL_LETTER, presentation);
   if (letterLabel.name[0] != 0) {
     roles |= packLabelRole(KEYPAD_LABEL_LETTER, KEYPAD_TEXT_ROLE_LETTER);
   }
@@ -454,14 +541,16 @@ static jint resolveMainLabelRoles(const calcKey_t *key, jint keyCode,
   return roles;
 }
 
-static jint resolveMainLayoutClass(jint keyCode, bool_t alphaOn) {
+static jint resolveMainLayoutClass(
+    jint keyCode,
+    const keypadMainLabelPresentation_t *presentation) {
   if (keyCode >= 38) {
     return KEYPAD_LAYOUT_CLASS_SOFTKEY;
   }
-  if (tam.mode && !alphaOn) {
+  if (presentation->showTamLabels) {
     return KEYPAD_LAYOUT_CLASS_TAM;
   }
-  if (alphaOn) {
+  if (presentation->showAlphaLabels) {
     return KEYPAD_LAYOUT_CLASS_ALPHA;
   }
   if (keyCode == 11 || keyCode == 12) {
@@ -809,10 +898,10 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
 }
 
 static int16_t resolveMainKeyItem(const calcKey_t *key, jint type,
-                                  bool_t alphaOn, jboolean isDynamic) {
-  if (alphaOn) {
-    bool_t previewF = isDynamic && shiftF;
-    bool_t previewG = isDynamic && shiftG;
+                                  const keypadMainLabelPresentation_t *presentation) {
+  if (presentation->showAlphaLabels) {
+    bool_t previewF = presentation->enableShiftPreview && shiftF;
+    bool_t previewG = presentation->enableShiftPreview && shiftG;
     bool_t lowercaseSelected = isLowercaseAlphaSelected();
     bool_t casePair =
         isLatinAlphaCasePair(key->primaryAim, key->fShiftedAim);
@@ -836,13 +925,13 @@ static int16_t resolveMainKeyItem(const calcKey_t *key, jint type,
     }
   }
 
-  if (tam.mode) {
+  if (presentation->showTamLabels) {
     return type == KEYPAD_LABEL_PRIMARY ? key->primaryTam : 0;
   }
 
   switch (type) {
   case KEYPAD_LABEL_PRIMARY:
-    if (isDynamic) {
+    if (presentation->enableShiftPreview) {
       if (key->primary == ITM_SHIFTf || key->primary == ITM_SHIFTg ||
           key->primary == KEY_fg) {
         return key->primary;
@@ -921,9 +1010,8 @@ static keypadMainLabel_t resolveAimLongpressLabel(const calcKey_t *key) {
 
 static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
                                                  jint keyCode, jint type,
-                                                 jboolean isDynamic,
-                                                 bool_t alphaOn) {
-  if (alphaOn && type == KEYPAD_LABEL_PRIMARY) {
+                                                 const keypadMainLabelPresentation_t *presentation) {
+  if (presentation->showAlphaLabels && type == KEYPAD_LABEL_PRIMARY) {
     if (key->keyLblAim == ITM_SHIFTf || key->keyLblAim == ITM_SHIFTg ||
         key->keyLblAim == KEY_fg) {
       const char *shiftLabel = indexOfItems[abs(key->keyLblAim)].itemSoftmenuName;
@@ -931,7 +1019,7 @@ static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
     }
   }
 
-  if (alphaOn && type == KEYPAD_LABEL_F && isR47FAM &&
+  if (presentation->showAlphaLabels && type == KEYPAD_LABEL_F && isR47FAM &&
       key->fShiftedAim == ITM_NULL) {
     keypadMainLabel_t longpressLabel = resolveAimLongpressLabel(key);
     if (longpressLabel.name[0] != 0) {
@@ -939,11 +1027,12 @@ static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
     }
   }
 
-  if (!alphaOn && !tam.mode && keyCode == 37 && type == KEYPAD_LABEL_LETTER) {
+  if (!presentation->showAlphaLabels && !presentation->showTamLabels &&
+      keyCode == 37 && type == KEYPAD_LABEL_LETTER) {
     return makeMainLabel("_", 0, false);
   }
 
-  if (!alphaOn && !tam.mode) {
+  if (!presentation->showAlphaLabels && !presentation->showTamLabels) {
     if (keyCode == 11 && type == KEYPAD_LABEL_F) {
       return makeMainLabel("HOME", 0, false);
     }
@@ -958,8 +1047,9 @@ static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
     }
   }
 
-  int16_t item = resolveMainKeyItem(key, type, alphaOn, isDynamic);
-  if (!alphaOn && !tam.mode && type == KEYPAD_LABEL_PRIMARY &&
+  int16_t item = resolveMainKeyItem(key, type, presentation);
+  if (!presentation->showAlphaLabels && !presentation->showTamLabels &&
+      type == KEYPAD_LABEL_PRIMARY &&
       canUseNormKey00Label(key, item)) {
     return resolveNormKey00Label();
   }
@@ -973,7 +1063,7 @@ static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
     return makeMainLabel("", item, false);
   }
 
-  if (isDynamic && (userKeyLabelSize > 0) &&
+  if (presentation->allowDynamicUserText && (userKeyLabelSize > 0) &&
       (strcmp(name, "DYNMNU") == 0 || strcmp(name, "XEQ") == 0 ||
        strcmp(name, "RCL") == 0)) {
     int16_t keyLogicalId = calculateKeyLogicalId(key->keyId);
@@ -1041,7 +1131,8 @@ static void resolveSoftkeyLabel(int16_t fnKeyIndex, char *label,
 
 static void fillKeyboardState(jint *fill);
 
-static void fillKeypadMeta(jint *fill, jboolean isDynamic) {
+static void fillKeypadMetaForPresentation(
+    jint *fill, const keypadMainLabelPresentation_t *presentation) {
   memset(fill, 0, sizeof(jint) * KEYPAD_META_LENGTH);
   r47_fill_keyboard_state((int32_t *)fill);
 
@@ -1053,8 +1144,7 @@ static void fillKeypadMeta(jint *fill, jboolean isDynamic) {
       getSoftmenuDottedRow(softmenuId, softmenuItemCount, softmenuFirstItem);
   int16_t previewKeyCode = getFunctionPreviewKeyCode();
   int16_t previewRow = getFunctionPreviewRow();
-  bool_t alphaOn = isAlphaKeyboardActive();
-  const calcKey_t *keys = getVisibleKeyTable(isDynamic);
+  const calcKey_t *keys = getVisibleKeyTable(presentation);
 
   fill[KEYPAD_META_SOFTMENU_ID] = softmenuId;
   fill[KEYPAD_META_SOFTMENU_FIRST_ITEM] = softmenuFirstItem;
@@ -1081,11 +1171,11 @@ static void fillKeypadMeta(jint *fill, jboolean isDynamic) {
     const calcKey_t *key = &keys[keyCode - 1];
     fill[keypadMetaIndex(KEYPAD_META_KEY_ENABLED_OFFSET, keyCode)] = 1;
     fill[keypadMetaIndex(KEYPAD_META_STYLE_ROLE_OFFSET, keyCode)] =
-        resolveMainStyleRole(key, alphaOn);
+        resolveMainStyleRole(key, presentation);
     fill[keypadMetaIndex(KEYPAD_META_LABEL_ROLE_OFFSET, keyCode)] =
-        resolveMainLabelRoles(key, keyCode, isDynamic, alphaOn);
+        resolveMainLabelRoles(key, keyCode, presentation);
     fill[keypadMetaIndex(KEYPAD_META_LAYOUT_CLASS_OFFSET, keyCode)] =
-      resolveMainLayoutClass(keyCode, alphaOn);
+        resolveMainLayoutClass(keyCode, presentation);
     fill[keypadMetaIndex(KEYPAD_META_OVERLAY_STATE_OFFSET, keyCode)] = NOVAL;
     fill[keypadMetaIndex(KEYPAD_META_SHOW_VALUE_OFFSET, keyCode)] = NOVAL;
   }
@@ -1121,6 +1211,14 @@ static void fillKeypadMeta(jint *fill, jboolean isDynamic) {
   }
 }
 
+static void fillKeypadMeta(jint *fill, jboolean isDynamic) {
+  bool_t alphaOn = isAlphaKeyboardActive();
+  bool_t userKeyboardEnabled = isUserKeyboardEnabled();
+  keypadMainLabelPresentation_t presentation = buildLegacyMainLabelPresentation(
+      isDynamic != 0, alphaOn, userKeyboardEnabled);
+  fillKeypadMetaForPresentation(fill, &presentation);
+}
+
 static bool setKeypadLabelElement(JNIEnv *env, jobjectArray labels, int keyCode,
                                   int labelType, const char *name) {
   char utf8[128];
@@ -1144,9 +1242,10 @@ static bool setMainKeypadLabelElement(JNIEnv *env, jobjectArray labels,
                                       int keyCode, int labelType,
                                       const calcKey_t *key,
                                       const keypadMainLabel_t *label,
-                                      bool_t alphaOn) {
+                                      const keypadMainLabelPresentation_t *presentation) {
   char utf8[128];
-  encodeMainKeypadLabel(key, labelType, label, alphaOn, utf8, sizeof(utf8));
+  encodeMainKeypadLabel(key, labelType, label, presentation, utf8,
+                        sizeof(utf8));
   jstring value = jni_new_string_utf(env, utf8, "",
                                      "setMainKeypadLabelElement NewStringUTF");
   if (value == NULL) {
@@ -1173,9 +1272,10 @@ static void setExportedMainKeypadLabel(
     char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
                [R47_KEYPAD_LABEL_CAPACITY],
     int keyCode, int labelType, const calcKey_t *key,
-    const keypadMainLabel_t *label, bool_t alphaOn) {
+    const keypadMainLabel_t *label,
+    const keypadMainLabelPresentation_t *presentation) {
   int index = (keyCode - 1) * KEYPAD_LABELS_PER_KEY + labelType;
-  encodeMainKeypadLabel(key, labelType, label, alphaOn, labels[index],
+  encodeMainKeypadLabel(key, labelType, label, presentation, labels[index],
                         R47_KEYPAD_LABEL_CAPACITY);
 }
 
@@ -1219,15 +1319,18 @@ void r47_get_keypad_labels(
 
   pthread_mutex_lock(&screenMutex);
   bool_t alphaOn = isAlphaKeyboardActive();
-  const calcKey_t *keys = getVisibleKeyTable(isDynamic ? JNI_TRUE : JNI_FALSE);
+  bool_t userKeyboardEnabled = isUserKeyboardEnabled();
+  keypadMainLabelPresentation_t presentation = buildLegacyMainLabelPresentation(
+      isDynamic ? JNI_TRUE : JNI_FALSE, alphaOn, userKeyboardEnabled);
+  const calcKey_t *keys = getVisibleKeyTable(&presentation);
 
   for (int keyCode = 1; keyCode <= 37; keyCode++) {
     const calcKey_t *key = &keys[keyCode - 1];
     for (int labelType = 0; labelType < KEYPAD_LABELS_PER_KEY; labelType++) {
-      keypadMainLabel_t label = resolveMainKeyLabelInfo(
-          key, keyCode, labelType, isDynamic ? JNI_TRUE : JNI_FALSE, alphaOn);
+      keypadMainLabel_t label =
+          resolveMainKeyLabelInfo(key, keyCode, labelType, &presentation);
       setExportedMainKeypadLabel(labels, keyCode, labelType, key, &label,
-                                 alphaOn);
+                                 &presentation);
     }
   }
 
@@ -1281,12 +1384,16 @@ Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
   }
 
   bool_t alphaOn = isAlphaKeyboardActive();
-  const calcKey_t *keys = getVisibleKeyTable(isDynamic);
+    bool_t userKeyboardEnabled = isUserKeyboardEnabled();
+    keypadMainLabelPresentation_t presentation = buildLegacyMainLabelPresentation(
+      isDynamic != 0, alphaOn, userKeyboardEnabled);
+    const calcKey_t *keys = getVisibleKeyTable(&presentation);
   const calcKey_t *key = &keys[keyCode - 1];
-  keypadMainLabel_t label =
-      resolveMainKeyLabelInfo(key, keyCode, type, isDynamic, alphaOn);
+    keypadMainLabel_t label = resolveMainKeyLabelInfo(key, keyCode, type,
+                            &presentation);
   char utf8[128];
-  encodeMainKeypadLabel(key, type, &label, alphaOn, utf8, sizeof(utf8));
+    encodeMainKeypadLabel(key, type, &label, &presentation, utf8,
+              sizeof(utf8));
   pthread_mutex_unlock(&screenMutex);
   return jni_new_string_utf(env, utf8, "",
                             "getButtonLabelNative result NewStringUTF");
@@ -1344,7 +1451,7 @@ Java_com_example_r47_MainActivity_getKeyboardStateNative(JNIEnv *env,
 JNIEXPORT jintArray JNICALL
 Java_com_example_r47_MainActivity_getKeypadMetaNative(JNIEnv *env,
                                                              jobject thiz,
-                                                             jboolean isDynamic) {
+                                                             jint mainKeyDynamicMode) {
   (void)thiz;
   jintArray result = (*env)->NewIntArray(env, KEYPAD_META_LENGTH);
   if (!jni_result_ok(env, result, "NewIntArray(getKeypadMetaNative)")) {
@@ -1355,7 +1462,11 @@ Java_com_example_r47_MainActivity_getKeypadMetaNative(JNIEnv *env,
   memset(fill, 0, sizeof(fill));
   if (ram) {
     pthread_mutex_lock(&screenMutex);
-    fillKeypadMeta(fill, isDynamic);
+    bool_t alphaOn = isAlphaKeyboardActive();
+    bool_t userKeyboardEnabled = isUserKeyboardEnabled();
+    keypadMainLabelPresentation_t presentation = buildAppMainLabelPresentation(
+        mainKeyDynamicMode, alphaOn, userKeyboardEnabled);
+    fillKeypadMetaForPresentation(fill, &presentation);
     pthread_mutex_unlock(&screenMutex);
   }
 
@@ -1371,7 +1482,7 @@ Java_com_example_r47_MainActivity_getKeypadMetaNative(JNIEnv *env,
 JNIEXPORT jobjectArray JNICALL
 Java_com_example_r47_MainActivity_getKeypadLabelsNative(JNIEnv *env,
                                                                jobject thiz,
-                                                               jboolean isDynamic) {
+                                                               jint mainKeyDynamicMode) {
   (void)thiz;
 
   jclass stringClass = (*env)->FindClass(env, "java/lang/String");
@@ -1401,16 +1512,19 @@ Java_com_example_r47_MainActivity_getKeypadLabelsNative(JNIEnv *env,
 
   pthread_mutex_lock(&screenMutex);
   bool_t alphaOn = isAlphaKeyboardActive();
-  const calcKey_t *keys = getVisibleKeyTable(isDynamic);
+  bool_t userKeyboardEnabled = isUserKeyboardEnabled();
+  keypadMainLabelPresentation_t presentation = buildAppMainLabelPresentation(
+      mainKeyDynamicMode, alphaOn, userKeyboardEnabled);
+  const calcKey_t *keys = getVisibleKeyTable(&presentation);
   bool success = true;
 
   for (int keyCode = 1; keyCode <= 37; keyCode++) {
     const calcKey_t *key = &keys[keyCode - 1];
     for (int labelType = 0; labelType < KEYPAD_LABELS_PER_KEY; labelType++) {
       keypadMainLabel_t label =
-          resolveMainKeyLabelInfo(key, keyCode, labelType, isDynamic, alphaOn);
+          resolveMainKeyLabelInfo(key, keyCode, labelType, &presentation);
       if (!setMainKeypadLabelElement(env, result, keyCode, labelType, key,
-                                     &label, alphaOn)) {
+                                     &label, &presentation)) {
         success = false;
         break;
       }

@@ -14,6 +14,7 @@ internal class MainActivityPreferenceController(
     private val applyChromeMode: (String) -> Unit,
     private val applyScalingMode: (String) -> Unit,
     private val applyShowTouchZones: (Boolean) -> Unit,
+    private val applyKeypadLabelModes: (MainKeyDynamicMode, SoftkeyDynamicMode) -> Unit,
     private val normalizeChromeMode: (String?) -> String,
 ) {
     companion object {
@@ -21,9 +22,11 @@ internal class MainActivityPreferenceController(
         const val DEFAULT_CHROME_MODE = ReplicaOverlay.CHROME_MODE_NATIVE
         const val DEFAULT_LCD_MODE = "high_contrast"
         const val DEFAULT_LCD_LUMINANCE = 100
+        val DEFAULT_MAIN_KEY_DYNAMIC_MODE = MainKeyDynamicMode.DEFAULT
         const val MIN_LCD_LUMINANCE = 60
         const val MAX_LCD_LUMINANCE = 120
         const val DEFAULT_SCALING_MODE = "full_width"
+        val DEFAULT_SOFTKEY_DYNAMIC_MODE = SoftkeyDynamicMode.DEFAULT
 
         private const val KEY_BEEPER_ENABLED = "beeper_enabled"
         private const val KEY_BEEPER_VOLUME = "beeper_volume"
@@ -32,8 +35,10 @@ internal class MainActivityPreferenceController(
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_LCD_MODE = "lcd_mode"
         private const val KEY_LCD_LUMINANCE = "lcd_luminance"
+        private const val KEY_MAIN_KEY_DYNAMIC_MODE = "main_key_dynamic_mode"
         private const val KEY_SCALING_MODE = "scaling_mode"
         private const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
+        private const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
     }
 
     var beeperVolume = DEFAULT_BEEPER_VOLUME
@@ -51,10 +56,16 @@ internal class MainActivityPreferenceController(
     var lcdLuminance = DEFAULT_LCD_LUMINANCE
         private set
 
+    var mainKeyDynamicMode = DEFAULT_MAIN_KEY_DYNAMIC_MODE
+        private set
+
     var scalingMode = DEFAULT_SCALING_MODE
         private set
 
     var showTouchZones = false
+        private set
+
+    var softkeyDynamicMode = DEFAULT_SOFTKEY_DYNAMIC_MODE
         private set
 
     fun applyInitialPreferences() {
@@ -65,13 +76,16 @@ internal class MainActivityPreferenceController(
         chromeMode = normalizeAndPersistChromeMode()
         lcdMode = preferences.getString(KEY_LCD_MODE, DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
         lcdLuminance = readNormalizedLcdLuminance()
+        mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
         scalingMode =
             preferences.getString(KEY_SCALING_MODE, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
         showTouchZones = preferences.getBoolean(KEY_SHOW_TOUCH_ZONES, false)
+        softkeyDynamicMode = readNormalizedSoftkeyDynamicMode()
 
         applyKeepScreenOn(preferences.getBoolean(KEY_KEEP_SCREEN_ON, false))
         windowModeController.applyFullscreenMode(preferences.getBoolean(KEY_FULLSCREEN_MODE, true))
         syncAudioSettings(isBeeperEnabled, beeperVolume)
+        applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
         applyChromeMode(chromeMode)
     }
 
@@ -110,6 +124,10 @@ internal class MainActivityPreferenceController(
                 chromeMode = normalizeAndPersistChromeMode()
                 applyChromeMode(chromeMode)
             }
+            KEY_MAIN_KEY_DYNAMIC_MODE -> {
+                mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
+                applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
+            }
             KEY_SCALING_MODE -> {
                 scalingMode = preferences.getString(key, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
                 applyScalingMode(scalingMode)
@@ -117,6 +135,10 @@ internal class MainActivityPreferenceController(
             KEY_SHOW_TOUCH_ZONES -> {
                 showTouchZones = preferences.getBoolean(key, false)
                 applyShowTouchZones(showTouchZones)
+            }
+            KEY_SOFTKEY_DYNAMIC_MODE -> {
+                softkeyDynamicMode = readNormalizedSoftkeyDynamicMode()
+                applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
             }
             KEY_FULLSCREEN_MODE -> {
                 windowModeController.applyFullscreenMode(preferences.getBoolean(key, true))
@@ -151,5 +173,29 @@ internal class MainActivityPreferenceController(
             preferences.edit().putInt(KEY_LCD_LUMINANCE, normalizedLuminance).apply()
         }
         return normalizedLuminance
+    }
+
+    private fun readNormalizedMainKeyDynamicMode(): MainKeyDynamicMode {
+        val storedMode = preferences.getString(
+            KEY_MAIN_KEY_DYNAMIC_MODE,
+            DEFAULT_MAIN_KEY_DYNAMIC_MODE.storageValue,
+        )
+        val normalizedMode = MainKeyDynamicMode.fromStorageValue(storedMode)
+        if (storedMode != normalizedMode.storageValue) {
+            preferences.edit().putString(KEY_MAIN_KEY_DYNAMIC_MODE, normalizedMode.storageValue).apply()
+        }
+        return normalizedMode
+    }
+
+    private fun readNormalizedSoftkeyDynamicMode(): SoftkeyDynamicMode {
+        val storedMode = preferences.getString(
+            KEY_SOFTKEY_DYNAMIC_MODE,
+            DEFAULT_SOFTKEY_DYNAMIC_MODE.storageValue,
+        )
+        val normalizedMode = SoftkeyDynamicMode.fromStorageValue(storedMode)
+        if (storedMode != normalizedMode.storageValue) {
+            preferences.edit().putString(KEY_SOFTKEY_DYNAMIC_MODE, normalizedMode.storageValue).apply()
+        }
+        return normalizedMode
     }
 }

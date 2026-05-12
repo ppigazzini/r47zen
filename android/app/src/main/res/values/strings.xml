@@ -10,6 +10,9 @@ You can set a single Work Directory for portable PROGRAMS, SAVFILES, SCREENS, an
 Enter Settings to start using your R47 calculator.</string>
     <string name="settings_session_storage_title">Session Restore Storage</string>
     <string name="settings_session_storage_summary">Private app storage managed by Android. Restores your last session on restart.</string>
+    <string name="settings_keypad_labels_category_title">Keypad Labels</string>
+    <string name="settings_main_key_dynamic_mode_title">Main-Key Dynamic Labels</string>
+    <string name="settings_softkey_dynamic_mode_title">Softkey Dynamic Labels</string>
     <string name="settings_session_storage_dialog_message">R47 restores your running session from Android private app storage at:
 
 %1$s

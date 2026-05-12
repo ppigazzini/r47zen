@@ -251,11 +251,11 @@ Java_com_example_r47_MainActivity_getKeyboardStateNative(JNIEnv *env,
 JNIEXPORT jintArray JNICALL
 Java_com_example_r47_MainActivity_getKeypadMetaNative(JNIEnv *env,
                                                              jobject thiz,
-                                                             jboolean isDynamic);
+                                                                                                                         jint mainKeyDynamicMode);
 JNIEXPORT jobjectArray JNICALL
 Java_com_example_r47_MainActivity_getKeypadLabelsNative(JNIEnv *env,
                                                                jobject thiz,
-                                                               jboolean isDynamic);
+                                                                                                                             jint mainKeyDynamicMode);
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_onFileSelectedNative(JNIEnv *env,
                                                               jobject thiz,

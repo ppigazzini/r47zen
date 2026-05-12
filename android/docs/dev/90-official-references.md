@@ -128,8 +128,17 @@ flowchart TD
   official large-screen and multi-window guidance for view-based apps.
 - [Use window size classes](https://developer.android.com/develop/ui/views/layout/use-window-size-classes):
   breakpoint model for adaptive layouts.
+- [Layout basics](https://m3.material.io/foundations/layout/understanding-layout/overview):
+  current Material 3 guidance for canonical-layout-first design, panes,
+  spacers, and window-size-class thinking.
+- [Lists](https://m3.material.io/components/lists/overview):
+  current Material 3 guidance for list scanning, slots, and the December 2025
+  expressive update to list selection treatment.
+- [Button groups](https://m3.material.io/components/button-groups/overview):
+  current Material 3 replacement for deprecated segmented buttons when a future
+  custom settings surface needs grouped option controls.
 - [Create a custom drawing](https://developer.android.com/develop/ui/views/layout/custom-views/custom-drawing):
   `Canvas`, `Paint`, measurement, and drawing guidance for custom views.
-- [Make custom views more accessible](https://developer.android.com/guide/topics/ui/accessibility/custom-views):
-  directional-controller, click-action, and accessibility-node guidance for
-  custom interactive views.
+- [Make custom views more accessible (Views)](https://developer.android.com/guide/topics/ui/accessibility/views/custom-views):
+  directional-controller, click-action, accessibility-event, and
+  accessibility-node guidance for custom interactive views.

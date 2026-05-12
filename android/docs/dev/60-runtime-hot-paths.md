@@ -75,12 +75,14 @@ Changes here affect the full runtime even when the Android UI code is untouched.
   native state.
 - Each `doFrame(...)` call reads the LCD through `getPackedDisplayBuffer(...)`,
   forwards the packed rows to `ReplicaOverlay.updatePackedLcd(...)`, then
-  requests keypad metadata through `getKeypadMetaNative(...)`.
+  requests keypad metadata through `getKeypadMetaNative(...)` using the current
+  main-key mode code from `ReplicaOverlayController`.
 - Label refresh work runs only when either of these is true:
   - the keypad metadata differs from the last frame
   - more than 500 ms passed since `lastLabelRefresh`
 - When refresh is needed, the loop converts metadata into `KeypadSnapshot` and
-  forwards it to `ReplicaOverlayController.refreshDynamicKeys(...)`.
+  forwards it to `ReplicaOverlayController.refreshDynamicKeys(...)`, which may
+  also apply the softkey `graphic` or `off` mask before the renderer path runs.
 
 Do not add a second polling loop for LCD pixels, keypad labels, or scene state.
 That would duplicate the most expensive JNI reads in the shell.

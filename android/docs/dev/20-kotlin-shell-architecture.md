@@ -65,6 +65,10 @@ flowchart LR
 - `KeypadSnapshot` is the Kotlin projection of native keypad arrays, so
   downstream Android code consumes named fields instead of re-indexing raw
   metadata offsets
+- `KeypadLabelModes.kt` plus the stored keypad-label preferences are
+  Android-local presentation policy: the main-key mode selects the app-facing
+  native snapshot mode, and the softkey mode masks decoded softkey scene bits
+  before rendering
 - `KeypadTopology`, slot metadata, work-directory preferences, and shell
   preferences are Android-local models
 - geometry constants, label placement formulas, painter policy, and chrome
@@ -89,9 +93,11 @@ Main flow:
    thread.
 4. `NativeDisplayRefreshLoop` is the single UI-side poller for LCD and keypad
    scene state.
-5. `MainActivity.currentKeypadSnapshot()` converts native arrays into
-   `KeypadSnapshot`, and `ReplicaOverlayController` plus
-   `ReplicaKeypadLayout` apply scene changes after a real layout boundary.
+5. `NativeDisplayRefreshLoop` requests keypad metadata with the current
+  main-key mode code from `ReplicaOverlayController`.
+6. `ReplicaOverlayController.currentKeypadSnapshot()` converts the native arrays
+  into `KeypadSnapshot`, applies any softkey graphic or static mask, and
+  `ReplicaKeypadLayout` applies scene changes after a real layout boundary.
 
 This page stops at the coordination boundary. Read
 `60-runtime-hot-paths.md` for cadence, skip gates, and lock-sensitive loops;
@@ -168,8 +174,8 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   letterbox or window the shell according to Android compatibility behavior
 - Picture-in-Picture is enabled
 - settings live in a separate non-exported `SettingsActivity`
-- haptics, audio, fullscreen state, scaling mode, and touch-zone overlays are
-  preference-driven Android concerns
+- haptics, audio, fullscreen state, scaling mode, keypad label modes, and
+  touch-zone overlays are preference-driven Android concerns
 
 ## Kotlin-side change rules
 

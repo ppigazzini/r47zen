@@ -915,8 +915,8 @@ class DynamicKeypadParityFixtureTest {
             performHapticClick = {},
             offerCoreTask = {},
             sendKey = {},
-            getKeypadMetaNative = { fixture.meta.copyOf() },
-            getKeypadLabelsNative = { fixture.labels.copyOf() },
+            getKeypadMetaNative = { _ -> fixture.meta.copyOf() },
+            getKeypadLabelsNative = { _ -> fixture.labels.copyOf() },
             isRuntimeReady = { true },
         )
         controller.bindOverlay()
@@ -970,8 +970,8 @@ class DynamicKeypadParityFixtureTest {
             performHapticClick = {},
             offerCoreTask = {},
             sendKey = {},
-            getKeypadMetaNative = { fixture.meta.copyOf() },
-            getKeypadLabelsNative = { fixture.labels.copyOf() },
+            getKeypadMetaNative = { _ -> fixture.meta.copyOf() },
+            getKeypadLabelsNative = { _ -> fixture.labels.copyOf() },
             isRuntimeReady = { true },
         )
         controller.bindOverlay()
@@ -1010,6 +1010,76 @@ class DynamicKeypadParityFixtureTest {
 
         assertEquals(expectedText, keyView.fLabel.text.toString())
         assertTrue(keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0)
+    }
+
+    @Test
+    fun iteration77_mainKeyModeMatrixKeepsNumericMatrixFontWhenPreviewIsDisabled() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val container = FrameLayout(activity)
+        activity.setContentView(container)
+
+        val keyCode = 20
+        val keyView = createAttachedMainKeyView(activity, keyCode)
+        container.addView(keyView, FrameLayout.LayoutParams(331, 260))
+        container.measure(exactly(500), exactly(320))
+        container.layout(0, 0, 500, 320)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val baselineSnapshot = snapshotWith(
+            keyCode to numericMatrixKeyState(),
+        )
+        keyView.updateLabels(baselineSnapshot)
+        shadowOf(Looper.getMainLooper()).idle()
+        container.measure(exactly(500), exactly(320))
+        container.layout(0, 0, 500, 320)
+        val baselineTextSize = keyView.primaryLabel.textSize
+        val baselineLabel = keyView.primaryLabel.text.toString()
+
+        ShiftPreviewState.entries.forEach { shiftState ->
+            MainKeyDynamicMode.entries.forEach { mode ->
+                val previewEnabled = mode == MainKeyDynamicMode.ON && shiftState != ShiftPreviewState.NONE
+                val snapshot = snapshotWith(
+                    keyCode to numericMatrixKeyState(
+                        primaryLabel = if (previewEnabled) shiftState.previewLabel else baselineLabel,
+                        styleRole = if (previewEnabled) {
+                            KeypadSceneContract.STYLE_DEFAULT
+                        } else {
+                            KeypadSceneContract.STYLE_NUMERIC
+                        },
+                    ),
+                ).copy(
+                    keyboardState = keyboardStateFor(shiftState),
+                )
+
+                keyView.updateLabels(snapshot)
+                shadowOf(Looper.getMainLooper()).idle()
+                container.measure(exactly(500), exactly(320))
+                container.layout(0, 0, 500, 320)
+
+                val actualTextSize = keyView.primaryLabel.textSize
+                val actualLabel = keyView.primaryLabel.text.toString()
+
+                if (previewEnabled) {
+                    assertTrue(
+                        "${mode.storageValue}/${shiftState.name} should switch away from numeric sizing",
+                        actualTextSize < baselineTextSize - 0.01f,
+                    )
+                    assertEquals(shiftState.previewLabel, actualLabel)
+                } else {
+                    assertEquals(
+                        "${mode.storageValue}/${shiftState.name} should preserve numeric matrix sizing",
+                        baselineTextSize,
+                        actualTextSize,
+                        0.01f,
+                    )
+                    assertEquals(
+                        "${mode.storageValue}/${shiftState.name} should preserve the printed legend",
+                        baselineLabel,
+                        actualLabel,
+                    )
+                }
+            }
+        }
     }
 
     private fun createMainKeyView(code: Int): CalculatorKeyView {
@@ -1062,8 +1132,38 @@ class DynamicKeypadParityFixtureTest {
         )
     }
 
+    private fun numericMatrixKeyState(
+        primaryLabel: String = "7",
+        styleRole: Int = KeypadSceneContract.STYLE_NUMERIC,
+    ): KeypadKeySnapshot {
+        return KeypadKeySnapshot.EMPTY.copy(
+            primaryLabel = primaryLabel,
+            fLabel = "LASTx",
+            gLabel = "STK",
+            letterLabel = "A",
+            styleRole = styleRole,
+            isEnabled = true,
+        )
+    }
+
+    private fun keyboardStateFor(shiftState: ShiftPreviewState): KeyboardStateSnapshot {
+        return when (shiftState) {
+            ShiftPreviewState.NONE -> KeyboardStateSnapshot.EMPTY
+            ShiftPreviewState.F -> KeyboardStateSnapshot.EMPTY.copy(shiftF = true)
+            ShiftPreviewState.G -> KeyboardStateSnapshot.EMPTY.copy(shiftG = true)
+        }
+    }
+
     private fun exactly(size: Int): Int {
         return View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY)
+    }
+
+    private enum class ShiftPreviewState(
+        val previewLabel: String,
+    ) {
+        NONE("7"),
+        F("LASTx"),
+        G("STK"),
     }
 
     private fun solvedGroupBounds(

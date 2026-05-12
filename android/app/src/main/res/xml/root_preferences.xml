@@ -50,6 +50,23 @@
             app:showSeekBarValue="true" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="@string/settings_keypad_labels_category_title">
+        <ListPreference
+            app:key="main_key_dynamic_mode"
+            app:title="@string/settings_main_key_dynamic_mode_title"
+            app:entries="@array/main_key_dynamic_mode_entries"
+            app:entryValues="@array/main_key_dynamic_mode_values"
+            app:defaultValue="on"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:key="softkey_dynamic_mode"
+            app:title="@string/settings_softkey_dynamic_mode_title"
+            app:entries="@array/softkey_dynamic_mode_entries"
+            app:entryValues="@array/softkey_dynamic_mode_values"
+            app:defaultValue="on"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:title="Interaction">
         <SwitchPreferenceCompat
             app:key="haptic_enabled"

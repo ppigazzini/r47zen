@@ -39,11 +39,13 @@ internal class ReplicaOverlayController(
     private val performHapticClick: () -> Unit,
     private val offerCoreTask: (Runnable) -> Unit,
     private val sendKey: (Int) -> Unit,
-    private val getKeypadMetaNative: (Boolean) -> IntArray,
-    private val getKeypadLabelsNative: (Boolean) -> Array<String>,
+    private val getKeypadMetaNative: (Int) -> IntArray,
+    private val getKeypadLabelsNative: (Int) -> Array<String>,
     private val isRuntimeReady: () -> Boolean,
     private val refreshGate: KeypadSnapshotRefreshGate = KeypadSnapshotRefreshGate(),
 ) {
+    private var mainKeyDynamicMode = MainKeyDynamicMode.DEFAULT
+    private var softkeyDynamicMode = SoftkeyDynamicMode.DEFAULT
     private var pendingGeometrySceneReplay = false
     private var geometrySceneReplayPosted = false
 
@@ -86,9 +88,37 @@ internal class ReplicaOverlayController(
         }
     }
 
+    fun currentMainKeyDynamicModeCode(): Int {
+        return mainKeyDynamicMode.nativeCode
+    }
+
+    fun applyKeypadLabelModes(
+        mainKeyDynamicMode: MainKeyDynamicMode,
+        softkeyDynamicMode: SoftkeyDynamicMode,
+    ) {
+        val changed =
+            this.mainKeyDynamicMode != mainKeyDynamicMode ||
+                this.softkeyDynamicMode != softkeyDynamicMode
+        if (!changed) {
+            return
+        }
+
+        this.mainKeyDynamicMode = mainKeyDynamicMode
+        this.softkeyDynamicMode = softkeyDynamicMode
+        refreshGate.reset()
+
+        if (!isRuntimeReady() || overlay.childCount == 0) {
+            return
+        }
+
+        refreshDynamicKeys(forceApply = true)
+    }
+
     fun currentKeypadSnapshot(meta: IntArray? = null): KeypadSnapshot {
-        val resolvedMeta = meta ?: getKeypadMetaNative(true)
-        return KeypadSnapshot.fromNative(resolvedMeta, getKeypadLabelsNative(true))
+        val resolvedMeta = meta ?: getKeypadMetaNative(mainKeyDynamicMode.nativeCode)
+        return KeypadSnapshot
+            .fromNative(resolvedMeta, getKeypadLabelsNative(mainKeyDynamicMode.nativeCode))
+            .applySoftkeyDynamicMode(softkeyDynamicMode)
     }
 
     fun refreshDynamicKeys(snapshot: KeypadSnapshot? = null) {

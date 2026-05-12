@@ -27,4 +27,28 @@
         <item>full_width</item>
         <item>physical</item>
     </string-array>
+
+    <string-array name="main_key_dynamic_mode_entries">
+        <item>Always Dynamic</item>
+        <item>Alphabetic Modes Only</item>
+        <item>USER Mode Only</item>
+        <item>Fixed Printed Legends</item>
+    </string-array>
+    <string-array name="main_key_dynamic_mode_values">
+        <item>on</item>
+        <item>alpha</item>
+        <item>user</item>
+        <item>off</item>
+    </string-array>
+
+    <string-array name="softkey_dynamic_mode_entries">
+        <item>Dynamic Labels And Graphics</item>
+        <item>Graphics Only</item>
+        <item>Static Keycaps</item>
+    </string-array>
+    <string-array name="softkey_dynamic_mode_values">
+        <item>on</item>
+        <item>graphic</item>
+        <item>off</item>
+    </string-array>
 </resources>

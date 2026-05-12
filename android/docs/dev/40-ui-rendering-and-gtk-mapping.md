@@ -179,9 +179,39 @@ Render split:
 - `CalculatorSoftkeyPainter` owns softkey text, auxiliary text, value text,
   preview accents, reverse-video states, strike marks, and overlay-state
   decorations
+- `ReplicaOverlayController` owns the keypad label-mode policy split: it passes
+  the selected main-key mode into the app-facing native snapshot export and
+  applies softkey `graphic` or `off` masks after decode but before
+  `ReplicaKeypadLayout.updateDynamicKeys()`
 - `ReplicaKeypadLayout.updateDynamicKeys()` ignores snapshots until
   `sceneContractVersion > 0` and requests layout when scene changes can affect
   label widths, visibility, or layout class
+
+## Label mode policy
+
+The Android shell now applies two independent keypad label policies.
+
+Main keys:
+
+- `on`: fully dynamic main-key presentation
+- `alpha`: dynamic relabeling only while the calculator is in an alphabetic
+  state
+- `user`: dynamic relabeling only while USER mode is active
+- `off`: fixed printed legends even while alpha, USER, or TAM states are active
+
+Softkeys:
+
+- `on`: full native softkey scene
+- `graphic`: keep reverse video, overlays, preview accents, and strike marks
+  but drop primary, auxiliary, and value text
+- `off`: remove those dynamic softkey graphics and leave the default softkey
+  capsule
+
+The split is intentional. Main-key presentation depends on upstream-owned key
+tables and label-role export, so the app selects the native main-key snapshot
+mode before decode. Softkey `graphic` and `off` are renderer policy, so the app
+applies them as decoded scene masks instead of widening the softkey draw logic
+in native code.
 
 ## Top-label lane contract
 
@@ -352,6 +382,11 @@ The native snapshot also preserves top-line, bottom-line, menu, and dotted-row
 flags. The current `CalculatorKeyView` softkey renderer does not draw those
 four flags directly; audit the native scene contract and Android renderer
 together before treating any of them as visible Android surfaces.
+
+When the user selects softkey `graphic` or `off`, Android masks the decoded
+scene before the painter sees it. `graphic` clears text and value lanes only.
+`off` also clears reverse-video, overlay, preview, and strike flags so the key
+falls back to the default softkey capsule.
 
 ## Typography and label roles
 

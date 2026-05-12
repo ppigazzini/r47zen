@@ -113,12 +113,20 @@ flowchart LR
 - `setLcdColors(...)` marks every native LCD row dirty for future exports while
   `ReplicaOverlay` immediately recolors the cached packed snapshot on the UI
   side.
-- `getKeypadMetaNative(...)` fills one fixed `KEYPAD_META_LENGTH` integer array
-  under `screenMutex`.
-- `getKeypadLabelsNative(...)` walks the visible main-key table plus the six
-  softkeys under `screenMutex` and exports the current label strings.
+- `getKeypadMetaNative(mainKeyDynamicMode)` fills one fixed
+  `KEYPAD_META_LENGTH` integer array under `screenMutex` using the app-facing
+  main-key mode enum: `on`, `alpha`, `user`, or `off`.
+- `getKeypadLabelsNative(mainKeyDynamicMode)` walks the visible main-key table
+  plus the six softkeys under `screenMutex` and exports the current label
+  strings for that app-facing main-key mode.
+- the legacy `r47_get_keypad_meta(..., bool isDynamic)` and
+  `r47_get_keypad_labels(..., bool isDynamic)` functions remain the
+  bool-based fixture-export contract used by repo tooling and keep the older
+  semantics.
 - Kotlin converts those raw arrays into `KeypadSnapshot`, and the renderer uses
   named fields from that model instead of indexing raw native arrays again.
+  `ReplicaOverlayController` then applies any softkey `graphic` or `off` mask
+  before the snapshot reaches the live renderer.
 
 ## Instrumentation-Only Bridge Contract
 

@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
     private lateinit var slotSessionController: SlotSessionController
     private lateinit var windowModeController: WindowModeController
-    
+
     private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
@@ -154,7 +154,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         volumeControlStream = AudioManager.STREAM_MUSIC
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
+
         val prefs = appPreferences
 
         windowModeController = WindowModeController(
@@ -248,11 +248,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             applyChromeMode = replicaOverlayController::applyChromeMode,
             applyScalingMode = replicaOverlayController::applyScalingMode,
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
+            applyKeypadLabelModes = replicaOverlayController::applyKeypadLabelModes,
             normalizeChromeMode = replicaOverlayController::normalizeChromeMode,
         )
         prefs.registerOnSharedPreferenceChangeListener(this)
         preferenceController.applyInitialPreferences()
-        
+
         coreRuntime = NativeCoreRuntime(
             filesDirPath = filesDir.absolutePath,
             currentSlotIdProvider = slotSessionController::currentSlotId,
@@ -264,12 +265,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             forceRefreshNative = ::forceRefreshNative,
             getPackedDisplayBuffer = ::getPackedDisplayBuffer,
             getKeypadMetaNative = ::getKeypadMetaNative,
-            useSceneDrivenKeypadProvider = { true },
+            getMainKeyDynamicModeCode = replicaOverlayController::currentMainKeyDynamicModeCode,
             getKeypadSnapshot = replicaOverlayController::currentKeypadSnapshot,
             onPackedLcd = replicaOverlay::updatePackedLcd,
             onDynamicRefresh = replicaOverlayController::refreshDynamicKeys,
         )
-        
+
         replicaOverlay.post {
             preferenceController.applyDeferredOverlayPreferences()
             if (preferenceController.chromeMode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
@@ -278,7 +279,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
 
         displayActionController.bindOverlay(replicaOverlay)
-        
+
         replicaOverlay.onSettingsTapListener = {
             Log.i(TAG, "Settings tap received in MainActivity")
             completeSettingsDiscovery(openSettings = true)
@@ -294,13 +295,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private external fun updateNativeActivityRef()
 
-    override fun onDestroy() { 
+    override fun onDestroy() {
         Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=${factoryResetController.isResetInProgress}")
         val shouldStopApp = isFinishing || factoryResetController.isResetInProgress
         coreRuntime.dispose(stopApp = shouldStopApp)
         appPreferences.unregisterOnSharedPreferenceChangeListener(this)
         factoryResetController.handleDestroy(shouldStopApp)
-        super.onDestroy() 
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -356,7 +357,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     @Keep
     fun quitApp() {
         Log.i(TAG, "quitApp called from native")
-        mainHandler.post { 
+        mainHandler.post {
             val forceClose = appPreferences.getBoolean("force_close_on_exit", false)
             if (forceClose) {
                 finishAndRemoveTask()
@@ -391,15 +392,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun getXRegisterNative(): String
     private external fun getPackedDisplayBuffer(buffer: ByteArray)
     private external fun setLcdColors(text: Int, bg: Int)
-    
+
     // Legacy keypad getters kept for bridge compatibility.
     private external fun getButtonLabelNative(keyCode: Int, type: Int, isDynamic: Boolean): String
     private external fun getSoftkeyLabelNative(fnKeyIndex: Int): String
     private external fun getKeyboardStateNative(): IntArray // returns [shiftF, shiftG, calcMode, userMode, alphaFlag]
 
     // Snapshot keypad APIs used by the default Android-native keypad.
-    private external fun getKeypadMetaNative(isDynamic: Boolean): IntArray
-    private external fun getKeypadLabelsNative(isDynamic: Boolean): Array<String>
+    private external fun getKeypadMetaNative(mainKeyDynamicMode: Int): IntArray
+    private external fun getKeypadLabelsNative(mainKeyDynamicMode: Int): Array<String>
 
     @Keep fun onFileSelected(fd: Int) { onFileSelectedNative(fd) }
     @Keep fun onFileCancelled() { onFileCancelledNative() }
