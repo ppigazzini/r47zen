@@ -1,52 +1,52 @@
 <resources>
-    <string-array name="chrome_entries">
+    <string-array name="chrome_entries" translatable="false">
         <item>Native Chrome</item>
         <item>Native + Background</item>
         <item>Texture Image</item>
     </string-array>
-    <string-array name="chrome_values">
+    <string-array name="chrome_values" translatable="false">
         <item>native</item>
         <item>r47_background</item>
         <item>r47_texture</item>
     </string-array>
 
-    <string-array name="lcd_entries">
+    <string-array name="lcd_entries" translatable="false">
         <item>High Contrast</item>
         <item>Vintage Green</item>
     </string-array>
-    <string-array name="lcd_values">
+    <string-array name="lcd_values" translatable="false">
         <item>high_contrast</item>
         <item>vintage</item>
     </string-array>
 
-    <string-array name="scaling_entries">
+    <string-array name="scaling_entries" translatable="false">
         <item>Adaptive Fit</item>
         <item>1:1 Shell</item>
     </string-array>
-    <string-array name="scaling_values">
+    <string-array name="scaling_values" translatable="false">
         <item>full_width</item>
         <item>physical</item>
     </string-array>
 
-    <string-array name="main_key_dynamic_mode_entries">
+    <string-array name="main_key_dynamic_mode_entries" translatable="false">
         <item>Always Dynamic</item>
         <item>Alphabetic Modes Only</item>
         <item>USER Mode Only</item>
         <item>Fixed Printed Legends</item>
     </string-array>
-    <string-array name="main_key_dynamic_mode_values">
+    <string-array name="main_key_dynamic_mode_values" translatable="false">
         <item>on</item>
         <item>alpha</item>
         <item>user</item>
         <item>off</item>
     </string-array>
 
-    <string-array name="softkey_dynamic_mode_entries">
+    <string-array name="softkey_dynamic_mode_entries" translatable="false">
         <item>Dynamic Labels And Graphics</item>
         <item>Graphics Only</item>
         <item>Static Keycaps</item>
     </string-array>
-    <string-array name="softkey_dynamic_mode_values">
+    <string-array name="softkey_dynamic_mode_values" translatable="false">
         <item>on</item>
         <item>graphic</item>
         <item>off</item>

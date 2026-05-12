@@ -1,41 +1,41 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <PreferenceCategory app:title="Files and Storage">
+    <PreferenceCategory app:title="@string/settings_files_and_storage_category_title">
         <Preference
             app:key="session_restore_storage"
-            app:title="Session Restore Storage"
-            app:summary="Private app storage managed by Android" />
+            app:title="@string/settings_session_storage_title"
+            app:summary="@string/settings_session_storage_summary" />
         <Preference
             app:key="work_directory"
-            app:title="Work Directory"
-            app:summary="Optional external folder for portable STATE, PROGRAMS, SAVFILES, and SCREENS files" />
+            app:title="@string/settings_work_directory_title"
+            app:summary="@string/settings_work_directory_preference_summary" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Display and Layout">
+    <PreferenceCategory app:title="@string/settings_display_and_layout_category_title">
         <SwitchPreferenceCompat
             app:key="fullscreen_mode"
-            app:title="Full Screen Mode"
-            app:summaryOn="Hides status and navigation bars"
-            app:summaryOff="Shows status and navigation bars for button navigation"
+            app:title="@string/settings_fullscreen_mode_title"
+            app:summaryOn="@string/settings_fullscreen_mode_summary_on"
+            app:summaryOff="@string/settings_fullscreen_mode_summary_off"
             app:defaultValue="true" />
         <ListPreference
             app:key="chrome_mode"
-            app:title="Shell Chrome"
+            app:title="@string/settings_shell_chrome_title"
             app:entries="@array/chrome_entries"
             app:entryValues="@array/chrome_values"
             app:defaultValue="native"
             app:useSimpleSummaryProvider="true" />
         <ListPreference
             app:key="scaling_mode"
-            app:title="Scaling"
+            app:title="@string/settings_scaling_mode_title"
             app:entries="@array/scaling_entries"
             app:entryValues="@array/scaling_values"
             app:defaultValue="full_width"
             app:useSimpleSummaryProvider="true" />
         <ListPreference
             app:key="lcd_mode"
-            app:title="LCD Mode"
+            app:title="@string/settings_lcd_mode_title"
             app:entries="@array/lcd_entries"
             app:entryValues="@array/lcd_values"
             app:defaultValue="high_contrast"
@@ -67,19 +67,19 @@
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Interaction">
+    <PreferenceCategory app:title="@string/settings_interaction_category_title">
         <SwitchPreferenceCompat
             app:key="haptic_enabled"
-            app:title="Enable Haptic Feedback"
+            app:title="@string/settings_haptic_enabled_title"
             app:defaultValue="true" />
         <SwitchPreferenceCompat
             app:key="haptic_hifi_enabled"
-            app:title="High-Fidelity Haptics (Modern)"
+            app:title="@string/settings_haptic_hifi_enabled_title"
             app:defaultValue="true"
             app:dependency="haptic_enabled" />
         <SeekBarPreference
             app:key="haptic_intensity"
-            app:title="Haptic Intensity"
+            app:title="@string/settings_haptic_intensity_title"
             app:min="0"
             android:max="255"
             app:defaultValue="64"
@@ -87,14 +87,14 @@
             app:showSeekBarValue="true" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Audio">
+    <PreferenceCategory app:title="@string/settings_audio_category_title">
         <SwitchPreferenceCompat
             app:key="beeper_enabled"
-            app:title="Simulated Beeper"
+            app:title="@string/settings_beeper_enabled_title"
             app:defaultValue="true" />
         <SeekBarPreference
             app:key="beeper_volume"
-            app:title="Beeper Volume"
+            app:title="@string/settings_beeper_volume_title"
             app:min="0"
             android:max="100"
             app:defaultValue="20"
@@ -102,38 +102,38 @@
             app:showSeekBarValue="true" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="App Behavior">
+    <PreferenceCategory app:title="@string/settings_app_behavior_category_title">
         <SwitchPreferenceCompat
             app:key="keep_screen_on"
-            app:title="Keep Screen On"
+            app:title="@string/settings_keep_screen_on_title"
             app:defaultValue="false" />
         <SwitchPreferenceCompat
             app:key="auto_save_minimize"
-            app:title="Auto-Save on Minimize"
+            app:title="@string/settings_auto_save_minimize_title"
             app:defaultValue="true" />
         <SwitchPreferenceCompat
             app:key="force_close_on_exit"
-            app:title="Force Close on f-shift EXIT"
-            app:summaryOn="Finishes activity and removes from recents"
-            app:summaryOff="Minimizes to background (stays in recents)"
+            app:title="@string/settings_force_close_on_exit_title"
+            app:summaryOn="@string/settings_force_close_on_exit_summary_on"
+            app:summaryOff="@string/settings_force_close_on_exit_summary_off"
             app:defaultValue="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Developer Tools">
+    <PreferenceCategory app:title="@string/settings_developer_tools_category_title">
         <SwitchPreferenceCompat
             app:key="show_touch_zones"
-            app:title="Show Touch Zones"
+            app:title="@string/settings_show_touch_zones_title"
             app:defaultValue="false" />
         <Preference
             app:key="factory_reset"
-            app:title="Reset to Factory Defaults"
-            app:summary="Wipe internal app data and relaunch R47" />
+            app:title="@string/settings_factory_reset_title"
+            app:summary="@string/settings_factory_reset_summary" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="About R47">
+    <PreferenceCategory app:title="@string/settings_about_category_title">
         <Preference
             app:key="about_version"
-            app:title="Version"
+            app:title="@string/about_version_title"
             app:summary="@string/about_version_summary" />
         <Preference
             app:key="view_gpl_license"

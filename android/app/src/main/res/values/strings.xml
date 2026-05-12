@@ -1,59 +1,94 @@
 <resources>
     <string name="app_name">R47</string>
-    <string name="settings_title">Settings</string>
-    <string name="settings_return_action">Calculator</string>
-    <string name="settings_entry_hint_chip">Tap here to enter Settings</string>
-    <string name="settings_entry_hint_message">R47 always restores your last session in private app storage.
+    <string name="settings_title" translatable="false">Settings</string>
+    <string name="settings_return_action" translatable="false">Calculator</string>
+    <string name="settings_entry_hint_chip" translatable="false">Tap here to enter Settings</string>
+    <string name="settings_entry_hint_message" translatable="false">R47 always restores your last session in private app storage.
 
 You can set a single Work Directory for portable PROGRAMS, SAVFILES, SCREENS, and STATE files.
 
 Enter Settings to start using your R47 calculator.</string>
-    <string name="settings_session_storage_title">Session Restore Storage</string>
-    <string name="settings_session_storage_summary">Private app storage managed by Android. Restores your last session on restart.</string>
-    <string name="settings_keypad_labels_category_title">Keypad Labels</string>
-    <string name="settings_main_key_dynamic_mode_title">Main-Key Dynamic Labels</string>
-    <string name="settings_softkey_dynamic_mode_title">Softkey Dynamic Labels</string>
-    <string name="settings_session_storage_dialog_message">R47 restores your running session from Android private app storage at:
+    <string name="settings_session_storage_title" translatable="false">Session Restore Storage</string>
+    <string name="settings_session_storage_summary" translatable="false">Private app storage managed by Android. Restores your last session on restart.</string>
+    <string name="settings_keypad_labels_category_title" translatable="false">Keypad Labels</string>
+    <string name="settings_main_key_dynamic_mode_title" translatable="false">Main-Key Dynamic Labels</string>
+    <string name="settings_softkey_dynamic_mode_title" translatable="false">Softkey Dynamic Labels</string>
+    <string name="settings_session_storage_dialog_message" translatable="false">R47 restores your running session from Android private app storage at:
 
 %1$s
 
 This app-managed location is separate from the optional external Work Directory. The Work Directory is only for portable STATE, PROGRAMS, SAVFILES, and SCREENS files opened or created through Android\'s document browser.</string>
-    <string name="settings_work_directory_set_title">Work Directory Set</string>
-    <string name="settings_work_directory_set_message">Open and save will start in %1$s. R47 will create portable STATE, PROGRAMS, SAVFILES, and SCREENS folders here as needed. Session restore stays in private app storage.</string>
-    <string name="settings_work_directory_browser_title">Set Work Directory</string>
-    <string name="settings_work_directory_browser_message">The Work Directory is optional. Set a custom external folder only if you want READP, portable STATE files, manual saves, and screenshots to start in one place.
+    <string name="settings_work_directory_set_title" translatable="false">Work Directory Set</string>
+    <string name="settings_work_directory_set_message" translatable="false">Open and save will start in %1$s. R47 will create portable STATE, PROGRAMS, SAVFILES, and SCREENS folders here as needed. Session restore stays in private app storage.</string>
+    <string name="settings_work_directory_browser_title" translatable="false">Set Work Directory</string>
+    <string name="settings_work_directory_browser_message" translatable="false">The Work Directory is optional. Set a custom external folder only if you want READP, portable STATE files, manual saves, and screenshots to start in one place.
 
 Use Android Default Folder to forget the saved Work Directory and return future open and save actions to Android\'s last-used folder.</string>
-    <string name="settings_work_directory_browser_set_action">Set Work Directory</string>
-    <string name="settings_work_directory_browser_default_action">Use Android Default Folder</string>
-    <string name="settings_work_directory_summary_unset">Optional. Session restore stays in private app storage. Open and save start in Android\'s last-used folder until you choose a Work Directory.</string>
-    <string name="settings_work_directory_summary_set">Using %1$s for portable STATE, PROGRAMS, SAVFILES, and SCREENS files. Session restore still stays in private app storage.</string>
-    <string name="settings_work_directory_summary_inaccessible">The saved Work Directory is no longer accessible. Set a new folder or use Android\'s default folder.</string>
-    <string name="settings_work_directory_summary_unknown_folder">the saved folder</string>
-    <string name="about_gpl_license_title">View GNU GPL v3 Notice</string>
-    <string name="about_gpl_license_summary">Shows the packaged GPL v3 text and source-delivery guidance for this build</string>
-    <string name="about_android_source_title">View Android Source Repository</string>
-    <string name="about_android_source_summary">Public source repository for this Android build</string>
-    <string name="about_repo_notices_title">View Bundled Native and Vendored Notices</string>
-    <string name="about_repo_notices_summary">Shows repo-owned notices for vendored or native surfaces that do not come from Maven metadata</string>
-    <string name="about_android_library_licenses_title">View Android Library Notices</string>
-    <string name="about_android_library_licenses_summary">Shows notices collected from Android runtime dependency POM metadata</string>
-    <string name="about_spdx_inventory_title">View SPDX Inventory</string>
-    <string name="about_spdx_inventory_summary">Shows the packaged machine-readable third-party inventory</string>
-    <string name="about_upstream_project_title">Visit Upstream C47 Project Page</string>
-    <string name="lcd_luminance_title">LCD Luminance</string>
-    <string name="lcd_luminance_summary">Adjust the LCD tone while preserving the selected hue</string>
-    <string name="gpl_license_missing_message">This build could not read the packaged GNU GPL text from the APK.</string>
-    <string name="repo_notice_catalog_title">Bundled Native and Vendored Notices</string>
-    <string name="repo_notice_catalog_missing_message">This build could not read the packaged repo notice index from the APK.</string>
-    <string name="repo_notice_asset_missing_message">This build could not read the selected packaged notice from the APK.</string>
-    <string name="repo_notice_asset_fallback_title">Packaged Notice</string>
-    <string name="about_gpl_license_intro">R47 Android is licensed under the GNU General Public License, version 3.
+    <string name="settings_work_directory_browser_set_action" translatable="false">Set Work Directory</string>
+    <string name="settings_work_directory_browser_default_action" translatable="false">Use Android Default Folder</string>
+    <string name="settings_work_directory_summary_unset" translatable="false">Optional. Session restore stays in private app storage. Open and save start in Android\'s last-used folder until you choose a Work Directory.</string>
+    <string name="settings_work_directory_summary_set" translatable="false">Using %1$s for portable STATE, PROGRAMS, SAVFILES, and SCREENS files. Session restore still stays in private app storage.</string>
+    <string name="settings_work_directory_summary_inaccessible" translatable="false">The saved Work Directory is no longer accessible. Set a new folder or use Android\'s default folder.</string>
+    <string name="settings_work_directory_summary_unknown_folder" translatable="false">the saved folder</string>
+    <string name="settings_files_and_storage_category_title" translatable="false">Files and Storage</string>
+    <string name="settings_work_directory_title" translatable="false">Work Directory</string>
+    <string name="settings_work_directory_preference_summary" translatable="false">Optional external folder for portable STATE, PROGRAMS, SAVFILES, and SCREENS files.</string>
+    <string name="settings_display_and_layout_category_title" translatable="false">Display and Layout</string>
+    <string name="settings_fullscreen_mode_title" translatable="false">Full Screen Mode</string>
+    <string name="settings_fullscreen_mode_summary_on" translatable="false">Hides status and navigation bars</string>
+    <string name="settings_fullscreen_mode_summary_off" translatable="false">Shows status and navigation bars for button navigation</string>
+    <string name="settings_shell_chrome_title" translatable="false">Shell Chrome</string>
+    <string name="settings_scaling_mode_title" translatable="false">Scaling</string>
+    <string name="settings_lcd_mode_title" translatable="false">LCD Mode</string>
+    <string name="settings_interaction_category_title" translatable="false">Interaction</string>
+    <string name="settings_haptic_enabled_title" translatable="false">Enable Haptic Feedback</string>
+    <string name="settings_haptic_hifi_enabled_title" translatable="false">High-Fidelity Haptics (Modern)</string>
+    <string name="settings_haptic_intensity_title" translatable="false">Haptic Intensity</string>
+    <string name="settings_audio_category_title" translatable="false">Audio</string>
+    <string name="settings_beeper_enabled_title" translatable="false">Simulated Beeper</string>
+    <string name="settings_beeper_volume_title" translatable="false">Beeper Volume</string>
+    <string name="settings_app_behavior_category_title" translatable="false">App Behavior</string>
+    <string name="settings_keep_screen_on_title" translatable="false">Keep Screen On</string>
+    <string name="settings_auto_save_minimize_title" translatable="false">Auto-Save on Minimize</string>
+    <string name="settings_force_close_on_exit_title" translatable="false">Force Close on f-shift EXIT</string>
+    <string name="settings_force_close_on_exit_summary_on" translatable="false">Finishes activity and removes from recents</string>
+    <string name="settings_force_close_on_exit_summary_off" translatable="false">Minimizes to background (stays in recents)</string>
+    <string name="settings_developer_tools_category_title" translatable="false">Developer Tools</string>
+    <string name="settings_show_touch_zones_title" translatable="false">Show Touch Zones</string>
+    <string name="settings_cancel_action" translatable="false">Cancel</string>
+    <string name="settings_factory_reset_title" translatable="false">Reset to Factory Defaults</string>
+    <string name="settings_factory_reset_summary" translatable="false">Wipe internal app data and relaunch R47</string>
+    <string name="settings_factory_reset_confirm_title" translatable="false">Confirm Reset</string>
+    <string name="settings_factory_reset_confirm_message" translatable="false">Wipe all internal app data and relaunch R47?
+
+Note: This will NOT delete any files in a saved Work Directory. External STATE, PROGRAMS, SAVFILES, and SCREENS folders stay untouched.</string>
+    <string name="settings_factory_reset_confirm_action" translatable="false">Reset</string>
+    <string name="settings_about_category_title" translatable="false">About R47</string>
+    <string name="about_version_title" translatable="false">Version</string>
+    <string name="about_gpl_license_title" translatable="false">View GNU GPL v3 Notice</string>
+    <string name="about_gpl_license_summary" translatable="false">Shows the packaged GPL v3 text and source-delivery guidance for this build</string>
+    <string name="about_android_source_title" translatable="false">View Android Source Repository</string>
+    <string name="about_android_source_summary" translatable="false">Public source repository for this Android build</string>
+    <string name="about_repo_notices_title" translatable="false">View Bundled Native and Vendored Notices</string>
+    <string name="about_repo_notices_summary" translatable="false">Shows repo-owned notices for vendored or native surfaces that do not come from Maven metadata</string>
+    <string name="about_android_library_licenses_title" translatable="false">View Android Library Notices</string>
+    <string name="about_android_library_licenses_summary" translatable="false">Shows notices collected from Android runtime dependency POM metadata</string>
+    <string name="about_spdx_inventory_title" translatable="false">View SPDX Inventory</string>
+    <string name="about_spdx_inventory_summary" translatable="false">Shows the packaged machine-readable third-party inventory</string>
+    <string name="about_upstream_project_title" translatable="false">Visit Upstream C47 Project Page</string>
+    <string name="lcd_luminance_title" translatable="false">LCD Luminance</string>
+    <string name="lcd_luminance_summary" translatable="false">Adjust the LCD tone while preserving the selected hue</string>
+    <string name="gpl_license_missing_message" translatable="false">This build could not read the packaged GNU GPL text from the APK.</string>
+    <string name="repo_notice_catalog_title" translatable="false">Bundled Native and Vendored Notices</string>
+    <string name="repo_notice_catalog_missing_message" translatable="false">This build could not read the packaged repo notice index from the APK.</string>
+    <string name="repo_notice_asset_missing_message" translatable="false">This build could not read the selected packaged notice from the APK.</string>
+    <string name="repo_notice_asset_fallback_title" translatable="false">Packaged Notice</string>
+    <string name="about_gpl_license_intro" translatable="false">R47 Android is licensed under the GNU General Public License, version 3.
 
 This program comes with ABSOLUTELY NO WARRANTY.
 
 A verbatim copy of the GPL is packaged in this APK below.
 
 Distributors of APKs must also provide the exact corresponding source for the build they ship. Use the Android source repository entry in Settings to reach the public Android fork for this build. The packaged SOURCE manifest also records the synchronized upstream core revision when the build provides one.</string>
-    <string name="gpl_license_dialog_close">Close</string>
+    <string name="gpl_license_dialog_close" translatable="false">Close</string>
 </resources>

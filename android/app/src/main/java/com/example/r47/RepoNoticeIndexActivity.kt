@@ -1,5 +1,6 @@
 package com.example.r47
 
+import android.content.Context
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +14,10 @@ import org.json.JSONObject
 import java.io.IOException
 
 class RepoNoticeIndexActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(EnglishResourceContext.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

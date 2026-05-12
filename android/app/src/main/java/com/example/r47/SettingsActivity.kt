@@ -1,5 +1,6 @@
 package com.example.r47
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -14,6 +15,10 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class SettingsActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(EnglishResourceContext.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,7 +56,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         if (uri != null) {
             val displayPath = WorkDirectory.persistSelectedTreeUri(requireContext(), uri)
             updateStoragePreferences()
-            
+
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.settings_work_directory_set_title)
                 .setMessage(getString(R.string.settings_work_directory_set_message, displayPath))
@@ -78,14 +83,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
         findPreference<Preference>("factory_reset")?.setOnPreferenceClickListener {
             MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Confirm Reset")
-                .setMessage(
-                    "Wipe all internal app data and relaunch R47?\n\n" +
-                        "Note: This will NOT delete any files in a saved Work Directory. " +
-                        "External STATE, PROGRAMS, SAVFILES, and SCREENS folders stay untouched."
-                )
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Reset") { _, _ ->
+                .setTitle(R.string.settings_factory_reset_confirm_title)
+                .setMessage(R.string.settings_factory_reset_confirm_message)
+                .setNegativeButton(R.string.settings_cancel_action, null)
+                .setPositiveButton(R.string.settings_factory_reset_confirm_action) { _, _ ->
                     startActivity(MainActivity.createFactoryResetIntent(requireContext()))
                     requireActivity().finish()
                 }
@@ -158,7 +159,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         MaterialAlertDialogBuilder(context)
             .setTitle(R.string.settings_work_directory_browser_title)
             .setMessage(R.string.settings_work_directory_browser_message)
-            .setNeutralButton("Cancel", null)
+            .setNeutralButton(R.string.settings_cancel_action, null)
             .setPositiveButton(R.string.settings_work_directory_browser_set_action) { _, _ ->
                 treeLauncher.launch(null)
             }
