@@ -36,7 +36,7 @@ flowchart TD
 
 | Contract surface | Source of truth | Focused verification surfaces | First rerun lane |
 | --- | --- | --- | --- |
-| shell geometry and LCD frame | `scripts/r47_contracts/derive_shell_geometry.py`, `R47Geometry.kt` | `scripts/r47_contracts/test_shell_geometry_contract.py` | grouped `scripts/r47_contracts` validation lane |
+| shell geometry and LCD frame | `scripts/r47_contracts/derive_shell_geometry.py`, `R47Geometry.kt` | `scripts/r47_contracts/test_shell_geometry_contract.py`, `ReplicaOverlayGoldenTest.kt` | grouped `scripts/r47_contracts` validation lane, then `:app:testDebugUnitTest --tests com.example.r47.ReplicaOverlayGoldenTest` |
 | key-label and visual policy constants | `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `CalculatorKeyView.kt` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py` | grouped `scripts/r47_contracts` validation lane |
 | top-label lane solve and alpha-case label export | `scripts/r47_contracts/derive_top_label_lane_layout.py`, staged `assign.c` and `items.c`, `jni_display.c`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt` | `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `scripts/r47_contracts/test_alpha_case_export_contract.py`, `DynamicKeypadParityFixtureTest.kt` | grouped contract scripts first, then `:app:testDebugUnitTest` |
 | overlay geometry replay for unchanged keypad scenes | `MainActivity.kt`, `ReplicaOverlayController.kt`, `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt` | `DynamicKeypadParityFixtureTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
@@ -65,11 +65,16 @@ The grouped Python lane currently covers:
 
 - `validate_geometry_dataset.py`: structural and spacing checks for the
   physical dataset plus Android UI contract validation against `R47Geometry.kt`,
-  `R47KeypadPolicy.kt`, and `CalculatorKeyView.kt`
+  `R47KeypadPolicy.kt`, and `CalculatorKeyView.kt`; this now includes both
+  `chrome.lcd_windows.native` and `chrome.lcd_windows.image_backed`, the native
+  `400 x 240` aspect-ratio lock, integer width and height for native mode, and
+  the centered native-width-at-least-image-backed rule
 - `derive_touch_grid.py`: shared touch-grid payload derivation from measured key
   centers
 - `test_shell_geometry_contract.py`: logical canvas, drawable density buckets,
-  LCD frame, and shell constants against `R47Geometry.kt`
+  both chrome-mode LCD rectangles, the native LCD aspect-ratio and
+  centered integer-bounds contract, and shell constants against
+  `R47Geometry.kt`
 - `test_key_label_geometry_contract.py`: key-label and key-surface constants,
   plus primary, top-label, and fourth-label anchor formulas, against
   `CalculatorKeyView.kt`, `R47KeypadPolicy.kt`, and `R47Geometry.kt`
@@ -107,7 +112,9 @@ Important contract files include:
   `CalculatorSoftkeyPainterCanvasTest.kt`: lock softkey content-description,
   overlay, preview, and strike rendering rules
 - `ReplicaOverlayGoldenTest.kt`: keeps chrome-mode rendering stable through
-  golden hashes
+  golden hashes and asserts that the native LCD keeps the centered integer
+  `1650 x 990` render while extending into the lower band that remains
+  outside the image-backed LCD rectangle
 - `PhysicalKeyboardInputParityTest.kt`: locks printable, function-key,
   shortcut, and modifier-tap mapping behavior
 - `NativeCoreRuntimeTest.kt`: locks single-init, queued-task, and

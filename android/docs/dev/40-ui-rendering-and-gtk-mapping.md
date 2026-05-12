@@ -57,14 +57,22 @@ flowchart LR
   from that logical canvas before projection into the current window
 - `full_width` uses one shared visible-frame trim of `42 / 49 / 42 / 56`
   logical units across all three chrome modes
+- `chrome.lcd_windows` keeps two LCD rectangles on that shared canvas:
+  native uses `85 / 229 / 1650 / 990`, while the image-backed shell modes
+  share `86 / 229 / 1648 / 903`
+- native mode keeps the shared top edge, widens by `2` logical units to the
+  smallest exact integer `5:3` pair at or above the image-backed width, and
+  stays horizontally centered on the `1820` logical canvas
 - `physical` caps fit scale to the density-resolved shell-image width divided
   by `R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH`
 - `ReplicaOverlay` projects three chrome modes from the same logical contract:
-  `r47_texture`, `r47_background`, and `native`
+  `native` uses the native LCD rectangle, while `r47_texture` and
+  `r47_background` share the image-backed LCD rectangle
 - `ReplicaKeypadLayout` owns one normalized shared touch-cell map across those
   modes, and `ReplicaOverlay` owns one shared settings-entry touch strip
 - PiP is intentionally narrower: the overlay draws the LCD full-window and maps
-  horizontal touches across that surface to the six softkeys
+  horizontal touches across that surface to the six softkeys, so the
+  chrome-mode LCD split does not change PiP geometry
 
 Projection is the first owner to inspect when the whole shell, LCD frame, and
 keypad all look correct locally but are globally misplaced together.
@@ -82,6 +90,10 @@ keypad all look correct locally but are globally misplaced together.
   the keypad path. Scaling changes, chrome-mode changes, and PiP exit mark a
   geometry change, wait for a real overlay layout boundary, then replay the
   current scene once.
+- `ReplicaChromeLayout` is the mode-selection seam for the LCD rectangle.
+  When native mode and the image-backed modes need different LCD placement,
+  change that split there instead of branching the bitmap draw path in
+  `ReplicaOverlay`.
 - `ReplicaOverlay.updateLcd(...)` compares against the cached pixel buffer,
   computes the smallest changed rectangle, updates the backing `Bitmap`, and
   invalidates only that on-screen region

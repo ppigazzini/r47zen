@@ -20,11 +20,19 @@
       "bottom": 56
     },
     "settings_strip_tap_height": 229,
-    "lcd_window": {
-      "left": 86,
-      "top": 229,
-      "width": 1648,
-      "height": 903
+    "lcd_windows": {
+      "native": {
+        "left": 85,
+        "top": 229,
+        "width": 1650,
+        "height": 990
+      },
+      "image_backed": {
+        "left": 86,
+        "top": 229,
+        "width": 1648,
+        "height": 903
+      }
     },
     "lcd_frame_buffer": {
       "pixel_width": 400,

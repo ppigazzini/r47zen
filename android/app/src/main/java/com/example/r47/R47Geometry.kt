@@ -30,10 +30,15 @@ internal object R47AndroidChromeGeometry {
     const val SCALED_MODE_FIT_TRIM_BOTTOM = 56f
 
     const val TOP_BEZEL_SETTINGS_TAP_HEIGHT = 229f
-    const val LCD_WINDOW_LEFT = 86f
-    const val LCD_WINDOW_TOP = 229f
-    const val LCD_WINDOW_WIDTH = 1648f
-    const val LCD_WINDOW_HEIGHT = 903f
+    const val NATIVE_LCD_WINDOW_LEFT = 85f
+    const val NATIVE_LCD_WINDOW_TOP = 229f
+    const val NATIVE_LCD_WINDOW_WIDTH = 1650f
+    const val NATIVE_LCD_WINDOW_HEIGHT = 990f
+
+    const val IMAGE_LCD_WINDOW_LEFT = 86f
+    const val IMAGE_LCD_WINDOW_TOP = 229f
+    const val IMAGE_LCD_WINDOW_WIDTH = 1648f
+    const val IMAGE_LCD_WINDOW_HEIGHT = 903f
 
     const val NON_SOFTKEY_VIEW_HEIGHT = 236f
 }

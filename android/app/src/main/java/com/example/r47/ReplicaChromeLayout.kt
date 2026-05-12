@@ -29,28 +29,39 @@ internal data class ReplicaChromeSpec(
 internal class ReplicaChromeLayout(
     private val resources: Resources,
 ) {
-    private val baseChromeSpec = ReplicaChromeSpec(
+    private val nativeChromeSpec = ReplicaChromeSpec(
         mode = ReplicaOverlay.CHROME_MODE_NATIVE,
         shellWidth = R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH,
         shellHeight = R47ReferenceGeometry.LOGICAL_CANVAS_HEIGHT,
         topBezelSettingsTapHeight = R47AndroidChromeGeometry.TOP_BEZEL_SETTINGS_TAP_HEIGHT,
-        lcdWindowLeft = R47AndroidChromeGeometry.LCD_WINDOW_LEFT,
-        lcdWindowTop = R47AndroidChromeGeometry.LCD_WINDOW_TOP,
-        lcdWindowWidth = R47AndroidChromeGeometry.LCD_WINDOW_WIDTH,
-        lcdWindowHeight = R47AndroidChromeGeometry.LCD_WINDOW_HEIGHT,
+        lcdWindowLeft = R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_LEFT,
+        lcdWindowTop = R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_TOP,
+        lcdWindowWidth = R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_WIDTH,
+        lcdWindowHeight = R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_HEIGHT,
         scaledModeFitTrimLeft = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_LEFT,
         scaledModeFitTrimTop = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_TOP,
         scaledModeFitTrimRight = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_RIGHT,
         scaledModeFitTrimBottom = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_BOTTOM,
     )
-    private val nativeChromeSpec = baseChromeSpec.copy(
-        mode = ReplicaOverlay.CHROME_MODE_NATIVE,
+    private val imageBackedChromeSpec = ReplicaChromeSpec(
+        mode = ReplicaOverlay.CHROME_MODE_BACKGROUND,
+        shellWidth = R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH,
+        shellHeight = R47ReferenceGeometry.LOGICAL_CANVAS_HEIGHT,
+        topBezelSettingsTapHeight = R47AndroidChromeGeometry.TOP_BEZEL_SETTINGS_TAP_HEIGHT,
+        lcdWindowLeft = R47AndroidChromeGeometry.IMAGE_LCD_WINDOW_LEFT,
+        lcdWindowTop = R47AndroidChromeGeometry.IMAGE_LCD_WINDOW_TOP,
+        lcdWindowWidth = R47AndroidChromeGeometry.IMAGE_LCD_WINDOW_WIDTH,
+        lcdWindowHeight = R47AndroidChromeGeometry.IMAGE_LCD_WINDOW_HEIGHT,
+        scaledModeFitTrimLeft = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_LEFT,
+        scaledModeFitTrimTop = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_TOP,
+        scaledModeFitTrimRight = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_RIGHT,
+        scaledModeFitTrimBottom = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_BOTTOM,
     )
-    private val backgroundChromeSpec = baseChromeSpec.copy(
+    private val backgroundChromeSpec = imageBackedChromeSpec.copy(
         mode = ReplicaOverlay.CHROME_MODE_BACKGROUND,
         imageResId = R.drawable.r47_background,
     )
-    private val textureChromeSpec = baseChromeSpec.copy(
+    private val textureChromeSpec = imageBackedChromeSpec.copy(
         mode = ReplicaOverlay.CHROME_MODE_TEXTURE,
         imageResId = R.drawable.r47_texture,
     )

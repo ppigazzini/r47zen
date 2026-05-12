@@ -106,6 +106,19 @@ def _rounded_rect(rect: _Rect) -> dict[str, float]:
     }
 
 
+def _rect_from_contract(
+    mapping: dict[str, object],
+    *,
+    label: str,
+) -> _Rect:
+    return _Rect(
+        left=contract_number_member(mapping, "left", label=label),
+        top=contract_number_member(mapping, "top", label=label),
+        width=contract_number_member(mapping, "width", label=label),
+        height=contract_number_member(mapping, "height", label=label),
+    )
+
+
 def _require_mapping(value: object, *, label: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise ShellGeometryContractError.invalid_data(label, "a JSON object", value)
@@ -286,10 +299,20 @@ def build_shell_geometry_payload() -> dict[str, object]:
         "scaled_mode_fit_trim",
         label="android_app_contract.chrome",
     )
-    lcd_window_contract = contract_mapping_member(
+    lcd_windows_contract = contract_mapping_member(
         chrome_contract,
-        "lcd_window",
+        "lcd_windows",
         label="android_app_contract.chrome",
+    )
+    native_lcd_window_contract = contract_mapping_member(
+        lcd_windows_contract,
+        "native",
+        label="android_app_contract.chrome.lcd_windows",
+    )
+    image_backed_lcd_window_contract = contract_mapping_member(
+        lcd_windows_contract,
+        "image_backed",
+        label="android_app_contract.chrome.lcd_windows",
     )
     lcd_frame_buffer_contract = contract_mapping_member(
         chrome_contract,
@@ -332,44 +355,31 @@ def build_shell_geometry_payload() -> dict[str, object]:
         "settings_strip_tap_height",
         label="android_app_contract.chrome",
     )
-    lcd_window_left = contract_number_member(
-        lcd_window_contract,
-        "left",
-        label="android_app_contract.chrome.lcd_window",
-    )
-    lcd_window_top = contract_number_member(
-        lcd_window_contract,
-        "top",
-        label="android_app_contract.chrome.lcd_window",
-    )
-    lcd_window_width = contract_number_member(
-        lcd_window_contract,
-        "width",
-        label="android_app_contract.chrome.lcd_window",
-    )
-    lcd_window_height = contract_number_member(
-        lcd_window_contract,
-        "height",
-        label="android_app_contract.chrome.lcd_window",
-    )
     non_softkey_view_height = contract_number_member(
         chrome_contract,
         "non_softkey_view_height",
         label="android_app_contract.chrome",
     )
 
-    logical_android_lcd_window = _Rect(
-        left=lcd_window_left,
-        top=lcd_window_top,
-        width=lcd_window_width,
-        height=lcd_window_height,
+    logical_native_lcd_window = _rect_from_contract(
+        native_lcd_window_contract,
+        label="android_app_contract.chrome.lcd_windows.native",
+    )
+    logical_image_backed_lcd_window = _rect_from_contract(
+        image_backed_lcd_window_contract,
+        label="android_app_contract.chrome.lcd_windows.image_backed",
     )
     logical_real_lcd = _reference_lcd_rect(geometry)
-    android_lcd_rect = _rounded_rect(logical_android_lcd_window)
+    native_lcd_rect = _rounded_rect(logical_native_lcd_window)
+    image_backed_lcd_rect = _rounded_rect(logical_image_backed_lcd_window)
     real_lcd_rect = _rounded_rect(logical_real_lcd)
 
     logical_shell_center_x = logical_width / 2.0
     logical_shell_center_y = logical_height / 2.0
+    row_height = 144.0 * logical_scale_y
+    row_step = 260.0 * logical_scale_y
+    row_gap = row_step - row_height
+    softkey_row_top = 1290.0 * logical_scale_y
 
     return {
         "source": {
@@ -391,9 +401,18 @@ def build_shell_geometry_payload() -> dict[str, object]:
                 "rect": dict(real_lcd_rect),
             },
             "android_app": {
-                "role": "implemented Android calculator LCD window",
+                "role": "implemented Android calculator LCD windows by chrome mode",
                 "coordinate_space": "logical canvas",
-                "rect": dict(android_lcd_rect),
+                "mode_rects": {
+                    "native": {
+                        "role": "native painted shell LCD window",
+                        "rect": dict(native_lcd_rect),
+                    },
+                    "image_backed": {
+                        "role": "shared LCD window for image-backed shell modes",
+                        "rect": dict(image_backed_lcd_rect),
+                    },
+                },
                 "settings_strip_tap_height": top_bezel_settings_tap_height,
                 "frame_buffer": {
                     "pixel_width": contract_number_member(
@@ -422,7 +441,10 @@ def build_shell_geometry_payload() -> dict[str, object]:
                 "bottom": scaled_mode_fit_trim_bottom,
             },
             "top_bezel_settings_tap_height": top_bezel_settings_tap_height,
-            "lcd_window": dict(android_lcd_rect),
+            "lcd_windows": {
+                "native": dict(native_lcd_rect),
+                "image_backed": dict(image_backed_lcd_rect),
+            },
             "real_measured_lcd": dict(real_lcd_rect),
             "keypad": {
                 "standard_left": _rounded(134.0 * logical_scale_x),
@@ -432,9 +454,10 @@ def build_shell_geometry_payload() -> dict[str, object]:
                 "matrix_pitch": _rounded(331.0 * logical_scale_x),
                 "matrix_key_width": _rounded(228.0 * logical_scale_x),
                 "enter_width": _rounded(462.0 * logical_scale_x),
-                "row_height": _rounded(144.0 * logical_scale_y),
-                "row_step": _rounded(260.0 * logical_scale_y),
-                "softkey_row_top": _rounded(1290.0 * logical_scale_y),
+                "row_height": _rounded(row_height),
+                "row_step": _rounded(row_step),
+                "row_gap": _rounded(row_gap),
+                "softkey_row_top": _rounded(softkey_row_top),
                 "first_small_row_top": _rounded(1550.0 * logical_scale_y),
                 "enter_row_top": _rounded(2070.0 * logical_scale_y),
                 "first_large_row_top": _rounded(2330.0 * logical_scale_y),
@@ -450,28 +473,92 @@ def build_shell_geometry_payload() -> dict[str, object]:
             "legacy_texture_to_logical_scale_y": _rounded(
                 logical_height / _LEGACY_TEXTURE_CONTRACT_HEIGHT,
             ),
-            "lcd_window_center_x_delta_vs_shell_center": _rounded(
-                _center_x(logical_android_lcd_window) - logical_shell_center_x,
+            "native_lcd_window_center_x_delta_vs_shell_center": _rounded(
+                _center_x(logical_native_lcd_window) - logical_shell_center_x,
             ),
-            "lcd_window_center_y_delta_vs_shell_center": _rounded(
-                _center_y(logical_android_lcd_window) - logical_shell_center_y,
+            "native_lcd_window_center_y_delta_vs_shell_center": _rounded(
+                _center_y(logical_native_lcd_window) - logical_shell_center_y,
             ),
-            "lcd_window_vs_real_lcd_center_x_delta": _rounded(
-                _center_x(logical_android_lcd_window) - _center_x(logical_real_lcd),
+            "native_lcd_window_vs_real_lcd_center_x_delta": _rounded(
+                _center_x(logical_native_lcd_window) - _center_x(logical_real_lcd),
             ),
-            "lcd_window_vs_real_lcd_center_y_delta": _rounded(
-                _center_y(logical_android_lcd_window) - _center_y(logical_real_lcd),
+            "native_lcd_window_vs_real_lcd_center_y_delta": _rounded(
+                _center_y(logical_native_lcd_window) - _center_y(logical_real_lcd),
             ),
-            "lcd_window_vs_real_lcd_width_delta": _rounded(
-                logical_android_lcd_window.width - logical_real_lcd.width,
+            "native_lcd_window_vs_real_lcd_width_delta": _rounded(
+                logical_native_lcd_window.width - logical_real_lcd.width,
             ),
-            "lcd_window_vs_real_lcd_height_delta": _rounded(
-                logical_android_lcd_window.height - logical_real_lcd.height,
+            "native_lcd_window_vs_real_lcd_height_delta": _rounded(
+                logical_native_lcd_window.height - logical_real_lcd.height,
             ),
-            "lcd_window_vs_real_lcd_aspect_ratio_delta_pct": _rounded(
+            "native_lcd_window_vs_real_lcd_aspect_ratio_delta_pct": _rounded(
                 (
                     (
-                        _aspect_ratio(logical_android_lcd_window)
+                        _aspect_ratio(logical_native_lcd_window)
+                        / _aspect_ratio(logical_real_lcd)
+                    )
+                    - 1.0
+                )
+                * 100.0,
+            ),
+            "native_lcd_window_vs_frame_buffer_aspect_ratio_delta_pct": _rounded(
+                (
+                    (
+                        _aspect_ratio(logical_native_lcd_window)
+                        / (
+                            contract_number_member(
+                                lcd_frame_buffer_contract,
+                                "pixel_width",
+                                label="android_app_contract.chrome.lcd_frame_buffer",
+                            )
+                            / contract_number_member(
+                                lcd_frame_buffer_contract,
+                                "pixel_height",
+                                label="android_app_contract.chrome.lcd_frame_buffer",
+                            )
+                        )
+                    )
+                    - 1.0
+                )
+                * 100.0,
+            ),
+            "native_lcd_window_vs_image_backed_left_delta": _rounded(
+                logical_native_lcd_window.left - logical_image_backed_lcd_window.left,
+            ),
+            "native_lcd_window_vs_image_backed_top_delta": _rounded(
+                logical_native_lcd_window.top - logical_image_backed_lcd_window.top,
+            ),
+            "native_lcd_window_vs_image_backed_width_delta": _rounded(
+                logical_native_lcd_window.width - logical_image_backed_lcd_window.width,
+            ),
+            "native_lcd_window_vs_image_backed_height_delta": _rounded(
+                logical_native_lcd_window.height
+                - logical_image_backed_lcd_window.height,
+            ),
+            "image_backed_lcd_window_center_x_delta_vs_shell_center": _rounded(
+                _center_x(logical_image_backed_lcd_window) - logical_shell_center_x,
+            ),
+            "image_backed_lcd_window_center_y_delta_vs_shell_center": _rounded(
+                _center_y(logical_image_backed_lcd_window) - logical_shell_center_y,
+            ),
+            "image_backed_lcd_window_vs_real_lcd_center_x_delta": _rounded(
+                _center_x(logical_image_backed_lcd_window)
+                - _center_x(logical_real_lcd),
+            ),
+            "image_backed_lcd_window_vs_real_lcd_center_y_delta": _rounded(
+                _center_y(logical_image_backed_lcd_window)
+                - _center_y(logical_real_lcd),
+            ),
+            "image_backed_lcd_window_vs_real_lcd_width_delta": _rounded(
+                logical_image_backed_lcd_window.width - logical_real_lcd.width,
+            ),
+            "image_backed_lcd_window_vs_real_lcd_height_delta": _rounded(
+                logical_image_backed_lcd_window.height - logical_real_lcd.height,
+            ),
+            "image_backed_lcd_window_vs_real_lcd_aspect_ratio_delta_pct": _rounded(
+                (
+                    (
+                        _aspect_ratio(logical_image_backed_lcd_window)
                         / _aspect_ratio(logical_real_lcd)
                     )
                     - 1.0

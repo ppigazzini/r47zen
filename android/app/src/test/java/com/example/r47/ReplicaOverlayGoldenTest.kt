@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,7 +63,7 @@ class ReplicaOverlayGoldenTest {
     fun nativeChrome_matchesGoldenHash() {
         assertGoldenHash(
             ReplicaOverlay.CHROME_MODE_NATIVE,
-            "d0201a46e253f9961dd261fd7c91aa75e30e6ee2073d4382d7d2fd0acc76d4f4",
+            "a689a5afbca4244237523b95f91554c9e5cbff18687d212916cbc6e353ebf83a",
         )
     }
 
@@ -80,6 +81,21 @@ class ReplicaOverlayGoldenTest {
             ReplicaOverlay.CHROME_MODE_TEXTURE,
             "95bd1dbe228aa1d674d178f3898d5e5bbea899d9a0fd031c33d40ab611bc9ec9",
         )
+    }
+
+    @Test
+    fun nativeChrome_usesTallerLcdThanImageBackedModes() {
+        val projection = ReplicaChromeLayout(
+            ApplicationProvider.getApplicationContext<android.content.Context>().resources,
+        ).computeProjection(1080f, 2160f)
+        val x = projection.offsetX + 910f * projection.scale
+        val y = projection.offsetY + 1150f * projection.scale
+
+        val nativeOverlay = configuredOverlay(ReplicaOverlay.CHROME_MODE_NATIVE)
+        val backgroundOverlay = configuredOverlay(ReplicaOverlay.CHROME_MODE_BACKGROUND)
+
+        assertTrue(nativeOverlay.isPointInLcd(x, y))
+        assertFalse(backgroundOverlay.isPointInLcd(x, y))
     }
 
     private fun assertGoldenHash(mode: String, expectedHash: String) {
