@@ -50,29 +50,22 @@ flowchart LR
 ## Shell projection contract
 
 - the live logical canvas is the measured reference frame `1820 x 3403`
-- `r47_texture.webp` and `r47_background.webp` share the same shipped sizes in
-  every density bucket: mdpi `360 x 673`, hdpi `540 x 1010`, xhdpi
-  `720 x 1346`, xxhdpi `1080 x 2019`, xxxhdpi `1440 x 2692`
 - all shell chrome, LCD placement, keypad children, and touch zones resolve
   from that logical canvas before projection into the current window
 - `full_width` uses one shared visible-frame trim of `42 / 49 / 42 / 56`
-  logical units across all three chrome modes
-- `chrome.lcd_windows` keeps two LCD rectangles on that shared canvas:
-  native uses `85 / 229 / 1650 / 990`, while the image-backed shell modes
-  share `86 / 229 / 1648 / 903`
-- native mode keeps the shared top edge, widens by `2` logical units to the
-  smallest exact integer `5:3` pair at or above the image-backed width, and
-  stays horizontally centered on the `1820` logical canvas
-- `physical` caps fit scale to the density-resolved shell-image width divided
-  by `R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH`
-- `ReplicaOverlay` projects three chrome modes from the same logical contract:
-  `native` uses the native LCD rectangle, while `r47_texture` and
-  `r47_background` share the image-backed LCD rectangle
-- `ReplicaKeypadLayout` owns one normalized shared touch-cell map across those
-  modes, and `ReplicaOverlay` owns one shared settings-entry touch strip
+- `chrome.lcd_windows` keeps one native LCD rectangle on that shared canvas:
+  `85 / 229 / 1650 / 990`
+- the native LCD stays horizontally centered on the `1820` logical canvas and
+  preserves the exact integer `400 x 240` frame-buffer aspect ratio
+- `physical` caps fit scale to the density-resolved `360 dp` shell width
+  divided by `R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH`
+- `ReplicaOverlay` projects one native chrome surface from the shared logical
+  contract
+- `ReplicaKeypadLayout` owns one normalized shared touch-cell map, and
+  `ReplicaOverlay` owns one shared settings-entry touch strip
 - PiP is intentionally narrower: the overlay draws the LCD full-window and maps
   horizontal touches across that surface to the six softkeys, so the
-  chrome-mode LCD split does not change PiP geometry
+  native shell projection does not change PiP geometry
 
 Projection is the first owner to inspect when the whole shell, LCD frame, and
 keypad all look correct locally but are globally misplaced together.
@@ -87,12 +80,10 @@ keypad all look correct locally but are globally misplaced together.
   state; this page covers ownership while `60-runtime-hot-paths.md` covers the
   cadence and skip gates
 - `ReplicaOverlayController` owns geometry-triggered same-snapshot replay for
-  the keypad path. Scaling changes, chrome-mode changes, and PiP exit mark a
-  geometry change, wait for a real overlay layout boundary, then replay the
-  current scene once.
-- `ReplicaChromeLayout` is the mode-selection seam for the LCD rectangle.
-  When native mode and the image-backed modes need different LCD placement,
-  change that split there instead of branching the bitmap draw path in
+  the keypad path. Scaling changes and PiP exit mark a geometry change, wait
+  for a real overlay layout boundary, then replay the current scene once.
+- `ReplicaChromeLayout` owns the native LCD rectangle and shell projection.
+  Change that geometry there instead of branching the draw path in
   `ReplicaOverlay`.
 - `ReplicaOverlay.updateLcd(...)` compares against the cached pixel buffer,
   computes the smallest changed rectangle, updates the backing `Bitmap`, and

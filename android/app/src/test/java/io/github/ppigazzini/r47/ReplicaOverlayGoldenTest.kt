@@ -18,6 +18,11 @@ import java.security.MessageDigest
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "xxhdpi")
 class ReplicaOverlayGoldenTest {
+    private companion object {
+        const val LEGACY_CHROME_MODE_BACKGROUND = "r47_background"
+        const val LEGACY_CHROME_MODE_TEXTURE = "r47_texture"
+    }
+
     @Test
     fun packedLcd_matchesArgbRendering() {
         val textColor = 0xFF20313D.toInt()
@@ -68,34 +73,24 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
-    fun backgroundChrome_matchesGoldenHash() {
-        assertGoldenHash(
-            ReplicaOverlay.CHROME_MODE_BACKGROUND,
-            "160adba534fa2d82a8dbd91507a3228c06c9757666767e5b45a77a42ab749876",
-        )
-    }
+    fun legacyImageBackedModes_fallBackToNativeChrome() {
+        val nativeHash = renderHash(configuredOverlay(ReplicaOverlay.CHROME_MODE_NATIVE).apply {
+            updateLcd(sampleLcdPixels())
+        })
 
-    @Test
-    fun textureChrome_matchesGoldenHash() {
-        assertGoldenHash(
-            ReplicaOverlay.CHROME_MODE_TEXTURE,
-            "95bd1dbe228aa1d674d178f3898d5e5bbea899d9a0fd031c33d40ab611bc9ec9",
-        )
-    }
-
-    @Test
-    fun nativeChrome_usesTallerLcdThanImageBackedModes() {
-        val projection = ReplicaChromeLayout(
-            ApplicationProvider.getApplicationContext<android.content.Context>().resources,
-        ).computeProjection(1080f, 2160f)
-        val x = projection.offsetX + 910f * projection.scale
-        val y = projection.offsetY + 1150f * projection.scale
-
-        val nativeOverlay = configuredOverlay(ReplicaOverlay.CHROME_MODE_NATIVE)
-        val backgroundOverlay = configuredOverlay(ReplicaOverlay.CHROME_MODE_BACKGROUND)
-
-        assertTrue(nativeOverlay.isPointInLcd(x, y))
-        assertFalse(backgroundOverlay.isPointInLcd(x, y))
+        for (legacyMode in listOf(
+            LEGACY_CHROME_MODE_BACKGROUND,
+            LEGACY_CHROME_MODE_TEXTURE,
+        )) {
+            val legacyHash = renderHash(configuredOverlay(legacyMode).apply {
+                updateLcd(sampleLcdPixels())
+            })
+            assertEquals(
+                "Legacy chrome mode should resolve to native output for $legacyMode",
+                nativeHash,
+                legacyHash,
+            )
+        }
     }
 
     private fun assertGoldenHash(mode: String, expectedHash: String) {

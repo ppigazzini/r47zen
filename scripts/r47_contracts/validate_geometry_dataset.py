@@ -88,7 +88,6 @@ class _SplitAndroidUiContractContext:
     key_surface: dict[str, object]
     lcd_windows: dict[str, object]
     native_lcd_window: dict[str, object]
-    image_backed_lcd_window: dict[str, object]
     lcd_frame_buffer: dict[str, object]
     main_key_surface: dict[str, object]
     standard_key_surface: dict[str, object]
@@ -696,15 +695,6 @@ def _build_split_android_ui_contract_context(
             "native",
             label="android_ui_contract.chrome.lcd_windows",
         ),
-        image_backed_lcd_window=contract_mapping_member(
-            contract_mapping_member(
-                chrome,
-                "lcd_windows",
-                label="android_ui_contract.chrome",
-            ),
-            "image_backed",
-            label="android_ui_contract.chrome.lcd_windows",
-        ),
         lcd_frame_buffer=contract_mapping_member(
             chrome,
             "lcd_frame_buffer",
@@ -849,27 +839,23 @@ def _split_android_ui_layout_errors(
         label="android_ui_contract.chrome.lcd_frame_buffer",
     )
     errors: list[str] = []
-    for mode_name, rect, label in (
-        (
-            "native",
-            context.native_lcd_window,
-            "android_ui_contract.chrome.lcd_windows.native",
-        ),
-        (
-            "image_backed",
-            context.image_backed_lcd_window,
-            "android_ui_contract.chrome.lcd_windows.image_backed",
-        ),
-    ):
-        errors.extend(
-            _lcd_window_mode_errors(
-                mode_name=mode_name,
-                rect=rect,
-                label=label,
-                settings_strip_tap_height=settings_strip_tap_height,
-                reference_width=context.reference_width,
+    if sorted(context.lcd_windows) != ["native"]:
+        errors.append(
+            (
+                "ERROR [android_ui_contract.chrome.lcd_windows] must expose only "
+                "the native LCD window"
             ),
         )
+
+    errors.extend(
+        _lcd_window_mode_errors(
+            mode_name="native",
+            rect=context.native_lcd_window,
+            label="android_ui_contract.chrome.lcd_windows.native",
+            settings_strip_tap_height=settings_strip_tap_height,
+            reference_width=context.reference_width,
+        ),
+    )
 
     errors.extend(
         _native_lcd_window_layout_errors(
@@ -1018,11 +1004,6 @@ def _native_lcd_window_layout_errors(
         "width",
         label="android_ui_contract.chrome.lcd_windows.native",
     )
-    image_backed_lcd_window_width = contract_number_member(
-        context.image_backed_lcd_window,
-        "width",
-        label="android_ui_contract.chrome.lcd_windows.image_backed",
-    )
     errors: list[str] = []
     if abs(native_lcd_window_width - round(native_lcd_window_width)) > _FLOAT_TOLERANCE:
         errors.append(
@@ -1040,14 +1021,6 @@ def _native_lcd_window_layout_errors(
             (
                 "ERROR [android_ui_contract.chrome.lcd_windows.native] height must "
                 "be an integer so native mode uses an exact centered 5:3 frame"
-            ),
-        )
-
-    if native_lcd_window_width + _FLOAT_TOLERANCE < image_backed_lcd_window_width:
-        errors.append(
-            (
-                "ERROR [android_ui_contract.chrome.lcd_windows.native] width must "
-                "stay at least as wide as the image-backed LCD"
             ),
         )
 
@@ -1130,38 +1103,6 @@ def _split_android_ui_constant_errors(
                     context.native_lcd_window,
                     "height",
                     label="android_ui_contract.chrome.lcd_windows.native",
-                ),
-            ),
-            (
-                "IMAGE_LCD_WINDOW_LEFT",
-                contract_number_member(
-                    context.image_backed_lcd_window,
-                    "left",
-                    label="android_ui_contract.chrome.lcd_windows.image_backed",
-                ),
-            ),
-            (
-                "IMAGE_LCD_WINDOW_TOP",
-                contract_number_member(
-                    context.image_backed_lcd_window,
-                    "top",
-                    label="android_ui_contract.chrome.lcd_windows.image_backed",
-                ),
-            ),
-            (
-                "IMAGE_LCD_WINDOW_WIDTH",
-                contract_number_member(
-                    context.image_backed_lcd_window,
-                    "width",
-                    label="android_ui_contract.chrome.lcd_windows.image_backed",
-                ),
-            ),
-            (
-                "IMAGE_LCD_WINDOW_HEIGHT",
-                contract_number_member(
-                    context.image_backed_lcd_window,
-                    "height",
-                    label="android_ui_contract.chrome.lcd_windows.image_backed",
                 ),
             ),
             (

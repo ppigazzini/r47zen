@@ -26,8 +26,6 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     companion object {
         const val CHROME_MODE_NATIVE = "native"
-        const val CHROME_MODE_TEXTURE = "r47_texture"
-        const val CHROME_MODE_BACKGROUND = "r47_background"
     }
 
     private var isPiPMode = false

@@ -26,12 +26,6 @@
         "top": 229,
         "width": 1650,
         "height": 990
-      },
-      "image_backed": {
-        "left": 86,
-        "top": 229,
-        "width": 1648,
-        "height": 903
       }
     },
     "lcd_frame_buffer": {

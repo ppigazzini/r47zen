@@ -62,17 +62,15 @@ internal class ReplicaOverlayController(
     fun normalizeChromeMode(mode: String?): String {
         return when {
             mode == null -> MainActivityPreferenceController.DEFAULT_CHROME_MODE
-            mode == ReplicaOverlay.CHROME_MODE_NATIVE ||
-                mode == ReplicaOverlay.CHROME_MODE_TEXTURE ||
-                mode == ReplicaOverlay.CHROME_MODE_BACKGROUND -> mode
-
+            mode == ReplicaOverlay.CHROME_MODE_NATIVE -> mode
             else -> MainActivityPreferenceController.DEFAULT_CHROME_MODE
         }
     }
 
     fun applyChromeMode(mode: String) {
-        overlay.setChromeMode(mode)
-        rebuildInteractiveZones(mode)
+        val normalizedMode = normalizeChromeMode(mode)
+        overlay.setChromeMode(normalizedMode)
+        rebuildInteractiveZones()
         markGeometryChange()
     }
 
@@ -145,12 +143,11 @@ internal class ReplicaOverlayController(
         overlay.invalidate()
     }
 
-    private fun rebuildInteractiveZones(chromeMode: String) {
+    private fun rebuildInteractiveZones() {
         refreshGate.reset()
         ReplicaKeypadLayout.rebuild(
             context = context,
             overlay = overlay,
-            chromeMode = chromeMode,
             performHapticClick = performHapticClick,
             dispatchKey = ::dispatchKey,
             initialSnapshotProvider = { currentKeypadSnapshot() },

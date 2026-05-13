@@ -37,7 +37,6 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_fullscreen_mode_title" translatable="false">Full Screen Mode</string>
     <string name="settings_fullscreen_mode_summary_on" translatable="false">Hides status and navigation bars</string>
     <string name="settings_fullscreen_mode_summary_off" translatable="false">Shows status and navigation bars for button navigation</string>
-    <string name="settings_shell_chrome_title" translatable="false">Shell Chrome</string>
     <string name="settings_scaling_mode_title" translatable="false">Scaling</string>
     <string name="settings_lcd_mode_title" translatable="false">LCD Mode</string>
     <string name="settings_interaction_category_title" translatable="false">Interaction</string>

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import struct
 import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -15,7 +14,6 @@ from r47_contracts._contract_data import (
 from r47_contracts._contract_data import mapping_member as contract_mapping_member
 from r47_contracts._contract_data import number_member as contract_number_member
 from r47_contracts._repo_paths import (
-    ANDROID_RES_ROOT,
     R47_ANDROID_UI_CONTRACT_PATH,
     R47_PHYSICAL_GEOMETRY_DATA_PATH,
     REPO_ROOT,
@@ -24,34 +22,8 @@ from r47_contracts._repo_paths import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-_LEGACY_SHARED_CANVAS_WIDTH = 526.0
-_LEGACY_SHARED_CANVAS_HEIGHT = 980.0
 _LEGACY_TEXTURE_CONTRACT_WIDTH = 537.0
 _LEGACY_TEXTURE_CONTRACT_HEIGHT = 1005.0
-
-_LEGACY_NATIVE_SHELL_DRAW_CORNER_RADIUS = 24.0
-_NATIVE_SHELL_DRAW_CORNER_RADIUS_VISUAL_REDUCTION = 3.0
-
-_LEGACY_SCALED_MODE_FIT_TRIM_LEFT = 12.0
-_LEGACY_SCALED_MODE_FIT_TRIM_TOP = 14.0
-_LEGACY_SCALED_MODE_FIT_TRIM_RIGHT = 12.0
-_LEGACY_SCALED_MODE_FIT_TRIM_BOTTOM = 16.0
-
-_LEGACY_TOP_BEZEL_SETTINGS_TAP_HEIGHT = 67.5
-_LEGACY_LCD_WINDOW_LEFT = 25.5
-_LEGACY_LCD_WINDOW_HEIGHT = 266.7
-
-_LEGACY_NON_SOFTKEY_VIEW_HEIGHT = 68.0
-
-_DRAWABLE_NAMES = ("r47_texture", "r47_background")
-_DENSITY_BUCKETS = ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")
-_DENSITY_SCALE_FACTORS = {
-    "mdpi": 1.0,
-    "hdpi": 1.5,
-    "xhdpi": 2.0,
-    "xxhdpi": 3.0,
-    "xxxhdpi": 4.0,
-}
 
 
 class ShellGeometryContractError(ValueError):
@@ -68,18 +40,6 @@ class ShellGeometryContractError(ValueError):
         message = f"Expected {label} to be {expected}, got {actual!r}"
         return cls(message)
 
-    @classmethod
-    def not_webp(cls, path: Path) -> ShellGeometryContractError:
-        """Build an error for a non-WebP drawable asset."""
-        message = f"Expected a WebP file at {path}"
-        return cls(message)
-
-    @classmethod
-    def unreadable_webp_size(cls, path: Path) -> ShellGeometryContractError:
-        """Build an error for a WebP file without readable dimensions."""
-        message = f"Could not determine the WebP size for {path}"
-        return cls(message)
-
 
 @dataclass(frozen=True)
 class _Rect:
@@ -91,10 +51,6 @@ class _Rect:
 
 def _rounded(value: float) -> float:
     return round(value, 6)
-
-
-def _nearest_int(value: float) -> float:
-    return float(round(value))
 
 
 def _rounded_rect(rect: _Rect) -> dict[str, float]:
@@ -210,68 +166,6 @@ def _aspect_ratio(rect: _Rect) -> float:
     return rect.width / rect.height
 
 
-def _webp_size(path: Path) -> tuple[int, int]:
-    data = path.read_bytes()
-    if data[:4] != b"RIFF" or data[8:12] != b"WEBP":
-        raise ShellGeometryContractError.not_webp(path)
-
-    offset = 12
-    while offset + 8 <= len(data):
-        chunk = data[offset : offset + 4]
-        size = struct.unpack_from("<I", data, offset + 4)[0]
-        payload = data[offset + 8 : offset + 8 + size]
-        if chunk == b"VP8X":
-            width = 1 + int.from_bytes(payload[4:7], "little")
-            height = 1 + int.from_bytes(payload[7:10], "little")
-            return width, height
-        if chunk == b"VP8L":
-            bits = int.from_bytes(payload[1:5], "little")
-            width = (bits & 0x3FFF) + 1
-            height = ((bits >> 14) & 0x3FFF) + 1
-            return width, height
-        if chunk == b"VP8 ":
-            start = payload.find(b"\x9d\x01\x2a")
-            if start != -1 and start + 7 <= len(payload):
-                width, height = struct.unpack_from("<HH", payload, start + 3)
-                return width & 0x3FFF, height & 0x3FFF
-        offset += 8 + size + (size % 2)
-
-    raise ShellGeometryContractError.unreadable_webp_size(path)
-
-
-def _measure_drawable_assets() -> dict[str, dict[str, dict[str, int | float | str]]]:
-    assets: dict[str, dict[str, dict[str, int | float | str]]] = {}
-    for drawable_name in _DRAWABLE_NAMES:
-        density_map: dict[str, dict[str, int | float | str]] = {}
-        for density in _DENSITY_BUCKETS:
-            path = ANDROID_RES_ROOT / f"drawable-{density}" / f"{drawable_name}.webp"
-            width, height = _webp_size(path)
-            density_map[density] = {
-                "path": str(path.relative_to(REPO_ROOT)),
-                "width": width,
-                "height": height,
-                "density_scale": _DENSITY_SCALE_FACTORS[density],
-            }
-        assets[drawable_name] = density_map
-    return assets
-
-
-def _rebase_width(value: float, logical_width: float) -> float:
-    return value * logical_width / _LEGACY_TEXTURE_CONTRACT_WIDTH
-
-
-def _rebase_height(value: float, logical_height: float) -> float:
-    return value * logical_height / _LEGACY_TEXTURE_CONTRACT_HEIGHT
-
-
-def _rebase_shared_width(value: float, logical_width: float) -> float:
-    return value * logical_width / _LEGACY_SHARED_CANVAS_WIDTH
-
-
-def _rebase_shared_height(value: float, logical_height: float) -> float:
-    return value * logical_height / _LEGACY_SHARED_CANVAS_HEIGHT
-
-
 def build_shell_geometry_payload() -> dict[str, object]:
     """Build the shell and LCD payload used by the Android contract tests."""
     geometry = _load_geometry()
@@ -287,7 +181,6 @@ def build_shell_geometry_payload() -> dict[str, object]:
         reference_frame.get("height"),
         label="reference_frame.height",
     )
-    drawable_assets = _measure_drawable_assets()
     android_app_contract = load_android_ui_contract()
     chrome_contract = contract_mapping_member(
         android_app_contract,
@@ -307,11 +200,6 @@ def build_shell_geometry_payload() -> dict[str, object]:
     native_lcd_window_contract = contract_mapping_member(
         lcd_windows_contract,
         "native",
-        label="android_app_contract.chrome.lcd_windows",
-    )
-    image_backed_lcd_window_contract = contract_mapping_member(
-        lcd_windows_contract,
-        "image_backed",
         label="android_app_contract.chrome.lcd_windows",
     )
     lcd_frame_buffer_contract = contract_mapping_member(
@@ -365,13 +253,8 @@ def build_shell_geometry_payload() -> dict[str, object]:
         native_lcd_window_contract,
         label="android_app_contract.chrome.lcd_windows.native",
     )
-    logical_image_backed_lcd_window = _rect_from_contract(
-        image_backed_lcd_window_contract,
-        label="android_app_contract.chrome.lcd_windows.image_backed",
-    )
     logical_real_lcd = _reference_lcd_rect(geometry)
     native_lcd_rect = _rounded_rect(logical_native_lcd_window)
-    image_backed_lcd_rect = _rounded_rect(logical_image_backed_lcd_window)
     real_lcd_rect = _rounded_rect(logical_real_lcd)
 
     logical_shell_center_x = logical_width / 2.0
@@ -401,16 +284,12 @@ def build_shell_geometry_payload() -> dict[str, object]:
                 "rect": dict(real_lcd_rect),
             },
             "android_app": {
-                "role": "implemented Android calculator LCD windows by chrome mode",
+                "role": "implemented Android calculator LCD window",
                 "coordinate_space": "logical canvas",
                 "mode_rects": {
                     "native": {
                         "role": "native painted shell LCD window",
                         "rect": dict(native_lcd_rect),
-                    },
-                    "image_backed": {
-                        "role": "shared LCD window for image-backed shell modes",
-                        "rect": dict(image_backed_lcd_rect),
                     },
                 },
                 "settings_strip_tap_height": top_bezel_settings_tap_height,
@@ -428,7 +307,6 @@ def build_shell_geometry_payload() -> dict[str, object]:
                 },
             },
         },
-        "drawable_assets": drawable_assets,
         "logical_canvas": {
             "source": "measured reference_frame",
             "width": logical_width,
@@ -443,7 +321,6 @@ def build_shell_geometry_payload() -> dict[str, object]:
             "top_bezel_settings_tap_height": top_bezel_settings_tap_height,
             "lcd_windows": {
                 "native": dict(native_lcd_rect),
-                "image_backed": dict(image_backed_lcd_rect),
             },
             "real_measured_lcd": dict(real_lcd_rect),
             "keypad": {
@@ -517,49 +394,6 @@ def build_shell_geometry_payload() -> dict[str, object]:
                                 label="android_app_contract.chrome.lcd_frame_buffer",
                             )
                         )
-                    )
-                    - 1.0
-                )
-                * 100.0,
-            ),
-            "native_lcd_window_vs_image_backed_left_delta": _rounded(
-                logical_native_lcd_window.left - logical_image_backed_lcd_window.left,
-            ),
-            "native_lcd_window_vs_image_backed_top_delta": _rounded(
-                logical_native_lcd_window.top - logical_image_backed_lcd_window.top,
-            ),
-            "native_lcd_window_vs_image_backed_width_delta": _rounded(
-                logical_native_lcd_window.width - logical_image_backed_lcd_window.width,
-            ),
-            "native_lcd_window_vs_image_backed_height_delta": _rounded(
-                logical_native_lcd_window.height
-                - logical_image_backed_lcd_window.height,
-            ),
-            "image_backed_lcd_window_center_x_delta_vs_shell_center": _rounded(
-                _center_x(logical_image_backed_lcd_window) - logical_shell_center_x,
-            ),
-            "image_backed_lcd_window_center_y_delta_vs_shell_center": _rounded(
-                _center_y(logical_image_backed_lcd_window) - logical_shell_center_y,
-            ),
-            "image_backed_lcd_window_vs_real_lcd_center_x_delta": _rounded(
-                _center_x(logical_image_backed_lcd_window)
-                - _center_x(logical_real_lcd),
-            ),
-            "image_backed_lcd_window_vs_real_lcd_center_y_delta": _rounded(
-                _center_y(logical_image_backed_lcd_window)
-                - _center_y(logical_real_lcd),
-            ),
-            "image_backed_lcd_window_vs_real_lcd_width_delta": _rounded(
-                logical_image_backed_lcd_window.width - logical_real_lcd.width,
-            ),
-            "image_backed_lcd_window_vs_real_lcd_height_delta": _rounded(
-                logical_image_backed_lcd_window.height - logical_real_lcd.height,
-            ),
-            "image_backed_lcd_window_vs_real_lcd_aspect_ratio_delta_pct": _rounded(
-                (
-                    (
-                        _aspect_ratio(logical_image_backed_lcd_window)
-                        / _aspect_ratio(logical_real_lcd)
                     )
                     - 1.0
                 )

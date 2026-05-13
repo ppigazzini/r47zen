@@ -65,16 +65,15 @@ The grouped Python lane currently covers:
 
 - `validate_geometry_dataset.py`: structural and spacing checks for the
   physical dataset plus Android UI contract validation against `R47Geometry.kt`,
-  `R47KeypadPolicy.kt`, and `CalculatorKeyView.kt`; this now includes both
-  `chrome.lcd_windows.native` and `chrome.lcd_windows.image_backed`, the native
-  `400 x 240` aspect-ratio lock, integer width and height for native mode, and
-  the centered native-width-at-least-image-backed rule
+  `R47KeypadPolicy.kt`, and `CalculatorKeyView.kt`; this now includes the
+  native-only `chrome.lcd_windows.native` contract, the native `400 x 240`
+  aspect-ratio lock, integer width and height for native mode, and the rule
+  that `chrome.lcd_windows` exposes only the native LCD window
 - `derive_touch_grid.py`: shared touch-grid payload derivation from measured key
   centers
-- `test_shell_geometry_contract.py`: logical canvas, drawable density buckets,
-  both chrome-mode LCD rectangles, the native LCD aspect-ratio and
-  centered integer-bounds contract, and shell constants against
-  `R47Geometry.kt`
+- `test_shell_geometry_contract.py`: logical canvas, the native LCD rectangle,
+  the native LCD aspect-ratio and centered integer-bounds contract, and shell
+  constants against `R47Geometry.kt`
 - `test_key_label_geometry_contract.py`: key-label and key-surface constants,
   plus primary, top-label, and fourth-label anchor formulas, against
   `CalculatorKeyView.kt`, `R47KeypadPolicy.kt`, and `R47Geometry.kt`
@@ -111,10 +110,9 @@ Important contract files include:
 - `CalculatorSoftkeyPainterContractTest.kt` and
   `CalculatorSoftkeyPainterCanvasTest.kt`: lock softkey content-description,
   overlay, preview, and strike rendering rules
-- `ReplicaOverlayGoldenTest.kt`: keeps chrome-mode rendering stable through
-  golden hashes and asserts that the native LCD keeps the centered integer
-  `1650 x 990` render while extending into the lower band that remains
-  outside the image-backed LCD rectangle
+- `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable
+  through golden hashes and locks the legacy background and texture mode
+  strings to the same native render path
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
   the app-facing JNI keypad snapshot export and the Kotlin-side softkey
   `graphic` and `off` scene masks

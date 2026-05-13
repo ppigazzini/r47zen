@@ -20,13 +20,6 @@
             app:summaryOff="@string/settings_fullscreen_mode_summary_off"
             app:defaultValue="true" />
         <ListPreference
-            app:key="chrome_mode"
-            app:title="@string/settings_shell_chrome_title"
-            app:entries="@array/chrome_entries"
-            app:entryValues="@array/chrome_values"
-            app:defaultValue="native"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
             app:key="scaling_mode"
             app:title="@string/settings_scaling_mode_title"
             app:entries="@array/scaling_entries"

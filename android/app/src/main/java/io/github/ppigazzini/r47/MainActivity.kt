@@ -273,9 +273,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         replicaOverlay.post {
             preferenceController.applyDeferredOverlayPreferences()
-            if (preferenceController.chromeMode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
-                replicaOverlayController.refreshDynamicKeys()
-            }
+            replicaOverlayController.refreshDynamicKeys()
         }
 
         displayActionController.bindOverlay(replicaOverlay)

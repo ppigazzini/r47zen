@@ -174,7 +174,8 @@ program, a save or load operation, or a progress or pause loop.
 - `android/app/src/test/java/io/github/ppigazzini/r47/DynamicKeypadParityFixtureTest.kt`
   covers the unchanged-snapshot skip gate and keypad parity behavior.
 - `android/app/src/test/java/io/github/ppigazzini/r47/ReplicaOverlayGoldenTest.kt`
-  covers renderer stability for the shell chrome modes.
+  covers renderer stability for the native shell chrome and the legacy-mode
+  fallback to native rendering.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path.
 - `./scripts/android/build_android.sh --run-sim-tests` keeps the Android full

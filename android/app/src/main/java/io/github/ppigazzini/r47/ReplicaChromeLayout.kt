@@ -1,8 +1,6 @@
 package io.github.ppigazzini.r47
 
 import android.content.res.Resources
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
@@ -23,12 +21,15 @@ internal data class ReplicaChromeSpec(
     val scaledModeFitTrimTop: Float = 0f,
     val scaledModeFitTrimRight: Float = 0f,
     val scaledModeFitTrimBottom: Float = 0f,
-    val imageResId: Int? = null,
 )
 
 internal class ReplicaChromeLayout(
     private val resources: Resources,
 ) {
+    private companion object {
+        private const val PHYSICAL_SHELL_WIDTH_DP = 360f
+    }
+
     private val nativeChromeSpec = ReplicaChromeSpec(
         mode = ReplicaOverlay.CHROME_MODE_NATIVE,
         shellWidth = R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH,
@@ -43,31 +44,6 @@ internal class ReplicaChromeLayout(
         scaledModeFitTrimRight = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_RIGHT,
         scaledModeFitTrimBottom = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_BOTTOM,
     )
-    private val imageBackedChromeSpec = ReplicaChromeSpec(
-        mode = ReplicaOverlay.CHROME_MODE_BACKGROUND,
-        shellWidth = R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH,
-        shellHeight = R47ReferenceGeometry.LOGICAL_CANVAS_HEIGHT,
-        topBezelSettingsTapHeight = R47AndroidChromeGeometry.TOP_BEZEL_SETTINGS_TAP_HEIGHT,
-        lcdWindowLeft = R47AndroidChromeGeometry.IMAGE_LCD_WINDOW_LEFT,
-        lcdWindowTop = R47AndroidChromeGeometry.IMAGE_LCD_WINDOW_TOP,
-        lcdWindowWidth = R47AndroidChromeGeometry.IMAGE_LCD_WINDOW_WIDTH,
-        lcdWindowHeight = R47AndroidChromeGeometry.IMAGE_LCD_WINDOW_HEIGHT,
-        scaledModeFitTrimLeft = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_LEFT,
-        scaledModeFitTrimTop = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_TOP,
-        scaledModeFitTrimRight = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_RIGHT,
-        scaledModeFitTrimBottom = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_BOTTOM,
-    )
-    private val backgroundChromeSpec = imageBackedChromeSpec.copy(
-        mode = ReplicaOverlay.CHROME_MODE_BACKGROUND,
-        imageResId = R.drawable.r47_background,
-    )
-    private val textureChromeSpec = imageBackedChromeSpec.copy(
-        mode = ReplicaOverlay.CHROME_MODE_TEXTURE,
-        imageResId = R.drawable.r47_texture,
-    )
-
-    private val chromeBitmapCache = mutableMapOf<Int, Bitmap?>()
-    private var resolvedShellBitmapWidthCache: Float? = null
     private var chromeMode = ReplicaOverlay.CHROME_MODE_NATIVE
     private var scalingMode = "full_width"
 
@@ -113,7 +89,7 @@ internal class ReplicaChromeLayout(
         val fitScale = min(availableWidth / fitWidth, availableHeight / fitHeight)
         val scale = if (scalingMode == "physical") {
             val oneToOneProjectionScaleCap =
-                resolvedShellBitmapWidthForCurrentDensity() /
+                resolvedShellPhysicalWidthForCurrentDensity() /
                     R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH
             min(oneToOneProjectionScaleCap, fitScale)
         } else {
@@ -132,51 +108,16 @@ internal class ReplicaChromeLayout(
         bodyPaint: Paint,
         bitmapPaint: Paint,
     ) {
-        val backgroundBitmap = chromeBitmapFor(spec)
-        if (backgroundBitmap != null) {
-            canvas.drawBitmap(backgroundBitmap, null, rect, bitmapPaint)
-            return
-        }
-
         val cornerRadius =
             R47AndroidChromeGeometry.NATIVE_SHELL_DRAW_CORNER_RADIUS * projectionScale
         canvas.drawRoundRect(rect, cornerRadius, cornerRadius, bodyPaint)
     }
 
     private fun resolveChromeSpec(mode: String): ReplicaChromeSpec {
-        return when {
-            mode == ReplicaOverlay.CHROME_MODE_TEXTURE -> textureChromeSpec
-            mode == "image" -> backgroundChromeSpec
-            mode.startsWith(ReplicaOverlay.CHROME_MODE_BACKGROUND) -> backgroundChromeSpec
-            else -> nativeChromeSpec
-        }
+        return nativeChromeSpec
     }
 
-    private fun chromeBitmapFor(spec: ReplicaChromeSpec): Bitmap? {
-        val resId = spec.imageResId ?: return null
-        return chromeBitmapCache.getOrPut(resId) {
-            BitmapFactory.decodeResource(resources, resId)
-        }
-    }
-
-    private fun decodeResourceWidth(resId: Int): Float? {
-        val options = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
-        }
-        BitmapFactory.decodeResource(resources, resId, options)
-        return options.outWidth.takeIf { it > 0 }?.toFloat()
-    }
-
-    private fun resolvedShellBitmapWidthForCurrentDensity(): Float {
-        resolvedShellBitmapWidthCache?.let { return it }
-
-        val widths = listOfNotNull(
-            decodeResourceWidth(R.drawable.r47_background),
-            decodeResourceWidth(R.drawable.r47_texture),
-        ).distinct()
-
-        val resolvedWidth = widths.firstOrNull() ?: R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH
-        resolvedShellBitmapWidthCache = resolvedWidth
-        return resolvedWidth
+    private fun resolvedShellPhysicalWidthForCurrentDensity(): Float {
+        return PHYSICAL_SHELL_WIDTH_DP * resources.displayMetrics.density
     }
 }

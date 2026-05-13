@@ -75,38 +75,6 @@ class ShellGeometryContractTest(unittest.TestCase):
             _KOTLIN_GEOMETRY_PATH,
         )
 
-    def test_drawable_sizes_match_density_buckets(self) -> None:
-        """Match the checked-in shell assets to the expected Android density sizes."""
-        expected = {
-            "mdpi": (360, 673),
-            "hdpi": (540, 1010),
-            "xhdpi": (720, 1346),
-            "xxhdpi": (1080, 2019),
-            "xxxhdpi": (1440, 2692),
-        }
-        drawable_assets = _mapping_member(
-            self.payload,
-            "drawable_assets",
-            label="payload",
-        )
-        for drawable_name in ("r47_texture", "r47_background"):
-            density_map = _mapping_member(
-                drawable_assets,
-                drawable_name,
-                label="drawable_assets",
-            )
-            for density, (width, height) in expected.items():
-                asset = _mapping_member(
-                    density_map,
-                    density,
-                    label=f"drawable_assets.{drawable_name}",
-                )
-                _assert_equal(_number_member(asset, "width", label="asset"), width)
-                _assert_equal(
-                    _number_member(asset, "height", label="asset"),
-                    height,
-                )
-
     def test_logical_canvas_matches_reference_frame(self) -> None:
         """Keep the live logical canvas identical to the measured reference frame."""
         logical_canvas = _mapping_member(
@@ -180,6 +148,8 @@ class ShellGeometryContractTest(unittest.TestCase):
             _mapping_member(real_calculator, "rect", label="real_calculator"),
             real_measured_lcd,
         )
+        _assert_equal(sorted(mode_rects), ["native"])
+        _assert_equal(sorted(lcd_windows), ["native"])
         _assert_equal(
             _mapping_member(
                 _mapping_member(mode_rects, "native", label="mode_rects"),
@@ -187,18 +157,6 @@ class ShellGeometryContractTest(unittest.TestCase):
                 label="android_app.mode_rects.native",
             ),
             _mapping_member(lcd_windows, "native", label="logical_canvas.lcd_windows"),
-        )
-        _assert_equal(
-            _mapping_member(
-                _mapping_member(mode_rects, "image_backed", label="mode_rects"),
-                "rect",
-                label="android_app.mode_rects.image_backed",
-            ),
-            _mapping_member(
-                lcd_windows,
-                "image_backed",
-                label="logical_canvas.lcd_windows",
-            ),
         )
         _assert_float_equal(
             _number_member(
@@ -229,11 +187,6 @@ class ShellGeometryContractTest(unittest.TestCase):
         native_lcd_window = _mapping_member(
             lcd_windows,
             "native",
-            label="logical_canvas.lcd_windows",
-        )
-        image_backed_lcd_window = _mapping_member(
-            lcd_windows,
-            "image_backed",
             label="logical_canvas.lcd_windows",
         )
         _assert_float_equal(
@@ -300,38 +253,16 @@ class ShellGeometryContractTest(unittest.TestCase):
             self.kotlin["NATIVE_LCD_WINDOW_HEIGHT"],
             _number_member(native_lcd_window, "height", label="native_lcd_window"),
         )
-        _assert_float_equal(
-            self.kotlin["IMAGE_LCD_WINDOW_LEFT"],
-            _number_member(
-                image_backed_lcd_window,
-                "left",
-                label="image_backed_lcd_window",
-            ),
-        )
-        _assert_float_equal(
-            self.kotlin["IMAGE_LCD_WINDOW_TOP"],
-            _number_member(
-                image_backed_lcd_window,
-                "top",
-                label="image_backed_lcd_window",
-            ),
-        )
-        _assert_float_equal(
-            self.kotlin["IMAGE_LCD_WINDOW_WIDTH"],
-            _number_member(
-                image_backed_lcd_window,
-                "width",
-                label="image_backed_lcd_window",
-            ),
-        )
-        _assert_float_equal(
-            self.kotlin["IMAGE_LCD_WINDOW_HEIGHT"],
-            _number_member(
-                image_backed_lcd_window,
-                "height",
-                label="image_backed_lcd_window",
-            ),
-        )
+        for removed_name in (
+            "IMAGE_LCD_WINDOW_LEFT",
+            "IMAGE_LCD_WINDOW_TOP",
+            "IMAGE_LCD_WINDOW_WIDTH",
+            "IMAGE_LCD_WINDOW_HEIGHT",
+        ):
+            _assert_true(
+                condition=removed_name not in self.kotlin,
+                message=f"Did not expect {removed_name} in R47Geometry.kt",
+            )
 
     def test_keypad_constants_match_python_contract(self) -> None:
         """Verify that the keypad placement constants still match the shell payload."""
@@ -380,36 +311,6 @@ class ShellGeometryContractTest(unittest.TestCase):
             "native",
             label="logical_canvas.lcd_windows",
         )
-        image_backed_lcd_window = _mapping_member(
-            lcd_windows,
-            "image_backed",
-            label="logical_canvas.lcd_windows",
-        )
-
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "native_lcd_window_vs_image_backed_left_delta",
-                label="checks",
-            ),
-            -1.0,
-        )
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "native_lcd_window_vs_image_backed_top_delta",
-                label="checks",
-            ),
-            0.0,
-        )
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "native_lcd_window_vs_image_backed_width_delta",
-                label="checks",
-            ),
-            2.0,
-        )
         _assert_float_equal(
             _number_member(
                 checks,
@@ -431,34 +332,10 @@ class ShellGeometryContractTest(unittest.TestCase):
             "height",
             label="native_lcd_window",
         )
-        image_backed_height = _number_member(
-            image_backed_lcd_window,
-            "height",
-            label="image_backed_lcd_window",
-        )
         native_width = _number_member(
             native_lcd_window,
             "width",
             label="native_lcd_window",
-        )
-        image_backed_width = _number_member(
-            image_backed_lcd_window,
-            "width",
-            label="image_backed_lcd_window",
-        )
-        _assert_true(
-            condition=native_height > image_backed_height,
-            message=(
-                "Expected the native LCD window to be taller than the "
-                "image-backed window"
-            ),
-        )
-        _assert_true(
-            condition=native_width > image_backed_width,
-            message=(
-                "Expected the native LCD window to be at least as wide as the "
-                "image-backed window"
-            ),
         )
         _assert_float_equal(native_width, 1650.0)
         _assert_float_equal(native_height, 990.0)
@@ -468,19 +345,7 @@ class ShellGeometryContractTest(unittest.TestCase):
         )
         _assert_float_equal(
             _number_member(native_lcd_window, "top", label="native_lcd_window"),
-            _number_member(
-                image_backed_lcd_window,
-                "top",
-                label="image_backed_lcd_window",
-            ),
-        )
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "native_lcd_window_vs_image_backed_height_delta",
-                label="checks",
-            ),
-            87.0,
+            229.0,
         )
         _assert_float_equal(
             _number_member(native_lcd_window, "width", label="native_lcd_window"),
@@ -489,66 +354,6 @@ class ShellGeometryContractTest(unittest.TestCase):
         _assert_float_equal(
             _number_member(native_lcd_window, "height", label="native_lcd_window"),
             round(native_height),
-        )
-
-    def test_image_backed_lcd_bias_matches_contract(self) -> None:
-        """Keep the image-backed LCD bias aligned with the measured replay contract."""
-        checks = _mapping_member(self.payload, "checks", label="payload")
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "image_backed_lcd_window_center_x_delta_vs_shell_center",
-                label="checks",
-            ),
-            0.0,
-        )
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "image_backed_lcd_window_center_y_delta_vs_shell_center",
-                label="checks",
-            ),
-            -1021.0,
-        )
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "image_backed_lcd_window_vs_real_lcd_center_x_delta",
-                label="checks",
-            ),
-            0.0,
-        )
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "image_backed_lcd_window_vs_real_lcd_center_y_delta",
-                label="checks",
-            ),
-            12.0,
-        )
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "image_backed_lcd_window_vs_real_lcd_width_delta",
-                label="checks",
-            ),
-            230.0,
-        )
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "image_backed_lcd_window_vs_real_lcd_height_delta",
-                label="checks",
-            ),
-            54.0,
-        )
-        _assert_float_equal(
-            _number_member(
-                checks,
-                "image_backed_lcd_window_vs_real_lcd_aspect_ratio_delta_pct",
-                label="checks",
-            ),
-            9.269993,
         )
 
 

@@ -6,7 +6,6 @@ import android.view.MotionEvent
 import android.view.View
 
 internal object ReplicaKeypadLayout {
-    private const val CHROME_MODE_TEXTURE = "r47_texture"
     private const val SOFTKEY_WIDTH = R47ReferenceGeometry.STANDARD_KEY_WIDTH
     private const val SOFTKEY_HEIGHT = R47ReferenceGeometry.ROW_HEIGHT
     private const val NON_SOFTKEY_VIEW_HEIGHT = R47AndroidChromeGeometry.NON_SOFTKEY_VIEW_HEIGHT
@@ -38,24 +37,18 @@ internal object ReplicaKeypadLayout {
     fun rebuild(
         context: Context,
         overlay: ReplicaOverlay,
-        chromeMode: String,
         performHapticClick: () -> Unit,
         dispatchKey: (Int) -> Unit,
         initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
         overlay.removeAllViews()
-        if (chromeMode == CHROME_MODE_TEXTURE) {
-            addClassicKeypad(context, overlay, performHapticClick, dispatchKey)
-        } else {
-            addDynamicKeypad(
-                context,
-                overlay,
-                chromeMode,
-                performHapticClick,
-                dispatchKey,
-                initialSnapshotProvider,
-            )
-        }
+        addDynamicKeypad(
+            context,
+            overlay,
+            performHapticClick,
+            dispatchKey,
+            initialSnapshotProvider,
+        )
     }
 
     fun updateDynamicKeys(
@@ -75,27 +68,9 @@ internal object ReplicaKeypadLayout {
         overlay.requestLayout()
     }
 
-    private fun addClassicKeypad(
-        context: Context,
-        overlay: ReplicaOverlay,
-        performHapticClick: () -> Unit,
-        dispatchKey: (Int) -> Unit,
-    ) {
-        for (touchZone in baseTouchZones) {
-            addTouchZone(
-                context = context,
-                overlay = overlay,
-                code = touchZone.code,
-                performHapticClick = performHapticClick,
-                dispatchKey = dispatchKey,
-            )
-        }
-    }
-
     private fun addDynamicKeypad(
         context: Context,
         overlay: ReplicaOverlay,
-        chromeMode: String,
         performHapticClick: () -> Unit,
         dispatchKey: (Int) -> Unit,
         initialSnapshotProvider: () -> KeypadSnapshot,
@@ -148,7 +123,6 @@ internal object ReplicaKeypadLayout {
                 fonts = fonts,
                 initialSnapshot = initialSnapshot,
                 slot = slot,
-                chromeMode = chromeMode,
                 x = x,
                 y = y,
                 width = width,
@@ -204,7 +178,6 @@ internal object ReplicaKeypadLayout {
         fonts: KeypadFontSet,
         initialSnapshot: KeypadSnapshot?,
         slot: KeypadSlotSpec,
-        chromeMode: String,
         x: Float,
         y: Float,
         width: Float,
@@ -214,7 +187,7 @@ internal object ReplicaKeypadLayout {
     ) {
         val keyView = CalculatorKeyView(context)
         keyView.setKey(slot, fonts)
-        keyView.setDrawKeySurfaces(chromeMode != ReplicaOverlay.CHROME_MODE_BACKGROUND)
+        keyView.setDrawKeySurfaces(true)
         keyView.isClickable = true
         keyView.isFocusable = true
         keyView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
