@@ -21,6 +21,9 @@ Usage:
     [--upstream-source-commit <commit>] \
     [--xlsxio-source-repository-url <url>] \
     [--xlsxio-source-commit <commit>] \
+    [--application-id <id>] \
+    [--version-code <code>] \
+    [--version-name <name>] \
     [--signing-mode <debug|release|unsigned>] \
     [--ref <git-ref>] \
     [--sha <git-sha>] \
@@ -47,6 +50,9 @@ upstream_source_repository_url=""
 upstream_source_commit=""
 xlsxio_source_repository_url=""
 xlsxio_source_commit=""
+application_id=""
+version_code=""
+version_name=""
 signing_mode="unknown"
 git_ref=""
 git_sha=""
@@ -119,6 +125,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         --xlsxio-source-commit)
             xlsxio_source_commit="$2"
+            shift 2
+            ;;
+        --application-id)
+            application_id="$2"
+            shift 2
+            ;;
+        --version-code)
+            version_code="$2"
+            shift 2
+            ;;
+        --version-name)
+            version_name="$2"
             shift 2
             ;;
         --signing-mode)
@@ -481,6 +499,9 @@ write_metadata_line "xlsxio_license_file" "compliance-assets/LICENSE.txt" "$buil
 if [[ -f "$output_dir/compliance-assets/THIRD-PARTY.spdx.json" ]]; then
     write_metadata_line "spdx_inventory_file" "compliance-assets/THIRD-PARTY.spdx.json" "$build_metadata_file"
 fi
+write_metadata_line "application_id" "$application_id" "$build_metadata_file"
+write_metadata_line "version_code" "$version_code" "$build_metadata_file"
+write_metadata_line "version_name" "$version_name" "$build_metadata_file"
 write_metadata_line "compile_sdk" "$compile_sdk" "$build_metadata_file"
 write_metadata_line "cmake_version" "$cmake_version" "$build_metadata_file"
 write_metadata_line "ndk_version" "$ndk_version" "$build_metadata_file"

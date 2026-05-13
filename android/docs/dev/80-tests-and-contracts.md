@@ -36,7 +36,7 @@ flowchart TD
 
 | Contract surface | Source of truth | Focused verification surfaces | First rerun lane |
 | --- | --- | --- | --- |
-| shell geometry and LCD frame | `scripts/r47_contracts/derive_shell_geometry.py`, `R47Geometry.kt` | `scripts/r47_contracts/test_shell_geometry_contract.py`, `ReplicaOverlayGoldenTest.kt` | grouped `scripts/r47_contracts` validation lane, then `:app:testDebugUnitTest --tests com.example.r47.ReplicaOverlayGoldenTest` |
+| shell geometry and LCD frame | `scripts/r47_contracts/derive_shell_geometry.py`, `R47Geometry.kt` | `scripts/r47_contracts/test_shell_geometry_contract.py`, `ReplicaOverlayGoldenTest.kt` | grouped `scripts/r47_contracts` validation lane, then `:app:testDebugUnitTest --tests io.github.ppigazzini.r47.ReplicaOverlayGoldenTest` |
 | key-label and visual policy constants | `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `CalculatorKeyView.kt` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py` | grouped `scripts/r47_contracts` validation lane |
 | top-label lane solve and alpha-case label export | `scripts/r47_contracts/derive_top_label_lane_layout.py`, staged `assign.c` and `items.c`, `jni_display.c`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt` | `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `scripts/r47_contracts/test_alpha_case_export_contract.py`, `DynamicKeypadParityFixtureTest.kt` | grouped contract scripts first, then `:app:testDebugUnitTest` |
 | overlay geometry replay for unchanged keypad scenes | `MainActivity.kt`, `ReplicaOverlayController.kt`, `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt` | `DynamicKeypadParityFixtureTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
@@ -92,7 +92,7 @@ than in Android runtime glue.
 
 ## Android JVM Contract Suite
 
-The focused JVM suite under `android/app/src/test/java/com/example/r47/` is the
+The focused JVM suite under `android/app/src/test/java/io/github/ppigazzini/r47/` is the
 main parity surface for Kotlin-side decoder, renderer, lifecycle, and input
 contracts.
 
@@ -133,7 +133,7 @@ lane when one of those Kotlin- or Robolectric-owned contracts changes.
 ## Android Instrumentation Contract Suite
 
 The instrumentation suite under
-`android/app/src/androidTest/java/com/example/r47/` is the device or emulator
+`android/app/src/androidTest/java/io/github/ppigazzini/r47/` is the device or emulator
 surface for Android-only runtime seams.
 
 Important files include:
@@ -177,6 +177,9 @@ Android compatibility layer.
 - the CI workflow keeps three main verification jobs distinct:
   `upstream-simulator-sanity`, `android-build-test-package`, and
   `android-tests`
+- `.github/workflows/android-release.yml` reuses the full staged-native build
+  path, then runs lint, JVM tests, instrumentation assembly, and
+  `:app:bundleRelease` before it publishes signed release evidence
 
 When a change touches staged-core compatibility, `yieldToAndroidWithMs(...)`,
 or wait and progress behavior, start with the host workload harness before you
@@ -194,6 +197,10 @@ assume the problem is Android UI code.
   `scripts/workload-regressions/run_workload_regressions.sh`
 - staged-native, simulator, or CI-critical verification change: run
   `./scripts/android/build_android.sh --run-sim-tests`
+- release identity, signing, or packaging change: run lint,
+  `:app:testDebugUnitTest`, `:app:assembleDebugAndroidTest`, and
+  `:app:bundleRelease`, then collect packaging evidence when the release
+  artifact contract moves
 
 ## Contract Change Rules
 

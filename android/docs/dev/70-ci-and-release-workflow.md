@@ -1,8 +1,8 @@
 # CI And Release Workflow
 
-This page explains the GitHub Actions lane split for the Android overlay, what
-each job verifies, which artifacts it publishes, and how to reproduce the same
-checks locally.
+This page explains the GitHub Actions lane split for the Android overlay, the
+separate protected production-release workflow, what each job verifies, which
+artifacts it publishes, and how to reproduce the same checks locally.
 
 Read `00-project-and-upstream.md` first and
 `10-build-and-source-layout.md` second. This page assumes the project and build
@@ -41,6 +41,7 @@ flowchart TD
 - run Android lint explicitly instead of assuming Gradle builds cover it
 - publish logs and packaging evidence as first-class artifacts
 - publish the main snapshot only after all required lanes pass
+- keep production signing in a separate protected manual workflow
 
 ## Workflow triggers and gating
 
@@ -65,6 +66,12 @@ upstream commit and applies a release gate:
   for scheduled executions, skips the release path when the resolved upstream
   commit plus the current Android repository commit already has a matching
   Android prerelease tag in this repository
+
+Production signing does not run in `.github/workflows/android-ci.yml`.
+The separate manual workflow `.github/workflows/android-release.yml` owns the
+signed store-bundle lane. It should be restricted to `main` through the
+`production-release` environment and protected there with required reviewers,
+deployment-branch rules, and environment secrets.
 
 ## Job graph
 
@@ -144,6 +151,46 @@ and publishes the main-branch snapshot prerelease tagged
 `r47-android-<upstream short>-<android short>` with the same template used for
 the release title.
 
+## Production release workflow
+
+The protected production workflow is `.github/workflows/android-release.yml`.
+
+```mermaid
+flowchart TD
+  A[workflow_dispatch on main]
+  B[production-release environment approval]
+  C[resolve-upstream-core]
+  D[build-production-release-bundle]
+  E[signed AAB plus evidence artifact]
+
+  A --> B --> C --> D --> E
+```
+
+### `build-production-release-bundle`
+
+This workflow:
+
+- resolves and syncs the authoritative upstream tree
+- reruns `./scripts/android/build_android.sh --run-sim-tests` so release builds
+  start from the same staged-native contract as the debug CI lane
+- runs Android lint, `:app:testDebugUnitTest`, and
+  `:app:assembleDebugAndroidTest` before signing the release bundle
+- requires manual `version_code` and `version_name` inputs
+- decodes `R47_RELEASE_STORE_FILE_BASE64` onto the runner and passes the path
+  through `R47_RELEASE_STORE_FILE`
+- reads `R47_RELEASE_STORE_PASSWORD`, `R47_RELEASE_KEY_ALIAS`, and
+  `R47_RELEASE_KEY_PASSWORD` only from the protected environment
+- builds `:app:bundleRelease` and uploads the signed AAB artifact bundle
+  `r47-android-<upstream short>-<android short>-release`
+- ships `r47-android-<upstream short>-<android short>-release.aab`,
+  `BUILD-METADATA.txt`, `SHA256SUMS.txt`, `mapping.txt`,
+  `native-debug-symbols.zip`, and the compliance-assets payload together
+- stops at artifact publication; Play Console upload remains a manual
+  maintainer action after review
+
+Configure the `production-release` environment with the branch restrictions,
+required reviewers, and the four release-signing secrets the workflow expects.
+
 ## Shared CI inputs
 
 The workflow keeps its shared toolchain pins in `android/r47-defaults.properties`.
@@ -189,6 +236,10 @@ Use the smallest local lane that matches the failure surface:
   `cd android && ./gradlew :app:testDebugUnitTest`
 - instrumentation packaging with current staged inputs:
   `cd android && ./gradlew :app:assembleDebugAndroidTest`
+- signed production bundle with current staged inputs:
+  `cd android && ./gradlew :app:bundleRelease` with the `R47_RELEASE_*`
+  environment variables plus explicit `r47.versionCode` and `r47.versionName`
+  inputs
 
 If the task touches staging, generated inputs, or upstream hydration, prefer
 the full build script over isolated Gradle invocations.
@@ -203,6 +254,8 @@ the full build script over isolated Gradle invocations.
   triage when the workflow stops before publishing its logs.
 - Keep emulator-only ABI overrides temporary and scoped to the Android test
   lane.
+- Keep store-release signing in the dedicated protected workflow. Do not fold
+  production secrets into `.github/workflows/android-ci.yml`.
 - Keep the Android artifact identity separate from the upstream-only simulator
   package identity.
 - Update this page when job names, release gating, artifact names, or local

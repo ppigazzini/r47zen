@@ -32,7 +32,7 @@ repo root, clean tracked overlay
 |- COPYING
 |- README.md
 |- android/
-|  |- app/src/main/java/com/example/r47/
+|  |- app/src/main/java/io/github/ppigazzini/r47/
 |  |  |- R47Geometry.kt
 |  |  `- R47KeypadPolicy.kt
 |  |- app/src/main/cpp/c47-android/
@@ -154,7 +154,7 @@ compiled-input boundary, not the owner of shared calculator logic.
 
 | Surface | Owner | Purpose |
 | --- | --- | --- |
-| `android/app/src/main/java/com/example/r47` | this repo | Android lifecycle, UI, storage, and shell behavior |
+| `android/app/src/main/java/io/github/ppigazzini/r47` | this repo | Android lifecycle, UI, storage, and shell behavior |
 | `android/app/src/main/cpp/c47-android` | this repo | JNI, Android HAL seams, and Android runtime compatibility |
 | `scripts/android/` | this repo | Android staging, build, and packaging automation |
 | `scripts/upstream-sync/` | this repo | upstream resolution and overlay restore boundary |

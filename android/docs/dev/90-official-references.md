@@ -90,12 +90,21 @@ flowchart TD
 
 - [Build your app for release to users](https://developer.android.com/build/build-for-release):
   APK, AAB, and signing guidance for the release lane defined by this repo.
+- [Use Play App Signing](https://support.google.com/googleplay/android-developer/answer/9842756):
+  official Google Play guidance for upload keys, app-signing-key custody,
+  bundle-first release flow, and upload-key reset behavior.
 - [Enable app optimization with R8](https://developer.android.com/build/shrink-code):
   current Android guidance to enable minify and resource shrinking for release
   builds.
 - [Building and testing Java with Gradle](https://docs.github.com/en/actions/tutorials/build-and-test-code/java-with-gradle):
   GitHub Actions guidance for Gradle cache setup, Java toolchain setup, and
   Gradle-oriented workflow structure.
+- [Using secrets in GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions):
+  GitHub guidance for repository and environment secrets, shell-safe secret
+  handling, and the Base64 binary-blob pattern used for small upload keystores.
+- [Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments):
+  environment protection rules, required reviewers, deployment branch
+  restrictions, and environment-secret gating for the protected release lane.
 - [Passing information between jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs):
   GitHub Actions guidance for promoting step outputs through
   `jobs.<job_id>.outputs` and consuming them in dependent jobs through

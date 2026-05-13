@@ -51,7 +51,7 @@ repo root
 |  |  `- derive_top_label_lane_layout.py
 |  `- upstream-sync/upstream.sh
 `- android/
-  |- app/src/main/java/com/example/r47/
+  |- app/src/main/java/io/github/ppigazzini/r47/
   |  |- R47Geometry.kt
   |  |- R47KeypadPolicy.kt
   |  |- CalculatorKeyView.kt
@@ -103,7 +103,10 @@ hydrated on demand, or only exercised in CI before updating the docs.
 - version catalog `android/gradle/libs.versions.toml`, which owns the checked-in
   AGP `9.2.0` plugin coordinate plus AndroidX and Material library versions.
 - Jetifier explicitly disabled in `android/gradle.properties`
-- base `namespace` and `applicationId` `com.example.r47`
+- base `namespace` and `applicationId` `io.github.ppigazzini.r47`
+- Android app, debug, JVM-test, and instrumentation-test sources live under
+  `app/src/**/java/io/github/ppigazzini/r47` so manifest, layout, and JNI class
+  wiring stay aligned with that checked-in identity
 - debug builds add `applicationIdSuffix ".debug"`
 - release version inputs come from `r47.versionCode`, `r47.versionName`, and
   `r47.coreVersion`
@@ -510,6 +513,11 @@ ownership model as the local build:
 The CI lane verifies packaged ABIs and 16 KB alignment. It is not a store-release
 lane.
 
+Store-release signing lives in the separate manual workflow
+`.github/workflows/android-release.yml`. That workflow is bound to the
+`production-release` environment, expects protected signing secrets there, and
+keeps the default debug CI lane secret-free.
+
 ## Release and packaging policy
 
 - The Android app keeps the default checked-in lane debug-first. Release work is
@@ -518,6 +526,11 @@ lane.
   `r47.releaseStoreFile`, `r47.releaseStorePassword`, `r47.releaseKeyAlias`,
   and `r47.releaseKeyPassword`. Supplying only some of those values is a hard
   configuration error.
+- `.github/workflows/android-release.yml` is the maintained CI path for a
+  signed production bundle. It takes manual `version_code` and `version_name`
+  inputs, decodes `R47_RELEASE_STORE_FILE_BASE64` into `RUNNER_TEMP`, and feeds
+  the existing `R47_RELEASE_*` environment hooks to Gradle only inside the
+  protected `production-release` environment.
 - Release builds default `minifyEnabled` and `shrinkResources` to `true` and
   request `ndk.debugSymbolLevel "FULL"`.
 - `bundleRelease` is the canonical AAB command. `assembleRelease` remains
@@ -530,6 +543,10 @@ lane.
 - For debug packaging, the published Android artifact identity is
   `r47-android-<upstream short>-<android short>`, and the packaged APK copy is
   `r47-android-<upstream short>-<android short>-debug.apk`.
+- For the protected release workflow, the uploaded artifact bundle uses the stem
+  `r47-android-<upstream short>-<android short>-release`, and the signed AAB
+  inside that bundle is named
+  `r47-android-<upstream short>-<android short>-release.aab`.
 
 ## Verification by change type
 

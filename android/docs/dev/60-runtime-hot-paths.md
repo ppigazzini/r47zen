@@ -168,12 +168,12 @@ program, a save or load operation, or a progress or pause loop.
 
 ## Regression And Evidence Surfaces
 
-- `android/app/src/test/java/com/example/r47/NativeCoreRuntimeTest.kt` covers
+- `android/app/src/test/java/io/github/ppigazzini/r47/NativeCoreRuntimeTest.kt` covers
   one-time initialization, task execution, and state-save behavior on the core
   thread.
-- `android/app/src/test/java/com/example/r47/DynamicKeypadParityFixtureTest.kt`
+- `android/app/src/test/java/io/github/ppigazzini/r47/DynamicKeypadParityFixtureTest.kt`
   covers the unchanged-snapshot skip gate and keypad parity behavior.
-- `android/app/src/test/java/com/example/r47/ReplicaOverlayGoldenTest.kt`
+- `android/app/src/test/java/io/github/ppigazzini/r47/ReplicaOverlayGoldenTest.kt`
   covers renderer stability for the shell chrome modes.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path.

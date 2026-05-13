@@ -1,0 +1,466 @@
+name: Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: Monotonic Android versionCode for the Play upload
+        required: true
+        type: string
+      version_name:
+        description: Android versionName for the signed release bundle
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve-upstream-core:
+    name: Resolve authoritative upstream core revision
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      upstream_url: ${{ steps.resolve.outputs.upstream_url }}
+      upstream_commit: ${{ steps.resolve.outputs.upstream_commit }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve latest upstream core
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --latest)"
+
+          echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
+
+  build-production-release-bundle:
+    name: Build signed production release bundle
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - resolve-upstream-core
+    environment: production-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      artifact_name: ${{ steps.meta.outputs.artifact_name }}
+      release_bundle_name: ${{ steps.meta.outputs.release_bundle_name }}
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Validate release inputs
+        shell: bash
+        env:
+          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+
+          version_code="$R47_VERSION_CODE_INPUT"
+          version_name="$R47_VERSION_NAME_INPUT"
+
+          case "$version_code" in
+            ''|*[!0-9]*)
+              echo "version_code must be a positive integer." >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ "$version_code" -lt 1 ]]; then
+            echo "version_code must be greater than zero." >&2
+            exit 1
+          fi
+
+          if [[ -z "$version_name" ]]; then
+            echo "version_name must be non-empty." >&2
+            exit 1
+          fi
+
+      - name: Load shared Android defaults
+        id: defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          . ./android/r47-defaults.properties
+
+          echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Detect runner build concurrency
+        id: jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          jobs=$(nproc)
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            cmake \
+            libexpat1-dev \
+            libgmp-dev \
+            libgtk-3-dev \
+            libminizip-dev \
+            libpulse-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            unzip \
+            zip
+
+      - name: Set up Java 17
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+        with:
+          cache-provider: basic
+
+      - name: Select writable Android SDK root
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdk_root="$HOME/.android/sdk"
+          mkdir -p "$sdk_root"
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+
+      - name: Resolve Android SDK cache paths
+        id: android-sdk
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+          if [[ -z "$sdk_root" ]]; then
+            echo "Failed to resolve Android SDK root." >&2
+            exit 1
+          fi
+
+          echo "sdk_root=$sdk_root" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Android SDK packages cache
+        id: android-sdk-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: |
+            ${{ steps.android-sdk.outputs.sdk_root }}/licenses
+            ${{ steps.android-sdk.outputs.sdk_root }}/platform-tools
+            ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ steps.defaults.outputs.compile_sdk }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.defaults.outputs.build_tools_version }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.defaults.outputs.cmake_version }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}
+          key: ${{ runner.os }}-android-sdk-${{ steps.defaults.outputs.compile_sdk }}-${{ steps.defaults.outputs.build_tools_version }}-${{ steps.defaults.outputs.cmake_version }}-${{ steps.defaults.outputs.ndk_version }}-v1
+
+      - name: Install Android SDK packages
+        if: steps.android-sdk-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdkmanager \
+            "platforms;android-${{ steps.defaults.outputs.compile_sdk }}" \
+            "build-tools;${{ steps.defaults.outputs.build_tools_version }}" \
+            "cmake;${{ steps.defaults.outputs.cmake_version }}" \
+            "ndk;${{ steps.defaults.outputs.ndk_version }}"
+
+      - name: Make scripts executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x scripts/android/build_android.sh
+
+      - name: Restore xlsxio toolchain cache
+        id: xlsxio-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ steps.defaults.outputs.xlsxio_prefix }}
+          key: ${{ runner.os }}-xlsxio-${{ steps.defaults.outputs.xlsxio_commit }}-static-tools-v1
+
+      - name: Build upstream xlsxio toolchain
+        if: steps.xlsxio-cache.outputs.cache-hit != 'true'
+        shell: bash
+        env:
+          XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+          XLSXIO_PREFIX: ${{ steps.defaults.outputs.xlsxio_prefix }}
+        run: |
+          set -euo pipefail
+
+          xlsxio_dir="${RUNNER_TEMP}/xlsxio"
+          rm -rf "$xlsxio_dir"
+          git init "$xlsxio_dir"
+          git -C "$xlsxio_dir" remote add origin "$XLSXIO_URL"
+          git -C "$xlsxio_dir" fetch --depth 1 origin "$XLSXIO_COMMIT"
+          git -C "$xlsxio_dir" checkout --detach FETCH_HEAD
+
+          mkdir -p "$XLSXIO_PREFIX"
+
+          cmake -S "$xlsxio_dir" -B "$xlsxio_dir/build" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_STATIC=ON \
+            -DBUILD_SHARED=OFF \
+            -DBUILD_DOCUMENTATION=FALSE \
+            -DBUILD_EXAMPLES=FALSE \
+            -DBUILD_TOOLS=ON \
+            -DWITH_LIBZIP=OFF
+
+          cmake --build "$xlsxio_dir/build" --parallel "${{ steps.jobs.outputs.jobs }}"
+          cmake --install "$xlsxio_dir/build" --prefix "$XLSXIO_PREFIX"
+
+      - name: Expose xlsxio toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "${{ steps.defaults.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
+          export PATH="${{ steps.defaults.outputs.xlsxio_prefix }}/bin:$PATH"
+          xlsxio_xlsx2csv -h > /dev/null
+
+      - name: Sync authoritative upstream core
+        id: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
+            --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
+            --upstream-commit "${{ steps.upstream.outputs.upstream_commit }}" \
+            --android-commit "${{ github.sha }}")"
+
+          echo "artifact_name=$R47_ANDROID_RELEASE_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
+          echo "release_bundle_name=$R47_ANDROID_RELEASE_AAB_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare staged native inputs and simulator parity
+        shell: bash
+        env:
+          R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
+          R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
+          CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
+          R47_GRADLE_ARGS: '--no-daemon --stacktrace --console=plain'
+          R47_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+          R47_SOURCE_COMMIT: ${{ github.sha }}
+          R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
+          R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
+          R47_XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          R47_XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+          GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts/logs
+          ./scripts/android/build_android.sh --run-sim-tests 2>&1 | tee ci-artifacts/logs/build-android-release.log
+
+      - name: Run Android release verification
+        shell: bash
+        env:
+          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+          GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts/logs
+
+          cd android
+          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+            lint \
+            :app:testDebugUnitTest \
+            :app:assembleDebugAndroidTest \
+            --no-daemon --stacktrace --console=plain --warning-mode all \
+            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+            -Pr47.versionCode="$R47_VERSION_CODE_INPUT" \
+            -Pr47.versionName="$R47_VERSION_NAME_INPUT" \
+            -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
+            -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -Pr47.sourceCommit=${{ github.sha }} \
+            -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
+            -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
+            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
+            -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
+            2>&1 | tee ../ci-artifacts/logs/android-release-verification.log
+
+      - name: Materialize release keystore
+        shell: bash
+        env:
+          R47_RELEASE_STORE_FILE_BASE64: ${{ secrets.R47_RELEASE_STORE_FILE_BASE64 }}
+          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
+          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
+          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          for secret_name in \
+            R47_RELEASE_STORE_FILE_BASE64 \
+            R47_RELEASE_STORE_PASSWORD \
+            R47_RELEASE_KEY_ALIAS \
+            R47_RELEASE_KEY_PASSWORD
+          do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "Missing required production-release environment secret: ${secret_name}" >&2
+              exit 1
+            fi
+          done
+
+          keystore_path="${RUNNER_TEMP}/r47-release-upload-key.jks"
+          printf '%s' "$R47_RELEASE_STORE_FILE_BASE64" | base64 --decode > "$keystore_path"
+          chmod 600 "$keystore_path"
+          echo "R47_RELEASE_STORE_FILE=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Build signed release bundle
+        shell: bash
+        env:
+          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
+          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
+          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+          GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts/logs
+
+          cd android
+          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+            :app:bundleRelease \
+            --no-daemon --stacktrace --console=plain --warning-mode all \
+            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+            -Pr47.versionCode="$R47_VERSION_CODE_INPUT" \
+            -Pr47.versionName="$R47_VERSION_NAME_INPUT" \
+            -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
+            -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -Pr47.sourceCommit=${{ github.sha }} \
+            -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
+            -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
+            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
+            -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
+            2>&1 | tee ../ci-artifacts/logs/android-release-bundle.log
+
+      - name: Collect release packaging evidence
+        shell: bash
+        env:
+          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+
+          bundle_path='android/app/build/outputs/bundle/release/app-release.aab'
+          mapping_path='android/app/build/outputs/mapping/release/mapping.txt'
+          native_symbols_dir='android/app/build/intermediates/native_debug_metadata/release/extractReleaseNativeDebugMetadata/out'
+          native_symbols_path="$PWD/ci-artifacts/native-debug-symbols.zip"
+
+          if [[ ! -f "$bundle_path" ]]; then
+            echo "Missing release bundle at ${bundle_path}." >&2
+            exit 1
+          fi
+          if [[ ! -f "$mapping_path" ]]; then
+            echo "Missing release mapping file at ${mapping_path}." >&2
+            exit 1
+          fi
+          if [[ ! -d "$native_symbols_dir" ]]; then
+            echo "Missing native debug metadata directory at ${native_symbols_dir}." >&2
+            exit 1
+          fi
+
+          mkdir -p ci-artifacts
+          rm -f "$native_symbols_path"
+          (
+            cd "$native_symbols_dir"
+            zip -qr "$native_symbols_path" .
+          )
+
+          bash ./scripts/android/collect_packaging_evidence.sh \
+            --variant release \
+            --bundle "$bundle_path" \
+            --output-dir ci-artifacts/release \
+            --artifact-name "${{ steps.meta.outputs.release_bundle_name }}" \
+            --expected-abis arm64-v8a \
+            --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
+            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
+            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
+            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
+            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --android-source-commit "${GITHUB_SHA}" \
+            --upstream-source-repository-url "${{ steps.upstream.outputs.upstream_url }}" \
+            --upstream-source-commit "${{ steps.upstream.outputs.upstream_commit }}" \
+            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
+            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
+            --application-id io.github.ppigazzini.r47 \
+            --version-code "$R47_VERSION_CODE_INPUT" \
+            --version-name "$R47_VERSION_NAME_INPUT" \
+            --signing-mode release \
+            --ref "${GITHUB_REF}" \
+            --sha "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --mapping-file "$mapping_path" \
+            --native-symbols "$native_symbols_path"
+
+      - name: Upload release build logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-logs
+          path: ci-artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload signed release artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: ci-artifacts/release/
+          if-no-files-found: error
+          retention-days: 30
