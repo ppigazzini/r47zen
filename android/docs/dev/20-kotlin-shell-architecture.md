@@ -178,6 +178,14 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   `Theme.R47.Settings` dark Material 3 theme from `AndroidManifest.xml`, so
   settings, notices, OSS-license screens, and settings-owned dialogs do not
   fall back to white surfaces when the device stays in light theme
+- `SettingsFragment` owns the user-facing behavior copy for
+  `fullscreen_mode` and `force_close_on_exit`; those summaries stay fixed and
+  describe what enabling each toggle does instead of duplicating the visible
+  on or off state
+- `MainActivity` keeps the calculator shell dark even on a light-themed
+  device: `WindowModeController` applies a dark visible system-bar treatment
+  when fullscreen is off, and `ReplicaOverlay` keeps the first-run
+  settings-discovery hint cards on fixed dark shell surfaces
 - haptics, audio, fullscreen state, scaling mode, keypad label modes, and
   touch-zone overlays are preference-driven Android concerns
 

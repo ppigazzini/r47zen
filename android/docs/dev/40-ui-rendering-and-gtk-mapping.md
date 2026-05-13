@@ -360,6 +360,12 @@ accent pair through `colorPrimary = RGB(255, 195, 111)` and
 light. It also keeps the role split between `colorPrimary` and the blue
 container or activated roles so the slider does not collapse to one color.
 
+The calculator shell keeps the same dark presentation on the main activity even
+when the device theme is light. `WindowModeController` applies a dark visible
+system-bar color when fullscreen is off, and `ReplicaOverlay` draws the two
+settings-discovery hint cards on fixed dark shell fills with light text rather
+than on light-theme Material surfaces.
+
 Typography and style come from scene data plus staged calculator fonts. Android
 chooses how to measure and draw those roles; native code chooses which roles are
 active.

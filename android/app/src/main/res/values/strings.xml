@@ -35,8 +35,7 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_work_directory_preference_summary" translatable="false">Optional external folder for portable STATE, PROGRAMS, SAVFILES, and SCREENS files.</string>
     <string name="settings_display_and_layout_category_title" translatable="false">Display and Layout</string>
     <string name="settings_fullscreen_mode_title" translatable="false">Full Screen Mode</string>
-    <string name="settings_fullscreen_mode_summary_on" translatable="false">Hides status and navigation bars</string>
-    <string name="settings_fullscreen_mode_summary_off" translatable="false">Shows status and navigation bars for button navigation</string>
+    <string name="settings_fullscreen_mode_summary" translatable="false">Hide the Android status and navigation bars.</string>
     <string name="settings_scaling_mode_title" translatable="false">Scaling</string>
     <string name="settings_lcd_mode_title" translatable="false">LCD Mode</string>
     <string name="settings_interaction_category_title" translatable="false">Interaction</string>
@@ -50,8 +49,7 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_keep_screen_on_title" translatable="false">Keep Screen On</string>
     <string name="settings_auto_save_minimize_title" translatable="false">Auto-Save on Minimize</string>
     <string name="settings_force_close_on_exit_title" translatable="false">Force Close on f-shift EXIT</string>
-    <string name="settings_force_close_on_exit_summary_on" translatable="false">Finishes activity and removes from recents</string>
-    <string name="settings_force_close_on_exit_summary_off" translatable="false">Minimizes to background (stays in recents)</string>
+    <string name="settings_force_close_on_exit_summary" translatable="false">Make f-shift EXIT close R47 and remove it from Recents.</string>
     <string name="settings_developer_tools_category_title" translatable="false">Developer Tools</string>
     <string name="settings_show_touch_zones_title" translatable="false">Show Touch Zones</string>
     <string name="settings_cancel_action" translatable="false">Cancel</string>

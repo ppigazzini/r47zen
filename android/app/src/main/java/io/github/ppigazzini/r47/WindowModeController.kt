@@ -1,6 +1,7 @@
 package io.github.ppigazzini.r47
 
 import android.app.PictureInPictureParams
+import android.graphics.Color
 import android.os.Build
 import android.os.Handler
 import android.util.Log
@@ -19,6 +20,7 @@ internal class WindowModeController(
     companion object {
         private const val TAG = "R47WindowMode"
         private val PIP_ASPECT_RATIO = Rational(4860, 2667)
+        private val VISIBLE_SYSTEM_BAR_COLOR = Color.rgb(18, 21, 26)
     }
 
     private var isMovingToPiP = false
@@ -29,11 +31,17 @@ internal class WindowModeController(
             WindowCompat.setDecorFitsSystemWindows(window, !isFullscreen)
             val decorView = window.decorView
             WindowInsetsControllerCompat(window, decorView).apply {
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
                 if (isFullscreen) {
+                    window.statusBarColor = Color.TRANSPARENT
+                    window.navigationBarColor = Color.TRANSPARENT
                     systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     hide(WindowInsetsCompat.Type.systemBars())
                     window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 } else {
+                    window.statusBarColor = VISIBLE_SYSTEM_BAR_COLOR
+                    window.navigationBarColor = VISIBLE_SYSTEM_BAR_COLOR
                     show(WindowInsetsCompat.Type.systemBars())
                     window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 }

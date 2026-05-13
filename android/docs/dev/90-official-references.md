@@ -140,10 +140,23 @@ flowchart TD
 - [AppCompatDelegate](https://developer.android.com/reference/androidx/appcompat/app/AppCompatDelegate):
   official AppCompat night-mode override API reference, including
   `setLocalNightMode()` and its `uiMode` recreation behavior.
+- [Display content edge-to-edge in views](https://developer.android.com/develop/ui/views/layout/edge-to-edge):
+  visible-system-bar, inset, icon-contrast, and scrim guidance for view-based
+  activities that draw behind or alongside system bars.
+- [Hide system bars for immersive mode](https://developer.android.com/develop/ui/views/layout/immersive):
+  `WindowInsetsControllerCompat.hide()` and `show()` behavior plus transient
+  bar guidance for fullscreen content.
 - [Responsive/adaptive design with views](https://developer.android.com/develop/ui/views/layout/responsive-adaptive-design-with-views):
   official large-screen and multi-window guidance for view-based apps.
 - [Use window size classes](https://developer.android.com/develop/ui/views/layout/use-window-size-classes):
   breakpoint model for adaptive layouts.
+- [Preference components and attributes](https://developer.android.com/develop/ui/views/components/settings/components-and-attributes):
+  `PreferenceScreen`, `PreferenceCategory`, `SwitchPreferenceCompat`, summary
+  attributes, and XML ownership guidance for settings screens.
+- [Use saved Preference values](https://developer.android.com/develop/ui/views/components/settings/use-saved-values):
+  preference persistence plus `OnPreferenceChangeListener` and
+  `OnSharedPreferenceChangeListener` guidance when settings text or behavior
+  must update at runtime.
 - [Layout basics](https://m3.material.io/foundations/layout/understanding-layout/overview):
   current Material 3 guidance for canonical-layout-first design, panes,
   spacers, and window-size-class thinking.

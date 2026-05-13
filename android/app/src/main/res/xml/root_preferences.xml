@@ -16,8 +16,7 @@
         <SwitchPreferenceCompat
             app:key="fullscreen_mode"
             app:title="@string/settings_fullscreen_mode_title"
-            app:summaryOn="@string/settings_fullscreen_mode_summary_on"
-            app:summaryOff="@string/settings_fullscreen_mode_summary_off"
+            app:summary="@string/settings_fullscreen_mode_summary"
             app:defaultValue="true" />
         <ListPreference
             app:key="scaling_mode"
@@ -107,8 +106,7 @@
         <SwitchPreferenceCompat
             app:key="force_close_on_exit"
             app:title="@string/settings_force_close_on_exit_title"
-            app:summaryOn="@string/settings_force_close_on_exit_summary_on"
-            app:summaryOff="@string/settings_force_close_on_exit_summary_off"
+            app:summary="@string/settings_force_close_on_exit_summary"
             app:defaultValue="false" />
     </PreferenceCategory>
 

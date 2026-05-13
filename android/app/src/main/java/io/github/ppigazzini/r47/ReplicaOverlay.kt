@@ -13,7 +13,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.util.Log
-import com.google.android.material.color.MaterialColors
 import kotlin.math.PI
 import kotlin.math.max
 import kotlin.math.min
@@ -47,16 +46,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         strokeWidth = 2f * resources.displayMetrics.density
         alpha = 180
     }
-    private val settingsHintSurfaceColor = MaterialColors.getColor(
-        context,
-        com.google.android.material.R.attr.colorSurfaceContainerHigh,
-        Color.argb(236, 18, 21, 26),
-    )
-    private val settingsHintOnSurfaceColor = MaterialColors.getColor(
-        context,
-        com.google.android.material.R.attr.colorOnSurface,
-        Color.parseColor("#F7F3EA"),
-    )
+    private val settingsHintSurfaceColor = Color.argb(236, 18, 21, 26)
+    private val settingsHintOnSurfaceColor = Color.parseColor("#F7F3EA")
     private val settingsHintTopFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = settingsHintSurfaceColor
     }
