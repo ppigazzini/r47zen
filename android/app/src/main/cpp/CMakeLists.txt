@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project("c47-android")
+project("r47_android")
 
 set(R47_TRACKED_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -26,13 +26,13 @@ add_definitions(-Dmpz_div_2exp=mpz_tdiv_q_2exp)
 add_definitions(-Dmpz_fits_uint_p=mpz_fits_ulong_p)
 
 # Forced include of mocks to ensure they are seen everywhere
-add_compile_options("-include" "${CMAKE_CURRENT_SOURCE_DIR}/c47-android/android_mocks.h")
+add_compile_options("-include" "${CMAKE_CURRENT_SOURCE_DIR}/r47_android/android_mocks.h")
 
 # Android stub headers satisfy upstream GTK/GDK/Cairo includes without
 # rewriting the staged native tree during scripts/build_android.sh.
 # Include directories
 include_directories(
-    c47-android/stubs
+    r47_android/stubs
     ${R47_STAGED_C47_DIR}
     ${R47_STAGED_C47_DIR}/core
     ${R47_STAGED_C47_DIR}/hal
@@ -46,7 +46,7 @@ include_directories(
     ${R47_STAGED_C47_DIR}/c47Extensions
     ${R47_STAGED_DECNUMBER_DIR}
     ${R47_STAGED_GENERATED_DIR}
-    c47-android
+    r47_android
     ${R47_STAGED_GMP_DIR}
 )
 
@@ -78,25 +78,25 @@ set(DEC_SOURCES
 )
 
 set(ANDROID_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/android_runtime.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/android_helpers.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/clipboard_utils.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/audio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/gui.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/io.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/lcd.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/print_ir.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_activity_bridge.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_display.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_input.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_lifecycle.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_program_load_test.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_registration.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_storage.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/android_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/android_helpers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/clipboard_utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/audio.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/gui.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/io.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/lcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/print_ir.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_activity_bridge.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_display.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_input.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_lifecycle.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_program_load_test.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_registration.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_storage.c
 )
 
 # Shared library
-add_library(c47-android SHARED
+add_library(r47_android SHARED
     ${R47_STAGED_C47_SOURCES}
     ${DEC_SOURCES}
     ${R47_STAGED_GENERATED_SOURCES}
@@ -108,7 +108,7 @@ add_library(c47-android SHARED
 find_library(log-lib log)
 find_library(m-lib m)
 
-target_link_libraries(c47-android
+target_link_libraries(r47_android
     ${log-lib}
     ${m-lib}
 )

@@ -14,7 +14,7 @@ object ProgramLoadTestBridge {
     private const val STATE_LENGTH = 7
 
     init {
-        System.loadLibrary("c47-android")
+        System.loadLibrary("r47_android")
     }
 
     fun isRuntimeReady(): Boolean = isRuntimeReadyNative()

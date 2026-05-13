@@ -33,7 +33,7 @@ add_definitions(-Dmpz_fits_uint_p=mpz_fits_ulong_p)
 
 include_directories(
     ${JNI_INCLUDE_DIRS}
-    ${R47_TRACKED_CPP_DIR}/c47-android/stubs
+    ${R47_TRACKED_CPP_DIR}/r47_android/stubs
     ${R47_STAGED_C47_DIR}
     ${R47_STAGED_C47_DIR}/core
     ${R47_STAGED_C47_DIR}/hal
@@ -47,7 +47,7 @@ include_directories(
     ${R47_STAGED_C47_DIR}/c47Extensions
     ${R47_STAGED_DECNUMBER_DIR}
     ${R47_STAGED_GENERATED_DIR}
-    ${R47_TRACKED_CPP_DIR}/c47-android
+    ${R47_TRACKED_CPP_DIR}/r47_android
     ${R47_STAGED_GMP_DIR}
 )
 
@@ -65,20 +65,20 @@ set(DEC_SOURCES
 )
 
 set(ANDROID_BRIDGE_SOURCES
-    ${R47_TRACKED_CPP_DIR}/c47-android/android_runtime.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/android_helpers.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/clipboard_utils.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/hal/audio.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/hal/gui.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/hal/io.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/hal/lcd.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/hal/print_ir.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/jni_activity_bridge.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/jni_display.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/jni_input.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/jni_lifecycle.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/jni_registration.c
-    ${R47_TRACKED_CPP_DIR}/c47-android/jni_storage.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/android_runtime.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/android_helpers.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/clipboard_utils.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/hal/audio.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/hal/gui.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/hal/io.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/hal/lcd.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/hal/print_ir.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/jni_activity_bridge.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/jni_display.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/jni_input.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/jni_lifecycle.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/jni_registration.c
+    ${R47_TRACKED_CPP_DIR}/r47_android/jni_storage.c
 )
 
 add_executable(r47-keypad-fixture-exporter
@@ -91,7 +91,7 @@ add_executable(r47-keypad-fixture-exporter
 )
 
 target_compile_options(r47-keypad-fixture-exporter PRIVATE
-    "-include" "${R47_TRACKED_CPP_DIR}/c47-android/android_mocks.h"
+    "-include" "${R47_TRACKED_CPP_DIR}/r47_android/android_mocks.h"
 )
 
 target_link_libraries(r47-keypad-fixture-exporter PRIVATE

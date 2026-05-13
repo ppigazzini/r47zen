@@ -129,11 +129,29 @@ class AlphaCaseExportContractTest(unittest.TestCase):
             ),
         )
 
-    def test_jni_uses_dynamic_roles_for_dynamic_snapshot_meta(self) -> None:
-        """Jni uses dynamic roles for dynamic snapshot meta."""
+    def test_jni_builds_legacy_presentation_for_dynamic_snapshot_meta(self) -> None:
+        """Jni builds legacy presentation for dynamic snapshot meta."""
         _assert_true(
-            "resolveMainLabelRoles(key, keyCode, isDynamic, alphaOn);"
-            in self.jni_display,
+            re.search(
+                re.compile(
+                    r"static void fillKeypadMeta\("
+                    r"jint \*fill, jboolean isDynamic"
+                    r"\) \{\s*"
+                    r"bool_t alphaOn = isAlphaKeyboardActive\(\);\s*"
+                    r"bool_t userKeyboardEnabled = "
+                    r"isUserKeyboardEnabled\(\);\s*"
+                    r"keypadMainLabelPresentation_t presentation = "
+                    r"buildLegacyMainLabelPresentation\(\s*"
+                    r"isDynamic != 0, alphaOn, userKeyboardEnabled\);\s*"
+                    r"fillKeypadMetaForPresentation\(fill, &presentation\);\s*"
+                    r"\}",
+                    re.DOTALL,
+                ),
+                self.jni_display,
+            ),
+        )
+        _assert_true(
+            "resolveMainLabelRoles(key, keyCode, presentation);" in self.jni_display,
         )
 
     def test_main_key_primary_label_fits_to_button_width(self) -> None:

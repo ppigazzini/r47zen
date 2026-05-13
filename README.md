@@ -19,7 +19,7 @@ This repo interfaces with that upstream project in two layers:
 	JNI, packaging, and CI code in repo-owned overlay paths
 
 This repo owns the Android app under `android/`, the Android bridge under
-`android/app/src/main/cpp/c47-android`, repo-only build and sync automation
+`android/app/src/main/cpp/r47_android`, repo-only build and sync automation
 under `scripts/`, and maintainer docs under `android/docs/dev/`.
 
 ## Quick Start

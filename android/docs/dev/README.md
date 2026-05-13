@@ -117,7 +117,7 @@ Two rules govern most Android work in this repository:
    plus generated outputs from `build.sim`.
 2. The build-only Android native input tree lives under
    `android/.staged-native/cpp`, while
-   `android/app/src/main/cpp/c47-android` stays the Android-owned bridge, HAL,
+  `android/app/src/main/cpp/r47_android` stays the Android-owned bridge, HAL,
    and stub surface.
 
 ## Repo-Owned Automation Layout

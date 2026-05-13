@@ -45,7 +45,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
 
         init {
-            System.loadLibrary("c47-android")
+            System.loadLibrary("r47_android")
         }
 
         fun createFactoryResetIntent(context: Context): Intent {

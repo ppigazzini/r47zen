@@ -56,7 +56,7 @@ repo root
   |  |- R47KeypadPolicy.kt
   |  |- CalculatorKeyView.kt
   |  `- TopLabelLaneLayout.kt
-  |- app/src/main/cpp/c47-android/
+    |- app/src/main/cpp/r47_android/
   |- docs/dev/
   |- .staged-native/cpp/
   |- gradle/wrapper/
@@ -339,7 +339,7 @@ Canonical inputs for shared core work:
 - `dep/decNumberICU`
 - generated outputs under `build.sim`
 - Android-only code under `android/app/src/main/java`
-- Android bridge, HAL, and stub code under `android/app/src/main/cpp/c47-android`
+- Android bridge, HAL, and stub code under `android/app/src/main/cpp/r47_android`
 - the tracked Android mini-gmp staging source under
   `android/compat/mini-gmp-fallback`
 
@@ -356,7 +356,7 @@ Development rule:
 - Change the build-only staged tree directly only when working on staging logic
   or generated metadata.
 - Change tracked Android-specific code under
-  `android/app/src/main/cpp/c47-android` for shims, stubs, and bridge logic.
+  `android/app/src/main/cpp/r47_android` for shims, stubs, and bridge logic.
 
 Build-safety rule:
 
@@ -369,7 +369,7 @@ Build-safety rule:
   root files such as `Makefile`, `meson.build`, `meson_options.txt`, `dep/`,
   `docs/code/meson.build`, `subprojects/`, or `tools/`.
 - Android-only native fixes belong under
-  `android/app/src/main/cpp/c47-android` or in staging logic, not in tracked
+  `android/app/src/main/cpp/r47_android` or in staging logic, not in tracked
   root `src/**` overrides.
 - The former tracked directories
   `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are retired
@@ -394,7 +394,7 @@ Build-safety rule:
    `android/app/src/main/cpp/CMakeLists.txt` and passes
    `-DR47_STAGED_CPP_DIR=<repo>/android/.staged-native/cpp`.
 5. CMake regenerates the staged metadata when needed and builds the
-  `c47-android` shared library from the build-only staged core, explicit
+  `r47_android` shared library from the build-only staged core, explicit
   decNumberICU sources, generated files, Android bridge files, and mini-gmp
   without using recursive globs.
 6. Gradle packages the debug APK as

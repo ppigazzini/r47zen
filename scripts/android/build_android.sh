@@ -95,7 +95,7 @@ ensure_retired_legacy_cpp_paths_absent() {
     if [ -n "$present_paths" ]; then
         echo "ERROR: Retired Android native snapshot paths are present:" >&2
         printf '%s\n' "$present_paths" >&2
-        fail "Retired app-module native snapshot paths must stay absent. Use $STAGED_CPP_DIR for staged Android inputs, $ANDROID_PROJECT_DIR/app/src/main/cpp/c47-android for Android-owned glue, and $MINI_GMP_FALLBACK_DIR for the tracked Android mini-gmp staging source."
+        fail "Retired app-module native snapshot paths must stay absent. Use $STAGED_CPP_DIR for staged Android inputs, $ANDROID_PROJECT_DIR/app/src/main/cpp/r47_android for Android-owned glue, and $MINI_GMP_FALLBACK_DIR for the tracked Android mini-gmp staging source."
     fi
 }
 

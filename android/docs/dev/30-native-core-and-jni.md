@@ -13,7 +13,7 @@ surfaces.
 flowchart LR
   A[MainActivity external methods]
   B[JNI registration table]
-  C[c47-android bridge files]
+  C[r47_android bridge files]
   D[screenMutex and fileMutex boundaries]
   E[staged PC_BUILD core]
   F[activity callbacks requestFile playTone processCoreTasks]
@@ -24,8 +24,8 @@ flowchart LR
 
 ## Native library shape
 
-The Android module builds one shared library: `c47-android`. `MainActivity`
-loads it from a static initializer via `System.loadLibrary("c47-android")`.
+The Android module builds one shared library: `r47_android`. `MainActivity`
+loads it from a static initializer via `System.loadLibrary("r47_android")`.
 
 CMake builds the library from:
 
@@ -35,12 +35,12 @@ CMake builds the library from:
 - build-only staged generated sources under
   `android/.staged-native/cpp/generated`
 - Android-specific bridge and HAL files under
-  `android/app/src/main/cpp/c47-android`
+  `android/app/src/main/cpp/r47_android`
 - build-only staged mini-gmp sources under `android/.staged-native/cpp/gmp`
 - the tracked Android mini-gmp staging source under
   `android/compat/mini-gmp-fallback`
 
-Tracked Android stub headers under `c47-android/stubs` and the forced include
+Tracked Android stub headers under `r47_android/stubs` and the forced include
 of `android_mocks.h` let the Android build satisfy upstream GTK, GDK, and Cairo
 includes without rewriting staged source files during the Gradle build.
 
@@ -244,7 +244,7 @@ round trip.
 
 - For shared calculator behavior, change the canonical root core and restage it
   into `android/.staged-native/cpp` through the normal Android build flow.
-- Change `android/app/src/main/cpp/c47-android` directly only for Android
+- Change `android/app/src/main/cpp/r47_android` directly only for Android
   bridge, HAL, or stub behavior.
 - Do not patch build-only staged upstream C files in place when a tracked
   Android stub or bridge-layer fix can own the compatibility rule.
