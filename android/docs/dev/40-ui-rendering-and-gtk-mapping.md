@@ -267,12 +267,13 @@ content descriptions.
 Current native key-surface contract:
 
 - default dark key fill is `RGB(64, 64, 64)`
-- F accents use `RGB(242, 171, 94)` for faceplate labels, F-shift key fills,
+- F accents use `RGB(255, 195, 111)` for faceplate labels, F-shift key fills,
   and the combined FG shift fill
-- G accents use `RGB(131, 183, 223)` for faceplate labels and G-shift key
+- G accents use `RGB(142, 218, 254)` for faceplate labels and G-shift key
   fills
-- those accent values come from the standard HSL lightness adjustment path:
-  keep hue and saturation, then raise lightness by `10` points
+- those base accent values are fixed Android palette inputs; pressed F/G/FG
+  fills keep the standard `+10` HSL lightness lift over that user-selected
+  pair
 - the Android touch path keeps no separate hover palette; F/G/FG styles use
   dedicated brighter pressed fills for touch feedback, while alpha keeps its
   base accent fill
@@ -347,10 +348,10 @@ When auxiliary text is visible, the softkey primary legend anchors in the upper
 band at `softkeyRect.top + 0.28 * softkeyRect.height()` instead of using the
 lower centered baseline.
 
-The Android settings theme reuses the same lifted F/G palette through
-`colorPrimary = RGB(242, 171, 94)` and `colorSecondary = RGB(131, 183, 223)`.
-It also keeps the upstream role split between `colorPrimary` and the blue
-container or activated roles so the slider does not collapse to one color.
+The Android settings theme reuses the same fixed accent pair through
+`colorPrimary = RGB(255, 195, 111)` and `colorSecondary = RGB(142, 218, 254)`.
+It also keeps the role split between `colorPrimary` and the blue container or
+activated roles so the slider does not collapse to one color.
 
 Typography and style come from scene data plus staged calculator fonts. Android
 chooses how to measure and draw those roles; native code chooses which roles are

@@ -1,27 +1,27 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.R47" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Primary brand color (HSL lightness +10% from the hardware F palette). -->
-        <item name="colorPrimary">#F2AB5E</item>
+        <!-- Primary brand color (requested R47 orange accent). -->
+        <item name="colorPrimary">#FFC36F</item>
         <item name="colorOnPrimary">#000000</item>
-        <!-- Secondary brand color (HSL lightness +10% from the hardware G palette). Used for toggles and headers. -->
-        <item name="colorSecondary">#83B7DF</item>
+        <!-- Secondary brand color (requested R47 blue accent). Used for toggles and headers. -->
+        <item name="colorSecondary">#8EDAFE</item>
         <item name="colorOnSecondary">#000000</item>
-        <item name="colorSecondaryContainer">#83B7DF</item>
+        <item name="colorSecondaryContainer">#8EDAFE</item>
         <item name="colorOnSecondaryContainer">#000000</item>
-        
-        <!-- Tertiary colors stay on the lifted hardware G palette. -->
-        <item name="colorTertiary">#83B7DF</item>
+
+        <!-- Tertiary colors stay on the same blue accent family. -->
+        <item name="colorTertiary">#8EDAFE</item>
         <item name="colorOnTertiary">#000000</item>
-        <item name="colorTertiaryContainer">#83B7DF</item>
+        <item name="colorTertiaryContainer">#8EDAFE</item>
         <item name="colorOnTertiaryContainer">#000000</item>
 
-        <!-- Keep the upstream role split so slider track and thumb stay distinct. -->
-        <item name="colorPrimaryContainer">#83B7DF</item>
+        <!-- Keep the role split so slider track and thumb stay distinct. -->
+        <item name="colorPrimaryContainer">#8EDAFE</item>
         <item name="colorOnPrimaryContainer">#000000</item>
         <!-- Customize your theme here. -->
         <!-- Legacy/Fallback compatibility -->
-        <item name="colorControlActivated">#83B7DF</item>
+        <item name="colorControlActivated">#8EDAFE</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
@@ -39,7 +39,7 @@
         <item name="android:stateListAnimator">@null</item>
         <item name="android:elevation">0dp</item>
     </style>
-    
+
     <style name="SoftVisibleReplicaKey" parent="VisibleReplicaKey">
        <!-- Same style for now -->
     </style>

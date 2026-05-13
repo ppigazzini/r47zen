@@ -61,7 +61,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         text = Color.BLACK,
         background = Color.parseColor("#E0E0E0"),
     )
-    private val YELLOW_SHIFT = Color.parseColor("#FFBF00")
+    private val YELLOW_SHIFT = Color.rgb(255, 195, 111)
 
     private fun syncAudioSettings(isBeeperEnabled: Boolean, beeperVolume: Int) {
         AudioEngine.updateSettings(isBeeperEnabled, beeperVolume)

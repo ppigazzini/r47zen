@@ -72,10 +72,10 @@ class CalculatorKeyView @JvmOverloads constructor(
     companion object {
         private val defaultPrimaryColor = Color.WHITE
         private val defaultPrimaryDarkColor = Color.BLACK
-        private val fAccentColor = Color.rgb(242, 171, 94)
-        private val fPressedColor = Color.rgb(246, 196, 141)
-        private val gAccentColor = Color.rgb(131, 183, 223)
-        private val gPressedColor = Color.rgb(171, 207, 234)
+        private val fAccentColor = Color.rgb(255, 195, 111)
+        private val fPressedColor = Color.rgb(255, 216, 162)
+        private val gAccentColor = Color.rgb(142, 218, 254)
+        private val gPressedColor = Color.rgb(193, 235, 254)
         private val fgAccentColor = fAccentColor
         private val fgPressedColor = fPressedColor
         private val alphaAccentColor = Color.parseColor("#E36C50")
@@ -88,8 +88,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val softkeyReversePressedColor = mainKeyPressedColor
         private val softkeyLightTextColor = Color.parseColor("#F4F7F9")
         private val softkeyMetaLightColor = Color.parseColor("#C9D0D6")
-        private val softkeyValueLightColor = Color.parseColor("#F0C77A")
-        private val softkeyPreviewColor = Color.parseColor("#E5AE5A")
+        private val softkeyValueLightColor = Color.rgb(240, 191, 122)
+        private val softkeyPreviewColor = Color.rgb(229, 171, 90)
     }
 
     private val buttonView = View(context)

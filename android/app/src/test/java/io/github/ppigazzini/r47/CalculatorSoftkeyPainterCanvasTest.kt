@@ -27,7 +27,7 @@ class CalculatorSoftkeyPainterCanvasTest {
         )
 
         assertRegionContainsColor(bitmap, 20, 20, Color.rgb(96, 96, 96), tolerance = 4)
-        assertRegionContainsColor(bitmap, 96, 138, Color.parseColor("#E5AE5A"), tolerance = 10)
+        assertRegionContainsColor(bitmap, 96, 138, Color.rgb(229, 171, 90), tolerance = 10)
         assertRegionContainsColor(bitmap, 96, 72, Color.WHITE, tolerance = 28)
         assertRegionContainsColor(bitmap, 30, 27, Color.WHITE, tolerance = 28)
     }
@@ -95,8 +95,8 @@ class CalculatorSoftkeyPainterCanvasTest {
             softkeyReversePressedColor = Color.parseColor("#744A2E"),
             softkeyLightTextColor = Color.parseColor("#F4F7F9"),
             softkeyMetaLightColor = Color.parseColor("#C9D0D6"),
-            softkeyValueLightColor = Color.parseColor("#F0C77A"),
-            softkeyPreviewColor = Color.parseColor("#E5AE5A"),
+            softkeyValueLightColor = Color.rgb(240, 191, 122),
+            softkeyPreviewColor = Color.rgb(229, 171, 90),
         )
     }
 

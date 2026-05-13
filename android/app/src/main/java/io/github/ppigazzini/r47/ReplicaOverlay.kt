@@ -68,7 +68,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         color = settingsHintSurfaceColor
     }
     private val settingsHintTopStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#83B7DF")
+        color = Color.rgb(142, 218, 254)
         style = Paint.Style.STROKE
         strokeWidth = dp(2.5f)
     }
@@ -76,7 +76,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         color = settingsHintSurfaceColor
     }
     private val settingsHintInfoStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#83B7DF")
+        color = Color.rgb(142, 218, 254)
         style = Paint.Style.STROKE
         strokeWidth = dp(2.5f)
     }
