@@ -20,15 +20,15 @@ void sanitize_register_string(const char* input, char* output, size_t max_len) {
     const char* in_ptr = input;
     size_t out_idx = 0;
     size_t max_out = (max_len > 0) ? max_len - 1 : 0;
-    bool last_was_space = true; 
+    bool last_was_space = true;
 
     // We process the buffer in two potential segments to handle the dual-buffer complex format
     // Real part starts at 0, Imaginary part starts at 100.
     const int segments[] = { 0, 100 };
-    
+
     for (int s = 0; s < 2; s++) {
         in_ptr = input + segments[s];
-        
+
         // If this is the imaginary part, add a separator if we already have data
         if (s == 1 && out_idx > 0 && out_idx < max_out) {
             // Check if the real part was zero. If core sets real to "" for pure imag, out_idx might be 0.
@@ -109,7 +109,7 @@ void sanitize_register_string(const char* input, char* output, size_t max_len) {
             if (match_glyph(&in_ptr, STD_SUP_MINUS)) { output[out_idx++] = '-'; last_was_space = false; continue; }
 
             // Constants
-            if (match_glyph(&in_ptr, STD_pi) || match_glyph(&in_ptr, STD_PI) || 
+            if (match_glyph(&in_ptr, STD_pi) || match_glyph(&in_ptr, STD_PI) ||
                 match_glyph(&in_ptr, STD_SUP_pi) || match_glyph(&in_ptr, STD_SUB_pi)) {
                 if (out_idx + 2 <= max_out) {
                     output[out_idx++] = (char)0xCF; output[out_idx++] = (char)0x80;

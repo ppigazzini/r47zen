@@ -18,9 +18,9 @@ static void ascii_clean(char *str, size_t str_size) {
     while (*s && (d - tmp) < 1023) {
         uint8_t c1 = (uint8_t)s[0];
         uint8_t c2 = (uint8_t)s[1];
-        
+
         if (c1 == 0xA1 && c2 == 0x48) { // STD_op_i
-            *d++ = ' '; *d++ = 'i'; *d++ = ' '; s += 2; 
+            *d++ = ' '; *d++ = 'i'; *d++ = ' '; s += 2;
         } else if (c1 == 0xA1 && c2 == 0x49) { // STD_op_j
             *d++ = ' '; *d++ = 'j'; *d++ = ' '; s += 2;
         } else if (c1 == 0x80 && c2 == 0xB7) { // STD_DOT (·)
@@ -67,40 +67,40 @@ char* getXRegisterString() {
     static char result[2048]; // Increased size for UTF-8 conversion
     char coreBuf[1024];
     coreBuf[0] = '\0';
-    
+
     if (!ram) return "0";
 
     calcRegister_t regist = REGISTER_X;
     uint8_t dataType = getRegisterDataType(regist);
     uint8_t tag = getRegisterTag(regist);
-    
+
     switch(dataType) {
         case dtReal34:
             real34ToDisplayString((const real34_t *)getRegisterDataPointer(regist), tag, coreBuf, &standardFont, 9999, 34, false, false, NOIRFRAC);
             break;
-            
+
         case dtComplex34:
             complex34ToDisplayString((const complex34_t *)getRegisterDataPointer(regist), coreBuf, &standardFont, 9999, 34, false, false, NOIRFRAC, tag & amAngleMask, (tag & amPolar) != 0);
             break;
-            
+
         case dtString:
             strncpy(coreBuf, REGISTER_STRING_DATA(regist), 1023);
             coreBuf[1023] = '\0';
             break;
-            
+
         case dtShortInteger:
             shortIntegerToDisplayString(regist, coreBuf, false, 0);
             break;
-            
+
         case dtLongInteger:
             longIntegerRegisterToDisplayString(regist, coreBuf, sizeof(coreBuf), 9999, 50, true);
             break;
-            
+
         default:
             snprintf(coreBuf, sizeof(coreBuf), "[%s]", getDataTypeName(dataType, false, false));
             break;
     }
-    
+
     ascii_clean(coreBuf, sizeof(coreBuf));
     trimTrailingRadix(coreBuf);
 

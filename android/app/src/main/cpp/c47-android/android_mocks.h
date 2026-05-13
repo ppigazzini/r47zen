@@ -73,8 +73,8 @@ typedef struct {
     int type;
     struct {
         int button;
-        double x; 
-        double y; 
+        double x;
+        double y;
     } button;
 } GdkEvent;
 typedef void cairo_t;

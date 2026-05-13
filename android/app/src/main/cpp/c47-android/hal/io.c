@@ -75,11 +75,11 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
         path == ioPathExportRTFProgram || path == ioPathSaveAllPrograms ||
         path == ioPathExportRTFAllPrograms || path == ioPathManualSave ||
         path == ioPathPgmFile) {
-        
+
         int isSave = (mode == ioModeWrite);
         char defaultName[256];
         const char* ext = ".s47";
-        
+
         if (path == ioPathSaveProgram || path == ioPathLoadProgram || path == ioPathSaveAllPrograms || path == ioPathPgmFile) {
             ext = ".p47";
         } else if (path == ioPathExportRTFProgram || path == ioPathExportRTFAllPrograms) {
@@ -90,7 +90,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
 
         extern char *tmpStringLabelOrVariableName;
         extern void stringToASCII(const char *in, char *out);
-        
+
         if (path == ioPathSaveStateFile || path == ioPathLoadStateFile) {
             snprintf(defaultName, sizeof(defaultName), "%s", "state.s47");
         } else if (path == ioPathManualSave) {
@@ -109,9 +109,9 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
                 snprintf(defaultName, sizeof(defaultName), "program%s", ext);
             }
         }
-        
+
         LOGI("ioFileOpen SAF: path=%d, isSave=%d, defaultName=%s", path, isSave, defaultName);
-        
+
         int category = 1; // Default to PROGRAMS
         if (path == ioPathSaveStateFile || path == ioPathLoadStateFile) {
             category = 0; // STATE
@@ -121,7 +121,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
 
         int fd = requestAndroidFile(isSave, defaultName, category);
         if (fd < 0) return FILE_CANCEL;
-        
+
         openedFile = fdopen(fd, isSave ? "wb" : "rb");
         if (!openedFile) {
             close(fd);
@@ -137,7 +137,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
 
     char fullpath[1024];
     const char* modeStr = (mode == ioModeRead) ? "rb" : ((mode == ioModeWrite) ? "wb" : "r+b");
-    
+
     switch(path) {
         case ioPathManualSave:
             #if (CALCMODEL == USER_R47)
@@ -169,7 +169,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
              snprintf(fullpath, 1024, "%s/default.dat", android_base_path);
              break;
     }
-    
+
     if (mode != ioModeRead) {
         char dir[1024];
         if (path == ioPathManualSave || path == ioPathAutoSave) {
