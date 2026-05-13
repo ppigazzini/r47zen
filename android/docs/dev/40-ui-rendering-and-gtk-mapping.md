@@ -348,10 +348,14 @@ When auxiliary text is visible, the softkey primary legend anchors in the upper
 band at `softkeyRect.top + 0.28 * softkeyRect.height()` instead of using the
 lower centered baseline.
 
-The Android settings theme reuses the same fixed accent pair through
-`colorPrimary = RGB(255, 195, 111)` and `colorSecondary = RGB(142, 218, 254)`.
-It also keeps the role split between `colorPrimary` and the blue container or
-activated roles so the slider does not collapse to one color.
+The settings-owned activity stack uses `Theme.R47.Settings`, a dedicated dark
+Material 3 theme wired from `AndroidManifest.xml`. It reuses the same fixed
+accent pair through `colorPrimary = RGB(255, 195, 111)` and
+`colorSecondary = RGB(142, 218, 254)`, but it applies those accents on dark
+`colorSurface` and `colorSurfaceContainer` roles so settings screens and
+`MaterialAlertDialogBuilder` prompts stay dark even when the device theme is
+light. It also keeps the role split between `colorPrimary` and the blue
+container or activated roles so the slider does not collapse to one color.
 
 Typography and style come from scene data plus staged calculator fonts. Android
 chooses how to measure and draw those roles; native code chooses which roles are

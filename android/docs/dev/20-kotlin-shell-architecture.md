@@ -174,6 +174,10 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   letterbox or window the shell according to Android compatibility behavior
 - Picture-in-Picture is enabled
 - settings live in a separate non-exported `SettingsActivity`
+- the settings-owned activity stack uses the dedicated
+  `Theme.R47.Settings` dark Material 3 theme from `AndroidManifest.xml`, so
+  settings, notices, OSS-license screens, and settings-owned dialogs do not
+  fall back to white surfaces when the device stays in light theme
 - haptics, audio, fullscreen state, scaling mode, keypad label modes, and
   touch-zone overlays are preference-driven Android concerns
 

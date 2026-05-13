@@ -26,6 +26,24 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
 
+    <style name="Theme.R47.Settings" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#FFC36F</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorSecondary">#8EDAFE</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSecondaryContainer">#8EDAFE</item>
+        <item name="colorOnSecondaryContainer">#000000</item>
+        <item name="colorTertiary">#8EDAFE</item>
+        <item name="colorOnTertiary">#000000</item>
+        <item name="colorTertiaryContainer">#8EDAFE</item>
+        <item name="colorOnTertiaryContainer">#000000</item>
+        <item name="colorPrimaryContainer">#8EDAFE</item>
+        <item name="colorOnPrimaryContainer">#000000</item>
+        <item name="colorControlActivated">#8EDAFE</item>
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
+        <item name="android:statusBarColor">?attr/colorSurfaceContainer</item>
+    </style>
+
     <style name="VisibleReplicaKey">
         <item name="android:layout_width">47dp</item>
         <item name="android:layout_height">32dp</item>

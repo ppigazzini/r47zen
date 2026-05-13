@@ -133,6 +133,13 @@ flowchart TD
 
 ## View-based UI and rendering
 
+- [Implement dark theme](https://developer.android.com/develop/ui/views/theming/darktheme):
+  official DayNight, dark-theme, and Force Dark guidance for view-based apps;
+  use this when deciding whether a settings surface should follow the system,
+  opt into a dedicated dark theme, or expose an in-app override.
+- [AppCompatDelegate](https://developer.android.com/reference/androidx/appcompat/app/AppCompatDelegate):
+  official AppCompat night-mode override API reference, including
+  `setLocalNightMode()` and its `uiMode` recreation behavior.
 - [Responsive/adaptive design with views](https://developer.android.com/develop/ui/views/layout/responsive-adaptive-design-with-views):
   official large-screen and multi-window guidance for view-based apps.
 - [Use window size classes](https://developer.android.com/develop/ui/views/layout/use-window-size-classes):
