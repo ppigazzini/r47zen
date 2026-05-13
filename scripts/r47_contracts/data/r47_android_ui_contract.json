@@ -12,7 +12,7 @@
     "height": 3403
   },
   "chrome": {
-    "native_shell_draw_corner_radius": 80,
+    "native_shell_draw_corner_radius": 0,
     "scaled_mode_fit_trim": {
       "left": 42,
       "top": 49,

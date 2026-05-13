@@ -24,10 +24,6 @@ class ReplicaOverlay @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : ViewGroup(context, attrs, defStyleAttr) {
 
-    companion object {
-        const val CHROME_MODE_NATIVE = "native"
-    }
-
     private var isPiPMode = false
     private var showTouchZones = false
     private val chromeLayout = ReplicaChromeLayout(resources)
@@ -45,9 +41,6 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val dirtyRect = Rect()
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val shellRect = RectF()
-    private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(32, 32, 32)
-    }
     private val zonePaint = Paint().apply {
         color = Color.RED
         style = Paint.Style.STROKE
@@ -154,14 +147,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setChromeMode(mode: String) {
-        if (!chromeLayout.setChromeMode(mode)) {
-            return
-        }
-        requestLayout()
-        invalidate()
-    }
-
     fun setLcdColors(text: Int, background: Int) {
         if (lcdTextColor == text && lcdBackgroundColor == background) {
             return
@@ -169,10 +154,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         lcdTextColor = text
         lcdBackgroundColor = background
         redrawPackedSnapshot()
-    }
-
-    fun setNativeChrome() {
-        setChromeMode(CHROME_MODE_NATIVE)
     }
 
     private fun currentChromeSpec(): ReplicaChromeSpec = chromeLayout.currentChromeSpec()
@@ -475,8 +456,6 @@ class ReplicaOverlay @JvmOverloads constructor(
             layoutSpec,
             shellRect,
             projection.scale,
-            bodyPaint,
-            paint,
         )
 
         lcdDestRect.set(

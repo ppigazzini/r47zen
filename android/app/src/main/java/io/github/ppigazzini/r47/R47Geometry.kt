@@ -22,7 +22,7 @@ internal object R47ReferenceGeometry {
 
 internal object R47AndroidChromeGeometry {
     // Android-only chrome values, already rebased into reference-space coordinates.
-    const val NATIVE_SHELL_DRAW_CORNER_RADIUS = 80f
+    const val NATIVE_SHELL_DRAW_CORNER_RADIUS = 0f
 
     const val SCALED_MODE_FIT_TRIM_LEFT = 42f
     const val SCALED_MODE_FIT_TRIM_TOP = 49f

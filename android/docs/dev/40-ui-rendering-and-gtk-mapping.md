@@ -25,8 +25,8 @@ flowchart LR
 
 ## Geometry owners at a glance
 
-- `R47Geometry.kt` owns the logical canvas, keypad constants, chrome geometry,
-  and LCD pixel contract.
+- `R47Geometry.kt` owns the logical canvas, keypad constants, borderless shell
+  geometry, and LCD pixel contract.
 - `ReplicaChromeLayout` owns projection from logical canvas into the current
   window.
 - `ReplicaOverlay` owns shell drawing, LCD bitmap updates, and touch-to-logical
@@ -41,7 +41,7 @@ flowchart LR
 
 | Contract surface | Owner chain | Source of truth | Locked by |
 | --- | --- | --- | --- |
-| logical canvas, shell chrome, and LCD frame | `R47ReferenceGeometry`, `R47AndroidChromeGeometry`, `R47LcdContract` -> `ReplicaChromeLayout` -> `ReplicaOverlay` | `scripts/r47_contracts/data/r47_physical_geometry.json`, `scripts/r47_contracts/data/r47_android_ui_contract.json`, and `scripts/r47_contracts/derive_shell_geometry.py` | `scripts/r47_contracts/test_shell_geometry_contract.py`, `ReplicaOverlayGoldenTest.kt` |
+| logical canvas, borderless shell frame, and LCD frame | `R47ReferenceGeometry`, `R47AndroidChromeGeometry`, `R47LcdContract` -> `ReplicaChromeLayout` -> `ReplicaOverlay` | `scripts/r47_contracts/data/r47_physical_geometry.json`, `scripts/r47_contracts/data/r47_android_ui_contract.json`, and `scripts/r47_contracts/derive_shell_geometry.py` | `scripts/r47_contracts/test_shell_geometry_contract.py`, `ReplicaOverlayGoldenTest.kt` |
 | shared touch grid and key slots | `KeypadTopology` -> `ReplicaKeypadLayout` | `scripts/r47_contracts/data/r47_physical_geometry.json` plus `scripts/r47_contracts/derive_touch_grid.py` | grouped `scripts/r47_contracts` validation lane, `KeypadFixtureContractTest.kt` |
 | top-label lane placement | `TopLabelLaneLayout` -> `ReplicaKeypadLayout` -> `CalculatorKeyView` | `scripts/r47_contracts/derive_top_label_lane_layout.py` | `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `DynamicKeypadParityFixtureTest.kt` |
 | per-key label offsets and body geometry | `R47KeySurfacePolicy`, `R47LabelLayoutPolicy`, `R47TopLabelSolverPolicy` -> `CalculatorKeyView` | `scripts/r47_contracts/data/r47_android_ui_contract.json`, `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `scripts/r47_contracts/derive_top_label_lane_layout.py` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py`, `scripts/r47_contracts/test_top_label_lane_layout_contract.py` |
@@ -50,8 +50,11 @@ flowchart LR
 ## Shell projection contract
 
 - the live logical canvas is the measured reference frame `1820 x 3403`
-- all shell chrome, LCD placement, keypad children, and touch zones resolve
+- all shell projection, LCD placement, keypad children, and touch zones resolve
   from that logical canvas before projection into the current window
+- `chrome.native_shell_draw_corner_radius` is `0`, so the native shell keeps no
+  painted outer body and retains only the top settings strip plus LCD frame as
+  shared shell chrome
 - `full_width` uses one shared visible-frame trim of `42 / 49 / 42 / 56`
 - `chrome.lcd_windows` keeps one native LCD rectangle on that shared canvas:
   `85 / 229 / 1650 / 990`
@@ -59,8 +62,8 @@ flowchart LR
   preserves the exact integer `400 x 240` frame-buffer aspect ratio
 - `physical` caps fit scale to the density-resolved `360 dp` shell width
   divided by `R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH`
-- `ReplicaOverlay` projects one native chrome surface from the shared logical
-  contract
+- `ReplicaOverlay` projects one borderless native shell surface from the shared
+  logical contract
 - `ReplicaKeypadLayout` owns one normalized shared touch-cell map, and
   `ReplicaOverlay` owns one shared settings-entry touch strip
 - PiP is intentionally narrower: the overlay draws the LCD full-window and maps

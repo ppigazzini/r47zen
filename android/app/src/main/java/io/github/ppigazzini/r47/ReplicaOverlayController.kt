@@ -57,19 +57,6 @@ internal class ReplicaOverlayController(
             ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout(overlay)
             schedulePendingGeometrySceneReplay()
         }
-    }
-
-    fun normalizeChromeMode(mode: String?): String {
-        return when {
-            mode == null -> MainActivityPreferenceController.DEFAULT_CHROME_MODE
-            mode == ReplicaOverlay.CHROME_MODE_NATIVE -> mode
-            else -> MainActivityPreferenceController.DEFAULT_CHROME_MODE
-        }
-    }
-
-    fun applyChromeMode(mode: String) {
-        val normalizedMode = normalizeChromeMode(mode)
-        overlay.setChromeMode(normalizedMode)
         rebuildInteractiveZones()
         markGeometryChange()
     }

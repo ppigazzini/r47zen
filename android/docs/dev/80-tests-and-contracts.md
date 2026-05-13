@@ -112,8 +112,7 @@ Important contract files include:
   `CalculatorSoftkeyPainterCanvasTest.kt`: lock softkey content-description,
   overlay, preview, and strike rendering rules
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable
-  through golden hashes and locks the legacy background and texture mode
-  strings to the same native render path
+  through golden hashes and locks the retained top settings-strip interaction
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
   the app-facing JNI keypad snapshot export and the Kotlin-side softkey
   `graphic` and `off` scene masks

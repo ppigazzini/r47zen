@@ -2,6 +2,7 @@ package io.github.ppigazzini.r47
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -18,11 +19,6 @@ import java.security.MessageDigest
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "xxhdpi")
 class ReplicaOverlayGoldenTest {
-    private companion object {
-        const val LEGACY_CHROME_MODE_BACKGROUND = "r47_background"
-        const val LEGACY_CHROME_MODE_TEXTURE = "r47_texture"
-    }
-
     @Test
     fun packedLcd_matchesArgbRendering() {
         val textColor = 0xFF20313D.toInt()
@@ -66,48 +62,74 @@ class ReplicaOverlayGoldenTest {
 
     @Test
     fun nativeChrome_matchesGoldenHash() {
-        assertGoldenHash(
-            ReplicaOverlay.CHROME_MODE_NATIVE,
-            "a689a5afbca4244237523b95f91554c9e5cbff18687d212916cbc6e353ebf83a",
+        val overlay = configuredOverlay()
+        overlay.updateLcd(sampleLcdPixels())
+
+        val actualHash = renderHash(overlay)
+
+        assertEquals(
+            "ReplicaOverlay golden changed: $actualHash",
+            "bbe7dd2a00d8eaa0707c216c9611a28fb7b94781acbc7c0c2006169c2f3f5f47",
+            actualHash,
         )
     }
 
     @Test
-    fun legacyImageBackedModes_fallBackToNativeChrome() {
-        val nativeHash = renderHash(configuredOverlay(ReplicaOverlay.CHROME_MODE_NATIVE).apply {
-            updateLcd(sampleLcdPixels())
-        })
+    fun topSettingsStripTapInvokesListener() {
+        val overlay = configuredOverlay()
+        var taps = 0
+        overlay.onSettingsTapListener = {
+            taps += 1
+        }
 
-        for (legacyMode in listOf(
-            LEGACY_CHROME_MODE_BACKGROUND,
-            LEGACY_CHROME_MODE_TEXTURE,
-        )) {
-            val legacyHash = renderHash(configuredOverlay(legacyMode).apply {
-                updateLcd(sampleLcdPixels())
-            })
-            assertEquals(
-                "Legacy chrome mode should resolve to native output for $legacyMode",
-                nativeHash,
-                legacyHash,
-            )
+        val tapPoint = settingsStripTapPoint(overlay)
+        val down = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, tapPoint.first, tapPoint.second, 0)
+        val up = MotionEvent.obtain(0L, 10L, MotionEvent.ACTION_UP, tapPoint.first, tapPoint.second, 0)
+
+        try {
+            assertTrue(overlay.onInterceptTouchEvent(down))
+            assertTrue(overlay.onTouchEvent(down))
+            assertTrue(overlay.onTouchEvent(up))
+        } finally {
+            down.recycle()
+            up.recycle()
+        }
+
+        assertEquals(1, taps)
+    }
+
+    @Test
+    fun touchBelowSettingsStripIsNotIntercepted() {
+        val overlay = configuredOverlay()
+        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val spec = chromeLayout.currentChromeSpec()
+        val projection = chromeLayout.computeProjection(overlay.width.toFloat(), overlay.height.toFloat())
+        val touchY = projection.offsetY + (spec.topBezelSettingsTapHeight + 24f) * projection.scale
+        val touchEvent = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, overlay.width / 2f, touchY, 0)
+
+        try {
+            assertFalse(overlay.onInterceptTouchEvent(touchEvent))
+        } finally {
+            touchEvent.recycle()
         }
     }
 
-    private fun assertGoldenHash(mode: String, expectedHash: String) {
-        val overlay = configuredOverlay(mode)
-        overlay.updateLcd(sampleLcdPixels())
-        val actualHash = renderHash(overlay)
-
-        assertEquals("ReplicaOverlay golden changed for $mode: $actualHash", expectedHash, actualHash)
-    }
-
-    private fun configuredOverlay(mode: String = ReplicaOverlay.CHROME_MODE_NATIVE): ReplicaOverlay {
+    private fun configuredOverlay(): ReplicaOverlay {
         return ReplicaOverlay(ApplicationProvider.getApplicationContext()).apply {
-            setChromeMode(mode)
             setScalingMode("full_width")
             measure(exactly(1080), exactly(2160))
             layout(0, 0, 1080, 2160)
         }
+    }
+
+    private fun settingsStripTapPoint(overlay: ReplicaOverlay): Pair<Float, Float> {
+        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val spec = chromeLayout.currentChromeSpec()
+        val projection = chromeLayout.computeProjection(overlay.width.toFloat(), overlay.height.toFloat())
+        return Pair(
+            overlay.width / 2f,
+            projection.offsetY + spec.topBezelSettingsTapHeight * projection.scale * 0.5f,
+        )
     }
 
     private fun renderHash(overlay: ReplicaOverlay): String {

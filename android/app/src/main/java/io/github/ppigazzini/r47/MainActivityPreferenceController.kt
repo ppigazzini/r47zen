@@ -11,15 +11,12 @@ internal class MainActivityPreferenceController(
     private val windowModeController: WindowModeController,
     private val syncAudioSettings: (Boolean, Int) -> Unit,
     private val applyLcdMode: (String, Int) -> Unit,
-    private val applyChromeMode: (String) -> Unit,
     private val applyScalingMode: (String) -> Unit,
     private val applyShowTouchZones: (Boolean) -> Unit,
     private val applyKeypadLabelModes: (MainKeyDynamicMode, SoftkeyDynamicMode) -> Unit,
-    private val normalizeChromeMode: (String?) -> String,
 ) {
     companion object {
         const val DEFAULT_BEEPER_VOLUME = 20
-        const val DEFAULT_CHROME_MODE = ReplicaOverlay.CHROME_MODE_NATIVE
         const val DEFAULT_LCD_MODE = "high_contrast"
         const val DEFAULT_LCD_LUMINANCE = 100
         val DEFAULT_MAIN_KEY_DYNAMIC_MODE = MainKeyDynamicMode.DEFAULT
@@ -30,7 +27,6 @@ internal class MainActivityPreferenceController(
 
         private const val KEY_BEEPER_ENABLED = "beeper_enabled"
         private const val KEY_BEEPER_VOLUME = "beeper_volume"
-        private const val KEY_CHROME_MODE = "chrome_mode"
         private const val KEY_FULLSCREEN_MODE = "fullscreen_mode"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_LCD_MODE = "lcd_mode"
@@ -42,9 +38,6 @@ internal class MainActivityPreferenceController(
     }
 
     var beeperVolume = DEFAULT_BEEPER_VOLUME
-        private set
-
-    var chromeMode = DEFAULT_CHROME_MODE
         private set
 
     var isBeeperEnabled = true
@@ -73,7 +66,6 @@ internal class MainActivityPreferenceController(
 
         beeperVolume = preferences.getInt(KEY_BEEPER_VOLUME, DEFAULT_BEEPER_VOLUME)
         isBeeperEnabled = preferences.getBoolean(KEY_BEEPER_ENABLED, true)
-        chromeMode = normalizeAndPersistChromeMode()
         lcdMode = preferences.getString(KEY_LCD_MODE, DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
         lcdLuminance = readNormalizedLcdLuminance()
         mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
@@ -86,7 +78,6 @@ internal class MainActivityPreferenceController(
         windowModeController.applyFullscreenMode(preferences.getBoolean(KEY_FULLSCREEN_MODE, true))
         syncAudioSettings(isBeeperEnabled, beeperVolume)
         applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
-        applyChromeMode(chromeMode)
     }
 
     fun applyDeferredOverlayPreferences() {
@@ -120,10 +111,6 @@ internal class MainActivityPreferenceController(
                 lcdLuminance = readNormalizedLcdLuminance()
                 applyLcdMode(lcdMode, lcdLuminance)
             }
-            KEY_CHROME_MODE -> {
-                chromeMode = normalizeAndPersistChromeMode()
-                applyChromeMode(chromeMode)
-            }
             KEY_MAIN_KEY_DYNAMIC_MODE -> {
                 mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
                 applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
@@ -155,15 +142,6 @@ internal class MainActivityPreferenceController(
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
-    }
-
-    private fun normalizeAndPersistChromeMode(): String {
-        val storedMode = preferences.getString(KEY_CHROME_MODE, DEFAULT_CHROME_MODE)
-        val normalizedMode = normalizeChromeMode(storedMode)
-        if (storedMode != normalizedMode) {
-            preferences.edit().putString(KEY_CHROME_MODE, normalizedMode).apply()
-        }
-        return normalizedMode
     }
 
     private fun readNormalizedLcdLuminance(): Int {

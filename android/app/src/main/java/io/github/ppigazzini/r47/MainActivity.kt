@@ -245,11 +245,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             windowModeController = windowModeController,
             syncAudioSettings = ::syncAudioSettings,
             applyLcdMode = ::applyLcdMode,
-            applyChromeMode = replicaOverlayController::applyChromeMode,
             applyScalingMode = replicaOverlayController::applyScalingMode,
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
             applyKeypadLabelModes = replicaOverlayController::applyKeypadLabelModes,
-            normalizeChromeMode = replicaOverlayController::normalizeChromeMode,
         )
         prefs.registerOnSharedPreferenceChangeListener(this)
         preferenceController.applyInitialPreferences()

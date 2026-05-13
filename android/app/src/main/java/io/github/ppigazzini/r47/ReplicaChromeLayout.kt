@@ -9,7 +9,6 @@ import kotlin.math.min
 internal data class ReplicaProjection(val scale: Float, val offsetX: Float, val offsetY: Float)
 
 internal data class ReplicaChromeSpec(
-    val mode: String,
     val shellWidth: Float,
     val shellHeight: Float,
     val topBezelSettingsTapHeight: Float,
@@ -31,7 +30,6 @@ internal class ReplicaChromeLayout(
     }
 
     private val nativeChromeSpec = ReplicaChromeSpec(
-        mode = ReplicaOverlay.CHROME_MODE_NATIVE,
         shellWidth = R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH,
         shellHeight = R47ReferenceGeometry.LOGICAL_CANVAS_HEIGHT,
         topBezelSettingsTapHeight = R47AndroidChromeGeometry.TOP_BEZEL_SETTINGS_TAP_HEIGHT,
@@ -44,25 +42,14 @@ internal class ReplicaChromeLayout(
         scaledModeFitTrimRight = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_RIGHT,
         scaledModeFitTrimBottom = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_BOTTOM,
     )
-    private var chromeMode = ReplicaOverlay.CHROME_MODE_NATIVE
     private var scalingMode = "full_width"
-
-    fun setChromeMode(mode: String): Boolean {
-        val resolvedMode = resolveChromeSpec(mode).mode
-        if (chromeMode == resolvedMode) {
-            return false
-        }
-
-        chromeMode = resolvedMode
-        return true
-    }
 
     fun setScalingMode(mode: String) {
         scalingMode = mode
     }
 
     fun currentChromeSpec(): ReplicaChromeSpec {
-        return resolveChromeSpec(chromeMode)
+        return nativeChromeSpec
     }
 
     fun computeProjection(availableWidth: Float, availableHeight: Float): ReplicaProjection {
@@ -105,16 +92,9 @@ internal class ReplicaChromeLayout(
         spec: ReplicaChromeSpec,
         rect: RectF,
         projectionScale: Float,
-        bodyPaint: Paint,
-        bitmapPaint: Paint,
     ) {
-        val cornerRadius =
-            R47AndroidChromeGeometry.NATIVE_SHELL_DRAW_CORNER_RADIUS * projectionScale
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, bodyPaint)
-    }
-
-    private fun resolveChromeSpec(mode: String): ReplicaChromeSpec {
-        return nativeChromeSpec
+        // Native-only chrome keeps the calculator surface borderless. The
+        // shell rect still anchors the LCD, touch strip, and discovery hint.
     }
 
     private fun resolvedShellPhysicalWidthForCurrentDensity(): Float {

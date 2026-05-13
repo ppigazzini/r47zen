@@ -168,7 +168,7 @@ class ShellGeometryContractTest(unittest.TestCase):
         )
 
     def test_shell_constants_match_python_contract(self) -> None:
-        """Lock the Android shell, trim, and LCD constants to the derived payload."""
+        """Lock the borderless Android shell, trim, and LCD constants to the payload."""
         logical_canvas = _mapping_member(
             self.payload,
             "logical_canvas",
@@ -188,6 +188,14 @@ class ShellGeometryContractTest(unittest.TestCase):
             lcd_windows,
             "native",
             label="logical_canvas.lcd_windows",
+        )
+        _assert_float_equal(
+            _number_member(
+                logical_canvas,
+                "native_shell_draw_corner_radius",
+                label="logical_canvas",
+            ),
+            0.0,
         )
         _assert_float_equal(
             self.kotlin["NATIVE_SHELL_DRAW_CORNER_RADIUS"],
