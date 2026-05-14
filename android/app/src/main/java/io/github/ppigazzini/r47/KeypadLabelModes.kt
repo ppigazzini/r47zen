@@ -7,7 +7,8 @@ internal enum class MainKeyDynamicMode(
     ON(storageValue = "on", nativeCode = 0),
     ALPHA(storageValue = "alpha", nativeCode = 1),
     USER(storageValue = "user", nativeCode = 2),
-    OFF(storageValue = "off", nativeCode = 3);
+    OFF(storageValue = "off", nativeCode = 3),
+    VIRTUOSO(storageValue = "virtuoso", nativeCode = OFF.nativeCode);
 
     companion object {
         val DEFAULT = ON
@@ -40,6 +41,7 @@ internal fun KeypadSnapshot.applyMainKeyDynamicMode(
 ): KeypadSnapshot {
     return when (mode) {
         MainKeyDynamicMode.USER -> applyUserModeTopLabels(userSnapshot)
+        MainKeyDynamicMode.VIRTUOSO -> applyVirtuosoBlankKeycaps()
         else -> this
     }
 }
@@ -72,6 +74,16 @@ private fun KeypadSnapshot.applyUserModeTopLabels(userSnapshot: KeypadSnapshot?)
     }
 }
 
+private fun KeypadSnapshot.applyVirtuosoBlankKeycaps(): KeypadSnapshot {
+    return transformKeyStates { code, keyState ->
+        if (code <= 37) {
+            keyState.withVirtuosoMainKeyMode()
+        } else {
+            keyState.withSoftkeyDynamicMode(SoftkeyDynamicMode.OFF)
+        }
+    }
+}
+
 private fun KeypadKeySnapshot.withUserModeTopLabels(
     userKeyState: KeypadKeySnapshot,
 ): KeypadKeySnapshot {
@@ -94,6 +106,19 @@ private fun Int.replaceLabelRole(slot: Int, role: Int): Int {
     val shift = slot * 4
     val mask = 0xF shl shift
     return (this and mask.inv()) or (role shl shift)
+}
+
+private fun KeypadKeySnapshot.withVirtuosoMainKeyMode(): KeypadKeySnapshot {
+    return copy(
+        primaryLabel = "",
+        fLabel = "",
+        gLabel = "",
+        letterLabel = "",
+        auxLabel = "",
+        labelRoles = 0,
+        overlayState = KeypadKeySnapshot.NO_VALUE,
+        showValue = KeypadKeySnapshot.NO_VALUE,
+    )
 }
 
 private fun KeypadKeySnapshot.withSoftkeyDynamicMode(mode: SoftkeyDynamicMode): KeypadKeySnapshot {

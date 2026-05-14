@@ -92,6 +92,17 @@ class MainShellThemeTest {
         assertTrue(ColorUtils.calculateLuminance(infoCardColor) < 0.15)
     }
 
+    @Test
+    fun settingsDiscoveryHint_copyReferencesKeypadLayoutDynamic() {
+        val activity = buildThemedActivity()
+
+        assertEquals("Tap here to enter Settings", activity.getString(R.string.settings_entry_hint_chip))
+        assertEquals(
+            "Welcome to R47 Zen\nSet Keypad Layout in settings to change your keypad layout mode.\nSet your Working Directory to save and load your custom stacks.",
+            activity.getString(R.string.settings_entry_hint_message),
+        )
+    }
+
     private fun buildThemedActivity(): ThemedShellActivity {
         return Robolectric.buildActivity(ThemedShellActivity::class.java)
             .setup()

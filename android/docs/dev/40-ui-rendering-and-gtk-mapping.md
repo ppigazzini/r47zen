@@ -177,15 +177,17 @@ Render split:
 - `ReplicaOverlayController` owns the keypad label-mode policy split: it
   forwards `on`, `alpha`, and `off` main-key modes directly to the app-facing
   native snapshot export, composes `user` from the static `off` snapshot plus
-  USER-mode `f` and `g` labels after decode, and applies softkey `graphic` or
-  `off` masks before `ReplicaKeypadLayout.updateDynamicKeys()`
+  USER-mode `f` and `g` labels after decode, composes `virtuoso` from that
+  same static `off` snapshot by blanking rendered key content, and applies
+  softkey `graphic` or `off` masks before `ReplicaKeypadLayout.updateDynamicKeys()`
 - `ReplicaKeypadLayout.updateDynamicKeys()` ignores snapshots until
   `sceneContractVersion > 0` and requests layout when scene changes can affect
   label widths, visibility, or layout class
 
 ## Label mode policy
 
-The Android shell now applies two independent keypad label policies.
+The Android shell now applies two keypad label policies, and the special
+`virtuoso` main-key mode intentionally forces blank softkey capsules too.
 
 Main keys:
 
@@ -195,6 +197,8 @@ Main keys:
 - `user`: keep printed main-key legends and, while USER mode is active, overlay
   USER `f` and `g` top labels without relabeling the main key body
 - `off`: fixed printed legends even while alpha, USER, or TAM states are active
+- `virtuoso`: reuse the static `off` snapshot, blank all rendered main-key
+  legends, and force softkeys to the blank-capsule presentation
 
 Softkeys:
 

@@ -117,6 +117,37 @@ flowchart TD
 - [Manage releases in a repository](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository):
   the release model used by the main-branch snapshot lane.
 
+## Google Play setup and policy
+
+- [Create and set up your app](https://support.google.com/googleplay/android-developer/answer/9859152):
+  Play Console app creation, package-name permanence, app contact details, and
+  the initial Play App Signing and declaration flow.
+- [Prepare your app for review](https://support.google.com/googleplay/android-developer/answer/9859455):
+  App content requirements such as privacy policy, ads declaration, app access,
+  target audience, content ratings, and special declarations.
+- [Provide information for Google Play's Data safety section](https://support.google.com/googleplay/android-developer/answer/10787469):
+  required Data safety submission flow, including the requirement that every
+  Play app completes the form.
+- [User Data](https://support.google.com/googleplay/android-developer/answer/10144311):
+  privacy-policy requirements, data-use restrictions, disclosure rules, and the
+  account-deletion rule when an app creates user accounts.
+- [Target API level requirements for Google Play apps](https://support.google.com/googleplay/android-developer/answer/11926878):
+  current new-app and update target SDK floors for Google Play distribution.
+- [Best practices for your store listing](https://support.google.com/googleplay/android-developer/answer/13393723):
+  app title, short description, full description, icon, screenshot, and feature
+  graphic rules used for store-facing naming and anti-impersonation review.
+- [Manage target audience and app content settings](https://support.google.com/googleplay/android-developer/answer/9867159):
+  target-age selection, neutral age screen guidance, and child-directed scope
+  boundaries.
+- [Google Play Families Policies](https://support.google.com/googleplay/android-developer/answer/9893335):
+  child-directed app rules, underage data limits, ad constraints, and legal
+  obligations when a product targets children.
+- [Content rating requirements for apps, games, and the ads served on both](https://support.google.com/googleplay/android-developer/answer/9859655):
+  IARC questionnaire and rating-authority flow for Play publication.
+- [App testing requirements for new personal developer accounts](https://support.google.com/googleplay/android-developer/answer/14151465):
+  closed-test and production-access gate that can block first release even when
+  the bundle is otherwise ready.
+
 ## Storage and file access
 
 - [Access documents and other files from shared storage](https://developer.android.com/training/data-storage/shared/documents-files):

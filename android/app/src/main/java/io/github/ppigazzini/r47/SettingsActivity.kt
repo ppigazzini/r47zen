@@ -2,9 +2,11 @@ package io.github.ppigazzini.r47
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import androidx.preference.ListPreference
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
@@ -43,6 +45,12 @@ class SettingsActivity : AppCompatActivity() {
 
 class SettingsFragment : PreferenceFragmentCompat() {
 
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "main_key_dynamic_mode") {
+            updateKeypadDesignPreferences()
+        }
+    }
+
     private data class StorageLocationDetails(
         val sessionSummary: String,
         val workDirectorySummary: String,
@@ -70,6 +78,19 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
         updateStoragePreferences()
+        updateKeypadDesignPreferences()
+
+        findPreference<Preference>("view_privacy_policy")?.setOnPreferenceClickListener {
+            startActivity(
+                NoticeAssetActivity.createIntent(
+                    requireContext(),
+                    getString(R.string.about_privacy_policy_title),
+                    "privacy-policy.html",
+                    "text/html"
+                )
+            )
+            true
+        }
 
         findPreference<Preference>("session_restore_storage")?.setOnPreferenceClickListener {
             showSessionStorageDialog()
@@ -151,7 +172,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     override fun onResume() {
         super.onResume()
+        preferenceManager.sharedPreferences?.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
         updateStoragePreferences()
+        updateKeypadDesignPreferences()
+    }
+
+    override fun onPause() {
+        preferenceManager.sharedPreferences?.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
+        super.onPause()
     }
 
     private fun showWorkDirectoryBrowserDialog() {
@@ -192,6 +220,16 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
         sessionStoragePreference?.summary = details.sessionSummary
         workDirectoryPreference.summary = details.workDirectorySummary
+    }
+
+    private fun updateKeypadDesignPreferences() {
+        val sharedPreferences = preferenceManager.sharedPreferences ?: return
+        val softkeyPreference = findPreference<ListPreference>("softkey_dynamic_mode") ?: return
+        val mainMode = sharedPreferences.getString(
+            "main_key_dynamic_mode",
+            MainKeyDynamicMode.DEFAULT.storageValue,
+        )
+        softkeyPreference.isEnabled = mainMode != MainKeyDynamicMode.VIRTUOSO.storageValue
     }
 
     private fun resolveStorageLocationDetails(context: android.content.Context): StorageLocationDetails {

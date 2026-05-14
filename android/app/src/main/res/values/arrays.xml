@@ -18,22 +18,24 @@
     </string-array>
 
     <string-array name="main_key_dynamic_mode_entries" translatable="false">
-        <item>Always Dynamic</item>
-        <item>Alphabetic Modes Only</item>
-        <item>Static Main Keys + USER f/g</item>
-        <item>Fixed Printed Legends</item>
+        <item>Dynamic Full UI</item>
+        <item>Dynamic Alpha</item>
+        <item>Dynamic USER f/g</item>
+        <item>Fixed</item>
+        <item>Zen</item>
     </string-array>
     <string-array name="main_key_dynamic_mode_values" translatable="false">
         <item>on</item>
         <item>alpha</item>
         <item>user</item>
         <item>off</item>
+        <item>virtuoso</item>
     </string-array>
 
     <string-array name="softkey_dynamic_mode_entries" translatable="false">
-        <item>Dynamic Labels And Graphics</item>
-        <item>Graphics Only</item>
-        <item>Static Keycaps</item>
+        <item>Dynamic Full UI</item>
+        <item>Dynamic Graphics</item>
+        <item>Zen</item>
     </string-array>
     <string-array name="softkey_dynamic_mode_values" translatable="false">
         <item>on</item>

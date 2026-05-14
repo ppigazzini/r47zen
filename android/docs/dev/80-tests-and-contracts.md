@@ -119,8 +119,8 @@ Important contract files include:
   contract covered in the same focused JVM lane
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
   the app-facing JNI keypad snapshot export, the USER top-label composition
-  that keeps printed main-key legends, and the Kotlin-side softkey `graphic`
-  and `off` scene masks
+  that keeps printed main-key legends, the Virtuoso blank-keycap composition,
+  and the Kotlin-side softkey `graphic` and `off` scene masks
 - `PhysicalKeyboardInputParityTest.kt`: locks printable, function-key,
   shortcut, and modifier-tap mapping behavior
 - `NativeCoreRuntimeTest.kt`: locks single-init, queued-task, and

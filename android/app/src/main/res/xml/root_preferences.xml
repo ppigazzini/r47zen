@@ -127,6 +127,10 @@
             app:title="@string/about_version_title"
             app:summary="@string/about_version_summary" />
         <Preference
+            app:key="view_privacy_policy"
+            app:title="@string/about_privacy_policy_title"
+            app:summary="@string/about_privacy_policy_summary" />
+        <Preference
             app:key="view_gpl_license"
             app:title="@string/about_gpl_license_title"
             app:summary="@string/about_gpl_license_summary" />

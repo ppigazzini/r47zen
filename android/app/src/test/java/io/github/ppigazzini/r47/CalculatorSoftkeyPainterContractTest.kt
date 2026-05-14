@@ -46,6 +46,24 @@ class CalculatorSoftkeyPainterContractTest {
         assertEquals("MODE", view.contentDescription.toString())
     }
 
+    @Test
+    fun blankSoftkeyContentDescriptionStaysEmpty() {
+        val view = createSoftkeyView(40)
+        val snapshot = snapshotWith(
+            40 to KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "",
+                auxLabel = "",
+                sceneFlags = 0,
+                showValue = KeypadKeySnapshot.NO_VALUE,
+                isEnabled = true,
+            ),
+        )
+
+        view.updateLabels(snapshot)
+
+        assertEquals("", view.contentDescription.toString())
+    }
+
     private fun createSoftkeyView(code: Int): CalculatorKeyView {
         return CalculatorKeyView(ApplicationProvider.getApplicationContext()).apply {
             setKey(

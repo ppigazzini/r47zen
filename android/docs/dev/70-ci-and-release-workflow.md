@@ -188,6 +188,16 @@ This workflow:
 - stops at artifact publication; Play Console upload remains a manual
   maintainer action after review
 
+The manual Play handoff still requires the maintainer-owned publication inputs
+that do not live in the Gradle workflow itself:
+
+- a stable privacy-policy URL and the in-app privacy-policy surface
+- a reviewed Data safety declaration
+- final target-audience and content-rating answers
+- final store title, description, screenshots, and feature graphic
+- any account-level testing or production-access prerequisites enforced by the
+  Play developer account type
+
 Configure the `production-release` environment with the branch restrictions,
 required reviewers, and the four release-signing secrets the workflow expects.
 

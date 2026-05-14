@@ -9,7 +9,8 @@ this ownership boundary is already clear.
 
 ## At A Glance
 
-- R47 Android is the Android shell and maintainer overlay for the R47 variant.
+- R47 Android is the independently maintained Android shell and maintainer
+  overlay for the R47 variant.
 - The authoritative upstream project is the C47 core configured in
   `upstream.source`.
 - This repository owns Android-specific Kotlin, JNI, scripts, CI, and docs.
@@ -100,8 +101,13 @@ flowchart LR
 R47 Android is not a generic Android sample app and not a plain mirror of the
 upstream calculator source tree.
 
-It is the Android shell, build pipeline, packaging layer, and maintainer overlay
-for the R47 calculator variant.
+It is the independently maintained Android shell, build pipeline, packaging
+layer, and maintainer overlay for the R47 calculator variant.
+
+It is not the official upstream Android release channel for C47. Store-facing
+names, listing copy, and policy declarations should avoid implying that this
+repository speaks for the upstream project team or for the wider R47
+community.
 
 Its main responsibilities are:
 

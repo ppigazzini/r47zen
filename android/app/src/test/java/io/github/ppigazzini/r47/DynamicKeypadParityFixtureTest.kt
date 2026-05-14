@@ -274,6 +274,59 @@ class DynamicKeypadParityFixtureTest {
     }
 
     @Test
+    fun iteration88_blankSnapshotClearsVisibleMainKeyLabels() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val container = FrameLayout(activity)
+        activity.setContentView(container)
+
+        val keyView = createAttachedMainKeyView(activity, 12)
+        container.addView(keyView, FrameLayout.LayoutParams(331, 260))
+
+        val labeledSnapshot = snapshotWith(
+            12 to KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "7",
+                fLabel = "LASTx",
+                gLabel = "STK",
+                letterLabel = "A",
+                styleRole = KeypadSceneContract.STYLE_SHIFT_F,
+                layoutClass = KeypadSceneContract.LAYOUT_CLASS_DEFAULT,
+                isEnabled = true,
+            ),
+        )
+        val blankSnapshot = snapshotWith(
+            12 to KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "",
+                fLabel = "",
+                gLabel = "",
+                letterLabel = "",
+                styleRole = KeypadSceneContract.STYLE_SHIFT_F,
+                layoutClass = KeypadSceneContract.LAYOUT_CLASS_DEFAULT,
+                isEnabled = true,
+            ),
+        )
+
+        container.measure(exactly(500), exactly(320))
+        container.layout(0, 0, 500, 320)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        keyView.updateLabels(labeledSnapshot)
+        container.measure(exactly(500), exactly(320))
+        container.layout(0, 0, 500, 320)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        keyView.updateLabels(blankSnapshot)
+        container.measure(exactly(500), exactly(320))
+        container.layout(0, 0, 500, 320)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("", keyView.primaryLabel.text.toString())
+        assertEquals(View.INVISIBLE, keyView.fLabel.visibility)
+        assertEquals(View.INVISIBLE, keyView.gLabel.visibility)
+        assertEquals(View.INVISIBLE, keyView.letterLabel.visibility)
+        assertEquals("", keyView.contentDescription.toString())
+    }
+
+    @Test
     fun iteration66_rowPlacementComputesHorizontalFgShiftPerLane() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val overlay = ReplicaOverlay(activity)

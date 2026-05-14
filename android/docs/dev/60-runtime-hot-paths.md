@@ -82,7 +82,8 @@ Changes here affect the full runtime even when the Android UI code is untouched.
   - more than 500 ms passed since `lastLabelRefresh`
 - When refresh is needed, the loop converts metadata into `KeypadSnapshot` and
   forwards it to `ReplicaOverlayController.refreshDynamicKeys(...)`, which may
-  also apply the softkey `graphic` or `off` mask before the renderer path runs.
+  also apply the `virtuoso` blank-keycap composition plus the softkey
+  `graphic` or `off` mask before the renderer path runs.
 
 Do not add a second polling loop for LCD pixels, keypad labels, or scene state.
 That would duplicate the most expensive JNI reads in the shell.

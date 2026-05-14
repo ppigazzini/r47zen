@@ -115,17 +115,19 @@ flowchart LR
   side.
 - `getKeypadMetaNative(mainKeyDynamicMode)` fills one fixed
   `KEYPAD_META_LENGTH` integer array under `screenMutex` using the app-facing
-  main-key mode enum: `on`, `alpha`, `user`, or `off`.
+  native main-key mode enum: `on`, `alpha`, `user`, or `off`. The Android-only
+  stored value `virtuoso` resolves to native `off` before this JNI request.
 - `getKeypadLabelsNative(mainKeyDynamicMode)` walks the visible main-key table
   plus the six softkeys under `screenMutex` and exports the current label
-  strings for that app-facing main-key mode.
+  strings for that app-facing native main-key mode.
 - the legacy `r47_get_keypad_meta(..., bool isDynamic)` and
   `r47_get_keypad_labels(..., bool isDynamic)` functions remain the
   bool-based fixture-export contract used by repo tooling and keep the older
   semantics.
 - Kotlin converts those raw arrays into `KeypadSnapshot`, and the renderer uses
   named fields from that model instead of indexing raw native arrays again.
-  `ReplicaOverlayController` then applies any softkey `graphic` or `off` mask
+  `ReplicaOverlayController` then applies any `user` or `virtuoso`
+  keypad-label composition plus the softkey `graphic` or `off` mask
   before the snapshot reaches the live renderer.
 
 ## Instrumentation-Only Bridge Contract

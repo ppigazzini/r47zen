@@ -107,6 +107,7 @@ internal class ReplicaOverlayController(
                     .applyMainKeyDynamicMode(MainKeyDynamicMode.USER, userSnapshot)
             }
             else -> snapshotForMode(mainKeyDynamicMode, meta)
+                .applyMainKeyDynamicMode(mainKeyDynamicMode)
         }
 
         return resolvedSnapshot

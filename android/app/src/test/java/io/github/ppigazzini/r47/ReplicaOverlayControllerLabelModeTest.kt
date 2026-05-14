@@ -204,6 +204,71 @@ class ReplicaOverlayControllerLabelModeTest {
         assertEquals(KeypadKeySnapshot.NO_VALUE, keyState.showValue)
     }
 
+    @Test
+    fun virtuosoModeKeepsStaticKeycapsAndBlanksRenderedKeyContent() {
+        val mainKeyCode = 12
+        val labels = emptyLabels().apply {
+            this[labelIndex(mainKeyCode, KeypadSceneContract.LABEL_PRIMARY)] = "7"
+            this[labelIndex(mainKeyCode, KeypadSceneContract.LABEL_F)] = "LASTx"
+            this[labelIndex(mainKeyCode, KeypadSceneContract.LABEL_G)] = "STK"
+            this[labelIndex(mainKeyCode, KeypadSceneContract.LABEL_LETTER)] = "A"
+            this[labelIndex(38, KeypadSceneContract.LABEL_PRIMARY)] = "FILE"
+            this[labelIndex(38, KeypadSceneContract.LABEL_AUX)] = "LOAD"
+        }
+        val meta = graphicSoftkeyMeta().apply {
+            this[META_KEY_ENABLED_OFFSET + mainKeyCode - 1] = 1
+            this[META_STYLE_ROLE_OFFSET + mainKeyCode - 1] = KeypadSceneContract.STYLE_SHIFT_F
+            this[META_LABEL_ROLE_OFFSET + mainKeyCode - 1] =
+                packLabelRole(KeypadSceneContract.LABEL_PRIMARY, KeypadSceneContract.TEXT_ROLE_PRIMARY) or
+                    packLabelRole(KeypadSceneContract.LABEL_F, KeypadSceneContract.TEXT_ROLE_F) or
+                    packLabelRole(KeypadSceneContract.LABEL_G, KeypadSceneContract.TEXT_ROLE_G) or
+                    packLabelRole(KeypadSceneContract.LABEL_LETTER, KeypadSceneContract.TEXT_ROLE_LETTER)
+        }
+        val controller = createController(
+            getMeta = { mode ->
+                when (mode) {
+                    MainKeyDynamicMode.OFF.nativeCode -> meta
+                    else -> baseMeta()
+                }
+            },
+            getLabels = { mode ->
+                when (mode) {
+                    MainKeyDynamicMode.OFF.nativeCode -> labels
+                    else -> emptyLabels()
+                }
+            },
+        )
+
+        controller.applyKeypadLabelModes(MainKeyDynamicMode.VIRTUOSO, SoftkeyDynamicMode.ON)
+
+        val snapshot = controller.currentKeypadSnapshot()
+        val mainKeyState = snapshot.keyStateFor(mainKeyCode)
+        val softkeyState = snapshot.keyStateFor(38)
+
+        assertTrue(mainKeyState.isEnabled)
+        assertEquals(KeypadSceneContract.STYLE_SHIFT_F, mainKeyState.styleRole)
+        assertEquals("", mainKeyState.primaryLabel)
+        assertEquals("", mainKeyState.fLabel)
+        assertEquals("", mainKeyState.gLabel)
+        assertEquals("", mainKeyState.letterLabel)
+        assertEquals(KeypadSceneContract.TEXT_ROLE_NONE, mainKeyState.labelRole(KeypadSceneContract.LABEL_PRIMARY))
+        assertEquals(KeypadSceneContract.TEXT_ROLE_NONE, mainKeyState.labelRole(KeypadSceneContract.LABEL_F))
+        assertEquals(KeypadSceneContract.TEXT_ROLE_NONE, mainKeyState.labelRole(KeypadSceneContract.LABEL_G))
+        assertEquals(KeypadSceneContract.TEXT_ROLE_NONE, mainKeyState.labelRole(KeypadSceneContract.LABEL_LETTER))
+
+        assertEquals("", softkeyState.primaryLabel)
+        assertEquals("", softkeyState.auxLabel)
+        assertFalse(softkeyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_REVERSE_VIDEO))
+        assertFalse(softkeyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT))
+        assertFalse(softkeyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_VALUE))
+        assertFalse(softkeyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_CB))
+        assertFalse(softkeyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_STRIKE_OUT))
+        assertFalse(softkeyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_STRIKE_THROUGH))
+        assertFalse(softkeyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET))
+        assertEquals(KeypadKeySnapshot.NO_VALUE, softkeyState.overlayState)
+        assertEquals(KeypadKeySnapshot.NO_VALUE, softkeyState.showValue)
+    }
+
     private fun createController(
         getMeta: (Int) -> IntArray = { baseMeta() },
         getLabels: (Int) -> Array<String> = { emptyLabels() },

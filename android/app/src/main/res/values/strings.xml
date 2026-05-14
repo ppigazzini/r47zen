@@ -1,25 +1,22 @@
 <resources>
-    <string name="app_name">R47</string>
+    <string name="app_name">R47 Zen RPN Calculator</string>
+    <string name="launcher_name">R47 Zen</string>
     <string name="settings_title" translatable="false">Settings</string>
     <string name="settings_return_action" translatable="false">Calculator</string>
     <string name="settings_entry_hint_chip" translatable="false">Tap here to enter Settings</string>
-    <string name="settings_entry_hint_message" translatable="false">R47 always restores your last session in private app storage.
-
-You can set a single Work Directory for portable PROGRAMS, SAVFILES, SCREENS, and STATE files.
-
-Enter Settings to start using your R47 calculator.</string>
+    <string name="settings_entry_hint_message" translatable="false">Welcome to R47 Zen\nSet Keypad Layout in settings to change your keypad layout mode.\nSet your Working Directory to save and load your custom stacks.</string>
     <string name="settings_session_storage_title" translatable="false">Session Restore Storage</string>
     <string name="settings_session_storage_summary" translatable="false">Private app storage managed by Android. Restores your last session on restart.</string>
-    <string name="settings_keypad_labels_category_title" translatable="false">Keypad Labels</string>
-    <string name="settings_main_key_dynamic_mode_title" translatable="false">Main-Key Dynamic Labels</string>
-    <string name="settings_softkey_dynamic_mode_title" translatable="false">Softkey Dynamic Labels</string>
-    <string name="settings_session_storage_dialog_message" translatable="false">R47 restores your running session from Android private app storage at:
+    <string name="settings_keypad_labels_category_title" translatable="false">Keypad Layout</string>
+    <string name="settings_main_key_dynamic_mode_title" translatable="false">Main Keys Mode</string>
+    <string name="settings_softkey_dynamic_mode_title" translatable="false">Softkeys Mode</string>
+    <string name="settings_session_storage_dialog_message" translatable="false">R47 Zen restores your running session from Android private app storage at:
 
 %1$s
 
 This app-managed location is separate from the optional external Work Directory. The Work Directory is only for portable STATE, PROGRAMS, SAVFILES, and SCREENS files opened or created through Android\'s document browser.</string>
     <string name="settings_work_directory_set_title" translatable="false">Work Directory Set</string>
-    <string name="settings_work_directory_set_message" translatable="false">Open and save will start in %1$s. R47 will create portable STATE, PROGRAMS, SAVFILES, and SCREENS folders here as needed. Session restore stays in private app storage.</string>
+    <string name="settings_work_directory_set_message" translatable="false">Open and save will start in %1$s. R47 Zen will create portable STATE, PROGRAMS, SAVFILES, and SCREENS folders here as needed. Session restore stays in private app storage.</string>
     <string name="settings_work_directory_browser_title" translatable="false">Set Work Directory</string>
     <string name="settings_work_directory_browser_message" translatable="false">The Work Directory is optional. Set a custom external folder only if you want READP, portable STATE files, manual saves, and screenshots to start in one place.
 
@@ -49,23 +46,25 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_keep_screen_on_title" translatable="false">Keep Screen On</string>
     <string name="settings_auto_save_minimize_title" translatable="false">Auto-Save on Minimize</string>
     <string name="settings_force_close_on_exit_title" translatable="false">Force Close on f-shift EXIT</string>
-    <string name="settings_force_close_on_exit_summary" translatable="false">Make f-shift EXIT close R47 and remove it from Recents.</string>
+    <string name="settings_force_close_on_exit_summary" translatable="false">Make f-shift EXIT close R47 Zen and remove it from Recents.</string>
     <string name="settings_developer_tools_category_title" translatable="false">Developer Tools</string>
     <string name="settings_show_touch_zones_title" translatable="false">Show Touch Zones</string>
     <string name="settings_cancel_action" translatable="false">Cancel</string>
     <string name="settings_factory_reset_title" translatable="false">Reset to Factory Defaults</string>
-    <string name="settings_factory_reset_summary" translatable="false">Wipe internal app data and relaunch R47</string>
+    <string name="settings_factory_reset_summary" translatable="false">Wipe internal app data and relaunch R47 Zen</string>
     <string name="settings_factory_reset_confirm_title" translatable="false">Confirm Reset</string>
-    <string name="settings_factory_reset_confirm_message" translatable="false">Wipe all internal app data and relaunch R47?
+    <string name="settings_factory_reset_confirm_message" translatable="false">Wipe all internal app data and relaunch R47 Zen?
 
 Note: This will NOT delete any files in a saved Work Directory. External STATE, PROGRAMS, SAVFILES, and SCREENS folders stay untouched.</string>
     <string name="settings_factory_reset_confirm_action" translatable="false">Reset</string>
-    <string name="settings_about_category_title" translatable="false">About R47</string>
+    <string name="settings_about_category_title" translatable="false">About R47 Zen</string>
     <string name="about_version_title" translatable="false">Version</string>
+    <string name="about_privacy_policy_title" translatable="false">View Privacy Policy</string>
+    <string name="about_privacy_policy_summary" translatable="false">Explains what this independently maintained Android build stores locally and what it does not collect</string>
     <string name="about_gpl_license_title" translatable="false">View GNU GPL v3 Notice</string>
     <string name="about_gpl_license_summary" translatable="false">Shows the packaged GPL v3 text and source-delivery guidance for this build</string>
-    <string name="about_android_source_title" translatable="false">View Android Source Repository</string>
-    <string name="about_android_source_summary" translatable="false">Public source repository for this Android build</string>
+    <string name="about_android_source_title" translatable="false">View Android Fork Source</string>
+    <string name="about_android_source_summary" translatable="false">Public source repository for this independently maintained Android build</string>
     <string name="about_repo_notices_title" translatable="false">View Bundled Native and Vendored Notices</string>
     <string name="about_repo_notices_summary" translatable="false">Shows repo-owned notices for vendored or native surfaces that do not come from Maven metadata</string>
     <string name="about_android_library_licenses_title" translatable="false">View Android Library Notices</string>
@@ -80,7 +79,7 @@ Note: This will NOT delete any files in a saved Work Directory. External STATE, 
     <string name="repo_notice_catalog_missing_message" translatable="false">This build could not read the packaged repo notice index from the APK.</string>
     <string name="repo_notice_asset_missing_message" translatable="false">This build could not read the selected packaged notice from the APK.</string>
     <string name="repo_notice_asset_fallback_title" translatable="false">Packaged Notice</string>
-    <string name="about_gpl_license_intro" translatable="false">R47 Android is licensed under the GNU General Public License, version 3.
+    <string name="about_gpl_license_intro" translatable="false">R47 Zen is licensed under the GNU General Public License, version 3.
 
 This program comes with ABSOLUTELY NO WARRANTY.
 

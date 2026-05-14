@@ -267,7 +267,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = releaseVersionCode
         versionName = releaseVersionName
-        resValue "string", "about_version_summary", "R47 Android ${releaseVersionName} (Core: ${coreVersion})"
+        resValue "string", "about_version_summary", "R47 Zen ${releaseVersionName} (Core: ${coreVersion})"
         resValue "string", "android_source_repository_url", androidSourceRepositoryUrl
 
         // Use property override if provided, otherwise default to a verified version
