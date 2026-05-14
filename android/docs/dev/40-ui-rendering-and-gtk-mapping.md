@@ -173,10 +173,11 @@ Render split:
 - `CalculatorSoftkeyPainter` owns softkey text, auxiliary text, value text,
   preview accents, reverse-video states, strike marks, and overlay-state
   decorations
-- `ReplicaOverlayController` owns the keypad label-mode policy split: it passes
-  the selected main-key mode into the app-facing native snapshot export and
-  applies softkey `graphic` or `off` masks after decode but before
-  `ReplicaKeypadLayout.updateDynamicKeys()`
+- `ReplicaOverlayController` owns the keypad label-mode policy split: it
+  forwards `on`, `alpha`, and `off` main-key modes directly to the app-facing
+  native snapshot export, composes `user` from the static `off` snapshot plus
+  USER-mode `f` and `g` labels after decode, and applies softkey `graphic` or
+  `off` masks before `ReplicaKeypadLayout.updateDynamicKeys()`
 - `ReplicaKeypadLayout.updateDynamicKeys()` ignores snapshots until
   `sceneContractVersion > 0` and requests layout when scene changes can affect
   label widths, visibility, or layout class
@@ -190,7 +191,8 @@ Main keys:
 - `on`: fully dynamic main-key presentation
 - `alpha`: dynamic relabeling only while the calculator is in an alphabetic
   state
-- `user`: dynamic relabeling only while USER mode is active
+- `user`: keep printed main-key legends and, while USER mode is active, overlay
+  USER `f` and `g` top labels without relabeling the main key body
 - `off`: fixed printed legends even while alpha, USER, or TAM states are active
 
 Softkeys:
@@ -201,11 +203,13 @@ Softkeys:
 - `off`: remove those dynamic softkey graphics and leave the default softkey
   capsule
 
-The split is intentional. Main-key presentation depends on upstream-owned key
-tables and label-role export, so the app selects the native main-key snapshot
-mode before decode. Softkey `graphic` and `off` are renderer policy, so the app
-applies them as decoded scene masks instead of widening the softkey draw logic
-in native code.
+The split is intentional. `on`, `alpha`, and `off` main-key presentation still
+depend on upstream-owned key tables and label-role export, but the Android-only
+`user` contract is now a renderer policy: the app keeps the printed-legends
+snapshot for the main key body and overlays only the USER `f` and `g` labels
+after decode. Softkey `graphic` and `off` remain renderer policy too, so the
+app applies them as decoded scene masks instead of widening the softkey draw
+logic in native code.
 
 ## Top-label lane contract
 

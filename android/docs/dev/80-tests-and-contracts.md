@@ -115,8 +115,9 @@ Important contract files include:
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable
   through golden hashes and locks the retained top settings-strip interaction
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
-  the app-facing JNI keypad snapshot export and the Kotlin-side softkey
-  `graphic` and `off` scene masks
+  the app-facing JNI keypad snapshot export, the USER top-label composition
+  that keeps printed main-key legends, and the Kotlin-side softkey `graphic`
+  and `off` scene masks
 - `PhysicalKeyboardInputParityTest.kt`: locks printable, function-key,
   shortcut, and modifier-tap mapping behavior
 - `NativeCoreRuntimeTest.kt`: locks single-init, queued-task, and

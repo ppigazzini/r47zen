@@ -100,9 +100,16 @@ internal class ReplicaOverlayController(
     }
 
     fun currentKeypadSnapshot(meta: IntArray? = null): KeypadSnapshot {
-        val resolvedMeta = meta ?: getKeypadMetaNative(mainKeyDynamicMode.nativeCode)
-        return KeypadSnapshot
-            .fromNative(resolvedMeta, getKeypadLabelsNative(mainKeyDynamicMode.nativeCode))
+        val resolvedSnapshot = when (mainKeyDynamicMode) {
+            MainKeyDynamicMode.USER -> {
+                val userSnapshot = snapshotForMode(MainKeyDynamicMode.USER, meta)
+                snapshotForMode(MainKeyDynamicMode.OFF)
+                    .applyMainKeyDynamicMode(MainKeyDynamicMode.USER, userSnapshot)
+            }
+            else -> snapshotForMode(mainKeyDynamicMode, meta)
+        }
+
+        return resolvedSnapshot
             .applySoftkeyDynamicMode(softkeyDynamicMode)
     }
 
@@ -139,6 +146,14 @@ internal class ReplicaOverlayController(
             dispatchKey = ::dispatchKey,
             initialSnapshotProvider = { currentKeypadSnapshot() },
         )
+    }
+
+    private fun snapshotForMode(
+        mode: MainKeyDynamicMode,
+        meta: IntArray? = null,
+    ): KeypadSnapshot {
+        val resolvedMeta = meta ?: getKeypadMetaNative(mode.nativeCode)
+        return KeypadSnapshot.fromNative(resolvedMeta, getKeypadLabelsNative(mode.nativeCode))
     }
 
     private fun markGeometryChange() {

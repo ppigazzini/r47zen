@@ -34,6 +34,16 @@ internal enum class SoftkeyDynamicMode(
     }
 }
 
+internal fun KeypadSnapshot.applyMainKeyDynamicMode(
+    mode: MainKeyDynamicMode,
+    userSnapshot: KeypadSnapshot? = null,
+): KeypadSnapshot {
+    return when (mode) {
+        MainKeyDynamicMode.USER -> applyUserModeTopLabels(userSnapshot)
+        else -> this
+    }
+}
+
 internal fun KeypadSnapshot.applySoftkeyDynamicMode(mode: SoftkeyDynamicMode): KeypadSnapshot {
     if (mode == SoftkeyDynamicMode.ON) {
         return this
@@ -46,6 +56,44 @@ internal fun KeypadSnapshot.applySoftkeyDynamicMode(mode: SoftkeyDynamicMode): K
             keyState.withSoftkeyDynamicMode(mode)
         }
     }
+}
+
+private fun KeypadSnapshot.applyUserModeTopLabels(userSnapshot: KeypadSnapshot?): KeypadSnapshot {
+    if (userSnapshot == null || !userSnapshot.userModeEnabled) {
+        return this
+    }
+
+    return transformKeyStates { code, keyState ->
+        if (code <= 37) {
+            keyState.withUserModeTopLabels(userSnapshot.keyStateFor(code))
+        } else {
+            keyState
+        }
+    }
+}
+
+private fun KeypadKeySnapshot.withUserModeTopLabels(
+    userKeyState: KeypadKeySnapshot,
+): KeypadKeySnapshot {
+    return copy(
+        fLabel = userKeyState.fLabel,
+        gLabel = userKeyState.gLabel,
+        labelRoles = labelRoles
+            .replaceLabelRole(
+                KeypadSceneContract.LABEL_F,
+                userKeyState.labelRole(KeypadSceneContract.LABEL_F),
+            )
+            .replaceLabelRole(
+                KeypadSceneContract.LABEL_G,
+                userKeyState.labelRole(KeypadSceneContract.LABEL_G),
+            ),
+    )
+}
+
+private fun Int.replaceLabelRole(slot: Int, role: Int): Int {
+    val shift = slot * 4
+    val mask = 0xF shl shift
+    return (this and mask.inv()) or (role shl shift)
 }
 
 private fun KeypadKeySnapshot.withSoftkeyDynamicMode(mode: SoftkeyDynamicMode): KeypadKeySnapshot {

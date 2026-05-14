@@ -20,7 +20,7 @@
     <string-array name="main_key_dynamic_mode_entries" translatable="false">
         <item>Always Dynamic</item>
         <item>Alphabetic Modes Only</item>
-        <item>USER Mode Only</item>
+        <item>Static Main Keys + USER f/g</item>
         <item>Fixed Printed Legends</item>
     </string-array>
     <string-array name="main_key_dynamic_mode_values" translatable="false">

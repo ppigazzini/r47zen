@@ -21,39 +21,17 @@ class ReplicaOverlayControllerLabelModeTest {
     }
 
     @Test
-    fun currentKeypadSnapshotRequestsSelectedMainKeyModeFromNative() {
-        var metaMode = -1
-        var labelMode = -1
-        val controller = createController(
-            getMeta = { mode ->
-                metaMode = mode
-                baseMeta()
-            },
-            getLabels = { mode ->
-                labelMode = mode
-                emptyLabels()
-            },
-        )
-
-        controller.applyKeypadLabelModes(MainKeyDynamicMode.USER, SoftkeyDynamicMode.ON)
-        controller.currentKeypadSnapshot()
-
-        assertEquals(MainKeyDynamicMode.USER.nativeCode, metaMode)
-        assertEquals(MainKeyDynamicMode.USER.nativeCode, labelMode)
-    }
-
-    @Test
-    fun currentKeypadSnapshotRequestsEveryMainKeyModeFromNative() {
+    fun currentKeypadSnapshotRequestsExpectedNativeModes() {
         MainKeyDynamicMode.entries.forEach { mode ->
-            var metaMode = -1
-            var labelMode = -1
+            val metaModes = mutableListOf<Int>()
+            val labelModes = mutableListOf<Int>()
             val controller = createController(
                 getMeta = { requestedMode ->
-                    metaMode = requestedMode
+                    metaModes += requestedMode
                     baseMeta()
                 },
                 getLabels = { requestedMode ->
-                    labelMode = requestedMode
+                    labelModes += requestedMode
                     emptyLabels()
                 },
             )
@@ -61,9 +39,123 @@ class ReplicaOverlayControllerLabelModeTest {
             controller.applyKeypadLabelModes(mode, SoftkeyDynamicMode.ON)
             controller.currentKeypadSnapshot()
 
-            assertEquals(mode.nativeCode, metaMode)
-            assertEquals(mode.nativeCode, labelMode)
+            val expectedModes = if (mode == MainKeyDynamicMode.USER) {
+                listOf(MainKeyDynamicMode.USER.nativeCode, MainKeyDynamicMode.OFF.nativeCode)
+            } else {
+                listOf(mode.nativeCode)
+            }
+
+            assertEquals(expectedModes, metaModes)
+            assertEquals(expectedModes, labelModes)
         }
+    }
+
+    @Test
+    fun userModeKeepsStaticPrimaryAndOverlaysTopLabels() {
+        val keyCode = 12
+        val offLabels = emptyLabels().apply {
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_PRIMARY)] = "7"
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_F)] = "LASTx"
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "STK"
+        }
+        val userLabels = emptyLabels().apply {
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_PRIMARY)] = "XEQ"
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_F)] = "ASSIGN"
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "MYALPHA"
+        }
+        val offMeta = baseMeta(userModeEnabled = true).apply {
+            setLabelRoles(
+                keyCode = keyCode,
+                primaryRole = KeypadSceneContract.TEXT_ROLE_PRIMARY,
+                fRole = KeypadSceneContract.TEXT_ROLE_F,
+                gRole = KeypadSceneContract.TEXT_ROLE_G,
+            )
+        }
+        val userMeta = baseMeta(userModeEnabled = true).apply {
+            setLabelRoles(
+                keyCode = keyCode,
+                primaryRole = KeypadSceneContract.TEXT_ROLE_PRIMARY,
+                fRole = KeypadSceneContract.TEXT_ROLE_F_UNDERLINE,
+                gRole = KeypadSceneContract.TEXT_ROLE_G_UNDERLINE,
+            )
+        }
+        val controller = createController(
+            getMeta = { mode ->
+                when (mode) {
+                    MainKeyDynamicMode.OFF.nativeCode -> offMeta
+                    MainKeyDynamicMode.USER.nativeCode -> userMeta
+                    else -> baseMeta()
+                }
+            },
+            getLabels = { mode ->
+                when (mode) {
+                    MainKeyDynamicMode.OFF.nativeCode -> offLabels
+                    MainKeyDynamicMode.USER.nativeCode -> userLabels
+                    else -> emptyLabels()
+                }
+            },
+        )
+
+        controller.applyKeypadLabelModes(MainKeyDynamicMode.USER, SoftkeyDynamicMode.ON)
+
+        val keyState = controller.currentKeypadSnapshot().keyStateFor(keyCode)
+
+        assertEquals("7", keyState.primaryLabel)
+        assertEquals("ASSIGN", keyState.fLabel)
+        assertEquals("MYALPHA", keyState.gLabel)
+        assertEquals(
+            KeypadSceneContract.TEXT_ROLE_PRIMARY,
+            keyState.labelRole(KeypadSceneContract.LABEL_PRIMARY),
+        )
+        assertEquals(
+            KeypadSceneContract.TEXT_ROLE_F_UNDERLINE,
+            keyState.labelRole(KeypadSceneContract.LABEL_F),
+        )
+        assertEquals(
+            KeypadSceneContract.TEXT_ROLE_G_UNDERLINE,
+            keyState.labelRole(KeypadSceneContract.LABEL_G),
+        )
+    }
+
+    @Test
+    fun userTopLabelOverlayStaysOffOutsideUserMode() {
+        val keyCode = 12
+        val offLabels = emptyLabels().apply {
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_PRIMARY)] = "7"
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_F)] = "LASTx"
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "STK"
+        }
+        val userLabels = emptyLabels().apply {
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_PRIMARY)] = "XEQ"
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_F)] = "ASSIGN"
+            this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "MYALPHA"
+        }
+        val offMeta = baseMeta(userModeEnabled = false)
+        val userMeta = baseMeta(userModeEnabled = false)
+        val controller = createController(
+            getMeta = { mode ->
+                when (mode) {
+                    MainKeyDynamicMode.OFF.nativeCode -> offMeta
+                    MainKeyDynamicMode.USER.nativeCode -> userMeta
+                    else -> baseMeta()
+                }
+            },
+            getLabels = { mode ->
+                when (mode) {
+                    MainKeyDynamicMode.OFF.nativeCode -> offLabels
+                    MainKeyDynamicMode.USER.nativeCode -> userLabels
+                    else -> emptyLabels()
+                }
+            },
+        )
+
+        controller.applyKeypadLabelModes(MainKeyDynamicMode.USER, SoftkeyDynamicMode.ON)
+
+        val keyState = controller.currentKeypadSnapshot().keyStateFor(keyCode)
+
+        assertEquals("7", keyState.primaryLabel)
+        assertEquals("LASTx", keyState.fLabel)
+        assertEquals("STK", keyState.gLabel)
     }
 
     @Test
@@ -129,9 +221,10 @@ class ReplicaOverlayControllerLabelModeTest {
         )
     }
 
-    private fun baseMeta(): IntArray {
+    private fun baseMeta(userModeEnabled: Boolean = false): IntArray {
         return IntArray(KeypadSnapshot.META_LENGTH).apply {
             this[META_CONTRACT_VERSION] = KeypadSnapshot.SCENE_CONTRACT_VERSION
+            this[META_USER_MODE] = if (userModeEnabled) 1 else 0
         }
     }
 
@@ -160,7 +253,25 @@ class ReplicaOverlayControllerLabelModeTest {
         return (code - 1) * KeypadSnapshot.LABELS_PER_KEY + labelType
     }
 
+    private fun IntArray.setLabelRoles(
+        keyCode: Int,
+        primaryRole: Int,
+        fRole: Int,
+        gRole: Int,
+    ) {
+        this[META_KEY_ENABLED_OFFSET + keyCode - 1] = 1
+        this[META_LABEL_ROLE_OFFSET + keyCode - 1] =
+            packLabelRole(KeypadSceneContract.LABEL_PRIMARY, primaryRole) or
+                packLabelRole(KeypadSceneContract.LABEL_F, fRole) or
+                packLabelRole(KeypadSceneContract.LABEL_G, gRole)
+    }
+
+    private fun packLabelRole(slot: Int, role: Int): Int {
+        return role shl (slot * 4)
+    }
+
     private companion object {
+        private const val META_USER_MODE = 3
         private const val META_KEY_ENABLED_OFFSET = 13
         private const val META_CONTRACT_VERSION = META_KEY_ENABLED_OFFSET + KeypadSnapshot.KEY_COUNT
         private const val META_SOFTMENU_DOTTED_ROW = META_CONTRACT_VERSION + 1

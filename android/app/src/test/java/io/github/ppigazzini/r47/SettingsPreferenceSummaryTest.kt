@@ -1,6 +1,7 @@
 package io.github.ppigazzini.r47
 
 import android.content.Context
+import androidx.preference.ListPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.test.core.app.ApplicationProvider
 import org.junit.After
@@ -72,7 +73,26 @@ class SettingsPreferenceSummaryTest {
         )
     }
 
+    @Test
+    fun mainKeyUserEntry_isLeanAndExplicitAboutStaticKeys() {
+        val preference = launchSettingsAndFindList("main_key_dynamic_mode")
+
+        assertEquals(
+            "Static Main Keys + USER f/g",
+            preference.entries[2].toString(),
+        )
+    }
+
     private fun launchSettingsAndFindSwitch(key: String): SwitchPreferenceCompat {
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java)
+            .setup()
+            .get()
+
+        val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
+        return requireNotNull(fragment.findPreference(key))
+    }
+
+    private fun launchSettingsAndFindList(key: String): ListPreference {
         val activity = Robolectric.buildActivity(SettingsActivity::class.java)
             .setup()
             .get()
