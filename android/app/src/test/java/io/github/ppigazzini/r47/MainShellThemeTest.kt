@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47
 
+import android.app.PictureInPictureParams
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -11,6 +12,7 @@ import android.os.Looper
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.util.Rational
 import android.util.TypedValue
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.ColorUtils
@@ -32,6 +34,22 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "notnight")
 class MainShellThemeTest {
+
+    @Test
+    fun enterPictureInPicture_usesLcdAspectRatio() {
+        val activity = Robolectric.buildActivity(PiPCapturingActivity::class.java)
+            .setup()
+            .get()
+        val controller = WindowModeController(
+            activity = activity,
+            mainHandler = Handler(Looper.getMainLooper()),
+            onPiPModeChanged = {},
+        )
+
+        controller.enterPictureInPicture()
+
+        assertEquals(Rational(400, 240), activity.lastPictureInPictureParams?.aspectRatio)
+    }
 
     @Test
     fun fullscreenOff_usesDarkVisibleSystemBars() {
@@ -169,6 +187,20 @@ class MainShellThemeTest {
         val infoX: Int,
         val infoY: Int,
     )
+
+    private class PiPCapturingActivity : AppCompatActivity() {
+        var lastPictureInPictureParams: PictureInPictureParams? = null
+
+        override fun onCreate(savedInstanceState: Bundle?) {
+            setTheme(R.style.Theme_R47)
+            super.onCreate(savedInstanceState)
+        }
+
+        override fun enterPictureInPictureMode(params: PictureInPictureParams): Boolean {
+            lastPictureInPictureParams = params
+            return true
+        }
+    }
 
     private class ThemedShellActivity : AppCompatActivity() {
         override fun onCreate(savedInstanceState: Bundle?) {

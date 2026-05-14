@@ -66,9 +66,10 @@ flowchart LR
   logical contract
 - `ReplicaKeypadLayout` owns one normalized shared touch-cell map, and
   `ReplicaOverlay` owns one shared settings-entry touch strip
-- PiP is intentionally narrower: the overlay draws the LCD full-window and maps
-  horizontal touches across that surface to the six softkeys, so the
-  native shell projection does not change PiP geometry
+- PiP uses the LCD-only contract: `WindowModeController` requests the exact
+  native `400 x 240` width-over-height ratio, then `ReplicaOverlay` draws the
+  LCD full-window and maps horizontal touches across that surface to the six
+  softkeys, so the native shell projection does not change PiP geometry
 
 Projection is the first owner to inspect when the whole shell, LCD frame, and
 keypad all look correct locally but are globally misplaced together.
@@ -425,9 +426,10 @@ constant. Faceplate spacing, centering, and size rules stay shared.
 
 ## PiP interaction model
 
-PiP mode is deliberately narrower than the normal shell. The overlay stops
-drawing the full shell and maps horizontal touches across the LCD surface to the
-six softkeys.
+PiP mode keeps the native LCD aspect ratio instead of the full portrait shell.
+`WindowModeController` enters PiP with the exact `400 x 240` width-over-height
+ratio, and `ReplicaOverlay` stops drawing the full shell and maps horizontal
+touches across the LCD surface to the six softkeys.
 
 That is an interaction contract, not a reduced copy of the full keypad layout.
 PiP exit is also part of the rendering contract: the raw visual mode switch

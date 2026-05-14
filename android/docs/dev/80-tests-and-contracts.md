@@ -114,6 +114,9 @@ Important contract files include:
   overlay, preview, and strike rendering rules
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable
   through golden hashes and locks the retained top settings-strip interaction
+- `MainShellThemeTest.kt`: locks the `WindowModeController` PiP request to the
+  native LCD `400 x 240` aspect ratio and keeps the visible-system-bar theme
+  contract covered in the same focused JVM lane
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
   the app-facing JNI keypad snapshot export, the USER top-label composition
   that keeps printed main-key legends, and the Kotlin-side softkey `graphic`

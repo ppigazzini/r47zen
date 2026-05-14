@@ -128,6 +128,10 @@ callbacks.
   `ReplicaOverlayController`, which switches the overlay between normal shell
   mode and PiP mode and treats PiP exit as a geometry-replay boundary for the
   current keypad snapshot.
+- `WindowModeController.enterPictureInPicture()` is the PiP entry seam. It
+  always builds `PictureInPictureParams` with the LCD's fixed `400 x 240`
+  width-over-height ratio instead of the portrait shell bounds, so Android PiP
+  tracks the native LCD contract rather than a device-window snapshot.
 
 Activity Result launchers are registered from `MainActivity.onCreate()` through
 `StorageAccessCoordinator.registerLaunchers()`. Helper construction must stay

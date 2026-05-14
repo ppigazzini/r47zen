@@ -19,7 +19,7 @@ internal class WindowModeController(
 ) {
     companion object {
         private const val TAG = "R47WindowMode"
-        private val PIP_ASPECT_RATIO = Rational(4860, 2667)
+        private val PIP_ASPECT_RATIO = Rational(400, 240)
         private val VISIBLE_SYSTEM_BAR_COLOR = Color.rgb(18, 21, 26)
     }
 
