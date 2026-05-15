@@ -149,52 +149,84 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         coreRuntime.offerTask(task)
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    private fun configureActivityShell() {
         volumeControlStream = AudioManager.STREAM_MUSIC
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyDisplayCutoutMode()
+    }
 
-        val prefs = appPreferences
+    private fun applyDisplayCutoutMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+    }
 
-        windowModeController = WindowModeController(
+    private fun initializeStartupControllers() {
+        windowModeController = createWindowModeController()
+        factoryResetController = createFactoryResetController()
+        storageAccessCoordinator = createStorageAccessCoordinator()
+        displayActionController = createDisplayActionController()
+        physicalKeyboardInputController = createPhysicalKeyboardInputController()
+        slotSessionController = createSlotSessionController()
+    }
+
+    private fun createWindowModeController(): WindowModeController {
+        return WindowModeController(
             activity = this,
             mainHandler = mainHandler,
-            onPiPModeChanged = { isInPictureInPictureMode ->
-                Log.i(TAG, "Updating overlay for pipMode=$isInPictureInPictureMode")
-                if (::replicaOverlayController.isInitialized) {
-                    replicaOverlayController.handlePictureInPictureModeChanged(isInPictureInPictureMode)
-                } else if (::replicaOverlay.isInitialized) {
-                    replicaOverlay.setPiPMode(isInPictureInPictureMode)
-                }
-            },
+            onPiPModeChanged = ::handleOverlayPictureInPictureModeChanged,
         )
+    }
 
-        factoryResetController = FactoryResetController(
+    private fun handleOverlayPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
+        Log.i(TAG, "Updating overlay for pipMode=$isInPictureInPictureMode")
+        if (::replicaOverlayController.isInitialized) {
+            replicaOverlayController.handlePictureInPictureModeChanged(isInPictureInPictureMode)
+        } else if (::replicaOverlay.isInitialized) {
+            replicaOverlay.setPiPMode(isInPictureInPictureMode)
+        }
+    }
+
+    private fun createFactoryResetController(): FactoryResetController {
+        return FactoryResetController(
             activity = this,
-            onResetRequested = {
-                coreRuntime.dispose(stopApp = true)
-                AudioEngine.stop()
-            },
-            onDestroyFactoryReset = {
-                AudioEngine.stop()
-                releaseNativeRuntime()
-                NativeCoreRuntime.resetSharedState()
-            },
-            onDestroyFinish = {
-                AudioEngine.stop()
-                releaseNativeRuntime()
-            },
+            onResetRequested = ::handleFactoryResetRequested,
+            onDestroyFactoryReset = ::handleFactoryResetDestroy,
+            onDestroyFinish = ::handleFactoryResetFinish,
         )
+    }
 
-        storageAccessCoordinator = StorageAccessCoordinator(
+    private fun handleFactoryResetRequested() {
+        coreRuntime.dispose(stopApp = true)
+        AudioEngine.stop()
+    }
+
+    private fun handleFactoryResetDestroy() {
+        AudioEngine.stop()
+        releaseNativeRuntime()
+        NativeCoreRuntime.resetSharedState()
+    }
+
+    private fun handleFactoryResetFinish() {
+        AudioEngine.stop()
+        releaseNativeRuntime()
+    }
+
+    private fun createStorageAccessCoordinator(): StorageAccessCoordinator {
+        return StorageAccessCoordinator(
             activity = this,
             onNativeFileSelected = ::onFileSelectedNative,
             onNativeFileCancelled = ::onFileCancelledNative,
-        )
-        storageAccessCoordinator.registerLaunchers()
+        ).also { coordinator ->
+            coordinator.registerLaunchers()
+        }
+    }
 
-        displayActionController = DisplayActionController(
+    private fun createDisplayActionController(): DisplayActionController {
+        return DisplayActionController(
             context = this,
             mainHandler = mainHandler,
             offerCoreTask = ::offerCoreTask,
@@ -203,14 +235,18 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             sendSimKeyNative = ::sendSimKeyNative,
             enterPiP = windowModeController::enterPictureInPicture,
         )
+    }
 
-        physicalKeyboardInputController = PhysicalKeyboardInputController(
+    private fun createPhysicalKeyboardInputController(): PhysicalKeyboardInputController {
+        return PhysicalKeyboardInputController(
             offerCoreTask = ::offerCoreTask,
             sendSimKeyNative = ::sendSimKeyNative,
             sendSimMenuNative = ::sendSimMenuNative,
         )
+    }
 
-        slotSessionController = SlotSessionController(
+    private fun createSlotSessionController(): SlotSessionController {
+        return SlotSessionController(
             context = this,
             mainHandler = mainHandler,
             offerCoreTask = ::offerCoreTask,
@@ -218,15 +254,28 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             loadStateNative = ::loadStateNative,
             setSlotNative = ::setSlotNative,
         )
+    }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            window.attributes = window.attributes.apply {
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            }
+    private fun initializeOverlayAndPreferences(prefs: SharedPreferences) {
+        replicaOverlay = binding.replicaOverlay
+        replicaOverlayController = createReplicaOverlayController()
+        replicaOverlayController.bindOverlay()
+
+        preferenceController = createPreferenceController(prefs)
+        prefs.registerOnSharedPreferenceChangeListener(this)
+        preferenceController.applyInitialPreferences()
+
+        replicaOverlay.post {
+            preferenceController.applyDeferredOverlayPreferences()
+            replicaOverlayController.refreshDynamicKeys()
         }
 
-        replicaOverlay = binding.replicaOverlay
-        replicaOverlayController = ReplicaOverlayController(
+        displayActionController.bindOverlay(replicaOverlay)
+        replicaOverlay.onSettingsTapListener = ::handleSettingsTap
+    }
+
+    private fun createReplicaOverlayController(): ReplicaOverlayController {
+        return ReplicaOverlayController(
             context = this,
             overlay = replicaOverlay,
             performHapticClick = hapticFeedbackController::performClick,
@@ -236,9 +285,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             getKeypadLabelsNative = ::getKeypadLabelsNative,
             isRuntimeReady = { ::coreRuntime.isInitialized },
         )
-        replicaOverlayController.bindOverlay()
+    }
 
-        preferenceController = MainActivityPreferenceController(
+    private fun createPreferenceController(prefs: SharedPreferences): MainActivityPreferenceController {
+        return MainActivityPreferenceController(
             preferences = prefs,
             window = window,
             hapticFeedbackController = hapticFeedbackController,
@@ -249,10 +299,21 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
             applyKeypadLabelModes = replicaOverlayController::applyKeypadLabelModes,
         )
-        prefs.registerOnSharedPreferenceChangeListener(this)
-        preferenceController.applyInitialPreferences()
+    }
 
-        coreRuntime = NativeCoreRuntime(
+    private fun handleSettingsTap() {
+        Log.i(TAG, "Settings tap received in MainActivity")
+        completeSettingsDiscovery(openSettings = true)
+    }
+
+    private fun startCoreRuntime() {
+        coreRuntime = createCoreRuntime()
+        coreRuntime.attach()
+        AudioEngine.start { NativeCoreRuntime.isAppRunning() }
+    }
+
+    private fun createCoreRuntime(): NativeCoreRuntime {
+        return NativeCoreRuntime(
             filesDirPath = filesDir.absolutePath,
             currentSlotIdProvider = slotSessionController::currentSlotId,
             nativePreInit = ::nativePreInit,
@@ -268,25 +329,22 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             onPackedLcd = replicaOverlay::updatePackedLcd,
             onDynamicRefresh = replicaOverlayController::refreshDynamicKeys,
         )
+    }
 
-        replicaOverlay.post {
-            preferenceController.applyDeferredOverlayPreferences()
-            replicaOverlayController.refreshDynamicKeys()
-        }
-
-        displayActionController.bindOverlay(replicaOverlay)
-
-        replicaOverlay.onSettingsTapListener = {
-            Log.i(TAG, "Settings tap received in MainActivity")
-            completeSettingsDiscovery(openSettings = true)
-        }
-
-        coreRuntime.attach()
-        AudioEngine.start { NativeCoreRuntime.isAppRunning() }
-
+    private fun handleInitialIntent() {
         if (factoryResetController.isFactoryResetIntent(intent)) {
             binding.root.post { factoryResetController.handleResetRequest() }
         }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        configureActivityShell()
+        val prefs = appPreferences
+        initializeStartupControllers()
+        initializeOverlayAndPreferences(prefs)
+        startCoreRuntime()
+        handleInitialIntent()
     }
 
     private external fun updateNativeActivityRef()

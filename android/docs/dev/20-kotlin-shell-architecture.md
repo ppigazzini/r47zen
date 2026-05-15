@@ -109,8 +109,18 @@ callbacks.
 
 ## Lifecycle contract
 
-- `onCreate()` wires the overlay, helpers, SAF launchers, keypad, and native
-  runtime, then attaches the core thread.
+- `onCreate()` executes five startup phases in order:
+  `configureActivityShell()` sets the music stream, inflates view binding,
+  sets content view, and applies display-cutout mode; `initializeStartupControllers()`
+  wires `WindowModeController`, `FactoryResetController`,
+  `StorageAccessCoordinator`, `DisplayActionController`,
+  `PhysicalKeyboardInputController`, and `SlotSessionController`;
+  `initializeOverlayAndPreferences(...)` binds `ReplicaOverlay`,
+  `ReplicaOverlayController`, `MainActivityPreferenceController`, deferred
+  overlay preference application, and the settings-discovery tap handler;
+  `startCoreRuntime()` creates `NativeCoreRuntime`, attaches it, and starts
+  `AudioEngine`; `handleInitialIntent()` routes factory-reset intents after the
+  shell and runtime are ready.
 - `onNewIntent()` is the reuse path for root-activity actions such as the
   controlled factory-reset request.
 - `onResume()` revalidates the work-directory contract and lets the overlay-side
@@ -135,10 +145,16 @@ callbacks.
   width-over-height ratio instead of the portrait shell bounds, so Android PiP
   tracks the native LCD contract rather than a device-window snapshot.
 
-Activity Result launchers are registered from `MainActivity.onCreate()` through
+Activity Result launchers are registered during
+`initializeStartupControllers()` when `createStorageAccessCoordinator()` calls
 `StorageAccessCoordinator.registerLaunchers()`. Helper construction must stay
 side-effect free after resume so tests can call `deliverNativeFileResult()`
 without violating the Activity Result lifecycle contract.
+
+Focused verification for this lifecycle contract lives in
+`DisplayLifecycleInstrumentedTest.kt`, `StorageAccessCoordinatorTest.kt`,
+`WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt`, and
+`MainShellThemeTest.kt` as mapped in `80-tests-and-contracts.md`.
 
 ## Input surfaces
 
