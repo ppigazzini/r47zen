@@ -17,6 +17,8 @@ internal class MainActivityPreferenceController(
 ) {
     companion object {
         const val DEFAULT_BEEPER_VOLUME = 20
+        const val MIN_BEEPER_VOLUME = 0
+        const val MAX_BEEPER_VOLUME = 100
         const val DEFAULT_LCD_MODE = "high_contrast"
         const val DEFAULT_LCD_LUMINANCE = 100
         val DEFAULT_MAIN_KEY_DYNAMIC_MODE = MainKeyDynamicMode.DEFAULT
@@ -64,7 +66,7 @@ internal class MainActivityPreferenceController(
     fun applyInitialPreferences() {
         hapticFeedbackController.syncFromPreferences(preferences)
 
-        beeperVolume = preferences.getInt(KEY_BEEPER_VOLUME, DEFAULT_BEEPER_VOLUME)
+        beeperVolume = readNormalizedBeeperVolume()
         isBeeperEnabled = preferences.getBoolean(KEY_BEEPER_ENABLED, true)
         lcdMode = preferences.getString(KEY_LCD_MODE, DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
         lcdLuminance = readNormalizedLcdLuminance()
@@ -93,7 +95,7 @@ internal class MainActivityPreferenceController(
 
         when (key) {
             KEY_BEEPER_VOLUME -> {
-                beeperVolume = preferences.getInt(key, DEFAULT_BEEPER_VOLUME)
+                beeperVolume = readNormalizedBeeperVolume(key)
                 syncAudioSettings(isBeeperEnabled, beeperVolume)
             }
             KEY_KEEP_SCREEN_ON -> {
@@ -142,6 +144,15 @@ internal class MainActivityPreferenceController(
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
+    }
+
+    private fun readNormalizedBeeperVolume(key: String = KEY_BEEPER_VOLUME): Int {
+        val storedVolume = preferences.getInt(key, DEFAULT_BEEPER_VOLUME)
+        val normalizedVolume = storedVolume.coerceIn(MIN_BEEPER_VOLUME, MAX_BEEPER_VOLUME)
+        if (storedVolume != normalizedVolume) {
+            preferences.edit().putInt(key, normalizedVolume).apply()
+        }
+        return normalizedVolume
     }
 
     private fun readNormalizedLcdLuminance(): Int {
