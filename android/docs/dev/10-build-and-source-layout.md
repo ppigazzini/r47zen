@@ -51,7 +51,7 @@ repo root
 |  |  `- derive_top_label_lane_layout.py
 |  `- upstream-sync/upstream.sh
 `- android/
-  |- app/src/main/java/io/github/ppigazzini/r47/
+  |- app/src/main/java/io/github/ppigazzini/r47zen/
   |  |- R47Geometry.kt
   |  |- R47KeypadPolicy.kt
   |  |- CalculatorKeyView.kt
@@ -103,9 +103,9 @@ hydrated on demand, or only exercised in CI before updating the docs.
 - version catalog `android/gradle/libs.versions.toml`, which owns the checked-in
   AGP `9.2.0` plugin coordinate plus AndroidX and Material library versions.
 - Jetifier explicitly disabled in `android/gradle.properties`
-- base `namespace` and `applicationId` `io.github.ppigazzini.r47`
+- base `namespace` and `applicationId` `io.github.ppigazzini.r47zen`
 - Android app, debug, JVM-test, and instrumentation-test sources live under
-  `app/src/**/java/io/github/ppigazzini/r47` so manifest, layout, and JNI class
+  `app/src/**/java/io/github/ppigazzini/r47zen` so manifest, layout, and JNI class
   wiring stay aligned with that checked-in identity
 - debug builds add `applicationIdSuffix ".debug"`
 - release version inputs come from `r47.versionCode`, `r47.versionName`, and

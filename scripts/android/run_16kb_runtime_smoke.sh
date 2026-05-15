@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ANDROID_DIR="$PROJECT_ROOT/android"
 DEFAULTS_PATH="$ANDROID_DIR/r47-defaults.properties"
-DEFAULT_TEST_CLASS="io.github.ppigazzini.r47.DisplayLifecycleInstrumentedTest#activityRecreationPreservesSpiralkGraphSnapshot"
+DEFAULT_TEST_CLASS="io.github.ppigazzini.r47zen.DisplayLifecycleInstrumentedTest#activityRecreationPreservesSpiralkGraphSnapshot"
 
 usage() {
     cat <<'EOF'

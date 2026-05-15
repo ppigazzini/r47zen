@@ -80,7 +80,7 @@ static uint64_t r47_capture_display_hash_locked(void) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_isRuntimeReadyNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isRuntimeReadyNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -88,7 +88,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_isRuntimeReadyNative(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_seedLargeFactorsInputNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_seedLargeFactorsInputNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -108,7 +108,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_seedLargeFactorsInputNative(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_seedSpiralkInputNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_seedSpiralkInputNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -128,7 +128,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_seedSpiralkInputNative(
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_forceRefreshNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_forceRefreshNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -136,7 +136,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_forceRefreshNative(
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_saveBackgroundStateForTestNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_saveBackgroundStateForTestNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -153,7 +153,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_saveBackgroundStateForTestNa
 }
 
 JNIEXPORT jlong JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_captureDisplayHashNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_captureDisplayHashNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -169,7 +169,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_captureDisplayHashNative(
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_setRedrawFlagForTestNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setRedrawFlagForTestNative(
     JNIEnv *env, jobject thiz, jboolean enabled) {
   (void)env;
   (void)thiz;
@@ -184,7 +184,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_setRedrawFlagForTestNative(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_isRedrawFlagSetForTestNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isRedrawFlagSetForTestNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -200,7 +200,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_isRedrawFlagSetForTestNative
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_resetRuntimeNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_resetRuntimeNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -218,7 +218,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_resetRuntimeNative(
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_sendSimFunctionNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_sendSimFunctionNative(
     JNIEnv *env, jobject thiz, jint funcId) {
   (void)env;
   (void)thiz;
@@ -226,7 +226,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_sendSimFunctionNative(
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_sendSimKeyNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease) {
   (void)thiz;
@@ -246,7 +246,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_sendSimKeyNative(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_beginSimFunctionNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_beginSimFunctionNative(
     JNIEnv *env, jobject thiz, jint funcId) {
   (void)env;
   (void)thiz;
@@ -281,7 +281,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_beginSimFunctionNative(
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_setNextLoadProgramFdNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setNextLoadProgramFdNative(
     JNIEnv *env, jobject thiz, jint fd) {
   (void)env;
   (void)thiz;
@@ -289,7 +289,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_setNextLoadProgramFdNative(
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_clearLoadProgramFdOverrideNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_clearLoadProgramFdOverrideNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -297,7 +297,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_clearLoadProgramFdOverrideNa
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_isSimFunctionRunningNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isSimFunctionRunningNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -310,7 +310,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_isSimFunctionRunningNative(
 }
 
 JNIEXPORT jintArray JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_snapshotStateNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_snapshotStateNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
 
@@ -348,7 +348,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_snapshotStateNative(
 }
 
 JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_getXRegisterTypeNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterTypeNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -364,7 +364,7 @@ Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_getXRegisterTypeNative(
 }
 
 JNIEXPORT jstring JNICALL
-Java_io_github_ppigazzini_r47_ProgramLoadTestBridge_getXRegisterStringNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterStringNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
 

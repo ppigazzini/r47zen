@@ -7,15 +7,15 @@ import unittest
 
 from r47_contracts._repo_paths import (
     ANDROID_CPP_ROOT,
-    KOTLIN_R47_ROOT,
+    KOTLIN_R47ZEN_ROOT,
     STAGED_NATIVE_C47_ROOT,
 )
 
 JNI_DISPLAY_PATH = ANDROID_CPP_ROOT / "jni_display.c"
 ASSIGN_PATH = STAGED_NATIVE_C47_ROOT / "assign.c"
 ITEMS_PATH = STAGED_NATIVE_C47_ROOT / "items.c"
-KEY_VIEW_PATH = KOTLIN_R47_ROOT / "CalculatorKeyView.kt"
-KEYPAD_LAYOUT_PATH = KOTLIN_R47_ROOT / "ReplicaKeypadLayout.kt"
+KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
+KEYPAD_LAYOUT_PATH = KOTLIN_R47ZEN_ROOT / "ReplicaKeypadLayout.kt"
 
 
 def _assert_true(condition: object) -> None:

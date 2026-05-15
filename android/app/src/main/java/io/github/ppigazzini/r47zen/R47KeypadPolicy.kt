@@ -1,0 +1,37 @@
+package io.github.ppigazzini.r47zen
+
+internal object R47KeySurfacePolicy {
+    const val MAIN_KEY_DRAW_CORNER_RADIUS = 20f
+    const val SOFTKEY_DRAW_CORNER_RADIUS = MAIN_KEY_DRAW_CORNER_RADIUS
+    const val MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA = 6f
+    const val MAIN_KEY_PAINTED_BODY_HEIGHT = 144f
+    const val STANDARD_KEY_RIGHT_STRIP_WIDTH = 80f
+    const val MATRIX_KEY_RIGHT_STRIP_WIDTH = 103f
+
+    const val MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW =
+        MAIN_KEY_PAINTED_BODY_HEIGHT /
+            R47AndroidChromeGeometry.NON_SOFTKEY_VIEW_HEIGHT
+    const val STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION =
+        STANDARD_KEY_RIGHT_STRIP_WIDTH / R47ReferenceGeometry.STANDARD_PITCH
+    const val MATRIX_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION =
+        MATRIX_KEY_RIGHT_STRIP_WIDTH / R47ReferenceGeometry.MATRIX_PITCH
+}
+
+internal object R47LabelLayoutPolicy {
+    const val FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT = 16f
+    const val FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP = 80f
+    const val DEFAULT_PRIMARY_LEGEND_TEXT_SIZE = 76f
+    const val NUMERIC_PRIMARY_LEGEND_TEXT_SIZE = 114f
+    const val SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE = 94f
+    const val TOP_F_G_LABEL_TEXT_SIZE = 64f
+    const val FOURTH_LABEL_TEXT_SIZE = 66f
+    const val TOP_F_G_LABEL_HORIZONTAL_GAP = 10f
+    const val TOP_F_G_LABEL_VERTICAL_LIFT = 86f
+    const val FITTED_TEXT_MIN_SCALE = 0.58f
+}
+
+internal object R47TopLabelSolverPolicy {
+    const val TOP_F_G_LABEL_MAX_SHIFT_FRACTION = 0.15f
+    const val TOP_F_G_LABEL_MIN_SCALE = 0.82f
+    const val TOP_F_G_LABEL_SCALE_STEP = 0.06f
+}

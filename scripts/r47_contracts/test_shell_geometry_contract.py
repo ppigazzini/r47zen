@@ -3,10 +3,10 @@
 import unittest
 
 from r47_contracts._kotlin_consts import parse_kotlin_const_values
-from r47_contracts._repo_paths import KOTLIN_R47_ROOT
+from r47_contracts._repo_paths import KOTLIN_R47ZEN_ROOT
 from r47_contracts.derive_shell_geometry import build_shell_geometry_payload
 
-_KOTLIN_GEOMETRY_PATH = KOTLIN_R47_ROOT / "R47Geometry.kt"
+_KOTLIN_GEOMETRY_PATH = KOTLIN_R47ZEN_ROOT / "R47Geometry.kt"
 
 
 def _assert_float_equal(actual: float, expected: float, *, places: int = 6) -> None:

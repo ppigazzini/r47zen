@@ -41,7 +41,7 @@
 #endif
 #endif
 
-#define MAIN_ACTIVITY_CLASS "io/github/ppigazzini/r47/MainActivity"
+#define MAIN_ACTIVITY_CLASS "io/github/ppigazzini/r47zen/MainActivity"
 
 extern JavaVM *g_jvm;
 extern jobject g_mainActivityObj;

@@ -3,10 +3,10 @@
 import unittest
 
 from r47_contracts._kotlin_consts import parse_kotlin_const_values_from_paths
-from r47_contracts._repo_paths import KOTLIN_R47_ROOT
+from r47_contracts._repo_paths import KOTLIN_R47ZEN_ROOT
 from r47_contracts.derive_key_visual_policy import build_key_visual_policy_payload
 
-_KOTLIN_VISUAL_POLICY_PATH = KOTLIN_R47_ROOT / "R47KeypadPolicy.kt"
+_KOTLIN_VISUAL_POLICY_PATH = KOTLIN_R47ZEN_ROOT / "R47KeypadPolicy.kt"
 
 
 def _assert_float_equal(actual: float, expected: float, *, places: int = 6) -> None:

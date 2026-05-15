@@ -25,7 +25,7 @@ from r47_contracts._contract_data import (
 )
 from r47_contracts._kotlin_consts import parse_kotlin_const_values_from_paths
 from r47_contracts._repo_paths import (
-    KOTLIN_R47_ROOT,
+    KOTLIN_R47ZEN_ROOT,
     R47_ANDROID_UI_CONTRACT_PATH,
     R47_PHYSICAL_GEOMETRY_DATA_PATH,
 )
@@ -40,9 +40,9 @@ _MATRIX_FULL_COLUMN_COUNT = 5
 _SUPPORTED_FAMILIES = frozenset({"rows", "standard_columns", "matrix_4x4", "enter"})
 _FLOAT_TOLERANCE = 1e-6
 
-_KOTLIN_GEOMETRY_PATH = KOTLIN_R47_ROOT / "R47Geometry.kt"
-_KOTLIN_KEYPAD_POLICY_PATH = KOTLIN_R47_ROOT / "R47KeypadPolicy.kt"
-_KOTLIN_KEY_VIEW_PATH = KOTLIN_R47_ROOT / "CalculatorKeyView.kt"
+_KOTLIN_GEOMETRY_PATH = KOTLIN_R47ZEN_ROOT / "R47Geometry.kt"
+_KOTLIN_KEYPAD_POLICY_PATH = KOTLIN_R47ZEN_ROOT / "R47KeypadPolicy.kt"
+_KOTLIN_KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
 
 
 class GeometryValidationError(ValueError):

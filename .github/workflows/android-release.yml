@@ -107,6 +107,7 @@ jobs:
 
           . ./android/r47-defaults.properties
 
+          echo "application_id=$R47_DEFAULT_ANDROID_APPLICATION_ID" >> "$GITHUB_OUTPUT"
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
@@ -437,7 +438,7 @@ jobs:
             --upstream-source-commit "${{ steps.upstream.outputs.upstream_commit }}" \
             --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
             --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
-            --application-id io.github.ppigazzini.r47 \
+            --application-id "${{ steps.defaults.outputs.application_id }}" \
             --version-code "$R47_VERSION_CODE_INPUT" \
             --version-name "$R47_VERSION_NAME_INPUT" \
             --signing-mode release \
