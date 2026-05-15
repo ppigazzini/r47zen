@@ -208,6 +208,9 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   device: `WindowModeController` applies a dark visible system-bar treatment
   when fullscreen is off, and `ReplicaOverlay` keeps the first-run
   settings-discovery hint cards on fixed dark shell surfaces
+- keypad haptics are Android-view concerns: `ReplicaKeypadLayout` dispatches
+  keypad feedback through `View.performHapticFeedback(...)`, while
+  `HapticFeedbackController` only gates whether that feedback is enabled
 - haptics, audio, fullscreen state, scaling mode, keypad label modes, and
   touch-zone overlays are preference-driven Android concerns
 

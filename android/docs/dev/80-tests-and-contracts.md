@@ -46,7 +46,7 @@ flowchart TD
 | core thread, display loop, and runtime gate behavior | `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`, `jni_lifecycle.c`, `android_runtime.c` | `NativeCoreRuntimeTest.kt`, `GraphRedrawInstrumentedTest.kt`, `run_workload_regressions.sh` | JVM test or host workload lane depending on the owner path |
 | settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
 | settings behavior copy and settings-owned dark surfaces | `SettingsActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml`, `android/app/src/main/res/values/themes.xml` | `SettingsActivityThemeTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.SettingsActivityThemeTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
-| haptic preference normalization and controller dispatch | `HapticFeedbackController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `HapticFeedbackControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest` |
+| view-based keypad haptic gating and dispatch | `HapticFeedbackController.kt`, `ReplicaKeypadLayout.kt`, `MainActivity.kt` | `HapticFeedbackControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest` |
 | beeper volume normalization and audio settings dispatch | `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `MainActivityPreferenceControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest` |
 | main shell visible bars and settings-discovery hint surfaces | `MainActivity.kt`, `WindowModeController.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/themes.xml` | `MainShellThemeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest` |
 | SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
@@ -132,9 +132,9 @@ Important contract files include:
   first-run welcome-dialog picker route, missing-directory recovery,
   work-directory tree persistence, detached-fd cancellation, and work-directory
   tree subfolder rules
-- `HapticFeedbackControllerTest.kt`: locks persisted `haptic_intensity`
-  normalization against the XML-declared `0..255` range, zero-intensity
-  suppression, and the pre-O legacy click path
+- `HapticFeedbackControllerTest.kt`: locks the `haptic_enabled` gate and the
+  view-based `HapticFeedbackConstants.VIRTUAL_KEY` dispatch used by keypad
+  views
 - `MainActivityPreferenceControllerTest.kt`: locks persisted `beeper_volume`
   normalization against the XML-declared `0..100` range and the normalized
   `syncAudioSettings(...)` dispatch on startup and preference changes

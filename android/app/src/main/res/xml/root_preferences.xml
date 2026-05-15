@@ -64,19 +64,6 @@
             app:key="haptic_enabled"
             app:title="@string/settings_haptic_enabled_title"
             app:defaultValue="true" />
-        <SwitchPreferenceCompat
-            app:key="haptic_hifi_enabled"
-            app:title="@string/settings_haptic_hifi_enabled_title"
-            app:defaultValue="true"
-            app:dependency="haptic_enabled" />
-        <SeekBarPreference
-            app:key="haptic_intensity"
-            app:title="@string/settings_haptic_intensity_title"
-            app:min="0"
-            android:max="255"
-            app:defaultValue="64"
-            app:dependency="haptic_enabled"
-            app:showSeekBarValue="true" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_audio_category_title">

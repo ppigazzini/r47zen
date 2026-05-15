@@ -965,7 +965,7 @@ class DynamicKeypadParityFixtureTest {
         val controller = ReplicaOverlayController(
             context = activity,
             overlay = overlay,
-            performHapticClick = {},
+            performHapticClick = { _ -> },
             offerCoreTask = {},
             sendKey = {},
             getKeypadMetaNative = { _ -> fixture.meta.copyOf() },
@@ -1020,7 +1020,7 @@ class DynamicKeypadParityFixtureTest {
         val controller = ReplicaOverlayController(
             context = activity,
             overlay = overlay,
-            performHapticClick = {},
+            performHapticClick = { _ -> },
             offerCoreTask = {},
             sendKey = {},
             getKeypadMetaNative = { _ -> fixture.meta.copyOf() },

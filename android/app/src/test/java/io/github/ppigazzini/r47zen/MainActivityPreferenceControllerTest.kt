@@ -81,7 +81,7 @@ class MainActivityPreferenceControllerTest {
         val controller = MainActivityPreferenceController(
             preferences = preferences,
             window = activity.window,
-            hapticFeedbackController = HapticFeedbackController(activity, 64),
+            hapticFeedbackController = HapticFeedbackController(),
             windowModeController = WindowModeController(
                 activity = activity,
                 mainHandler = Handler(Looper.getMainLooper()),

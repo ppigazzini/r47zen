@@ -1,6 +1,7 @@
 package io.github.ppigazzini.r47zen
 
 import android.content.Context
+import android.view.View
 
 internal object KeypadRefreshPolicy {
     const val ENABLE_UNCHANGED_SNAPSHOT_SKIP = true
@@ -36,7 +37,7 @@ internal class KeypadSnapshotRefreshGate {
 internal class ReplicaOverlayController(
     private val context: Context,
     private val overlay: ReplicaOverlay,
-    private val performHapticClick: () -> Unit,
+    private val performHapticClick: (View) -> Unit,
     private val offerCoreTask: (Runnable) -> Unit,
     private val sendKey: (Int) -> Unit,
     private val getKeypadMetaNative: (Int) -> IntArray,

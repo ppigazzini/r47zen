@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var preferenceController: MainActivityPreferenceController
     private lateinit var replicaOverlayController: ReplicaOverlayController
     private val hapticFeedbackController by lazy {
-        HapticFeedbackController(this, DEFAULT_HAPTIC_INTENSITY)
+        HapticFeedbackController()
     }
     private val appPreferences by lazy {
         getSharedPreferences(SlotStore.APP_PREFS_NAME, MODE_PRIVATE)
@@ -41,7 +41,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
-        private const val DEFAULT_HAPTIC_INTENSITY = 64
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
 
         init {

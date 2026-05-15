@@ -37,7 +37,7 @@ internal object ReplicaKeypadLayout {
     fun rebuild(
         context: Context,
         overlay: ReplicaOverlay,
-        performHapticClick: () -> Unit,
+        performHapticClick: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
         initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
@@ -71,7 +71,7 @@ internal object ReplicaKeypadLayout {
     private fun addDynamicKeypad(
         context: Context,
         overlay: ReplicaOverlay,
-        performHapticClick: () -> Unit,
+        performHapticClick: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
         initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
@@ -182,7 +182,7 @@ internal object ReplicaKeypadLayout {
         y: Float,
         width: Float,
         height: Float,
-        performHapticClick: () -> Unit,
+        performHapticClick: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
     ) {
         val keyView = CalculatorKeyView(context)
@@ -195,7 +195,7 @@ internal object ReplicaKeypadLayout {
             if (!it.isEnabled) {
                 return@setOnClickListener
             }
-            performHapticClick()
+            performHapticClick(it)
             dispatchKey(slot.code)
             dispatchKey(0)
         }
@@ -223,7 +223,7 @@ internal object ReplicaKeypadLayout {
         context: Context,
         overlay: ReplicaOverlay,
         code: Int,
-        performHapticClick: () -> Unit,
+        performHapticClick: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
         pressedView: View? = null,
     ) {
@@ -263,7 +263,7 @@ internal object ReplicaKeypadLayout {
 
     private fun createTouchListener(
         code: Int,
-        performHapticClick: () -> Unit,
+        performHapticClick: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
         pressedView: View? = null,
     ): View.OnTouchListener {
@@ -277,7 +277,7 @@ internal object ReplicaKeypadLayout {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     feedbackView.isPressed = true
-                    performHapticClick()
+                    performHapticClick(feedbackView)
                     dispatchKey(code)
                 }
 

@@ -1,8 +1,8 @@
 package io.github.ppigazzini.r47zen
 
 import android.content.Context
-import android.os.Vibrator
-import android.os.VibratorManager
+import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -14,7 +14,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowVibrator
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -28,7 +27,6 @@ class HapticFeedbackControllerTest {
             .edit()
             .clear()
             .commit()
-        ShadowVibrator.reset()
     }
 
     @After
@@ -37,70 +35,55 @@ class HapticFeedbackControllerTest {
             .edit()
             .clear()
             .commit()
-        ShadowVibrator.reset()
     }
 
     @Test
-    fun syncFromPreferences_clampsAboveMaxIntensityBeforeWaveformDispatch() {
+    fun performClick_enabledDispatchesVirtualKeyHapticFeedbackOnTargetView() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val view = View(context)
+        val controller = HapticFeedbackController()
+        controller.syncFromPreferences(preferences)
+
+        assertTrue(controller.performClick(view))
+
+        assertEquals(HapticFeedbackConstants.VIRTUAL_KEY, shadowOf(view).lastHapticFeedbackPerformed())
+    }
+
+    @Test
+    fun performClick_disabledSuppressesViewBasedHapticFeedback() {
         val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
         preferences.edit()
-            .putInt("haptic_intensity", 999)
+            .putBoolean("haptic_enabled", false)
             .commit()
-
-        val vibratorManager = context.getSystemService(VibratorManager::class.java)
-        val shadowVibrator = shadowOf(vibratorManager.defaultVibrator)
-        shadowVibrator.setHasVibrator(true)
-
-        val controller = HapticFeedbackController(context, 64)
+        val view = View(context)
+        val controller = HapticFeedbackController()
         controller.syncFromPreferences(preferences)
-        controller.performClick()
 
-        assertEquals(255, preferences.getInt("haptic_intensity", -1))
-        assertTrue(shadowVibrator.isVibrating)
-    }
+        assertFalse(controller.performClick(view))
 
-    @Test
-    fun onPreferenceChanged_clampsNegativeIntensityToZeroAndSuppressesClick() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
-        preferences.edit()
-            .putInt("haptic_intensity", -7)
-            .commit()
-
-        val vibratorManager = context.getSystemService(VibratorManager::class.java)
-        val shadowVibrator = shadowOf(vibratorManager.defaultVibrator)
-        shadowVibrator.setHasVibrator(true)
-
-        val controller = HapticFeedbackController(context, 64)
-
-        assertTrue(controller.onPreferenceChanged(preferences, "haptic_intensity"))
-
-        controller.performClick()
-
-        assertEquals(0, preferences.getInt("haptic_intensity", -1))
-        assertFalse(shadowVibrator.isVibrating)
-    }
-
-    @Test
-    @Config(sdk = [25])
-    fun performClick_preOUsesLegacyDuration() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
-        val vibrator = context.getSystemService(Vibrator::class.java)
-        val shadowVibrator = shadowOf(vibrator)
-        shadowVibrator.setHasVibrator(true)
-
-        val controller = HapticFeedbackController(context, 64)
-        controller.syncFromPreferences(preferences)
-        controller.performClick()
-
-        assertEquals(15L, shadowVibrator.milliseconds)
-        assertTrue(shadowVibrator.isVibrating)
+        assertEquals(-1, shadowOf(view).lastHapticFeedbackPerformed())
     }
 
     @Test
     fun onPreferenceChanged_returnsFalseForUnknownKey() {
         val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
-        val controller = HapticFeedbackController(context, 64)
+        val controller = HapticFeedbackController()
 
         assertFalse(controller.onPreferenceChanged(preferences, "beeper_enabled"))
+    }
+
+    @Test
+    fun onPreferenceChanged_hapticEnabledUpdatesViewBasedDispatchGate() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val view = View(context)
+        val controller = HapticFeedbackController()
+
+        controller.syncFromPreferences(preferences)
+        preferences.edit().putBoolean("haptic_enabled", false).commit()
+
+        assertTrue(controller.onPreferenceChanged(preferences, "haptic_enabled"))
+        assertFalse(controller.performClick(view))
+
+        assertEquals(-1, shadowOf(view).lastHapticFeedbackPerformed())
     }
 }

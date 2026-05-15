@@ -37,8 +37,6 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_lcd_mode_title" translatable="false">LCD Mode</string>
     <string name="settings_interaction_category_title" translatable="false">Interaction</string>
     <string name="settings_haptic_enabled_title" translatable="false">Enable Haptic Feedback</string>
-    <string name="settings_haptic_hifi_enabled_title" translatable="false">High-Fidelity Haptics (Modern)</string>
-    <string name="settings_haptic_intensity_title" translatable="false">Haptic Intensity</string>
     <string name="settings_audio_category_title" translatable="false">Audio</string>
     <string name="settings_beeper_enabled_title" translatable="false">Simulated Beeper</string>
     <string name="settings_beeper_volume_title" translatable="false">Beeper Volume</string>
