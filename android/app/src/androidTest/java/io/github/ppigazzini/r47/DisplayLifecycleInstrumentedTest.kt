@@ -102,6 +102,42 @@ class DisplayLifecycleInstrumentedTest {
         }
     }
 
+    @Test
+    fun activityRecreationPreservesSpiralkGraphSnapshot() {
+        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
+        val spiralkFixture = targetContext.assets.open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            assertTrue(
+                "Native runtime did not become ready for SPIRALk recreation coverage",
+                waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
+            )
+
+            ProgramLoadTestBridge.resetRuntime()
+            val loadState = loadProgramFixture(targetProgramFile, spiralkFixture)
+            assertTrue(
+                "failed to seed SPIRALk register J with 2",
+                ProgramLoadTestBridge.seedSpiralkInput(),
+            )
+            runSpiralkScenario(loadState)
+
+            val beforeHash = ProgramLoadTestBridge.captureDisplayHash()
+            scenario.recreate()
+            assertTrue(
+                "Native runtime did not become ready after MainActivity recreation",
+                waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
+            )
+            val afterHash = ProgramLoadTestBridge.captureDisplayHash()
+
+            assertEquals(
+                "Activity recreation should preserve the SPIRALk graph snapshot",
+                beforeHash,
+                afterHash,
+            )
+        }
+    }
+
     private fun loadProgramFixture(targetProgramFile: File, content: ByteArray): ProgramLoadState {
         targetProgramFile.parentFile?.mkdirs()
         targetProgramFile.delete()

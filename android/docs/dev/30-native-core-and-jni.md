@@ -171,6 +171,10 @@ Final app shutdown uses `releaseNativeRuntime()` to delete the global
 continues to use `updateNativeActivityRef()` without tearing down the native
 core. That reattach helper refreshes JNI references and cached method IDs only;
 it must stay display-passive and must not synthesize a redraw.
+`DisplayLifecycleInstrumentedTest.kt` now exercises that contract through full
+`ActivityScenario.recreate()` coverage on a staged `SPIRALk` graph, and the
+local 16 KB runtime smoke script reuses the same probe on a connected 16 KB
+target.
 
 ## Lifecycle Save And Explicit Refresh Contract
 
@@ -267,6 +271,12 @@ the 16 KB requirements for ELF and APK alignment.
 The CI lane verifies that contract by checking zip alignment and native library
 `LOAD` segment alignment in the built debug APK. The `android-tests` lane uses
 the temporary multi-ABI override only for hosted `x86_64` emulator execution.
+
+Local runtime proof for the same contract now lives in
+`scripts/android/run_16kb_runtime_smoke.sh`. That script checks the connected
+device or emulator page size through `adb shell getconf`, requires
+`16384`-byte pages, and then runs only
+`DisplayLifecycleInstrumentedTest#activityRecreationPreservesSpiralkGraphSnapshot`.
 
 That artifact verification is the reason packaging changes should be documented
 alongside the workflow and Gradle files, not only in the CMake layer.

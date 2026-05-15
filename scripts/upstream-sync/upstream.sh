@@ -31,6 +31,16 @@ UPSTREAM_REQUIRED_FILES=(
     "subprojects/gmp-6.2.1.wrap"
     "subprojects/packagefiles/gmp-6.2.1/meson.build"
 )
+REPO_OWNED_RESTORE_PATHS=(
+    .gitignore
+    COPYING
+    README.md
+    android/
+    .github/
+    __DEV/
+    scripts/
+    upstream.source
+)
 
 RESOLVED_UPSTREAM_URL=""
 RESOLVED_UPSTREAM_REF=""
@@ -42,10 +52,12 @@ usage() {
 Usage:
     scripts/upstream-sync/upstream.sh resolve [--auto|--locked|--latest] [--write-lock] [--format shell|none] [--url <url>] [--ref <ref>] [--commit <sha>]
     scripts/upstream-sync/upstream.sh sync [--auto|--locked|--latest] [--write-lock] [--if-missing] [--force] [--url <url>] [--ref <ref>] [--commit <sha>]
+        scripts/upstream-sync/upstream.sh verify-restore-boundary
 
 Commands:
   resolve   Resolve the authoritative upstream URL/ref/commit through the shared policy.
   sync      Overlay the resolved upstream C43 tree and restore repo-owned paths.
+    verify-restore-boundary  Fail when the restore allowlist would re-own upstream root surfaces.
 
 Resolution modes:
   --auto    Use --commit first, then upstream.lock upstream_commit, else latest upstream_ref. (default)
@@ -208,21 +220,36 @@ path_exists_in_head() {
     git -C "$PROJECT_ROOT" ls-tree -r --name-only HEAD -- "$path" | grep -q .
 }
 
+restore_path_reowns_upstream_root_surface() {
+    local path="$1"
+
+    case "$path" in
+        Makefile|meson.build|meson_options.txt|src|src/*|dep|dep/*|docs/code|docs/code/*|subprojects|subprojects/*|tools|tools/*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+verify_restore_boundary() {
+    local restore_path=""
+
+    for restore_path in "${REPO_OWNED_RESTORE_PATHS[@]}"; do
+        if restore_path_reowns_upstream_root_surface "$restore_path"; then
+            fail "Restore boundary drift detected: $restore_path would re-own an authoritative upstream root surface."
+        fi
+    done
+}
+
 restore_repo_owned_paths() {
-    local restore_paths=(
-        .gitignore
-        COPYING
-        README.md
-        android/
-        .github/
-        __DEV/
-        scripts/
-        upstream.source
-    )
     local tracked_restore_paths=()
     local restore_path=""
 
-    for restore_path in "${restore_paths[@]}"; do
+    verify_restore_boundary
+
+    for restore_path in "${REPO_OWNED_RESTORE_PATHS[@]}"; do
         if path_exists_in_head "$restore_path"; then
             tracked_restore_paths+=("$restore_path")
         fi
@@ -429,6 +456,10 @@ main() {
         sync)
             shift
             sync_upstream "$@"
+            ;;
+        verify-restore-boundary)
+            verify_restore_boundary
+            echo "Restore boundary OK: repo-owned restore paths stay off upstream root surfaces."
             ;;
         -h|--help|'')
             usage

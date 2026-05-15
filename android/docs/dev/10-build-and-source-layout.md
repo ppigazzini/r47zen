@@ -368,6 +368,9 @@ Build-safety rule:
   restore loops must never restore `src/**` or other shared upstream-shaped
   root files such as `Makefile`, `meson.build`, `meson_options.txt`, `dep/`,
   `docs/code/meson.build`, `subprojects/`, or `tools/`.
+- `scripts/upstream-sync/upstream.sh verify-restore-boundary` is the focused
+  guard for that contract, and `sync` runs the same check before it restores
+  tracked repo-owned paths.
 - Android-only native fixes belong under
   `android/app/src/main/cpp/r47_android` or in staging logic, not in tracked
   root `src/**` overrides.
@@ -379,6 +382,7 @@ Build-safety rule:
 
 1. `scripts/upstream-sync/upstream.sh sync --auto --write-lock` overlays the
    resolved upstream core into the working tree,
+  validates that the restore allowlist stays off upstream-owned root surfaces,
   hydrates the ignored upstream-owned root build inputs, restores tracked
   Android-port files, and refreshes the local ignored `upstream.lock` with the
   commit used for that run.
@@ -442,6 +446,15 @@ expects from a clean shell:
 7. Check `adb devices`. Only run `:app:connectedDebugAndroidTest` when at least
    one device or emulator is attached. If the emulator is `x86_64`, add
    `-Pr47.abiFilters=arm64-v8a,x86_64`.
+8. When the task needs runtime proof on a real 16 KB target, run the focused
+  connected-device lane:
+
+  ```bash
+  bash ./scripts/android/run_16kb_runtime_smoke.sh
+  ```
+
+  The script fails unless the target reports `16384`-byte pages, then runs the
+  explicit activity-recreation lifecycle probe.
 
 Practical note:
 
@@ -464,7 +477,8 @@ ownership model as the local build:
 - `upstream-simulator-sanity` syncs that resolved revision into the workspace
   through `scripts/upstream-sync/upstream.sh sync --auto --write-lock --commit ...`
   and runs `make test` to prove the authoritative upstream simulator core is
-  sane before Android-specific work begins.
+  sane before Android-specific work begins. The sync step also fails if the
+  restore allowlist drifts back onto authoritative upstream root surfaces.
 - `android-build-test-package` installs the pinned SDK, CMake, and NDK
   versions, runs `./scripts/android/build_android.sh --run-sim-tests` to build
   Android-owned inputs and rerun the simulator-native suite from the Android
@@ -482,10 +496,13 @@ ownership model as the local build:
   load and run `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and
   `SPIRALk.p47` through the Android `READP` path. It also requires
   `DisplayLifecycleInstrumentedTest` so passive lifecycle transitions preserve
-  the visible packed LCD snapshot across background save and a Settings-style
-  pause or resume. The Android test seam also counts LCD redraw activity as
-  valid run evidence for fast-returning workloads so `GudrmPL`-style short runs
-  do not false-fail after a clean return.
+  the visible packed LCD snapshot across background save, a Settings-style
+  pause or resume, and full activity recreation. The Android test seam also
+  counts LCD redraw activity as valid run evidence for fast-returning
+  workloads so `GudrmPL`-style short runs do not false-fail after a clean
+  return. Hosted CI still proves 16 KB packaging readiness rather than 16 KB
+  runtime execution; the connected 16 KB runtime smoke stays a local lane
+  through `scripts/android/run_16kb_runtime_smoke.sh`.
 - the upstream simulator sanity, Android build/test/package, and Android test
   jobs consume the same resolved upstream commit for a given workflow run.
 - Android build logs, Android test logs, and test reports are uploaded with
@@ -510,8 +527,9 @@ ownership model as the local build:
 - Linux and Windows simulator package workflows keep their upstream-only
   artifact identity because they do not depend on the Android overlay commit.
 
-The CI lane verifies packaged ABIs and 16 KB alignment. It is not a store-release
-lane.
+The CI lane verifies packaged ABIs and 16 KB alignment. Runtime execution on a
+real 16 KB target stays a local maintainer lane through
+`scripts/android/run_16kb_runtime_smoke.sh`. This is not a store-release lane.
 
 Store-release signing lives in the separate manual workflow
 `.github/workflows/android-release.yml`. That workflow is bound to the

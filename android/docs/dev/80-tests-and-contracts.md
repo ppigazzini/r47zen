@@ -44,12 +44,13 @@ flowchart TD
 | rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `ReplicaOverlayController.kt`, `KeypadLabelModes.kt` | `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ReplicaOverlayGoldenTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | physical keyboard mapping | `PhysicalKeyboardMapper`, `PhysicalKeyboardInputController` | `PhysicalKeyboardInputParityTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | core thread, display loop, and runtime gate behavior | `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`, `jni_lifecycle.c`, `android_runtime.c` | `NativeCoreRuntimeTest.kt`, `GraphRedrawInstrumentedTest.kt`, `run_workload_regressions.sh` | JVM test or host workload lane depending on the owner path |
-| settings lifecycle LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest` |
+| settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
 | settings behavior copy and settings-owned dark surfaces | `SettingsActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml`, `android/app/src/main/res/values/themes.xml` | `SettingsActivityThemeTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47.SettingsActivityThemeTest --tests io.github.ppigazzini.r47.SettingsPreferenceSummaryTest` |
 | main shell visible bars and settings-discovery hint surfaces | `MainActivity.kt`, `WindowModeController.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/themes.xml` | `MainShellThemeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47.MainShellThemeTest` |
 | SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest` |
 | pause, wait, and progress compatibility in `PC_BUILD` mode | `android_runtime.c`, staged core, workload harness | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` | host workload regression, then `./scripts/android/build_android.sh --run-sim-tests` |
+| upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
 
 ## Python Contract Suite
 
@@ -149,16 +150,20 @@ Important files include:
   drives `READP` plus `RUN` through the live Android runtime for
   `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47`
 - `DisplayLifecycleInstrumentedTest.kt`: locks the lifecycle LCD contract so a
-  background save and a Settings-style pause or resume preserve the visible
-  packed LCD snapshot on both a clean display and a staged `SPIRALk` graph,
-  using retrying synthetic `00` resumes while paused and a `90 s`
-  hosted-emulator budget for the staged graph run
+  background save, a Settings-style pause or resume, and full
+  `ActivityScenario.recreate()` preserve the visible packed LCD snapshot on
+  both a clean display and a staged `SPIRALk` graph, using retrying synthetic
+  `00` resumes while paused and a `90 s` hosted-emulator budget for the staged
+  graph run
 - `FactorsInstrumentedTest.kt`: asserts that the `FACTORS` runtime path runs to
   completion and leaves X in the expected result type
 - `GraphRedrawInstrumentedTest.kt`: locks the redraw-gate contract behind
   `forceRefreshNative()`
 - `StorageAccessCoordinatorInstrumentedTest.kt`: locks detached-fd handoff and
   cancellation behavior through the Android file-descriptor seam
+- `scripts/android/run_16kb_runtime_smoke.sh`: asserts that a connected device
+  or emulator reports `16384`-byte pages before it runs the focused activity
+  recreation lifecycle probe on the live Android runtime
 
 Use `cd android && ./gradlew :app:assembleDebugAndroidTest` first, then
 `cd android && ./gradlew :app:connectedDebugAndroidTest` when the task touches
@@ -177,6 +182,9 @@ Android compatibility layer.
 - `./scripts/android/build_android.sh --run-sim-tests` rebuilds `build.sim`,
   stages `testPgms.bin`, and runs the explicit Android-lane simulator parity
   path before Gradle packaging
+- `scripts/upstream-sync/upstream.sh verify-restore-boundary` fails when the
+  repo-owned restore allowlist would re-own authoritative upstream root
+  surfaces, and `sync` runs that same guard before it restores tracked paths
 - the CI workflow keeps three main verification jobs distinct:
   `upstream-simulator-sanity`, `android-build-test-package`, and
   `android-tests`
@@ -196,6 +204,10 @@ assume the problem is Android UI code.
   change in Kotlin: run `cd android && ./gradlew :app:testDebugUnitTest`
 - SAF, `READP`, redraw-gate, or other Android-only runtime seam change: run
   `:app:assembleDebugAndroidTest`, then `:app:connectedDebugAndroidTest`
+- 16 KB runtime proof on a connected target: run
+  `bash ./scripts/android/run_16kb_runtime_smoke.sh`
+- sync allowlist or upstream overlay contract change: run
+  `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary`
 - pause, wait, progress, or `PC_BUILD` event-loop compatibility change: run
   `scripts/workload-regressions/run_workload_regressions.sh`
 - staged-native, simulator, or CI-critical verification change: run
