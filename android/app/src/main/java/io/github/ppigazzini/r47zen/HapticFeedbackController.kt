@@ -9,23 +9,34 @@ import android.os.VibratorManager
 
 internal class HapticFeedbackController(
     private val context: Context,
-    private val defaultIntensity: Int,
+    defaultIntensity: Int,
 ) {
+    companion object {
+        private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
+        private const val KEY_HAPTIC_HIFI_ENABLED = "haptic_hifi_enabled"
+        private const val KEY_HAPTIC_INTENSITY = "haptic_intensity"
+        private const val MIN_HAPTIC_INTENSITY = 0
+        private const val MAX_HAPTIC_INTENSITY = 255
+    }
+
+    private val defaultIntensity =
+        defaultIntensity.coerceIn(MIN_HAPTIC_INTENSITY, MAX_HAPTIC_INTENSITY)
+
     private var isEnabled = true
     private var isHighFidelityEnabled = true
     private var intensity = defaultIntensity
 
     fun syncFromPreferences(preferences: SharedPreferences) {
-        isEnabled = preferences.getBoolean("haptic_enabled", true)
-        isHighFidelityEnabled = preferences.getBoolean("haptic_hifi_enabled", true)
-        intensity = preferences.getInt("haptic_intensity", defaultIntensity)
+        isEnabled = preferences.getBoolean(KEY_HAPTIC_ENABLED, true)
+        isHighFidelityEnabled = preferences.getBoolean(KEY_HAPTIC_HIFI_ENABLED, true)
+        intensity = readNormalizedIntensity(preferences, KEY_HAPTIC_INTENSITY)
     }
 
     fun onPreferenceChanged(preferences: SharedPreferences, key: String): Boolean {
         when (key) {
-            "haptic_enabled" -> isEnabled = preferences.getBoolean(key, true)
-            "haptic_hifi_enabled" -> isHighFidelityEnabled = preferences.getBoolean(key, true)
-            "haptic_intensity" -> intensity = preferences.getInt(key, defaultIntensity)
+            KEY_HAPTIC_ENABLED -> isEnabled = preferences.getBoolean(key, true)
+            KEY_HAPTIC_HIFI_ENABLED -> isHighFidelityEnabled = preferences.getBoolean(key, true)
+            KEY_HAPTIC_INTENSITY -> intensity = readNormalizedIntensity(preferences, key)
             else -> return false
         }
 
@@ -65,5 +76,15 @@ internal class HapticFeedbackController(
             @Suppress("DEPRECATION")
             vibrator.vibrate(15)
         }
+    }
+
+    private fun readNormalizedIntensity(preferences: SharedPreferences, key: String): Int {
+        val storedIntensity = preferences.getInt(key, defaultIntensity)
+        val normalizedIntensity =
+            storedIntensity.coerceIn(MIN_HAPTIC_INTENSITY, MAX_HAPTIC_INTENSITY)
+        if (storedIntensity != normalizedIntensity) {
+            preferences.edit().putInt(key, normalizedIntensity).apply()
+        }
+        return normalizedIntensity
     }
 }

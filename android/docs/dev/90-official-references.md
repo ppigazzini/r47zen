@@ -62,6 +62,10 @@ flowchart TD
 - [Guide to app architecture](https://developer.android.com/topic/architecture):
   separation of concerns, state ownership, lifecycle boundaries, and
   single-source-of-truth guidance.
+- [Fundamentals of testing Android apps](https://developer.android.com/training/testing/fundamentals):
+  official Android guidance for local versus instrumented tests, test scope,
+  and dependency decoupling; use this when deciding whether a repo contract
+  belongs in Robolectric, instrumentation, or a host script.
 - [Get a result from an activity](https://developer.android.com/training/basics/intents/result):
   Activity Result API registration and lifecycle contract for SAF launchers.
 - [ActivityResultCaller](https://developer.android.com/reference/androidx/activity/result/ActivityResultCaller):
@@ -164,6 +168,12 @@ flowchart TD
 
 ## View-based UI and rendering
 
+- [Add haptic feedback to events](https://developer.android.com/develop/ui/views/haptics/haptic-feedback):
+  official Android haptics guidance for view-based feedback, predefined
+  `VibrationEffect` usage, and fallback tradeoffs.
+- [VibrationEffect](https://developer.android.com/reference/android/os/VibrationEffect):
+  Android API reference for one-shot and waveform amplitude bounds, predefined
+  effects, and newer composition APIs.
 - [Implement dark theme](https://developer.android.com/develop/ui/views/theming/darktheme):
   official DayNight, dark-theme, and Force Dark guidance for view-based apps;
   use this when deciding whether a settings surface should follow the system,
