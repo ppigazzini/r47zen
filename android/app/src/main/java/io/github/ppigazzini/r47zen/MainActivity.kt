@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var preferenceController: MainActivityPreferenceController
     private lateinit var replicaOverlayController: ReplicaOverlayController
     private val hapticFeedbackController by lazy {
-        HapticFeedbackController()
+        HapticFeedbackController(this)
     }
     private val appPreferences by lazy {
         getSharedPreferences(SlotStore.APP_PREFS_NAME, MODE_PRIVATE)
