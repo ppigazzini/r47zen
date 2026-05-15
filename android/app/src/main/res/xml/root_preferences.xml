@@ -26,17 +26,20 @@
             app:defaultValue="full_width"
             app:useSimpleSummaryProvider="true" />
         <ListPreference
-            app:key="lcd_mode"
-            app:title="@string/settings_lcd_mode_title"
-            app:entries="@array/lcd_entries"
-            app:entryValues="@array/lcd_values"
+            app:key="lcd_theme"
+            app:title="@string/settings_lcd_theme_title"
+            app:entries="@array/lcd_theme_entries"
+            app:entryValues="@array/lcd_theme_values"
             app:defaultValue="high_contrast"
             app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            app:key="lcd_negative"
+            app:title="@string/settings_lcd_negative_title"
+            app:defaultValue="false" />
         <SeekBarPreference
             app:key="lcd_luminance"
             app:title="@string/lcd_luminance_title"
-            app:summary="@string/lcd_luminance_summary"
-            app:min="60"
+            app:min="20"
             android:max="120"
             app:defaultValue="100"
             app:showSeekBarValue="true" />

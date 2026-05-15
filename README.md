@@ -8,9 +8,6 @@ This repository builds the APK, stages the shared native calculator core for
 Android, and owns the Android-specific Kotlin, JNI, packaging, and CI code that
 run the calculator on Android devices.
 
-R47 Android is maintained separately from the upstream C47 project and is not
-the upstream Android release channel.
-
 The authoritative upstream source repository is
 `https://gitlab.com/rpncalculators/c43.git`. The GitLab path still uses the
 historical `c43` repository name, but the upstream project identifies itself as

@@ -72,11 +72,144 @@ class MainActivityPreferenceControllerTest {
         assertEquals(listOf(true to 0), controllerState.audioSettingsCalls)
     }
 
+    @Test
+    fun applyInitialPreferences_normalizesUnknownLcdThemeBeforeDeferredOverlayDispatch() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        preferences.edit()
+            .putString("lcd_theme", "unknown")
+            .commit()
+
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+        controllerState.controller.applyDeferredOverlayPreferences()
+
+        assertEquals(MainActivityPreferenceController.DEFAULT_LCD_THEME, controllerState.controller.lcdTheme)
+        assertEquals(
+            MainActivityPreferenceController.DEFAULT_LCD_THEME,
+            preferences.getString("lcd_theme", null),
+        )
+        assertEquals(
+            listOf(
+                LcdThemeCall(
+                    MainActivityPreferenceController.DEFAULT_LCD_THEME,
+                    MainActivityPreferenceController.DEFAULT_LCD_LUMINANCE,
+                    MainActivityPreferenceController.DEFAULT_LCD_NEGATIVE,
+                ),
+            ),
+            controllerState.lcdThemeCalls,
+        )
+    }
+
+    @Test
+    fun onPreferenceChanged_normalizesUnknownLcdThemeAndDispatchesDefaultTheme() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+        controllerState.lcdThemeCalls.clear()
+
+        preferences.edit()
+            .putString("lcd_theme", "retro_blue")
+            .commit()
+
+        assertTrue(controllerState.controller.onPreferenceChanged("lcd_theme"))
+
+        assertEquals(MainActivityPreferenceController.DEFAULT_LCD_THEME, controllerState.controller.lcdTheme)
+        assertEquals(
+            MainActivityPreferenceController.DEFAULT_LCD_THEME,
+            preferences.getString("lcd_theme", null),
+        )
+        assertEquals(
+            listOf(
+                LcdThemeCall(
+                    MainActivityPreferenceController.DEFAULT_LCD_THEME,
+                    MainActivityPreferenceController.DEFAULT_LCD_LUMINANCE,
+                    MainActivityPreferenceController.DEFAULT_LCD_NEGATIVE,
+                ),
+            ),
+            controllerState.lcdThemeCalls,
+        )
+    }
+
+    @Test
+    fun applyInitialPreferences_clampsLowLcdLuminanceAndDispatchesNormalizedValue() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        preferences.edit()
+            .putInt("lcd_luminance", -10)
+            .commit()
+
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+        controllerState.controller.applyDeferredOverlayPreferences()
+
+        assertEquals(MainActivityPreferenceController.MIN_LCD_LUMINANCE, controllerState.controller.lcdLuminance)
+        assertEquals(
+            MainActivityPreferenceController.MIN_LCD_LUMINANCE,
+            preferences.getInt("lcd_luminance", -1),
+        )
+        assertEquals(
+            listOf(
+                LcdThemeCall(
+                    MainActivityPreferenceController.DEFAULT_LCD_THEME,
+                    MainActivityPreferenceController.MIN_LCD_LUMINANCE,
+                    MainActivityPreferenceController.DEFAULT_LCD_NEGATIVE,
+                ),
+            ),
+            controllerState.lcdThemeCalls,
+        )
+    }
+
+    @Test
+    fun onPreferenceChanged_dispatchesNegativeLcdState() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+        controllerState.lcdThemeCalls.clear()
+
+        preferences.edit()
+            .putBoolean("lcd_negative", true)
+            .commit()
+
+        assertTrue(controllerState.controller.onPreferenceChanged("lcd_negative"))
+
+        assertEquals(true, controllerState.controller.isLcdNegative)
+        assertEquals(
+            listOf(
+                LcdThemeCall(
+                    MainActivityPreferenceController.DEFAULT_LCD_THEME,
+                    MainActivityPreferenceController.DEFAULT_LCD_LUMINANCE,
+                    true,
+                ),
+            ),
+            controllerState.lcdThemeCalls,
+        )
+    }
+
+    @Test
+    fun applyInitialPreferences_migratesLegacyLcdModeKeyToLcdTheme() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        preferences.edit()
+            .putString("lcd_mode", "amber")
+            .commit()
+
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+
+        assertEquals("amber", controllerState.controller.lcdTheme)
+        assertEquals("amber", preferences.getString("lcd_theme", null))
+        assertEquals(false, preferences.contains("lcd_mode"))
+    }
+
     private fun buildController(preferences: android.content.SharedPreferences): ControllerState {
         val activity = Robolectric.buildActivity(PreferenceControllerActivity::class.java)
             .setup()
             .get()
         val audioSettingsCalls = mutableListOf<Pair<Boolean, Int>>()
+        val lcdThemeCalls = mutableListOf<LcdThemeCall>()
 
         val controller = MainActivityPreferenceController(
             preferences = preferences,
@@ -88,18 +221,31 @@ class MainActivityPreferenceControllerTest {
                 onPiPModeChanged = {},
             ),
             syncAudioSettings = { enabled, volume -> audioSettingsCalls += enabled to volume },
-            applyLcdMode = { _, _ -> },
+            applyLcdTheme = { theme, luminance, isNegative ->
+                lcdThemeCalls += LcdThemeCall(theme, luminance, isNegative)
+            },
             applyScalingMode = {},
             applyShowTouchZones = {},
             applyKeypadLabelModes = { _, _ -> },
         )
 
-        return ControllerState(controller = controller, audioSettingsCalls = audioSettingsCalls)
+        return ControllerState(
+            controller = controller,
+            audioSettingsCalls = audioSettingsCalls,
+            lcdThemeCalls = lcdThemeCalls,
+        )
     }
 
     private data class ControllerState(
         val controller: MainActivityPreferenceController,
         val audioSettingsCalls: MutableList<Pair<Boolean, Int>>,
+        val lcdThemeCalls: MutableList<LcdThemeCall>,
+    )
+
+    private data class LcdThemeCall(
+        val theme: String,
+        val luminance: Int,
+        val isNegative: Boolean,
     )
 
     private class PreferenceControllerActivity : AppCompatActivity()

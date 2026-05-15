@@ -66,6 +66,10 @@ flowchart TD
   official Android guidance for local versus instrumented tests, test scope,
   and dependency decoupling; use this when deciding whether a repo contract
   belongs in Robolectric, instrumentation, or a host script.
+- [Test your app's accessibility](https://developer.android.com/guide/topics/ui/accessibility/testing):
+  official Android guidance for TalkBack, Switch Access, Accessibility
+  Scanner, pre-launch accessibility reports, and other verification surfaces to
+  use when a UI change claims accessibility improvement.
 - [Get a result from an activity](https://developer.android.com/training/basics/intents/result):
   Activity Result API registration and lifecycle contract for SAF launchers.
 - [ActivityResultCaller](https://developer.android.com/reference/androidx/activity/result/ActivityResultCaller):
@@ -198,6 +202,18 @@ flowchart TD
   preference persistence plus `OnPreferenceChangeListener` and
   `OnSharedPreferenceChangeListener` guidance when settings text or behavior
   must update at runtime.
+- [Principles for improving app accessibility](https://developer.android.com/guide/topics/ui/accessibility/principles):
+  official Android guidance for meaningful labels, built-in accessibility
+  features, and using cues other than color; use this when settings copy or
+  display themes risk relying on color alone.
+- [WCAG 2.2 Contrast (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html):
+  canonical secondary accessibility reference for minimum text contrast ratios;
+  use this after the Android implementation docs when a palette decision needs
+  an explicit contrast floor.
+- [WCAG 2.2 Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html):
+  canonical secondary accessibility reference for avoiding color-only meaning;
+  use this after the Android implementation docs when evaluating whether a UI
+  surface still communicates through text, shape, or layout.
 - [Layout basics](https://m3.material.io/foundations/layout/understanding-layout/overview):
   current Material 3 guidance for canonical-layout-first design, panes,
   spacers, and window-size-class thinking.

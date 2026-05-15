@@ -34,7 +34,8 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_fullscreen_mode_title" translatable="false">Full Screen Mode</string>
     <string name="settings_fullscreen_mode_summary" translatable="false">Hide the Android status and navigation bars.</string>
     <string name="settings_scaling_mode_title" translatable="false">Scaling</string>
-    <string name="settings_lcd_mode_title" translatable="false">LCD Mode</string>
+    <string name="settings_lcd_theme_title" translatable="false">LCD Color Theme</string>
+    <string name="settings_lcd_negative_title" translatable="false">Negative LCD</string>
     <string name="settings_interaction_category_title" translatable="false">Interaction</string>
     <string name="settings_haptic_enabled_title" translatable="false">Enable Haptic Feedback</string>
     <string name="settings_audio_category_title" translatable="false">Audio</string>
@@ -71,7 +72,6 @@ Note: This will NOT delete any files in a saved Work Directory. External STATE, 
     <string name="about_spdx_inventory_summary" translatable="false">Shows the packaged machine-readable third-party inventory</string>
     <string name="about_upstream_project_title" translatable="false">Visit Upstream C47 Project Page</string>
     <string name="lcd_luminance_title" translatable="false">LCD Luminance</string>
-    <string name="lcd_luminance_summary" translatable="false">Adjust the LCD tone while preserving the selected hue</string>
     <string name="gpl_license_missing_message" translatable="false">This build could not read the packaged GNU GPL text from the APK.</string>
     <string name="repo_notice_catalog_title" translatable="false">Bundled Native and Vendored Notices</string>
     <string name="repo_notice_catalog_missing_message" translatable="false">This build could not read the packaged repo notice index from the APK.</string>

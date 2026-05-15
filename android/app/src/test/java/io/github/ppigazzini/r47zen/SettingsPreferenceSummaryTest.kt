@@ -2,6 +2,7 @@ package io.github.ppigazzini.r47zen
 
 import android.content.Context
 import androidx.preference.ListPreference
+import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.test.core.app.ApplicationProvider
 import org.junit.After
@@ -114,6 +115,68 @@ class SettingsPreferenceSummaryTest {
     }
 
     @Test
+    fun lcdThemePreference_usesClearTitleAndCuratedEntries() {
+        val preference = launchSettingsAndFindList("lcd_theme")
+
+        assertEquals(
+            "LCD Color Theme",
+            preference.title?.toString(),
+        )
+        assertEquals(
+            listOf(
+                "Gray Matrix",
+                "Green Vintage",
+                "Amber Quartz",
+                "Blue Liquid",
+            ),
+            preference.entries.map { it.toString() },
+        )
+        assertEquals(
+            listOf(
+                "high_contrast",
+                "vintage",
+                "amber",
+                "blue",
+            ),
+            preference.entryValues.map { it.toString() },
+        )
+    }
+
+    @Test
+    fun lcdThemePreferenceSummary_reflectsSelectedEntry() {
+        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("lcd_theme", "amber")
+            .commit()
+
+        val preference = launchSettingsAndFindList("lcd_theme")
+
+        assertEquals("Amber Quartz", preference.summary?.toString())
+    }
+
+    @Test
+    fun negativeLcdPreference_usesPlainEnglishTitleAndSummary() {
+        val preference = launchSettingsAndFindSwitch("lcd_negative")
+
+        assertEquals(
+            "Negative LCD",
+            preference.title?.toString(),
+        )
+        assertEquals(null, preference.summary)
+    }
+
+    @Test
+    fun lcdLuminancePreference_usesTitleWithoutRedundantSummary() {
+        val preference = launchSettingsAndFindSeekBar("lcd_luminance")
+
+        assertEquals(
+            "LCD Luminance",
+            preference.title?.toString(),
+        )
+        assertEquals(null, preference.summary)
+    }
+
+    @Test
     fun softkeyPreferenceTitleAndEntries_matchPlainEnglishCopy() {
         val preference = launchSettingsAndFindList("softkey_dynamic_mode")
 
@@ -174,6 +237,15 @@ class SettingsPreferenceSummaryTest {
     }
 
     private fun launchSettingsAndFindList(key: String): ListPreference {
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java)
+            .setup()
+            .get()
+
+        val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
+        return requireNotNull(fragment.findPreference(key))
+    }
+
+    private fun launchSettingsAndFindSeekBar(key: String): SeekBarPreference {
         val activity = Robolectric.buildActivity(SettingsActivity::class.java)
             .setup()
             .get()

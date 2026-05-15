@@ -208,13 +208,18 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   device: `WindowModeController` applies a dark visible system-bar treatment
   when fullscreen is off, and `ReplicaOverlay` keeps the first-run
   settings-discovery hint cards on fixed dark shell surfaces
+- LCD appearance stays on a curated Android-local theme list owned by
+  `LcdThemePolicy.kt`; `MainActivityPreferenceController.kt` normalizes stored
+  `lcd_theme` values, clamps `lcd_luminance` to the XML-declared `20..120`
+  range, and routes the optional `lcd_negative` inverse-display toggle before
+  `MainActivity.kt` applies the selected palette
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`
   dispatches keypad feedback through `View.performHapticFeedback(...)`, while
   `HapticFeedbackController` gates whether that feedback is enabled and falls
   back to a predefined vibrator click when the view path is declined by the
   system touch-feedback setting or device behavior
-- haptics, audio, fullscreen state, scaling mode, keypad label modes, and
-  touch-zone overlays are preference-driven Android concerns
+- haptics, audio, fullscreen state, LCD display theme, scaling mode, keypad
+  label modes, and touch-zone overlays are preference-driven Android concerns
 
 ## Kotlin-side change rules
 

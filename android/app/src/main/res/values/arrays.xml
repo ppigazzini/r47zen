@@ -1,11 +1,15 @@
 <resources>
-    <string-array name="lcd_entries" translatable="false">
-        <item>High Contrast</item>
-        <item>Vintage Green</item>
+    <string-array name="lcd_theme_entries" translatable="false">
+        <item>Gray Matrix</item>
+        <item>Green Vintage</item>
+        <item>Amber Quartz</item>
+        <item>Blue Liquid</item>
     </string-array>
-    <string-array name="lcd_values" translatable="false">
+    <string-array name="lcd_theme_values" translatable="false">
         <item>high_contrast</item>
         <item>vintage</item>
+        <item>amber</item>
+        <item>blue</item>
     </string-array>
 
     <string-array name="scaling_entries" translatable="false">

@@ -2,22 +2,18 @@ package io.github.ppigazzini.r47zen
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.media.AudioManager
 import android.os.*
 import android.util.Log
 import android.view.*
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.graphics.ColorUtils
 import io.github.ppigazzini.r47zen.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
 
 @Keep
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
-
-    private data class LcdPalette(val text: Int, val background: Int)
 
     private val TAG = "R47Activity"
     private lateinit var binding: ActivityMainBinding
@@ -52,16 +48,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
-    private val VINTAGE_PALETTE = LcdPalette(
-        text = 0xFF303030.toInt(),
-        background = 0xFFDFF5CC.toInt(),
-    )
-    private val HIGH_CONTRAST_PALETTE = LcdPalette(
-        text = Color.BLACK,
-        background = Color.parseColor("#E0E0E0"),
-    )
-    private val YELLOW_SHIFT = Color.rgb(255, 195, 111)
-
     private fun syncAudioSettings(isBeeperEnabled: Boolean, beeperVolume: Int) {
         AudioEngine.updateSettings(isBeeperEnabled, beeperVolume)
     }
@@ -74,55 +60,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     @Keep
     fun stopTone() {}
 
-    private fun applyLcdMode(mode: String, luminancePercent: Int) {
-        val palette = resolveLcdPalette(mode, luminancePercent)
+    private fun applyLcdTheme(theme: String, luminancePercent: Int, isNegative: Boolean) {
+        val palette = LcdThemePolicy.resolve(theme, luminancePercent, isNegative)
         replicaOverlay.setLcdColors(palette.text, palette.background)
         setLcdColors(palette.text, palette.background)
-    }
-
-    private fun resolveLcdPalette(mode: String, luminancePercent: Int): LcdPalette {
-        val basePalette = when (mode) {
-            "vintage" -> VINTAGE_PALETTE
-            else -> HIGH_CONTRAST_PALETTE
-        }
-        val toneScale =
-            luminancePercent / MainActivityPreferenceController.DEFAULT_LCD_LUMINANCE.toFloat()
-        val background = adjustTone(basePalette.background, toneScale, minTone = 30f, maxTone = 97f)
-        val minContrast = if (mode == MainActivityPreferenceController.DEFAULT_LCD_MODE) 9.0 else 7.0
-        val text = ensureTextContrast(basePalette.text, background, minContrast)
-        return LcdPalette(text = text, background = background)
-    }
-
-    private fun adjustTone(color: Int, toneScale: Float, minTone: Float, maxTone: Float): Int {
-        val hct = FloatArray(3)
-        ColorUtils.colorToM3HCT(color, hct)
-        val targetTone = (hct[2] * toneScale).coerceIn(minTone, maxTone)
-        return ColorUtils.M3HCTToColor(hct[0], hct[1], targetTone)
-    }
-
-    private fun ensureTextContrast(baseText: Int, background: Int, minContrast: Double): Int {
-        if (ColorUtils.calculateContrast(baseText, background) >= minContrast) {
-            return baseText
-        }
-
-        val hct = FloatArray(3)
-        ColorUtils.colorToM3HCT(baseText, hct)
-        val darkBackground = ColorUtils.calculateLuminance(background) < 0.5
-
-        for (step in 1..20) {
-            val ratio = step / 20f
-            val targetTone = if (darkBackground) {
-                hct[2] + ((100f - hct[2]) * ratio)
-            } else {
-                hct[2] * (1f - ratio)
-            }
-            val candidate = ColorUtils.M3HCTToColor(hct[0], hct[1], targetTone.coerceIn(0f, 100f))
-            if (ColorUtils.calculateContrast(candidate, background) >= minContrast) {
-                return candidate
-            }
-        }
-
-        return if (darkBackground) Color.WHITE else Color.BLACK
     }
 
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
@@ -293,7 +234,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             hapticFeedbackController = hapticFeedbackController,
             windowModeController = windowModeController,
             syncAudioSettings = ::syncAudioSettings,
-            applyLcdMode = ::applyLcdMode,
+            applyLcdTheme = ::applyLcdTheme,
             applyScalingMode = replicaOverlayController::applyScalingMode,
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
             applyKeypadLabelModes = replicaOverlayController::applyKeypadLabelModes,

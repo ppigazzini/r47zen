@@ -10,7 +10,7 @@ internal class MainActivityPreferenceController(
     private val hapticFeedbackController: HapticFeedbackController,
     private val windowModeController: WindowModeController,
     private val syncAudioSettings: (Boolean, Int) -> Unit,
-    private val applyLcdMode: (String, Int) -> Unit,
+    private val applyLcdTheme: (String, Int, Boolean) -> Unit,
     private val applyScalingMode: (String) -> Unit,
     private val applyShowTouchZones: (Boolean) -> Unit,
     private val applyKeypadLabelModes: (MainKeyDynamicMode, SoftkeyDynamicMode) -> Unit,
@@ -19,10 +19,11 @@ internal class MainActivityPreferenceController(
         const val DEFAULT_BEEPER_VOLUME = 20
         const val MIN_BEEPER_VOLUME = 0
         const val MAX_BEEPER_VOLUME = 100
-        const val DEFAULT_LCD_MODE = "high_contrast"
+        const val DEFAULT_LCD_NEGATIVE = false
+        const val DEFAULT_LCD_THEME = DEFAULT_LCD_THEME_STORAGE_VALUE
         const val DEFAULT_LCD_LUMINANCE = 100
         val DEFAULT_MAIN_KEY_DYNAMIC_MODE = MainKeyDynamicMode.DEFAULT
-        const val MIN_LCD_LUMINANCE = 60
+        const val MIN_LCD_LUMINANCE = 20
         const val MAX_LCD_LUMINANCE = 120
         const val DEFAULT_SCALING_MODE = "full_width"
         val DEFAULT_SOFTKEY_DYNAMIC_MODE = SoftkeyDynamicMode.DEFAULT
@@ -30,13 +31,15 @@ internal class MainActivityPreferenceController(
         private const val KEY_BEEPER_ENABLED = "beeper_enabled"
         private const val KEY_BEEPER_VOLUME = "beeper_volume"
         private const val KEY_FULLSCREEN_MODE = "fullscreen_mode"
+        private const val KEY_LCD_NEGATIVE = "lcd_negative"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
-        private const val KEY_LCD_MODE = "lcd_mode"
+        private const val KEY_LCD_THEME = "lcd_theme"
         private const val KEY_LCD_LUMINANCE = "lcd_luminance"
         private const val KEY_MAIN_KEY_DYNAMIC_MODE = "main_key_dynamic_mode"
         private const val KEY_SCALING_MODE = "scaling_mode"
         private const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
         private const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
+        private const val LEGACY_KEY_LCD_MODE = "lcd_mode"
     }
 
     var beeperVolume = DEFAULT_BEEPER_VOLUME
@@ -45,10 +48,13 @@ internal class MainActivityPreferenceController(
     var isBeeperEnabled = true
         private set
 
-    var lcdMode = DEFAULT_LCD_MODE
+    var lcdTheme = DEFAULT_LCD_THEME
         private set
 
     var lcdLuminance = DEFAULT_LCD_LUMINANCE
+        private set
+
+    var isLcdNegative = DEFAULT_LCD_NEGATIVE
         private set
 
     var mainKeyDynamicMode = DEFAULT_MAIN_KEY_DYNAMIC_MODE
@@ -68,8 +74,9 @@ internal class MainActivityPreferenceController(
 
         beeperVolume = readNormalizedBeeperVolume()
         isBeeperEnabled = preferences.getBoolean(KEY_BEEPER_ENABLED, true)
-        lcdMode = preferences.getString(KEY_LCD_MODE, DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
+        lcdTheme = readNormalizedLcdTheme()
         lcdLuminance = readNormalizedLcdLuminance()
+        isLcdNegative = preferences.getBoolean(KEY_LCD_NEGATIVE, DEFAULT_LCD_NEGATIVE)
         mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
         scalingMode =
             preferences.getString(KEY_SCALING_MODE, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
@@ -85,7 +92,7 @@ internal class MainActivityPreferenceController(
     fun applyDeferredOverlayPreferences() {
         applyShowTouchZones(showTouchZones)
         applyScalingMode(scalingMode)
-        applyLcdMode(lcdMode, lcdLuminance)
+        applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
     }
 
     fun onPreferenceChanged(key: String): Boolean {
@@ -105,13 +112,19 @@ internal class MainActivityPreferenceController(
                 isBeeperEnabled = preferences.getBoolean(key, true)
                 syncAudioSettings(isBeeperEnabled, beeperVolume)
             }
-            KEY_LCD_MODE -> {
-                lcdMode = preferences.getString(key, DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
-                applyLcdMode(lcdMode, lcdLuminance)
+            KEY_LCD_THEME,
+            LEGACY_KEY_LCD_MODE,
+            -> {
+                lcdTheme = readNormalizedLcdTheme()
+                applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
             }
             KEY_LCD_LUMINANCE -> {
                 lcdLuminance = readNormalizedLcdLuminance()
-                applyLcdMode(lcdMode, lcdLuminance)
+                applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
+            }
+            KEY_LCD_NEGATIVE -> {
+                isLcdNegative = preferences.getBoolean(key, DEFAULT_LCD_NEGATIVE)
+                applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
             }
             KEY_MAIN_KEY_DYNAMIC_MODE -> {
                 mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
@@ -162,6 +175,24 @@ internal class MainActivityPreferenceController(
             preferences.edit().putInt(KEY_LCD_LUMINANCE, normalizedLuminance).apply()
         }
         return normalizedLuminance
+    }
+
+    private fun readNormalizedLcdTheme(): String {
+        val hasCurrentKey = preferences.contains(KEY_LCD_THEME)
+        val storedTheme = if (hasCurrentKey) {
+            preferences.getString(KEY_LCD_THEME, DEFAULT_LCD_THEME)
+        } else {
+            preferences.getString(LEGACY_KEY_LCD_MODE, DEFAULT_LCD_THEME)
+        }
+        val normalizedTheme = LcdThemePolicy.normalizeStorageValue(storedTheme)
+        val needsWriteBack = !hasCurrentKey || storedTheme != normalizedTheme || preferences.contains(LEGACY_KEY_LCD_MODE)
+        if (needsWriteBack) {
+            preferences.edit()
+                .putString(KEY_LCD_THEME, normalizedTheme)
+                .remove(LEGACY_KEY_LCD_MODE)
+                .apply()
+        }
+        return normalizedTheme
     }
 
     private fun readNormalizedMainKeyDynamicMode(): MainKeyDynamicMode {
