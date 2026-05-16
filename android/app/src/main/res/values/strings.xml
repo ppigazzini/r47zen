@@ -37,10 +37,9 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_lcd_theme_title" translatable="false">LCD Color Theme</string>
     <string name="settings_lcd_negative_title" translatable="false">Negative LCD</string>
     <string name="settings_interaction_category_title" translatable="false">Interaction</string>
-    <string name="settings_haptic_enabled_title" translatable="false">Haptic feedback on keypress</string>
-    <string name="settings_haptic_keypress_duration_title" translatable="false">Vibration strength on keypress</string>
-    <string name="settings_haptic_keypress_duration_summary_default" translatable="false">Android default</string>
-    <string name="settings_haptic_keypress_duration_summary_custom" translatable="false">%1$d ms</string>
+    <string name="settings_haptic_enabled_title" translatable="false">Haptic feedback</string>
+    <string name="settings_haptic_use_android_default_title" translatable="false">Use system duration</string>
+    <string name="settings_haptic_keypress_duration_title" translatable="false">Custom duration (ms)</string>
     <string name="settings_audio_category_title" translatable="false">Audio</string>
     <string name="settings_beeper_enabled_title" translatable="false">Simulated Beeper</string>
     <string name="settings_beeper_volume_title" translatable="false">Beeper Volume</string>

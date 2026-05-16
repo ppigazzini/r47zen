@@ -15,19 +15,61 @@ internal class HapticFeedbackController(
 ) {
     companion object {
         internal const val KEY_HAPTIC_ENABLED = "haptic_enabled"
+        internal const val KEY_HAPTIC_USE_ANDROID_DEFAULT = "haptic_use_android_default"
         internal const val KEY_HAPTIC_KEYPRESS_DURATION_MS = "haptic_keypress_duration_ms"
+        internal const val DEFAULT_HAPTIC_USE_ANDROID_DEFAULT = true
         internal const val DEFAULT_HAPTIC_KEYPRESS_DURATION_MS = 0
-        internal const val MAX_HAPTIC_KEYPRESS_DURATION_MS = 20
+        internal const val MAX_HAPTIC_KEYPRESS_DURATION_MS = 100
 
         private const val DEFAULT_CLICK_FALLBACK_DURATION_MS = 15L
+
+        internal fun normalizePreferences(preferences: SharedPreferences) {
+            val storedDuration = preferences.getInt(
+                KEY_HAPTIC_KEYPRESS_DURATION_MS,
+                DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
+            )
+            val normalizedDuration = storedDuration.coerceIn(
+                DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
+                MAX_HAPTIC_KEYPRESS_DURATION_MS,
+            )
+            val hasUseAndroidDefault = preferences.contains(KEY_HAPTIC_USE_ANDROID_DEFAULT)
+            val useAndroidDefault = if (hasUseAndroidDefault) {
+                preferences.getBoolean(
+                    KEY_HAPTIC_USE_ANDROID_DEFAULT,
+                    DEFAULT_HAPTIC_USE_ANDROID_DEFAULT,
+                )
+            } else {
+                normalizedDuration == DEFAULT_HAPTIC_KEYPRESS_DURATION_MS
+            }
+
+            if (storedDuration != normalizedDuration || !hasUseAndroidDefault) {
+                preferences.edit().apply {
+                    if (storedDuration != normalizedDuration) {
+                        putInt(KEY_HAPTIC_KEYPRESS_DURATION_MS, normalizedDuration)
+                    }
+                    if (!hasUseAndroidDefault) {
+                        putBoolean(KEY_HAPTIC_USE_ANDROID_DEFAULT, useAndroidDefault)
+                    }
+                }.apply()
+            }
+        }
     }
 
     private var isEnabled = true
+    private var useAndroidDefault = DEFAULT_HAPTIC_USE_ANDROID_DEFAULT
     private var customKeypressDurationMs = DEFAULT_HAPTIC_KEYPRESS_DURATION_MS
 
     fun syncFromPreferences(preferences: SharedPreferences) {
+        normalizePreferences(preferences)
         isEnabled = preferences.getBoolean(KEY_HAPTIC_ENABLED, true)
-        customKeypressDurationMs = readNormalizedKeypressDuration(preferences)
+        useAndroidDefault = preferences.getBoolean(
+            KEY_HAPTIC_USE_ANDROID_DEFAULT,
+            DEFAULT_HAPTIC_USE_ANDROID_DEFAULT,
+        )
+        customKeypressDurationMs = preferences.getInt(
+            KEY_HAPTIC_KEYPRESS_DURATION_MS,
+            DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
+        )
     }
 
     fun onPreferenceChanged(preferences: SharedPreferences, key: String): Boolean {
@@ -36,8 +78,28 @@ internal class HapticFeedbackController(
                 isEnabled = preferences.getBoolean(key, true)
                 return true
             }
+            KEY_HAPTIC_USE_ANDROID_DEFAULT -> {
+                normalizePreferences(preferences)
+                useAndroidDefault = preferences.getBoolean(
+                    KEY_HAPTIC_USE_ANDROID_DEFAULT,
+                    DEFAULT_HAPTIC_USE_ANDROID_DEFAULT,
+                )
+                customKeypressDurationMs = preferences.getInt(
+                    KEY_HAPTIC_KEYPRESS_DURATION_MS,
+                    DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
+                )
+                return true
+            }
             KEY_HAPTIC_KEYPRESS_DURATION_MS -> {
-                customKeypressDurationMs = readNormalizedKeypressDuration(preferences)
+                normalizePreferences(preferences)
+                useAndroidDefault = preferences.getBoolean(
+                    KEY_HAPTIC_USE_ANDROID_DEFAULT,
+                    DEFAULT_HAPTIC_USE_ANDROID_DEFAULT,
+                )
+                customKeypressDurationMs = preferences.getInt(
+                    KEY_HAPTIC_KEYPRESS_DURATION_MS,
+                    DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
+                )
                 return true
             }
             else -> return false
@@ -45,28 +107,29 @@ internal class HapticFeedbackController(
     }
 
     fun performClick(targetView: View): Boolean {
-        return performFeedback(
-            targetView = targetView,
-            feedbackConstant = hapticFeedbackConstant,
-            predefinedEffect = VibrationEffect.EFFECT_CLICK,
-            defaultFallbackDurationMs = DEFAULT_CLICK_FALLBACK_DURATION_MS,
-            fallbackOverrideDurationMs = resolveCustomClickDurationMs(),
-        )
-    }
-
-    private fun performFeedback(
-        targetView: View,
-        feedbackConstant: Int,
-        predefinedEffect: Int,
-        defaultFallbackDurationMs: Long,
-        fallbackOverrideDurationMs: Long?,
-    ): Boolean {
         if (!isEnabled) {
             return false
         }
 
-        if (fallbackOverrideDurationMs == null && targetView.performHapticFeedback(
-                feedbackConstant,
+        if (useAndroidDefault) {
+            return performDefaultFeedback(targetView)
+        }
+
+        val customDurationMs = customKeypressDurationMs
+            .takeIf { it > DEFAULT_HAPTIC_KEYPRESS_DURATION_MS }
+            ?.toLong()
+            ?: return false
+
+        return performFallbackFeedback(
+            predefinedEffect = VibrationEffect.EFFECT_CLICK,
+            durationMs = customDurationMs,
+            useCustomDuration = true,
+        )
+    }
+
+    private fun performDefaultFeedback(targetView: View): Boolean {
+        if (targetView.performHapticFeedback(
+                hapticFeedbackConstant,
                 HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING,
             )
         ) {
@@ -74,31 +137,10 @@ internal class HapticFeedbackController(
         }
 
         return performFallbackFeedback(
-            predefinedEffect = predefinedEffect,
-            durationMs = fallbackOverrideDurationMs ?: defaultFallbackDurationMs,
-            useCustomDuration = fallbackOverrideDurationMs != null,
+            predefinedEffect = VibrationEffect.EFFECT_CLICK,
+            durationMs = DEFAULT_CLICK_FALLBACK_DURATION_MS,
+            useCustomDuration = false,
         )
-    }
-
-    private fun resolveCustomClickDurationMs(): Long? {
-        return customKeypressDurationMs
-            .takeIf { it > DEFAULT_HAPTIC_KEYPRESS_DURATION_MS }
-            ?.toLong()
-    }
-
-    private fun readNormalizedKeypressDuration(preferences: SharedPreferences): Int {
-        val storedDuration = preferences.getInt(
-            KEY_HAPTIC_KEYPRESS_DURATION_MS,
-            DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
-        )
-        val normalizedDuration = storedDuration.coerceIn(
-            DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
-            MAX_HAPTIC_KEYPRESS_DURATION_MS,
-        )
-        if (storedDuration != normalizedDuration) {
-            preferences.edit().putInt(KEY_HAPTIC_KEYPRESS_DURATION_MS, normalizedDuration).apply()
-        }
-        return normalizedDuration
     }
 
     private fun performFallbackFeedback(

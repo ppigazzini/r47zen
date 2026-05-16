@@ -176,8 +176,9 @@ flowchart TD
   official Android haptics guidance for view-based feedback, predefined
   `VibrationEffect` usage, fallback tradeoffs, and keypress interaction
   constants. The doc includes press/release examples, but this app now keeps a
-  press-only keypad pulse for calculator interaction and uses the leftmost
-  `0 ms` keypress-strength state as the full system-default path.
+  press-only keypad pulse for calculator interaction, defaults to the Android
+  system response through a dedicated toggle, and reserves the custom
+  `0..100 ms` slider for explicit app-owned override behavior.
 - [Haptics design principles](https://developer.android.com/develop/ui/views/haptics/haptics-principles):
   official Android guidance for subtle frequent touch feedback, matching
   effect strength to event importance, and avoiding overly long or buzzy

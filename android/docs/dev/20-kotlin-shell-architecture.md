@@ -221,20 +221,22 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   now uses press-only keypad haptics for calculator interaction. `ACTION_DOWN`
   uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` and
   `ACTION_CANCEL` only clear pressed state and send key `0` with no release
-  pulse. `HapticFeedbackController` owns the two preference-driven modes behind
-  that press path: `haptic_enabled` is the master gate, while
-  `haptic_keypress_duration_ms` is a dependent keypress-strength slider where
-  `0` keeps the Android-default view-first path and positive values switch to
-  short app-owned one-shot press pulses that intentionally override the system
-  touch-haptics setting
+  pulse. `HapticFeedbackController` owns the three preference-driven states
+  behind that press path: `haptic_enabled` is the master gate,
+  `haptic_use_android_default` is a dependent default-on toggle, and
+  `haptic_keypress_duration_ms` is a custom `0..100 ms` slider that only
+  applies when the Android-default toggle is off. With the default toggle on,
+  the controller keeps the Android view-first path; with it off, positive
+  values switch to short app-owned one-shot press pulses that intentionally
+  override the system touch-haptics setting, while `0 ms` means no app pulse
 - haptics, audio, fullscreen state, LCD display theme, scaling mode, keypad
   label modes, and touch-zone overlays are preference-driven Android concerns
 
 - `SettingsFragment` keeps the haptics surface intentionally lean and
-  Gboard-like: `Haptic feedback on keypress` is the master switch,
-  `Vibration strength on keypress` is a dependent `SeekBarPreference` that
-  greys out with the switch off, and the leftmost `0` value resolves to the
-  summary text `Android default`
+  duration-focused: `Haptic feedback` is the master switch,
+  `Use system duration` is the dependent toggle that keeps the stock Android
+  press response on by default, and `Custom duration (ms)` is the right-value
+  `SeekBarPreference` that only enables when the app is in custom mode
 
 ## Kotlin-side change rules
 

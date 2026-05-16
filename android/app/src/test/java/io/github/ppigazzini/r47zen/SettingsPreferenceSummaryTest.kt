@@ -177,42 +177,68 @@ class SettingsPreferenceSummaryTest {
     }
 
     @Test
-    fun hapticToggle_usesGboardStyleKeypressTitle() {
+    fun hapticToggle_usesShortMasterTitle() {
         val preference = launchSettingsAndFindSwitch("haptic_enabled")
 
         assertEquals(
-            "Haptic feedback on keypress",
+            "Haptic feedback",
             preference.title?.toString(),
         )
     }
 
     @Test
-    fun hapticStrengthPreference_defaultsToAndroidDefaultSummary() {
-        val preference = launchSettingsAndFindSeekBar("haptic_keypress_duration_ms")
+    fun hapticSystemDurationToggle_defaultsOnAndDependsOnHapticMaster() {
+        val preference = launchSettingsAndFindSwitch("haptic_use_android_default")
 
         assertEquals(
-            "Vibration strength on keypress",
+            "Use system duration",
             preference.title?.toString(),
         )
-        assertEquals(
-            "Android default",
-            preference.summary?.toString(),
-        )
+        assertTrue(preference.isChecked)
         assertTrue(preference.isEnabled)
     }
 
     @Test
-    fun hapticStrengthPreference_reflectsStoredCustomDurationAndDependsOnToggle() {
+    fun hapticDurationPreference_defaultsToDisabledCustomSlider() {
+        val preference = launchSettingsAndFindSeekBar("haptic_keypress_duration_ms")
+
+        assertEquals(
+            "Custom duration (ms)",
+            preference.title?.toString(),
+        )
+        assertEquals(100, preference.max)
+        assertEquals(0, preference.value)
+        assertFalse(preference.isEnabled)
+    }
+
+    @Test
+    fun hapticStrengthPreference_reflectsStoredCustomDurationWhenAndroidDefaultIsOff() {
         context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putBoolean("haptic_enabled", false)
-            .putInt("haptic_keypress_duration_ms", 7)
+            .putBoolean("haptic_use_android_default", false)
+            .putInt("haptic_keypress_duration_ms", 73)
             .commit()
 
         val preference = launchSettingsAndFindSeekBar("haptic_keypress_duration_ms")
 
-        assertEquals("7 ms", preference.summary?.toString())
-        assertFalse(preference.isEnabled)
+        assertEquals(73, preference.value)
+        assertTrue(preference.isEnabled)
+    }
+
+    @Test
+    fun hapticMasterToggle_disablesAndroidDefaultToggleAndCustomSlider() {
+        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("haptic_enabled", false)
+            .putBoolean("haptic_use_android_default", false)
+            .putInt("haptic_keypress_duration_ms", 73)
+            .commit()
+
+        val defaultPreference = launchSettingsAndFindSwitch("haptic_use_android_default")
+        val durationPreference = launchSettingsAndFindSeekBar("haptic_keypress_duration_ms")
+
+        assertFalse(defaultPreference.isEnabled)
+        assertFalse(durationPreference.isEnabled)
     }
 
     @Test

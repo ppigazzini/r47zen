@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.View
 import androidx.preference.ListPreference
 import androidx.preference.SeekBarPreference
+import androidx.preference.SwitchPreferenceCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
@@ -236,9 +237,18 @@ class SettingsFragment : PreferenceFragmentCompat() {
     }
 
     private fun configureHapticPreferences() {
+        val preferences = preferenceManager.sharedPreferences ?: return
+        HapticFeedbackController.normalizePreferences(preferences)
+        val useAndroidDefaultPreference = findPreference<SwitchPreferenceCompat>(
+            HapticFeedbackController.KEY_HAPTIC_USE_ANDROID_DEFAULT,
+        )
         val hapticStrengthPreference = findPreference<SeekBarPreference>(
             HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS,
         ) ?: return
+        useAndroidDefaultPreference?.isChecked = preferences.getBoolean(
+            HapticFeedbackController.KEY_HAPTIC_USE_ANDROID_DEFAULT,
+            HapticFeedbackController.DEFAULT_HAPTIC_USE_ANDROID_DEFAULT,
+        )
         val normalizedValue = hapticStrengthPreference.value.coerceIn(
             HapticFeedbackController.DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
             HapticFeedbackController.MAX_HAPTIC_KEYPRESS_DURATION_MS,
@@ -246,13 +256,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         if (normalizedValue != hapticStrengthPreference.value) {
             hapticStrengthPreference.value = normalizedValue
         }
-        hapticStrengthPreference.summaryProvider = Preference.SummaryProvider<SeekBarPreference> { preference ->
-            if (preference.value == HapticFeedbackController.DEFAULT_HAPTIC_KEYPRESS_DURATION_MS) {
-                getString(R.string.settings_haptic_keypress_duration_summary_default)
-            } else {
-                getString(R.string.settings_haptic_keypress_duration_summary_custom, preference.value)
-            }
-        }
+        hapticStrengthPreference.updatesContinuously = true
     }
 
     private fun resolveStorageLocationDetails(context: android.content.Context): StorageLocationDetails {
