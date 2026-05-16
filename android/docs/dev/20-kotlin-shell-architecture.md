@@ -196,6 +196,10 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   letterbox or window the shell according to Android compatibility behavior
 - Picture-in-Picture is enabled
 - settings live in a separate non-exported `SettingsActivity`
+- `SettingsActivity` stays Preference-based, but its host layout is now
+  adaptive: the base `settings_activity.xml` uses `ConstraintLayout`, and
+  `layout-w600dp/settings_activity.xml` centers the preferences inside a
+  bounded `MaterialCardView` panel for larger or resizable windows
 - the settings-owned activity stack uses the dedicated
   `Theme.R47.Settings` dark Material 3 theme from `AndroidManifest.xml`, so
   settings, notices, OSS-license screens, and settings-owned dialogs do not
@@ -214,10 +218,13 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   range, and routes the optional `lcd_negative` inverse-display toggle before
   `MainActivity.kt` applies the selected palette
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`
-  dispatches keypad feedback through `View.performHapticFeedback(...)`, while
-  `HapticFeedbackController` gates whether that feedback is enabled and falls
-  back to a predefined vibrator click when the view path is declined by the
-  system touch-feedback setting or device behavior
+  now follows the keyboard-like `ACTION_DOWN` / `ACTION_UP` cadence from the
+  official View haptics guidance: press uses
+  `HapticFeedbackConstants.VIRTUAL_KEY`, release uses
+  `HapticFeedbackConstants.VIRTUAL_KEY_RELEASE`, cancel clears pressed state
+  without a release pulse, and `HapticFeedbackController` gates whether that
+  feedback is enabled before falling back to predefined vibrator effects when
+  the view path is declined by device behavior
 - haptics, audio, fullscreen state, LCD display theme, scaling mode, keypad
   label modes, and touch-zone overlays are preference-driven Android concerns
 

@@ -33,22 +33,45 @@ internal class HapticFeedbackController(
     }
 
     fun performClick(targetView: View): Boolean {
+        return performFeedback(
+            targetView = targetView,
+            feedbackConstant = hapticFeedbackConstant,
+            predefinedEffect = VibrationEffect.EFFECT_CLICK,
+            fallbackDurationMs = 15L,
+        )
+    }
+
+    fun performRelease(targetView: View): Boolean {
+        return performFeedback(
+            targetView = targetView,
+            feedbackConstant = HapticFeedbackConstants.VIRTUAL_KEY_RELEASE,
+            predefinedEffect = VibrationEffect.EFFECT_TICK,
+            fallbackDurationMs = 10L,
+        )
+    }
+
+    private fun performFeedback(
+        targetView: View,
+        feedbackConstant: Int,
+        predefinedEffect: Int,
+        fallbackDurationMs: Long,
+    ): Boolean {
         if (!isEnabled) {
             return false
         }
 
         if (targetView.performHapticFeedback(
-                hapticFeedbackConstant,
+                feedbackConstant,
                 HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING,
             )
         ) {
             return true
         }
 
-        return performFallbackClick()
+        return performFallbackFeedback(predefinedEffect, fallbackDurationMs)
     }
 
-    private fun performFallbackClick(): Boolean {
+    private fun performFallbackFeedback(predefinedEffect: Int, fallbackDurationMs: Long): Boolean {
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = context.getSystemService(VibratorManager::class.java)
             vibratorManager?.defaultVibrator
@@ -61,12 +84,17 @@ internal class HapticFeedbackController(
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+            vibrator.vibrate(VibrationEffect.createPredefined(predefinedEffect))
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createOneShot(15L, VibrationEffect.DEFAULT_AMPLITUDE))
+            vibrator.vibrate(
+                VibrationEffect.createOneShot(
+                    fallbackDurationMs,
+                    VibrationEffect.DEFAULT_AMPLITUDE,
+                )
+            )
         } else {
             @Suppress("DEPRECATION")
-            vibrator.vibrate(15L)
+            vibrator.vibrate(fallbackDurationMs)
         }
 
         return true

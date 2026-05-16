@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import kotlin.math.max
 
 internal data class KeypadFontSet(
     val standard: Typeface?,
@@ -117,6 +118,14 @@ class CalculatorKeyView @JvmOverloads constructor(
     private val mainKeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
+    private val mainKeyPressedHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val mainKeyPressedShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
     private val softkeyPainter = CalculatorSoftkeyPainter(
         defaultPrimaryColor = defaultPrimaryColor,
         letterColor = letterColor,
@@ -141,6 +150,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         letterLabel.gravity = Gravity.START or Gravity.TOP
         letterLabel.includeFontPadding = false
         letterLabel.maxLines = 1
+        enableKeyTextRendering(letterLabel)
         val letterParams = LayoutParams(0, 0)
         letterParams.topToTop = buttonView.id
         letterParams.endToEnd = LayoutParams.PARENT_ID
@@ -167,6 +177,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         primaryLabel.gravity = Gravity.CENTER
         primaryLabel.includeFontPadding = false
         primaryLabel.maxLines = 1
+        enableKeyTextRendering(primaryLabel)
         val primaryParams = LayoutParams(0, 0)
         primaryParams.topToTop = buttonView.id
         primaryParams.bottomToBottom = buttonView.id
@@ -180,6 +191,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         fLabel.gravity = Gravity.START or Gravity.TOP
         fLabel.includeFontPadding = false
         fLabel.maxLines = 1
+        enableKeyTextRendering(fLabel)
         val fParams = LayoutParams(LayoutParams.WRAP_CONTENT, 0)
         fParams.topToTop = buttonView.id
         fParams.bottomToBottom = buttonView.id
@@ -194,6 +206,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         gLabel.gravity = Gravity.END or Gravity.TOP
         gLabel.includeFontPadding = false
         gLabel.maxLines = 1
+        enableKeyTextRendering(gLabel)
         val gParams = LayoutParams(LayoutParams.WRAP_CONTENT, 0)
         gParams.topToTop = buttonView.id
         gParams.bottomToBottom = buttonView.id
@@ -208,6 +221,11 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         isClickable = false
         buttonView.isClickable = false
+    }
+
+    private fun enableKeyTextRendering(labelView: TextView) {
+        labelView.paint.isSubpixelText = true
+        labelView.paint.isLinearText = true
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -867,7 +885,44 @@ class CalculatorKeyView @JvmOverloads constructor(
                 fillColor = fillColor,
                 cornerRadius = cornerRadius,
             )
+            if (isPressed) {
+                drawPressedKeyAccent(
+                    canvas = canvas,
+                    rect = mainKeyRect,
+                    referenceBodyToViewWidthScale = referenceBodyToViewWidthScale,
+                )
+            }
         }
+    }
+
+    private fun drawPressedKeyAccent(
+        canvas: Canvas,
+        rect: RectF,
+        referenceBodyToViewWidthScale: Float,
+    ) {
+        val edgeInset = max(4f * referenceBodyToViewWidthScale, 2f)
+        val topY = rect.top + max(6f * referenceBodyToViewWidthScale, 2f)
+        val bottomY = rect.bottom - max(6f * referenceBodyToViewWidthScale, 2f)
+
+        mainKeyPressedHighlightPaint.color = Color.argb(112, 255, 244, 224)
+        mainKeyPressedHighlightPaint.strokeWidth = max(2.2f * referenceBodyToViewWidthScale, 1.5f)
+        mainKeyPressedShadowPaint.color = Color.argb(128, 18, 12, 8)
+        mainKeyPressedShadowPaint.strokeWidth = max(2.8f * referenceBodyToViewWidthScale, 1.5f)
+
+        canvas.drawLine(
+            rect.left + edgeInset,
+            topY,
+            rect.right - edgeInset,
+            topY,
+            mainKeyPressedHighlightPaint,
+        )
+        canvas.drawLine(
+            rect.left + edgeInset,
+            bottomY,
+            rect.right - edgeInset,
+            bottomY,
+            mainKeyPressedShadowPaint,
+        )
     }
 
     private fun drawKeyChrome(

@@ -30,17 +30,31 @@ internal class CalculatorSoftkeyPainter(
     }
     private val softkeyTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
+        isSubpixelText = true
+        isLinearText = true
     }
     private val softkeyAuxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
+        isSubpixelText = true
+        isLinearText = true
     }
     private val softkeyValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.RIGHT
+        isSubpixelText = true
+        isLinearText = true
     }
     private val softkeyDecorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         strokeWidth = KeyVisualPolicy.SOFTKEY_DECOR_STROKE_WIDTH
+    }
+    private val softkeyPressedHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val softkeyPressedShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
     }
     private val softkeyDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -94,6 +108,14 @@ internal class CalculatorSoftkeyPainter(
                 fillColor = fillColor,
                 cornerRadius = cornerRadius,
             )
+            if (isPressed) {
+                drawPressedAccent(
+                    canvas = canvas,
+                    rect = softkeyRect,
+                    width = width,
+                    reverseVideo = reverseVideo,
+                )
+            }
         }
         if (drawKeySurfaces && keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET)) {
             softkeyDecorPaint.color = softkeyPreviewColor
@@ -220,6 +242,43 @@ internal class CalculatorSoftkeyPainter(
     ) {
         fillPaint.color = fillColor
         canvas.drawRoundRect(rect, cornerRadius, cornerRadius, fillPaint)
+    }
+
+    private fun drawPressedAccent(
+        canvas: Canvas,
+        rect: RectF,
+        width: Int,
+        reverseVideo: Boolean,
+    ) {
+        val edgeInset = width * 0.055f
+        val topY = rect.top + width * 0.045f
+        val bottomY = rect.bottom - width * 0.04f
+
+        softkeyPressedHighlightPaint.color = if (reverseVideo) {
+            softkeyLightTextColor
+        } else {
+            softkeyValueLightColor
+        }
+        softkeyPressedHighlightPaint.alpha = if (reverseVideo) 84 else 112
+        softkeyPressedHighlightPaint.strokeWidth = width * 0.012f
+        softkeyPressedShadowPaint.color = mainKeyFillColor
+        softkeyPressedShadowPaint.alpha = 132
+        softkeyPressedShadowPaint.strokeWidth = width * 0.014f
+
+        canvas.drawLine(
+            rect.left + edgeInset,
+            topY,
+            rect.right - edgeInset,
+            topY,
+            softkeyPressedHighlightPaint,
+        )
+        canvas.drawLine(
+            rect.left + edgeInset,
+            bottomY,
+            rect.right - edgeInset,
+            bottomY,
+            softkeyPressedShadowPaint,
+        )
     }
 
     private fun drawSoftkeyOverlay(

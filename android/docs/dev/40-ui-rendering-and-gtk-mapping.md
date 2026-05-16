@@ -92,6 +92,10 @@ keypad all look correct locally but are globally misplaced together.
 - `ReplicaOverlay.updateLcd(...)` compares against the cached pixel buffer,
   computes the smallest changed rectangle, updates the backing `Bitmap`, and
   invalidates only that on-screen region
+- the animated settings-discovery hint stays Android-owned in `ReplicaOverlay`,
+  but its banner geometry and `StaticLayout` are now cached on real size or
+  layout changes so `dispatchDraw()` only updates the pulse stroke and reuses
+  the prebuilt text layout
 - keypad content and state stay native-owned, while Android owns measurement,
   projection, and drawing
 - `LAYOUT_CLASS_ALPHA` hides the unused fourth-label text but keeps the spacer
@@ -174,6 +178,13 @@ Render split:
 - `CalculatorSoftkeyPainter` owns softkey text, auxiliary text, value text,
   preview accents, reverse-video states, strike marks, and overlay-state
   decorations
+- both key renderers now keep Android-owned font rendering quality local to the
+  painter path by enabling subpixel and linear text on the calculator font
+  paints instead of widening the geometry or snapshot contracts
+- pressed-state polish also stays renderer-local: main keys and softkeys add a
+  narrow top highlight and bottom shadow only while the key is pressed, so the
+  native snapshot contract still decides labels and scene role while Android
+  owns the tactile visual finish
 - `ReplicaOverlayController` owns the keypad label-mode policy split: it
   forwards `on`, `alpha`, and `off` main-key modes directly to the app-facing
   native snapshot export, composes `user` from the static `off` snapshot plus
@@ -183,6 +194,12 @@ Render split:
 - `ReplicaKeypadLayout.updateDynamicKeys()` ignores snapshots until
   `sceneContractVersion > 0` and requests layout when scene changes can affect
   label widths, visibility, or layout class
+- `ReplicaKeypadLayout` also owns the keyboard-like touch cadence for on-screen
+  keys: `ACTION_DOWN` marks the key pressed, dispatches
+  `HapticFeedbackConstants.VIRTUAL_KEY`, and sends the key code; `ACTION_UP`
+  clears the pressed state, sends key `0`, and dispatches
+  `HapticFeedbackConstants.VIRTUAL_KEY_RELEASE`; `ACTION_CANCEL` clears the
+  pressed state without a release haptic
 
 ## Label mode policy
 

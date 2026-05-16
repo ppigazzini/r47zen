@@ -38,6 +38,7 @@ internal class ReplicaOverlayController(
     private val context: Context,
     private val overlay: ReplicaOverlay,
     private val performHapticClick: (View) -> Unit,
+    private val performHapticRelease: (View) -> Unit,
     private val offerCoreTask: (Runnable) -> Unit,
     private val sendKey: (Int) -> Unit,
     private val getKeypadMetaNative: (Int) -> IntArray,
@@ -145,6 +146,7 @@ internal class ReplicaOverlayController(
             context = context,
             overlay = overlay,
             performHapticClick = performHapticClick,
+            performHapticRelease = performHapticRelease,
             dispatchKey = ::dispatchKey,
             initialSnapshotProvider = { currentKeypadSnapshot() },
         )

@@ -56,6 +56,19 @@ class HapticFeedbackControllerTest {
     }
 
     @Test
+    fun performRelease_enabledDispatchesVirtualKeyReleaseOnTargetView() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val view = AcceptingHapticView(context)
+        val controller = HapticFeedbackController(context)
+        controller.syncFromPreferences(preferences)
+
+        assertTrue(controller.performRelease(view))
+
+        assertEquals(HapticFeedbackConstants.VIRTUAL_KEY_RELEASE, view.lastFeedbackConstant)
+        assertEquals(HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING, view.lastFeedbackFlags)
+    }
+
+    @Test
     fun performClick_disabledSuppressesViewBasedHapticFeedback() {
         val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
         preferences.edit()

@@ -102,6 +102,10 @@ That would duplicate the most expensive JNI reads in the shell.
   span.
 - `ReplicaOverlay.redrawPackedSnapshot()` repaints the cached packed snapshot
   for palette changes without inventing a new native redraw path.
+- the animated settings-discovery hint in `ReplicaOverlay` now keeps its
+  `StaticLayout` and card geometry in a cache rebuilt from real size or layout
+  changes, so the pulse animation no longer allocates text-layout objects on
+  each draw pass.
 
 This path is sensitive because it runs on the UI thread, owns the live packed
 snapshot cache, and is the easiest place to reintroduce transport-level work as

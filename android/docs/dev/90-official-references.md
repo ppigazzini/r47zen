@@ -174,7 +174,8 @@ flowchart TD
 
 - [Add haptic feedback to events](https://developer.android.com/develop/ui/views/haptics/haptic-feedback):
   official Android haptics guidance for view-based feedback, predefined
-  `VibrationEffect` usage, and fallback tradeoffs.
+  `VibrationEffect` usage, fallback tradeoffs, and the keyboard-like
+  `VIRTUAL_KEY` / `VIRTUAL_KEY_RELEASE` touch cadence.
 - [VibrationEffect](https://developer.android.com/reference/android/os/VibrationEffect):
   Android API reference for one-shot and waveform amplitude bounds, predefined
   effects, and newer composition APIs.
@@ -192,7 +193,9 @@ flowchart TD
   `WindowInsetsControllerCompat.hide()` and `show()` behavior plus transient
   bar guidance for fullscreen content.
 - [Responsive/adaptive design with views](https://developer.android.com/develop/ui/views/layout/responsive-adaptive-design-with-views):
-  official large-screen and multi-window guidance for view-based apps.
+  official large-screen and multi-window guidance for view-based apps,
+  including `ConstraintLayout` recommendations and alternative layout-resource
+  qualifiers such as `layout-w600dp`.
 - [Use window size classes](https://developer.android.com/develop/ui/views/layout/use-window-size-classes):
   breakpoint model for adaptive layouts.
 - [Preference components and attributes](https://developer.android.com/develop/ui/views/components/settings/components-and-attributes):
@@ -224,7 +227,13 @@ flowchart TD
   current Material 3 replacement for deprecated segmented buttons when a future
   custom settings surface needs grouped option controls.
 - [Create a custom drawing](https://developer.android.com/develop/ui/views/layout/custom-views/custom-drawing):
-  `Canvas`, `Paint`, measurement, and drawing guidance for custom views.
+  `Canvas`, `Paint`, measurement, and drawing guidance for custom views,
+  including the rule to create drawing objects ahead of time and move
+  size-dependent geometry into `onSizeChanged()`.
+- [Slow rendering](https://developer.android.com/topic/performance/vitals/render):
+  official Android vitals guidance for keeping View-based rendering under the
+  frame budget and for avoiding avoidable UI-thread allocation or draw-path
+  work when investigating jank.
 - [Make custom views more accessible (Views)](https://developer.android.com/guide/topics/ui/accessibility/views/custom-views):
   directional-controller, click-action, accessibility-event, and
   accessibility-node guidance for custom interactive views.

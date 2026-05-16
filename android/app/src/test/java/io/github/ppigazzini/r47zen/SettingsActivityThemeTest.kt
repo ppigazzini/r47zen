@@ -2,7 +2,9 @@ package io.github.ppigazzini.r47zen
 
 import android.content.res.Configuration
 import android.graphics.Color
+import android.view.View
 import androidx.core.graphics.ColorUtils
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.junit.Assert.assertEquals
@@ -70,5 +72,26 @@ class SettingsActivityThemeTest {
 
         assertTrue(ColorUtils.calculateLuminance(dialogSurface) < 0.15)
         assertTrue(ColorUtils.calculateLuminance(dialogOnSurface) > 0.7)
+    }
+
+    @Test
+    @Config(sdk = [34], qualifiers = "w720dp-h1024dp-notnight")
+    fun settingsActivity_usesCenteredCardPanelOnWideWindows() {
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java)
+            .setup()
+            .get()
+
+        val root = activity.findViewById<View>(android.R.id.content).rootView
+        root.measure(exactly(1440), exactly(2200))
+        root.layout(0, 0, 1440, 2200)
+
+        val settingsPanel = activity.findViewById<View>(R.id.settings).parent as View
+
+        assertTrue(settingsPanel is MaterialCardView)
+        assertTrue(settingsPanel.width < root.width)
+    }
+
+    private fun exactly(size: Int): Int {
+        return View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY)
     }
 }

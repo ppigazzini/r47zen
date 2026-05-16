@@ -45,8 +45,8 @@ flowchart TD
 | physical keyboard mapping | `PhysicalKeyboardMapper`, `PhysicalKeyboardInputController` | `PhysicalKeyboardInputParityTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | core thread, display loop, and runtime gate behavior | `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`, `jni_lifecycle.c`, `android_runtime.c` | `NativeCoreRuntimeTest.kt`, `GraphRedrawInstrumentedTest.kt`, `run_workload_regressions.sh` | JVM test or host workload lane depending on the owner path |
 | settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
-| settings behavior copy and settings-owned dark surfaces | `SettingsActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml`, `android/app/src/main/res/values/themes.xml` | `SettingsActivityThemeTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.SettingsActivityThemeTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
-| keypad haptic gate with view-first dispatch and predefined fallback | `HapticFeedbackController.kt`, `ReplicaKeypadLayout.kt`, `MainActivity.kt`, `AndroidManifest.xml` | `HapticFeedbackControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest` |
+| settings behavior copy, dark surfaces, and adaptive settings host layout | `SettingsActivity.kt`, `android/app/src/main/res/layout/settings_activity.xml`, `android/app/src/main/res/layout-w600dp/settings_activity.xml`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml`, `android/app/src/main/res/values/themes.xml` | `SettingsActivityThemeTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.SettingsActivityThemeTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
+| keypad haptic gate with view-first press and release dispatch plus predefined fallback | `HapticFeedbackController.kt`, `ReplicaKeypadLayout.kt`, `MainActivity.kt`, `AndroidManifest.xml` | `HapticFeedbackControllerTest.kt`, `ReplicaKeypadLayoutHapticsTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest --tests io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest` |
 | beeper volume normalization and audio settings dispatch | `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `MainActivityPreferenceControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest` |
 | LCD display theme normalization, inverse polarity, and palette contrast | `LcdThemePolicy.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
 | main shell visible bars and settings-discovery hint surfaces | `MainActivity.kt`, `WindowModeController.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/themes.xml` | `MainShellThemeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest` |
@@ -120,7 +120,8 @@ Important contract files include:
   through golden hashes and locks the retained top settings-strip interaction
 - `MainShellThemeTest.kt`: locks the `WindowModeController` PiP request to the
   native LCD `400 x 240` aspect ratio and keeps the visible-system-bar theme
-  contract covered in the same focused JVM lane
+  contract covered in the same focused JVM lane while also keeping the fixed
+  dark settings-discovery hint surfaces covered in light system mode
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
   the app-facing JNI keypad snapshot export, the USER top-label composition
   that keeps printed main-key legends, the Virtuoso blank-keycap composition,
@@ -133,10 +134,15 @@ Important contract files include:
   first-run welcome-dialog picker route, missing-directory recovery,
   work-directory tree persistence, detached-fd cancellation, and work-directory
   tree subfolder rules
-- `HapticFeedbackControllerTest.kt`: locks the `haptic_enabled` gate, the
-  view-based `HapticFeedbackConstants.VIRTUAL_KEY` dispatch used by keypad
-  views, and the predefined-vibrator fallback when the view path declines to
-  perform haptic feedback
+- `SettingsActivityThemeTest.kt`: locks both the settings-owned dark surface
+  theme contract and the wide-window `layout-w600dp` host layout that centers
+  the preferences inside a bounded Material panel
+- `HapticFeedbackControllerTest.kt` and `ReplicaKeypadLayoutHapticsTest.kt`:
+  lock the `haptic_enabled` gate, the view-based
+  `HapticFeedbackConstants.VIRTUAL_KEY` and
+  `HapticFeedbackConstants.VIRTUAL_KEY_RELEASE` keypad cadence, the
+  cancel-without-release path, and the predefined-vibrator fallback when the
+  view path declines to perform haptic feedback
 - `MainActivityPreferenceControllerTest.kt`: locks persisted `beeper_volume`
   normalization against the XML-declared `0..100` range, plus `lcd_theme`
   fallback to the supported display-theme set, legacy `lcd_mode` migration,

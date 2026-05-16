@@ -219,6 +219,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             context = this,
             overlay = replicaOverlay,
             performHapticClick = hapticFeedbackController::performClick,
+            performHapticRelease = hapticFeedbackController::performRelease,
             offerCoreTask = ::offerCoreTask,
             sendKey = ::sendKey,
             getKeypadMetaNative = ::getKeypadMetaNative,
