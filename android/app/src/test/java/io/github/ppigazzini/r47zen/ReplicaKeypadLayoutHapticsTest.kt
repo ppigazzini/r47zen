@@ -19,13 +19,11 @@ class ReplicaKeypadLayoutHapticsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     @Test
-    fun touchUp_dispatchesPressReleaseHapticsAndKeyReset() {
+    fun touchUp_dispatchesPressHapticOnlyAndKeyReset() {
         val pressedCodes = mutableListOf<Int>()
-        val releasedCodes = mutableListOf<Int>()
         val keyEvents = mutableListOf<Int>()
         val overlay = buildOverlay(
             onPress = { view -> pressedCodes += (view as CalculatorKeyView).keyCode },
-            onRelease = { view -> releasedCodes += (view as CalculatorKeyView).keyCode },
             onKeyEvent = keyEvents::add,
         )
         val keyView = findKeyView(overlay, code = 1)
@@ -43,18 +41,15 @@ class ReplicaKeypadLayoutHapticsTest {
 
         assertFalse(keyView.isPressed)
         assertEquals(listOf(1), pressedCodes)
-        assertEquals(listOf(1), releasedCodes)
         assertEquals(listOf(1, 0), keyEvents)
     }
 
     @Test
     fun touchCancel_clearsPressedStateWithoutReleaseHaptic() {
         val pressedCodes = mutableListOf<Int>()
-        val releasedCodes = mutableListOf<Int>()
         val keyEvents = mutableListOf<Int>()
         val overlay = buildOverlay(
             onPress = { view -> pressedCodes += (view as CalculatorKeyView).keyCode },
-            onRelease = { view -> releasedCodes += (view as CalculatorKeyView).keyCode },
             onKeyEvent = keyEvents::add,
         )
         val keyView = findKeyView(overlay, code = 1)
@@ -71,13 +66,11 @@ class ReplicaKeypadLayoutHapticsTest {
 
         assertFalse(keyView.isPressed)
         assertEquals(listOf(1), pressedCodes)
-        assertTrue(releasedCodes.isEmpty())
         assertEquals(listOf(1, 0), keyEvents)
     }
 
     private fun buildOverlay(
         onPress: (View) -> Unit,
-        onRelease: (View) -> Unit,
         onKeyEvent: (Int) -> Unit,
     ): ReplicaOverlay {
         return ReplicaOverlay(context).apply {
@@ -86,7 +79,6 @@ class ReplicaKeypadLayoutHapticsTest {
                 context = context,
                 overlay = this,
                 performHapticClick = onPress,
-                performHapticRelease = onRelease,
                 dispatchKey = onKeyEvent,
                 initialSnapshotProvider = { KeypadSnapshot.EMPTY },
             )

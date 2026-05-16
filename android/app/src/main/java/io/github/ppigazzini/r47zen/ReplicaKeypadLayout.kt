@@ -38,7 +38,6 @@ internal object ReplicaKeypadLayout {
         context: Context,
         overlay: ReplicaOverlay,
         performHapticClick: (View) -> Unit,
-        performHapticRelease: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
         initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
@@ -47,7 +46,6 @@ internal object ReplicaKeypadLayout {
             context,
             overlay,
             performHapticClick,
-            performHapticRelease,
             dispatchKey,
             initialSnapshotProvider,
         )
@@ -74,7 +72,6 @@ internal object ReplicaKeypadLayout {
         context: Context,
         overlay: ReplicaOverlay,
         performHapticClick: (View) -> Unit,
-        performHapticRelease: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
         initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
@@ -131,7 +128,6 @@ internal object ReplicaKeypadLayout {
                 width = width,
                 height = height,
                 performHapticClick = performHapticClick,
-                performHapticRelease = performHapticRelease,
                 dispatchKey = dispatchKey,
             )
         }
@@ -187,7 +183,6 @@ internal object ReplicaKeypadLayout {
         width: Float,
         height: Float,
         performHapticClick: (View) -> Unit,
-        performHapticRelease: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
     ) {
         val keyView = CalculatorKeyView(context)
@@ -210,7 +205,6 @@ internal object ReplicaKeypadLayout {
             overlay = overlay,
             code = slot.code,
             performHapticClick = performHapticClick,
-            performHapticRelease = performHapticRelease,
             dispatchKey = dispatchKey,
             pressedView = keyView,
         )
@@ -218,7 +212,6 @@ internal object ReplicaKeypadLayout {
             createTouchListener(
                 code = slot.code,
                 performHapticClick = performHapticClick,
-                performHapticRelease = performHapticRelease,
                 dispatchKey = dispatchKey,
                 pressedView = keyView,
             )
@@ -231,7 +224,6 @@ internal object ReplicaKeypadLayout {
         overlay: ReplicaOverlay,
         code: Int,
         performHapticClick: (View) -> Unit,
-        performHapticRelease: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
         pressedView: View? = null,
     ) {
@@ -245,7 +237,6 @@ internal object ReplicaKeypadLayout {
                 createTouchListener(
                     code = code,
                     performHapticClick = performHapticClick,
-                    performHapticRelease = performHapticRelease,
                     dispatchKey = dispatchKey,
                     pressedView = pressedView,
                 )
@@ -273,7 +264,6 @@ internal object ReplicaKeypadLayout {
     private fun createTouchListener(
         code: Int,
         performHapticClick: (View) -> Unit,
-        performHapticRelease: (View) -> Unit,
         dispatchKey: (Int) -> Unit,
         pressedView: View? = null,
     ): View.OnTouchListener {
@@ -294,7 +284,6 @@ internal object ReplicaKeypadLayout {
                 MotionEvent.ACTION_UP -> {
                     feedbackView.isPressed = false
                     dispatchKey(0)
-                    performHapticRelease(feedbackView)
                 }
 
                 MotionEvent.ACTION_CANCEL -> {

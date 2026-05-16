@@ -56,19 +56,6 @@ class HapticFeedbackControllerTest {
     }
 
     @Test
-    fun performRelease_enabledDispatchesVirtualKeyReleaseOnTargetView() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
-        val view = AcceptingHapticView(context)
-        val controller = HapticFeedbackController(context)
-        controller.syncFromPreferences(preferences)
-
-        assertTrue(controller.performRelease(view))
-
-        assertEquals(HapticFeedbackConstants.VIRTUAL_KEY_RELEASE, view.lastFeedbackConstant)
-        assertEquals(HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING, view.lastFeedbackFlags)
-    }
-
-    @Test
     fun performClick_disabledSuppressesViewBasedHapticFeedback() {
         val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
         preferences.edit()
@@ -99,7 +86,7 @@ class HapticFeedbackControllerTest {
     }
 
     @Test
-    fun performClick_customDurationBypassesViewFeedbackAndUsesAppOwnedPulse() {
+    fun performClick_customDurationOverridesViewFeedbackAndUsesAppOwnedPulse() {
         val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putInt(HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS, 6)
@@ -114,6 +101,24 @@ class HapticFeedbackControllerTest {
         assertTrue(controller.performClick(view))
 
         assertNull(view.lastFeedbackConstant)
+        assertTrue(shadowVibrator.isVibrating)
+    }
+
+    @Test
+    fun performClick_customDurationStillUsesAppOwnedPulseWhenViewFeedbackReturnsFalse() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        preferences.edit()
+            .putInt(HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS, 6)
+            .commit()
+        val vibratorManager = context.getSystemService(VibratorManager::class.java)
+        val shadowVibrator = shadowOf(vibratorManager.defaultVibrator)
+        shadowVibrator.setHasVibrator(true)
+        val view = RejectingHapticView(context)
+        val controller = HapticFeedbackController(context)
+        controller.syncFromPreferences(preferences)
+
+        assertTrue(controller.performClick(view))
+
         assertTrue(shadowVibrator.isVibrating)
     }
 

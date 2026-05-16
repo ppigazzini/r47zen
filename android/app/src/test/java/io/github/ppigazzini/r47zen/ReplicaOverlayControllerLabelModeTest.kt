@@ -278,7 +278,6 @@ class ReplicaOverlayControllerLabelModeTest {
             context = context,
             overlay = ReplicaOverlay(context),
             performHapticClick = { _ -> },
-            performHapticRelease = { _ -> },
             offerCoreTask = {},
             sendKey = {},
             getKeypadMetaNative = getMeta,

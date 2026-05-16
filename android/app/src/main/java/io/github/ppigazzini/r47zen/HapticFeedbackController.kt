@@ -8,7 +8,6 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import android.view.View
-import kotlin.math.max
 
 internal class HapticFeedbackController(
     private val context: Context,
@@ -21,7 +20,6 @@ internal class HapticFeedbackController(
         internal const val MAX_HAPTIC_KEYPRESS_DURATION_MS = 20
 
         private const val DEFAULT_CLICK_FALLBACK_DURATION_MS = 15L
-        private const val DEFAULT_RELEASE_FALLBACK_DURATION_MS = 10L
     }
 
     private var isEnabled = true
@@ -52,17 +50,7 @@ internal class HapticFeedbackController(
             feedbackConstant = hapticFeedbackConstant,
             predefinedEffect = VibrationEffect.EFFECT_CLICK,
             defaultFallbackDurationMs = DEFAULT_CLICK_FALLBACK_DURATION_MS,
-            customDurationMs = resolveCustomClickDurationMs(),
-        )
-    }
-
-    fun performRelease(targetView: View): Boolean {
-        return performFeedback(
-            targetView = targetView,
-            feedbackConstant = HapticFeedbackConstants.VIRTUAL_KEY_RELEASE,
-            predefinedEffect = VibrationEffect.EFFECT_TICK,
-            defaultFallbackDurationMs = DEFAULT_RELEASE_FALLBACK_DURATION_MS,
-            customDurationMs = resolveCustomReleaseDurationMs(),
+            fallbackOverrideDurationMs = resolveCustomClickDurationMs(),
         )
     }
 
@@ -71,15 +59,13 @@ internal class HapticFeedbackController(
         feedbackConstant: Int,
         predefinedEffect: Int,
         defaultFallbackDurationMs: Long,
-        customDurationMs: Long?,
+        fallbackOverrideDurationMs: Long?,
     ): Boolean {
         if (!isEnabled) {
             return false
         }
 
-        // Zero keeps Android's view-first key feedback. A positive value opts
-        // into a short app-owned override pulse similar to Gboard's slider.
-        if (customDurationMs == null && targetView.performHapticFeedback(
+        if (fallbackOverrideDurationMs == null && targetView.performHapticFeedback(
                 feedbackConstant,
                 HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING,
             )
@@ -89,8 +75,8 @@ internal class HapticFeedbackController(
 
         return performFallbackFeedback(
             predefinedEffect = predefinedEffect,
-            durationMs = customDurationMs ?: defaultFallbackDurationMs,
-            useCustomDuration = customDurationMs != null,
+            durationMs = fallbackOverrideDurationMs ?: defaultFallbackDurationMs,
+            useCustomDuration = fallbackOverrideDurationMs != null,
         )
     }
 
@@ -98,11 +84,6 @@ internal class HapticFeedbackController(
         return customKeypressDurationMs
             .takeIf { it > DEFAULT_HAPTIC_KEYPRESS_DURATION_MS }
             ?.toLong()
-    }
-
-    private fun resolveCustomReleaseDurationMs(): Long? {
-        val customClickDurationMs = resolveCustomClickDurationMs() ?: return null
-        return max(1L, customClickDurationMs * 2 / 3)
     }
 
     private fun readNormalizedKeypressDuration(preferences: SharedPreferences): Int {

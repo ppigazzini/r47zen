@@ -174,10 +174,10 @@ flowchart TD
 
 - [Add haptic feedback to events](https://developer.android.com/develop/ui/views/haptics/haptic-feedback):
   official Android haptics guidance for view-based feedback, predefined
-  `VibrationEffect` usage, fallback tradeoffs, the keyboard-like
-  `VIRTUAL_KEY` / `VIRTUAL_KEY_RELEASE` touch cadence, and the system-setting-
-  respecting Android-default path that the `0 ms` keypress-strength setting
-  keeps in this app.
+  `VibrationEffect` usage, fallback tradeoffs, and keypress interaction
+  constants. The doc includes press/release examples, but this app now keeps a
+  press-only keypad pulse for calculator interaction and uses the leftmost
+  `0 ms` keypress-strength state as the full system-default path.
 - [Haptics design principles](https://developer.android.com/develop/ui/views/haptics/haptics-principles):
   official Android guidance for subtle frequent touch feedback, matching
   effect strength to event importance, and avoiding overly long or buzzy

@@ -218,16 +218,15 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   range, and routes the optional `lcd_negative` inverse-display toggle before
   `MainActivity.kt` applies the selected palette
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`
-  now follows the keyboard-like `ACTION_DOWN` / `ACTION_UP` cadence from the
-  official View haptics guidance: press uses
-  `HapticFeedbackConstants.VIRTUAL_KEY`, release uses
-  `HapticFeedbackConstants.VIRTUAL_KEY_RELEASE`, cancel clears pressed state
-  without a release pulse, and `HapticFeedbackController` now owns two
-  preference-driven modes behind that cadence: `haptic_enabled` is the master
-  gate, while `haptic_keypress_duration_ms` is a dependent keypress-strength
-  slider where `0` keeps the Android-default view-first path and positive
-  values switch to short app-owned one-shot pulses with a lighter derived
-  release pulse
+  now uses press-only keypad haptics for calculator interaction. `ACTION_DOWN`
+  uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` and
+  `ACTION_CANCEL` only clear pressed state and send key `0` with no release
+  pulse. `HapticFeedbackController` owns the two preference-driven modes behind
+  that press path: `haptic_enabled` is the master gate, while
+  `haptic_keypress_duration_ms` is a dependent keypress-strength slider where
+  `0` keeps the Android-default view-first path and positive values switch to
+  short app-owned one-shot press pulses that intentionally override the system
+  touch-haptics setting
 - haptics, audio, fullscreen state, LCD display theme, scaling mode, keypad
   label modes, and touch-zone overlays are preference-driven Android concerns
 

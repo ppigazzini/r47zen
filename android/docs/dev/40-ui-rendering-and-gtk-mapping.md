@@ -197,16 +197,14 @@ Render split:
 - `ReplicaKeypadLayout` also owns the keyboard-like touch cadence for on-screen
   keys: `ACTION_DOWN` marks the key pressed, dispatches
   `HapticFeedbackConstants.VIRTUAL_KEY`, and sends the key code; `ACTION_UP`
-  clears the pressed state, sends key `0`, and dispatches
-  `HapticFeedbackConstants.VIRTUAL_KEY_RELEASE`; `ACTION_CANCEL` clears the
-  pressed state without a release haptic
+  clears the pressed state and sends key `0` with no release haptic;
+  `ACTION_CANCEL` also clears the pressed state and sends key `0`
 - `HapticFeedbackController` owns the strength policy behind that touch
   cadence: `haptic_keypress_duration_ms = 0` keeps the Android-default
-  view-first `VIRTUAL_KEY` / `VIRTUAL_KEY_RELEASE` path with predefined-effect
-  fallback only when the view path declines, while positive values bypass the
-  view path and emit short app-owned one-shot pulses capped at `20 ms`, with
-  the release pulse derived at two thirds of the press duration so release
-  stays lighter than press
+  view-first `VIRTUAL_KEY` path with predefined-effect fallback only when the
+  view path declines, while positive values bypass the view path and emit short
+  app-owned one-shot press pulses capped at `20 ms` so the app can override
+  the system touch-haptics setting when the user opts in
 
 ## Label mode policy
 
