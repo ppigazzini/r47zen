@@ -104,6 +104,19 @@ add_library(r47_android SHARED
     ${R47_STAGED_GMP_SOURCES}
 )
 
+# The pinned Android NDK+CMake toolchain routes CMake IPO properties through a
+# gold-based link step that fails in this workspace. Keep ThinLTO on the real
+# shared-library target and scope it to the native shipping configs.
+foreach(R47_ANDROID_LTO_CONFIG IN ITEMS Release RelWithDebInfo)
+    target_compile_options(r47_android PRIVATE
+        "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-flto=thin>"
+    )
+    target_link_options(r47_android PRIVATE
+        "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-flto=thin>"
+        "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-fuse-ld=lld>"
+    )
+endforeach()
+
 # Link libraries
 find_library(log-lib log)
 find_library(m-lib m)

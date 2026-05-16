@@ -86,11 +86,25 @@ flowchart TD
   package identity, SDK levels, and build-type fundamentals.
 - [Add C and C++ code to your project](https://developer.android.com/studio/projects/add-native-code):
   the official Gradle plus CMake integration path.
+- [Android ABIs](https://developer.android.com/ndk/guides/abis): ABI baselines,
+  `abiFilters`, and the generic `arm64-v8a` contract this repo keeps for the
+  shipped default artifact.
+- [Android CPU features](https://developer.android.com/ndk/guides/cpu-features):
+  native feature-probing guidance to use only if the repo ever adds same-ABI
+  runtime dispatch.
+- [Profile-guided Optimization](https://developer.android.com/ndk/guides/pgo):
+  official NDK guidance for the later host-driven optimization phase after the
+  maintained Android ThinLTO baseline.
 - [Configure the NDK for the Android Gradle plugin](https://developer.android.com/studio/projects/configure-agp-ndk):
   `ndkVersion` guidance for AGP-based projects, including the command-line
   `sdkmanager` package syntax this repo uses in CI.
 - [JNI tips](https://developer.android.com/ndk/guides/jni-tips): explicit
   registration, thread attachment, reference management, and exception rules.
+- [target_compile_options](https://cmake.org/cmake/help/latest/command/target_compile_options.html):
+  target-scoped compile-flag ownership, including config-specific generator
+  expressions.
+- [target_link_options](https://cmake.org/cmake/help/latest/command/target_link_options.html):
+  target-scoped link-flag ownership for the Android ThinLTO plus `lld` path.
 - [Support 16 KB page sizes](https://developer.android.com/guide/practices/page-sizes):
   packaging, ELF alignment, and testing guidance for native apps.
 

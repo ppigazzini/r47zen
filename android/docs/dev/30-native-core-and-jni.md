@@ -27,6 +27,14 @@ flowchart LR
 The Android module builds one shared library: `r47_android`. `MainActivity`
 loads it from a static initializer via `System.loadLibrary("r47_android")`.
 
+The Android-owned CMake target keeps that single-library load path. It does
+not ship same-ABI CPU-specific variants or a runtime dispatcher. When
+`android/app/src/main/cpp/CMakeLists.txt` applies target-scoped ThinLTO compile
+and link flags to the release-native target configs, `Release` and
+`RelWithDebInfo`, and uses `lld` for the link step. That keeps Android
+shipping builds on the optimized shared-library path while debug builds stay on
+the normal non-LTO lane.
+
 CMake builds the library from:
 
 - build-only staged core sources under `android/.staged-native/cpp/c47`

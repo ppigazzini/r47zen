@@ -22,6 +22,12 @@ rerun-lane map.
 - `scripts/android/stage_native_sources.sh` and related helpers refresh
   `android/.staged-native/cpp`.
 - Gradle and CMake then compile the Android app against the staged native tree.
+- The upstream Meson graph already hard-enables `b_lto=true` for the desktop
+  `c47` and `r47` simulator executables in `src/c47-gtk/meson.build`.
+- The Android-owned `r47_android` CMake target keeps one shared library load
+  path and applies target-scoped ThinLTO compile and link flags on the
+  release-native configs, `Release` and `RelWithDebInfo`, using `lld` for the
+  link step.
 
 ## Build-Relevant File Layout
 
