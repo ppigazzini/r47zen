@@ -432,8 +432,10 @@ falls back to the default softkey capsule.
 hardcoding one text style for all keys. In practice that means:
 
 - primary labels can use different visual roles from faceplate labels
-- main-key primary labels stay on the staged standard calculator font,
-  including Alpha-styled captions such as the left-shift `Alpha` label
+- main-key and softkey labels now use the staged standard calculator font as
+  the primary keypad typeface across all shipped lanes
+- all shipped keypad-label lanes fall back to the staged tiny calculator font
+  only when the standard font is unavailable
 - numeric and softkey roles can diverge without changing geometry ownership
 - faceplate labels that open menus are underlined because the native snapshot
   marks them as dedicated underline roles, not because Android inspects label
@@ -441,10 +443,16 @@ hardcoding one text style for all keys. In practice that means:
 - label-role changes should come from native scene metadata, not from ad hoc
   Android string inspection
 
-Style-role changes do not by themselves justify a font-family change for main
-key primary legends. If one primary legend appears in a different face from the
-rest of the keypad, inspect the Android typeface selection and the native label
-export path before treating it as a typography rule.
+The current keypad rule is standard-first rather than coverage-gated. It does
+not reinterpret native label-role metadata or change geometry ownership.
+`CalculatorKeyViewFontSelectionTest.kt` locks the main-key owner policy, while
+`scripts/r47_contracts/data/r47_key_font_policy_contract.json` and
+`scripts/r47_contracts/test_key_font_policy_contract.py` remeasure the runtime
+font cmaps, Kotlin fallback owners, and lane-by-lane keypad-fixture corpus that
+keep the standard-first rule aligned across the repo.
+The same JSON contract still carries `numeric` as a coverage alias in the data
+model so the evidence stays inspectable, but that alias is not a runtime
+fallback commitment.
 
 For the faceplate legends specifically, Android follows the upstream GTK rule:
 an underlined F or G label means that legend opens a menu, while a non-

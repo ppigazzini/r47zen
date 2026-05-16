@@ -205,6 +205,16 @@ flowchart TD
   qualifiers such as `layout-w600dp`.
 - [Use window size classes](https://developer.android.com/develop/ui/views/layout/use-window-size-classes):
   breakpoint model for adaptive layouts.
+- [Add a font as an XML resource](https://developer.android.com/develop/ui/views/text-and-emoji/fonts-in-xml):
+  official Android guidance for bundling font files or families and retrieving
+  them as `Typeface` resources; use this when evaluating future Android-only
+  font-family packaging, but keep in mind that this repo also uses the same
+  canonical TTFs as native raster-font inputs under repo-root `res/fonts`.
+- [Autosize TextViews](https://developer.android.com/develop/ui/views/text-and-emoji/autosizing-textview):
+  official Android guidance for bounded dynamic `TextView` content, uniform
+  autosize ranges, and preset sizes; use this when a text surface becomes truly
+  dynamic, but keep keypad legends on the contract-owned fitted-sizing path
+  unless the geometry contract is intentionally reopened.
 - [Preference components and attributes](https://developer.android.com/develop/ui/views/components/settings/components-and-attributes):
   `PreferenceScreen`, `PreferenceCategory`, `SwitchPreferenceCompat`, summary
   attributes, dependency relationships, `SeekBarPreference`, and XML ownership
@@ -238,6 +248,32 @@ flowchart TD
   `Canvas`, `Paint`, measurement, and drawing guidance for custom views,
   including the rule to create drawing objects ahead of time and move
   size-dependent geometry into `onSizeChanged()`.
+- [Canvas.drawText](https://developer.android.com/reference/android/graphics/Canvas#drawText(java.lang.String,float,float,android.graphics.Paint)):
+  direct text-draw API for custom `Canvas` owners that render text with a
+  caller-supplied `Paint`.
+- [Paint](https://developer.android.com/reference/android/graphics/Paint):
+  official Android API reference for `ANTI_ALIAS_FLAG`,
+  `SUBPIXEL_TEXT_FLAG`, `LINEAR_TEXT_FLAG`, `measureText(...)`, and the text
+  measurement and font-metrics APIs that can change both glyph metrics and draw
+  behavior.
+- [TextPaint](https://developer.android.com/reference/android/text/TextPaint):
+  `Paint` subclass used for text measurement and drawing in widget text paths.
+- [AOSP TextView.java](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/widget/TextView.java):
+  current platform source initializes widget text with
+  `mTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG)`, which explains why
+  explicitly enabling antialias on this repo's `TextView`-based main-key path
+  can appear to do nothing by itself.
+- [Layout](https://developer.android.com/reference/android/text/Layout):
+  Android's base text-layout class for visual elements on screen; built with a
+  `TextPaint`, exposes `draw(Canvas)`, and documents that its `TextPaint`
+  remains in active use for drawing and measuring text.
+- [StaticLayout](https://developer.android.com/reference/android/text/StaticLayout):
+  widget-oriented text layout path that Android explicitly contrasts with the
+  direct `Canvas.drawText(...)` route for custom display objects.
+- [PrecomputedText.Params](https://developer.android.com/reference/android/text/PrecomputedText.Params):
+  Android text-measurement contract object that packages the `TextPaint`, break
+  strategy, hyphenation, and text-direction inputs used for layout work outside
+  a final `TextView` or `StaticLayout`.
 - [Slow rendering](https://developer.android.com/topic/performance/vitals/render):
   official Android vitals guidance for keeping View-based rendering under the
   frame budget and for avoiding avoidable UI-thread allocation or draw-path

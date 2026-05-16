@@ -251,15 +251,22 @@ class CalculatorKeyView @JvmOverloads constructor(
         val primarySize = mainKeyStyleSpec(mainKeyState.styleRole).fontSize * referenceCellToViewWidthScale
         val topLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
         val primaryMaxWidth = primaryLabelMaxWidthPx(referenceCellToViewWidthScale)
+        val resolvedPrimarySize = normalizedTextSizePx(primaryLabel, primarySize)
+        val resolvedFLabelTextSize = normalizedTextSizePx(fLabel, topLabelTextSize * topLabelPlacement.fScale)
+        val resolvedGLabelTextSize = normalizedTextSizePx(gLabel, topLabelTextSize * topLabelPlacement.gScale)
+        val resolvedLetterLabelTextSize = normalizedTextSizePx(
+            letterLabel,
+            R47LabelLayoutPolicy.FOURTH_LABEL_TEXT_SIZE * referenceCellToViewWidthScale,
+        )
 
         primaryLabel.setTextSize(
             TypedValue.COMPLEX_UNIT_PX,
-            fittedTextSizePx(primaryLabel, primarySize, primaryMaxWidth),
+            fittedTextSizePx(primaryLabel, resolvedPrimarySize, primaryMaxWidth),
         )
         primaryLabel.textScaleX = 1f
-        fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize * topLabelPlacement.fScale)
-        gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, topLabelTextSize * topLabelPlacement.gScale)
-        letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, R47LabelLayoutPolicy.FOURTH_LABEL_TEXT_SIZE * referenceCellToViewWidthScale)
+        fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, resolvedFLabelTextSize)
+        gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, resolvedGLabelTextSize)
+        letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, resolvedLetterLabelTextSize)
     }
 
     private fun fittedTextSizePx(labelView: TextView, baseSize: Float, maxWidth: Float): Float {
@@ -277,6 +284,28 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         return (baseSize * (maxWidth / measured))
             .coerceAtLeast(baseSize * R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE)
+    }
+
+    private fun normalizedTextSizePx(labelView: TextView, requestedSize: Float): Float {
+        if (requestedSize <= 0f) {
+            return requestedSize
+        }
+
+        val referenceTypeface = fontSet.standard ?: return requestedSize
+        val targetTypeface = labelView.typeface ?: return requestedSize
+        if (targetTypeface == referenceTypeface) {
+            return requestedSize
+        }
+
+        val referenceHeight = fontMetricsHeight(labelView, referenceTypeface, requestedSize)
+        val targetHeight = fontMetricsHeight(labelView, targetTypeface, requestedSize)
+        if (referenceHeight <= 0f || targetHeight <= 0f) {
+            return requestedSize
+        }
+
+        // Preserve the configured label-size envelope when a taller font is selected.
+        return (requestedSize * (referenceHeight / targetHeight))
+            .coerceAtMost(requestedSize)
     }
 
     private fun primaryLabelMaxWidthPx(referenceCellToViewWidthScale: Float): Float {
@@ -312,8 +341,21 @@ class CalculatorKeyView @JvmOverloads constructor(
         return paint.measureText(text)
     }
 
-    private fun textBottomOffset(labelView: TextView, textSize: Float = labelView.textSize): Float {
+    private fun fontMetricsHeight(labelView: TextView, typeface: Typeface?, textSize: Float): Float {
         val paint = Paint(labelView.paint)
+        paint.typeface = typeface
+        paint.textSize = textSize
+        val metrics = paint.fontMetrics
+        return metrics.descent - metrics.ascent
+    }
+
+    private fun textBottomOffset(
+        labelView: TextView,
+        textSize: Float = labelView.textSize,
+        typeface: Typeface? = labelView.typeface,
+    ): Float {
+        val paint = Paint(labelView.paint)
+        paint.typeface = typeface
         paint.textSize = textSize
         val metrics = paint.fontMetrics
         return -metrics.ascent + metrics.descent
@@ -389,7 +431,11 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         val topLabelTranslationY = -topFgLabelVerticalLift
         val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
-        val targetTextBottomY = topLabelTranslationY + textBottomOffset(fLabel, baseTopLabelTextSize)
+        val targetTextBottomY = topLabelTranslationY + textBottomOffset(
+            fLabel,
+            baseTopLabelTextSize,
+            fontSet.standard ?: fLabel.typeface,
+        )
         fLabel.translationY = targetTextBottomY - textBottomOffset(fLabel) - fLabel.top.toFloat()
         gLabel.translationY = targetTextBottomY - textBottomOffset(gLabel) - gLabel.top.toFloat()
 
@@ -622,7 +668,10 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun primaryTypefaceFor(): Typeface? {
-        return fontSet.standard
+        return C47TypefacePolicy.standardFirst(
+            text = mainKeyState.primaryLabel,
+            fontSet = fontSet,
+        )
     }
 
     private fun applyLabelRole(labelView: TextView, role: Int, defaultColor: Int) {
@@ -636,7 +685,10 @@ class CalculatorKeyView @JvmOverloads constructor(
         labelView.paintFlags = paintFlags
         labelView.typeface = when (labelView) {
             primaryLabel -> primaryTypefaceFor()
-            fLabel, gLabel, letterLabel -> fontSet.standard
+            fLabel, gLabel, letterLabel -> C47TypefacePolicy.standardFirst(
+                text = labelView.text,
+                fontSet = fontSet,
+            )
             else -> fontSet.standard
         }
         labelView.setTextColor(
@@ -773,8 +825,18 @@ class CalculatorKeyView @JvmOverloads constructor(
         updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
 
         val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
-        val fTextWidth = measureTextWidth(fLabel, baseTopLabelTextSize)
-        val gTextWidth = if (hasGLabel) measureTextWidth(gLabel, baseTopLabelTextSize) else 0f
+        val fTextWidth = measureTextWidth(
+            fLabel,
+            normalizedTextSizePx(fLabel, baseTopLabelTextSize),
+        )
+        val gTextWidth = if (hasGLabel) {
+            measureTextWidth(
+                gLabel,
+                normalizedTextSizePx(gLabel, baseTopLabelTextSize),
+            )
+        } else {
+            0f
+        }
         val gapWidth = if (hasGLabel) {
             R47LabelLayoutPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
         } else {

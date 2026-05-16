@@ -161,7 +161,11 @@ class AlphaCaseExportContractTest(unittest.TestCase):
             "primaryLabelMaxWidthPx(referenceCellToViewWidthScale)" in self.key_view,
         )
         _assert_true(
-            "fittedTextSizePx(primaryLabel, primarySize, primaryMaxWidth)"
+            "val resolvedPrimarySize = normalizedTextSizePx(primaryLabel, primarySize)"
+            in self.key_view,
+        )
+        _assert_true(
+            "fittedTextSizePx(primaryLabel, resolvedPrimarySize, primaryMaxWidth)"
             in self.key_view,
         )
         _assert_true(
