@@ -1,5 +1,23 @@
 {
   "contract_domain": "android_app",
+  "rendering_policy": {
+    "label_renderers": {
+      "main_key": {
+        "owner": "CalculatorKeyView",
+        "surface": "custom_paint"
+      },
+      "softkey": {
+        "owner": "CalculatorSoftkeyPainter",
+        "surface": "custom_paint"
+      }
+    },
+    "shared_text_paint_policy": {
+      "anti_alias": true,
+      "linear_text": false,
+      "owner": "C47TextRenderer",
+      "subpixel_text": true
+    }
+  },
   "fixture_corpus": {
     "labels_per_key": 5,
     "main_key_code_range": [

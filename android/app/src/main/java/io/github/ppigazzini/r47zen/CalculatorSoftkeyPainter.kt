@@ -18,31 +18,13 @@ internal class CalculatorSoftkeyPainter(
     private val softkeyValueLightColor: Int,
     private val softkeyPreviewColor: Int,
 ) {
-    private companion object {
-        private const val TEXT_ANCHOR_CENTER = 0
-        private const val TEXT_ANCHOR_TOP = 1
-        private const val TEXT_ANCHOR_BOTTOM = 2
-    }
-
     private val softkeyRect = RectF()
     private val softkeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
-    private val softkeyTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textAlign = Paint.Align.CENTER
-        isSubpixelText = true
-        isLinearText = true
-    }
-    private val softkeyAuxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textAlign = Paint.Align.CENTER
-        isSubpixelText = true
-        isLinearText = true
-    }
-    private val softkeyValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textAlign = Paint.Align.RIGHT
-        isSubpixelText = true
-        isLinearText = true
-    }
+    private val softkeyTextPaint = C47TextRenderer.newTextPaint(Paint.Align.CENTER)
+    private val softkeyAuxPaint = C47TextRenderer.newTextPaint(Paint.Align.CENTER)
+    private val softkeyValuePaint = C47TextRenderer.newTextPaint(Paint.Align.RIGHT)
     private val softkeyDecorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -146,7 +128,7 @@ internal class CalculatorSoftkeyPainter(
                     anchorY = softkeyRect.top + KeyVisualPolicy.SOFTKEY_VALUE_TOP_INSET,
                     color = valueTextColor,
                     align = Paint.Align.RIGHT,
-                    verticalAnchor = TEXT_ANCHOR_TOP,
+                    verticalAnchor = C47TextRenderer.TEXT_ANCHOR_TOP,
                 )
             }
         }
@@ -203,7 +185,7 @@ internal class CalculatorSoftkeyPainter(
                 x = softkeyRect.centerX(),
                 anchorY = softkeyRect.bottom - KeyVisualPolicy.SOFTKEY_AUX_BOTTOM_INSET,
                 color = metaTextColor,
-                verticalAnchor = TEXT_ANCHOR_BOTTOM,
+                verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
             )
         }
 
@@ -394,31 +376,38 @@ internal class CalculatorSoftkeyPainter(
         anchorY: Float,
         color: Int,
         align: Paint.Align = Paint.Align.CENTER,
-        verticalAnchor: Int = TEXT_ANCHOR_CENTER,
+        verticalAnchor: Int = C47TextRenderer.TEXT_ANCHOR_CENTER,
     ) {
         if (text.isBlank()) {
             return
         }
 
-        paint.typeface = typeface
-        paint.textAlign = align
-        paint.color = color
-        paint.textSize = baseSize
-
-        val measured = paint.measureText(text)
-        if (measured > maxWidth && measured > 0f) {
-            paint.textSize =
-                (baseSize * (maxWidth / measured)).coerceAtLeast(baseSize * R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE)
-        }
-
-        val metrics = paint.fontMetrics
-        val baseline = when (verticalAnchor) {
-            TEXT_ANCHOR_TOP -> anchorY - metrics.ascent
-            TEXT_ANCHOR_BOTTOM -> anchorY - metrics.descent
-            else -> anchorY - ((metrics.ascent + metrics.descent) / 2f)
-        }
-
-        canvas.drawText(text, x, baseline, paint)
+        C47TextRenderer.configureTextPaint(
+            paint,
+            typeface = typeface,
+            textSize = baseSize,
+            align = align,
+            color = color,
+        )
+        val fittedTextSize = C47TextRenderer.fittedTextSize(
+            text,
+            paint,
+            baseSize = baseSize,
+            maxWidth = maxWidth,
+            minScale = R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE,
+        )
+        C47TextRenderer.drawText(
+            canvas,
+            text,
+            paint,
+            typeface = typeface,
+            textSize = fittedTextSize,
+            x = x,
+            anchorY = anchorY,
+            color = color,
+            align = align,
+            verticalAnchor = verticalAnchor,
+        )
     }
 
     private fun formatSoftkeyValue(showValue: Int): String {

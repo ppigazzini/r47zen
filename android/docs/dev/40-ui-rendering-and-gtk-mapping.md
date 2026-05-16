@@ -432,6 +432,14 @@ falls back to the default softkey capsule.
 hardcoding one text style for all keys. In practice that means:
 
 - primary labels can use different visual roles from faceplate labels
+- all visible keypad text now goes through one custom `Canvas` text path owned
+  by `C47TextRenderer`
+- `CalculatorKeyView` keeps the main-key `TextView` lanes only as geometry,
+  visibility, and accessibility-state carriers; `drawChild(...)` suppresses
+  their widget text draw pass so the runtime raster path stays unified
+- `CalculatorSoftkeyPainter` still owns softkey chrome, overlays, preview
+  marks, and strike lines, but it now reuses the same text-paint helper as the
+  main-key path instead of carrying a separate text-paint policy
 - main-key and softkey labels now use the staged standard calculator font as
   the primary keypad typeface across all shipped lanes
 - all shipped keypad-label lanes fall back to the staged tiny calculator font
@@ -453,6 +461,31 @@ keep the standard-first rule aligned across the repo.
 The same JSON contract still carries `numeric` as a coverage alias in the data
 model so the evidence stays inspectable, but that alias is not a runtime
 fallback commitment.
+
+The current text-paint policy is also explicit:
+
+- shared keypad text paints set `ANTI_ALIAS_FLAG` and `SUBPIXEL_TEXT_FLAG`
+- shared keypad text paints keep `LINEAR_TEXT_FLAG` off because the official
+  Android `Paint` docs describe it as a smooth-scale helper that disables font
+  hinting
+- primary-label fit math still happens against the main-key body width, but the
+  horizontal padding term is now explicit in the checked-in Android UI contract
+  JSON and the Python label-geometry payload instead of hiding as a Kotlin-only
+  literal
+
+The verification surface for this text-rendering split is now:
+
+- `C47TextRendererTest.kt` for shared paint flags and fit-floor behavior
+- `CalculatorKeyViewCanvasTest.kt` for main-key primary, top-label, and fourth-
+  label canvas output
+- `CalculatorSoftkeyPainterCanvasTest.kt` and
+  `CalculatorSoftkeyPainterContractTest.kt` for softkey text and chrome output
+- `scripts/r47_contracts/test_key_label_geometry_contract.py` and
+  `scripts/r47_contracts/test_key_font_policy_contract.py` for the checked-in
+  geometry and font-policy contracts
+- `.github/workflows/android-ci.yml` and `.github/workflows/android-release.yml`
+  through the existing `:app:testDebugUnitTest` job; no workflow split changed
+  for this refactor
 
 For the faceplate legends specifically, Android follows the upstream GTK rule:
 an underlined F or G label means that legend opens a menu, while a non-

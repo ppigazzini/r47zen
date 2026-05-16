@@ -23,6 +23,7 @@ internal object R47LabelLayoutPolicy {
     const val DEFAULT_PRIMARY_LEGEND_TEXT_SIZE = 76f
     const val NUMERIC_PRIMARY_LEGEND_TEXT_SIZE = 114f
     const val SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE = 94f
+    const val PRIMARY_LEGEND_HORIZONTAL_PADDING = 12f
     const val TOP_F_G_LABEL_TEXT_SIZE = 64f
     const val FOURTH_LABEL_TEXT_SIZE = 66f
     const val TOP_F_G_LABEL_HORIZONTAL_GAP = 10f

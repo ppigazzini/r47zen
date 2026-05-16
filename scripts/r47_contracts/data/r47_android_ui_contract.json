@@ -54,6 +54,7 @@
     "primary_legend": {
       "horizontal_anchor": "main_key_body_center",
       "vertical_anchor": "main_key_body_center",
+      "horizontal_padding": 12,
       "text_sizes": {
         "default": 76,
         "numeric": 114,

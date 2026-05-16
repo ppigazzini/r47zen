@@ -118,6 +118,8 @@ class CalculatorKeyView @JvmOverloads constructor(
     private val mainKeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
+    private val mainKeyLabelPaint = C47TextRenderer.newTextPaint()
+    private val mainKeyMeasurementPaint = C47TextRenderer.newTextPaint()
     private val mainKeyPressedHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -150,7 +152,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         letterLabel.gravity = Gravity.START or Gravity.TOP
         letterLabel.includeFontPadding = false
         letterLabel.maxLines = 1
-        enableKeyTextRendering(letterLabel)
         val letterParams = LayoutParams(0, 0)
         letterParams.topToTop = buttonView.id
         letterParams.endToEnd = LayoutParams.PARENT_ID
@@ -177,7 +178,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         primaryLabel.gravity = Gravity.CENTER
         primaryLabel.includeFontPadding = false
         primaryLabel.maxLines = 1
-        enableKeyTextRendering(primaryLabel)
         val primaryParams = LayoutParams(0, 0)
         primaryParams.topToTop = buttonView.id
         primaryParams.bottomToBottom = buttonView.id
@@ -191,7 +191,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         fLabel.gravity = Gravity.START or Gravity.TOP
         fLabel.includeFontPadding = false
         fLabel.maxLines = 1
-        enableKeyTextRendering(fLabel)
         val fParams = LayoutParams(LayoutParams.WRAP_CONTENT, 0)
         fParams.topToTop = buttonView.id
         fParams.bottomToBottom = buttonView.id
@@ -206,7 +205,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         gLabel.gravity = Gravity.END or Gravity.TOP
         gLabel.includeFontPadding = false
         gLabel.maxLines = 1
-        enableKeyTextRendering(gLabel)
         val gParams = LayoutParams(LayoutParams.WRAP_CONTENT, 0)
         gParams.topToTop = buttonView.id
         gParams.bottomToBottom = buttonView.id
@@ -221,11 +219,6 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         isClickable = false
         buttonView.isClickable = false
-    }
-
-    private fun enableKeyTextRendering(labelView: TextView) {
-        labelView.paint.isSubpixelText = true
-        labelView.paint.isLinearText = true
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -275,15 +268,18 @@ class CalculatorKeyView @JvmOverloads constructor(
             return baseSize
         }
 
-        val paint = Paint(labelView.paint)
-        paint.textSize = baseSize
-        val measured = paint.measureText(text)
-        if (measured <= maxWidth || measured <= 0f) {
-            return baseSize
-        }
-
-        return (baseSize * (maxWidth / measured))
-            .coerceAtLeast(baseSize * R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE)
+        configureMeasurementPaint(
+            labelView = labelView,
+            typeface = labelView.typeface,
+            textSize = baseSize,
+        )
+        return C47TextRenderer.fittedTextSize(
+            text,
+            mainKeyMeasurementPaint,
+            baseSize = baseSize,
+            maxWidth = maxWidth,
+            minScale = R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE,
+        )
     }
 
     private fun normalizedTextSizePx(labelView: TextView, requestedSize: Float): Float {
@@ -308,6 +304,21 @@ class CalculatorKeyView @JvmOverloads constructor(
             .coerceAtMost(requestedSize)
     }
 
+    private fun configureMeasurementPaint(
+        labelView: TextView,
+        typeface: Typeface?,
+        textSize: Float,
+    ) {
+        C47TextRenderer.configureTextPaint(
+            mainKeyMeasurementPaint,
+            typeface = typeface,
+            textSize = textSize,
+            align = Paint.Align.LEFT,
+            color = labelView.currentTextColor,
+            textScaleX = labelView.textScaleX,
+        )
+    }
+
     private fun primaryLabelMaxWidthPx(referenceCellToViewWidthScale: Float): Float {
         val buttonWidth = when {
             buttonView.width > 0 -> buttonView.width.toFloat()
@@ -327,7 +338,8 @@ class CalculatorKeyView @JvmOverloads constructor(
             buttonWidth - (2f * referenceBodyToViewWidthScale) +
                 (R47KeySurfacePolicy.MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA * referenceBodyToViewWidthScale)
         }
-        val horizontalPadding = 12f * referenceBodyToViewWidthScale
+        val horizontalPadding =
+            R47LabelLayoutPolicy.PRIMARY_LEGEND_HORIZONTAL_PADDING * referenceBodyToViewWidthScale
         return (bodyWidth - horizontalPadding).coerceAtLeast(0f)
     }
 
@@ -336,17 +348,25 @@ class CalculatorKeyView @JvmOverloads constructor(
         if (text.isBlank()) {
             return 0f
         }
-        val paint = Paint(labelView.paint)
-        paint.textSize = textSize
-        return paint.measureText(text)
+        configureMeasurementPaint(
+            labelView = labelView,
+            typeface = labelView.typeface,
+            textSize = textSize,
+        )
+        return mainKeyMeasurementPaint.measureText(text)
     }
 
     private fun fontMetricsHeight(labelView: TextView, typeface: Typeface?, textSize: Float): Float {
-        val paint = Paint(labelView.paint)
-        paint.typeface = typeface
-        paint.textSize = textSize
-        val metrics = paint.fontMetrics
-        return metrics.descent - metrics.ascent
+        configureMeasurementPaint(
+            labelView = labelView,
+            typeface = typeface,
+            textSize = textSize,
+        )
+        return C47TextRenderer.fontMetricsHeight(
+            mainKeyMeasurementPaint,
+            typeface = typeface,
+            textSize = textSize,
+        )
     }
 
     private fun textBottomOffset(
@@ -354,11 +374,16 @@ class CalculatorKeyView @JvmOverloads constructor(
         textSize: Float = labelView.textSize,
         typeface: Typeface? = labelView.typeface,
     ): Float {
-        val paint = Paint(labelView.paint)
-        paint.typeface = typeface
-        paint.textSize = textSize
-        val metrics = paint.fontMetrics
-        return -metrics.ascent + metrics.descent
+        configureMeasurementPaint(
+            labelView = labelView,
+            typeface = typeface,
+            textSize = textSize,
+        )
+        return C47TextRenderer.textBottomOffset(
+            mainKeyMeasurementPaint,
+            typeface = typeface,
+            textSize = textSize,
+        )
     }
 
     private fun resetLabelLayout() {
@@ -905,6 +930,16 @@ class CalculatorKeyView @JvmOverloads constructor(
         invalidate()
     }
 
+    override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
+        if (
+            !isFnKey &&
+                (child === primaryLabel || child === fLabel || child === gLabel || child === letterLabel)
+        ) {
+            return false
+        }
+        return super.drawChild(canvas, child, drawingTime)
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (isFnKey) {
@@ -955,6 +990,77 @@ class CalculatorKeyView @JvmOverloads constructor(
                 )
             }
         }
+        drawMainKeyLabels(canvas)
+    }
+
+    private fun drawMainKeyLabels(canvas: Canvas) {
+        drawLabelFromView(
+            canvas = canvas,
+            labelView = primaryLabel,
+            x = primaryLabel.x + (primaryLabel.width / 2f),
+            anchorY = primaryLabel.y + (primaryLabel.height / 2f),
+            align = Paint.Align.CENTER,
+            verticalAnchor = C47TextRenderer.TEXT_ANCHOR_CENTER,
+        )
+        drawLabelFromView(
+            canvas = canvas,
+            labelView = fLabel,
+            x = fLabel.x,
+            anchorY = fLabel.y + textBottomOffset(fLabel),
+            align = Paint.Align.LEFT,
+            verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
+        )
+        drawLabelFromView(
+            canvas = canvas,
+            labelView = gLabel,
+            x = gLabel.x + gLabel.width,
+            anchorY = gLabel.y + textBottomOffset(gLabel),
+            align = Paint.Align.RIGHT,
+            verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
+        )
+        drawLabelFromView(
+            canvas = canvas,
+            labelView = letterLabel,
+            x = letterLabel.x,
+            anchorY = letterLabel.y,
+            align = Paint.Align.LEFT,
+            verticalAnchor = C47TextRenderer.TEXT_ANCHOR_TOP,
+        )
+    }
+
+    private fun drawLabelFromView(
+        canvas: Canvas,
+        labelView: TextView,
+        x: Float,
+        anchorY: Float,
+        align: Paint.Align,
+        verticalAnchor: Int,
+    ) {
+        if (labelView.visibility != View.VISIBLE) {
+            return
+        }
+
+        val text = labelView.text?.toString().orEmpty()
+        if (text.isBlank()) {
+            return
+        }
+
+        C47TextRenderer.drawText(
+            canvas,
+            text,
+            mainKeyLabelPaint,
+            typeface = labelView.typeface,
+            textSize = labelView.textSize,
+            x = x,
+            anchorY = anchorY,
+            color = labelView.currentTextColor,
+            align = align,
+            verticalAnchor = verticalAnchor,
+            alpha = labelView.alpha,
+            textScaleX = labelView.textScaleX,
+            underline = labelView.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
+            strikeThrough = labelView.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
+        )
     }
 
     private fun drawPressedKeyAccent(

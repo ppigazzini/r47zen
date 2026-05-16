@@ -139,6 +139,13 @@ class KeyLabelGeometryContractTest(unittest.TestCase):
                 name="label_layers.first_label_primary.text_sizes.shifted",
             ),
         )
+        _assert_float_equal(
+            self.key_view["PRIMARY_LEGEND_HORIZONTAL_PADDING"],
+            _require_number(
+                first_label["horizontal_padding"],
+                name="label_layers.first_label_primary.horizontal_padding",
+            ),
+        )
 
         for layer_name in ("second_label_f", "third_label_g"):
             layer = _require_mapping(
@@ -306,6 +313,11 @@ class KeyLabelGeometryContractTest(unittest.TestCase):
             self.key_view_source,
             top_label_translation,
             name="top-label vertical translation formula",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "R47LabelLayoutPolicy.PRIMARY_LEGEND_HORIZONTAL_PADDING",
+            name="primary-label horizontal padding formula",
         )
 
     def test_fourth_label_position_formula_match_contract(self) -> None:

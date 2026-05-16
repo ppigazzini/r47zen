@@ -169,8 +169,10 @@ class AlphaCaseExportContractTest(unittest.TestCase):
             in self.key_view,
         )
         _assert_true(
-            ".coerceAtLeast(baseSize * R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE)"
-            in self.key_view,
+            "C47TextRenderer.fittedTextSize(" in self.key_view,
+        )
+        _assert_true(
+            "minScale = R47LabelLayoutPolicy.FITTED_TEXT_MIN_SCALE" in self.key_view,
         )
 
     def test_alpha_layout_keeps_letter_spacer_reserved_and_hidden(self) -> None:

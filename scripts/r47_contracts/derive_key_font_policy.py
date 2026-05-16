@@ -51,6 +51,7 @@ _META_SCALARS_BEFORE_STYLE_ROLE = 9
 _STYLE_NUMERIC = 5
 
 _REPLICA_LAYOUT_PATH = KOTLIN_R47ZEN_ROOT / "ReplicaKeypadLayout.kt"
+_TEXT_RENDERER_PATH = KOTLIN_R47ZEN_ROOT / "C47TextRenderer.kt"
 _TYPEFACE_POLICY_PATH = KOTLIN_R47ZEN_ROOT / "C47TypefacePolicy.kt"
 _MAIN_KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
 _SOFTKEY_PAINTER_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorSoftkeyPainter.kt"
@@ -324,6 +325,14 @@ def _validate_owner_contracts() -> None:
         ),
     )
     _require_source_snippets(
+        _TEXT_RENDERER_PATH,
+        (
+            "internal object C47TextRenderer",
+            "isSubpixelText = true",
+            "isLinearText = false",
+        ),
+    )
+    _require_source_snippets(
         _TYPEFACE_POLICY_PATH,
         (
             "fun standardFirst(",
@@ -339,11 +348,17 @@ def _validate_owner_contracts() -> None:
             "return C47TypefacePolicy.standardFirst(",
             "text = mainKeyState.primaryLabel",
             "fLabel, gLabel, letterLabel -> C47TypefacePolicy.standardFirst(",
+            "override fun drawChild(",
+            "drawMainKeyLabels(canvas)",
+            "C47TextRenderer.drawText(",
         ),
     )
     _require_source_snippets(
         _SOFTKEY_PAINTER_PATH,
         (
+            "C47TextRenderer.newTextPaint(",
+            "C47TextRenderer.configureTextPaint(",
+            "C47TextRenderer.drawText(",
             "typeface = C47TypefacePolicy.standardFirst(",
             "text = valueText",
             "text = keyState.primaryLabel",
@@ -392,6 +407,24 @@ def build_key_font_policy_payload() -> dict[str, object]:
                 ),
             }
             for lane in _LANE_SLOTS
+        },
+        "rendering_policy": {
+            "label_renderers": {
+                "main_key": {
+                    "owner": "CalculatorKeyView",
+                    "surface": "custom_paint",
+                },
+                "softkey": {
+                    "owner": "CalculatorSoftkeyPainter",
+                    "surface": "custom_paint",
+                },
+            },
+            "shared_text_paint_policy": {
+                "owner": "C47TextRenderer",
+                "anti_alias": True,
+                "subpixel_text": True,
+                "linear_text": False,
+            },
         },
         "style_numeric_primary_expectations": {
             "preferred_fallback_chain": _FONT_FALLBACK_POLICY[

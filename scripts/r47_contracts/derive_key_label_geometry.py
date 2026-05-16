@@ -161,6 +161,11 @@ def build_key_label_geometry_payload() -> dict[str, object]:
             "shifted",
             label="android_ui_contract.label_layout.primary_legend.text_sizes",
         ),
+        "PRIMARY_LEGEND_HORIZONTAL_PADDING": number_member(
+            first_label,
+            "horizontal_padding",
+            label="android_ui_contract.label_layout.primary_legend",
+        ),
         "TOP_F_G_LABEL_TEXT_SIZE": number_member(
             second_label,
             "text_size",
@@ -204,6 +209,7 @@ def build_key_label_geometry_payload() -> dict[str, object]:
     }
     label_layers = {
         "first_label_primary": {
+            "horizontal_padding": label_constants["PRIMARY_LEGEND_HORIZONTAL_PADDING"],
             "text_sizes": {
                 "default": label_constants["DEFAULT_PRIMARY_LEGEND_TEXT_SIZE"],
                 "numeric": label_constants["NUMERIC_PRIMARY_LEGEND_TEXT_SIZE"],

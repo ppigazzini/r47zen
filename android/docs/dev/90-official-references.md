@@ -255,14 +255,17 @@ flowchart TD
   official Android API reference for `ANTI_ALIAS_FLAG`,
   `SUBPIXEL_TEXT_FLAG`, `LINEAR_TEXT_FLAG`, `measureText(...)`, and the text
   measurement and font-metrics APIs that can change both glyph metrics and draw
-  behavior.
+  behavior; the `LINEAR_TEXT_FLAG` entry explicitly notes that it disables font
+  hinting and is intended for smooth scale transitions rather than as a default
+  steady-state keypad legend flag.
 - [TextPaint](https://developer.android.com/reference/android/text/TextPaint):
   `Paint` subclass used for text measurement and drawing in widget text paths.
 - [AOSP TextView.java](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/widget/TextView.java):
   current platform source initializes widget text with
-  `mTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG)`, which explains why
-  explicitly enabling antialias on this repo's `TextView`-based main-key path
-  can appear to do nothing by itself.
+  `mTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG)`, which explains why the
+  earlier explicit antialias experiment on this repo's widget-backed main-key
+  path could appear to do nothing before the keypad text path was unified under
+  custom painting.
 - [Layout](https://developer.android.com/reference/android/text/Layout):
   Android's base text-layout class for visual elements on screen; built with a
   `TextPaint`, exposes `draw(Canvas)`, and documents that its `TextPaint`
