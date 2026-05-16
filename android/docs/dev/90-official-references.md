@@ -174,8 +174,14 @@ flowchart TD
 
 - [Add haptic feedback to events](https://developer.android.com/develop/ui/views/haptics/haptic-feedback):
   official Android haptics guidance for view-based feedback, predefined
-  `VibrationEffect` usage, fallback tradeoffs, and the keyboard-like
-  `VIRTUAL_KEY` / `VIRTUAL_KEY_RELEASE` touch cadence.
+  `VibrationEffect` usage, fallback tradeoffs, the keyboard-like
+  `VIRTUAL_KEY` / `VIRTUAL_KEY_RELEASE` touch cadence, and the system-setting-
+  respecting Android-default path that the `0 ms` keypress-strength setting
+  keeps in this app.
+- [Haptics design principles](https://developer.android.com/develop/ui/views/haptics/haptics-principles):
+  official Android guidance for subtle frequent touch feedback, matching
+  effect strength to event importance, and avoiding overly long or buzzy
+  keypress vibrations.
 - [VibrationEffect](https://developer.android.com/reference/android/os/VibrationEffect):
   Android API reference for one-shot and waveform amplitude bounds, predefined
   effects, and newer composition APIs.
@@ -200,11 +206,12 @@ flowchart TD
   breakpoint model for adaptive layouts.
 - [Preference components and attributes](https://developer.android.com/develop/ui/views/components/settings/components-and-attributes):
   `PreferenceScreen`, `PreferenceCategory`, `SwitchPreferenceCompat`, summary
-  attributes, and XML ownership guidance for settings screens.
+  attributes, dependency relationships, `SeekBarPreference`, and XML ownership
+  guidance for settings screens.
 - [Use saved Preference values](https://developer.android.com/develop/ui/views/components/settings/use-saved-values):
   preference persistence plus `OnPreferenceChangeListener` and
-  `OnSharedPreferenceChangeListener` guidance when settings text or behavior
-  must update at runtime.
+  `OnSharedPreferenceChangeListener` guidance when settings text, summary
+  providers, or behavior must update at runtime.
 - [Principles for improving app accessibility](https://developer.android.com/guide/topics/ui/accessibility/principles):
   official Android guidance for meaningful labels, built-in accessibility
   features, and using cues other than color; use this when settings copy or

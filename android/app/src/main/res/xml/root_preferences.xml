@@ -67,6 +67,14 @@
             app:key="haptic_enabled"
             app:title="@string/settings_haptic_enabled_title"
             app:defaultValue="true" />
+        <SeekBarPreference
+            app:key="haptic_keypress_duration_ms"
+            app:title="@string/settings_haptic_keypress_duration_title"
+            app:min="0"
+            android:max="20"
+            app:defaultValue="0"
+            app:dependency="haptic_enabled"
+            app:showSeekBarValue="false" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_audio_category_title">

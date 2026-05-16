@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import androidx.preference.ListPreference
+import androidx.preference.SeekBarPreference
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
@@ -79,6 +80,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
         updateStoragePreferences()
         updateKeypadDesignPreferences()
+        configureHapticPreferences()
 
         findPreference<Preference>("view_privacy_policy")?.setOnPreferenceClickListener {
             startActivity(
@@ -175,6 +177,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         preferenceManager.sharedPreferences?.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
         updateStoragePreferences()
         updateKeypadDesignPreferences()
+        configureHapticPreferences()
     }
 
     override fun onPause() {
@@ -230,6 +233,26 @@ class SettingsFragment : PreferenceFragmentCompat() {
             MainKeyDynamicMode.DEFAULT.storageValue,
         )
         softkeyPreference.isEnabled = mainMode != MainKeyDynamicMode.VIRTUOSO.storageValue
+    }
+
+    private fun configureHapticPreferences() {
+        val hapticStrengthPreference = findPreference<SeekBarPreference>(
+            HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS,
+        ) ?: return
+        val normalizedValue = hapticStrengthPreference.value.coerceIn(
+            HapticFeedbackController.DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
+            HapticFeedbackController.MAX_HAPTIC_KEYPRESS_DURATION_MS,
+        )
+        if (normalizedValue != hapticStrengthPreference.value) {
+            hapticStrengthPreference.value = normalizedValue
+        }
+        hapticStrengthPreference.summaryProvider = Preference.SummaryProvider<SeekBarPreference> { preference ->
+            if (preference.value == HapticFeedbackController.DEFAULT_HAPTIC_KEYPRESS_DURATION_MS) {
+                getString(R.string.settings_haptic_keypress_duration_summary_default)
+            } else {
+                getString(R.string.settings_haptic_keypress_duration_summary_custom, preference.value)
+            }
+        }
     }
 
     private fun resolveStorageLocationDetails(context: android.content.Context): StorageLocationDetails {

@@ -222,11 +222,20 @@ Each path ultimately resolves to core-thread work or a small Android-side action
   official View haptics guidance: press uses
   `HapticFeedbackConstants.VIRTUAL_KEY`, release uses
   `HapticFeedbackConstants.VIRTUAL_KEY_RELEASE`, cancel clears pressed state
-  without a release pulse, and `HapticFeedbackController` gates whether that
-  feedback is enabled before falling back to predefined vibrator effects when
-  the view path is declined by device behavior
+  without a release pulse, and `HapticFeedbackController` now owns two
+  preference-driven modes behind that cadence: `haptic_enabled` is the master
+  gate, while `haptic_keypress_duration_ms` is a dependent keypress-strength
+  slider where `0` keeps the Android-default view-first path and positive
+  values switch to short app-owned one-shot pulses with a lighter derived
+  release pulse
 - haptics, audio, fullscreen state, LCD display theme, scaling mode, keypad
   label modes, and touch-zone overlays are preference-driven Android concerns
+
+- `SettingsFragment` keeps the haptics surface intentionally lean and
+  Gboard-like: `Haptic feedback on keypress` is the master switch,
+  `Vibration strength on keypress` is a dependent `SeekBarPreference` that
+  greys out with the switch off, and the leftmost `0` value resolves to the
+  summary text `Android default`
 
 ## Kotlin-side change rules
 

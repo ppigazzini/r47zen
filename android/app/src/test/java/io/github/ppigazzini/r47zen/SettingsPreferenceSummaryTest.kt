@@ -177,6 +177,45 @@ class SettingsPreferenceSummaryTest {
     }
 
     @Test
+    fun hapticToggle_usesGboardStyleKeypressTitle() {
+        val preference = launchSettingsAndFindSwitch("haptic_enabled")
+
+        assertEquals(
+            "Haptic feedback on keypress",
+            preference.title?.toString(),
+        )
+    }
+
+    @Test
+    fun hapticStrengthPreference_defaultsToAndroidDefaultSummary() {
+        val preference = launchSettingsAndFindSeekBar("haptic_keypress_duration_ms")
+
+        assertEquals(
+            "Vibration strength on keypress",
+            preference.title?.toString(),
+        )
+        assertEquals(
+            "Android default",
+            preference.summary?.toString(),
+        )
+        assertTrue(preference.isEnabled)
+    }
+
+    @Test
+    fun hapticStrengthPreference_reflectsStoredCustomDurationAndDependsOnToggle() {
+        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("haptic_enabled", false)
+            .putInt("haptic_keypress_duration_ms", 7)
+            .commit()
+
+        val preference = launchSettingsAndFindSeekBar("haptic_keypress_duration_ms")
+
+        assertEquals("7 ms", preference.summary?.toString())
+        assertFalse(preference.isEnabled)
+    }
+
+    @Test
     fun softkeyPreferenceTitleAndEntries_matchPlainEnglishCopy() {
         val preference = launchSettingsAndFindList("softkey_dynamic_mode")
 

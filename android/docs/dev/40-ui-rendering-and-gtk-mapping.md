@@ -200,6 +200,13 @@ Render split:
   clears the pressed state, sends key `0`, and dispatches
   `HapticFeedbackConstants.VIRTUAL_KEY_RELEASE`; `ACTION_CANCEL` clears the
   pressed state without a release haptic
+- `HapticFeedbackController` owns the strength policy behind that touch
+  cadence: `haptic_keypress_duration_ms = 0` keeps the Android-default
+  view-first `VIRTUAL_KEY` / `VIRTUAL_KEY_RELEASE` path with predefined-effect
+  fallback only when the view path declines, while positive values bypass the
+  view path and emit short app-owned one-shot pulses capped at `20 ms`, with
+  the release pulse derived at two thirds of the press duration so release
+  stays lighter than press
 
 ## Label mode policy
 
