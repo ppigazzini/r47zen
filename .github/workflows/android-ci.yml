@@ -599,6 +599,56 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Collect host-core PGO profile
+        shell: bash
+        env:
+          R47_PGO_OUTPUT_DIR: ${{ github.workspace }}/ci-artifacts/pgo
+        run: |
+          set -euo pipefail
+
+          mkdir -p ci-artifacts/logs
+
+          bash ./scripts/workload-regressions/collect_host_pgo_profile.sh \
+            --output-dir "$R47_PGO_OUTPUT_DIR" \
+            2>&1 | tee ci-artifacts/logs/host-core-pgo.log
+
+      - name: Validate Android release-native PGO build
+        shell: bash
+        env:
+          R47_PGO_PROFILE_PATH: ${{ github.workspace }}/ci-artifacts/pgo/r47-host-core.profdata
+        run: |
+          set -euo pipefail
+
+          mkdir -p ci-artifacts/logs
+
+          cd android
+          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+            :app:externalNativeBuildRelease \
+            -x prepareStagedNativeInputs \
+            --no-daemon --stacktrace --console=plain --warning-mode all \
+            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+            -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
+            -Pr47.pgoProfilePath="$R47_PGO_PROFILE_PATH" \
+            -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+            -Pr47.sourceCommit=${{ github.sha }} \
+            -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
+            -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
+            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
+            -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
+            2>&1 | tee ../ci-artifacts/logs/android-external-native-build-release-pgo.log
+
+      - name: Upload host-core PGO artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-host-core-pgo
+          path: |
+            ci-artifacts/pgo/
+            ci-artifacts/logs/host-core-pgo.log
+            ci-artifacts/logs/android-external-native-build-release-pgo.log
+          if-no-files-found: warn
+          retention-days: 14
+
   android-tests:
     name: Run Android JVM and instrumentation tests
     if: needs.upstream-release-gate.outputs.should_run == 'true'

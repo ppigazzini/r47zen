@@ -38,6 +38,9 @@ flowchart TD
 
 - resolve one authoritative upstream commit per workflow run
 - keep host-core sanity separate from Android packaging and tests
+- collect the host-core PGO artifact on Linux and validate the release-native
+  Android native build against it without making the debug APK lane depend on
+  emulator profiling
 - run Android lint explicitly instead of assuming Gradle builds cover it
 - publish logs and packaging evidence as first-class artifacts
 - publish the main snapshot only after all required lanes pass
@@ -103,11 +106,23 @@ It:
 - runs `./scripts/android/build_android.sh --run-sim-tests`
 - runs `cd android && ./gradlew lint` explicitly because normal Gradle builds do
   not run lint automatically
+- runs `scripts/workload-regressions/collect_host_pgo_profile.sh` on Linux to
+  build the staged-core host harness with the pinned NDK Clang and
+  `llvm-profdata` pair, reuse a host-installed `libclang_rt.profile` archive
+  through a temporary resource-dir shim, produce an indexed `.profdata`
+  artifact, and then validate `:app:externalNativeBuildRelease` against that
+  profile
 - verifies that retired app-module native snapshot paths stay absent and that
   staging remains build-only under `android/.staged-native/cpp`
 - collects packaging evidence for the debug APK
 - uploads the build log and the Android packaging artifact bundle
   `r47-android-<upstream short>-<android short>`
+
+That means the debug packaging lane now owns two native optimization contracts:
+
+- the default ThinLTO-backed Android build remains the baseline shipping path
+- the host-collected core profile must remain consumable by the Android
+  release-native build without requiring Android-emulator profile collection
 
 This lane is the canonical reference for the full Android debug-build contract.
 
@@ -222,6 +237,8 @@ The workflow publishes three main artifact classes:
 - Android build logs from the packaging lane
 - debug APK packaging evidence and compliance outputs
 - Android JVM and instrumentation test reports and logs
+- host-core PGO profiles plus the release-native validation log from the Linux
+  packaging lane
 
 Android artifact names use the two-commit Android identity
 `upstream short + Android short`. Linux and Windows simulator package workflows
@@ -238,10 +255,14 @@ Use the smallest local lane that matches the failure surface:
 
 - shared core or Meson drift in a hydrated checkout: `make test`
 - host wait or progress regression: `scripts/workload-regressions/run_workload_regressions.sh`
+- collect a host-core PGO artifact for Android release-native validation:
+  `scripts/workload-regressions/collect_host_pgo_profile.sh`
 - full Android debug build and staged-input refresh:
   `./scripts/android/build_android.sh --run-sim-tests`
 - Android lint-only regression with current staged inputs:
   `cd android && ./gradlew lint`
+- Android release-native validation against a collected profile:
+  `cd android && ./gradlew :app:externalNativeBuildRelease -Pr47.pgoProfilePath=/abs/path/to/profile.profdata -x prepareStagedNativeInputs`
 - Android JVM tests with current staged inputs:
   `cd android && ./gradlew :app:testDebugUnitTest`
 - instrumentation packaging with current staged inputs:

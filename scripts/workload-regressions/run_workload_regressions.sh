@@ -5,10 +5,14 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 STAGED_CPP_DIR="$PROJECT_ROOT/android/.staged-native/cpp"
-BUILD_DIR="$PROJECT_ROOT/android/build/workload-regressions-host"
+BUILD_DIR="${HOST_WORKLOAD_BUILD_DIR:-$PROJECT_ROOT/android/build/workload-regressions-host}"
 TRACKED_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp"
-PROGRAM_ROOT="${PROGRAM_ROOT:-$PROJECT_ROOT/res/PROGRAMS}"
+DEFAULT_GENERATED_PROGRAM_ROOT="$PROJECT_ROOT/android/app/build/generated/assets/runtime/program-fixtures/PROGRAMS"
+DEFAULT_UPSTREAM_PROGRAM_ROOT="$PROJECT_ROOT/res/PROGRAMS"
+PROGRAM_ROOT="${PROGRAM_ROOT:-}"
 PREPARE_NATIVE_INPUTS_SCRIPT="$PROJECT_ROOT/scripts/android/prepare_native_build_inputs.sh"
+HOST_WORKLOAD_OUTPUT_NAME="${HOST_WORKLOAD_OUTPUT_NAME:-r47-workload-regression}"
+CC_BIN="${CC:-cc}"
 REQUIRED_PROGRAM_FIXTURES=(
     "BinetV3.p47"
     "GudrmPL.p47"
@@ -21,8 +25,28 @@ fail() {
     exit 1
 }
 
+resolve_program_root() {
+    if [[ -n "$PROGRAM_ROOT" ]]; then
+        printf '%s\n' "$PROGRAM_ROOT"
+        return 0
+    fi
+
+    if [[ -d "$DEFAULT_GENERATED_PROGRAM_ROOT" ]]; then
+        printf '%s\n' "$DEFAULT_GENERATED_PROGRAM_ROOT"
+        return 0
+    fi
+
+    printf '%s\n' "$DEFAULT_UPSTREAM_PROGRAM_ROOT"
+}
+
+PROGRAM_ROOT="$(resolve_program_root)"
+
 if [[ ! -d "$PROGRAM_ROOT" ]]; then
-    fail "Program root $PROGRAM_ROOT does not exist. Run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock or set PROGRAM_ROOT to an upstream checkout."
+    fail "Program root $PROGRAM_ROOT does not exist. Run the Android build path that stages program fixtures, run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock, or set PROGRAM_ROOT explicitly."
+fi
+
+if ! command -v "$CC_BIN" >/dev/null 2>&1; then
+    fail "Compiler $CC_BIN is not available on PATH."
 fi
 
 for fixture in "${REQUIRED_PROGRAM_FIXTURES[@]}"; do
@@ -71,10 +95,28 @@ ANDROID_BRIDGE_SOURCES=(
     "$TRACKED_CPP_DIR/r47_android/jni_storage.c"
 )
 
-cc -std=c99 -O0 -g -pthread \
+EXTRA_CPPFLAGS=()
+EXTRA_CFLAGS=()
+EXTRA_LDFLAGS=()
+
+if [[ -n "${CPPFLAGS:-}" ]]; then
+    read -r -a EXTRA_CPPFLAGS <<< "${CPPFLAGS}"
+fi
+
+if [[ -n "${CFLAGS:-}" ]]; then
+    read -r -a EXTRA_CFLAGS <<< "${CFLAGS}"
+fi
+
+if [[ -n "${LDFLAGS:-}" ]]; then
+    read -r -a EXTRA_LDFLAGS <<< "${LDFLAGS}"
+fi
+
+"$CC_BIN" -std=c99 -O0 -g -pthread \
     -D_GNU_SOURCE -D_DEFAULT_SOURCE \
     -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47 \
     -Dmpz_div_2exp=mpz_tdiv_q_2exp -Dmpz_fits_uint_p=mpz_fits_ulong_p \
+    "${EXTRA_CPPFLAGS[@]}" \
+    "${EXTRA_CFLAGS[@]}" \
     -I"$JDK_HOME/include" \
     -I"$JDK_HOME/include/linux" \
     -I"$TRACKED_CPP_DIR/r47_android/stubs" \
@@ -100,7 +142,8 @@ cc -std=c99 -O0 -g -pthread \
     "${STAGED_GMP_SOURCES[@]}" \
     "${STAGED_DEC_SOURCES[@]}" \
     "${ANDROID_BRIDGE_SOURCES[@]}" \
+    "${EXTRA_LDFLAGS[@]}" \
     -lm \
-    -o "$BUILD_DIR/r47-workload-regression"
+    -o "$BUILD_DIR/$HOST_WORKLOAD_OUTPUT_NAME"
 
-"$BUILD_DIR/r47-workload-regression" --program-root "$PROGRAM_ROOT"
+"$BUILD_DIR/$HOST_WORKLOAD_OUTPUT_NAME" --program-root "$PROGRAM_ROOT"

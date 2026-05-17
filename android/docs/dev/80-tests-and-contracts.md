@@ -240,6 +240,12 @@ Android compatibility layer.
 - `scripts/workload-regressions/run_workload_regressions.sh` builds the staged
   core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then loads and
   runs the canonical workload fixtures through the host compatibility path
+- `scripts/workload-regressions/collect_host_pgo_profile.sh` rebuilds that same
+  host compatibility path with the pinned NDK Clang and `llvm-profdata` pair
+  under LLVM IRPGO instrumentation, reuses a host-installed
+  `libclang_rt.profile` archive through a temporary resource-dir shim, and
+  merges the resulting raw profiles into the indexed `.profdata` artifact
+  consumed by the Android release-native build
 - `scripts/workload-regressions/host_workload_regression.c` is the harness that
   probes the wait, pause, progress, and workload-run behavior behind that lane
 - `./scripts/android/build_android.sh --run-sim-tests` rebuilds `build.sim`,

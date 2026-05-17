@@ -35,6 +35,12 @@ and link flags to the release-native target configs, `Release` and
 shipping builds on the optimized shared-library path while debug builds stay on
 the normal non-LTO lane.
 
+When a reviewed indexed LLVM profile is available, the Android build can now
+also consume it through Gradle property `r47.pgoProfilePath` or environment
+variable `R47_PGO_PROFILE_PATH`, which feed CMake cache entry
+`R47_PGO_PROFILE_PATH`. Only the release-native configs consume that profile;
+the default debug lane remains profile-free.
+
 CMake builds the library from:
 
 - build-only staged core sources under `android/.staged-native/cpp/c47`
@@ -142,6 +148,12 @@ supports that model by keeping shared synchronization in native code:
   upstream fixtures `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and
   `SPIRALk.p47` through the host-side Android compatibility
   path
+- `scripts/workload-regressions/collect_host_pgo_profile.sh` builds that same
+  host harness with the pinned NDK Clang and `llvm-profdata` pair under LLVM
+  IRPGO instrumentation, injects a temporary resource-dir shim so the Linux
+  host link can reuse a host-installed `libclang_rt.profile` archive that the
+  NDK does not ship, then produces the indexed profile artifact now consumed by
+  the release-native Android build path
 - `jni_program_load_test.c` exposes the instrumentation-only bridge used by
   both `ProgramFixtureInstrumentedTest` and
   `DisplayLifecycleInstrumentedTest`. It provides READP or RUN worker control,

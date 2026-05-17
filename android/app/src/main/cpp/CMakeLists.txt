@@ -11,6 +11,16 @@ set(R47_STAGED_C47_DIR "${R47_STAGED_CPP_DIR}/c47")
 set(R47_STAGED_DECNUMBER_DIR "${R47_STAGED_CPP_DIR}/decNumberICU")
 set(R47_STAGED_GENERATED_DIR "${R47_STAGED_CPP_DIR}/generated")
 set(R47_STAGED_GMP_DIR "${R47_STAGED_CPP_DIR}/gmp")
+set(R47_PGO_PROFILE_PATH "" CACHE FILEPATH "Indexed LLVM PGO profile used for Android release-native builds")
+set(R47_RESOLVED_PGO_PROFILE_PATH "")
+
+if(NOT "${R47_PGO_PROFILE_PATH}" STREQUAL "")
+    get_filename_component(R47_RESOLVED_PGO_PROFILE_PATH "${R47_PGO_PROFILE_PATH}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+    if(NOT EXISTS "${R47_RESOLVED_PGO_PROFILE_PATH}")
+        message(FATAL_ERROR "R47_PGO_PROFILE_PATH does not exist: ${R47_RESOLVED_PGO_PROFILE_PATH}")
+    endif()
+    message(STATUS "Using host-collected PGO profile for Android release-native builds: ${R47_RESOLVED_PGO_PROFILE_PATH}")
+endif()
 
 # Android Build Definitions
 add_definitions(
@@ -115,6 +125,15 @@ foreach(R47_ANDROID_LTO_CONFIG IN ITEMS Release RelWithDebInfo)
         "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-flto=thin>"
         "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-fuse-ld=lld>"
     )
+
+    if(NOT "${R47_RESOLVED_PGO_PROFILE_PATH}" STREQUAL "")
+        target_compile_options(r47_android PRIVATE
+            "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-fprofile-use=${R47_RESOLVED_PGO_PROFILE_PATH}>"
+        )
+        target_link_options(r47_android PRIVATE
+            "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-fprofile-use=${R47_RESOLVED_PGO_PROFILE_PATH}>"
+        )
+    endif()
 endforeach()
 
 # Link libraries

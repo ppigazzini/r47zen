@@ -144,6 +144,24 @@ def releaseKeyAlias = readOptionalProperty('r47.releaseKeyAlias', 'R47_RELEASE_K
 def releaseKeyPassword = readOptionalProperty('r47.releaseKeyPassword', 'R47_RELEASE_KEY_PASSWORD')
 def releaseSigningValues = [releaseStoreFilePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword].findAll { it }
 def isReleaseSigningConfigured = releaseSigningValues.size() == 4
+def pgoProfilePath = readOptionalProperty('r47.pgoProfilePath', 'R47_PGO_PROFILE_PATH')
+
+if (pgoProfilePath) {
+    def pgoProfileFile = rootProject.file(pgoProfilePath).canonicalFile
+    if (!pgoProfileFile.isFile()) {
+        throw new GradleException("Missing PGO profile data file: ${pgoProfileFile}")
+    }
+    pgoProfilePath = pgoProfileFile.absolutePath
+}
+
+def externalNativeBuildArguments = [
+    '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON',
+    "-DR47_STAGED_CPP_DIR=${stagedNativeCppDir}"
+]
+
+if (pgoProfilePath) {
+    externalNativeBuildArguments += "-DR47_PGO_PROFILE_PATH=${pgoProfilePath}"
+}
 
 if (!releaseSigningValues.isEmpty() && !isReleaseSigningConfigured) {
     throw new GradleException('Release signing requires r47.releaseStoreFile, r47.releaseStorePassword, r47.releaseKeyAlias, and r47.releaseKeyPassword together.')
@@ -277,7 +295,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags ""
-                arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON", "-DR47_STAGED_CPP_DIR=${stagedNativeCppDir}"
+                arguments(*externalNativeBuildArguments)
             }
         }
         ndk {

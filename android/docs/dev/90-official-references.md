@@ -93,8 +93,10 @@ flowchart TD
   native feature-probing guidance to use only if the repo ever adds same-ABI
   runtime dispatch.
 - [Profile-guided Optimization](https://developer.android.com/ndk/guides/pgo):
-  official NDK guidance for the later host-driven optimization phase after the
-  maintained Android ThinLTO baseline.
+  official NDK guidance for host-driven core optimization after the maintained
+  Android ThinLTO baseline, including the note that library profiles are
+  generally reusable across architectures unless the library has
+  architecture-specific code paths.
 - [Configure the NDK for the Android Gradle plugin](https://developer.android.com/studio/projects/configure-agp-ndk):
   `ndkVersion` guidance for AGP-based projects, including the command-line
   `sdkmanager` package syntax this repo uses in CI.
