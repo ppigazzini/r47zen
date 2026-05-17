@@ -47,6 +47,12 @@ typedef struct {
   bool (*seed_runtime)(void);
 } program_fixture_scenario_t;
 
+static bool should_run_optional_manslv2(void) {
+  const char *value = getenv("R47_INCLUDE_MANSLV2");
+
+  return value != NULL && value[0] != '\0' && strcmp(value, "0") != 0;
+}
+
 static void usage(const char *argv0) {
   fprintf(stderr, "Usage: %s --program-root <dir>\n", argv0);
 }
@@ -353,6 +359,13 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = seed_spiralk_runtime_registers},
 };
 
+  static const program_fixture_scenario_t kOptionalManslv2Scenario = {
+    .program_name = "MANSLV2.p47",
+    .timeout_ms = 10000u,
+    .resume_pause_with_zero_key = false,
+    .seed_runtime = NULL,
+  };
+
 int main(int argc, char **argv) {
   const char *program_root = NULL;
   char runtime_dir[PATH_MAX];
@@ -392,6 +405,12 @@ int main(int argc, char **argv) {
                                       &kProgramFixtureScenarios[index])) {
       return 1;
     }
+  }
+
+  if (should_run_optional_manslv2() &&
+      !run_program_fixture_workload(runtime_dir, program_root,
+                                    &kOptionalManslv2Scenario)) {
+    return 1;
   }
 
   return 0;
