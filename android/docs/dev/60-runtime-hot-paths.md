@@ -13,6 +13,7 @@ contract-to-regression map that proves these loops.
 | Path | Trigger and cadence | Main files | Why it is hot | Main failure mode |
 | --- | --- | --- | --- | --- |
 | core-thread coordinator | `NativeCoreRuntime` loop while the app is running; drains tasks, calls `tick()`, then waits for queued work up to the returned deadline | `NativeCoreRuntime.kt`, `jni_lifecycle.c` | every Android-owned action reaches the core through this loop | blocking work or queue growth stalls native progress |
+| queued stop delivery during RUN | user presses `R/S` while a program is already running; stop input still arrives through the same core-owner queue as normal keys | `MainActivity.kt`, `ReplicaOverlayController.kt`, `NativeCoreRuntime.kt`, `jni_input.c`, `android_runtime.c` | this is the control-plane path that decides whether Android can interrupt a long run | non-yielding native loops can starve queued stop input and make the app appear hung |
 | native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms, then returns the next wake delay | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle |
 | frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad labels refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | extra JNI calls, duplicate pollers, or unnecessary redraw triggers hurt frame time |
 | packed LCD row decode | each accepted LCD update copies only dirty packed rows, decodes them to the bitmap, and invalidates the touched display rows | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
@@ -57,6 +58,10 @@ flowchart LR
   the activity lifecycle boundary.
 - `dispose(stopApp = true)` clears the queue and offers a sentinel runnable so
   a blocked wait wakes promptly during shutdown.
+- The same queue also carries live keypad input from touch, PiP, and physical
+  keyboard controllers. That is correct for normal execution, but it means a
+  running program can only observe queued `R/S` after the shared core returns
+  or one of its compatibility paths drains the queue mid-run.
 
 Inspect this path when Android requests appear to arrive late, state saves time
 out, or the app behaves as if work is happening on multiple native threads.
@@ -188,9 +193,26 @@ moved into the per-frame LCD path.
   flag and declines new keypad work.
 - `hal/io.c::ioFileOpen(...)` is what sends state, program, RTF export, and
   manual-save traffic onto this boundary in the first place.
+- This path is also the only Android-owned mid-run drain for queued stop input,
+  because `yieldToAndroidWithMs(...)` calls `processCoreTasksNative()` before
+  sleeping.
 
 This is the place to inspect first when the app appears hung in a long-running
 program, a save or load operation, or a progress or pause loop.
+
+## Residual Hang: NaN-Driven Non-Yielding Runs
+
+- The improved hot path solved the old throughput and redraw issues: the app
+  now runs heavy workloads smoothly and keeps LCD updates responsive.
+- The remaining Android-only hang appears when a shared-core program drifts
+  into a non-terminating `NaN` loop and does not hit any path that calls
+  `yieldToAndroidWithMs(...)`.
+- In that state, Android stop input is still queue-bound. `R/S` is posted to
+  `NativeCoreRuntime`, but the busy core thread cannot drain that queue because
+  it is still inside `runProgram(false, ...)`.
+- This is a control-boundary bug, not a display-hot-path regression. The fix
+  direction is a dedicated stop-interrupt seam, not a return to the rejected
+  single-step scheduler.
 
 ## Regression And Evidence Surfaces
 
@@ -208,6 +230,9 @@ program, a save or load operation, or a progress or pause loop.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path across the canonical
   `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47` workloads.
+- There is currently no focused automated Android lane proving that the app can
+  interrupt a deliberately non-yielding run. The recent `MANSLV2.p47` NaN-loop
+  stop failure remains a documented gap until that seam is added and tested.
 - `./scripts/android/build_android.sh --run-sim-tests` keeps the Android full
   build path aligned with the `build.sim` Meson and Ninja lane.
 - `ProgramFixtureInstrumentedTest` drives canonical program fixtures through the
@@ -230,6 +255,8 @@ regression surface.
 - Do not reintroduce fixed 10 ms wakeups when native code can report the next
   real deadline.
 - Do not pull packed LCD rows when the generation is unchanged.
+- Do not try to fix stop starvation by queueing more work onto the same busy
+  core thread.
 - Preserve the `trylock` and skip-one-cycle behavior unless a real runtime bug
   proves it is wrong.
 - Make lock release and reacquire boundaries explicit before changing storage,

@@ -88,6 +88,11 @@ flowchart LR
 - `sendKey(int)` is the main numeric key path. It maps key codes `1..37` onto
   `btnPressed(...)` or `btnReleased(...)` and key codes `38..43` onto the
   dedicated function-key press and release handlers.
+- Because touch, PiP, and physical-keyboard key events are posted through
+  `NativeCoreRuntime.offerTask(...)`, a running program can only observe queued
+  `R/S` through that same queue unless native code returns or reaches one of
+  the Android compatibility yield seams. There is currently no dedicated
+  Android-owned emergency-stop JNI entry point.
 - `sendSimKeyNative(String, boolean, boolean)` is the string-key path used by
   the physical keyboard mapper and display actions. It is a cold simulation or
   control surface, not the hot keypad path. It bails out when
@@ -185,6 +190,9 @@ yield behavior.
   process, sleep, and reacquire pattern for long-running native work. It also
   advances timers every 5 ms, refreshes the LCD, and calls
   `processCoreTasksNative()` before sleeping.
+- That makes `yieldToAndroidWithMs(...)` the only Android-owned mid-run bridge
+  that can currently drain queued stop input while a long shared-core run is
+  still executing.
 - The base path configured by `nativePreInit(...)` and the SAF work-directory
   URI owned by `WorkDirectory` are separate contracts. The docs and code must
   keep them separate.

@@ -182,11 +182,15 @@ supports that model by keeping shared synchronization in native code:
 - The Android fixture seam still uses LCD redraw activity as valid run evidence
   for fast-returning fixtures such as `GudrmPL.p47` when step, pause, wait, or
   `VIEW` markers never surface before a clean return.
-- `display.c` yields to Android after `VIEW` refreshes on `ANDROID_BUILD` so
-  queued work can progress during long `VIEW`-driven programs
-- `runProgram()` in `lblGtoXeq.c` applies a 10-second watchdog only to
-  top-level `VIEW`-driven runs on `ANDROID_BUILD` and `HOST_TOOL_BUILD`; when
-  the runtime remains in `TI_VIEW_REGISTER`, it stops with `PGM_WAITING`
+- `yieldToAndroidWithMs()` in `android_runtime.c` is currently the only
+  Android-owned mid-run seam that both releases the recursive `screenMutex` and
+  drains `processCoreTasksNative()` while shared-core execution is still in
+  flight
+- the current staged `runProgram()` in `lblGtoXeq.c` has no Android-specific
+  watchdog or out-of-band stop publisher. If a program loop never returns and
+  never reaches a path that calls `yieldToAndroidWithMs()`, queued `R/S` input
+  can starve behind the busy core-owner thread. The recent `MANSLV2.p47` NaN
+  loop exposed that remaining limitation.
 - native-owned JVM work acquires `JNIEnv` through `jni_acquire_env()` and
   `jni_release_env()` so attach and detach remain scope-bound
 - the bridge can update the current activity reference when the activity is

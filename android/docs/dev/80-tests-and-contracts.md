@@ -45,6 +45,7 @@ flowchart TD
 | rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `ReplicaOverlayController.kt`, `KeypadLabelModes.kt`, `C47TypefacePolicy.kt` | `CalculatorKeyViewRenderSpecTest.kt`, `CalculatorKeyViewFontSelectionTest.kt`, `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ReplicaOverlayGoldenTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | physical keyboard mapping | `PhysicalKeyboardMapper`, `PhysicalKeyboardInputController` | `PhysicalKeyboardInputParityTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | core thread, display loop, and runtime gate behavior | `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`, `jni_lifecycle.c`, `jni_display.c`, `android_runtime.c` | `NativeCoreRuntimeTest.kt`, `NativeDisplayRefreshLoopTest.kt`, `GraphRedrawInstrumentedTest.kt`, `run_workload_regressions.sh` | focused JVM tests first, then the host workload lane when the compatibility path moved |
+| stop delivery during long-running program execution | `MainActivity.kt`, `ReplicaOverlayController.kt`, `NativeCoreRuntime.kt`, `jni_input.c`, `android_runtime.c`, staged `lblGtoXeq.c` | no focused automated lane yet; current evidence is manual Android `MANSLV2.p47` repro plus source-backed ownership analysis | document the gap first, then add a dedicated interrupt-seam regression test before changing behavior |
 | settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
 | settings behavior copy, dark surfaces, adaptive settings host layout, and dependent keypress haptic default-toggle plus custom-duration copy | `SettingsActivity.kt`, `android/app/src/main/res/layout/settings_activity.xml`, `android/app/src/main/res/layout-w600dp/settings_activity.xml`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml`, `android/app/src/main/res/values/themes.xml` | `SettingsActivityThemeTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.SettingsActivityThemeTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
 | keypad haptic gate, Android-default toggle versus custom `0..100 ms` override, and press-only keypad cadence | `HapticFeedbackController.kt`, `ReplicaKeypadLayout.kt`, `MainActivity.kt`, `SettingsActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml` | `HapticFeedbackControllerTest.kt`, `ReplicaKeypadLayoutHapticsTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest --tests io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
@@ -215,6 +216,9 @@ Important files include:
 - `ProgramFixtureInstrumentedTest.kt`: stages canonical `PROGRAMS` fixtures and
   drives `READP` plus `RUN` through the live Android runtime for
   `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47`
+- There is not yet an automated Android seam proving that queued `R/S` can
+  interrupt a deliberately non-yielding run. The recent `MANSLV2.p47` NaN-loop
+  hang remains manual evidence for a known gap rather than a proved contract.
 - `DisplayLifecycleInstrumentedTest.kt`: locks the lifecycle LCD contract so a
   background save, a Settings-style pause or resume, and full
   `ActivityScenario.recreate()` preserve the visible packed LCD snapshot on
@@ -246,6 +250,10 @@ Android compatibility layer.
   `SPIRALk.p47` workload fixtures through the host compatibility path; the
   optional `MANSLV2.p47` probe stays behind `R47_INCLUDE_MANSLV2=1` and is
   diagnostic-only at the current budget
+- That host probe does not prove the Android stop-delivery contract. It tells
+  maintainers whether the shared core runs the workload at all, but not whether
+  the Android shell can interrupt a non-yielding run once it drifts into a
+  `NaN` loop.
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` rebuilds that same
   host compatibility path with the pinned NDK Clang and `llvm-profdata` pair
   under LLVM IRPGO instrumentation, reuses a host-installed

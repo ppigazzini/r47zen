@@ -300,7 +300,11 @@ Public maintainer entrypoints:
   step, pause, wait, or `VIEW` markers.
 - `MANSLV2.p47` remains an upstream example program, but the repo excludes it
   from the required smoke gate because the upstream export text describes it as
-  a manual solver with no checks and stabilisations.
+  a manual solver with no checks and stabilisations, and the latest Android
+  runtime recheck still exposes a queue-bound stop-delivery hang once that
+  program drifts into a non-yielding `NaN` loop. Treat it as a diagnostic or
+  manual repro surface until the Android stop-interrupt seam has a dedicated
+  proof lane.
 - `make sim` is the canonical root simulator and generator validation path for
   the upstream-shaped desktop lane. Android full builds now drive the same
   `build.sim` Meson/Ninja targets through `scripts/android/build_sim_assets.sh`
