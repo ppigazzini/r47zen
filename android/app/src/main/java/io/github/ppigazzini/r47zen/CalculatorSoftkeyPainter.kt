@@ -17,6 +17,15 @@ internal class CalculatorSoftkeyPainter(
     private val softkeyValueLightColor: Int,
     private val softkeyPreviewColor: Int,
 ) {
+    private data class SoftkeyRenderSpecCacheKey(
+        val keyState: KeypadKeySnapshot,
+        val fontSet: KeypadFontSet,
+        val width: Int,
+        val height: Int,
+        val isPressed: Boolean,
+        val drawKeySurfaces: Boolean,
+    )
+
     private val softkeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
@@ -31,6 +40,8 @@ internal class CalculatorSoftkeyPainter(
     private val softkeyDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
+    private var cachedRenderSpecKey: SoftkeyRenderSpecCacheKey? = null
+    private var cachedRenderSpec: KeyRenderSpec? = null
 
     fun draw(
         canvas: Canvas,
@@ -53,6 +64,44 @@ internal class CalculatorSoftkeyPainter(
     }
 
     internal fun buildRenderSpec(
+        keyState: KeypadKeySnapshot,
+        fontSet: KeypadFontSet,
+        width: Int,
+        height: Int,
+        isPressed: Boolean,
+        drawKeySurfaces: Boolean,
+    ): KeyRenderSpec {
+        val cacheKey = SoftkeyRenderSpecCacheKey(
+            keyState = keyState,
+            fontSet = fontSet,
+            width = width,
+            height = height,
+            isPressed = isPressed,
+            drawKeySurfaces = drawKeySurfaces,
+        )
+        val cachedSpec = if (cacheKey == cachedRenderSpecKey) {
+            cachedRenderSpec
+        } else {
+            null
+        }
+        if (cachedSpec != null) {
+            return cachedSpec
+        }
+
+        val renderSpec = buildRenderSpecUncached(
+            keyState = keyState,
+            fontSet = fontSet,
+            width = width,
+            height = height,
+            isPressed = isPressed,
+            drawKeySurfaces = drawKeySurfaces,
+        )
+        cachedRenderSpecKey = cacheKey
+        cachedRenderSpec = renderSpec
+        return renderSpec
+    }
+
+    private fun buildRenderSpecUncached(
         keyState: KeypadKeySnapshot,
         fontSet: KeypadFontSet,
         width: Int,

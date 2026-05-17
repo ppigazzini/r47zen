@@ -144,10 +144,11 @@ corrupts a graph or mixes status text into an otherwise stable LCD snapshot.
   layout before forcing one replay.
 - `CalculatorKeyView` keeps a cached `mainKeyRenderSpec` and refreshes it when
   label, layout-class, or size changes move main-key geometry.
-- `CalculatorSoftkeyPainter` still resolves a fresh `KeyRenderSpec` during
-  `draw(...)` from the current snapshot, size, and pressed state, so
-  unnecessary softkey `invalidate()` churn translates directly into extra spec
-  allocation and text measurement.
+- `CalculatorSoftkeyPainter` now caches the resolved `KeyRenderSpec` by the
+  current snapshot, font set, size, pressed state, and draw-surface flag, so
+  unchanged softkey frames can stay on the painter path without rebuilding the
+  spec graph. Unnecessary softkey `invalidate()` churn is still expensive, but
+  it no longer forces a full spec rebuild on every draw.
 - PiP exit now uses that same contract. The restored full-window shell marks a
   pending geometry replay and the next real overlay layout reapplies the
   current scene once.

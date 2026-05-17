@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,6 +18,47 @@ import kotlin.math.abs
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "xxhdpi")
 class CalculatorSoftkeyPainterCanvasTest {
+    @Test
+    fun buildRenderSpecReusesCachedSpecForStableInputsAndInvalidatesOnChange() {
+        val painter = softkeyPainter()
+        val keyState = KeypadKeySnapshot.EMPTY.copy(
+            primaryLabel = "FILE",
+            auxLabel = "LOAD",
+            sceneFlags = KeypadSceneContract.SCENE_FLAG_SHOW_TEXT or
+                KeypadSceneContract.SCENE_FLAG_SHOW_VALUE,
+            showValue = 12,
+        )
+        val fontSet = KeypadFontSet(standard = null, numeric = null, tiny = null)
+
+        val first = painter.buildRenderSpec(
+            keyState = keyState,
+            fontSet = fontSet,
+            width = WIDTH,
+            height = HEIGHT,
+            isPressed = false,
+            drawKeySurfaces = true,
+        )
+        val second = painter.buildRenderSpec(
+            keyState = keyState,
+            fontSet = fontSet,
+            width = WIDTH,
+            height = HEIGHT,
+            isPressed = false,
+            drawKeySurfaces = true,
+        )
+        val pressed = painter.buildRenderSpec(
+            keyState = keyState,
+            fontSet = fontSet,
+            width = WIDTH,
+            height = HEIGHT,
+            isPressed = true,
+            drawKeySurfaces = true,
+        )
+
+        assertSame(first, second)
+        assertNotSame(first, pressed)
+    }
+
     @Test
     fun buildRenderSpecExposesValueFieldBoundsAndOverlayCenter() {
         val renderSpec = softkeyPainter().buildRenderSpec(
