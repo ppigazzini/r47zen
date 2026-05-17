@@ -39,7 +39,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     companion object {
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
-        private const val RUN_STOP_KEY_CODE = 36
 
         init {
             System.loadLibrary("r47_android")
@@ -92,7 +91,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun dispatchLiveKey(keyCode: Int) {
-        if (keyCode == RUN_STOP_KEY_CODE && requestStopProgramNative()) {
+        if (LiveProgramStopKeyPolicy.shouldPublishDirectStop(keyCode) && requestStopProgramNative()) {
             return
         }
         offerCoreTask(Runnable { sendKey(keyCode) })

@@ -13,7 +13,7 @@ contract-to-regression map that proves these loops.
 | Path | Trigger and cadence | Main files | Why it is hot | Main failure mode |
 | --- | --- | --- | --- | --- |
 | core-thread coordinator | `NativeCoreRuntime` loop while the app is running; drains tasks, calls `tick()`, then waits for queued work up to the returned deadline | `NativeCoreRuntime.kt`, `jni_lifecycle.c` | every Android-owned action reaches the core through this loop | blocking work or queue growth stalls native progress |
-| queued stop delivery during RUN | user presses `R/S` while a program is already running; stop input still arrives through the same core-owner queue as normal keys | `MainActivity.kt`, `ReplicaOverlayController.kt`, `NativeCoreRuntime.kt`, `jni_input.c`, `android_runtime.c` | this is the control-plane path that decides whether Android can interrupt a long run | non-yielding native loops can starve queued stop input and make the app appear hung |
+| live stop delivery during RUN | user presses live `R/S` or `EXIT` while a program is already running; `MainActivity` first tries direct stop publication and only falls back to the normal key queue when native state says the run is already idle | `MainActivity.kt`, `ReplicaOverlayController.kt`, `NativeCoreRuntime.kt`, `jni_input.c`, `android_runtime.c` | this is the control-plane path that decides whether Android can publish stop intent without waiting on the core-owner queue | shared-core loops that never observe `programRunStop` can still ignore the published stop and make the app appear hung |
 | native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms, then returns the next wake delay | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle |
 | frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad labels refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | blocking keypad JNI under `screenMutex` can stall input dispatch and turn a native run into a foreground ANR |
 | packed LCD row decode | each accepted LCD update copies only dirty packed rows, decodes them to the bitmap, and invalidates the touched display rows | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
@@ -58,10 +58,11 @@ flowchart LR
   the activity lifecycle boundary.
 - `dispose(stopApp = true)` clears the queue and offers a sentinel runnable so
   a blocked wait wakes promptly during shutdown.
-- The same queue also carries live keypad input from touch, PiP, and physical
-  keyboard controllers. That is correct for normal execution, but it means a
-  running program can only observe queued `R/S` after the shared core returns
-  or one of its compatibility paths drains the queue mid-run.
+- The same queue still carries normal keypad input from touch, PiP, and
+  physical keyboard controllers.
+- Live touchscreen and PiP `R/S` or `EXIT` now bypass that queue through
+  `requestStopProgramNative()`, but every other key still follows the normal
+  queued path.
 
 Inspect this path when Android requests appear to arrive late, state saves time
 out, or the app behaves as if work is happening on multiple native threads.
@@ -211,26 +212,16 @@ program, a save or load operation, or a progress or pause loop.
 ## Residual Hang: NaN-Driven Non-Yielding Runs
 
 - The improved hot path solved the old throughput and redraw issues: the app
-  now runs heavy workloads smoothly and keeps LCD updates responsive.
+  now runs heavy workloads smoothly, keeps LCD updates responsive, and can
+  publish live `R/S` or `EXIT` stop intent without waiting on the core queue.
 - The remaining Android-only hang appears when a shared-core program drifts
-  into a non-terminating `NaN` loop and does not hit any path that calls
-  `yieldToAndroidWithMs(...)`.
-- In that state, two Android-owned failures stack:
-  - stop input is still queue-bound. `R/S` is posted to `NativeCoreRuntime`,
-    but the busy core thread cannot drain that queue because it is still
-    inside `runProgram(false, ...)`
-  - the UI-thread frame loop still calls `getKeypadMetaNative(...)` every
-    frame and `getKeypadLabelsNative(...)` on refresh, and both JNI exports
-    block on `screenMutex`
-- Android's official ANR guidance says a foreground ANR appears when input
-  dispatch times out after about `5 s`, and it calls out lock contention where
-  a worker thread holds a resource that the main thread needs as a common
-  cause. That matches this shell more closely than the earlier stop-only
-  theory.
-- This is no longer accurately described as only a control-boundary bug. The
-  first fix requirement is a non-blocking UI-thread keypad export path; a
-  dedicated stop-interrupt seam may still be needed after that so a responsive
-  UI can publish stop intent without waiting on the busy core-owner queue.
+  into a non-terminating `NaN` loop and never reaches a path that observes
+  `programRunStop` or yields back through an Android compatibility seam.
+- In that state, the remaining limitation is no longer Android queue starvation
+  or UI-thread keypad export blocking. It is a shared-core stop-observation gap
+  that Android cannot preempt from the outside.
+- Android's official ANR guidance still matters here, but the owned shell side
+  is now the fast publisher rather than the bottleneck.
 
 ## Regression And Evidence Surfaces
 

@@ -190,8 +190,9 @@ supports that model by keeping shared synchronization in native code:
   Android-owned mid-run seam that both releases the recursive `screenMutex` and
   drains `processCoreTasksNative()` while shared-core execution is still in
   flight
-- `MainActivity.dispatchLiveKey(...)` now routes live positive `R/S` presses to
-  `requestStopProgramNative()` before queue fallback. `requestStopProgramNative()`
+- `MainActivity.dispatchLiveKey(...)` now routes live positive `R/S` and
+  `EXIT` presses to `requestStopProgramNative()` before queue fallback.
+  `requestStopProgramNative()`
   publishes stop intent through the existing upstream `fnStopProgram()` path
   without taking `screenMutex` or queueing onto `NativeCoreRuntime`.
 - Android's official ANR guidance explicitly calls out main-thread lock
