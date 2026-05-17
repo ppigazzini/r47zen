@@ -159,6 +159,7 @@ class ReplicaOverlayControllerLabelModeTest {
 
         assertEquals("", keyState.primaryLabel)
         assertEquals("", keyState.auxLabel)
+    assertTrue(keyState.isEnabled)
         assertTrue(keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_REVERSE_VIDEO))
         assertFalse(keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT))
         assertFalse(keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_VALUE))
@@ -181,6 +182,7 @@ class ReplicaOverlayControllerLabelModeTest {
 
         assertEquals("", keyState.primaryLabel)
         assertEquals("", keyState.auxLabel)
+    assertTrue(keyState.isEnabled)
         assertFalse(keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_REVERSE_VIDEO))
         assertFalse(keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT))
         assertFalse(keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_VALUE))

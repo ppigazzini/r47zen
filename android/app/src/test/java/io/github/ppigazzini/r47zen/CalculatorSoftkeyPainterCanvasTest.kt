@@ -91,6 +91,40 @@ class CalculatorSoftkeyPainterCanvasTest {
     }
 
     @Test
+    fun buildRenderSpecUsesDarkerFillForNativeEmptySoftkeySlot() {
+        val renderSpec = softkeyPainter().buildRenderSpec(
+            keyState = KeypadKeySnapshot.EMPTY.copy(
+                sceneFlags = KeypadSceneContract.SCENE_FLAG_SOFTKEY,
+            ),
+            fontSet = KeypadFontSet(standard = null, numeric = null, tiny = null),
+            width = WIDTH,
+            height = HEIGHT,
+            isPressed = true,
+            drawKeySurfaces = true,
+        )
+
+        assertEquals(Color.rgb(32, 32, 32), renderSpec.chrome?.fillColor)
+        assertTrue(renderSpec.chrome?.pressedAccents?.isEmpty() == true)
+    }
+
+    @Test
+    fun buildRenderSpecKeepsDefaultFillForBlankEnabledSoftkey() {
+        val renderSpec = softkeyPainter().buildRenderSpec(
+            keyState = KeypadKeySnapshot.EMPTY.copy(
+                isEnabled = true,
+                sceneFlags = KeypadSceneContract.SCENE_FLAG_SOFTKEY,
+            ),
+            fontSet = KeypadFontSet(standard = null, numeric = null, tiny = null),
+            width = WIDTH,
+            height = HEIGHT,
+            isPressed = false,
+            drawKeySurfaces = true,
+        )
+
+        assertEquals(Color.rgb(64, 64, 64), renderSpec.chrome?.fillColor)
+    }
+
+    @Test
     fun drawRendersReverseFillPreviewAndStrikePixels() {
         val bitmap = render(
             KeypadKeySnapshot.EMPTY.copy(
@@ -166,6 +200,7 @@ class CalculatorSoftkeyPainterCanvasTest {
             letterColor = Color.parseColor("#A5A5A5"),
             mainKeyFillColor = Color.rgb(64, 64, 64),
             mainKeyPressedColor = Color.parseColor("#744A2E"),
+            softkeyEmptyColor = Color.rgb(32, 32, 32),
             softkeyReverseColor = Color.rgb(96, 96, 96),
             softkeyReversePressedColor = Color.parseColor("#744A2E"),
             softkeyLightTextColor = Color.parseColor("#F4F7F9"),

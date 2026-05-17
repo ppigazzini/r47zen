@@ -10,6 +10,7 @@ internal class CalculatorSoftkeyPainter(
     private val letterColor: Int,
     private val mainKeyFillColor: Int,
     private val mainKeyPressedColor: Int,
+    private val softkeyEmptyColor: Int,
     private val softkeyReverseColor: Int,
     private val softkeyReversePressedColor: Int,
     private val softkeyLightTextColor: Int,
@@ -116,6 +117,7 @@ internal class CalculatorSoftkeyPainter(
             keyState.showValue != KeypadKeySnapshot.NO_VALUE
         val showOverlay = keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_CB) &&
             keyState.overlayState >= 0
+        val emptySoftkeySlot = keyState.isEmptySoftkeySlot()
 
         val softkeyBounds = RectSpec(
             left = KeyVisualPolicy.SOFTKEY_OUTER_INSET,
@@ -125,6 +127,7 @@ internal class CalculatorSoftkeyPainter(
         )
 
         val fillColor = when {
+            emptySoftkeySlot -> softkeyEmptyColor
             reverseVideo && isPressed -> softkeyReversePressedColor
             reverseVideo -> softkeyReverseColor
             isPressed -> mainKeyPressedColor
@@ -145,7 +148,7 @@ internal class CalculatorSoftkeyPainter(
             fillColor = fillColor,
             cornerRadius = cornerRadius,
             drawSurface = drawKeySurfaces,
-            pressedAccents = if (drawKeySurfaces && isPressed) {
+            pressedAccents = if (drawKeySurfaces && isPressed && !emptySoftkeySlot) {
                 buildPressedAccentSpecs(
                     bounds = softkeyBounds,
                     width = width,
@@ -502,6 +505,15 @@ internal class CalculatorSoftkeyPainter(
             right = center.x + extent,
             bottom = center.y + extent,
         )
+    }
+
+    private fun KeypadKeySnapshot.isEmptySoftkeySlot(): Boolean {
+        return sceneFlags == KeypadSceneContract.SCENE_FLAG_SOFTKEY &&
+            !isEnabled &&
+            primaryLabel.isBlank() &&
+            auxLabel.isBlank() &&
+            overlayState == KeypadKeySnapshot.NO_VALUE &&
+            showValue == KeypadKeySnapshot.NO_VALUE
     }
 
     private fun drawRenderSpec(

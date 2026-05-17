@@ -151,8 +151,9 @@ Important contract files include:
   bounds, and accessibility text before pixels are drawn
 - `CalculatorSoftkeyPainterContractTest.kt` and
   `CalculatorSoftkeyPainterCanvasTest.kt`: lock softkey content-description,
-  overlay, preview, strike rendering rules, the shared softkey text-paint
-  antialias bit, and the spec-layer value-field and overlay geometry seam
+  overlay, preview, strike rendering rules, the grey-32 empty-slot versus
+  grey-64 populated-slot fill split, the shared softkey text-paint antialias
+  bit, and the spec-layer value-field and overlay geometry seam
 - `SoftkeyOverlayPainterTest.kt`: locks the extracted overlay-painter stage for
   the menu-badge label and underline path without routing through the larger
   softkey renderer owner
@@ -165,7 +166,9 @@ Important contract files include:
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
   the app-facing whole-snapshot export, the landed single-snapshot USER-mode
   contract that still keeps printed main-key legends, the Virtuoso blank-keycap
-  composition, and the Kotlin-side softkey `graphic` and `off` scene masks
+  composition, and the Kotlin-side softkey `graphic` and `off` scene masks,
+  including the requirement that those masks keep enabled blank capsules
+  distinct from native empty-slot scenes
 - `PhysicalKeyboardInputParityTest.kt`: locks printable, function-key,
   shortcut, and modifier-tap mapping behavior
 - `NativeCoreRuntimeTest.kt`: locks single-init, queued-task,

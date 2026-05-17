@@ -45,7 +45,7 @@ flowchart LR
 | shared touch grid and key slots | `KeypadTopology` -> `ReplicaKeypadLayout` | `scripts/r47_contracts/data/r47_physical_geometry.json` plus `scripts/r47_contracts/derive_touch_grid.py` | grouped `scripts/r47_contracts` validation lane, `KeypadFixtureContractTest.kt` |
 | top-label lane placement | `TopLabelLaneLayout` -> `ReplicaKeypadLayout` -> `CalculatorKeyView` | `scripts/r47_contracts/derive_top_label_lane_layout.py` | `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `DynamicKeypadParityFixtureTest.kt` |
 | per-key label offsets and body geometry | `R47KeySurfacePolicy`, `R47LabelLayoutPolicy`, `R47TopLabelSolverPolicy` -> `CalculatorKeyView.buildMainKeyRenderSpec()` -> `KeyRenderSpec` | `scripts/r47_contracts/data/r47_android_ui_contract.json`, `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `scripts/r47_contracts/derive_top_label_lane_layout.py`, `KeyRenderSpec.kt` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py`, `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `CalculatorKeyViewRenderSpecTest.kt` |
-| softkey visuals and overlay states | `CalculatorSoftkeyPainter.buildRenderSpec()` -> `KeyRenderSpec` | native scene roles plus `KeyVisualPolicy` constants and `scripts/r47_contracts/data/r47_android_ui_contract.json` softkey geometry fields | `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ExportedKeypadFixtureRenderTest.kt` |
+| softkey visuals and overlay states | `CalculatorSoftkeyPainter.buildRenderSpec()` -> `KeyRenderSpec` | native scene roles plus `KeyVisualPolicy` constants and `scripts/r47_contracts/data/r47_android_ui_contract.json` softkey geometry fields; the live fill split is grey-32 for native clear-scene empties, grey-64 for populated standard or barred items, and grey-96 for reverse submenu items | `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ExportedKeypadFixtureRenderTest.kt` |
 
 ## Shell projection contract
 
@@ -437,10 +437,19 @@ flags. The current `CalculatorKeyView` softkey renderer does not draw those
 four flags directly; audit the native scene contract and Android renderer
 together before treating any of them as visible Android surfaces.
 
+The softkey capsule fill now keys off the decoded scene type rather than blank
+text alone:
+
+- the native clear-scene softkey state uses the darker empty capsule
+  `RGB(32, 32, 32)`
+- populated standard and barred items keep the base fill `RGB(64, 64, 64)`
+- reverse-video submenu items keep `RGB(96, 96, 96)`
+
 When the user selects softkey `graphic` or `off`, Android masks the decoded
 scene before the painter sees it. `graphic` clears text and value lanes only.
 `off` also clears reverse-video, overlay, preview, and strike flags so the key
-falls back to the default softkey capsule.
+falls back to the populated default softkey capsule rather than pretending it
+is a native empty slot.
 
 ## Typography and label roles
 
@@ -503,7 +512,8 @@ The verification surface for this text-rendering split is now:
 - `CalculatorKeyViewCanvasTest.kt` for main-key primary, top-label, and fourth-
   label canvas output
 - `CalculatorSoftkeyPainterCanvasTest.kt` and
-  `CalculatorSoftkeyPainterContractTest.kt` for softkey text and chrome output
+  `CalculatorSoftkeyPainterContractTest.kt` for softkey text, chrome output,
+  and the empty-versus-populated capsule split
 - `scripts/r47_contracts/test_key_label_geometry_contract.py` and
   `scripts/r47_contracts/test_key_font_policy_contract.py` for the checked-in
   geometry, shared painter-stage, and font-policy contracts

@@ -84,6 +84,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val longPressColor = Color.parseColor("#D4D8DD")
         private val mainKeyFillColor = Color.rgb(64, 64, 64)
         private val mainKeyPressedColor = Color.parseColor("#744A2E")
+        private val softkeyEmptyColor = Color.rgb(32, 32, 32)
         private val softkeyReverseColor = Color.rgb(96, 96, 96)
         private val softkeyReversePressedColor = mainKeyPressedColor
         private val softkeyLightTextColor = Color.parseColor("#F4F7F9")
@@ -139,6 +140,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         letterColor = letterColor,
         mainKeyFillColor = mainKeyFillColor,
         mainKeyPressedColor = mainKeyPressedColor,
+        softkeyEmptyColor = softkeyEmptyColor,
         softkeyReverseColor = softkeyReverseColor,
         softkeyReversePressedColor = softkeyReversePressedColor,
         softkeyLightTextColor = softkeyLightTextColor,
