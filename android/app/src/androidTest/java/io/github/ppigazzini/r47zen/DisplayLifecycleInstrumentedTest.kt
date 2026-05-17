@@ -187,8 +187,8 @@ class DisplayLifecycleInstrumentedTest {
 
     private fun runSpiralkScenario(loadState: ProgramLoadState) {
         assertTrue(
-            "failed to start the asynchronous RUN worker for SPIRALk",
-            ProgramLoadTestBridge.beginSimFunction(ITM_RS),
+            "failed to start the asynchronous MainActivity R/S key worker for SPIRALk",
+            ProgramLoadTestBridge.beginMainActivityKeySequence(RS_KEY_CODE),
         )
 
         val loadStep = loadState.currentLocalStepNumber
@@ -252,7 +252,7 @@ class DisplayLifecycleInstrumentedTest {
     private companion object {
         private const val SPIRALK_ASSET_PATH = "program-fixtures/PROGRAMS/SPIRALk.p47"
         private const val ITM_READP = 1567
-        private const val ITM_RS = 1725
+        private const val RS_KEY_CODE = 36
         private const val ERROR_NONE = 0
         private const val TI_VIEW_REGISTER = 15
         private const val TI_PROGRAM_LOADED = 86

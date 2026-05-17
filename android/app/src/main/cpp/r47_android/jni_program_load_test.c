@@ -1,5 +1,6 @@
 #include "jni_bridge.h"
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -18,6 +19,10 @@ enum {
 static pthread_mutex_t r47_program_load_worker_mutex = PTHREAD_MUTEX_INITIALIZER;
 static bool_t r47_program_load_worker_running = false;
 
+typedef struct {
+  int key_code;
+} r47_program_load_key_sequence_t;
+
 static const char *const kR47LargeFactorsInput =
   "5424563354566542698521412502251020304050";
 
@@ -30,6 +35,21 @@ static void *r47_program_load_worker_main(void *arg) {
   extern void runFunction(int16_t id);
   runFunction((int16_t)func_id);
   pthread_mutex_unlock(&screenMutex);
+
+  pthread_mutex_lock(&r47_program_load_worker_mutex);
+  r47_program_load_worker_running = false;
+  pthread_mutex_unlock(&r47_program_load_worker_mutex);
+
+  return NULL;
+}
+
+static void *r47_program_load_key_worker_main(void *arg) {
+  r47_program_load_key_sequence_t *request =
+      (r47_program_load_key_sequence_t *)arg;
+
+  Java_com_example_r47_MainActivity_sendKey(NULL, NULL, request->key_code);
+  Java_com_example_r47_MainActivity_sendKey(NULL, NULL, 0);
+  free(request);
 
   pthread_mutex_lock(&r47_program_load_worker_mutex);
   r47_program_load_worker_running = false;
@@ -270,6 +290,52 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_beginSimFunctionNative(
   pthread_t worker_thread;
   if (pthread_create(&worker_thread, NULL, r47_program_load_worker_main,
                      (void *)(intptr_t)funcId) != 0) {
+    pthread_mutex_lock(&r47_program_load_worker_mutex);
+    r47_program_load_worker_running = false;
+    pthread_mutex_unlock(&r47_program_load_worker_mutex);
+    return JNI_FALSE;
+  }
+
+  pthread_detach(worker_thread);
+  return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_beginMainActivityKeySequenceNative(
+    JNIEnv *env, jobject thiz, jint keyCode) {
+  (void)env;
+  (void)thiz;
+
+  if (!ram) {
+    return JNI_FALSE;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  r47_reset_host_lcd_refresh_count();
+  pthread_mutex_unlock(&screenMutex);
+
+  pthread_mutex_lock(&r47_program_load_worker_mutex);
+  if (r47_program_load_worker_running) {
+    pthread_mutex_unlock(&r47_program_load_worker_mutex);
+    return JNI_FALSE;
+  }
+  r47_program_load_worker_running = true;
+  pthread_mutex_unlock(&r47_program_load_worker_mutex);
+
+  r47_program_load_key_sequence_t *request =
+      (r47_program_load_key_sequence_t *)malloc(sizeof(*request));
+  if (request == NULL) {
+    pthread_mutex_lock(&r47_program_load_worker_mutex);
+    r47_program_load_worker_running = false;
+    pthread_mutex_unlock(&r47_program_load_worker_mutex);
+    return JNI_FALSE;
+  }
+  request->key_code = (int)keyCode;
+
+  pthread_t worker_thread;
+  if (pthread_create(&worker_thread, NULL, r47_program_load_key_worker_main,
+                     request) != 0) {
+    free(request);
     pthread_mutex_lock(&r47_program_load_worker_mutex);
     r47_program_load_worker_running = false;
     pthread_mutex_unlock(&r47_program_load_worker_mutex);

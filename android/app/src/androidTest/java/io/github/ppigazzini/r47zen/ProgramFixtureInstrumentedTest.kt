@@ -182,13 +182,13 @@ class ProgramFixtureInstrumentedTest {
         fixture: ProgramFixture,
         loadState: ProgramLoadState,
     ): String? {
-        val started = ProgramLoadTestBridge.beginSimFunction(ITM_RS)
+        val started = ProgramLoadTestBridge.beginMainActivityKeySequence(RS_KEY_CODE)
         if (!started) {
             return buildFailure(
                 fixture = fixture,
                 phase = "run",
                 state = loadState,
-                details = "failed to start the asynchronous RUN worker",
+                details = "failed to start the asynchronous MainActivity R/S key worker",
             )
         }
 
@@ -372,7 +372,7 @@ class ProgramFixtureInstrumentedTest {
     companion object {
         private const val PROGRAMS_ASSET_ROOT = "program-fixtures/PROGRAMS"
         private const val ITM_READP = 1567
-        private const val ITM_RS = 1725
+        private const val RS_KEY_CODE = 36
         private const val ERROR_NONE = 0
         private const val EMPTY_RESET_PROGRAM_COUNT = 1
         private const val TI_VIEW_REGISTER = 15

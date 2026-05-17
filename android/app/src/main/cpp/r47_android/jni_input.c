@@ -1,7 +1,6 @@
 #include "jni_bridge.h"
 
 #include <stdio.h>
-#include <string.h>
 
 extern void btnFnPressed(GtkWidget *notUsed, GdkEvent *event, gpointer data);
 extern void btnFnReleased(GtkWidget *notUsed, GdkEvent *event, gpointer data);
@@ -31,6 +30,8 @@ void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
     return;
   }
 
+  // This string bridge stays as a cold simulation/test surface. Live keypad
+  // input uses the fixed-width sendKey() press/release path below.
   pthread_mutex_lock(&screenMutex);
   if (isFn) {
     if (isRelease) {
@@ -78,18 +79,18 @@ Java_com_example_r47_MainActivity_sendSimKeyNative(
   }
 
   const char *nativeKeyId = (*env)->GetStringUTFChars(env, keyId, 0);
-    if (!nativeKeyId ||
+  if (!nativeKeyId ||
       jni_check_and_clear_exception(env,
-                      "sendSimKeyNative GetStringUTFChars")) {
+                                    "sendSimKeyNative GetStringUTFChars")) {
     return;
   }
 
-  r47_send_sim_key(nativeKeyId, isFn, isRelease);
+  r47_send_sim_key(nativeKeyId, isFn == JNI_TRUE, isRelease == JNI_TRUE);
   (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
 }
 
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
-  JNIEnv *env, jobject thiz, jint keyCode) {
+    JNIEnv *env, jobject thiz, jint keyCode) {
   (void)env;
   (void)thiz;
   if (!ram) {
@@ -97,15 +98,19 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
   }
 
   onUIActivity();
+
   if (keyCode > 0) {
     LOGD("sendKey: DOWN %d", keyCode);
+
     currentPressedKeyCode = keyCode;
     pthread_mutex_lock(&screenMutex);
     if (keyCode >= 38 && keyCode <= 43) {
-      snprintf(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%c", keyCode - 38 + '1');
+      snprintf(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%c",
+               keyCode - 38 + '1');
       btnFnPressed(NULL, &pressEvent, currentPressedKeyStr);
     } else if (keyCode >= 1 && keyCode <= 37) {
-      snprintf(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%02u", keyCode - 1);
+      snprintf(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%02u",
+               keyCode - 1);
       btnPressed(NULL, &pressEvent, currentPressedKeyStr);
     }
     pthread_mutex_unlock(&screenMutex);
@@ -113,6 +118,7 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
   }
 
   LOGD("sendKey: UP (last=%d)", currentPressedKeyCode);
+
   pthread_mutex_lock(&screenMutex);
   if (currentPressedKeyCode >= 38 && currentPressedKeyCode <= 43) {
     btnFnReleased(NULL, &releaseEvent, currentPressedKeyStr);
