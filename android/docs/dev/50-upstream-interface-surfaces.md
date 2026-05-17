@@ -93,6 +93,9 @@ flowchart LR
   `R/S` through that same queue unless native code returns or reaches one of
   the Android compatibility yield seams. There is currently no dedicated
   Android-owned emergency-stop JNI entry point.
+- That queue-bound control path is not the whole Android ANR story. Touch
+  dispatch itself stays lightweight; the stronger current suspect is the
+  main-thread snapshot export path in `NativeDisplayRefreshLoop`.
 - `sendSimKeyNative(String, boolean, boolean)` is the string-key path used by
   the physical keyboard mapper and display actions. It is a cold simulation or
   control surface, not the hot keypad path. It bails out when
@@ -113,6 +116,16 @@ flowchart LR
   `lcdBufferDirty` is true and returns `true` only after a successful copy. It
   uses `pthread_mutex_trylock`, so a busy native section simply skips one frame
   instead of blocking the UI thread.
+- `getKeypadMetaNative(mainKeyDynamicMode)` and
+  `getKeypadLabelsNative(mainKeyDynamicMode)` do not mirror that behavior yet:
+  both still take `screenMutex` with blocking `pthread_mutex_lock`.
+- `NativeDisplayRefreshLoop.doFrame(...)` calls `getKeypadMetaNative(...)`
+  every frame, and the snapshot callback into
+  `ReplicaOverlayController.currentKeypadSnapshot()` calls
+  `getKeypadLabelsNative(...)` when labels refresh. If shared-core execution
+  stops yielding while it owns the same lock, the Android main thread can stall
+  inside these exports even though packed LCD export keeps the non-blocking
+  `trylock` behavior.
 - After a successful copy, the JNI export clears the packed-row dirty flag in
   each copied row. That flag is transport bookkeeping, not part of the visible
   LCD contract.

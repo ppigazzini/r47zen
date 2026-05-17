@@ -38,10 +38,8 @@ internal class ReplicaOverlayController(
     private val context: Context,
     private val overlay: ReplicaOverlay,
     private val performHapticClick: (View) -> Unit,
-    private val offerCoreTask: (Runnable) -> Unit,
-    private val sendKey: (Int) -> Unit,
-    private val getKeypadMetaNative: (Int) -> IntArray,
-    private val getKeypadLabelsNative: (Int) -> Array<String>,
+    private val dispatchLiveKey: (Int) -> Unit,
+    private val getKeypadSnapshot: (Int) -> KeypadSnapshot?,
     private val isRuntimeReady: () -> Boolean,
     private val refreshGate: KeypadSnapshotRefreshGate = KeypadSnapshotRefreshGate(),
 ) {
@@ -49,11 +47,10 @@ internal class ReplicaOverlayController(
     private var softkeyDynamicMode = SoftkeyDynamicMode.DEFAULT
     private var pendingGeometrySceneReplay = false
     private var geometrySceneReplayPosted = false
+    private var lastResolvedSnapshot = KeypadSnapshot.EMPTY
 
     fun bindOverlay() {
-        overlay.onPiPKeyEvent = { code ->
-            offerCoreTask(Runnable { sendKey(code) })
-        }
+        overlay.onPiPKeyEvent = dispatchLiveKey
         overlay.onGeometryLaidOut = {
             ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout(overlay)
             schedulePendingGeometrySceneReplay()
@@ -100,19 +97,18 @@ internal class ReplicaOverlayController(
         refreshDynamicKeys(forceApply = true)
     }
 
-    fun currentKeypadSnapshot(meta: IntArray? = null): KeypadSnapshot {
-        val resolvedSnapshot = when (mainKeyDynamicMode) {
-            MainKeyDynamicMode.USER -> {
-                val userSnapshot = snapshotForMode(MainKeyDynamicMode.USER, meta)
-                snapshotForMode(MainKeyDynamicMode.OFF)
-                    .applyMainKeyDynamicMode(MainKeyDynamicMode.USER, userSnapshot)
-            }
-            else -> snapshotForMode(mainKeyDynamicMode, meta)
-                .applyMainKeyDynamicMode(mainKeyDynamicMode)
-        }
-
-        return resolvedSnapshot
+    fun currentKeypadSnapshot(): KeypadSnapshot {
+        val resolvedSnapshot = snapshotForMode(mainKeyDynamicMode)
             .applySoftkeyDynamicMode(softkeyDynamicMode)
+        if (resolvedSnapshot.sceneContractVersion > 0) {
+            lastResolvedSnapshot = resolvedSnapshot
+            return resolvedSnapshot
+        }
+        return if (lastResolvedSnapshot.sceneContractVersion > 0) {
+            lastResolvedSnapshot
+        } else {
+            resolvedSnapshot
+        }
     }
 
     fun refreshDynamicKeys(snapshot: KeypadSnapshot? = null) {
@@ -150,12 +146,9 @@ internal class ReplicaOverlayController(
         )
     }
 
-    private fun snapshotForMode(
-        mode: MainKeyDynamicMode,
-        meta: IntArray? = null,
-    ): KeypadSnapshot {
-        val resolvedMeta = meta ?: getKeypadMetaNative(mode.nativeCode)
-        return KeypadSnapshot.fromNative(resolvedMeta, getKeypadLabelsNative(mode.nativeCode))
+    private fun snapshotForMode(mode: MainKeyDynamicMode): KeypadSnapshot {
+        return (getKeypadSnapshot(mode.nativeCode) ?: KeypadSnapshot.EMPTY)
+            .applyMainKeyDynamicMode(mode)
     }
 
     private fun markGeometryChange() {
@@ -186,6 +179,6 @@ internal class ReplicaOverlayController(
     }
 
     private fun dispatchKey(keyCode: Int) {
-        offerCoreTask(Runnable { sendKey(keyCode) })
+        dispatchLiveKey(keyCode)
     }
 }

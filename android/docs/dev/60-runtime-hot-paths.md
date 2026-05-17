@@ -15,7 +15,7 @@ contract-to-regression map that proves these loops.
 | core-thread coordinator | `NativeCoreRuntime` loop while the app is running; drains tasks, calls `tick()`, then waits for queued work up to the returned deadline | `NativeCoreRuntime.kt`, `jni_lifecycle.c` | every Android-owned action reaches the core through this loop | blocking work or queue growth stalls native progress |
 | queued stop delivery during RUN | user presses `R/S` while a program is already running; stop input still arrives through the same core-owner queue as normal keys | `MainActivity.kt`, `ReplicaOverlayController.kt`, `NativeCoreRuntime.kt`, `jni_input.c`, `android_runtime.c` | this is the control-plane path that decides whether Android can interrupt a long run | non-yielding native loops can starve queued stop input and make the app appear hung |
 | native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms, then returns the next wake delay | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle |
-| frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad labels refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | extra JNI calls, duplicate pollers, or unnecessary redraw triggers hurt frame time |
+| frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad labels refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | blocking keypad JNI under `screenMutex` can stall input dispatch and turn a native run into a foreground ANR |
 | packed LCD row decode | each accepted LCD update copies only dirty packed rows, decodes them to the bitmap, and invalidates the touched display rows | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
 | keypad scene apply | scene changes update all live key views, invalidate per-key specs, and may request layout | `ReplicaOverlayController.kt`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt` | keypad labels, render specs, and layout are the largest recurring view updates outside the LCD | bypassing the refresh gate or forcing layout or invalidation on unchanged scenes creates churn |
 | lifecycle save and explicit refresh | background save waits on the core thread; explicit redraw remains opt-in for real state changes | `NativeCoreRuntime.kt`, `MainActivity.kt`, `jni_lifecycle.c` | lifecycle callbacks are easy places to hide destructive redraw work | synthetic redraws during passive save or resume mutate the LCD without a real calculator transition |
@@ -95,6 +95,14 @@ Changes here affect the full runtime even when the Android UI code is untouched.
   on the next frame instead of being treated as consumed.
 - The loop still requests keypad metadata through `getKeypadMetaNative(...)`
   using the current main-key mode code from `ReplicaOverlayController`.
+- When label refresh is needed, the `getKeypadSnapshot(...)` callback resolves
+  to `ReplicaOverlayController.currentKeypadSnapshot()`, which also calls
+  `getKeypadLabelsNative(...)` on the UI thread.
+- `getPackedDisplayBuffer(...)` uses `pthread_mutex_trylock`, but
+  `getKeypadMetaNative(...)` and `getKeypadLabelsNative(...)` in
+  `jni_display.c` still use blocking `pthread_mutex_lock(&screenMutex)`. A
+  non-yielding native run can therefore stall the frame loop even when packed
+  LCD export itself skips cleanly.
 - Label refresh work runs only when either of these is true:
   - the keypad metadata differs from the last frame
   - more than 500 ms passed since `lastLabelRefresh`
@@ -207,12 +215,22 @@ program, a save or load operation, or a progress or pause loop.
 - The remaining Android-only hang appears when a shared-core program drifts
   into a non-terminating `NaN` loop and does not hit any path that calls
   `yieldToAndroidWithMs(...)`.
-- In that state, Android stop input is still queue-bound. `R/S` is posted to
-  `NativeCoreRuntime`, but the busy core thread cannot drain that queue because
-  it is still inside `runProgram(false, ...)`.
-- This is a control-boundary bug, not a display-hot-path regression. The fix
-  direction is a dedicated stop-interrupt seam, not a return to the rejected
-  single-step scheduler.
+- In that state, two Android-owned failures stack:
+  - stop input is still queue-bound. `R/S` is posted to `NativeCoreRuntime`,
+    but the busy core thread cannot drain that queue because it is still
+    inside `runProgram(false, ...)`
+  - the UI-thread frame loop still calls `getKeypadMetaNative(...)` every
+    frame and `getKeypadLabelsNative(...)` on refresh, and both JNI exports
+    block on `screenMutex`
+- Android's official ANR guidance says a foreground ANR appears when input
+  dispatch times out after about `5 s`, and it calls out lock contention where
+  a worker thread holds a resource that the main thread needs as a common
+  cause. That matches this shell more closely than the earlier stop-only
+  theory.
+- This is no longer accurately described as only a control-boundary bug. The
+  first fix requirement is a non-blocking UI-thread keypad export path; a
+  dedicated stop-interrupt seam may still be needed after that so a responsive
+  UI can publish stop intent without waiting on the busy core-owner queue.
 
 ## Regression And Evidence Surfaces
 
@@ -230,9 +248,11 @@ program, a save or load operation, or a progress or pause loop.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path across the canonical
   `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47` workloads.
-- There is currently no focused automated Android lane proving that the app can
-  interrupt a deliberately non-yielding run. The recent `MANSLV2.p47` NaN-loop
-  stop failure remains a documented gap until that seam is added and tested.
+- There is currently no focused automated Android lane proving that keypad
+  snapshot export stays non-blocking on the UI thread during a deliberately
+  non-yielding run, or that Android can interrupt once input remains live. The
+  recent `MANSLV2.p47` NaN-loop stop failure remains a documented gap until
+  those seams are added and tested.
 - `./scripts/android/build_android.sh --run-sim-tests` keeps the Android full
   build path aligned with the `build.sim` Meson and Ninja lane.
 - `ProgramFixtureInstrumentedTest` drives canonical program fixtures through the
@@ -257,6 +277,9 @@ regression surface.
 - Do not pull packed LCD rows when the generation is unchanged.
 - Do not try to fix stop starvation by queueing more work onto the same busy
   core thread.
+- Do not let UI-thread keypad snapshot export block behind `screenMutex`; if
+  native state is busy, prefer stale snapshot reuse or a skipped refresh over a
+  blocking wait.
 - Preserve the `trylock` and skip-one-cycle behavior unless a real runtime bug
   proves it is wrong.
 - Make lock release and reacquire boundaries explicit before changing storage,

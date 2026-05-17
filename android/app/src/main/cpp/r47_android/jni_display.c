@@ -410,6 +410,10 @@ static jint packLabelRole(jint slot, jint role) {
   return role << (slot * 4);
 }
 
+static jint labelRoleMask(jint slot) {
+  return 0xF << (slot * 4);
+}
+
 static int keypadMetaIndex(int offset, int keyCode) {
   return offset + keyCode - 1;
 }
@@ -1279,6 +1283,143 @@ static void setExportedMainKeypadLabel(
                         R47_KEYPAD_LABEL_CAPACITY);
 }
 
+static void clearExportedKeypadLabels(
+    char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+               [R47_KEYPAD_LABEL_CAPACITY]) {
+  memset(labels, 0,
+         sizeof(char) * R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY *
+             R47_KEYPAD_LABEL_CAPACITY);
+}
+
+static void fillExportedKeypadLabelsForPresentation(
+    char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+               [R47_KEYPAD_LABEL_CAPACITY],
+    const keypadMainLabelPresentation_t *presentation) {
+  const calcKey_t *keys = getVisibleKeyTable(presentation);
+
+  for (int keyCode = 1; keyCode <= 37; keyCode++) {
+    const calcKey_t *key = &keys[keyCode - 1];
+    for (int labelType = 0; labelType < KEYPAD_LABELS_PER_KEY; labelType++) {
+      keypadMainLabel_t label =
+          resolveMainKeyLabelInfo(key, keyCode, labelType, presentation);
+      setExportedMainKeypadLabel(labels, keyCode, labelType, key, &label,
+                                 presentation);
+    }
+  }
+
+  for (int fnKeyIndex = 1; fnKeyIndex <= 6; fnKeyIndex++) {
+    keypadSoftkeyScene_t scene;
+    int keyCode = 37 + fnKeyIndex;
+    resolveSoftkeyScene(fnKeyIndex, &scene);
+    setExportedKeypadLabel(labels, keyCode, KEYPAD_LABEL_PRIMARY,
+                           scene.primaryLabel);
+    setExportedKeypadLabel(labels, keyCode, KEYPAD_LABEL_AUX, scene.auxLabel);
+  }
+}
+
+static void overlayUserModeKeypadSnapshot(
+    jint *fill,
+    char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+               [R47_KEYPAD_LABEL_CAPACITY],
+    const keypadMainLabelPresentation_t *presentation) {
+  const jint dynamicRoleMask =
+      labelRoleMask(KEYPAD_LABEL_F) | labelRoleMask(KEYPAD_LABEL_G);
+  const calcKey_t *keys = getVisibleKeyTable(presentation);
+
+  for (int keyCode = 1; keyCode <= 37; keyCode++) {
+    const calcKey_t *key = &keys[keyCode - 1];
+    keypadMainLabel_t fLabel =
+        resolveMainKeyLabelInfo(key, keyCode, KEYPAD_LABEL_F, presentation);
+    keypadMainLabel_t gLabel =
+        resolveMainKeyLabelInfo(key, keyCode, KEYPAD_LABEL_G, presentation);
+    setExportedMainKeypadLabel(labels, keyCode, KEYPAD_LABEL_F, key, &fLabel,
+                               presentation);
+    setExportedMainKeypadLabel(labels, keyCode, KEYPAD_LABEL_G, key, &gLabel,
+                               presentation);
+
+    jint roles = fill[keypadMetaIndex(KEYPAD_META_LABEL_ROLE_OFFSET, keyCode)];
+    jint userRoles = resolveMainLabelRoles(key, keyCode, presentation);
+    fill[keypadMetaIndex(KEYPAD_META_LABEL_ROLE_OFFSET, keyCode)] =
+        (roles & ~dynamicRoleMask) | (userRoles & dynamicRoleMask);
+  }
+}
+
+static void fillAppKeypadSnapshotLocked(
+    jint *fill,
+    char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+               [R47_KEYPAD_LABEL_CAPACITY],
+    jint mainKeyDynamicMode) {
+  memset(fill, 0, sizeof(jint) * KEYPAD_META_LENGTH);
+  clearExportedKeypadLabels(labels);
+  if (!ram) {
+    return;
+  }
+
+  bool_t alphaOn = isAlphaKeyboardActive();
+  bool_t userKeyboardEnabled = isUserKeyboardEnabled();
+  keypadMainLabelMode_t normalizedMode =
+      normalizeMainLabelMode(mainKeyDynamicMode);
+
+  if (normalizedMode == KEYPAD_MAIN_LABEL_MODE_USER && userKeyboardEnabled) {
+    keypadMainLabelPresentation_t offPresentation = buildAppMainLabelPresentation(
+        KEYPAD_MAIN_LABEL_MODE_OFF, alphaOn, userKeyboardEnabled);
+    fillKeypadMetaForPresentation(fill, &offPresentation);
+    fillExportedKeypadLabelsForPresentation(labels, &offPresentation);
+
+    keypadMainLabelPresentation_t userPresentation = buildAppMainLabelPresentation(
+        KEYPAD_MAIN_LABEL_MODE_USER, alphaOn, userKeyboardEnabled);
+    overlayUserModeKeypadSnapshot(fill, labels, &userPresentation);
+    return;
+  }
+
+  keypadMainLabelPresentation_t presentation = buildAppMainLabelPresentation(
+      normalizedMode, alphaOn, userKeyboardEnabled);
+  fillKeypadMetaForPresentation(fill, &presentation);
+  fillExportedKeypadLabelsForPresentation(labels, &presentation);
+}
+
+static bool writeExportedKeypadLabelsToArray(
+    JNIEnv *env, jobjectArray labels,
+    char nativeLabels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+                     [R47_KEYPAD_LABEL_CAPACITY]) {
+  jstring empty = jni_new_string_utf(env, "", NULL,
+                                     "copyKeypadSnapshotNative empty NewStringUTF");
+  if (empty == NULL) {
+    return false;
+  }
+
+  bool success = true;
+  for (int index = 0;
+       index < R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY; index++) {
+    jstring value = empty;
+    if (nativeLabels[index][0] != 0) {
+      value = jni_new_string_utf(env, nativeLabels[index], "",
+                                 "copyKeypadSnapshotNative label NewStringUTF");
+      if (value == NULL) {
+        success = false;
+        break;
+      }
+    }
+
+    (*env)->SetObjectArrayElement(env, labels, index, value);
+    if (jni_check_and_clear_exception(
+            env, "copyKeypadSnapshotNative SetObjectArrayElement")) {
+      success = false;
+      if (value != empty) {
+        (*env)->DeleteLocalRef(env, value);
+      }
+      break;
+    }
+
+    if (value != empty) {
+      (*env)->DeleteLocalRef(env, value);
+    }
+  }
+
+  (*env)->DeleteLocalRef(env, empty);
+  return success;
+}
+
 void r47_fill_keyboard_state(int32_t *fill) {
   fill[0] = (jint)shiftF;
   fill[1] = (jint)shiftG;
@@ -1477,6 +1618,52 @@ Java_com_example_r47_MainActivity_getKeypadMetaNative(JNIEnv *env,
     return NULL;
   }
   return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_example_r47_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
+                                                              jobject thiz) {
+  (void)env;
+  (void)thiz;
+  extern volatile uint32_t keypadSnapshotGeneration;
+
+  return (jint)keypadSnapshotGeneration;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
+    JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
+    jobjectArray labelsBuffer) {
+  (void)thiz;
+  if (!ram || metaBuffer == NULL || labelsBuffer == NULL) {
+    return JNI_FALSE;
+  }
+
+  if ((*env)->GetArrayLength(env, metaBuffer) < KEYPAD_META_LENGTH ||
+      (*env)->GetArrayLength(env, labelsBuffer) <
+          (KEYPAD_KEY_COUNT * KEYPAD_LABELS_PER_KEY)) {
+    return JNI_FALSE;
+  }
+
+  if (pthread_mutex_trylock(&screenMutex) != 0) {
+    return JNI_FALSE;
+  }
+
+  jint fill[KEYPAD_META_LENGTH];
+  char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+             [R47_KEYPAD_LABEL_CAPACITY];
+  fillAppKeypadSnapshotLocked(fill, labels, mainKeyDynamicMode);
+  pthread_mutex_unlock(&screenMutex);
+
+  (*env)->SetIntArrayRegion(env, metaBuffer, 0, KEYPAD_META_LENGTH, fill);
+  if (jni_check_and_clear_exception(env,
+                                    "SetIntArrayRegion(copyKeypadSnapshotNative)")) {
+    return JNI_FALSE;
+  }
+
+  return writeExportedKeypadLabelsToArray(env, labelsBuffer, labels)
+             ? JNI_TRUE
+             : JNI_FALSE;
 }
 
 JNIEXPORT jobjectArray JNICALL

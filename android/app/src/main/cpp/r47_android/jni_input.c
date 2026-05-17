@@ -6,6 +6,7 @@ extern void btnFnPressed(GtkWidget *notUsed, GdkEvent *event, gpointer data);
 extern void btnFnReleased(GtkWidget *notUsed, GdkEvent *event, gpointer data);
 extern void btnPressed(GtkWidget *notUsed, GdkEvent *event, gpointer data);
 extern void btnReleased(GtkWidget *notUsed, GdkEvent *event, gpointer data);
+extern void fnStopProgram(uint16_t unusedButMandatoryParameter);
 
 static char currentPressedKeyStr[4] = {0};
 static int currentPressedKeyCode = 0;
@@ -128,4 +129,22 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
   pthread_mutex_unlock(&screenMutex);
   currentPressedKeyCode = 0;
   currentPressedKeyStr[0] = 0;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
+                                                           jobject thiz) {
+  (void)env;
+  (void)thiz;
+  if (!ram) {
+    return JNI_FALSE;
+  }
+
+  onUIActivity();
+  if (programRunStop != PGM_RUNNING && programRunStop != PGM_PAUSED) {
+    return JNI_FALSE;
+  }
+
+  fnStopProgram(0);
+  return JNI_TRUE;
 }

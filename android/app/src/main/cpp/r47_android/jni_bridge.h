@@ -206,6 +206,9 @@ JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
     JNIEnv *env, jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
     JNIEnv *env, jobject thiz, jint keyCode);
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
+                                                           jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease);
@@ -238,6 +241,13 @@ JNIEXPORT jboolean JNICALL
 Java_com_example_r47_MainActivity_getPackedDisplayBuffer(JNIEnv *env,
                                                                 jobject thiz,
                                                                 jbyteArray buffer);
+JNIEXPORT jint JNICALL
+Java_com_example_r47_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
+                                                              jobject thiz);
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
+    JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
+    jobjectArray labelsBuffer);
 JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
                                                               jobject thiz,

@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var physicalKeyboardInputController: PhysicalKeyboardInputController
     private lateinit var preferenceController: MainActivityPreferenceController
     private lateinit var replicaOverlayController: ReplicaOverlayController
+    private lateinit var keypadSnapshotStore: NativeKeypadSnapshotStore
     private val hapticFeedbackController by lazy {
         HapticFeedbackController(this)
     }
@@ -38,6 +39,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     companion object {
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
+        private const val RUN_STOP_KEY_CODE = 36
 
         init {
             System.loadLibrary("r47_android")
@@ -87,6 +89,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun offerCoreTask(task: Runnable) {
         coreRuntime.offerTask(task)
+    }
+
+    private fun dispatchLiveKey(keyCode: Int) {
+        if (keyCode == RUN_STOP_KEY_CODE && requestStopProgramNative()) {
+            return
+        }
+        offerCoreTask(Runnable { sendKey(keyCode) })
     }
 
     private fun configureActivityShell() {
@@ -198,6 +207,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun initializeOverlayAndPreferences(prefs: SharedPreferences) {
         replicaOverlay = binding.replicaOverlay
+        keypadSnapshotStore = createKeypadSnapshotStore()
         replicaOverlayController = createReplicaOverlayController()
         replicaOverlayController.bindOverlay()
 
@@ -219,11 +229,16 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             context = this,
             overlay = replicaOverlay,
             performHapticClick = hapticFeedbackController::performClick,
-            offerCoreTask = ::offerCoreTask,
-            sendKey = ::sendKey,
-            getKeypadMetaNative = ::getKeypadMetaNative,
-            getKeypadLabelsNative = ::getKeypadLabelsNative,
+            dispatchLiveKey = ::dispatchLiveKey,
+            getKeypadSnapshot = keypadSnapshotStore::snapshotForMode,
             isRuntimeReady = { ::coreRuntime.isInitialized },
+        )
+    }
+
+    private fun createKeypadSnapshotStore(): NativeKeypadSnapshotStore {
+        return NativeKeypadSnapshotStore(
+            getKeypadSnapshotGeneration = ::getKeypadSnapshotGeneration,
+            copyKeypadSnapshotNative = ::copyKeypadSnapshotNative,
         )
     }
 
@@ -264,9 +279,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             forceRefreshNative = ::forceRefreshNative,
             getPackedDisplayGeneration = ::getPackedDisplayGeneration,
             getPackedDisplayBuffer = ::getPackedDisplayBuffer,
-            getKeypadMetaNative = ::getKeypadMetaNative,
+            getKeypadSnapshotGeneration = ::getKeypadSnapshotGeneration,
             getMainKeyDynamicModeCode = replicaOverlayController::currentMainKeyDynamicModeCode,
-            getKeypadSnapshot = replicaOverlayController::currentKeypadSnapshot,
+            refreshKeypadSnapshot = keypadSnapshotStore::refreshSnapshot,
             onPackedLcd = replicaOverlay::updatePackedLcd,
             onDynamicRefresh = replicaOverlayController::refreshDynamicKeys,
         )
@@ -387,6 +402,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun getXRegisterNative(): String
     private external fun getPackedDisplayGeneration(): Int
     private external fun getPackedDisplayBuffer(buffer: ByteArray): Boolean
+    private external fun getKeypadSnapshotGeneration(): Int
+    private external fun copyKeypadSnapshotNative(
+        mainKeyDynamicMode: Int,
+        metaBuffer: IntArray,
+        labelsBuffer: Array<String>,
+    ): Boolean
+    private external fun requestStopProgramNative(): Boolean
     private external fun setLcdColors(text: Int, bg: Int)
 
     // Legacy keypad getters kept for bridge compatibility.

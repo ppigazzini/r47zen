@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class NativeDisplayRefreshLoopTest {
     @Test
     fun refreshFrame_skipsPackedBufferPull_whenGenerationIsUnchanged() {
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
         val packedBufferPulls = AtomicInteger(0)
         val packedUpdates = AtomicInteger(0)
         val dynamicRefreshes = AtomicInteger(0)
@@ -23,9 +24,15 @@ class NativeDisplayRefreshLoopTest {
                 packedBufferPulls.incrementAndGet()
                 true
             },
-            getKeypadMetaNative = { _ -> intArrayOf(1, 2, 3) },
+            getKeypadSnapshotGeneration = { 3 },
             getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
-            getKeypadSnapshot = { KeypadSnapshot.EMPTY },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(
+                    observedGeneration = 3,
+                    snapshot = snapshot,
+                    isUpToDate = true,
+                )
+            },
             onPackedLcd = {
                 packedUpdates.incrementAndGet()
                 true
@@ -43,6 +50,7 @@ class NativeDisplayRefreshLoopTest {
 
     @Test
     fun refreshFrame_retriesSameGeneration_untilPackedBufferCopySucceeds() {
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
         val packedBufferPulls = AtomicInteger(0)
         val packedUpdates = AtomicInteger(0)
         var shouldCopyBuffer = false
@@ -59,9 +67,15 @@ class NativeDisplayRefreshLoopTest {
                     true
                 }
             },
-            getKeypadMetaNative = { _ -> IntArray(0) },
+            getKeypadSnapshotGeneration = { 5 },
             getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
-            getKeypadSnapshot = { KeypadSnapshot.EMPTY },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(
+                    observedGeneration = 5,
+                    snapshot = snapshot,
+                    isUpToDate = true,
+                )
+            },
             onPackedLcd = {
                 packedUpdates.incrementAndGet()
                 true
@@ -74,5 +88,100 @@ class NativeDisplayRefreshLoopTest {
 
         assertEquals(2, packedBufferPulls.get())
         assertEquals(1, packedUpdates.get())
+    }
+
+    @Test
+    fun refreshFrame_reusesLastAcceptedKeypadSnapshot_whenBusy() {
+        val initialSnapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
+        val updatedSnapshot = KeypadFixtureResources.load("default-keypad").snapshot()
+        val emittedSnapshots = mutableListOf<KeypadSnapshot>()
+        var keypadGeneration = 9
+        var isBusy = false
+        val loop = NativeDisplayRefreshLoop(
+            isAppRunning = { true },
+            isNativeInitialized = { true },
+            getPackedDisplayGeneration = { 0 },
+            getPackedDisplayBuffer = { false },
+            getKeypadSnapshotGeneration = { keypadGeneration },
+            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+            refreshKeypadSnapshot = {
+                when (keypadGeneration) {
+                    9 -> NativeKeypadSnapshotRefreshResult(
+                        observedGeneration = 9,
+                        snapshot = initialSnapshot,
+                        isUpToDate = true,
+                    )
+
+                    10 -> {
+                        if (isBusy) {
+                            NativeKeypadSnapshotRefreshResult(
+                                observedGeneration = 10,
+                                snapshot = initialSnapshot,
+                                isUpToDate = false,
+                            )
+                        } else {
+                            NativeKeypadSnapshotRefreshResult(
+                                observedGeneration = 10,
+                                snapshot = updatedSnapshot,
+                                isUpToDate = true,
+                            )
+                        }
+                    }
+
+                    else -> error("unexpected generation $keypadGeneration")
+                }
+            },
+            onPackedLcd = { false },
+            onDynamicRefresh = { emittedSnapshots += it },
+        )
+
+        loop.refreshFrame(nowMillis = 1_000L)
+        keypadGeneration = 10
+        isBusy = true
+        loop.refreshFrame(nowMillis = 1_100L)
+        isBusy = false
+        loop.refreshFrame(nowMillis = 1_200L)
+
+        assertEquals(listOf(initialSnapshot, initialSnapshot, updatedSnapshot), emittedSnapshots)
+    }
+
+    @Test
+    fun refreshFrame_skipsSyntheticEmptyKeypadSnapshot_untilFirstCopySucceeds() {
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
+        val dynamicRefreshes = AtomicInteger(0)
+        var shouldCopySnapshot = false
+        val loop = NativeDisplayRefreshLoop(
+            isAppRunning = { true },
+            isNativeInitialized = { true },
+            getPackedDisplayGeneration = { 0 },
+            getPackedDisplayBuffer = { false },
+            getKeypadSnapshotGeneration = { 4 },
+            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+            refreshKeypadSnapshot = {
+                if (!shouldCopySnapshot) {
+                    NativeKeypadSnapshotRefreshResult(
+                        observedGeneration = 4,
+                        snapshot = null,
+                        isUpToDate = false,
+                    )
+                } else {
+                    NativeKeypadSnapshotRefreshResult(
+                        observedGeneration = 4,
+                        snapshot = snapshot,
+                        isUpToDate = true,
+                    )
+                }
+            },
+            onPackedLcd = { false },
+            onDynamicRefresh = { dynamicRefreshes.incrementAndGet() },
+        )
+
+        loop.refreshFrame(nowMillis = 1_000L)
+        assertEquals(0, dynamicRefreshes.get())
+
+        shouldCopySnapshot = true
+        loop.refreshFrame(nowMillis = 1_100L)
+
+        assertEquals(1, dynamicRefreshes.get())
     }
 }

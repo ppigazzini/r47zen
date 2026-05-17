@@ -970,10 +970,8 @@ class DynamicKeypadParityFixtureTest {
             context = activity,
             overlay = overlay,
             performHapticClick = { _ -> },
-            offerCoreTask = {},
-            sendKey = {},
-            getKeypadMetaNative = { _ -> fixture.meta.copyOf() },
-            getKeypadLabelsNative = { _ -> fixture.labels.copyOf() },
+            dispatchLiveKey = {},
+            getKeypadSnapshot = { _ -> fixture.snapshot() },
             isRuntimeReady = { true },
         )
         controller.bindOverlay()
@@ -1025,10 +1023,8 @@ class DynamicKeypadParityFixtureTest {
             context = activity,
             overlay = overlay,
             performHapticClick = { _ -> },
-            offerCoreTask = {},
-            sendKey = {},
-            getKeypadMetaNative = { _ -> fixture.meta.copyOf() },
-            getKeypadLabelsNative = { _ -> fixture.labels.copyOf() },
+            dispatchLiveKey = {},
+            getKeypadSnapshot = { _ -> fixture.snapshot() },
             isRuntimeReady = { true },
         )
         controller.bindOverlay()

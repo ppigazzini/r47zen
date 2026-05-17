@@ -90,11 +90,11 @@ The registered native surface includes:
 
 - activity reattachment and final runtime release
 - native pre-init, init, and tick
-- key, menu, and function dispatch
+- key, menu, and function dispatch, plus direct live-program stop publication
 - state save, load, and force refresh
 - packed LCD generation reads and packed LCD transfer
-- keypad metadata and label snapshots, including per-label roles such as
-  underlined menu-opening faceplate legends
+- keypad snapshot generation reads and whole-snapshot copy, plus the legacy
+  keypad metadata and label getters kept for bridge compatibility
 - slot selection and X-register fetch
 - SAF file selection callbacks
 
@@ -139,12 +139,16 @@ supports that model by keeping shared synchronization in native code:
 - `NativeDisplayRefreshLoop` uses `Choreographer.postFrameCallback(...)` on the
   main looper, first reads `getPackedDisplayGeneration()`, only calls
   `getPackedDisplayBuffer(...)` when the generation changes, retries the same
-  generation after a failed non-blocking copy, and polls keypad snapshots on
-  metadata change or the configured idle interval; `ReplicaOverlayController`
-  keeps the whole-snapshot gate available behind
-  `KeypadRefreshPolicy.ENABLE_UNCHANGED_SNAPSHOT_SKIP`, and the current
-  iteration enables that gate again now that `CalculatorKeyView` keeps repeated
-  application of the same snapshot geometry-stable
+  generation after a failed non-blocking copy, and now reads keypad refreshes
+  through `getKeypadSnapshotGeneration()` plus the cached
+  `NativeKeypadSnapshotStore`; `copyKeypadSnapshotNative(...)` assembles one
+  logical keypad scene under one `pthread_mutex_trylock(&screenMutex)` window,
+  USER mode composition stays inside that one native copy, and busy results
+  reuse the last accepted Kotlin snapshot until the same generation is copied
+  successfully
+- `ReplicaOverlayController` now consumes that same cached whole-snapshot store
+  for overlay replay and dynamic-key refresh, so the UI thread no longer builds
+  one logical keypad scene through multiple blocking JNI calls
 - `android_runtime.c` also supplies Android-backed `PC_BUILD` event-loop shims
   for `g_main_context_iteration()`, `g_timeout_add()`,
   `gtk_events_pending()`, and `gtk_main_iteration()` so staged upstream pause
@@ -186,11 +190,18 @@ supports that model by keeping shared synchronization in native code:
   Android-owned mid-run seam that both releases the recursive `screenMutex` and
   drains `processCoreTasksNative()` while shared-core execution is still in
   flight
-- the current staged `runProgram()` in `lblGtoXeq.c` has no Android-specific
-  watchdog or out-of-band stop publisher. If a program loop never returns and
-  never reaches a path that calls `yieldToAndroidWithMs()`, queued `R/S` input
-  can starve behind the busy core-owner thread. The recent `MANSLV2.p47` NaN
-  loop exposed that remaining limitation.
+- `MainActivity.dispatchLiveKey(...)` now routes live positive `R/S` presses to
+  `requestStopProgramNative()` before queue fallback. `requestStopProgramNative()`
+  publishes stop intent through the existing upstream `fnStopProgram()` path
+  without taking `screenMutex` or queueing onto `NativeCoreRuntime`.
+- Android's official ANR guidance explicitly calls out main-thread lock
+  contention as a foreground input-dispatch failure mode. The landed whole-
+  snapshot try-copy repair removes the previous split blocking keypad export
+  path from the UI thread.
+- If a shared-core loop still never observes `programRunStop`, Android still
+  cannot preempt it. After this landing, that remaining limitation is a
+  shared-core stop-observation gap, not Android queue starvation or UI-thread
+  keypad export blocking.
 - native-owned JVM work acquires `JNIEnv` through `jni_acquire_env()` and
   `jni_release_env()` so attach and detach remain scope-bound
 - the bridge can update the current activity reference when the activity is

@@ -129,9 +129,15 @@ class NativeCoreRuntimeTest {
             forceRefreshNative = {},
             getPackedDisplayGeneration = { 0 },
             getPackedDisplayBuffer = { true },
-            getKeypadMetaNative = { _ -> IntArray(0) },
+            getKeypadSnapshotGeneration = { 0 },
             getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
-            getKeypadSnapshot = { KeypadSnapshot.EMPTY },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(
+                    observedGeneration = 0,
+                    snapshot = null,
+                    isUpToDate = true,
+                )
+            },
             onPackedLcd = { false },
             onDynamicRefresh = {},
             displayRefreshLoop = object : DisplayRefreshLoop {

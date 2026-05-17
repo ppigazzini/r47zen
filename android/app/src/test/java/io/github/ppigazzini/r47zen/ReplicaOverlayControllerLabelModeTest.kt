@@ -23,30 +23,18 @@ class ReplicaOverlayControllerLabelModeTest {
     @Test
     fun currentKeypadSnapshotRequestsExpectedNativeModes() {
         MainKeyDynamicMode.entries.forEach { mode ->
-            val metaModes = mutableListOf<Int>()
-            val labelModes = mutableListOf<Int>()
+            val snapshotModes = mutableListOf<Int>()
             val controller = createController(
-                getMeta = { requestedMode ->
-                    metaModes += requestedMode
-                    baseMeta()
-                },
-                getLabels = { requestedMode ->
-                    labelModes += requestedMode
-                    emptyLabels()
+                getSnapshot = { requestedMode ->
+                    snapshotModes += requestedMode
+                    KeypadSnapshot.fromNative(baseMeta(), emptyLabels())
                 },
             )
 
             controller.applyKeypadLabelModes(mode, SoftkeyDynamicMode.ON)
             controller.currentKeypadSnapshot()
 
-            val expectedModes = if (mode == MainKeyDynamicMode.USER) {
-                listOf(MainKeyDynamicMode.USER.nativeCode, MainKeyDynamicMode.OFF.nativeCode)
-            } else {
-                listOf(mode.nativeCode)
-            }
-
-            assertEquals(expectedModes, metaModes)
-            assertEquals(expectedModes, labelModes)
+            assertEquals(listOf(mode.nativeCode), snapshotModes)
         }
     }
 
@@ -80,18 +68,26 @@ class ReplicaOverlayControllerLabelModeTest {
             )
         }
         val controller = createController(
-            getMeta = { mode ->
+            getSnapshot = { mode ->
                 when (mode) {
-                    MainKeyDynamicMode.OFF.nativeCode -> offMeta
-                    MainKeyDynamicMode.USER.nativeCode -> userMeta
-                    else -> baseMeta()
-                }
-            },
-            getLabels = { mode ->
-                when (mode) {
-                    MainKeyDynamicMode.OFF.nativeCode -> offLabels
-                    MainKeyDynamicMode.USER.nativeCode -> userLabels
-                    else -> emptyLabels()
+                    MainKeyDynamicMode.USER.nativeCode -> {
+                        val composedLabels = offLabels.copyOf().apply {
+                            this[labelIndex(keyCode, KeypadSceneContract.LABEL_F)] = "ASSIGN"
+                            this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "MYALPHA"
+                        }
+                        val composedMeta = offMeta.copyOf().apply {
+                            setLabelRoles(
+                                keyCode = keyCode,
+                                primaryRole = KeypadSceneContract.TEXT_ROLE_PRIMARY,
+                                fRole = KeypadSceneContract.TEXT_ROLE_F_UNDERLINE,
+                                gRole = KeypadSceneContract.TEXT_ROLE_G_UNDERLINE,
+                            )
+                        }
+                        KeypadSnapshot.fromNative(composedMeta, composedLabels)
+                    }
+
+                    MainKeyDynamicMode.OFF.nativeCode -> KeypadSnapshot.fromNative(offMeta, offLabels)
+                    else -> KeypadSnapshot.fromNative(baseMeta(), emptyLabels())
                 }
             },
         )
@@ -131,20 +127,12 @@ class ReplicaOverlayControllerLabelModeTest {
             this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "MYALPHA"
         }
         val offMeta = baseMeta(userModeEnabled = false)
-        val userMeta = baseMeta(userModeEnabled = false)
         val controller = createController(
-            getMeta = { mode ->
+            getSnapshot = { mode ->
                 when (mode) {
-                    MainKeyDynamicMode.OFF.nativeCode -> offMeta
-                    MainKeyDynamicMode.USER.nativeCode -> userMeta
-                    else -> baseMeta()
-                }
-            },
-            getLabels = { mode ->
-                when (mode) {
-                    MainKeyDynamicMode.OFF.nativeCode -> offLabels
-                    MainKeyDynamicMode.USER.nativeCode -> userLabels
-                    else -> emptyLabels()
+                    MainKeyDynamicMode.USER.nativeCode -> KeypadSnapshot.fromNative(offMeta, offLabels)
+                    MainKeyDynamicMode.OFF.nativeCode -> KeypadSnapshot.fromNative(offMeta, offLabels)
+                    else -> KeypadSnapshot.fromNative(baseMeta(), emptyLabels())
                 }
             },
         )
@@ -164,10 +152,10 @@ class ReplicaOverlayControllerLabelModeTest {
             this[labelIndex(38, KeypadSceneContract.LABEL_PRIMARY)] = "FILE"
             this[labelIndex(38, KeypadSceneContract.LABEL_AUX)] = "LOAD"
         }
-        val controller = createController(getLabels = { labels })
+        val controller = createController(getMeta = { graphicSoftkeyMeta() }, getLabels = { labels })
         controller.applyKeypadLabelModes(MainKeyDynamicMode.ON, SoftkeyDynamicMode.GRAPHIC)
 
-        val keyState = controller.currentKeypadSnapshot(graphicSoftkeyMeta()).keyStateFor(38)
+        val keyState = controller.currentKeypadSnapshot().keyStateFor(38)
 
         assertEquals("", keyState.primaryLabel)
         assertEquals("", keyState.auxLabel)
@@ -186,10 +174,10 @@ class ReplicaOverlayControllerLabelModeTest {
             this[labelIndex(38, KeypadSceneContract.LABEL_PRIMARY)] = "FILE"
             this[labelIndex(38, KeypadSceneContract.LABEL_AUX)] = "LOAD"
         }
-        val controller = createController(getLabels = { labels })
+        val controller = createController(getMeta = { graphicSoftkeyMeta() }, getLabels = { labels })
         controller.applyKeypadLabelModes(MainKeyDynamicMode.ON, SoftkeyDynamicMode.OFF)
 
-        val keyState = controller.currentKeypadSnapshot(graphicSoftkeyMeta()).keyStateFor(38)
+        val keyState = controller.currentKeypadSnapshot().keyStateFor(38)
 
         assertEquals("", keyState.primaryLabel)
         assertEquals("", keyState.auxLabel)
@@ -272,16 +260,17 @@ class ReplicaOverlayControllerLabelModeTest {
     private fun createController(
         getMeta: (Int) -> IntArray = { baseMeta() },
         getLabels: (Int) -> Array<String> = { emptyLabels() },
+        getSnapshot: ((Int) -> KeypadSnapshot?)? = null,
     ): ReplicaOverlayController {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         return ReplicaOverlayController(
             context = context,
             overlay = ReplicaOverlay(context),
             performHapticClick = { _ -> },
-            offerCoreTask = {},
-            sendKey = {},
-            getKeypadMetaNative = getMeta,
-            getKeypadLabelsNative = getLabels,
+            dispatchLiveKey = {},
+            getKeypadSnapshot = getSnapshot ?: { mode ->
+                KeypadSnapshot.fromNative(getMeta(mode), getLabels(mode))
+            },
             isRuntimeReady = { false },
         )
     }

@@ -64,7 +64,14 @@ flowchart TD
   single-source-of-truth guidance.
 - [Threads and threading performance](https://developer.android.com/topic/performance/threads):
   main-thread budget, worker-thread ownership, and queue-based background-work
-  guidance used for the deadline-driven core-thread design.
+  guidance used for the deadline-driven core-thread design and the rule that the
+  keypad refresh path must keep long or numerous work off the main thread. The
+  current page was last updated 2024-01-03.
+- [ANRs](https://developer.android.com/topic/performance/vitals/anr):
+  official foreground input-dispatch timeout, main-thread lock-contention, and
+  ANR trace guidance used when Android-specific hangs look like UI-thread
+  stalls rather than pure core-thread starvation. The current page was last
+  updated 2026-03-05.
 - [Fundamentals of testing Android apps](https://developer.android.com/training/testing/fundamentals):
   official Android guidance for local versus instrumented tests, test scope,
   and dependency decoupling; use this when deciding whether a repo contract
@@ -104,7 +111,10 @@ flowchart TD
   `ndkVersion` guidance for AGP-based projects, including the command-line
   `sdkmanager` package syntax this repo uses in CI.
 - [JNI tips](https://developer.android.com/ndk/guides/jni-tips): explicit
-  registration, thread attachment, reference management, and exception rules.
+  registration, thread attachment, reference management, exception rules, and
+  the guidance to minimize marshalling and prefer region-style copy calls when
+  a simple copy contract is enough. The current page was last updated
+  2026-03-06.
 - [JNI performance article alias](https://developer.android.com/training/articles/perf-jni):
   stable alias that currently resolves to the maintained JNI guidance page;
   useful when historical Android notes still reference the older URL.

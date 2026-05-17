@@ -35,12 +35,9 @@ internal enum class SoftkeyDynamicMode(
     }
 }
 
-internal fun KeypadSnapshot.applyMainKeyDynamicMode(
-    mode: MainKeyDynamicMode,
-    userSnapshot: KeypadSnapshot? = null,
-): KeypadSnapshot {
+internal fun KeypadSnapshot.applyMainKeyDynamicMode(mode: MainKeyDynamicMode): KeypadSnapshot {
     return when (mode) {
-        MainKeyDynamicMode.USER -> applyUserModeTopLabels(userSnapshot)
+        MainKeyDynamicMode.USER -> this
         MainKeyDynamicMode.VIRTUOSO -> applyVirtuosoBlankKeycaps()
         else -> this
     }
@@ -60,20 +57,6 @@ internal fun KeypadSnapshot.applySoftkeyDynamicMode(mode: SoftkeyDynamicMode): K
     }
 }
 
-private fun KeypadSnapshot.applyUserModeTopLabels(userSnapshot: KeypadSnapshot?): KeypadSnapshot {
-    if (userSnapshot == null || !userSnapshot.userModeEnabled) {
-        return this
-    }
-
-    return transformKeyStates { code, keyState ->
-        if (code <= 37) {
-            keyState.withUserModeTopLabels(userSnapshot.keyStateFor(code))
-        } else {
-            keyState
-        }
-    }
-}
-
 private fun KeypadSnapshot.applyVirtuosoBlankKeycaps(): KeypadSnapshot {
     return transformKeyStates { code, keyState ->
         if (code <= 37) {
@@ -82,30 +65,6 @@ private fun KeypadSnapshot.applyVirtuosoBlankKeycaps(): KeypadSnapshot {
             keyState.withSoftkeyDynamicMode(SoftkeyDynamicMode.OFF)
         }
     }
-}
-
-private fun KeypadKeySnapshot.withUserModeTopLabels(
-    userKeyState: KeypadKeySnapshot,
-): KeypadKeySnapshot {
-    return copy(
-        fLabel = userKeyState.fLabel,
-        gLabel = userKeyState.gLabel,
-        labelRoles = labelRoles
-            .replaceLabelRole(
-                KeypadSceneContract.LABEL_F,
-                userKeyState.labelRole(KeypadSceneContract.LABEL_F),
-            )
-            .replaceLabelRole(
-                KeypadSceneContract.LABEL_G,
-                userKeyState.labelRole(KeypadSceneContract.LABEL_G),
-            ),
-    )
-}
-
-private fun Int.replaceLabelRole(slot: Int, role: Int): Int {
-    val shift = slot * 4
-    val mask = 0xF shl shift
-    return (this and mask.inv()) or (role shl shift)
 }
 
 private fun KeypadKeySnapshot.withVirtuosoMainKeyMode(): KeypadKeySnapshot {
