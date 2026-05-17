@@ -17,10 +17,10 @@ verification surfaces.
 
 | Surface | Android side | Native bridge | Shared-core side | Sensitive detail |
 | --- | --- | --- | --- | --- |
-| runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and `updateNativeActivityRef()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, and reattach stays display-passive |
+| runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and `updateNativeActivityRef()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach stays display-passive |
 | lifecycle save, load, and explicit refresh | `saveStateNative()`, `loadStateNative()`, `forceRefreshNative()` | `jni_lifecycle.c` | `saveCalc()`, `restoreCalc()`, `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` | `saveStateNative()` must stay display-passive for background save; redraw belongs only to real state loads or explicit refresh owners |
 | direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)` | input paths serialize on `screenMutex` and some skip while `isCoreBlockingForIo` is true |
-| LCD and keypad snapshot export | `getPackedDisplayBuffer()`, `setLcdColors()`, `getKeypadMetaNative()`, `getKeypadLabelsNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayBuffer`, compatibility `screenData`, visible key tables, label resolvers | `getPackedDisplayBuffer()` exits early when `lcdBufferDirty` is false or the lock is busy, and a successful export clears packed-row dirty flags after copy |
+| LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `setLcdColors()`, `getKeypadMetaNative()`, `getKeypadLabelsNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, `packedDisplayBuffer`, compatibility `screenData`, visible key tables, label resolvers | the generation check short-circuits unchanged frames, `getPackedDisplayBuffer()` exits early when `lcdBufferDirty` is false or the lock is busy, and a successful export clears packed-row dirty flags after copy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to activity callbacks | `requestFile()`, `playTone()`, `stopTone()`, `processCoreTasks()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned, and reattach must not redraw the LCD |
 | storage and yield boundary | `StorageAccessCoordinator` returns detached file descriptors through `onFileSelectedNative()` or `onFileCancelledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
@@ -58,8 +58,9 @@ flowchart LR
   callbacks that the staged core expects.
 - `Java_com_example_r47_MainActivity_tick(...)` is the steady-state entry point
   from the Kotlin core thread. It uses `pthread_mutex_trylock(&screenMutex)`,
-  advances timers every 5 ms, and refreshes the LCD every 100 ms when the lock
-  is available.
+  advances timers every 5 ms, refreshes the LCD every 100 ms when the lock is
+  available, and returns the next wake delay in milliseconds through
+  `r47_next_tick_delay_ms(sys_current_ms())`.
 
 ## Lifecycle Save, Load, And Explicit Refresh Contract
 
@@ -88,7 +89,8 @@ flowchart LR
   `btnPressed(...)` or `btnReleased(...)` and key codes `38..43` onto the
   dedicated function-key press and release handlers.
 - `sendSimKeyNative(String, boolean, boolean)` is the string-key path used by
-  the physical keyboard mapper and display actions. It bails out when
+  the physical keyboard mapper and display actions. It is a cold simulation or
+  control surface, not the hot keypad path. It bails out when
   `isCoreBlockingForIo` is set so Android does not inject keypad work while the
   core is suspended in a SAF file request.
 - `sendSimMenuNative(int)` calls `showSoftmenu(...)` and then forces a screen
@@ -99,11 +101,13 @@ flowchart LR
 ## Display And Keypad Snapshot Export
 
 - `NativeDisplayRefreshLoop.doFrame(...)` is the only continuous poller on the
-  Android side. It requests packed LCD rows plus keypad metadata and labels
-  from the native bridge while the app is active.
+  Android side. It reads `getPackedDisplayGeneration()` first and only attempts
+  a packed-LCD copy when the generation changed; keypad metadata and labels are
+  still polled while the app is active.
 - `getPackedDisplayBuffer(...)` copies the packed LCD snapshot only when
-  `lcdBufferDirty` is true. It uses `pthread_mutex_trylock`, so a busy native
-  section simply skips one frame instead of blocking the UI thread.
+  `lcdBufferDirty` is true and returns `true` only after a successful copy. It
+  uses `pthread_mutex_trylock`, so a busy native section simply skips one frame
+  instead of blocking the UI thread.
 - After a successful copy, the JNI export clears the packed-row dirty flag in
   each copied row. That flag is transport bookkeeping, not part of the visible
   LCD contract.

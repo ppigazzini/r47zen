@@ -12,9 +12,9 @@ contract-to-regression map that proves these loops.
 
 | Path | Trigger and cadence | Main files | Why it is hot | Main failure mode |
 | --- | --- | --- | --- | --- |
-| core-thread coordinator | `NativeCoreRuntime` loop while the app is running; drains tasks, calls `tick()`, then sleeps 10 ms | `NativeCoreRuntime.kt`, `jni_lifecycle.c` | every Android-owned action reaches the core through this loop | blocking work or queue growth stalls native progress |
-| native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle |
-| frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling runs through packed-row export and keypad labels refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | extra JNI calls, duplicate pollers, or unnecessary redraw triggers hurt frame time |
+| core-thread coordinator | `NativeCoreRuntime` loop while the app is running; drains tasks, calls `tick()`, then waits for queued work up to the returned deadline | `NativeCoreRuntime.kt`, `jni_lifecycle.c` | every Android-owned action reaches the core through this loop | blocking work or queue growth stalls native progress |
+| native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms, then returns the next wake delay | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle |
+| frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad labels refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | extra JNI calls, duplicate pollers, or unnecessary redraw triggers hurt frame time |
 | packed LCD row decode | each accepted LCD update copies only dirty packed rows, decodes them to the bitmap, and invalidates the touched display rows | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
 | keypad scene apply | scene changes update all live key views, invalidate per-key specs, and may request layout | `ReplicaOverlayController.kt`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt` | keypad labels, render specs, and layout are the largest recurring view updates outside the LCD | bypassing the refresh gate or forcing layout or invalidation on unchanged scenes creates churn |
 | lifecycle save and explicit refresh | background save waits on the core thread; explicit redraw remains opt-in for real state changes | `NativeCoreRuntime.kt`, `MainActivity.kt`, `jni_lifecycle.c` | lifecycle callbacks are easy places to hide destructive redraw work | synthetic redraws during passive save or resume mutate the LCD without a real calculator transition |
@@ -24,19 +24,23 @@ contract-to-regression map that proves these loops.
 
 ```mermaid
 flowchart LR
-  A[Core thread every 10 ms]
-  B[tick trylock]
-  C[timers every 5 ms]
-  D[native LCD refresh every 100 ms]
-  E[UI frame loop]
-  F[keypad refresh on change or 500 ms fallback]
-  G[scene apply and dirty-rect invalidation]
-  H[yield and SAF re-entry]
+  A[Core thread drains tasks]
+  B[tick trylock and deadline]
+  C[wait for queued work or deadline]
+  D[timers every 5 ms]
+  E[native LCD refresh every 100 ms]
+  F[UI frame loop]
+  G[packed-display generation check]
+  H[keypad refresh on change or 500 ms fallback]
+  I[scene apply and dirty-rect invalidation]
+  J[yield and SAF re-entry]
 
   A --> B --> C
   B --> D
-  E --> F --> G
-  B --> H --> A
+  B --> E
+  F --> G --> I
+  F --> H --> I
+  B --> J --> C
 ```
 
 ## Core-Thread Coordinator
@@ -46,10 +50,13 @@ flowchart LR
 - `attach()` starts the core thread once, marks the app as running, and starts
   the display refresh loop.
 - The thread body in `startOrAttachCoreThread()` does three things in order:
-  drain queued work, call `tick()`, then sleep for 10 ms.
+  drain queued work, call `tick()`, then wait on `coreTasks.poll(...)` for the
+  returned delay.
 - `saveStateOnPause(...)` is also routed through this queue and waits on a
   `CountDownLatch`, which means blocking or slow native save work is visible at
   the activity lifecycle boundary.
+- `dispose(stopApp = true)` clears the queue and offers a sentinel runnable so
+  a blocked wait wakes promptly during shutdown.
 
 Inspect this path when Android requests appear to arrive late, state saves time
 out, or the app behaves as if work is happening on multiple native threads.
@@ -64,6 +71,9 @@ out, or the app behaves as if work is happening on multiple native threads.
 - When the lock is available, timers advance every 5 ms through
   `refreshTimer(NULL)` and the LCD refresh path runs every 100 ms through
   `refreshLcd(NULL)` plus `lcd_refresh()`.
+- After servicing due work, `tick()` returns the next wake delay computed from
+  `nextTimerRefresh` and `nextScreenRefresh`, so the Kotlin side can wait on a
+  real native deadline instead of a fixed JVM sleep.
 - `r47_init_runtime(...)` seeds `nextTimerRefresh` and `nextScreenRefresh`, so
   tick cadence after boot depends on that initialization remaining intact.
 
@@ -73,10 +83,13 @@ Changes here affect the full runtime even when the Android UI code is untouched.
 
 - `NativeDisplayRefreshLoop` is the only continuous UI-thread poller for live
   native state.
-- Each `doFrame(...)` call reads the LCD through `getPackedDisplayBuffer(...)`,
-  forwards the packed rows to `ReplicaOverlay.updatePackedLcd(...)`, then
-  requests keypad metadata through `getKeypadMetaNative(...)` using the current
-  main-key mode code from `ReplicaOverlayController`.
+- Each `doFrame(...)` call first reads `getPackedDisplayGeneration()`. Only when
+  the generation changed does it attempt `getPackedDisplayBuffer(...)`, then it
+  forwards accepted packed rows to `ReplicaOverlay.updatePackedLcd(...)`.
+- If the non-blocking packed-buffer copy fails, the same generation is retried
+  on the next frame instead of being treated as consumed.
+- The loop still requests keypad metadata through `getKeypadMetaNative(...)`
+  using the current main-key mode code from `ReplicaOverlayController`.
 - Label refresh work runs only when either of these is true:
   - the keypad metadata differs from the last frame
   - more than 500 ms passed since `lastLabelRefresh`
@@ -91,8 +104,9 @@ That would duplicate the most expensive JNI reads in the shell.
 ## Packed LCD Row Decode Path
 
 - `jni_display.c::getPackedDisplayBuffer(...)` short-circuits when
-  `lcdBufferDirty` is false, so Kotlin does not receive a fresh packed snapshot
-  on unchanged frames.
+  `lcdBufferDirty` is false, and `NativeDisplayRefreshLoop` only attempts the
+  copy after `getPackedDisplayGeneration()` changes, so Kotlin does not receive
+  a fresh packed snapshot on unchanged frames.
 - After a successful copy, the JNI export clears each row's dirty flag in the
   packed transport buffer. That dirty flag is transport bookkeeping, not part of
   the visible LCD contract.
@@ -181,15 +195,19 @@ program, a save or load operation, or a progress or pause loop.
 ## Regression And Evidence Surfaces
 
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/NativeCoreRuntimeTest.kt` covers
-  one-time initialization, task execution, and state-save behavior on the core
-  thread.
+  one-time initialization, task execution, state-save behavior, and native-
+  deadline waiting on the core thread.
+- `android/app/src/test/java/io/github/ppigazzini/r47zen/NativeDisplayRefreshLoopTest.kt`
+  covers generation gating and retry-after-failed-copy behavior for the packed
+  LCD observer loop.
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/DynamicKeypadParityFixtureTest.kt`
   covers the unchanged-snapshot skip gate and keypad parity behavior.
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/ReplicaOverlayGoldenTest.kt`
   covers renderer stability for the borderless native shell and the retained
   top settings-strip interaction.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
-  Android-compatibility wait and progress path.
+  Android-compatibility wait and progress path across the canonical
+  `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47` workloads.
 - `./scripts/android/build_android.sh --run-sim-tests` keeps the Android full
   build path aligned with the `build.sim` Meson and Ninja lane.
 - `ProgramFixtureInstrumentedTest` drives canonical program fixtures through the
@@ -209,6 +227,9 @@ regression surface.
   per-key spec recompute should remain tied to real size or scene changes
   instead of steady-state `onDraw()`.
 - Keep redraw work tied to real pixel, scene, or layout changes.
+- Do not reintroduce fixed 10 ms wakeups when native code can report the next
+  real deadline.
+- Do not pull packed LCD rows when the generation is unchanged.
 - Preserve the `trylock` and skip-one-cycle behavior unless a real runtime bug
   proves it is wrong.
 - Make lock release and reacquire boundaries explicit before changing storage,

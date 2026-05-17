@@ -62,6 +62,9 @@ flowchart TD
 - [Guide to app architecture](https://developer.android.com/topic/architecture):
   separation of concerns, state ownership, lifecycle boundaries, and
   single-source-of-truth guidance.
+- [Threads and threading performance](https://developer.android.com/topic/performance/threads):
+  main-thread budget, worker-thread ownership, and queue-based background-work
+  guidance used for the deadline-driven core-thread design.
 - [Fundamentals of testing Android apps](https://developer.android.com/training/testing/fundamentals):
   official Android guidance for local versus instrumented tests, test scope,
   and dependency decoupling; use this when deciding whether a repo contract
@@ -102,6 +105,23 @@ flowchart TD
   `sdkmanager` package syntax this repo uses in CI.
 - [JNI tips](https://developer.android.com/ndk/guides/jni-tips): explicit
   registration, thread attachment, reference management, and exception rules.
+- [JNI performance article alias](https://developer.android.com/training/articles/perf-jni):
+  stable alias that currently resolves to the maintained JNI guidance page;
+  useful when historical Android notes still reference the older URL.
+- [simpleperf](https://developer.android.com/ndk/guides/simpleperf): official
+  native profiler for symbol, DSO, thread, and call-graph attribution before
+  hot-path micro-optimization.
+- [Custom trace events in native code](https://developer.android.com/topic/performance/tracing/custom-events-native):
+  official ATrace or Perfetto guidance for Android-owned native spans and
+  thread naming.
+- [Clang Users Manual](https://clang.llvm.org/docs/UsersManual.html): official
+  Clang optimization, profile-generation, and profile-use reference behind NDK
+  PGO flag interpretation.
+- [How To Build With PGO](https://llvm.org/docs/HowToBuildWithPGO.html): LLVM
+  reference for instrumentation, raw profile collection, and merged profdata
+  use.
+- [llvm-profdata](https://llvm.org/docs/CommandGuide/llvm-profdata.html):
+  official merge and inspection tool for indexed profile data.
 - [target_compile_options](https://cmake.org/cmake/help/latest/command/target_compile_options.html):
   target-scoped compile-flag ownership, including config-specific generator
   expressions.

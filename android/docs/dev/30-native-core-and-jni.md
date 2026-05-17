@@ -73,9 +73,9 @@ snapshot paths and must stay absent during normal builds.
 
 The Android bridge code is intentionally split by responsibility:
 
-- `jni_lifecycle.c` for init, tick, refresh, and slot-state lifecycle work
+- `jni_lifecycle.c` for init, deadline-driven tick, refresh, and slot-state lifecycle work
 - `jni_input.c` for key and menu dispatch
-- `jni_display.c` for LCD pixels, keypad snapshots, and X-register queries
+- `jni_display.c` for packed LCD generations, pixels, keypad snapshots, and X-register queries
 - `jni_storage.c` for SAF-backed blocking file handoff
 - `jni_registration.c` for `JNI_OnLoad()` and explicit native registration
 - `jni_activity_bridge.c` for shared JVM, activity callbacks, and bridge globals
@@ -92,7 +92,7 @@ The registered native surface includes:
 - native pre-init, init, and tick
 - key, menu, and function dispatch
 - state save, load, and force refresh
-- LCD pixel transfer
+- packed LCD generation reads and packed LCD transfer
 - keypad metadata and label snapshots, including per-label roles such as
   underlined menu-opening faceplate legends
 - slot selection and X-register fetch
@@ -123,12 +123,23 @@ marshalling, and Android runtime compatibility.
 `NativeCoreRuntime` runs the engine loop on a background thread. The JNI bridge
 supports that model by keeping shared synchronization in native code:
 
+- `NativeCoreRuntime` drains queued work, calls `tick()`, then waits on
+  `coreTasks.poll(nextDelay, ...)` for the returned deadline instead of
+  sleeping a fixed 10 ms; `dispose(stopApp = true)` clears the queue and
+  offers a sentinel runnable so a blocked wait wakes promptly
 - `screenMutex` is recursive
+- `Java_com_example_r47_MainActivity_tick(...)` keeps
+  `pthread_mutex_trylock(&screenMutex)` semantics, advances due timer and LCD
+  work, and returns the next required wake delay through
+  `r47_next_tick_delay_ms(...)`; when the lock is busy it returns `1` so the
+  Kotlin side stays responsive without reviving the rejected async scheduler
 - `yieldToAndroidWithMs()` refreshes the LCD, releases the recursive screen
   lock, advances due timer callbacks, lets Android process queued work, sleeps
   briefly, and then reacquires the lock
 - `NativeDisplayRefreshLoop` uses `Choreographer.postFrameCallback(...)` on the
-  main looper to refresh LCD pixels every frame and to poll keypad snapshots on
+  main looper, first reads `getPackedDisplayGeneration()`, only calls
+  `getPackedDisplayBuffer(...)` when the generation changes, retries the same
+  generation after a failed non-blocking copy, and polls keypad snapshots on
   metadata change or the configured idle interval; `ReplicaOverlayController`
   keeps the whole-snapshot gate available behind
   `KeypadRefreshPolicy.ENABLE_UNCHANGED_SNAPSHOT_SKIP`, and the current
@@ -147,7 +158,9 @@ supports that model by keeping shared synchronization in native code:
   progress shims in `android_runtime.c`, then loads and runs the canonical
   upstream fixtures `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and
   `SPIRALk.p47` through the host-side Android compatibility
-  path
+  path. The optional `MANSLV2.p47` probe stays behind
+  `R47_INCLUDE_MANSLV2=1` and is diagnostic-only at the current host harness
+  budget
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` builds that same
   host harness with the pinned NDK Clang and `llvm-profdata` pair under LLVM
   IRPGO instrumentation, injects a temporary resource-dir shim so the Linux
