@@ -262,6 +262,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             tick = ::tick,
             saveStateNative = ::saveStateNative,
             forceRefreshNative = ::forceRefreshNative,
+            getPackedDisplayGeneration = ::getPackedDisplayGeneration,
             getPackedDisplayBuffer = ::getPackedDisplayBuffer,
             getKeypadMetaNative = ::getKeypadMetaNative,
             getMainKeyDynamicModeCode = replicaOverlayController::currentMainKeyDynamicModeCode,
@@ -384,7 +385,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun forceRefreshNative()
     private external fun setSlotNative(slot: Int)
     private external fun getXRegisterNative(): String
-    private external fun getPackedDisplayBuffer(buffer: ByteArray)
+    private external fun getPackedDisplayGeneration(): Int
+    private external fun getPackedDisplayBuffer(buffer: ByteArray): Boolean
     private external fun setLcdColors(text: Int, bg: Int)
 
     // Legacy keypad getters kept for bridge compatibility.

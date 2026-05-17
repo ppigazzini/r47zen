@@ -14,7 +14,8 @@ internal class NativeCoreRuntime(
     private val tick: () -> Unit,
     private val saveStateNative: () -> Unit,
     private val forceRefreshNative: () -> Unit,
-    private val getPackedDisplayBuffer: (ByteArray) -> Unit,
+    private val getPackedDisplayGeneration: () -> Int,
+    private val getPackedDisplayBuffer: (ByteArray) -> Boolean,
     private val getKeypadMetaNative: (Int) -> IntArray,
     private val getMainKeyDynamicModeCode: () -> Int,
     private val getKeypadSnapshot: (IntArray) -> KeypadSnapshot,
@@ -23,6 +24,7 @@ internal class NativeCoreRuntime(
     private val displayRefreshLoop: DisplayRefreshLoop = NativeDisplayRefreshLoop(
         isAppRunning = { isAppRunningShared },
         isNativeInitialized = { isNativeInitializedShared },
+        getPackedDisplayGeneration = getPackedDisplayGeneration,
         getPackedDisplayBuffer = getPackedDisplayBuffer,
         getKeypadMetaNative = getKeypadMetaNative,
         getMainKeyDynamicModeCode = getMainKeyDynamicModeCode,

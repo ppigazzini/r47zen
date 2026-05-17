@@ -19,6 +19,7 @@ uint8_t *packedDisplayBuffer = NULL;
 pthread_mutex_t packedDisplayMutex = PTHREAD_MUTEX_INITIALIZER;
 
 bool lcdBufferDirty = false;
+volatile uint32_t packedDisplayGeneration = 0;
 
 static uint64_t hostLcdRefreshCount = 0;
 
@@ -104,6 +105,7 @@ void init_lcd_buffers() {
   }
 
   lcdBufferDirty = true;
+  packedDisplayGeneration++;
 }
 
 uint8_t *lcd_line_addr(int row) {
@@ -131,6 +133,7 @@ void LCD_write_line(uint8_t *line_buf) {
   snapshot_line[0] = 1u;
   line_buf[0] = 0u;
   lcdBufferDirty = true;
+  packedDisplayGeneration++;
   pthread_mutex_unlock(&packedDisplayMutex);
 }
 

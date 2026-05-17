@@ -231,7 +231,10 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_setSlotNative(
 JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getXRegisterNative(JNIEnv *env,
                                                             jobject thiz);
-JNIEXPORT void JNICALL
+JNIEXPORT jint JNICALL
+Java_com_example_r47_MainActivity_getPackedDisplayGeneration(JNIEnv *env,
+                                                                    jobject thiz);
+JNIEXPORT jboolean JNICALL
 Java_com_example_r47_MainActivity_getPackedDisplayBuffer(JNIEnv *env,
                                                                 jobject thiz,
                                                                 jbyteArray buffer);

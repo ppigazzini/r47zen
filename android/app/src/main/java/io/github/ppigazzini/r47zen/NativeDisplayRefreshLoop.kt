@@ -10,7 +10,8 @@ internal interface DisplayRefreshLoop {
 internal class NativeDisplayRefreshLoop(
     private val isAppRunning: () -> Boolean,
     private val isNativeInitialized: () -> Boolean,
-    private val getPackedDisplayBuffer: (ByteArray) -> Unit,
+    private val getPackedDisplayGeneration: () -> Int,
+    private val getPackedDisplayBuffer: (ByteArray) -> Boolean,
     private val getKeypadMetaNative: (Int) -> IntArray,
     private val getMainKeyDynamicModeCode: () -> Int,
     private val getKeypadSnapshot: (IntArray) -> KeypadSnapshot,
@@ -18,6 +19,7 @@ internal class NativeDisplayRefreshLoop(
     private val onDynamicRefresh: (KeypadSnapshot) -> Unit,
 ) : DisplayRefreshLoop {
     private val packedLcdBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+    private var lastDisplayGeneration = Int.MIN_VALUE
     private var lastLabelRefresh = 0L
     private var lastKeypadMeta = IntArray(0)
     private var isActive = false
@@ -28,24 +30,32 @@ internal class NativeDisplayRefreshLoop(
                 return
             }
 
-            if (isNativeInitialized()) {
-                getPackedDisplayBuffer(packedLcdBuffer)
-                onPackedLcd(packedLcdBuffer)
-
-                val currentMeta = getKeypadMetaNative(getMainKeyDynamicModeCode())
-                val now = System.currentTimeMillis()
-                val shouldRefreshLabels = now - lastLabelRefresh > 500
-                val keypadStateChanged = !lastKeypadMeta.contentEquals(currentMeta)
-                if (shouldRefreshLabels || keypadStateChanged) {
-                    lastKeypadMeta = currentMeta.copyOf()
-                    onDynamicRefresh(getKeypadSnapshot(currentMeta))
-                    lastLabelRefresh = now
-                }
-            }
+            refreshFrame(System.currentTimeMillis())
 
             if (isActive && isAppRunning()) {
                 Choreographer.getInstance().postFrameCallback(this)
             }
+        }
+    }
+
+    internal fun refreshFrame(nowMillis: Long) {
+        if (!isNativeInitialized()) {
+            return
+        }
+
+        val currentDisplayGeneration = getPackedDisplayGeneration()
+        if (currentDisplayGeneration != lastDisplayGeneration && getPackedDisplayBuffer(packedLcdBuffer)) {
+            onPackedLcd(packedLcdBuffer)
+            lastDisplayGeneration = currentDisplayGeneration
+        }
+
+        val currentMeta = getKeypadMetaNative(getMainKeyDynamicModeCode())
+        val shouldRefreshLabels = nowMillis - lastLabelRefresh > 500
+        val keypadStateChanged = !lastKeypadMeta.contentEquals(currentMeta)
+        if (shouldRefreshLabels || keypadStateChanged) {
+            lastKeypadMeta = currentMeta.copyOf()
+            onDynamicRefresh(getKeypadSnapshot(currentMeta))
+            lastLabelRefresh = nowMillis
         }
     }
 
@@ -55,6 +65,7 @@ internal class NativeDisplayRefreshLoop(
         }
 
         isActive = true
+        lastDisplayGeneration = Int.MIN_VALUE
         lastLabelRefresh = 0L
         lastKeypadMeta = IntArray(0)
         Choreographer.getInstance().postFrameCallback(frameCallback)
