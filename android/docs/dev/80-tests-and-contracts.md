@@ -136,6 +136,9 @@ Important contract files include:
   standard face is unavailable; the Python font-policy contract keeps the
   shipped font data, lane fallback chains, and keypad corpus in sync with that
   JVM proof surface
+- `C47TextRendererTest.kt`: locks the shared text-paint flags, fitted-text
+  minimum scale, and the equivalence between the fitted-label path and a direct
+  label-spec build at the resolved final size
 - `ExportedKeypadFixtureRenderTest.kt`: proves exported keypad fixtures apply to
   both main keys and softkeys in the live renderer path
 - `CalculatorKeyViewRenderSpecTest.kt`: locks the spec-layer main-key body

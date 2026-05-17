@@ -496,6 +496,54 @@ refactor(android): extract main-key mirror bridge helper
 
   Result: passed.
 
+## Annex D - Follow-up task 3: collapse fitted-text measurement to one resolved pass
+
+### Analysis
+
+- `C47TextRenderer.buildFittedLabelSpec(...)` still configured the paint,
+  resolved the fitted size, and then re-entered `buildLabelSpec(...)`, which in
+  turn re-ran bounds resolution as a second step.
+- The geometry and text-policy contract should stay exactly the same, but the
+  fitted-label path can reuse one internal resolved-metrics helper so the final
+  bounds do not need a second independent measurement pass.
+- This is a local text-renderer change; it does not need any layout, snapshot,
+  or native-contract changes.
+
+### Plan
+
+1. Add one internal resolved-text metrics helper in `C47TextRenderer`.
+2. Route both `buildLabelSpec(...)` and `buildFittedLabelSpec(...)` through that
+   helper so fitted labels build the final `LabelSpec` directly instead of
+   re-entering a second bounds pass.
+3. Extend `C47TextRendererTest.kt` with a focused equivalence check that the
+   fitted-label path still matches a direct label-spec build at the resolved
+   final size.
+
+### Conventional commit
+
+```text
+perf(android): reuse resolved metrics for fitted labels
+```
+
+### Outcome
+
+- `C47TextRenderer` now routes both direct and fitted label-spec construction
+  through one internal resolved-text metrics helper instead of bouncing fitted
+  labels through a second label-spec builder.
+- The final fitted-label bounds stay aligned with the pre-refactor behavior,
+  because the helper still resolves the final-width measurement exactly at the
+  resolved text size.
+- `C47TextRendererTest.kt` now proves the fitted-label path matches a direct
+  label-spec build at the resolved final size.
+- Maintained renderer docs now describe the resolved-metrics helper and the new
+  focused text-renderer regression surface.
+
+### Validation
+
+- `cd android && ANDROID_HOME=/home/usr00/.android/sdk ANDROID_SDK_ROOT=/home/usr00/.android/sdk ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.C47TextRendererTest`
+
+  Result: passed.
+
 ## Conventional commit
 
 ```text

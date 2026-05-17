@@ -457,6 +457,9 @@ hardcoding one text style for all keys. In practice that means:
 - `CalculatorSoftkeyPainter` still owns softkey chrome, overlays, preview
   marks, and strike lines, but it now reuses the same text-paint helper as the
   main-key path instead of carrying a separate text-paint policy
+- `C47TextRenderer` now resolves fitted-label size and final bounds through one
+  internal resolved-metrics helper, so fitted labels no longer bounce through a
+  second label-spec builder just to reach the same final geometry
 - main-key and softkey labels now use the staged standard calculator font as
   the primary keypad typeface across all shipped lanes
 - all shipped keypad-label lanes fall back to the staged tiny calculator font
@@ -495,7 +498,8 @@ The verification surface for this text-rendering split is now:
 - `CalculatorKeyViewRenderSpecTest.kt` for main-key body bounds, including the
   left-anchored percent-width body layout, primary anchors, top-label group
   bounds, fourth-label anchors, and spec-owned accessibility text
-- `C47TextRendererTest.kt` for shared paint flags and fit-floor behavior
+- `C47TextRendererTest.kt` for shared paint flags, fit-floor behavior, and
+  resolved fitted-label bounds equivalence
 - `CalculatorKeyViewCanvasTest.kt` for main-key primary, top-label, and fourth-
   label canvas output
 - `CalculatorSoftkeyPainterCanvasTest.kt` and
