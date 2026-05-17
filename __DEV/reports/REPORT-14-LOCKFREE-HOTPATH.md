@@ -69,9 +69,13 @@ Landed code shape:
   `EXIT` presses through `requestStopProgramNative()` before queue fallback
 - `requestStopProgramNative()` publishes stop intent without taking
   `screenMutex`, using the existing upstream `fnStopProgram()` entry point
+- `LiveProgramStopKeyPolicy` now names the Android direct-stop key set so the
+  tracked Kotlin path keeps explicit parity with the desktop simulator's live
+  `R/S` and `EXIT` stop rule
 
 Focused verification completed in this workspace:
 
+- `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LiveProgramStopKeyPolicyTest`
 - `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.NativeDisplayRefreshLoopTest --tests io.github.ppigazzini.r47zen.NativeCoreRuntimeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayControllerLabelModeTest --tests io.github.ppigazzini.r47zen.DynamicKeypadParityFixtureTest`
 - `cd android && ANDROID_HOME=/home/usr00/.android/sdk ANDROID_SDK_ROOT=/home/usr00/.android/sdk ./gradlew lint`
 - `ANDROID_HOME=/home/usr00/.android/sdk ANDROID_SDK_ROOT=/home/usr00/.android/sdk ./scripts/android/build_android.sh`

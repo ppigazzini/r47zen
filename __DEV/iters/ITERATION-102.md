@@ -157,6 +157,7 @@ Full Android staging and build flow:
 
 Results:
 
+- dedicated `EXIT` parity policy test passed
 - focused JVM lane passed
 - lint passed
 - full Android build flow passed and produced the debug APK

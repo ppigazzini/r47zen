@@ -20,10 +20,11 @@ surfaces.
 ## Kotlin Structure At A Glance
 
 - activity entrypoints: `MainActivity.kt`, `SettingsActivity.kt`
-- runtime loops: `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`
+- runtime loops: `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`,
+  `NativeKeypadSnapshotStore.kt`
 - shell coordination: `ReplicaOverlayController.kt`,
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
-  `WindowModeController.kt`
+  `WindowModeController.kt`, `LiveProgramStopKeyPolicy.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt`,
   `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`,
   `KeyRenderPainter.kt`, `C47TextRenderer.kt`, `MainKeyLabelMirrors.kt`,
@@ -58,7 +59,7 @@ flowchart LR
 | Concern | Primary Kotlin owner | Boundary this page cares about | Read next |
 | --- | --- | --- | --- |
 | activity and settings coordination | `MainActivity`, `SettingsActivity` | startup, preferences, PiP, intent routing, helper wiring | `50-upstream-interface-surfaces.md` |
-| native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop` | one core thread, one task queue, one UI-side poller | `60-runtime-hot-paths.md` |
+| native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, and one cached keypad snapshot owner | `60-runtime-hot-paths.md` |
 | overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `40-ui-rendering-and-gtk-mapping.md` |
 | storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, slot metadata, save and load ordering | `50-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
 | Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `50-upstream-interface-surfaces.md` |
@@ -94,17 +95,20 @@ Main flow:
 1. `MainActivity` and helper controllers receive lifecycle, touch, keyboard,
    menu, PiP, and settings work.
 2. Native work enters `NativeCoreRuntime` through `offerCoreTask(...)` or the
-   small direct bridge methods exposed by `MainActivity`.
+  small direct bridge methods exposed by `MainActivity`. The live touch and
+  PiP stop seam first applies `LiveProgramStopKeyPolicy` so `R/S` and `EXIT`
+  can call `requestStopProgramNative()` before queue fallback.
 3. `NativeCoreRuntime` serializes calculator execution on one shared core
    thread.
 4. `NativeDisplayRefreshLoop` is the single UI-side poller for LCD and keypad
    scene state.
-5. `NativeDisplayRefreshLoop` requests keypad metadata with the current
+5. `NativeDisplayRefreshLoop` watches packed-display and keypad-snapshot
+  generations, then refreshes `NativeKeypadSnapshotStore` with the current
   main-key mode code from `ReplicaOverlayController`.
-6. `ReplicaOverlayController.currentKeypadSnapshot()` converts the native arrays
-  into `KeypadSnapshot`, applies any `user` or `virtuoso` keypad composition
-  plus the softkey graphic or static mask, and `ReplicaKeypadLayout` applies
-  scene changes after a real layout boundary.
+6. `ReplicaOverlayController.currentKeypadSnapshot()` resolves that cached
+  `KeypadSnapshot`, applies any `user` or `virtuoso` keypad composition plus
+  the softkey graphic or static mask, and `ReplicaKeypadLayout` applies scene
+  changes after a real layout boundary.
 
 This page stops at the coordination boundary. Read
 `60-runtime-hot-paths.md` for cadence, skip gates, and lock-sensitive loops;
@@ -173,6 +177,19 @@ The Kotlin shell currently accepts input from five paths:
 - PiP touch mapping handled by `ReplicaOverlay`
 
 Each path ultimately resolves to core-thread work or a small Android-side action.
+
+The live on-screen and PiP stop path is narrower than the general queue path:
+
+- `ReplicaOverlayController` routes touch and PiP taps through
+  `MainActivity.dispatchLiveKey(...)`
+- `LiveProgramStopKeyPolicy` marks only key codes `36` (`R/S`) and `33`
+  (`EXIT`) as direct live-stop candidates
+- `MainActivity` calls `requestStopProgramNative()` first for those keys, and
+  only falls back to queued `sendKey(...)` when native state reports that no
+  program is currently running or paused
+
+That rule keeps normal `EXIT` semantics outside long-running program execution
+while matching the desktop simulator's stop-key parity during an active run.
 
 ## Persistence and slot model
 

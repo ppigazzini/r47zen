@@ -29,6 +29,17 @@ flowchart TD
   upstream source repository consumed by this Android overlay. The GitLab path
   still uses the historical `c43` name even though the project identifies
   itself as C47.
+- [C47 lblGtoXeq.c run loop](https://gitlab.com/rpncalculators/c43/-/blob/master/src/c47/programming/lblGtoXeq.c):
+  authoritative upstream run-loop source used when comparing Android stop-key
+  behavior against the desktop simulator's `R/S` and `EXIT` parity during
+  long-running program execution.
+- [C47 keyboard.c desktop key dispatch](https://gitlab.com/rpncalculators/c43/-/blob/master/src/c47/keyboard.c):
+  upstream `PC_BUILD` key-callback surface to inspect when desktop input seems
+  to publish stop intent earlier than Android.
+- [C47 addons.c key polling helpers](https://gitlab.com/rpncalculators/c43/-/blob/master/src/c47/c47Extensions/addons.c):
+  authoritative `anyKeyWaiting()` and `exitKeyWaiting()` source used when a
+  stop-path analysis depends on the desktop simulator's polled `EXIT`
+  behavior.
 - [C47 project wiki](https://gitlab.com/rpncalculators/c43/-/wikis/home):
   upstream project-maintained wiki surface linked from the upstream GitLab
   project when project-specific behavior or history matters.

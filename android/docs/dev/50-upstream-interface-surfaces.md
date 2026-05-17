@@ -19,8 +19,8 @@ verification surfaces.
 | --- | --- | --- | --- | --- |
 | runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and `updateNativeActivityRef()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach stays display-passive |
 | lifecycle save, load, and explicit refresh | `saveStateNative()`, `loadStateNative()`, `forceRefreshNative()` | `jni_lifecycle.c` | `saveCalc()`, `restoreCalc()`, `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` | `saveStateNative()` must stay display-passive for background save; redraw belongs only to real state loads or explicit refresh owners |
-| direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)` | input paths serialize on `screenMutex` and some skip while `isCoreBlockingForIo` is true |
-| LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `setLcdColors()`, `getKeypadMetaNative()`, `getKeypadLabelsNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, `packedDisplayBuffer`, compatibility `screenData`, visible key tables, label resolvers | the generation check short-circuits unchanged frames, `getPackedDisplayBuffer()` exits early when `lcdBufferDirty` is false or the lock is busy, and a successful export clears packed-row dirty flags after copy |
+| direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop without taking `screenMutex`; the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
+| LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `setLcdColors()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()`, `getKeypadMetaNative()`, `getKeypadLabelsNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, compatibility `screenData`, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work, `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early when the lock is busy, and the legacy split keypad getters remain compatibility surfaces rather than the hot UI path |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to activity callbacks | `requestFile()`, `playTone()`, `stopTone()`, `processCoreTasks()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned, and reattach must not redraw the LCD |
 | storage and yield boundary | `StorageAccessCoordinator` returns detached file descriptors through `onFileSelectedNative()` or `onFileCancelledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
@@ -118,16 +118,20 @@ flowchart LR
   `lcdBufferDirty` is true and returns `true` only after a successful copy. It
   uses `pthread_mutex_trylock`, so a busy native section simply skips one frame
   instead of blocking the UI thread.
-- `getKeypadMetaNative(mainKeyDynamicMode)` and
-  `getKeypadLabelsNative(mainKeyDynamicMode)` do not mirror that behavior yet:
-  both still take `screenMutex` with blocking `pthread_mutex_lock`.
-- `NativeDisplayRefreshLoop.doFrame(...)` calls `getKeypadMetaNative(...)`
-  every frame, and the snapshot callback into
-  `ReplicaOverlayController.currentKeypadSnapshot()` calls
-  `getKeypadLabelsNative(...)` when labels refresh. If shared-core execution
-  stops yielding while it owns the same lock, the Android main thread can stall
-  inside these exports even though packed LCD export keeps the non-blocking
-  `trylock` behavior.
+- `getKeypadSnapshotGeneration()` exposes the native keypad snapshot generation
+  used by the UI-side refresh loop.
+- `copyKeypadSnapshotNative(mainKeyDynamicMode, metaBuffer, labelBuffer)` is
+  the Android hot-path keypad export. It fills one fixed `KEYPAD_META_LENGTH`
+  integer array plus one label array under a single
+  `pthread_mutex_trylock(&screenMutex)` critical section and returns `false`
+  when the native side is busy.
+- `NativeKeypadSnapshotStore` owns the reusable Kotlin-side buffers and caches
+  the last accepted snapshot per main-key mode. `NativeDisplayRefreshLoop`
+  checks generation first and reuses that cached snapshot when the native copy
+  path reports a busy lock.
+- USER-mode composition now happens inside `copyKeypadSnapshotNative(...)`, so
+  the UI no longer assembles one logical keypad scene through multiple JNI
+  reads.
 - After a successful copy, the JNI export clears the packed-row dirty flag in
   each copied row. That flag is transport bookkeeping, not part of the visible
   LCD contract.
@@ -137,22 +141,19 @@ flowchart LR
 - `setLcdColors(...)` marks every native LCD row dirty for future exports while
   `ReplicaOverlay` immediately recolors the cached packed snapshot on the UI
   side.
-- `getKeypadMetaNative(mainKeyDynamicMode)` fills one fixed
-  `KEYPAD_META_LENGTH` integer array under `screenMutex` using the app-facing
-  native main-key mode enum: `on`, `alpha`, `user`, or `off`. The Android-only
-  stored value `virtuoso` resolves to native `off` before this JNI request.
-- `getKeypadLabelsNative(mainKeyDynamicMode)` walks the visible main-key table
-  plus the six softkeys under `screenMutex` and exports the current label
-  strings for that app-facing native main-key mode.
+- the legacy `getKeypadMetaNative(mainKeyDynamicMode)` and
+  `getKeypadLabelsNative(mainKeyDynamicMode)` exports remain bridge
+  compatibility surfaces and test helpers, but the live Android frame loop no
+  longer depends on their split blocking semantics.
 - the legacy `r47_get_keypad_meta(..., bool isDynamic)` and
   `r47_get_keypad_labels(..., bool isDynamic)` functions remain the
   bool-based fixture-export contract used by repo tooling and keep the older
   semantics.
-- Kotlin converts those raw arrays into `KeypadSnapshot`, and the renderer uses
-  named fields from that model instead of indexing raw native arrays again.
-  `ReplicaOverlayController` then applies any `user` or `virtuoso`
-  keypad-label composition plus the softkey `graphic` or `off` mask
-  before the snapshot reaches the live renderer.
+- Kotlin converts the copied buffers into `KeypadSnapshot`, and the renderer
+  uses named fields from that model instead of indexing raw native arrays
+  again. `ReplicaOverlayController` then applies any `virtuoso` keypad-label
+  composition plus the softkey `graphic` or `off` mask before the snapshot
+  reaches the live renderer.
 
 ## Instrumentation-Only Bridge Contract
 

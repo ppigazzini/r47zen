@@ -46,7 +46,8 @@ flowchart TD
   entrypoints, ownership boundaries, staged inputs, compile flow, and
   checkout-sensitive root surfaces.
 - [20-kotlin-shell-architecture.md](20-kotlin-shell-architecture.md): Android
-  lifecycle, helper ownership, storage, settings, slot flow, and input flow.
+  lifecycle, helper ownership, storage, settings, slot flow, input flow, and
+  direct live-stop routing.
 - [30-native-core-and-jni.md](30-native-core-and-jni.md): CMake, JNI
   registration, Android HAL seams, SAF bridge behavior, and native packaging.
 - [40-ui-rendering-and-gtk-mapping.md](40-ui-rendering-and-gtk-mapping.md):
@@ -78,6 +79,13 @@ flowchart TD
 - verification planning, contract ownership, or CI test routing:
   [80-tests-and-contracts.md](80-tests-and-contracts.md) and
   [70-ci-and-release-workflow.md](70-ci-and-release-workflow.md)
+- long-running stop parity, live touch `EXIT` handling, or desktop-stop
+  comparisons:
+  [20-kotlin-shell-architecture.md](20-kotlin-shell-architecture.md),
+  [50-upstream-interface-surfaces.md](50-upstream-interface-surfaces.md),
+  [60-runtime-hot-paths.md](60-runtime-hot-paths.md),
+  [80-tests-and-contracts.md](80-tests-and-contracts.md), and
+  [90-official-references.md](90-official-references.md)
 
 ## Maintainer Update Workflow
 
