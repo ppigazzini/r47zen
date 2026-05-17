@@ -50,7 +50,7 @@ int register_main_activity_natives(JNIEnv *env) {
         (void *)Java_com_example_r47_MainActivity_nativePreInit},
       {"initNative", "(Ljava/lang/String;I)V",
         (void *)Java_com_example_r47_MainActivity_initNative},
-       {"tick", "()V", (void *)Java_com_example_r47_MainActivity_tick},
+       {"tick", "()I", (void *)Java_com_example_r47_MainActivity_tick},
        {"sendKey", "(I)V", (void *)Java_com_example_r47_MainActivity_sendKey},
       {"sendSimKeyNative", "(Ljava/lang/String;ZZ)V",
         (void *)Java_com_example_r47_MainActivity_sendSimKeyNative},

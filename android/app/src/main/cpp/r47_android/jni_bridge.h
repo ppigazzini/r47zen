@@ -202,7 +202,7 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_nativePreInit(
     JNIEnv *env, jobject thiz, jstring path_obj);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(
     JNIEnv *env, jobject thiz, jstring pathObj, jint slotId);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(
+JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
     JNIEnv *env, jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
     JNIEnv *env, jobject thiz, jint keyCode);

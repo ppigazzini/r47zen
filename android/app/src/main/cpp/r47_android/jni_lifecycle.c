@@ -145,13 +145,28 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(
   r47_init_runtime(slotId);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(
+static jint r47_next_tick_delay_ms(uint32_t now) {
+  uint32_t next_due = nextTimerRefresh;
+
+  if (next_due == 0 ||
+      (nextScreenRefresh != 0 && nextScreenRefresh < next_due)) {
+    next_due = nextScreenRefresh;
+  }
+
+  if (next_due == 0 || next_due <= now) {
+    return 0;
+  }
+
+  return (jint)(next_due - now);
+}
+
+JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
   JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
   uint32_t now = sys_current_ms();
   if (pthread_mutex_trylock(&screenMutex) != 0) {
-    return;
+    return 1;
   }
 
   if (nextTimerRefresh <= now) {
@@ -165,6 +180,8 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(
   }
 
   pthread_mutex_unlock(&screenMutex);
+
+  return r47_next_tick_delay_ms(sys_current_ms());
 }
 
 JNIEXPORT void JNICALL

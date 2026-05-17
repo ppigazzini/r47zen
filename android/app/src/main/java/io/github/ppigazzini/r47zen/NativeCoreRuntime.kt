@@ -11,7 +11,7 @@ internal class NativeCoreRuntime(
     private val nativePreInit: (String) -> Unit,
     private val initNative: (String, Int) -> Unit,
     private val updateNativeActivityRef: () -> Unit,
-    private val tick: () -> Unit,
+    private val tick: () -> Int,
     private val saveStateNative: () -> Unit,
     private val forceRefreshNative: () -> Unit,
     private val getPackedDisplayGeneration: () -> Int,
@@ -35,7 +35,14 @@ internal class NativeCoreRuntime(
     private val startCoreThread: (Runnable) -> Unit = { runnable ->
         Thread(runnable, "R47CoreRuntime").start()
     },
-    private val sleepMillis: (Long) -> Unit = { durationMs -> Thread.sleep(durationMs) },
+    private val awaitCoreTask: (Long) -> Runnable? = { timeoutMillis ->
+        try {
+            coreTasks.poll(timeoutMillis, TimeUnit.MILLISECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            null
+        }
+    },
 ) {
     companion object {
         private const val TAG = "R47CoreRuntime"
@@ -80,6 +87,7 @@ internal class NativeCoreRuntime(
         if (stopApp) {
             isAppRunningShared = false
             coreTasks.clear()
+            coreTasks.offer(Runnable {})
         }
     }
 
@@ -148,8 +156,15 @@ internal class NativeCoreRuntime(
                         }
 
                         drainCoreTasks()
-                        tick()
-                        sleepMillis(10)
+                        val nextTickDelayMillis = tick().coerceAtLeast(0).toLong()
+                        if (nextTickDelayMillis == 0L) {
+                            continue
+                        }
+
+                        val queuedTask = awaitCoreTask(nextTickDelayMillis)
+                        if (queuedTask != null) {
+                            drainCoreTasks(queuedTask)
+                        }
                     }
                     Log.i(TAG, "Core thread exiting")
                 } catch (error: Exception) {
@@ -165,15 +180,19 @@ internal class NativeCoreRuntime(
         }
     }
 
-    private fun drainCoreTasks() {
-        var task = coreTasks.poll()
+    private fun drainCoreTasks(initialTask: Runnable? = coreTasks.poll()) {
+        var task = initialTask
         while (task != null) {
-            try {
-                task.run()
-            } catch (error: Exception) {
-                Log.e(TAG, "Core task failed", error)
-            }
+            runCoreTask(task)
             task = coreTasks.poll()
+        }
+    }
+
+    private fun runCoreTask(task: Runnable) {
+        try {
+            task.run()
+        } catch (error: Exception) {
+            Log.e(TAG, "Core task failed", error)
         }
     }
 }

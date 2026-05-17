@@ -12,6 +12,7 @@ import org.robolectric.annotation.Config
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -84,10 +85,35 @@ class NativeCoreRuntimeTest {
         assertFalse(NativeCoreRuntime.isAppRunning())
     }
 
+    @Test
+    fun attach_waitsOnNativeDeadlineInsteadOfFixedSleep() {
+        val waitObserved = AtomicLong(-1)
+        val waitLatch = CountDownLatch(1)
+        lateinit var runtime: NativeCoreRuntime
+
+        runtime = createRuntime(
+            tickDelayMillis = 37,
+            awaitCoreTask = { timeoutMillis ->
+                waitObserved.set(timeoutMillis)
+                waitLatch.countDown()
+                runtime.dispose(stopApp = true)
+                null
+            },
+        )
+
+        runtime.attach()
+
+        assertTrue(waitLatch.await(2, TimeUnit.SECONDS))
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        assertEquals(37L, waitObserved.get())
+    }
+
     private fun createRuntime(
         onInit: () -> Unit = {},
         onUpdateActivityRef: () -> Unit = {},
         onSaveState: () -> Unit = {},
+        tickDelayMillis: Int = 10,
+        awaitCoreTask: ((Long) -> Runnable?)? = null,
     ): NativeCoreRuntime {
         return NativeCoreRuntime(
             filesDirPath = "/tmp/r47-tests",
@@ -98,7 +124,7 @@ class NativeCoreRuntimeTest {
                 onInit()
             },
             updateNativeActivityRef = onUpdateActivityRef,
-            tick = {},
+            tick = { tickDelayMillis },
             saveStateNative = onSaveState,
             forceRefreshNative = {},
             getPackedDisplayGeneration = { 0 },
@@ -113,6 +139,7 @@ class NativeCoreRuntimeTest {
 
                 override fun stop() {}
             },
+            awaitCoreTask = awaitCoreTask ?: { null },
         )
     }
 
