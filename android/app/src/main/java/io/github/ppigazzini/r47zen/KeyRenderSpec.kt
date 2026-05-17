@@ -62,11 +62,48 @@ internal data class LabelSpec(
     val strikeThrough: Boolean = false,
 )
 
+internal sealed interface KeyRenderLabelSlot {
+    val id: String
+}
+
+internal enum class MainKeyLabelSlot(override val id: String) : KeyRenderLabelSlot {
+    PRIMARY("main-primary"),
+    F("main-f"),
+    G("main-g"),
+    LETTER("main-letter"),
+}
+
+internal enum class SoftkeyLabelSlot(override val id: String) : KeyRenderLabelSlot {
+    VALUE("value"),
+    PRIMARY("primary"),
+    AUX("aux"),
+    OVERLAY_MENU("overlay-menu"),
+}
+
 internal data class AccessibilitySpec(
     val contentDescription: String,
 )
 
 internal sealed interface AdornmentSpec
+
+internal sealed interface KeyRenderAdornmentSlot {
+    val id: String
+}
+
+internal enum class MainKeyAdornmentSlot(override val id: String) : KeyRenderAdornmentSlot {
+    PRESSED_HIGHLIGHT("main-pressed-highlight"),
+    PRESSED_SHADOW("main-pressed-shadow"),
+}
+
+internal enum class SoftkeyAdornmentSlot(override val id: String) : KeyRenderAdornmentSlot {
+    PREVIEW("preview-line"),
+    OVERLAY("overlay"),
+    OVERLAY_UNDERLINE("overlay-underline"),
+    STRIKE_THROUGH("strike-through"),
+    STRIKE_OUT("strike-out"),
+    PRESSED_HIGHLIGHT("pressed-highlight"),
+    PRESSED_SHADOW("pressed-shadow"),
+}
 
 internal data class LineAdornmentSpec(
     val id: String,
@@ -137,6 +174,10 @@ internal fun KeyRenderSpec.label(id: String): LabelSpec? {
     return labels.firstOrNull { it.id == id }
 }
 
+internal fun KeyRenderSpec.label(slot: KeyRenderLabelSlot): LabelSpec? {
+    return label(slot.id)
+}
+
 internal fun KeyRenderSpec.adornment(id: String): AdornmentSpec? {
     return adornments.firstOrNull { adornment ->
         when (adornment) {
@@ -144,4 +185,8 @@ internal fun KeyRenderSpec.adornment(id: String): AdornmentSpec? {
             is SoftkeyOverlayAdornmentSpec -> adornment.id == id
         }
     }
+}
+
+internal fun KeyRenderSpec.adornment(slot: KeyRenderAdornmentSlot): AdornmentSpec? {
+    return adornment(slot.id)
 }

@@ -70,13 +70,6 @@ class CalculatorKeyView @JvmOverloads constructor(
 ) : ConstraintLayout(context, attrs, defStyleAttr) {
 
     companion object {
-        private const val LABEL_ID_MAIN_PRIMARY = "main-primary"
-        private const val LABEL_ID_MAIN_F = "main-f"
-        private const val LABEL_ID_MAIN_G = "main-g"
-        private const val LABEL_ID_MAIN_LETTER = "main-letter"
-        private const val ADORNMENT_ID_MAIN_PRESSED_HIGHLIGHT = "main-pressed-highlight"
-        private const val ADORNMENT_ID_MAIN_PRESSED_SHADOW = "main-pressed-shadow"
-
         private val defaultPrimaryColor = Color.WHITE
         private val defaultPrimaryDarkColor = Color.BLACK
         private val fAccentColor = Color.rgb(255, 195, 111)
@@ -834,7 +827,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         val labels = mutableListOf<LabelSpec>()
         val primarySpec = C47TextRenderer.buildLabelSpec(
-            id = LABEL_ID_MAIN_PRIMARY,
+            id = MainKeyLabelSlot.PRIMARY.id,
             text = primaryLabel.text?.toString().orEmpty(),
             paint = mainKeyMeasurementPaint,
             typeface = primaryLabel.typeface,
@@ -872,7 +865,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         val fSpec = if (hasFLabel) {
             C47TextRenderer.buildLabelSpec(
-                id = LABEL_ID_MAIN_F,
+                id = MainKeyLabelSlot.F.id,
                 text = fLabel.text?.toString().orEmpty(),
                 paint = mainKeyMeasurementPaint,
                 typeface = fLabel.typeface,
@@ -893,7 +886,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
         val gSpec = if (hasGLabel) {
             C47TextRenderer.buildLabelSpec(
-                id = LABEL_ID_MAIN_G,
+                id = MainKeyLabelSlot.G.id,
                 text = gLabel.text?.toString().orEmpty(),
                 paint = mainKeyMeasurementPaint,
                 typeface = gLabel.typeface,
@@ -970,7 +963,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
         val letterSpec = fourthLabelAnchor?.let { anchor ->
             C47TextRenderer.buildLabelSpec(
-                id = LABEL_ID_MAIN_LETTER,
+                id = MainKeyLabelSlot.LETTER.id,
                 text = letterLabel.text?.toString().orEmpty(),
                 paint = mainKeyMeasurementPaint,
                 typeface = letterLabel.typeface,
@@ -1025,10 +1018,10 @@ class CalculatorKeyView @JvmOverloads constructor(
 
     private fun syncLabelMirrorGeometry(renderSpec: KeyRenderSpec?) {
         mainKeyLabelMirrors.syncGeometry(
-            primarySpec = renderSpec?.label(LABEL_ID_MAIN_PRIMARY),
-            fSpec = renderSpec?.label(LABEL_ID_MAIN_F),
-            gSpec = renderSpec?.label(LABEL_ID_MAIN_G),
-            letterSpec = renderSpec?.label(LABEL_ID_MAIN_LETTER),
+            primarySpec = renderSpec?.label(MainKeyLabelSlot.PRIMARY),
+            fSpec = renderSpec?.label(MainKeyLabelSlot.F),
+            gSpec = renderSpec?.label(MainKeyLabelSlot.G),
+            letterSpec = renderSpec?.label(MainKeyLabelSlot.LETTER),
         )
     }
 
@@ -1082,16 +1075,16 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun drawMainKeyLabels(canvas: Canvas, renderSpec: KeyRenderSpec) {
-        renderSpec.label(LABEL_ID_MAIN_PRIMARY)?.let { label ->
+        renderSpec.label(MainKeyLabelSlot.PRIMARY)?.let { label ->
             KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
         }
-        renderSpec.label(LABEL_ID_MAIN_F)?.let { label ->
+        renderSpec.label(MainKeyLabelSlot.F)?.let { label ->
             KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
         }
-        renderSpec.label(LABEL_ID_MAIN_G)?.let { label ->
+        renderSpec.label(MainKeyLabelSlot.G)?.let { label ->
             KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
         }
-        renderSpec.label(LABEL_ID_MAIN_LETTER)?.let { label ->
+        renderSpec.label(MainKeyLabelSlot.LETTER)?.let { label ->
             KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
         }
     }
@@ -1106,7 +1099,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         return listOf(
             LineAdornmentSpec(
-                id = ADORNMENT_ID_MAIN_PRESSED_HIGHLIGHT,
+                id = MainKeyAdornmentSlot.PRESSED_HIGHLIGHT.id,
                 line = LineSpec(
                     start = PointSpec(rect.left + edgeInset, topY),
                     end = PointSpec(rect.right - edgeInset, topY),
@@ -1115,7 +1108,7 @@ class CalculatorKeyView @JvmOverloads constructor(
                 strokeWidth = max(2.2f * referenceBodyToViewWidthScale, 1.5f),
             ),
             LineAdornmentSpec(
-                id = ADORNMENT_ID_MAIN_PRESSED_SHADOW,
+                id = MainKeyAdornmentSlot.PRESSED_SHADOW.id,
                 line = LineSpec(
                     start = PointSpec(rect.left + edgeInset, bottomY),
                     end = PointSpec(rect.right - edgeInset, bottomY),

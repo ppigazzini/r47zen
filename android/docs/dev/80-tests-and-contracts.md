@@ -139,6 +139,9 @@ Important contract files include:
 - `C47TextRendererTest.kt`: locks the shared text-paint flags, fitted-text
   minimum scale, and the equivalence between the fitted-label path and a direct
   label-spec build at the resolved final size
+- `KeyRenderSpecSlotTest.kt`: locks the typed Kotlin label-slot and adornment-
+  slot accessors while preserving the stable serialized `id` strings consumed
+  by the Python and JSON-backed contract surfaces
 - `ExportedKeypadFixtureRenderTest.kt`: proves exported keypad fixtures apply to
   both main keys and softkeys in the live renderer path
 - `CalculatorKeyViewRenderSpecTest.kt`: locks the spec-layer main-key body

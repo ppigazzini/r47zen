@@ -544,6 +544,53 @@ perf(android): reuse resolved metrics for fitted labels
 
   Result: passed.
 
+## Annex E - Follow-up task 4: replace string slot lookups with typed Kotlin slots
+
+### Analysis
+
+- `KeyRenderSpec` already carried stable serialized string IDs for labels and
+  adornments, but Kotlin call sites still looked those values up through raw
+  string literals or local string constants.
+- That left the runtime path open to typo-level drift even though the contract
+  IDs themselves were already stable.
+- The right local fix is to add typed Kotlin slot enums that still expose the
+  same serialized `id` strings, then migrate Kotlin lookups to those typed
+  accessors while leaving the serialized contract untouched.
+
+### Plan
+
+1. Add typed label-slot and adornment-slot enums to `KeyRenderSpec.kt`.
+2. Add typed `label(...)` and `adornment(...)` accessors that delegate to the
+   same stable serialized IDs.
+3. Migrate main-key and softkey Kotlin call sites from raw strings to typed
+   slots.
+4. Add a focused regression test that proves the typed accessors still resolve
+   the stable serialized IDs expected by the contract layer.
+
+### Conventional commit
+
+```text
+refactor(android): add typed render spec slots
+```
+
+### Outcome
+
+- `KeyRenderSpec.kt` now exposes typed Kotlin label-slot and adornment-slot
+  enums plus typed accessors, while the underlying serialized `id` strings stay
+  unchanged for contract payloads.
+- Main-key and softkey Kotlin call sites now resolve labels and adornments
+  through typed slots instead of raw lookup strings.
+- `KeyRenderSpecSlotTest.kt` now proves the typed accessors still map to the
+  stable serialized IDs the contract layer expects.
+- Maintained docs now describe the slot typing as a Kotlin-only safety
+  improvement rather than a contract-schema change.
+
+### Validation
+
+- `cd android && ANDROID_HOME=/home/usr00/.android/sdk ANDROID_SDK_ROOT=/home/usr00/.android/sdk ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.KeyRenderSpecSlotTest`
+
+  Result: passed.
+
 ## Conventional commit
 
 ```text

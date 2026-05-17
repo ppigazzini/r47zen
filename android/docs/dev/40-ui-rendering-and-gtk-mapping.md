@@ -556,6 +556,10 @@ the spec is wrong, stay in `CalculatorKeyView.buildMainKeyRenderSpec()` or
 `CalculatorSoftkeyPainter.buildRenderSpec()`. If the spec is right but pixels
 are wrong, stay in the painter stage.
 
+Kotlin-side render-spec access now goes through typed slot enums in
+`KeyRenderSpec.kt` while the serialized `id` strings stay stable for Python
+contracts and checked-in payloads.
+
 | Symptom | First owner to inspect |
 | --- | --- |
 | wrong text, wrong mode state, wrong menu semantics | native scene export and `KeypadSnapshot.fromNative(...)` |

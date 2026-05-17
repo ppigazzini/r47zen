@@ -178,7 +178,7 @@ internal class CalculatorSoftkeyPainter(
         }
         previewLine?.let { line ->
             adornments += LineAdornmentSpec(
-                id = ADORNMENT_ID_PREVIEW,
+                id = SoftkeyAdornmentSlot.PREVIEW.id,
                 line = line,
                 color = softkeyPreviewColor,
                 strokeWidth = KeyVisualPolicy.SOFTKEY_DECOR_STROKE_WIDTH,
@@ -201,7 +201,7 @@ internal class CalculatorSoftkeyPainter(
         val valueText = formatSoftkeyValue(keyState.showValue)
         if (showValue && valueText.isNotBlank()) {
             C47TextRenderer.buildFittedLabelSpec(
-                id = LABEL_ID_VALUE,
+                id = SoftkeyLabelSlot.VALUE.id,
                 text = valueText,
                 paint = softkeyValuePaint,
                 typeface = C47TypefacePolicy.standardFirst(
@@ -249,7 +249,7 @@ internal class CalculatorSoftkeyPainter(
                 KeyVisualPolicy.SOFTKEY_PRIMARY_SIDE_INSET
             }
             C47TextRenderer.buildFittedLabelSpec(
-                id = LABEL_ID_PRIMARY,
+                id = SoftkeyLabelSlot.PRIMARY.id,
                 text = keyState.primaryLabel,
                 paint = softkeyTextPaint,
                 typeface = C47TypefacePolicy.standardFirst(
@@ -267,7 +267,7 @@ internal class CalculatorSoftkeyPainter(
 
         if (showText) {
             C47TextRenderer.buildFittedLabelSpec(
-                id = LABEL_ID_AUX,
+                id = SoftkeyLabelSlot.AUX.id,
                 text = keyState.auxLabel,
                 paint = softkeyAuxPaint,
                 typeface = C47TypefacePolicy.standardFirst(
@@ -286,7 +286,7 @@ internal class CalculatorSoftkeyPainter(
 
         if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_STRIKE_THROUGH)) {
             adornments += LineAdornmentSpec(
-                id = ADORNMENT_ID_STRIKE_THROUGH,
+                id = SoftkeyAdornmentSlot.STRIKE_THROUGH.id,
                 line = LineSpec(
                     start = PointSpec(
                         softkeyBounds.left + KeyVisualPolicy.SOFTKEY_STRIKE_SIDE_INSET,
@@ -303,7 +303,7 @@ internal class CalculatorSoftkeyPainter(
         }
         if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_STRIKE_OUT)) {
             adornments += LineAdornmentSpec(
-                id = ADORNMENT_ID_STRIKE_OUT,
+                id = SoftkeyAdornmentSlot.STRIKE_OUT.id,
                 line = LineSpec(
                     start = PointSpec(
                         softkeyBounds.left + KeyVisualPolicy.SOFTKEY_STRIKE_OUT_SIDE_INSET,
@@ -369,7 +369,7 @@ internal class CalculatorSoftkeyPainter(
 
         return listOf(
             LineAdornmentSpec(
-                id = ADORNMENT_ID_PRESSED_HIGHLIGHT,
+                id = SoftkeyAdornmentSlot.PRESSED_HIGHLIGHT.id,
                 line = LineSpec(
                     start = PointSpec(bounds.left + edgeInset, topY),
                     end = PointSpec(bounds.right - edgeInset, topY),
@@ -378,7 +378,7 @@ internal class CalculatorSoftkeyPainter(
                 strokeWidth = width * 0.012f,
             ),
             LineAdornmentSpec(
-                id = ADORNMENT_ID_PRESSED_SHADOW,
+                id = SoftkeyAdornmentSlot.PRESSED_SHADOW.id,
                 line = LineSpec(
                     start = PointSpec(bounds.left + edgeInset, bottomY),
                     end = PointSpec(bounds.right - edgeInset, bottomY),
@@ -399,21 +399,21 @@ internal class CalculatorSoftkeyPainter(
         val size = KeyVisualPolicy.SOFTKEY_OVERLAY_SIZE
         return when (overlayState) {
             KeypadSceneContract.OVERLAY_RB_FALSE -> SoftkeyOverlayAdornmentSpec(
-                id = ADORNMENT_ID_OVERLAY,
+                id = SoftkeyAdornmentSlot.OVERLAY.id,
                 kind = SoftkeyOverlayKind.RADIO_FALSE,
                 center = center,
                 color = color,
             )
 
             KeypadSceneContract.OVERLAY_RB_TRUE -> SoftkeyOverlayAdornmentSpec(
-                id = ADORNMENT_ID_OVERLAY,
+                id = SoftkeyAdornmentSlot.OVERLAY.id,
                 kind = SoftkeyOverlayKind.RADIO_TRUE,
                 center = center,
                 color = color,
             )
 
             KeypadSceneContract.OVERLAY_CB_FALSE -> SoftkeyOverlayAdornmentSpec(
-                id = ADORNMENT_ID_OVERLAY,
+                id = SoftkeyAdornmentSlot.OVERLAY.id,
                 kind = SoftkeyOverlayKind.CHECKBOX_FALSE,
                 center = center,
                 color = color,
@@ -421,7 +421,7 @@ internal class CalculatorSoftkeyPainter(
             )
 
             KeypadSceneContract.OVERLAY_CB_TRUE -> SoftkeyOverlayAdornmentSpec(
-                id = ADORNMENT_ID_OVERLAY,
+                id = SoftkeyAdornmentSlot.OVERLAY.id,
                 kind = SoftkeyOverlayKind.CHECKBOX_TRUE,
                 center = center,
                 color = color,
@@ -437,7 +437,7 @@ internal class CalculatorSoftkeyPainter(
                     bottom = center.y + KeyVisualPolicy.SOFTKEY_OVERLAY_MB_HALF_HEIGHT,
                 )
                 val label = C47TextRenderer.buildFittedLabelSpec(
-                    id = LABEL_ID_OVERLAY_MENU,
+                    id = SoftkeyLabelSlot.OVERLAY_MENU.id,
                     text = "M",
                     paint = softkeyAuxPaint,
                     typeface = C47TypefacePolicy.standardFirst(
@@ -453,7 +453,7 @@ internal class CalculatorSoftkeyPainter(
                 )
                 val underline = if (overlayState == KeypadSceneContract.OVERLAY_MB_TRUE) {
                     LineAdornmentSpec(
-                        id = ADORNMENT_ID_OVERLAY_UNDERLINE,
+                        id = SoftkeyAdornmentSlot.OVERLAY_UNDERLINE.id,
                         line = LineSpec(
                             start = PointSpec(
                                 center.x + KeyVisualPolicy.SOFTKEY_OVERLAY_MB_UNDERLINE_START_X,
@@ -471,7 +471,7 @@ internal class CalculatorSoftkeyPainter(
                     null
                 }
                 SoftkeyOverlayAdornmentSpec(
-                    id = ADORNMENT_ID_OVERLAY,
+                    id = SoftkeyAdornmentSlot.OVERLAY.id,
                     kind = if (overlayState == KeypadSceneContract.OVERLAY_MB_TRUE) {
                         SoftkeyOverlayKind.MENU_BADGE_TRUE
                     } else {
@@ -486,7 +486,7 @@ internal class CalculatorSoftkeyPainter(
             }
 
             else -> SoftkeyOverlayAdornmentSpec(
-                id = ADORNMENT_ID_OVERLAY,
+                id = SoftkeyAdornmentSlot.OVERLAY.id,
                 kind = SoftkeyOverlayKind.RADIO_FALSE,
                 center = center,
                 color = color,
@@ -517,36 +517,36 @@ internal class CalculatorSoftkeyPainter(
             )
         }
 
-        renderSpec.adornment(ADORNMENT_ID_PREVIEW)?.let { preview ->
+        renderSpec.adornment(SoftkeyAdornmentSlot.PREVIEW)?.let { preview ->
             if (preview is LineAdornmentSpec) {
                 KeyRenderPainter.drawLine(canvas, preview, softkeyDecorPaint)
             }
         }
 
-        renderSpec.label(LABEL_ID_VALUE)?.let { valueLabel ->
+        renderSpec.label(SoftkeyLabelSlot.VALUE)?.let { valueLabel ->
             KeyRenderPainter.drawLabel(canvas, valueLabel, softkeyValuePaint)
         }
 
-        renderSpec.adornment(ADORNMENT_ID_OVERLAY)?.let { overlay ->
+        renderSpec.adornment(SoftkeyAdornmentSlot.OVERLAY)?.let { overlay ->
             if (overlay is SoftkeyOverlayAdornmentSpec) {
                 drawSoftkeyOverlay(canvas, overlay)
             }
         }
 
-        renderSpec.label(LABEL_ID_PRIMARY)?.let { primaryLabel ->
+        renderSpec.label(SoftkeyLabelSlot.PRIMARY)?.let { primaryLabel ->
             KeyRenderPainter.drawLabel(canvas, primaryLabel, softkeyTextPaint)
         }
 
-        renderSpec.label(LABEL_ID_AUX)?.let { auxLabel ->
+        renderSpec.label(SoftkeyLabelSlot.AUX)?.let { auxLabel ->
             KeyRenderPainter.drawLabel(canvas, auxLabel, softkeyAuxPaint)
         }
 
-        renderSpec.adornment(ADORNMENT_ID_STRIKE_THROUGH)?.let { strike ->
+        renderSpec.adornment(SoftkeyAdornmentSlot.STRIKE_THROUGH)?.let { strike ->
             if (strike is LineAdornmentSpec) {
                 KeyRenderPainter.drawLine(canvas, strike, softkeyDecorPaint)
             }
         }
-        renderSpec.adornment(ADORNMENT_ID_STRIKE_OUT)?.let { strike ->
+        renderSpec.adornment(SoftkeyAdornmentSlot.STRIKE_OUT)?.let { strike ->
             if (strike is LineAdornmentSpec) {
                 KeyRenderPainter.drawLine(canvas, strike, softkeyDecorPaint)
             }
@@ -639,17 +639,4 @@ internal class CalculatorSoftkeyPainter(
         }
     }
 
-    private companion object {
-        private const val LABEL_ID_VALUE = "value"
-        private const val LABEL_ID_PRIMARY = "primary"
-        private const val LABEL_ID_AUX = "aux"
-        private const val LABEL_ID_OVERLAY_MENU = "overlay-menu"
-        private const val ADORNMENT_ID_PREVIEW = "preview-line"
-        private const val ADORNMENT_ID_OVERLAY = "overlay"
-        private const val ADORNMENT_ID_OVERLAY_UNDERLINE = "overlay-underline"
-        private const val ADORNMENT_ID_STRIKE_THROUGH = "strike-through"
-        private const val ADORNMENT_ID_STRIKE_OUT = "strike-out"
-        private const val ADORNMENT_ID_PRESSED_HIGHLIGHT = "pressed-highlight"
-        private const val ADORNMENT_ID_PRESSED_SHADOW = "pressed-shadow"
-    }
 }

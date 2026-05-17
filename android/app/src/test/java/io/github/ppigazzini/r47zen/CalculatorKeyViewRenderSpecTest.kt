@@ -31,9 +31,9 @@ class CalculatorKeyViewRenderSpecTest {
         val renderSpec = requireNotNull(view.currentMainKeyRenderSpecForTest())
         val geometry = renderSpec.geometry as MainKeyGeometrySpec
         val topLabelGroup = requireNotNull(geometry.topLabelGroup)
-        val fLabel = requireNotNull(renderSpec.label("main-f"))
-        val gLabel = requireNotNull(renderSpec.label("main-g"))
-        val letterLabel = requireNotNull(renderSpec.label("main-letter"))
+        val fLabel = requireNotNull(renderSpec.label(MainKeyLabelSlot.F))
+        val gLabel = requireNotNull(renderSpec.label(MainKeyLabelSlot.G))
+        val letterLabel = requireNotNull(renderSpec.label(MainKeyLabelSlot.LETTER))
         val slot = KeypadTopology.slotFor(12)
         val expectedBodyLeft = when (slot.family) {
             KeypadKeyFamily.STANDARD -> MEASURED_WIDTH.toFloat() / R47ReferenceGeometry.STANDARD_PITCH
@@ -74,10 +74,10 @@ class CalculatorKeyViewRenderSpecTest {
         )
 
         val renderSpec = requireNotNull(view.currentMainKeyRenderSpecForTest())
-        val primary = requireNotNull(requireNotNull(renderSpec.label("main-primary")).bounds)
-        val f = requireNotNull(requireNotNull(renderSpec.label("main-f")).bounds)
-        val g = requireNotNull(requireNotNull(renderSpec.label("main-g")).bounds)
-        val letter = requireNotNull(requireNotNull(renderSpec.label("main-letter")).bounds)
+        val primary = requireNotNull(requireNotNull(renderSpec.label(MainKeyLabelSlot.PRIMARY)).bounds)
+        val f = requireNotNull(requireNotNull(renderSpec.label(MainKeyLabelSlot.F)).bounds)
+        val g = requireNotNull(requireNotNull(renderSpec.label(MainKeyLabelSlot.G)).bounds)
+        val letter = requireNotNull(requireNotNull(renderSpec.label(MainKeyLabelSlot.LETTER)).bounds)
 
         assertEquals(primary.left, view.primaryLabel.translationX, 0.01f)
         assertEquals(primary.top, view.primaryLabel.translationY, 0.01f)
