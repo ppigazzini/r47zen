@@ -26,8 +26,8 @@ surfaces.
   `WindowModeController.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt`,
   `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`,
-  `KeyRenderPainter.kt`, `C47TextRenderer.kt`, `MainKeyLabelMirrors.kt`, `R47Geometry.kt`,
-  `TopLabelLaneLayout.kt`
+  `KeyRenderPainter.kt`, `C47TextRenderer.kt`, `MainKeyLabelMirrors.kt`,
+  `SoftkeyOverlayPainter.kt`, `R47Geometry.kt`, `TopLabelLaneLayout.kt`
 - storage and slots: `StorageAccessCoordinator.kt`, `WorkDirectory.kt`,
   `SlotSessionController.kt`, `SlotStore.kt`
 - keyboard and keypad models: `PhysicalKeyboardInputController.kt`,

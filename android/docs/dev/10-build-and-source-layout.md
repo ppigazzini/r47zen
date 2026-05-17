@@ -64,6 +64,7 @@ repo root
   |  |- KeyRenderPainter.kt
   |  |- KeyRenderSpec.kt
   |  |- MainKeyLabelMirrors.kt
+  |  |- SoftkeyOverlayPainter.kt
   |  |- R47Geometry.kt
   |  |- R47KeypadPolicy.kt
   |  `- TopLabelLaneLayout.kt

@@ -529,7 +529,13 @@ internal class CalculatorSoftkeyPainter(
 
         renderSpec.adornment(SoftkeyAdornmentSlot.OVERLAY)?.let { overlay ->
             if (overlay is SoftkeyOverlayAdornmentSpec) {
-                drawSoftkeyOverlay(canvas, overlay)
+                SoftkeyOverlayPainter.draw(
+                    canvas = canvas,
+                    overlay = overlay,
+                    decorPaint = softkeyDecorPaint,
+                    dotPaint = softkeyDotPaint,
+                    auxPaint = softkeyAuxPaint,
+                )
             }
         }
 
@@ -549,81 +555,6 @@ internal class CalculatorSoftkeyPainter(
         renderSpec.adornment(SoftkeyAdornmentSlot.STRIKE_OUT)?.let { strike ->
             if (strike is LineAdornmentSpec) {
                 KeyRenderPainter.drawLine(canvas, strike, softkeyDecorPaint)
-            }
-        }
-    }
-
-    private fun drawSoftkeyOverlay(
-        canvas: Canvas,
-        overlay: SoftkeyOverlayAdornmentSpec,
-    ) {
-        softkeyDecorPaint.color = overlay.color
-        softkeyDotPaint.color = overlay.color
-
-        when (overlay.kind) {
-            SoftkeyOverlayKind.RADIO_FALSE -> {
-                canvas.drawCircle(
-                    overlay.center.x,
-                    overlay.center.y,
-                    KeyVisualPolicy.SOFTKEY_OVERLAY_SIZE * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
-                    softkeyDecorPaint,
-                )
-            }
-
-            SoftkeyOverlayKind.RADIO_TRUE -> {
-                canvas.drawCircle(
-                    overlay.center.x,
-                    overlay.center.y,
-                    KeyVisualPolicy.SOFTKEY_OVERLAY_SIZE * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
-                    softkeyDecorPaint,
-                )
-                canvas.drawCircle(
-                    overlay.center.x,
-                    overlay.center.y,
-                    KeyVisualPolicy.SOFTKEY_OVERLAY_SIZE * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_DOT_RATIO,
-                    softkeyDotPaint,
-                )
-            }
-
-            SoftkeyOverlayKind.CHECKBOX_FALSE -> {
-                val frame = requireNotNull(overlay.frameBounds)
-                canvas.drawRect(frame.asRectF(), softkeyDecorPaint)
-            }
-
-            SoftkeyOverlayKind.CHECKBOX_TRUE -> {
-                val frame = requireNotNull(overlay.frameBounds)
-                canvas.drawRect(frame.asRectF(), softkeyDecorPaint)
-                canvas.drawLine(
-                    overlay.center.x - KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_LEFT_X,
-                    overlay.center.y,
-                    overlay.center.x - KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_MID_X,
-                    overlay.center.y + KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_DELTA_Y,
-                    softkeyDecorPaint,
-                )
-                canvas.drawLine(
-                    overlay.center.x - KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_MID_X,
-                    overlay.center.y + KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_DELTA_Y,
-                    overlay.center.x + KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_RIGHT_X,
-                    overlay.center.y - KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_DELTA_Y,
-                    softkeyDecorPaint,
-                )
-            }
-
-            SoftkeyOverlayKind.MENU_BADGE_FALSE,
-            SoftkeyOverlayKind.MENU_BADGE_TRUE -> {
-                val frame = requireNotNull(overlay.frameBounds)
-                canvas.drawRoundRect(
-                    frame.asRectF(),
-                    KeyVisualPolicy.SOFTKEY_OVERLAY_MB_CORNER_RADIUS,
-                    KeyVisualPolicy.SOFTKEY_OVERLAY_MB_CORNER_RADIUS,
-                    softkeyDecorPaint,
-                )
-                overlay.label?.let { label ->
-                    KeyRenderPainter.drawLabel(canvas, label, softkeyAuxPaint)
-                }
-                overlay.underline?.let { underline ->
-                    KeyRenderPainter.drawLine(canvas, underline, softkeyDecorPaint)
-                }
             }
         }
     }

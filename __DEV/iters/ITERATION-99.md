@@ -591,6 +591,53 @@ refactor(android): add typed render spec slots
 
   Result: passed.
 
+## Annex F - Follow-up task 5: split softkey overlay drawing into a typed stage
+
+### Analysis
+
+- `CalculatorSoftkeyPainter` was still carrying one dense overlay-only draw
+  branch even after the shared chrome, label, line, cache, and typed-slot work
+  moved the common seams into smaller owners.
+- The overlay path is already typed at the data layer through
+  `SoftkeyOverlayAdornmentSpec`, so the clean next extraction is a typed
+  overlay-painter stage rather than a wider painter rewrite.
+- Keeping the overlay-spec builder in `CalculatorSoftkeyPainter` avoids
+  reopening the current font-policy and source-contract seams while still
+  reducing the local class weight.
+
+### Plan
+
+1. Add a `SoftkeyOverlayPainter` helper that draws one
+   `SoftkeyOverlayAdornmentSpec` with the existing overlay kinds.
+2. Delegate the overlay branch in `CalculatorSoftkeyPainter.drawRenderSpec()` to
+   that helper.
+3. Add a focused JVM test for the menu-badge overlay path so the new helper has
+   its own direct regression surface beside the broader softkey canvas tests.
+
+### Conventional commit
+
+```text
+refactor(android): extract softkey overlay painter
+```
+
+### Outcome
+
+- `SoftkeyOverlayPainter.kt` now owns the typed draw stage for
+  `SoftkeyOverlayAdornmentSpec`, including radio, checkbox, and menu-badge
+  overlay branches.
+- `CalculatorSoftkeyPainter.drawRenderSpec()` now delegates the overlay-only
+  drawing path to that helper while retaining the existing overlay-spec builder
+  and broader softkey ownership.
+- `SoftkeyOverlayPainterTest.kt` adds a direct regression surface for the
+  menu-badge label and underline path beside the larger softkey canvas tests.
+- Maintained docs now list the new overlay-painter owner explicitly.
+
+### Validation
+
+- `cd android && ANDROID_HOME=/home/usr00/.android/sdk ANDROID_SDK_ROOT=/home/usr00/.android/sdk ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.SoftkeyOverlayPainterTest`
+
+  Result: passed.
+
 ## Conventional commit
 
 ```text

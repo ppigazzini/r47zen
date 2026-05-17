@@ -152,6 +152,9 @@ Important contract files include:
   `CalculatorSoftkeyPainterCanvasTest.kt`: lock softkey content-description,
   overlay, preview, strike rendering rules, the shared softkey text-paint
   antialias bit, and the spec-layer value-field and overlay geometry seam
+- `SoftkeyOverlayPainterTest.kt`: locks the extracted overlay-painter stage for
+  the menu-badge label and underline path without routing through the larger
+  softkey renderer owner
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable
   through golden hashes and locks the retained top settings-strip interaction
 - `MainShellThemeTest.kt`: locks the `WindowModeController` PiP request to the

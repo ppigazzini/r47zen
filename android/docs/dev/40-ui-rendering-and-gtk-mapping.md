@@ -190,8 +190,8 @@ Render split:
   `KeyRenderSpec`
 - `CalculatorSoftkeyPainter` caches that softkey spec by snapshot, font set,
   size, pressed state, and draw-surface flag, then routes shared chrome,
-  label, and line stages through `KeyRenderPainter` while keeping overlay-only
-  marks local
+  label, and line stages through `KeyRenderPainter` while delegating overlay-
+  only marks to `SoftkeyOverlayPainter`
 - both key renderers now keep Android-owned font rendering quality local to the
   painter path by enabling subpixel text while keeping `LINEAR_TEXT_FLAG` off
   on the calculator font paints instead of widening the geometry or snapshot
