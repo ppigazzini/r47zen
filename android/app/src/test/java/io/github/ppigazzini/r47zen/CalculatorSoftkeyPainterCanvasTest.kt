@@ -3,6 +3,7 @@ package io.github.ppigazzini.r47zen
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
@@ -157,7 +158,22 @@ class CalculatorSoftkeyPainterCanvasTest {
         assertRegionContainsColor(bitmap, 20, 20, Color.rgb(96, 96, 96), tolerance = 4)
         assertRegionContainsColor(bitmap, 96, 138, Color.rgb(229, 171, 90), tolerance = 10)
         assertRegionContainsColor(bitmap, 96, 72, Color.WHITE, tolerance = 28)
-        assertRegionContainsColor(bitmap, 30, 27, Color.WHITE, tolerance = 28)
+        assertRegionContainsColor(bitmap, 30, 117, Color.WHITE, tolerance = 28)
+    }
+
+    @Test
+    fun drawRendersStrikeOutFromBottomLeftToTopRight() {
+        val bitmap = render(
+            KeypadKeySnapshot.EMPTY.copy(
+                sceneFlags = KeypadSceneContract.SCENE_FLAG_REVERSE_VIDEO or
+                    KeypadSceneContract.SCENE_FLAG_STRIKE_OUT,
+            ),
+        )
+
+        assertRegionContainsColor(bitmap, 30, 117, Color.WHITE, tolerance = 28)
+        assertRegionContainsColor(bitmap, 162, 27, Color.WHITE, tolerance = 28)
+        assertRegionLacksColor(bitmap, 30, 27, Color.WHITE, tolerance = 28)
+        assertRegionLacksColor(bitmap, 162, 117, Color.WHITE, tolerance = 28)
     }
 
     @Test
@@ -247,6 +263,28 @@ class CalculatorSoftkeyPainterCanvasTest {
 
         assertTrue(
             "Expected $expectedColor near ($centerX, $centerY)",
+            foundMatch,
+        )
+    }
+
+    private fun assertRegionLacksColor(
+        bitmap: Bitmap,
+        centerX: Int,
+        centerY: Int,
+        unexpectedColor: Int,
+        radius: Int = 3,
+        tolerance: Int,
+    ) {
+        val foundMatch = ((centerX - radius)..(centerX + radius)).any { x ->
+            ((centerY - radius)..(centerY + radius)).any { y ->
+                x in 0 until bitmap.width &&
+                    y in 0 until bitmap.height &&
+                    colorsMatch(bitmap.getPixel(x, y), unexpectedColor, tolerance)
+            }
+        }
+
+        assertFalse(
+            "Did not expect $unexpectedColor near ($centerX, $centerY)",
             foundMatch,
         )
     }

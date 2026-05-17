@@ -313,11 +313,11 @@ internal class CalculatorSoftkeyPainter(
                 line = LineSpec(
                     start = PointSpec(
                         softkeyBounds.left + KeyVisualPolicy.SOFTKEY_STRIKE_OUT_SIDE_INSET,
-                        softkeyBounds.top + KeyVisualPolicy.SOFTKEY_STRIKE_OUT_VERTICAL_INSET,
+                        softkeyBounds.bottom - KeyVisualPolicy.SOFTKEY_STRIKE_OUT_VERTICAL_INSET,
                     ),
                     end = PointSpec(
                         softkeyBounds.right - KeyVisualPolicy.SOFTKEY_STRIKE_OUT_SIDE_INSET,
-                        softkeyBounds.bottom - KeyVisualPolicy.SOFTKEY_STRIKE_OUT_VERTICAL_INSET,
+                        softkeyBounds.top + KeyVisualPolicy.SOFTKEY_STRIKE_OUT_VERTICAL_INSET,
                     ),
                 ),
                 color = decorColor,

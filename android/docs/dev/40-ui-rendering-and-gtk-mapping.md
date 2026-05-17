@@ -450,6 +450,10 @@ text alone:
 - populated standard and barred items keep the base fill `RGB(64, 64, 64)`
 - reverse-video submenu items keep `RGB(96, 96, 96)`
 
+For barred or unavailable softkeys, the Android strike-out slash follows the
+native LCD menu convention: it runs from the lower-left inset toward the
+upper-right inset rather than from upper-left to lower-right.
+
 When the user selects softkey `graphic` or `off`, Android masks the decoded
 scene before the painter sees it. `graphic` clears text and value lanes only.
 `off` also clears reverse-video, overlay, preview, and strike flags so the key
