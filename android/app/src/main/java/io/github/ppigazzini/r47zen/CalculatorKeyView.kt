@@ -8,7 +8,6 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.util.AttributeSet
 import android.util.TypedValue
-import android.view.Gravity
 import android.view.View
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -101,11 +100,21 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private val buttonView = View(context)
-    val primaryLabel = TextView(context)
-    val fLabel = TextView(context)
-    val gLabel = TextView(context)
+    private val mainKeyLabelMirrors = MainKeyLabelMirrors(
+        context = context,
+        fourthLabelColor = fourthLabelColor,
+        fAccentColor = fAccentColor,
+        gAccentColor = gAccentColor,
+    )
+    val primaryLabel: TextView
+        get() = mainKeyLabelMirrors.primaryLabel
+    val fLabel: TextView
+        get() = mainKeyLabelMirrors.fLabel
+    val gLabel: TextView
+        get() = mainKeyLabelMirrors.gLabel
     val alphaLabel = TextView(context)
-    val letterLabel = TextView(context)
+    val letterLabel: TextView
+        get() = mainKeyLabelMirrors.letterLabel
 
     var keyCode: Int = 0
     private var isFnKey: Boolean = false
@@ -162,29 +171,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         buttonView.setBackgroundColor(Color.TRANSPARENT)
         addView(buttonView, btnParams)
 
-        letterLabel.id = View.generateViewId()
-        letterLabel.setTextColor(fourthLabelColor)
-        letterLabel.gravity = Gravity.START or Gravity.TOP
-        letterLabel.includeFontPadding = false
-        letterLabel.maxLines = 1
-
-        primaryLabel.id = View.generateViewId()
         primaryLabel.setTextColor(Color.WHITE)
-        primaryLabel.gravity = Gravity.CENTER
-        primaryLabel.includeFontPadding = false
-        primaryLabel.maxLines = 1
-
-        fLabel.id = View.generateViewId()
-        fLabel.setTextColor(fAccentColor)
-        fLabel.gravity = Gravity.START or Gravity.TOP
-        fLabel.includeFontPadding = false
-        fLabel.maxLines = 1
-
-        gLabel.id = View.generateViewId()
-        gLabel.setTextColor(gAccentColor)
-        gLabel.gravity = Gravity.END or Gravity.TOP
-        gLabel.includeFontPadding = false
-        gLabel.maxLines = 1
 
         alphaLabel.id = View.generateViewId()
         alphaLabel.visibility = View.GONE
@@ -360,14 +347,7 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun resetLabelLayout() {
-        primaryLabel.translationX = 0f
-        primaryLabel.translationY = 0f
-        fLabel.translationX = 0f
-        fLabel.translationY = 0f
-        gLabel.translationX = 0f
-        gLabel.translationY = 0f
-        letterLabel.translationX = 0f
-        letterLabel.translationY = 0f
+        mainKeyLabelMirrors.resetGeometry()
     }
 
     private fun updateFaceplateOffsets() {
@@ -424,10 +404,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         this.keyCode = slot.code
         this.isFnKey = slot.isFunctionKey
         this.fontSet = fonts
-        primaryLabel.typeface = fonts.standard
-        fLabel.typeface = fonts.standard
-        gLabel.typeface = fonts.standard
-        letterLabel.typeface = fonts.standard
+        mainKeyLabelMirrors.applyFonts(fonts)
 
         if (slot.isFunctionKey) {
             softkeyState = KeypadKeySnapshot.EMPTY
@@ -637,10 +614,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         alpha = if (isFnKey || enabled) 1f else 0.45f
         if (!isFnKey) {
             buttonView.alpha = if (enabled) 1f else 0.45f
-            primaryLabel.alpha = if (enabled) 1f else 0.6f
-            fLabel.alpha = if (enabled) 1f else 0.6f
-            gLabel.alpha = if (enabled) 1f else 0.6f
-            letterLabel.alpha = if (enabled) 1f else 0.6f
+            mainKeyLabelMirrors.applyEnabledAlpha(enabled)
         }
     }
 
@@ -1050,28 +1024,16 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun syncLabelMirrorGeometry(renderSpec: KeyRenderSpec?) {
-        syncMirrorFromLabelSpec(primaryLabel, renderSpec?.label(LABEL_ID_MAIN_PRIMARY))
-        syncMirrorFromLabelSpec(fLabel, renderSpec?.label(LABEL_ID_MAIN_F))
-        syncMirrorFromLabelSpec(gLabel, renderSpec?.label(LABEL_ID_MAIN_G))
-        syncMirrorFromLabelSpec(letterLabel, renderSpec?.label(LABEL_ID_MAIN_LETTER))
-    }
-
-    private fun syncMirrorFromLabelSpec(labelView: TextView, labelSpec: LabelSpec?) {
-        val bounds = labelSpec?.bounds
-        if (bounds == null) {
-            labelView.translationX = 0f
-            labelView.translationY = 0f
-            return
-        }
-        labelView.translationX = bounds.left
-        labelView.translationY = bounds.top
+        mainKeyLabelMirrors.syncGeometry(
+            primarySpec = renderSpec?.label(LABEL_ID_MAIN_PRIMARY),
+            fSpec = renderSpec?.label(LABEL_ID_MAIN_F),
+            gSpec = renderSpec?.label(LABEL_ID_MAIN_G),
+            letterSpec = renderSpec?.label(LABEL_ID_MAIN_LETTER),
+        )
     }
 
     override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
-        if (
-            !isFnKey &&
-                (child === primaryLabel || child === fLabel || child === gLabel || child === letterLabel)
-        ) {
+        if (!isFnKey && mainKeyLabelMirrors.isMirrorView(child)) {
             return false
         }
         return super.drawChild(canvas, child, drawingTime)

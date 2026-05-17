@@ -59,6 +59,36 @@ class CalculatorKeyViewRenderSpecTest {
         assertEquals("7, f LASTx, g STK", renderSpec.accessibility.contentDescription)
     }
 
+    @Test
+    fun detachedMirrorBridgeTracksResolvedRenderSpecBounds() {
+        val view = createMeasuredView(
+            code = 12,
+            keyState = KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "7",
+                fLabel = "LASTx",
+                gLabel = "STK",
+                letterLabel = "A",
+                styleRole = KeypadSceneContract.STYLE_DEFAULT,
+                isEnabled = true,
+            ),
+        )
+
+        val renderSpec = requireNotNull(view.currentMainKeyRenderSpecForTest())
+        val primary = requireNotNull(requireNotNull(renderSpec.label("main-primary")).bounds)
+        val f = requireNotNull(requireNotNull(renderSpec.label("main-f")).bounds)
+        val g = requireNotNull(requireNotNull(renderSpec.label("main-g")).bounds)
+        val letter = requireNotNull(requireNotNull(renderSpec.label("main-letter")).bounds)
+
+        assertEquals(primary.left, view.primaryLabel.translationX, 0.01f)
+        assertEquals(primary.top, view.primaryLabel.translationY, 0.01f)
+        assertEquals(f.left, view.fLabel.translationX, 0.01f)
+        assertEquals(f.top, view.fLabel.translationY, 0.01f)
+        assertEquals(g.left, view.gLabel.translationX, 0.01f)
+        assertEquals(g.top, view.gLabel.translationY, 0.01f)
+        assertEquals(letter.left, view.letterLabel.translationX, 0.01f)
+        assertEquals(letter.top, view.letterLabel.translationY, 0.01f)
+    }
+
     private fun createMeasuredView(
         code: Int,
         keyState: KeypadKeySnapshot,

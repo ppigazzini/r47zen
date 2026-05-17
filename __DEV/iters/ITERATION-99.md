@@ -446,6 +446,56 @@ perf(android): cache softkey render specs outside draw
 
   Result: passed.
 
+## Annex C - Follow-up task 2: extract the compatibility-mirror bridge
+
+### Analysis
+
+- `CalculatorKeyView` still owns a detached cluster of compatibility-only
+  `TextView` mirrors even though those views no longer participate in runtime
+  geometry.
+- The mirror-specific work is concentrated in setup, font reset, alpha sync,
+  render-spec geometry sync, and the draw suppression guard. Those are bridge
+  concerns, not render-spec or painter concerns.
+- The safest extraction is therefore to move those detached-view operations into
+  one helper while leaving the current text, visibility, and typeface-policy
+  call sites readable in `CalculatorKeyView` so the existing contracts stay on
+  the true render-owner file.
+
+### Plan
+
+1. Add a small helper that owns the detached main-key mirror `TextView`
+   instances plus mirror-only setup and geometry-sync behavior.
+2. Delegate `CalculatorKeyView` mirror reset, font reset, alpha sync,
+   render-spec geometry sync, and draw suppression through that helper.
+3. Add a focused render-spec JVM test that proves the detached mirror bridge
+   still tracks the resolved spec bounds.
+
+### Conventional commit
+
+```text
+refactor(android): extract main-key mirror bridge helper
+```
+
+### Outcome
+
+- Added `MainKeyLabelMirrors.kt` so the detached primary, faceplate, and fourth-
+  label `TextView` mirrors now live behind one compatibility helper instead of
+  scattering mirror-only setup and geometry sync across `CalculatorKeyView`.
+- `CalculatorKeyView` now delegates mirror font reset, alpha sync, geometry
+  sync, and mirror-view detection through that helper while keeping the
+  render-spec builder and painter ownership local.
+- `CalculatorKeyViewRenderSpecTest.kt` now proves the detached mirrors still
+  track the resolved render-spec bounds.
+- Maintained Android docs now list the helper explicitly so the live owner map
+  shows the mirror bridge as a compatibility seam rather than part of the
+  renderer core.
+
+### Validation
+
+- `cd android && ANDROID_HOME=/home/usr00/.android/sdk ANDROID_SDK_ROOT=/home/usr00/.android/sdk ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.CalculatorKeyViewRenderSpecTest`
+
+  Result: passed.
+
 ## Conventional commit
 
 ```text

@@ -181,6 +181,10 @@ Render split:
 - `CalculatorKeyView` also caches `mainKeyRenderSpec` and refreshes it on
   size, label, and layout-class changes before draw so steady-state main-key
   `onDraw()` work stays in the painter stage
+- the detached compatibility mirrors for primary, faceplate, and fourth-label
+  text now sit behind `MainKeyLabelMirrors.kt`, so `CalculatorKeyView` keeps
+  the render-spec and painter ownership while the mirror bridge remains one
+  explicitly disposable compatibility seam
 - `CalculatorSoftkeyPainter` owns softkey value-field bounds, overlay center,
   preview accents, reverse-video states, strike marks, and the final softkey
   `KeyRenderSpec`
@@ -447,8 +451,9 @@ hardcoding one text style for all keys. In practice that means:
 - all visible keypad text now goes through one custom `Canvas` text path owned
   by `C47TextRenderer`
 - `CalculatorKeyView` keeps detached `TextView` mirrors only as compatibility
-  holders for text, paint, and test inspection; runtime geometry,
-  accessibility, and raster output now start from the resolved `KeyRenderSpec`
+  holders for text, paint, and test inspection through
+  `MainKeyLabelMirrors.kt`; runtime geometry, accessibility, and raster output
+  now start from the resolved `KeyRenderSpec`
 - `CalculatorSoftkeyPainter` still owns softkey chrome, overlays, preview
   marks, and strike lines, but it now reuses the same text-paint helper as the
   main-key path instead of carrying a separate text-paint policy

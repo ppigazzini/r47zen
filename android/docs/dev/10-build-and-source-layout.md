@@ -63,6 +63,7 @@ repo root
   |  |- CalculatorSoftkeyPainter.kt
   |  |- KeyRenderPainter.kt
   |  |- KeyRenderSpec.kt
+  |  |- MainKeyLabelMirrors.kt
   |  |- R47Geometry.kt
   |  |- R47KeypadPolicy.kt
   |  `- TopLabelLaneLayout.kt

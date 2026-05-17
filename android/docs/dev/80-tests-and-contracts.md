@@ -140,8 +140,8 @@ Important contract files include:
   both main keys and softkeys in the live renderer path
 - `CalculatorKeyViewRenderSpecTest.kt`: locks the spec-layer main-key body
   bounds, including the left-anchored percent-width body layout, primary
-  anchor, top-label group bounds, fourth-label anchor, and accessibility text
-  before pixels are drawn
+  anchor, top-label group bounds, fourth-label anchor, detached mirror-sync
+  bounds, and accessibility text before pixels are drawn
 - `CalculatorSoftkeyPainterContractTest.kt` and
   `CalculatorSoftkeyPainterCanvasTest.kt`: lock softkey content-description,
   overlay, preview, strike rendering rules, the shared softkey text-paint
