@@ -1,6 +1,5 @@
 """Lock Kotlin key-label constants to the Python key-label geometry payload."""
 
-import re
 import unittest
 
 from r47_contracts._kotlin_consts import parse_kotlin_const_values_from_paths
@@ -8,6 +7,9 @@ from r47_contracts._repo_paths import KOTLIN_R47ZEN_ROOT
 from r47_contracts.derive_key_label_geometry import build_key_label_geometry_payload
 
 _KOTLIN_KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
+_KOTLIN_KEY_RENDER_SPEC_PATH = KOTLIN_R47ZEN_ROOT / "KeyRenderSpec.kt"
+_KOTLIN_KEY_RENDER_PAINTER_PATH = KOTLIN_R47ZEN_ROOT / "KeyRenderPainter.kt"
+_KOTLIN_SOFTKEY_PAINTER_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorSoftkeyPainter.kt"
 _KOTLIN_GEOMETRY_PATH = KOTLIN_R47ZEN_ROOT / "R47Geometry.kt"
 _KOTLIN_KEYPAD_POLICY_PATH = KOTLIN_R47ZEN_ROOT / "R47KeypadPolicy.kt"
 
@@ -28,12 +30,6 @@ def _assert_equal(actual: object, expected: object, *, name: str) -> None:
 def _assert_contains(text: str, snippet: str, *, name: str) -> None:
     if snippet not in text:
         message = f"Expected {name} snippet to appear in CalculatorKeyView.kt"
-        raise AssertionError(message)
-
-
-def _assert_matches(pattern: re.Pattern[str], text: str, *, name: str) -> None:
-    if pattern.search(text) is None:
-        message = f"Expected {name} pattern to appear in CalculatorKeyView.kt"
         raise AssertionError(message)
 
 
@@ -63,6 +59,15 @@ class KeyLabelGeometryContractTest(unittest.TestCase):
         """Load the shared payload and Kotlin constants once for the module."""
         cls.payload: dict[str, object] = build_key_label_geometry_payload()
         cls.key_view_source = _KOTLIN_KEY_VIEW_PATH.read_text(encoding="utf-8")
+        cls.key_render_spec_source = _KOTLIN_KEY_RENDER_SPEC_PATH.read_text(
+            encoding="utf-8",
+        )
+        cls.key_render_painter_source = _KOTLIN_KEY_RENDER_PAINTER_PATH.read_text(
+            encoding="utf-8",
+        )
+        cls.softkey_painter_source = _KOTLIN_SOFTKEY_PAINTER_PATH.read_text(
+            encoding="utf-8",
+        )
         cls.key_view: dict[str, float] = parse_kotlin_const_values_from_paths(
             [
                 _KOTLIN_GEOMETRY_PATH,
@@ -285,34 +290,80 @@ class KeyLabelGeometryContractTest(unittest.TestCase):
         )
 
     def test_primary_and_top_label_position_formulas_match_contract(self) -> None:
-        """Keep the primary and top-label placement formulas aligned."""
-        primary_anchor_pattern = re.compile(
-            r"val buttonCenterX = mainKeyRect\.centerX\(\)\s*"
-            r"val rawButtonCenterX = buttonView\.left \+ buttonWidth / 2f\s*"
-            r"primaryLabel\.translationX = buttonCenterX - rawButtonCenterX",
-            re.DOTALL,
+        """Keep the spec-first main-key formulas aligned with the contract."""
+        render_spec_shapes = _require_mapping(
+            self.payload["render_spec_shapes"],
+            name="render_spec_shapes",
         )
-        _assert_matches(
-            primary_anchor_pattern,
+        main_key = _require_mapping(
+            render_spec_shapes["main_key"],
+            name="render_spec_shapes.main_key",
+        )
+        primary_anchor = _require_mapping(
+            main_key["primary_anchor"],
+            name="render_spec_shapes.main_key.primary_anchor",
+        )
+        top_label_group = _require_mapping(
+            main_key["top_label_group"],
+            name="render_spec_shapes.main_key.top_label_group",
+        )
+
+        _assert_equal(
+            primary_anchor["horizontal_anchor"],
+            "main_key_body_center",
+            name="render_spec_shapes.main_key.primary_anchor.horizontal_anchor",
+        )
+        _assert_equal(
+            primary_anchor["vertical_anchor"],
+            "main_key_body_center",
+            name="render_spec_shapes.main_key.primary_anchor.vertical_anchor",
+        )
+        _assert_contains(
             self.key_view_source,
-            name="primary-label centering formula",
+            "private fun buildMainKeyRenderSpec(): KeyRenderSpec?",
+            name="main-key render-spec builder",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "x = bodyBounds.centerX",
+            name="primary-label spec X anchor formula",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "anchorY = bodyBounds.centerY",
+            name="primary-label spec Y anchor formula",
         )
 
         group_left_formula = (
-            "val groupLeft = buttonCenterX - groupWidth / 2f + "
+            "val groupLeft = bodyBounds.centerX - groupWidth / 2f + "
             "topLabelPlacement.centerShift"
         )
         _assert_contains(
             self.key_view_source,
             group_left_formula,
-            name="top-label horizontal group formula",
+            name="top-label group-left formula",
+        )
+        _assert_equal(
+            top_label_group["group_formula"],
+            "body_center_minus_half_group_width_plus_center_shift",
+            name="render_spec_shapes.main_key.top_label_group.group_formula",
         )
 
         top_label_translation = "val topLabelTranslationY = -topFgLabelVerticalLift"
         _assert_contains(
             self.key_view_source,
             top_label_translation,
-            name="top-label vertical translation formula",
+            name="top-label baseline formula",
+        )
+        _assert_equal(
+            top_label_group["baseline_formula"],
+            "negative_vertical_lift_plus_reference_bottom_offset",
+            name="render_spec_shapes.main_key.top_label_group.baseline_formula",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "TopLabelGroupSpec(",
+            name="top-label render-spec type",
         )
         _assert_contains(
             self.key_view_source,
@@ -320,11 +371,118 @@ class KeyLabelGeometryContractTest(unittest.TestCase):
             name="primary-label horizontal padding formula",
         )
 
-    def test_fourth_label_position_formula_match_contract(self) -> None:
-        """Keep the fourth-label anchor formulas aligned with the contract."""
+    def test_main_key_body_layout_matches_contract(self) -> None:
+        """Keep the left-anchored main-key button layout explicit in the contract."""
+        render_spec_shapes = _require_mapping(
+            self.payload["render_spec_shapes"],
+            name="render_spec_shapes",
+        )
+        main_key = _require_mapping(
+            render_spec_shapes["main_key"],
+            name="render_spec_shapes.main_key",
+        )
+        body_layout = _require_mapping(
+            main_key["body_layout"],
+            name="render_spec_shapes.main_key.body_layout",
+        )
+
+        _assert_equal(
+            body_layout["slot_start_anchor"],
+            "parent_start",
+            name="render_spec_shapes.main_key.body_layout.slot_start_anchor",
+        )
+        _assert_equal(
+            body_layout["slot_end_anchor"],
+            "parent_end",
+            name="render_spec_shapes.main_key.body_layout.slot_end_anchor",
+        )
+        _assert_equal(
+            body_layout["width_formula"],
+            "one_minus_family_right_strip_fraction",
+            name="render_spec_shapes.main_key.body_layout.width_formula",
+        )
+        _assert_float_equal(
+            _require_number(
+                body_layout["height_ratio"],
+                name="render_spec_shapes.main_key.body_layout.height_ratio",
+            ),
+            self.key_view["MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW"],
+        )
+        _assert_float_equal(
+            _require_number(
+                body_layout["horizontal_bias"],
+                name="render_spec_shapes.main_key.body_layout.horizontal_bias",
+            ),
+            0.0,
+        )
+        _assert_float_equal(
+            _require_number(
+                body_layout["vertical_bias"],
+                name="render_spec_shapes.main_key.body_layout.vertical_bias",
+            ),
+            0.0,
+        )
+
         _assert_contains(
             self.key_view_source,
-            "mainKeyRect.right +",
+            "btnParams.startToStart = LayoutParams.PARENT_ID",
+            name="main-key button start anchor",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "btnParams.endToEnd = LayoutParams.PARENT_ID",
+            name="main-key button end anchor",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "btnParams.horizontalBias = 0f",
+            name="main-key initial horizontal bias",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "btnParams.matchConstraintPercentHeight = "
+            "R47KeySurfacePolicy.MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW",
+            name="main-key body height ratio",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "buttonParams.matchConstraintPercentWidth = "
+            "(1f - letterRatio).coerceIn(0f, 1f)",
+            name="main-key body width formula",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "buttonParams.horizontalBias = 0f",
+            name="main-key configured horizontal bias",
+        )
+
+    def test_fourth_label_position_formula_match_contract(self) -> None:
+        """Keep the fourth-label anchor formulas aligned with the spec contract."""
+        render_spec_shapes = _require_mapping(
+            self.payload["render_spec_shapes"],
+            name="render_spec_shapes",
+        )
+        main_key = _require_mapping(
+            render_spec_shapes["main_key"],
+            name="render_spec_shapes.main_key",
+        )
+        fourth_label = _require_mapping(
+            main_key["fourth_label_anchor"],
+            name="render_spec_shapes.main_key.fourth_label_anchor",
+        )
+        _assert_equal(
+            fourth_label["horizontal_anchor"],
+            "main_key_body_right_plus_offset",
+            name="render_spec_shapes.main_key.fourth_label_anchor.horizontal_anchor",
+        )
+        _assert_equal(
+            fourth_label["vertical_anchor"],
+            "main_key_body_top_offset",
+            name="render_spec_shapes.main_key.fourth_label_anchor.vertical_anchor",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "bodyBounds.right +",
             name="fourth-label horizontal anchor formula",
         )
         _assert_contains(
@@ -336,6 +494,151 @@ class KeyLabelGeometryContractTest(unittest.TestCase):
             self.key_view_source,
             "R47LabelLayoutPolicy.FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP",
             name="fourth-label Y offset formula",
+        )
+
+    def test_render_spec_types_are_explicit(self) -> None:
+        """Keep the shared render-spec vocabulary explicit in Kotlin."""
+        render_spec_shapes = _require_mapping(
+            self.payload["render_spec_shapes"],
+            name="render_spec_shapes",
+        )
+        shared_types = _require_mapping(
+            render_spec_shapes["shared_types"],
+            name="render_spec_shapes.shared_types",
+        )
+        for class_name in shared_types.values():
+            _assert_contains(
+                self.key_render_spec_source,
+                f"class {class_name}",
+                name=f"shared render-spec type {class_name}",
+            )
+
+    def test_shared_painter_stage_remains_explicit(self) -> None:
+        """Keep common chrome and line rendering behind the shared painter API."""
+        _assert_contains(
+            self.key_render_painter_source,
+            "internal object KeyRenderPainter",
+            name="shared key render painter type",
+        )
+        _assert_contains(
+            self.key_render_painter_source,
+            "fun drawChrome(",
+            name="shared chrome painter entrypoint",
+        )
+        _assert_contains(
+            self.key_render_painter_source,
+            "fun drawLine(",
+            name="shared line painter entrypoint",
+        )
+        _assert_contains(
+            self.key_view_source,
+            "KeyRenderPainter.drawChrome(",
+            name="main-key shared chrome painter usage",
+        )
+        _assert_contains(
+            self.softkey_painter_source,
+            "KeyRenderPainter.drawChrome(",
+            name="softkey shared chrome painter usage",
+        )
+        _assert_contains(
+            self.softkey_painter_source,
+            "KeyRenderPainter.drawLine(canvas, preview, softkeyDecorPaint)",
+            name="softkey preview shared line painter usage",
+        )
+        _assert_contains(
+            self.softkey_painter_source,
+            "KeyRenderPainter.drawLine(canvas, strike, softkeyDecorPaint)",
+            name="softkey strike shared line painter usage",
+        )
+
+    def test_softkey_render_spec_shapes_match_contract(self) -> None:
+        """Keep the softkey spec builder aligned with the JSON-backed shape data."""
+        render_spec_shapes = _require_mapping(
+            self.payload["render_spec_shapes"],
+            name="render_spec_shapes",
+        )
+        softkey = _require_mapping(
+            render_spec_shapes["softkey"],
+            name="render_spec_shapes.softkey",
+        )
+        value_field = _require_mapping(
+            softkey["value_field"],
+            name="render_spec_shapes.softkey.value_field",
+        )
+        overlay = _require_mapping(
+            softkey["overlay"],
+            name="render_spec_shapes.softkey.overlay",
+        )
+        preview_line = _require_mapping(
+            softkey["preview_line"],
+            name="render_spec_shapes.softkey.preview_line",
+        )
+
+        _assert_contains(
+            self.softkey_painter_source,
+            "internal fun buildRenderSpec(",
+            name="softkey render-spec builder",
+        )
+        _assert_contains(
+            self.softkey_painter_source,
+            "SoftkeyGeometrySpec(",
+            name="softkey geometry spec",
+        )
+        _assert_float_equal(
+            self.key_view["SOFTKEY_VALUE_WIDTH_RATIO"],
+            _require_number(
+                value_field["width_ratio"],
+                name="render_spec_shapes.softkey.value_field.width_ratio",
+            ),
+        )
+        _assert_float_equal(
+            self.key_view["SOFTKEY_VALUE_RIGHT_INSET"],
+            _require_number(
+                value_field["right_inset"],
+                name="render_spec_shapes.softkey.value_field.right_inset",
+            ),
+        )
+        _assert_float_equal(
+            self.key_view["SOFTKEY_VALUE_TOP_INSET"],
+            _require_number(
+                value_field["top_inset"],
+                name="render_spec_shapes.softkey.value_field.top_inset",
+            ),
+        )
+        _assert_float_equal(
+            self.key_view["SOFTKEY_VALUE_TEXT_SIZE_RATIO"],
+            _require_number(
+                value_field["text_size_ratio"],
+                name="render_spec_shapes.softkey.value_field.text_size_ratio",
+            ),
+        )
+        _assert_float_equal(
+            self.key_view["SOFTKEY_OVERLAY_CENTER_RIGHT_INSET"],
+            _require_number(
+                overlay["center_right_inset"],
+                name="render_spec_shapes.softkey.overlay.center_right_inset",
+            ),
+        )
+        _assert_float_equal(
+            self.key_view["SOFTKEY_OVERLAY_CENTER_BOTTOM_INSET"],
+            _require_number(
+                overlay["center_bottom_inset"],
+                name="render_spec_shapes.softkey.overlay.center_bottom_inset",
+            ),
+        )
+        _assert_float_equal(
+            self.key_view["SOFTKEY_PREVIEW_LINE_SIDE_INSET"],
+            _require_number(
+                preview_line["side_inset"],
+                name="render_spec_shapes.softkey.preview_line.side_inset",
+            ),
+        )
+        _assert_float_equal(
+            self.key_view["SOFTKEY_PREVIEW_LINE_BOTTOM_INSET"],
+            _require_number(
+                preview_line["bottom_inset"],
+                name="render_spec_shapes.softkey.preview_line.bottom_inset",
+            ),
         )
 
 

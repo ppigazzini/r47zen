@@ -16,7 +16,7 @@ contract-to-regression map that proves these loops.
 | native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle |
 | frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling runs through packed-row export and keypad labels refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | extra JNI calls, duplicate pollers, or unnecessary redraw triggers hurt frame time |
 | packed LCD row decode | each accepted LCD update copies only dirty packed rows, decodes them to the bitmap, and invalidates the touched display rows | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
-| keypad scene apply | scene changes update all live key views and may request layout | `ReplicaOverlayController.kt`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt` | keypad labels and layout are the largest recurring view updates outside the LCD | bypassing the refresh gate or forcing layout on unchanged scenes creates churn |
+| keypad scene apply | scene changes update all live key views, invalidate per-key specs, and may request layout | `ReplicaOverlayController.kt`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt` | keypad labels, render specs, and layout are the largest recurring view updates outside the LCD | bypassing the refresh gate or forcing layout or invalidation on unchanged scenes creates churn |
 | lifecycle save and explicit refresh | background save waits on the core thread; explicit redraw remains opt-in for real state changes | `NativeCoreRuntime.kt`, `MainActivity.kt`, `jni_lifecycle.c` | lifecycle callbacks are easy places to hide destructive redraw work | synthetic redraws during passive save or resume mutate the LCD without a real calculator transition |
 | yield and SAF I/O boundary | long native waits release `screenMutex`, service Android work, and reacquire the recursive lock | `android_runtime.c`, `jni_storage.c`, `hal/io.c` | this is the most sensitive re-entrancy boundary in the bridge | deadlock, input races, or missed wakeups stall the app |
 
@@ -142,6 +142,12 @@ corrupts a graph or mixes status text into an otherwise stable LCD snapshot.
   `markGeometryChange()` sets a pending flag, and
   `schedulePendingGeometrySceneReplay()` waits until the next real overlay
   layout before forcing one replay.
+- `CalculatorKeyView` keeps a cached `mainKeyRenderSpec` and refreshes it when
+  label, layout-class, or size changes move main-key geometry.
+- `CalculatorSoftkeyPainter` still resolves a fresh `KeyRenderSpec` during
+  `draw(...)` from the current snapshot, size, and pressed state, so
+  unnecessary softkey `invalidate()` churn translates directly into extra spec
+  allocation and text measurement.
 - PiP exit now uses that same contract. The restored full-window shell marks a
   pending geometry replay and the next real overlay layout reapplies the
   current scene once.
@@ -197,6 +203,10 @@ regression surface.
 - Keep work off the main thread unless the Android view system requires it.
 - Do not duplicate refresh loops that already exist in `NativeCoreRuntime`,
   `NativeDisplayRefreshLoop`, or `ReplicaOverlay`.
+- Respect Android's measure/layout/draw split: geometry changes call
+  `requestLayout()`, visual-only changes should stay on `invalidate()`, and
+  per-key spec recompute should remain tied to real size or scene changes
+  instead of steady-state `onDraw()`.
 - Keep redraw work tied to real pixel, scene, or layout changes.
 - Preserve the `trylock` and skip-one-cycle behavior unless a real runtime bug
   proves it is wrong.

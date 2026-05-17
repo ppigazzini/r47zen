@@ -3,6 +3,7 @@ package io.github.ppigazzini.r47zen
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,6 +16,37 @@ import kotlin.math.abs
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "xxhdpi")
 class CalculatorSoftkeyPainterCanvasTest {
+    @Test
+    fun buildRenderSpecExposesValueFieldBoundsAndOverlayCenter() {
+        val renderSpec = softkeyPainter().buildRenderSpec(
+            keyState = KeypadKeySnapshot.EMPTY.copy(
+                primaryLabel = "FILE",
+                auxLabel = "LOAD",
+                sceneFlags = KeypadSceneContract.SCENE_FLAG_SHOW_TEXT or
+                    KeypadSceneContract.SCENE_FLAG_SHOW_VALUE or
+                    KeypadSceneContract.SCENE_FLAG_SHOW_CB,
+                showValue = 12,
+                overlayState = KeypadSceneContract.OVERLAY_CB_TRUE,
+            ),
+            fontSet = KeypadFontSet(standard = null, numeric = null, tiny = null),
+            width = WIDTH,
+            height = HEIGHT,
+            isPressed = false,
+            drawKeySurfaces = true,
+        )
+
+        val geometry = renderSpec.geometry as SoftkeyGeometrySpec
+        val valueFieldBounds = requireNotNull(geometry.valueFieldBounds)
+        val overlayCenter = requireNotNull(geometry.overlayCenter)
+
+        assertEquals(119.08f, valueFieldBounds.left, 0.01f)
+        assertEquals(8f, valueFieldBounds.top, 0.01f)
+        assertEquals(183f, valueFieldBounds.right, 0.01f)
+        assertEquals(33.92f, valueFieldBounds.bottom, 0.01f)
+        assertEquals(180f, overlayCenter.x, 0.01f)
+        assertEquals(130f, overlayCenter.y, 0.01f)
+    }
+
     @Test
     fun drawRendersReverseFillPreviewAndStrikePixels() {
         val bitmap = render(

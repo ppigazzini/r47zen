@@ -34,8 +34,8 @@ flowchart LR
 - `KeypadTopology` owns the Android-local 43-key lane, family, and column map.
 - `ReplicaKeypadLayout` owns key placement, touch-cell geometry, and row-local
   label-lane solving.
-- `CalculatorKeyView` and `CalculatorSoftkeyPainter` own per-key drawing,
-  label placement, and softkey-specific rendering.
+- `CalculatorKeyView` and `CalculatorSoftkeyPainter` own per-key spec
+  resolution, custom drawing, and softkey-specific rendering.
 
 ## Geometry contract stack
 
@@ -44,8 +44,8 @@ flowchart LR
 | logical canvas, borderless shell frame, and LCD frame | `R47ReferenceGeometry`, `R47AndroidChromeGeometry`, `R47LcdContract` -> `ReplicaChromeLayout` -> `ReplicaOverlay` | `scripts/r47_contracts/data/r47_physical_geometry.json`, `scripts/r47_contracts/data/r47_android_ui_contract.json`, and `scripts/r47_contracts/derive_shell_geometry.py` | `scripts/r47_contracts/test_shell_geometry_contract.py`, `ReplicaOverlayGoldenTest.kt` |
 | shared touch grid and key slots | `KeypadTopology` -> `ReplicaKeypadLayout` | `scripts/r47_contracts/data/r47_physical_geometry.json` plus `scripts/r47_contracts/derive_touch_grid.py` | grouped `scripts/r47_contracts` validation lane, `KeypadFixtureContractTest.kt` |
 | top-label lane placement | `TopLabelLaneLayout` -> `ReplicaKeypadLayout` -> `CalculatorKeyView` | `scripts/r47_contracts/derive_top_label_lane_layout.py` | `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `DynamicKeypadParityFixtureTest.kt` |
-| per-key label offsets and body geometry | `R47KeySurfacePolicy`, `R47LabelLayoutPolicy`, `R47TopLabelSolverPolicy` -> `CalculatorKeyView` | `scripts/r47_contracts/data/r47_android_ui_contract.json`, `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `scripts/r47_contracts/derive_top_label_lane_layout.py` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py`, `scripts/r47_contracts/test_top_label_lane_layout_contract.py` |
-| softkey visuals and overlay states | `CalculatorSoftkeyPainter` | native scene roles plus `KeyVisualPolicy` constants | `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ExportedKeypadFixtureRenderTest.kt` |
+| per-key label offsets and body geometry | `R47KeySurfacePolicy`, `R47LabelLayoutPolicy`, `R47TopLabelSolverPolicy` -> `CalculatorKeyView.buildMainKeyRenderSpec()` -> `KeyRenderSpec` | `scripts/r47_contracts/data/r47_android_ui_contract.json`, `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `scripts/r47_contracts/derive_top_label_lane_layout.py`, `KeyRenderSpec.kt` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py`, `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `CalculatorKeyViewRenderSpecTest.kt` |
+| softkey visuals and overlay states | `CalculatorSoftkeyPainter.buildRenderSpec()` -> `KeyRenderSpec` | native scene roles plus `KeyVisualPolicy` constants and `scripts/r47_contracts/data/r47_android_ui_contract.json` softkey geometry fields | `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ExportedKeypadFixtureRenderTest.kt` |
 
 ## Shell projection contract
 
@@ -162,25 +162,35 @@ rather than from a copied GTK screen layout.
 
 ## Per-key renderer
 
-Each key is a `CalculatorKeyView`. Main keys keep their painted key surface,
-label views, faceplate placement, and body-geometry rules there.
+Each key is still a `CalculatorKeyView`, but the per-key draw path is now
+spec-first. Main keys resolve one `KeyRenderSpec` before draw, then paint the
+body, labels, and accessibility output from that resolved spec.
 
 Softkeys stay on a dedicated function-key renderer path because the native
 scene contract carries reverse-video, overlay, preview, and value-state rules
-that the main-key path does not. `CalculatorSoftkeyPainter` owns that
-softkey-only drawing and content-description path while `CalculatorKeyView`
-continues to decide whether a key is on the main-key or function-key branch.
+that the main-key path does not. `CalculatorSoftkeyPainter` now resolves the
+same shared `KeyRenderSpec` vocabulary first, then draws softkey-only
+decorations from that spec while `CalculatorKeyView` continues to decide
+whether a key is on the main-key or function-key branch.
 
 Render split:
 
-- `CalculatorKeyView` owns the main-key painted body, primary legend, `f` and
-  `g` faceplate labels, and the fourth-label anchor
-- `CalculatorSoftkeyPainter` owns softkey text, auxiliary text, value text,
-  preview accents, reverse-video states, strike marks, and overlay-state
-  decorations
+- `CalculatorKeyView` owns the main-key body geometry, primary anchor,
+  top-label group spec, fourth-label anchor, and the final main-key
+  `KeyRenderSpec`
+- `CalculatorKeyView` also caches `mainKeyRenderSpec` and refreshes it on
+  size, label, and layout-class changes before draw so steady-state main-key
+  `onDraw()` work stays in the painter stage
+- `CalculatorSoftkeyPainter` owns softkey value-field bounds, overlay center,
+  preview accents, reverse-video states, strike marks, and the final softkey
+  `KeyRenderSpec`
+- `CalculatorSoftkeyPainter` resolves that softkey spec from the current
+  snapshot, size, and pressed state, then routes shared chrome, label, and
+  line stages through `KeyRenderPainter` while keeping overlay-only marks local
 - both key renderers now keep Android-owned font rendering quality local to the
-  painter path by enabling subpixel and linear text on the calculator font
-  paints instead of widening the geometry or snapshot contracts
+  painter path by enabling subpixel text while keeping `LINEAR_TEXT_FLAG` off
+  on the calculator font paints instead of widening the geometry or snapshot
+  contracts
 - pressed-state polish also stays renderer-local: main keys and softkeys add a
   narrow top highlight and bottom shadow only while the key is pressed, so the
   native snapshot contract still decides labels and scene role while Android
@@ -248,7 +258,8 @@ Owner chain:
   scale decisions
 - `ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout()` applies those
   results only after a real overlay layout boundary
-- `CalculatorKeyView` applies the final horizontal shift and per-label scales
+- `CalculatorKeyView.buildMainKeyRenderSpec()` resolves the final top-label
+  group bounds, baseline, per-label anchors, and scales
 
 Non-negotiable invariants:
 
@@ -295,10 +306,10 @@ Renderer process rules for live maintenance:
 - if a change affects drawing only, call `invalidate()` so underline, color,
   and text-shaping updates do not wait for the next key event
 
-Main keys and softkeys still share one view class, but the seam is explicit:
-`CalculatorKeyView` owns main-key geometry and `CalculatorSoftkeyPainter`
-owns softkey text, overlays, value display, preview accents, and related
-content descriptions.
+Main keys and softkeys still share one view class, but the seam is now one
+shared spec model plus family-specific geometry builders: `CalculatorKeyView`
+builds the main-key spec, `CalculatorSoftkeyPainter` builds the softkey spec,
+and both painter paths consume the same `KeyRenderSpec` vocabulary.
 
 Current native key-surface contract:
 
@@ -434,9 +445,9 @@ hardcoding one text style for all keys. In practice that means:
 - primary labels can use different visual roles from faceplate labels
 - all visible keypad text now goes through one custom `Canvas` text path owned
   by `C47TextRenderer`
-- `CalculatorKeyView` keeps the main-key `TextView` lanes only as geometry,
-  visibility, and accessibility-state carriers; `drawChild(...)` suppresses
-  their widget text draw pass so the runtime raster path stays unified
+- `CalculatorKeyView` keeps detached `TextView` mirrors only as compatibility
+  holders for text, paint, and test inspection; runtime geometry,
+  accessibility, and raster output now start from the resolved `KeyRenderSpec`
 - `CalculatorSoftkeyPainter` still owns softkey chrome, overlays, preview
   marks, and strike lines, but it now reuses the same text-paint helper as the
   main-key path instead of carrying a separate text-paint policy
@@ -475,6 +486,9 @@ The current text-paint policy is also explicit:
 
 The verification surface for this text-rendering split is now:
 
+- `CalculatorKeyViewRenderSpecTest.kt` for main-key body bounds, including the
+  left-anchored percent-width body layout, primary anchors, top-label group
+  bounds, fourth-label anchors, and spec-owned accessibility text
 - `C47TextRendererTest.kt` for shared paint flags and fit-floor behavior
 - `CalculatorKeyViewCanvasTest.kt` for main-key primary, top-label, and fourth-
   label canvas output
@@ -482,7 +496,7 @@ The verification surface for this text-rendering split is now:
   `CalculatorSoftkeyPainterContractTest.kt` for softkey text and chrome output
 - `scripts/r47_contracts/test_key_label_geometry_contract.py` and
   `scripts/r47_contracts/test_key_font_policy_contract.py` for the checked-in
-  geometry and font-policy contracts
+  geometry, shared painter-stage, and font-policy contracts
 - `.github/workflows/android-ci.yml` and `.github/workflows/android-release.yml`
   through the existing `:app:testDebugUnitTest` job; no workflow split changed
   for this refactor
@@ -519,17 +533,24 @@ Use this split:
   for each key code
 3. `ReplicaKeypadLayout` decides where the key lives in logical space
 4. `ReplicaOverlay` decides how logical space maps into the current window
-5. `CalculatorKeyView` decides how one key is measured and drawn
+5. `CalculatorKeyView` or `CalculatorSoftkeyPainter` decides what render spec is
+  built for one key and how that spec is drawn
 
 When a change touches more than one layer, prefer fixing the highest true owner
 first.
 
 ## Debug by symptom
 
+Start with the resolved render spec before you inspect painter internals. If
+the spec is wrong, stay in `CalculatorKeyView.buildMainKeyRenderSpec()` or
+`CalculatorSoftkeyPainter.buildRenderSpec()`. If the spec is right but pixels
+are wrong, stay in the painter stage.
+
 | Symptom | First owner to inspect |
 | --- | --- |
 | wrong text, wrong mode state, wrong menu semantics | native scene export and `KeypadSnapshot.fromNative(...)` |
 | every key shifted together | `ReplicaKeypadLayout`, `ReplicaChromeLayout`, or `ReplicaOverlay` |
-| one key drawn wrong but content is right | `CalculatorKeyView` |
-| softkey overlay, preview, value, or strike mismatch | `CalculatorSoftkeyPainter` |
+| one key drawn wrong but content is right | the resolved `KeyRenderSpec` for that key, then `CalculatorKeyView` |
+| softkey overlay, preview, value, or strike mismatch | the resolved softkey `KeyRenderSpec`, then `CalculatorSoftkeyPainter` |
+| unchanged scene still causes keypad churn | `KeypadSnapshotRefreshGate`, `CalculatorKeyView.refreshMainKeyRenderSpec()`, then `CalculatorSoftkeyPainter.draw(...)` |
 | shell and LCD both look locally correct but globally misplaced | projection in `ReplicaChromeLayout` or `ReplicaOverlay` |

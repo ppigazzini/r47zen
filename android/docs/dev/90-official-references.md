@@ -262,6 +262,14 @@ flowchart TD
   `Canvas`, `Paint`, measurement, and drawing guidance for custom views,
   including the rule to create drawing objects ahead of time and move
   size-dependent geometry into `onSizeChanged()`.
+- [Optimize a custom view](https://developer.android.com/develop/ui/views/layout/custom-views/optimizing-view):
+  official custom-view hot-path guidance for keeping `onDraw()` lean,
+  eliminating avoidable allocations during drawing, minimizing unnecessary
+  `invalidate()` calls, and avoiding stray `requestLayout()` churn.
+- [How Android draws views](https://developer.android.com/guide/topics/ui/how-android-draws):
+  official measure, layout, and draw-pass overview for View-based rendering,
+  including invalid-region behavior and when `requestLayout()` rather than
+  `invalidate()` is the correct owner path.
 - [Canvas.drawText](https://developer.android.com/reference/android/graphics/Canvas#drawText(java.lang.String,float,float,android.graphics.Paint)):
   direct text-draw API for custom `Canvas` owners that render text with a
   caller-supplied `Paint`.

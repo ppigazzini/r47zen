@@ -7,6 +7,10 @@ native core. `MainActivity` coordinates Android lifecycle, preferences, slot
 selection, settings, and external integrations. It does not own the calculator
 engine loop.
 
+The keypad render path is now explicitly spec-first: `CalculatorKeyView` and
+`CalculatorSoftkeyPainter` resolve `KeyRenderSpec` data for one key, then
+`KeyRenderPainter` and `C47TextRenderer` own the shared draw-stage policy.
+
 Use this page for Kotlin-side ownership, coordinator structure, lifecycle, and
 storage flow. Read `50-upstream-interface-surfaces.md` for the upstream bridge
 contract, `60-runtime-hot-paths.md` for the hottest runtime loops, and
@@ -21,7 +25,8 @@ surfaces.
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
   `WindowModeController.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt`,
-  `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `R47Geometry.kt`,
+  `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`,
+  `KeyRenderPainter.kt`, `C47TextRenderer.kt`, `R47Geometry.kt`,
   `TopLabelLaneLayout.kt`
 - storage and slots: `StorageAccessCoordinator.kt`, `WorkDirectory.kt`,
   `SlotSessionController.kt`, `SlotStore.kt`
@@ -72,8 +77,8 @@ flowchart LR
   bits before rendering
 - `KeypadTopology`, slot metadata, work-directory preferences, and shell
   preferences are Android-local models
-- geometry constants, label placement formulas, painter policy, and chrome
-  projection are rendering contracts owned by
+- geometry constants, render-spec builders, label placement formulas, painter
+  policy, and chrome projection are rendering contracts owned by
   `40-ui-rendering-and-gtk-mapping.md`, not by this page
 - JNI signatures, cached callbacks, and lock-sensitive bridge behavior are
   native-interface contracts owned by `30-native-core-and-jni.md` and

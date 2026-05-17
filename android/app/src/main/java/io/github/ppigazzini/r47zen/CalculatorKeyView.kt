@@ -71,6 +71,13 @@ class CalculatorKeyView @JvmOverloads constructor(
 ) : ConstraintLayout(context, attrs, defStyleAttr) {
 
     companion object {
+        private const val LABEL_ID_MAIN_PRIMARY = "main-primary"
+        private const val LABEL_ID_MAIN_F = "main-f"
+        private const val LABEL_ID_MAIN_G = "main-g"
+        private const val LABEL_ID_MAIN_LETTER = "main-letter"
+        private const val ADORNMENT_ID_MAIN_PRESSED_HIGHLIGHT = "main-pressed-highlight"
+        private const val ADORNMENT_ID_MAIN_PRESSED_SHADOW = "main-pressed-shadow"
+
         private val defaultPrimaryColor = Color.WHITE
         private val defaultPrimaryDarkColor = Color.BLACK
         private val fAccentColor = Color.rgb(255, 195, 111)
@@ -108,6 +115,7 @@ class CalculatorKeyView @JvmOverloads constructor(
     private var fontSet = KeypadFontSet(null, null, null)
     private var softkeyState = KeypadKeySnapshot.EMPTY
     private var mainKeyState = KeypadKeySnapshot.EMPTY
+    private var mainKeyRenderSpec: KeyRenderSpec? = null
     private var currentShiftFOn = false
     private var currentShiftGOn = false
     private var topLabelPlacement = TopLabelLanePlacement.DEFAULT
@@ -121,10 +129,6 @@ class CalculatorKeyView @JvmOverloads constructor(
     private val mainKeyLabelPaint = C47TextRenderer.newTextPaint()
     private val mainKeyMeasurementPaint = C47TextRenderer.newTextPaint()
     private val mainKeyPressedHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-    }
-    private val mainKeyPressedShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
     }
@@ -146,76 +150,44 @@ class CalculatorKeyView @JvmOverloads constructor(
         clipToPadding = false
         setWillNotDraw(false)
 
-        // Letter label (Right side of the view, bottom aligned with button)
-        letterLabel.id = View.generateViewId()
-        letterLabel.setTextColor(fourthLabelColor)
-        letterLabel.gravity = Gravity.START or Gravity.TOP
-        letterLabel.includeFontPadding = false
-        letterLabel.maxLines = 1
-        val letterParams = LayoutParams(0, 0)
-        letterParams.topToTop = buttonView.id
-        letterParams.endToEnd = LayoutParams.PARENT_ID
-        letterParams.bottomToBottom = LayoutParams.PARENT_ID
-        letterParams.matchConstraintPercentWidth = R47KeySurfacePolicy.STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
-        letterParams.matchConstraintPercentHeight = R47KeySurfacePolicy.MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
-        addView(letterLabel, letterParams)
-
-        // Button background view (Left side)
         buttonView.id = View.generateViewId()
         val btnParams = LayoutParams(0, 0)
         btnParams.topToTop = LayoutParams.PARENT_ID
         btnParams.bottomToBottom = LayoutParams.PARENT_ID
         btnParams.startToStart = LayoutParams.PARENT_ID
-        btnParams.endToStart = letterLabel.id
+        btnParams.endToEnd = LayoutParams.PARENT_ID
+        btnParams.horizontalBias = 0f
         btnParams.verticalBias = 0f
         btnParams.matchConstraintPercentHeight = R47KeySurfacePolicy.MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
         buttonView.setBackgroundColor(Color.TRANSPARENT)
         addView(buttonView, btnParams)
 
-        // Primary label (Center of button)
+        letterLabel.id = View.generateViewId()
+        letterLabel.setTextColor(fourthLabelColor)
+        letterLabel.gravity = Gravity.START or Gravity.TOP
+        letterLabel.includeFontPadding = false
+        letterLabel.maxLines = 1
+
         primaryLabel.id = View.generateViewId()
         primaryLabel.setTextColor(Color.WHITE)
         primaryLabel.gravity = Gravity.CENTER
         primaryLabel.includeFontPadding = false
         primaryLabel.maxLines = 1
-        val primaryParams = LayoutParams(0, 0)
-        primaryParams.topToTop = buttonView.id
-        primaryParams.bottomToBottom = buttonView.id
-        primaryParams.startToStart = buttonView.id
-        primaryParams.endToEnd = buttonView.id
-        addView(primaryLabel, primaryParams)
 
-        // F label (Above button)
         fLabel.id = View.generateViewId()
         fLabel.setTextColor(fAccentColor)
         fLabel.gravity = Gravity.START or Gravity.TOP
         fLabel.includeFontPadding = false
         fLabel.maxLines = 1
-        val fParams = LayoutParams(LayoutParams.WRAP_CONTENT, 0)
-        fParams.topToTop = buttonView.id
-        fParams.bottomToBottom = buttonView.id
-        fParams.startToStart = LayoutParams.PARENT_ID
-        fParams.endToStart = gLabel.id
-        fParams.horizontalChainStyle = LayoutParams.CHAIN_PACKED
-        addView(fLabel, fParams)
 
-        // G label (Above button)
         gLabel.id = View.generateViewId()
         gLabel.setTextColor(gAccentColor)
         gLabel.gravity = Gravity.END or Gravity.TOP
         gLabel.includeFontPadding = false
         gLabel.maxLines = 1
-        val gParams = LayoutParams(LayoutParams.WRAP_CONTENT, 0)
-        gParams.topToTop = buttonView.id
-        gParams.bottomToBottom = buttonView.id
-        gParams.startToEnd = fLabel.id
-        gParams.endToEnd = LayoutParams.PARENT_ID
-        addView(gLabel, gParams)
 
-        // Alpha label (NOT USED inside key)
         alphaLabel.id = View.generateViewId()
         alphaLabel.visibility = View.GONE
-        addView(alphaLabel)
 
         isClickable = false
         buttonView.isClickable = false
@@ -260,6 +232,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, resolvedFLabelTextSize)
         gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, resolvedGLabelTextSize)
         letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, resolvedLetterLabelTextSize)
+        refreshMainKeyRenderSpec()
     }
 
     private fun fittedTextSizePx(labelView: TextView, baseSize: Float, maxWidth: Float): Float {
@@ -387,84 +360,18 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun resetLabelLayout() {
-        val fParams = fLabel.layoutParams as LayoutParams
-        val gParams = gLabel.layoutParams as LayoutParams
-
-        fParams.horizontalChainStyle = LayoutParams.CHAIN_PACKED
-        fParams.horizontalBias = 0.5f
-        fParams.marginStart = 0
-        fParams.marginEnd = 0
-        gParams.horizontalBias = 0.5f
-        gParams.marginEnd = 0
-        gParams.marginStart = 0
-        fParams.startToStart = LayoutParams.PARENT_ID
-        fParams.endToStart = gLabel.id
-        gParams.startToEnd = fLabel.id
-        gParams.endToEnd = LayoutParams.PARENT_ID
-
-        fLabel.layoutParams = fParams
-        gLabel.layoutParams = gParams
+        primaryLabel.translationX = 0f
+        primaryLabel.translationY = 0f
+        fLabel.translationX = 0f
+        fLabel.translationY = 0f
+        gLabel.translationX = 0f
+        gLabel.translationY = 0f
+        letterLabel.translationX = 0f
+        letterLabel.translationY = 0f
     }
 
     private fun updateFaceplateOffsets() {
-        if (isFnKey || width <= 0) {
-            return
-        }
-
-        val referenceCellToViewWidthScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
-        val topFgLabelVerticalLift = R47LabelLayoutPolicy.TOP_F_G_LABEL_VERTICAL_LIFT * referenceCellToViewWidthScale
-        val topFgLabelHorizontalGap = R47LabelLayoutPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
-        val buttonWidth = buttonView.width.toFloat()
-        if (buttonWidth <= 0f || buttonView.height <= 0) {
-            return
-        }
-
-        val referenceBodyToViewWidthScale = if (designButtonWidth > 0f) buttonWidth / designButtonWidth else 1f
-        updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
-        val buttonCenterX = mainKeyRect.centerX()
-        val rawButtonCenterX = buttonView.left + buttonWidth / 2f
-        primaryLabel.translationX = buttonCenterX - rawButtonCenterX
-        val fWidth = measureTextWidth(fLabel)
-        val gWidth = measureTextWidth(gLabel)
-        val hasFLabel = fLabel.visibility == View.VISIBLE && fLabel.text.isNotBlank()
-        val hasGLabel = hasFLabel && gLabel.visibility == View.VISIBLE && gLabel.text.isNotBlank()
-        val groupWidth = when {
-            hasGLabel -> fWidth + topFgLabelHorizontalGap + gWidth
-            hasFLabel -> fWidth
-            else -> 0f
-        }
-        val groupLeft = buttonCenterX - groupWidth / 2f + topLabelPlacement.centerShift
-
-        when {
-            hasGLabel -> {
-                val fLeft = groupLeft
-                val gLeft = groupLeft + fWidth + topFgLabelHorizontalGap
-                fLabel.translationX = fLeft - fLabel.left.toFloat()
-                gLabel.translationX = gLeft - gLabel.left.toFloat()
-            }
-
-            hasFLabel -> {
-                fLabel.translationX = groupLeft - fLabel.left.toFloat()
-                gLabel.translationX = 0f
-            }
-
-            else -> {
-                fLabel.translationX = 0f
-                gLabel.translationX = 0f
-            }
-        }
-
-        val topLabelTranslationY = -topFgLabelVerticalLift
-        val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
-        val targetTextBottomY = topLabelTranslationY + textBottomOffset(
-            fLabel,
-            baseTopLabelTextSize,
-            fontSet.standard ?: fLabel.typeface,
-        )
-        fLabel.translationY = targetTextBottomY - textBottomOffset(fLabel) - fLabel.top.toFloat()
-        gLabel.translationY = targetTextBottomY - textBottomOffset(gLabel) - gLabel.top.toFloat()
-
-        updateFourthLabelOffset(referenceCellToViewWidthScale)
+        refreshMainKeyRenderSpec()
     }
 
     private fun updateFourthLabelOffset(referenceCellToViewWidthScale: Float) {
@@ -511,33 +418,6 @@ class CalculatorKeyView @JvmOverloads constructor(
     private fun updateLayoutPositioning(layoutClass: Int) {
         if (lastLayoutClass == layoutClass) return
         lastLayoutClass = layoutClass
-
-        resetLabelLayout()
-        val fParams = fLabel.layoutParams as LayoutParams
-        val gParams = gLabel.layoutParams as LayoutParams
-        val buttonParams = buttonView.layoutParams as LayoutParams
-
-        when (layoutClass) {
-            KeypadSceneContract.LAYOUT_CLASS_STATIC_SINGLE -> {
-                fParams.endToStart = LayoutParams.UNSET
-                fParams.endToEnd = LayoutParams.PARENT_ID
-                fParams.horizontalBias = 0.5f
-                gLabel.visibility = View.GONE
-            }
-        }
-
-        if (usesLetterSpacer) {
-            buttonParams.endToStart = letterLabel.id
-            buttonParams.endToEnd = LayoutParams.UNSET
-        } else {
-            buttonParams.endToStart = LayoutParams.UNSET
-            buttonParams.endToEnd = LayoutParams.PARENT_ID
-        }
-
-        buttonView.layoutParams = buttonParams
-        fLabel.layoutParams = fParams
-        gLabel.layoutParams = gParams
-        requestLayout()
     }
 
     internal fun setKey(slot: KeypadSlotSpec, fonts: KeypadFontSet) {
@@ -557,6 +437,7 @@ class CalculatorKeyView @JvmOverloads constructor(
             letterLabel.visibility = View.GONE
             primaryLabel.visibility = View.GONE
             buttonView.visibility = View.INVISIBLE
+            mainKeyRenderSpec = null
             invalidate()
         } else {
             buttonView.visibility = View.VISIBLE
@@ -572,20 +453,13 @@ class CalculatorKeyView @JvmOverloads constructor(
 
             if (!slot.usesLetterSpacer) {
                 letterLabel.visibility = View.GONE
-                val lp = buttonView.layoutParams as LayoutParams
-                lp.endToStart = LayoutParams.UNSET
-                lp.endToEnd = LayoutParams.PARENT_ID
-                buttonView.layoutParams = lp
             } else {
-                val lp = buttonView.layoutParams as LayoutParams
-                lp.endToStart = letterLabel.id
-                lp.endToEnd = LayoutParams.UNSET
-                buttonView.layoutParams = lp
                 letterLabel.visibility = if (keepLetterSpacerInvisible) View.INVISIBLE else View.VISIBLE
             }
 
             primaryLabel.setTextColor(defaultPrimaryColor)
             mainKeyState = KeypadKeySnapshot.EMPTY
+            mainKeyRenderSpec = null
         }
     }
 
@@ -594,6 +468,9 @@ class CalculatorKeyView @JvmOverloads constructor(
             return
         }
         drawKeySurfaces = draw
+        if (!isFnKey) {
+            refreshMainKeyRenderSpec()
+        }
         invalidate()
     }
 
@@ -674,22 +551,11 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
 
         val buttonParams = buttonView.layoutParams as LayoutParams
-        val letterParams = letterLabel.layoutParams as LayoutParams
-        letterParams.topToTop = buttonView.id
-        letterParams.bottomToBottom = buttonView.id
-        letterParams.matchConstraintPercentWidth = letterRatio
-        letterParams.matchConstraintPercentHeight = R47KeySurfacePolicy.MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
-
-        if (letterRatio > 0f) {
-            buttonParams.endToStart = letterLabel.id
-            buttonParams.endToEnd = LayoutParams.UNSET
-        } else {
-            buttonParams.endToStart = LayoutParams.UNSET
-            buttonParams.endToEnd = LayoutParams.PARENT_ID
-        }
+        buttonParams.matchConstraintPercentWidth = (1f - letterRatio).coerceIn(0f, 1f)
+        buttonParams.horizontalBias = 0f
+        buttonParams.endToEnd = LayoutParams.PARENT_ID
 
         buttonView.layoutParams = buttonParams
-        letterLabel.layoutParams = letterParams
     }
 
     private fun primaryTypefaceFor(): Typeface? {
@@ -802,9 +668,10 @@ class CalculatorKeyView @JvmOverloads constructor(
             applySceneStyling(keyState)
             applyLabelVisibility(keyState)
             updateFontSize(currentShiftFOn, currentShiftGOn)
+            refreshMainKeyRenderSpec()
             requestLayout()
             invalidate()
-            contentDescription = buildString {
+            contentDescription = mainKeyRenderSpec?.accessibility?.contentDescription ?: buildString {
                 append(keyState.primaryLabel)
                 if (keyState.fLabel.isNotBlank()) {
                     append(", f ")
@@ -925,9 +792,279 @@ class CalculatorKeyView @JvmOverloads constructor(
         return topLabelPlacement
     }
 
+    internal fun currentMainKeyRenderSpecForTest(): KeyRenderSpec? {
+        refreshMainKeyRenderSpec()
+        return mainKeyRenderSpec
+    }
+
     override fun setPressed(pressed: Boolean) {
         super.setPressed(pressed)
+        if (!isFnKey) {
+            refreshMainKeyRenderSpec()
+        }
         invalidate()
+    }
+
+    private fun refreshMainKeyRenderSpec() {
+        if (isFnKey) {
+            mainKeyRenderSpec = null
+            return
+        }
+        mainKeyRenderSpec = buildMainKeyRenderSpec()
+        syncLabelMirrorGeometry(mainKeyRenderSpec)
+        mainKeyRenderSpec?.let { renderSpec ->
+            contentDescription = renderSpec.accessibility.contentDescription
+        }
+    }
+
+    private fun buildMainKeyRenderSpec(): KeyRenderSpec? {
+        if (width <= 0) {
+            return null
+        }
+
+        val buttonWidth = buttonView.width.toFloat()
+        if (buttonWidth <= 0f || buttonView.height <= 0) {
+            return null
+        }
+
+        val referenceCellToViewWidthScale = if (designCellWidth > 0f) {
+            width.toFloat() / designCellWidth
+        } else {
+            1f
+        }
+        val referenceBodyToViewWidthScale = if (designButtonWidth > 0f) {
+            buttonWidth / designButtonWidth
+        } else {
+            1f
+        }
+        val cornerRadius = R47KeySurfacePolicy.MAIN_KEY_DRAW_CORNER_RADIUS * referenceBodyToViewWidthScale
+        updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
+        val bodyBounds = RectSpec(
+            left = mainKeyRect.left,
+            top = mainKeyRect.top,
+            right = mainKeyRect.right,
+            bottom = mainKeyRect.bottom,
+        )
+        val styleSpec = mainKeyStyleSpec(mainKeyState.styleRole)
+        val chrome = KeyChromeSpec(
+            bounds = bodyBounds,
+            fillColor = if (isPressed) styleSpec.pressedFillColor else styleSpec.idleFillColor,
+            cornerRadius = cornerRadius,
+            drawSurface = drawKeySurfaces,
+            pressedAccents = if (drawKeySurfaces && isPressed) {
+                buildMainPressedAccentSpecs(bodyBounds, referenceBodyToViewWidthScale)
+            } else {
+                emptyList()
+            },
+        )
+
+        val labels = mutableListOf<LabelSpec>()
+        val primarySpec = C47TextRenderer.buildLabelSpec(
+            id = LABEL_ID_MAIN_PRIMARY,
+            text = primaryLabel.text?.toString().orEmpty(),
+            paint = mainKeyMeasurementPaint,
+            typeface = primaryLabel.typeface,
+            textSize = primaryLabel.textSize,
+            x = bodyBounds.centerX,
+            anchorY = bodyBounds.centerY,
+            color = primaryLabel.currentTextColor,
+            alpha = primaryLabel.alpha,
+            textScaleX = primaryLabel.textScaleX,
+            underline = primaryLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
+            strikeThrough = primaryLabel.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
+            visible = primaryLabel.visibility == View.VISIBLE,
+        )
+        primarySpec?.let(labels::add)
+
+        val topFgLabelHorizontalGap = R47LabelLayoutPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
+        val hasFLabel = fLabel.visibility == View.VISIBLE && fLabel.text.isNotBlank()
+        val hasGLabel = hasFLabel && gLabel.visibility == View.VISIBLE && gLabel.text.isNotBlank()
+        val fWidth = if (hasFLabel) measureTextWidth(fLabel) else 0f
+        val gWidth = if (hasGLabel) measureTextWidth(gLabel) else 0f
+        val groupWidth = when {
+            hasGLabel -> fWidth + topFgLabelHorizontalGap + gWidth
+            hasFLabel -> fWidth
+            else -> 0f
+        }
+        val groupLeft = bodyBounds.centerX - groupWidth / 2f + topLabelPlacement.centerShift
+        val topFgLabelVerticalLift = R47LabelLayoutPolicy.TOP_F_G_LABEL_VERTICAL_LIFT * referenceCellToViewWidthScale
+        val topLabelTranslationY = -topFgLabelVerticalLift
+        val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
+        val targetTextBottomY = topLabelTranslationY + textBottomOffset(
+            fLabel,
+            baseTopLabelTextSize,
+            fontSet.standard ?: fLabel.typeface,
+        )
+
+        val fSpec = if (hasFLabel) {
+            C47TextRenderer.buildLabelSpec(
+                id = LABEL_ID_MAIN_F,
+                text = fLabel.text?.toString().orEmpty(),
+                paint = mainKeyMeasurementPaint,
+                typeface = fLabel.typeface,
+                textSize = fLabel.textSize,
+                x = groupLeft,
+                anchorY = targetTextBottomY,
+                color = fLabel.currentTextColor,
+                align = Paint.Align.LEFT,
+                verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
+                alpha = fLabel.alpha,
+                textScaleX = fLabel.textScaleX,
+                underline = fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
+                strikeThrough = fLabel.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
+                visible = true,
+            )
+        } else {
+            null
+        }
+        val gSpec = if (hasGLabel) {
+            C47TextRenderer.buildLabelSpec(
+                id = LABEL_ID_MAIN_G,
+                text = gLabel.text?.toString().orEmpty(),
+                paint = mainKeyMeasurementPaint,
+                typeface = gLabel.typeface,
+                textSize = gLabel.textSize,
+                x = groupLeft + fWidth + topFgLabelHorizontalGap + gWidth,
+                anchorY = targetTextBottomY,
+                color = gLabel.currentTextColor,
+                align = Paint.Align.RIGHT,
+                verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
+                alpha = gLabel.alpha,
+                textScaleX = gLabel.textScaleX,
+                underline = gLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
+                strikeThrough = gLabel.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
+                visible = true,
+            )
+        } else {
+            null
+        }
+        fSpec?.let(labels::add)
+        gSpec?.let(labels::add)
+
+        val topLabelGroup = when {
+            fSpec?.bounds != null && gSpec?.bounds != null -> {
+                val fBounds = requireNotNull(fSpec.bounds)
+                val gBounds = requireNotNull(gSpec.bounds)
+                TopLabelGroupSpec(
+                    bounds = RectSpec(
+                        left = fBounds.left,
+                        top = minOf(fBounds.top, gBounds.top),
+                        right = gBounds.right,
+                        bottom = maxOf(fBounds.bottom, gBounds.bottom),
+                    ),
+                    groupCenterX = bodyBounds.centerX + topLabelPlacement.centerShift,
+                    groupLeft = groupLeft,
+                    corridorLeft = bodyBounds.left,
+                    corridorRight = bodyBounds.right,
+                    gapWidth = topFgLabelHorizontalGap,
+                    fLeft = groupLeft,
+                    gRight = gBounds.right,
+                    baselineY = targetTextBottomY,
+                    fScale = topLabelPlacement.fScale,
+                    gScale = topLabelPlacement.gScale,
+                )
+            }
+
+            fSpec?.bounds != null -> {
+                val fBounds = requireNotNull(fSpec.bounds)
+                TopLabelGroupSpec(
+                    bounds = fBounds,
+                    groupCenterX = bodyBounds.centerX + topLabelPlacement.centerShift,
+                    groupLeft = groupLeft,
+                    corridorLeft = bodyBounds.left,
+                    corridorRight = bodyBounds.right,
+                    gapWidth = 0f,
+                    fLeft = groupLeft,
+                    gRight = null,
+                    baselineY = targetTextBottomY,
+                    fScale = topLabelPlacement.fScale,
+                    gScale = topLabelPlacement.gScale,
+                )
+            }
+
+            else -> null
+        }
+
+        val fourthLabelAnchor = if (letterLabel.visibility == View.VISIBLE && letterLabel.text.isNotBlank()) {
+            PointSpec(
+                x = bodyBounds.right +
+                    R47LabelLayoutPolicy.FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT * referenceCellToViewWidthScale,
+                y = R47LabelLayoutPolicy.FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP * referenceCellToViewWidthScale,
+            )
+        } else {
+            null
+        }
+        val letterSpec = fourthLabelAnchor?.let { anchor ->
+            C47TextRenderer.buildLabelSpec(
+                id = LABEL_ID_MAIN_LETTER,
+                text = letterLabel.text?.toString().orEmpty(),
+                paint = mainKeyMeasurementPaint,
+                typeface = letterLabel.typeface,
+                textSize = letterLabel.textSize,
+                x = anchor.x,
+                anchorY = anchor.y,
+                color = letterLabel.currentTextColor,
+                align = Paint.Align.LEFT,
+                verticalAnchor = C47TextRenderer.TEXT_ANCHOR_TOP,
+                alpha = letterLabel.alpha,
+                textScaleX = letterLabel.textScaleX,
+                underline = letterLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
+                strikeThrough = letterLabel.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
+                visible = true,
+            )
+        }
+        letterSpec?.let(labels::add)
+
+        return KeyRenderSpec(
+            chrome = chrome,
+            labels = labels,
+            adornments = emptyList(),
+            accessibility = buildMainKeyAccessibilitySpec(primarySpec, fSpec, gSpec),
+            geometry = MainKeyGeometrySpec(
+                bodyBounds = bodyBounds,
+                primaryAnchor = PointSpec(bodyBounds.centerX, bodyBounds.centerY),
+                topLabelGroup = topLabelGroup,
+                fourthLabelAnchor = fourthLabelAnchor,
+            ),
+        )
+    }
+
+    private fun buildMainKeyAccessibilitySpec(
+        primarySpec: LabelSpec?,
+        fSpec: LabelSpec?,
+        gSpec: LabelSpec?,
+    ): AccessibilitySpec {
+        return AccessibilitySpec(
+            buildString {
+                append(primarySpec?.text.orEmpty())
+                if (fSpec != null) {
+                    append(", f ")
+                    append(fSpec.text)
+                }
+                if (gSpec != null) {
+                    append(", g ")
+                    append(gSpec.text)
+                }
+            }
+        )
+    }
+
+    private fun syncLabelMirrorGeometry(renderSpec: KeyRenderSpec?) {
+        syncMirrorFromLabelSpec(primaryLabel, renderSpec?.label(LABEL_ID_MAIN_PRIMARY))
+        syncMirrorFromLabelSpec(fLabel, renderSpec?.label(LABEL_ID_MAIN_F))
+        syncMirrorFromLabelSpec(gLabel, renderSpec?.label(LABEL_ID_MAIN_G))
+        syncMirrorFromLabelSpec(letterLabel, renderSpec?.label(LABEL_ID_MAIN_LETTER))
+    }
+
+    private fun syncMirrorFromLabelSpec(labelView: TextView, labelSpec: LabelSpec?) {
+        val bounds = labelSpec?.bounds
+        if (bounds == null) {
+            labelView.translationX = 0f
+            labelView.translationY = 0f
+            return
+        }
+        labelView.translationX = bounds.left
+        labelView.translationY = bounds.top
     }
 
     override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
@@ -958,149 +1095,72 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun drawMainKey(canvas: Canvas) {
-        if (buttonView.width <= 0 || buttonView.height <= 0) {
-            return
-        }
+        val renderSpec = mainKeyRenderSpec ?: run {
+            refreshMainKeyRenderSpec()
+            mainKeyRenderSpec
+        } ?: return
 
-        val keyState = mainKeyState
-        val referenceBodyToViewWidthScale = if (designButtonWidth > 0f) {
-            buttonView.width.toFloat() / designButtonWidth
-        } else {
-            1f
-        }
-        val cornerRadius = R47KeySurfacePolicy.MAIN_KEY_DRAW_CORNER_RADIUS * referenceBodyToViewWidthScale
-        updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
-
-        val styleSpec = mainKeyStyleSpec(keyState.styleRole)
-        val fillColor = if (isPressed) styleSpec.pressedFillColor else styleSpec.idleFillColor
-
-        if (drawKeySurfaces) {
-            drawKeyChrome(
+        renderSpec.chrome?.let { chrome ->
+            KeyRenderPainter.drawChrome(
                 canvas = canvas,
-                rect = mainKeyRect,
+                chrome = chrome,
                 fillPaint = mainKeyFillPaint,
-                fillColor = fillColor,
-                cornerRadius = cornerRadius,
+                strokePaint = mainKeyPressedHighlightPaint,
             )
-            if (isPressed) {
-                drawPressedKeyAccent(
-                    canvas = canvas,
-                    rect = mainKeyRect,
-                    referenceBodyToViewWidthScale = referenceBodyToViewWidthScale,
-                )
-            }
         }
         drawMainKeyLabels(canvas)
     }
 
     private fun drawMainKeyLabels(canvas: Canvas) {
-        drawLabelFromView(
-            canvas = canvas,
-            labelView = primaryLabel,
-            x = primaryLabel.x + (primaryLabel.width / 2f),
-            anchorY = primaryLabel.y + (primaryLabel.height / 2f),
-            align = Paint.Align.CENTER,
-            verticalAnchor = C47TextRenderer.TEXT_ANCHOR_CENTER,
-        )
-        drawLabelFromView(
-            canvas = canvas,
-            labelView = fLabel,
-            x = fLabel.x,
-            anchorY = fLabel.y + textBottomOffset(fLabel),
-            align = Paint.Align.LEFT,
-            verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
-        )
-        drawLabelFromView(
-            canvas = canvas,
-            labelView = gLabel,
-            x = gLabel.x + gLabel.width,
-            anchorY = gLabel.y + textBottomOffset(gLabel),
-            align = Paint.Align.RIGHT,
-            verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
-        )
-        drawLabelFromView(
-            canvas = canvas,
-            labelView = letterLabel,
-            x = letterLabel.x,
-            anchorY = letterLabel.y,
-            align = Paint.Align.LEFT,
-            verticalAnchor = C47TextRenderer.TEXT_ANCHOR_TOP,
-        )
+        val renderSpec = mainKeyRenderSpec ?: run {
+            refreshMainKeyRenderSpec()
+            mainKeyRenderSpec
+        } ?: return
+        drawMainKeyLabels(canvas, renderSpec)
     }
 
-    private fun drawLabelFromView(
-        canvas: Canvas,
-        labelView: TextView,
-        x: Float,
-        anchorY: Float,
-        align: Paint.Align,
-        verticalAnchor: Int,
-    ) {
-        if (labelView.visibility != View.VISIBLE) {
-            return
+    private fun drawMainKeyLabels(canvas: Canvas, renderSpec: KeyRenderSpec) {
+        renderSpec.label(LABEL_ID_MAIN_PRIMARY)?.let { label ->
+            KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
         }
-
-        val text = labelView.text?.toString().orEmpty()
-        if (text.isBlank()) {
-            return
+        renderSpec.label(LABEL_ID_MAIN_F)?.let { label ->
+            KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
         }
-
-        C47TextRenderer.drawText(
-            canvas,
-            text,
-            mainKeyLabelPaint,
-            typeface = labelView.typeface,
-            textSize = labelView.textSize,
-            x = x,
-            anchorY = anchorY,
-            color = labelView.currentTextColor,
-            align = align,
-            verticalAnchor = verticalAnchor,
-            alpha = labelView.alpha,
-            textScaleX = labelView.textScaleX,
-            underline = labelView.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
-            strikeThrough = labelView.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
-        )
+        renderSpec.label(LABEL_ID_MAIN_G)?.let { label ->
+            KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
+        }
+        renderSpec.label(LABEL_ID_MAIN_LETTER)?.let { label ->
+            KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
+        }
     }
 
-    private fun drawPressedKeyAccent(
-        canvas: Canvas,
-        rect: RectF,
+    private fun buildMainPressedAccentSpecs(
+        rect: RectSpec,
         referenceBodyToViewWidthScale: Float,
-    ) {
+    ): List<LineAdornmentSpec> {
         val edgeInset = max(4f * referenceBodyToViewWidthScale, 2f)
         val topY = rect.top + max(6f * referenceBodyToViewWidthScale, 2f)
         val bottomY = rect.bottom - max(6f * referenceBodyToViewWidthScale, 2f)
 
-        mainKeyPressedHighlightPaint.color = Color.argb(112, 255, 244, 224)
-        mainKeyPressedHighlightPaint.strokeWidth = max(2.2f * referenceBodyToViewWidthScale, 1.5f)
-        mainKeyPressedShadowPaint.color = Color.argb(128, 18, 12, 8)
-        mainKeyPressedShadowPaint.strokeWidth = max(2.8f * referenceBodyToViewWidthScale, 1.5f)
-
-        canvas.drawLine(
-            rect.left + edgeInset,
-            topY,
-            rect.right - edgeInset,
-            topY,
-            mainKeyPressedHighlightPaint,
+        return listOf(
+            LineAdornmentSpec(
+                id = ADORNMENT_ID_MAIN_PRESSED_HIGHLIGHT,
+                line = LineSpec(
+                    start = PointSpec(rect.left + edgeInset, topY),
+                    end = PointSpec(rect.right - edgeInset, topY),
+                ),
+                color = Color.argb(112, 255, 244, 224),
+                strokeWidth = max(2.2f * referenceBodyToViewWidthScale, 1.5f),
+            ),
+            LineAdornmentSpec(
+                id = ADORNMENT_ID_MAIN_PRESSED_SHADOW,
+                line = LineSpec(
+                    start = PointSpec(rect.left + edgeInset, bottomY),
+                    end = PointSpec(rect.right - edgeInset, bottomY),
+                ),
+                color = Color.argb(128, 18, 12, 8),
+                strokeWidth = max(2.8f * referenceBodyToViewWidthScale, 1.5f),
+            ),
         )
-        canvas.drawLine(
-            rect.left + edgeInset,
-            bottomY,
-            rect.right - edgeInset,
-            bottomY,
-            mainKeyPressedShadowPaint,
-        )
-    }
-
-    private fun drawKeyChrome(
-        canvas: Canvas,
-        rect: RectF,
-        fillPaint: Paint,
-        fillColor: Int,
-        cornerRadius: Float,
-    ) {
-        fillPaint.color = fillColor
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, fillPaint)
     }
 }

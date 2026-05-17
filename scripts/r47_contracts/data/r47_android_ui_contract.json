@@ -38,10 +38,20 @@
     "main_key": {
       "draw_corner_radius": 20,
       "painted_body_width_bonus": 6,
-      "painted_body_height": 144
+      "painted_body_height": 144,
+      "slot_horizontal_bias": 0,
+      "slot_vertical_bias": 0
     },
     "softkey": {
-      "draw_corner_radius": 20
+      "draw_corner_radius": 20,
+      "preview_line_side_inset": 10,
+      "preview_line_bottom_inset": 4,
+      "value_text_size_ratio": 0.18,
+      "value_width_ratio": 0.34,
+      "value_right_inset": 7,
+      "value_top_inset": 6,
+      "overlay_center_right_inset": 10,
+      "overlay_center_bottom_inset": 12
     },
     "standard_key": {
       "right_strip_width": 80

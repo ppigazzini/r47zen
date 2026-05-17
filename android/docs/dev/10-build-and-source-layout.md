@@ -58,9 +58,13 @@ repo root
 |  `- upstream-sync/upstream.sh
 `- android/
   |- app/src/main/java/io/github/ppigazzini/r47zen/
+  |  |- C47TextRenderer.kt
+  |  |- CalculatorKeyView.kt
+  |  |- CalculatorSoftkeyPainter.kt
+  |  |- KeyRenderPainter.kt
+  |  |- KeyRenderSpec.kt
   |  |- R47Geometry.kt
   |  |- R47KeypadPolicy.kt
-  |  |- CalculatorKeyView.kt
   |  `- TopLabelLaneLayout.kt
     |- app/src/main/cpp/r47_android/
   |- docs/dev/

@@ -252,15 +252,20 @@ class DynamicKeypadParityFixtureTest {
         overlay.measure(exactly(1200), exactly(2400))
         overlay.layout(0, 0, 1200, 2400)
         shadowOf(Looper.getMainLooper()).idle()
+        overlay.measure(exactly(1200), exactly(2400))
+        overlay.layout(0, 0, 1200, 2400)
+        shadowOf(Looper.getMainLooper()).idle()
 
         val baselinePrimary = keyView.primaryLabel.text.toString()
         val baselineF = keyView.fLabel.text.toString()
         val baselineG = keyView.gLabel.text.toString()
         val baselineLetter = keyView.letterLabel.text.toString()
-        val baselineFTranslationY = keyView.fLabel.translationY
-        val baselineGTranslationY = keyView.gLabel.translationY
+        val baselineRenderSpec = requireNotNull(keyView.currentMainKeyRenderSpecForTest())
 
         ReplicaKeypadLayout.updateDynamicKeys(overlay, invalidSnapshot)
+        overlay.measure(exactly(1200), exactly(2400))
+        overlay.layout(0, 0, 1200, 2400)
+        shadowOf(Looper.getMainLooper()).idle()
         overlay.measure(exactly(1200), exactly(2400))
         overlay.layout(0, 0, 1200, 2400)
         shadowOf(Looper.getMainLooper()).idle()
@@ -269,8 +274,7 @@ class DynamicKeypadParityFixtureTest {
         assertEquals(baselineF, keyView.fLabel.text.toString())
         assertEquals(baselineG, keyView.gLabel.text.toString())
         assertEquals(baselineLetter, keyView.letterLabel.text.toString())
-        assertEquals(baselineFTranslationY, keyView.fLabel.translationY, 0.001f)
-        assertEquals(baselineGTranslationY, keyView.gLabel.translationY, 0.001f)
+        assertEquals(baselineRenderSpec, keyView.currentMainKeyRenderSpecForTest())
     }
 
     @Test

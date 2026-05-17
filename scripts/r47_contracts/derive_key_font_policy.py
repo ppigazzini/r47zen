@@ -350,15 +350,16 @@ def _validate_owner_contracts() -> None:
             "fLabel, gLabel, letterLabel -> C47TypefacePolicy.standardFirst(",
             "override fun drawChild(",
             "drawMainKeyLabels(canvas)",
-            "C47TextRenderer.drawText(",
+            "C47TextRenderer.buildLabelSpec(",
+            "KeyRenderPainter.drawLabel(",
         ),
     )
     _require_source_snippets(
         _SOFTKEY_PAINTER_PATH,
         (
             "C47TextRenderer.newTextPaint(",
-            "C47TextRenderer.configureTextPaint(",
-            "C47TextRenderer.drawText(",
+            "C47TextRenderer.buildFittedLabelSpec(",
+            "KeyRenderPainter.drawLabel(",
             "typeface = C47TypefacePolicy.standardFirst(",
             "text = valueText",
             "text = keyState.primaryLabel",

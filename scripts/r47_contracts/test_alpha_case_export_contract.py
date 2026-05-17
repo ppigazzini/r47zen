@@ -178,18 +178,11 @@ class AlphaCaseExportContractTest(unittest.TestCase):
     def test_alpha_layout_keeps_letter_spacer_reserved_and_hidden(self) -> None:
         """Alpha layout keeps letter spacer reserved and hidden."""
         _assert_true(
-            re.search(
-                re.compile(
-                    r"if \(usesLetterSpacer\) \{\s*"
-                    r"buttonParams\.endToStart = letterLabel\.id\s*"
-                    r"buttonParams\.endToEnd = LayoutParams\.UNSET\s*"
-                    r"\} else \{\s*"
-                    r"buttonParams\.endToStart = LayoutParams\.UNSET\s*"
-                    r"buttonParams\.endToEnd = LayoutParams\.PARENT_ID",
-                    re.DOTALL,
-                ),
-                self.key_view,
-            ),
+            (
+                "buttonParams.matchConstraintPercentWidth = "
+                "(1f - letterRatio).coerceIn(0f, 1f)"
+            )
+            in self.key_view,
         )
         _assert_true(
             "keyState.layoutClass == KeypadSceneContract.LAYOUT_CLASS_ALPHA ||"
@@ -244,6 +237,7 @@ class AlphaCaseExportContractTest(unittest.TestCase):
                     r"applySceneStyling\(keyState\)\s*"
                     r"applyLabelVisibility\(keyState\)\s*"
                     r"updateFontSize\(currentShiftFOn, currentShiftGOn\)\s*"
+                    r"refreshMainKeyRenderSpec\(\)\s*"
                     r"requestLayout\(\)\s*"
                     r"invalidate\(\)",
                     re.DOTALL,

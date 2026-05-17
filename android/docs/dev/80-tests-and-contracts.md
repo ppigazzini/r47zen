@@ -37,12 +37,12 @@ flowchart TD
 | Contract surface | Source of truth | Focused verification surfaces | First rerun lane |
 | --- | --- | --- | --- |
 | shell geometry and LCD frame | `scripts/r47_contracts/derive_shell_geometry.py`, `R47Geometry.kt` | `scripts/r47_contracts/test_shell_geometry_contract.py`, `ReplicaOverlayGoldenTest.kt` | grouped `scripts/r47_contracts` validation lane, then `:app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest` |
-| key-label and visual policy constants | `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `CalculatorKeyView.kt` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py` | grouped `scripts/r47_contracts` validation lane |
+| key-label and visual policy constants | `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `scripts/r47_contracts/data/r47_android_ui_contract.json`, `KeyRenderSpec.kt`, `KeyRenderPainter.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py`, `CalculatorKeyViewRenderSpecTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt` | grouped `scripts/r47_contracts` validation lane, then focused JVM render-spec tests when the Kotlin builder or shared painter stage moved |
 | keypad font policy and C47 font coverage | `scripts/r47_contracts/data/r47_key_font_policy_contract.json`, `scripts/r47_contracts/derive_key_font_policy.py`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `C47TypefacePolicy.kt` | `scripts/r47_contracts/test_key_font_policy_contract.py`, `CalculatorKeyViewFontSelectionTest.kt` | grouped `scripts/r47_contracts` validation lane, then `:app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.CalculatorKeyViewFontSelectionTest` |
 | top-label lane solve and alpha-case label export | `scripts/r47_contracts/derive_top_label_lane_layout.py`, staged `assign.c` and `items.c`, `jni_display.c`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt` | `scripts/r47_contracts/test_top_label_lane_layout_contract.py`, `scripts/r47_contracts/test_alpha_case_export_contract.py`, `DynamicKeypadParityFixtureTest.kt` | grouped contract scripts first, then `:app:testDebugUnitTest` |
 | overlay geometry replay for unchanged keypad scenes | `MainActivity.kt`, `ReplicaOverlayController.kt`, `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt` | `DynamicKeypadParityFixtureTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | keypad scene export manifest and decoder | `KeypadSnapshot`, exported keypad fixtures, `jni_display.c` | `KeypadFixtureContractTest.kt`, `KeypadSnapshotDecoderTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
-| rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `ReplicaOverlayController.kt`, `KeypadLabelModes.kt`, `C47TypefacePolicy.kt` | `CalculatorKeyViewFontSelectionTest.kt`, `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ReplicaOverlayGoldenTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
+| rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `ReplicaOverlayController.kt`, `KeypadLabelModes.kt`, `C47TypefacePolicy.kt` | `CalculatorKeyViewRenderSpecTest.kt`, `CalculatorKeyViewFontSelectionTest.kt`, `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ReplicaOverlayGoldenTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | physical keyboard mapping | `PhysicalKeyboardMapper`, `PhysicalKeyboardInputController` | `PhysicalKeyboardInputParityTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | core thread, display loop, and runtime gate behavior | `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`, `jni_lifecycle.c`, `android_runtime.c` | `NativeCoreRuntimeTest.kt`, `GraphRedrawInstrumentedTest.kt`, `run_workload_regressions.sh` | JVM test or host workload lane depending on the owner path |
 | settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
@@ -91,8 +91,11 @@ The grouped Python lane currently covers:
   the native LCD aspect-ratio and centered integer-bounds contract, and shell
   constants against `R47Geometry.kt`
 - `test_key_label_geometry_contract.py`: key-label and key-surface constants,
-  plus primary, top-label, and fourth-label anchor formulas, against
-  `CalculatorKeyView.kt`, `R47KeypadPolicy.kt`, and `R47Geometry.kt`
+  the shared render-spec vocabulary, the main-key left-anchored body-layout
+  seam, the shared `KeyRenderPainter` stage, and softkey render-spec geometry
+  fields, against `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`,
+  `KeyRenderSpec.kt`, `KeyRenderPainter.kt`, `R47KeypadPolicy.kt`, and
+  `R47Geometry.kt`
 - `test_top_label_lane_layout_contract.py`: spacing, corridor, screen-edge, and
   scale rules for the top-label solver
 - `test_key_visual_policy_contract.py`: visual-policy constants against
@@ -124,8 +127,9 @@ Important contract files include:
 - `KeypadSnapshotDecoderTest.kt`: asserts the fixed metadata-lane decode and
   label fallback behavior of `KeypadSnapshot.fromNative(...)`
 - `DynamicKeypadParityFixtureTest.kt`: locks unchanged-snapshot skip behavior,
-  alpha-layout behavior, layout-class-sensitive keypad rendering, and
-  controller-owned same-snapshot replay after PiP exit
+  alpha-layout behavior, layout-class-sensitive keypad rendering,
+  render-spec stability for rejected snapshots, and controller-owned
+  same-snapshot replay after PiP exit
 - `CalculatorKeyViewFontSelectionTest.kt`: locks the Android-local
   standard-first policy so primary, top-label, and fourth-label text stay on
   the standard calculator font and only fall back to the tiny font when the
@@ -134,10 +138,14 @@ Important contract files include:
   JVM proof surface
 - `ExportedKeypadFixtureRenderTest.kt`: proves exported keypad fixtures apply to
   both main keys and softkeys in the live renderer path
+- `CalculatorKeyViewRenderSpecTest.kt`: locks the spec-layer main-key body
+  bounds, including the left-anchored percent-width body layout, primary
+  anchor, top-label group bounds, fourth-label anchor, and accessibility text
+  before pixels are drawn
 - `CalculatorSoftkeyPainterContractTest.kt` and
   `CalculatorSoftkeyPainterCanvasTest.kt`: lock softkey content-description,
-  overlay, preview, strike rendering rules, and the shared softkey text-paint
-  antialias bit
+  overlay, preview, strike rendering rules, the shared softkey text-paint
+  antialias bit, and the spec-layer value-field and overlay geometry seam
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable
   through golden hashes and locks the retained top settings-strip interaction
 - `MainShellThemeTest.kt`: locks the `WindowModeController` PiP request to the

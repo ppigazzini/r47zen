@@ -59,6 +59,116 @@ internal object C47TextRenderer {
         return (baseSize * (maxWidth / measured)).coerceAtLeast(baseSize * minScale)
     }
 
+    fun buildLabelSpec(
+        id: String,
+        text: String,
+        paint: Paint,
+        typeface: Typeface?,
+        textSize: Float,
+        x: Float,
+        anchorY: Float,
+        color: Int,
+        align: Paint.Align = Paint.Align.CENTER,
+        verticalAnchor: Int = TEXT_ANCHOR_CENTER,
+        alpha: Float = 1f,
+        textScaleX: Float = 1f,
+        underline: Boolean = false,
+        strikeThrough: Boolean = false,
+        visible: Boolean = true,
+    ): LabelSpec? {
+        if (text.isBlank() || textSize <= 0f) {
+            return null
+        }
+
+        val bounds = resolveTextBounds(
+            text = text,
+            paint = paint,
+            typeface = typeface,
+            textSize = textSize,
+            x = x,
+            anchorY = anchorY,
+            align = align,
+            verticalAnchor = verticalAnchor,
+            textScaleX = textScaleX,
+        )
+        return LabelSpec(
+            id = id,
+            text = text,
+            visible = visible,
+            anchor = PointSpec(x, anchorY),
+            bounds = bounds,
+            typeface = typeface,
+            textSize = textSize,
+            color = color,
+            align = align,
+            verticalAnchor = verticalAnchor,
+            alpha = alpha,
+            textScaleX = textScaleX,
+            underline = underline,
+            strikeThrough = strikeThrough,
+        )
+    }
+
+    fun buildFittedLabelSpec(
+        id: String,
+        text: String,
+        paint: Paint,
+        typeface: Typeface?,
+        baseSize: Float,
+        maxWidth: Float,
+        x: Float,
+        anchorY: Float,
+        color: Int,
+        minScale: Float,
+        align: Paint.Align = Paint.Align.CENTER,
+        verticalAnchor: Int = TEXT_ANCHOR_CENTER,
+        alpha: Float = 1f,
+        textScaleX: Float = 1f,
+        underline: Boolean = false,
+        strikeThrough: Boolean = false,
+        visible: Boolean = true,
+    ): LabelSpec? {
+        if (text.isBlank()) {
+            return null
+        }
+
+        configureTextPaint(
+            paint = paint,
+            typeface = typeface,
+            textSize = baseSize,
+            align = align,
+            color = color,
+            alpha = alpha,
+            textScaleX = textScaleX,
+            underline = underline,
+            strikeThrough = strikeThrough,
+        )
+        val resolvedTextSize = fittedTextSize(
+            text = text,
+            paint = paint,
+            baseSize = baseSize,
+            maxWidth = maxWidth,
+            minScale = minScale,
+        )
+        return buildLabelSpec(
+            id = id,
+            text = text,
+            paint = paint,
+            typeface = typeface,
+            textSize = resolvedTextSize,
+            x = x,
+            anchorY = anchorY,
+            color = color,
+            align = align,
+            verticalAnchor = verticalAnchor,
+            alpha = alpha,
+            textScaleX = textScaleX,
+            underline = underline,
+            strikeThrough = strikeThrough,
+            visible = visible,
+        )
+    }
+
     fun fontMetricsHeight(
         paint: Paint,
         typeface: Typeface?,
@@ -119,6 +229,53 @@ internal object C47TextRenderer {
             else -> anchorY - ((metrics.ascent + metrics.descent) / 2f)
         }
         canvas.drawText(text, x, baseline, paint)
+    }
+
+    fun resolveTextBounds(
+        text: String,
+        paint: Paint,
+        typeface: Typeface?,
+        textSize: Float,
+        x: Float,
+        anchorY: Float,
+        align: Paint.Align = Paint.Align.CENTER,
+        verticalAnchor: Int = TEXT_ANCHOR_CENTER,
+        textScaleX: Float = 1f,
+    ): RectSpec? {
+        if (text.isBlank() || textSize <= 0f) {
+            return null
+        }
+
+        configureTextPaint(
+            paint = paint,
+            typeface = typeface,
+            textSize = textSize,
+            align = align,
+            color = Color.WHITE,
+            textScaleX = textScaleX,
+        )
+        val metrics = paint.fontMetrics
+        val width = paint.measureText(text)
+        val left = when (align) {
+            Paint.Align.LEFT -> x
+            Paint.Align.RIGHT -> x - width
+            Paint.Align.CENTER -> x - (width * 0.5f)
+        }
+        val top = when (verticalAnchor) {
+            TEXT_ANCHOR_TOP -> anchorY
+            TEXT_ANCHOR_BOTTOM -> anchorY - (-metrics.ascent + metrics.descent)
+            else -> anchorY - ((metrics.descent - metrics.ascent) * 0.5f)
+        }
+        return RectSpec(
+            left = left,
+            top = top,
+            right = left + width,
+            bottom = top + (metrics.descent - metrics.ascent),
+        )
+    }
+
+    fun colorWithAlpha(color: Int, alpha: Float): Int {
+        return applyAlpha(color, alpha)
     }
 
     private fun applyAlpha(color: Int, alpha: Float): Int {

@@ -344,6 +344,100 @@ def build_key_label_geometry_payload() -> dict[str, object]:
                 label="android_ui_contract.top_label_solver",
             ),
         },
+        "render_spec_shapes": {
+            "shared_types": {
+                "root": "KeyRenderSpec",
+                "chrome": "KeyChromeSpec",
+                "label": "LabelSpec",
+                "accessibility": "AccessibilitySpec",
+            },
+            "main_key": {
+                "body_layout": {
+                    "slot_start_anchor": "parent_start",
+                    "slot_end_anchor": "parent_end",
+                    "width_formula": "one_minus_family_right_strip_fraction",
+                    "height_ratio": ratio_constants[
+                        "MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW"
+                    ],
+                    "horizontal_bias": number_member(
+                        main_key_surface,
+                        "slot_horizontal_bias",
+                        label="android_ui_contract.key_surface.main_key",
+                    ),
+                    "vertical_bias": number_member(
+                        main_key_surface,
+                        "slot_vertical_bias",
+                        label="android_ui_contract.key_surface.main_key",
+                    ),
+                },
+                "primary_anchor": {
+                    "horizontal_anchor": "main_key_body_center",
+                    "vertical_anchor": "main_key_body_center",
+                },
+                "top_label_group": {
+                    "group_formula": (
+                        "body_center_minus_half_group_width_plus_center_shift"
+                    ),
+                    "baseline_formula": (
+                        "negative_vertical_lift_plus_reference_bottom_offset"
+                    ),
+                    "corridor_left_anchor": "main_key_body_left",
+                    "corridor_right_anchor": "main_key_body_right",
+                },
+                "fourth_label_anchor": {
+                    "horizontal_anchor": "main_key_body_right_plus_offset",
+                    "vertical_anchor": "main_key_body_top_offset",
+                },
+            },
+            "softkey": {
+                "value_field": {
+                    "width_ratio": number_member(
+                        softkey_surface,
+                        "value_width_ratio",
+                        label="android_ui_contract.key_surface.softkey",
+                    ),
+                    "right_inset": number_member(
+                        softkey_surface,
+                        "value_right_inset",
+                        label="android_ui_contract.key_surface.softkey",
+                    ),
+                    "top_inset": number_member(
+                        softkey_surface,
+                        "value_top_inset",
+                        label="android_ui_contract.key_surface.softkey",
+                    ),
+                    "text_size_ratio": number_member(
+                        softkey_surface,
+                        "value_text_size_ratio",
+                        label="android_ui_contract.key_surface.softkey",
+                    ),
+                },
+                "overlay": {
+                    "center_right_inset": number_member(
+                        softkey_surface,
+                        "overlay_center_right_inset",
+                        label="android_ui_contract.key_surface.softkey",
+                    ),
+                    "center_bottom_inset": number_member(
+                        softkey_surface,
+                        "overlay_center_bottom_inset",
+                        label="android_ui_contract.key_surface.softkey",
+                    ),
+                },
+                "preview_line": {
+                    "side_inset": number_member(
+                        softkey_surface,
+                        "preview_line_side_inset",
+                        label="android_ui_contract.key_surface.softkey",
+                    ),
+                    "bottom_inset": number_member(
+                        softkey_surface,
+                        "preview_line_bottom_inset",
+                        label="android_ui_contract.key_surface.softkey",
+                    ),
+                },
+            },
+        },
     }
 
 
