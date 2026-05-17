@@ -41,6 +41,9 @@ internal class CalculatorSoftkeyPainter(
     private val softkeyDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
+    private val emptySoftkeyDecorationFlags =
+        KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET or
+            KeypadSceneContract.SCENE_FLAG_DOTTED_ROW
     private var cachedRenderSpecKey: SoftkeyRenderSpecCacheKey? = null
     private var cachedRenderSpec: KeyRenderSpec? = null
 
@@ -508,7 +511,8 @@ internal class CalculatorSoftkeyPainter(
     }
 
     private fun KeypadKeySnapshot.isEmptySoftkeySlot(): Boolean {
-        return sceneFlags == KeypadSceneContract.SCENE_FLAG_SOFTKEY &&
+        val contentSceneFlags = sceneFlags and emptySoftkeyDecorationFlags.inv()
+        return contentSceneFlags == KeypadSceneContract.SCENE_FLAG_SOFTKEY &&
             !isEnabled &&
             primaryLabel.isBlank() &&
             auxLabel.isBlank() &&

@@ -152,7 +152,8 @@ Important contract files include:
 - `CalculatorSoftkeyPainterContractTest.kt` and
   `CalculatorSoftkeyPainterCanvasTest.kt`: lock softkey content-description,
   overlay, preview, strike rendering rules, the grey-32 empty-slot versus
-  grey-64 populated-slot fill split, the shared softkey text-paint antialias
+  grey-64 populated-slot fill split, including dotted-row and preview-target
+  decorations on native empty slots, the shared softkey text-paint antialias
   bit, and the spec-layer value-field and overlay geometry seam
 - `SoftkeyOverlayPainterTest.kt`: locks the extracted overlay-painter stage for
   the menu-badge label and underline path without routing through the larger

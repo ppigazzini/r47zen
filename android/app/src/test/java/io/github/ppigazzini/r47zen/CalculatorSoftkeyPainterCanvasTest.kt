@@ -108,6 +108,25 @@ class CalculatorSoftkeyPainterCanvasTest {
     }
 
     @Test
+    fun buildRenderSpecUsesDarkerFillForDecoratedNativeEmptySoftkeySlot() {
+        val renderSpec = softkeyPainter().buildRenderSpec(
+            keyState = KeypadKeySnapshot.EMPTY.copy(
+                sceneFlags = KeypadSceneContract.SCENE_FLAG_SOFTKEY or
+                    KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET or
+                    KeypadSceneContract.SCENE_FLAG_DOTTED_ROW,
+            ),
+            fontSet = KeypadFontSet(standard = null, numeric = null, tiny = null),
+            width = WIDTH,
+            height = HEIGHT,
+            isPressed = true,
+            drawKeySurfaces = true,
+        )
+
+        assertEquals(Color.rgb(32, 32, 32), renderSpec.chrome?.fillColor)
+        assertTrue(renderSpec.chrome?.pressedAccents?.isEmpty() == true)
+    }
+
+    @Test
     fun buildRenderSpecKeepsDefaultFillForBlankEnabledSoftkey() {
         val renderSpec = softkeyPainter().buildRenderSpec(
             keyState = KeypadKeySnapshot.EMPTY.copy(
