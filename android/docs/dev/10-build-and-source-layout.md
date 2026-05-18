@@ -9,7 +9,7 @@ upstream, and ownership boundary are already established.
 Use this page for build entrypoints, source ownership, staged-input boundaries,
 and checkout-sensitive root surfaces. Read
 `70-ci-and-release-workflow.md` for the GitHub Actions lane split and
-`50-upstream-interface-surfaces.md` for the Android-facing upstream
+`30-upstream-interface-surfaces.md` for the Android-facing upstream
 interface map. Read `80-tests-and-contracts.md` for the contract-to-test and
 rerun-lane map.
 

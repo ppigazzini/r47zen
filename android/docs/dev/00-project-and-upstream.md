@@ -215,7 +215,7 @@ menu logic, and most shared keypad or display semantics.
 
 - Read `10-build-and-source-layout.md` next for how the overlay builds and
   compiles.
-- Read `50-upstream-interface-surfaces.md` when you need the detailed Android-
+- Read `30-upstream-interface-surfaces.md` when you need the detailed Android-
   to-upstream interface map.
 - Read `60-runtime-hot-paths.md` when you need the redraw, lock-boundary, and
   loop-sensitive runtime paths.

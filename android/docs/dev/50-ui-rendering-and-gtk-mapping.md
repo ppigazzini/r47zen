@@ -2,7 +2,7 @@
 
 This page covers geometry ownership and rendering rules. Read
 `20-kotlin-shell-architecture.md` for lifecycle ownership and
-`50-upstream-interface-surfaces.md` for the scene-export contract and
+`30-upstream-interface-surfaces.md` for the scene-export contract and
 `60-runtime-hot-paths.md` for the refresh hot paths. Read
 `80-tests-and-contracts.md` for the geometry, fixture, and visual-regression
 surfaces.

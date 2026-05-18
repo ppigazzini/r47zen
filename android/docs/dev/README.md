@@ -48,13 +48,13 @@ flowchart TD
 - [20-kotlin-shell-architecture.md](20-kotlin-shell-architecture.md): Android
   lifecycle, helper ownership, storage, settings, slot flow, input flow, and
   direct live-stop routing.
-- [30-native-core-and-jni.md](30-native-core-and-jni.md): CMake, JNI
-  registration, Android HAL seams, SAF bridge behavior, and native packaging.
-- [40-ui-rendering-and-gtk-mapping.md](40-ui-rendering-and-gtk-mapping.md):
-  logical canvas, LCD projection, keypad geometry, and renderer rules.
-- [50-upstream-interface-surfaces.md](50-upstream-interface-surfaces.md): the
+- [30-upstream-interface-surfaces.md](30-upstream-interface-surfaces.md): the
   detailed interface from the Android shell into upstream-owned runtime
   behavior.
+- [40-native-core-and-jni.md](40-native-core-and-jni.md): CMake, JNI
+  registration, Android HAL seams, SAF bridge behavior, and native packaging.
+- [50-ui-rendering-and-gtk-mapping.md](50-ui-rendering-and-gtk-mapping.md):
+  logical canvas, LCD projection, keypad geometry, and renderer rules.
 - [60-runtime-hot-paths.md](60-runtime-hot-paths.md): the main hot loops,
   redraw paths, and regression-sensitive lock boundaries.
 - [70-ci-and-release-workflow.md](70-ci-and-release-workflow.md): GitHub
@@ -70,10 +70,10 @@ flowchart TD
 - build break, stale staged inputs, or checkout drift:
   [10-build-and-source-layout.md](10-build-and-source-layout.md)
 - JNI, SAF, or Android-native bridge change:
-  [30-native-core-and-jni.md](30-native-core-and-jni.md) and
-  [50-upstream-interface-surfaces.md](50-upstream-interface-surfaces.md)
+  [30-upstream-interface-surfaces.md](30-upstream-interface-surfaces.md) and
+  [40-native-core-and-jni.md](40-native-core-and-jni.md)
 - renderer, geometry, or keypad-scene drift:
-  [40-ui-rendering-and-gtk-mapping.md](40-ui-rendering-and-gtk-mapping.md),
+  [50-ui-rendering-and-gtk-mapping.md](50-ui-rendering-and-gtk-mapping.md),
   [60-runtime-hot-paths.md](60-runtime-hot-paths.md), and
   [80-tests-and-contracts.md](80-tests-and-contracts.md)
 - verification planning, contract ownership, or CI test routing:
@@ -82,7 +82,7 @@ flowchart TD
 - long-running stop parity, live touch `EXIT` handling, or desktop-stop
   comparisons:
   [20-kotlin-shell-architecture.md](20-kotlin-shell-architecture.md),
-  [50-upstream-interface-surfaces.md](50-upstream-interface-surfaces.md),
+  [30-upstream-interface-surfaces.md](30-upstream-interface-surfaces.md),
   [60-runtime-hot-paths.md](60-runtime-hot-paths.md),
   [80-tests-and-contracts.md](80-tests-and-contracts.md), and
   [90-official-references.md](90-official-references.md)

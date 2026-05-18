@@ -12,7 +12,7 @@ The keypad render path is now explicitly spec-first: `CalculatorKeyView` and
 `KeyRenderPainter` and `C47TextRenderer` own the shared draw-stage policy.
 
 Use this page for Kotlin-side ownership, coordinator structure, lifecycle, and
-storage flow. Read `50-upstream-interface-surfaces.md` for the upstream bridge
+storage flow. Read `30-upstream-interface-surfaces.md` for the upstream bridge
 contract, `60-runtime-hot-paths.md` for the hottest runtime loops, and
 `80-tests-and-contracts.md` for the focused parity and lifecycle regression
 surfaces.
@@ -58,11 +58,11 @@ flowchart LR
 
 | Concern | Primary Kotlin owner | Boundary this page cares about | Read next |
 | --- | --- | --- | --- |
-| activity and settings coordination | `MainActivity`, `SettingsActivity` | startup, preferences, PiP, intent routing, helper wiring | `50-upstream-interface-surfaces.md` |
+| activity and settings coordination | `MainActivity`, `SettingsActivity` | startup, preferences, PiP, intent routing, helper wiring | `30-upstream-interface-surfaces.md` |
 | native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, and one cached keypad snapshot owner | `60-runtime-hot-paths.md` |
-| overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `40-ui-rendering-and-gtk-mapping.md` |
-| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, slot metadata, save and load ordering | `50-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
-| Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `50-upstream-interface-surfaces.md` |
+| overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `50-ui-rendering-and-gtk-mapping.md` |
+| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, slot metadata, save and load ordering | `30-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
+| Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `30-upstream-interface-surfaces.md` |
 
 ## Architecture boundary
 
@@ -80,10 +80,10 @@ flowchart LR
   preferences are Android-local models
 - geometry constants, render-spec builders, label placement formulas, painter
   policy, and chrome projection are rendering contracts owned by
-  `40-ui-rendering-and-gtk-mapping.md`, not by this page
+  `50-ui-rendering-and-gtk-mapping.md`, not by this page
 - JNI signatures, cached callbacks, and lock-sensitive bridge behavior are
-  native-interface contracts owned by `30-native-core-and-jni.md` and
-  `50-upstream-interface-surfaces.md`
+  native-interface contracts owned by `40-native-core-and-jni.md` and
+  `30-upstream-interface-surfaces.md`
 
 ## Main coordination flow
 
@@ -112,8 +112,8 @@ Main flow:
 
 This page stops at the coordination boundary. Read
 `60-runtime-hot-paths.md` for cadence, skip gates, and lock-sensitive loops;
-`40-ui-rendering-and-gtk-mapping.md` for geometry formulas and label placement;
-and `50-upstream-interface-surfaces.md` for the exact JNI entry points and
+`50-ui-rendering-and-gtk-mapping.md` for geometry formulas and label placement;
+and `30-upstream-interface-surfaces.md` for the exact JNI entry points and
 callbacks.
 
 ## Lifecycle contract

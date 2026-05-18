@@ -4,7 +4,7 @@ This page names the concrete runtime loops, redraw paths, cadence limits, and
 lock-sensitive boundaries that are easiest to regress in the Android shell.
 
 Read `00-project-and-upstream.md` first and
-`50-upstream-interface-surfaces.md` second. This page assumes the ownership and
+`30-upstream-interface-surfaces.md` second. This page assumes the ownership and
 interface boundary is already clear. Read `80-tests-and-contracts.md` for the
 contract-to-regression map that proves these loops.
 

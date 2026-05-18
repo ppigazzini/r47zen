@@ -2,7 +2,7 @@
 
 This page covers the Android-owned native bridge, CMake integration, JNI
 registration, HAL seams, and packaging constraints. Read
-`50-upstream-interface-surfaces.md` for the broader map of which upstream core
+`30-upstream-interface-surfaces.md` for the broader map of which upstream core
 entry points the Android shell actually depends on. Read
 `80-tests-and-contracts.md` for the JNI, SAF, and host-regression verification
 surfaces.

@@ -56,12 +56,12 @@ Key maintainer pages:
   builds, compiles, stages, and consumes the shared core.
 - `android/docs/dev/20-kotlin-shell-architecture.md`: Kotlin coordinator,
   lifecycle, storage, and input flow.
-- `android/docs/dev/30-native-core-and-jni.md`: CMake, JNI, HAL, and bridge
-  ownership.
-- `android/docs/dev/40-ui-rendering-and-gtk-mapping.md`: geometry, LCD
-  projection, keypad layout, and rendering rules.
-- `android/docs/dev/50-upstream-interface-surfaces.md`: the detailed Android
+- `android/docs/dev/30-upstream-interface-surfaces.md`: the detailed Android
   interface to upstream-owned runtime behavior.
+- `android/docs/dev/40-native-core-and-jni.md`: CMake, JNI, HAL, and bridge
+  ownership.
+- `android/docs/dev/50-ui-rendering-and-gtk-mapping.md`: geometry, LCD
+  projection, keypad layout, and rendering rules.
 - `android/docs/dev/60-runtime-hot-paths.md`: the main runtime loops, redraw
   paths, and regression-sensitive boundaries.
 - `android/docs/dev/70-ci-and-release-workflow.md`: GitHub Actions lane split,
