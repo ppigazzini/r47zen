@@ -59,6 +59,18 @@ flowchart TD
   Spring 2026.
 - [Gradle 9.5.0 release notes](https://docs.gradle.org/9.5.0/release-notes.html):
   official Gradle release notes for the wrapper version now checked in.
+- [Improve the Performance of Gradle Builds](https://docs.gradle.org/current/userguide/performance.html):
+  official Gradle guidance for establishing a baseline, preferring
+  workflow-specific task graphs, and using daemon, cache, parallelism, and
+  incremental inputs before reaching for riskier CI toggles.
+- [Command-Line Interface](https://docs.gradle.org/current/userguide/command_line_interface.html):
+  official Gradle CLI reference for running multiple tasks in one invocation,
+  setting `--max-workers`, and keeping CI task graphs explicit instead of
+  splitting overlapping work across extra Gradle processes.
+- [Build Environment Configuration](https://docs.gradle.org/current/userguide/build_environment.html):
+  official reference for `gradle.properties`, command-line precedence, and the
+  documented homes for settings such as `org.gradle.parallel`,
+  `org.gradle.caching`, `org.gradle.workers.max`, and `org.gradle.jvmargs`.
 - [Version catalogs](https://docs.gradle.org/current/userguide/version_catalogs.html):
   Gradle guidance for centralizing dependency coordinates in
   `gradle/libs.versions.toml` and consuming them through `libs` accessors.

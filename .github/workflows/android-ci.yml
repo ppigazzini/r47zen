@@ -15,6 +15,8 @@ permissions:
 
 env:
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+  R47_CI_GRADLE_ARGS: --daemon --stacktrace --console=plain
+  R47_CI_GRADLE_WARNING_ARGS: --daemon --stacktrace --console=plain --warning-mode all
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -388,12 +390,6 @@ jobs:
             "cmake;${{ steps.defaults.outputs.cmake_version }}" \
             "ndk;${{ steps.defaults.outputs.ndk_version }}"
 
-      - name: Make scripts executable
-        shell: bash
-        run: |
-          set -euo pipefail
-          chmod +x scripts/android/build_android.sh
-
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
@@ -488,7 +484,7 @@ jobs:
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
-          R47_GRADLE_ARGS: '--no-daemon --stacktrace --console=plain'
+          R47_GRADLE_ARGS: ${{ env.R47_CI_GRADLE_ARGS }}
           R47_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_SOURCE_COMMIT: ${{ github.sha }}
           R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
@@ -511,7 +507,7 @@ jobs:
           cd android
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             lint \
-            --no-daemon --stacktrace --console=plain --warning-mode all \
+            ${{ env.R47_CI_GRADLE_WARNING_ARGS }} \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
             -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
             -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
@@ -625,7 +621,7 @@ jobs:
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:externalNativeBuildRelease \
             -x prepareStagedNativeInputs \
-            --no-daemon --stacktrace --console=plain --warning-mode all \
+            ${{ env.R47_CI_GRADLE_WARNING_ARGS }} \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
             -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
             -Pr47.pgoProfilePath="$R47_PGO_PROFILE_PATH" \
@@ -873,61 +869,22 @@ jobs:
 
           echo "artifact_name=$R47_ANDROID_TEST_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare Android debug build inputs
+      - name: Build Android debug artifacts and run JVM tests
         shell: bash
-        env:
-          R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
-          R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
-          R47_GRADLE_ARGS: --no-daemon --stacktrace --console=plain -Pr47.abiFilters=${{ steps.defaults.outputs.android_test_abi_filters }}
-          R47_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
-          R47_SOURCE_COMMIT: ${{ github.sha }}
-          R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
-          R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
-          R47_XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
-          R47_XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
-          GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
         run: |
           set -euo pipefail
 
           mkdir -p ci-artifacts/logs
-          ./scripts/android/build_android.sh 2>&1 | tee ci-artifacts/logs/android-test-build.log
-
-      - name: Assemble Android instrumentation test APKs
-        shell: bash
-        run: |
-          set -euo pipefail
 
           core_version="${{ steps.upstream.outputs.upstream_commit }}"
           core_version="${core_version:0:8}"
 
           cd android
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+            :app:assembleDebug \
             :app:assembleDebugAndroidTest \
-            --no-daemon --stacktrace --console=plain \
-            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
-            -Pr47.abiFilters=${{ steps.defaults.outputs.android_test_abi_filters }} \
-            -Pr47.coreVersion="$core_version" \
-            -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
-            -Pr47.sourceCommit=${{ github.sha }} \
-            -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
-            -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
-            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
-            -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
-            2>&1 | tee ../ci-artifacts/logs/android-assemble-debug-android-test.log
-
-      - name: Run Android JVM tests
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          core_version="${{ steps.upstream.outputs.upstream_commit }}"
-          core_version="${core_version:0:8}"
-
-          cd android
-          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:testDebugUnitTest \
-            --no-daemon --stacktrace --console=plain \
+            ${{ env.R47_CI_GRADLE_ARGS }} \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
             -Pr47.abiFilters=${{ steps.defaults.outputs.android_test_abi_filters }} \
             -Pr47.coreVersion="$core_version" \
@@ -937,7 +894,7 @@ jobs:
             -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
             -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
             -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
-            2>&1 | tee ../ci-artifacts/logs/android-test-debug-unit.log
+            2>&1 | tee ../ci-artifacts/logs/android-debug-build-and-unit.log
 
       - name: Restore Android emulator AVD cache
         id: avd-cache
@@ -978,6 +935,7 @@ jobs:
           R47_CONNECTED_ANDROID_TEST_JOBS: ${{ steps.jobs.outputs.jobs }}
           R47_CONNECTED_ANDROID_TEST_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
           R47_CONNECTED_ANDROID_TEST_ABI_FILTERS: ${{ steps.defaults.outputs.android_test_abi_filters }}
+          R47_CONNECTED_ANDROID_USE_DAEMON: 'true'
           R47_CONNECTED_ANDROID_TEST_CORE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_COMMIT: ${{ github.sha }}

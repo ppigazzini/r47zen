@@ -17,6 +17,17 @@ fail() {
     exit 1
 }
 
+is_truthy() {
+    case "${1:-}" in
+        1|true|TRUE|yes|YES|on|ON)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 require_env() {
     local name="$1"
 
@@ -94,9 +105,24 @@ run_connected_selection() {
     local gradle_args=(
         --max-workers "$R47_CONNECTED_ANDROID_TEST_JOBS"
         :app:connectedDebugAndroidTest
-        --no-daemon
+    )
+
+    if is_truthy "${R47_CONNECTED_ANDROID_USE_DAEMON:-}"; then
+        gradle_args+=(--daemon)
+    else
+        gradle_args+=(--no-daemon)
+    fi
+
+    gradle_args+=(
         --stacktrace
         --console=plain
+    )
+
+    if is_truthy "${R47_CONNECTED_ANDROID_ENABLE_CONFIGURATION_CACHE:-}"; then
+        gradle_args+=(--configuration-cache)
+    fi
+
+    gradle_args+=(
         "-Pr47.ndkVersion=$R47_CONNECTED_ANDROID_TEST_NDK_VERSION"
         "-Pr47.abiFilters=$R47_CONNECTED_ANDROID_TEST_ABI_FILTERS"
         "-Pr47.coreVersion=$R47_CONNECTED_ANDROID_TEST_CORE_VERSION"

@@ -137,9 +137,11 @@ This job covers the Android-owned JVM and instrumentation suites.
 It:
 
 - provisions the same toolchains and upstream sync inputs as the build lane
-- runs a full Android build to prepare staged native inputs
-- assembles the instrumentation APKs
-- runs `:app:testDebugUnitTest`
+- runs one focused Gradle invocation for `:app:assembleDebug`,
+  `:app:assembleDebugAndroidTest`, and `:app:testDebugUnitTest`
+- uses that single task graph to refresh staged native inputs, build the debug
+  APK, assemble the instrumentation APKs, and run the JVM suite without a
+  second full `build_android.sh` pass
 - creates or restores an `x86_64` emulator snapshot
 - runs `scripts/android/run_connected_android_tests.sh`, which invokes
   `connectedDebugAndroidTest` once per non-fixture instrumentation class and
@@ -271,6 +273,8 @@ Use the smallest local lane that matches the failure surface:
   `scripts/workload-regressions/collect_host_pgo_profile.sh`
 - full Android debug build and staged-input refresh:
   `./scripts/android/build_android.sh --run-sim-tests`
+- CI-matching Android pre-emulator build plus JVM slice:
+  `cd android && ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest`
 - Android lint-only regression with current staged inputs:
   `cd android && ./gradlew lint`
 - Android release-native validation against a collected profile:
@@ -297,6 +301,9 @@ the full build script over isolated Gradle invocations.
   triage when the workflow stops before publishing its logs.
 - Keep emulator-only ABI overrides temporary and scoped to the Android test
   lane.
+- Keep the `android-tests` pre-emulator Gradle work in one focused task graph
+  unless staged-native prep becomes incrementally cheap enough to justify
+  splitting it again.
 - Keep store-release signing in the dedicated protected workflow. Do not fold
   production secrets into `.github/workflows/android-ci.yml`.
 - Keep the Android artifact identity separate from the upstream-only simulator
