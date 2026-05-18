@@ -37,10 +37,10 @@ flowchart TD
 ## CI At A Glance
 
 - resolve one authoritative upstream commit per workflow run
-- keep host-core sanity separate from Android packaging and tests
-- collect the host-core PGO artifact on Linux and validate the release-native
-  Android native build against it without making the debug APK lane depend on
-  emulator profiling
+- keep upstream simulator correctness separate from Android packaging and tests
+- let the Android build lane own the collector-driven host-core PGO artifact and
+  release-native consumer check without making that lane depend on emulator
+  profiling
 - run Android lint explicitly instead of assuming Gradle builds cover it
 - publish logs and packaging evidence as first-class artifacts
 - publish the main snapshot only after all required lanes pass
@@ -90,14 +90,9 @@ It:
 - provisions Java 17 and the pinned `xlsxio` toolchain
 - syncs the authoritative upstream tree
 - runs `make test`
-- runs `scripts/workload-regressions/run_workload_regressions.sh`, which
-  isolates each required fixture in its own host process and applies the same
-  timeout-and-kill safety net to every canonical `PROGRAMS` selection, while
-  still treating `MANSLV2` as the maintained direct-stop probe inside that
-  framework
 
 Use this lane as the first reference when a change looks like shared core,
-Meson, or wait or progress compatibility drift rather than Android UI drift.
+Meson, or upstream test drift rather than Android overlay drift.
 
 ### `android-build-test-package`
 
@@ -107,26 +102,25 @@ It:
 
 - provisions Java, Gradle cache, Android SDK packages, NDK, CMake, and xlsxio
 - syncs the authoritative upstream tree
-- runs `./scripts/android/build_android.sh --run-sim-tests`
+- runs `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
 - runs `cd android && ./gradlew lint` explicitly because normal Gradle builds do
   not run lint automatically
-- runs `scripts/workload-regressions/collect_host_pgo_profile.sh` on Linux to
-  build the staged-core host harness with the pinned NDK Clang and
-  `llvm-profdata` pair, reuse a host-installed `libclang_rt.profile` archive
-  through a temporary resource-dir shim, produce an indexed `.profdata`
-  artifact, and then validate `:app:externalNativeBuildRelease` against that
-  profile
 - verifies that retired app-module native snapshot paths stay absent and that
   staging remains build-only under `android/.staged-native/cpp`
 - collects packaging evidence for the debug APK
-- uploads the build log and the Android packaging artifact bundle
+- uploads the build log, the host-core PGO artifact, and the Android packaging artifact bundle
   `r47-android-<upstream short>-<android short>`
 
-That means the debug packaging lane now owns two native optimization contracts:
+That means the debug packaging lane now owns the full normal-pull-request
+host-core optimization sequence:
 
-- the default ThinLTO-backed Android build remains the baseline shipping path
-- the host-collected core profile must remain consumable by the Android
-  release-native build without requiring Android-emulator profile collection
+- the Android wrapper testSuite rerun still proves the repo-owned simulator
+  parity path before Gradle packaging
+- the host-side PGO collector now runs under the same wrapper-owned lane and
+  produces the `.profdata` artifact uploaded by CI
+- the Android release-native PGO consumer check now runs inside that same
+  wrapper-owned build step, so the build log records the full collector-to-
+  consumer sequence in one place
 
 This lane is the canonical reference for the full Android debug-build contract.
 
@@ -257,8 +251,9 @@ The workflow publishes three main artifact classes:
 - Android build logs from the packaging lane
 - debug APK packaging evidence and compliance outputs
 - Android JVM and instrumentation test reports and logs
-- host-core PGO profiles plus the release-native validation log from the Linux
-  packaging lane
+- host-core PGO profiles from the Linux packaging lane; the same build log now
+  includes the collector and release-native validation output because the
+  wrapper owns that sequence
 
 Android artifact names use the two-commit Android identity
 `upstream short + Android short`. Linux and Windows simulator package workflows
@@ -274,17 +269,17 @@ artifacts, not only with the Gradle or CMake text.
 Use the smallest local lane that matches the failure surface:
 
 - shared core or Meson drift in a hydrated checkout: `make test`
-- host wait or progress regression: `scripts/workload-regressions/run_workload_regressions.sh`
-- collect a host-core PGO artifact for Android release-native validation:
-  `scripts/workload-regressions/collect_host_pgo_profile.sh`
+- diagnostic host wait or progress regression:
+  `scripts/workload-regressions/run_workload_regressions.sh`
 - full Android debug build and staged-input refresh:
   `./scripts/android/build_android.sh --run-sim-tests`
+- CI-matching Android build plus host-core PGO collection and release-native
+  validation:
+  `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
 - CI-matching Android pre-emulator build plus JVM slice:
   `cd android && ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest`
 - Android lint-only regression with current staged inputs:
   `cd android && ./gradlew lint`
-- Android release-native validation against a collected profile:
-  `cd android && ./gradlew :app:externalNativeBuildRelease -Pr47.pgoProfilePath=/abs/path/to/profile.profdata -x prepareStagedNativeInputs`
 - Android JVM tests with current staged inputs:
   `cd android && ./gradlew :app:testDebugUnitTest`
 - instrumentation packaging with current staged inputs:
@@ -305,6 +300,9 @@ the full build script over isolated Gradle invocations.
   about one authoritative core revision per run.
 - Keep logs uploadable even on failure. Build and emulator issues are harder to
   triage when the workflow stops before publishing its logs.
+- Keep the collector-driven host-core fixture contract in
+  `android-build-test-package`; do not reintroduce the plain host workload
+  runner into the normal pull-request path.
 - Keep emulator-only ABI overrides temporary and scoped to the Android test
   lane.
 - Keep the `android-tests` pre-emulator Gradle work in one focused task graph

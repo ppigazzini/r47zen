@@ -24,6 +24,7 @@ extern uint8_t temporaryInformation;
 extern uint16_t currentLocalStepNumber;
 extern uint16_t currentProgramNumber;
 extern uint16_t numberOfPrograms;
+extern size_t gmpMemInBytes;
 
 extern void runFunction(int16_t func);
 extern void fnLoadProgram(uint16_t unusedButMandatoryParameter);
@@ -72,6 +73,31 @@ static uint64_t monotonic_ms(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return (uint64_t)ts.tv_sec * 1000u + (uint64_t)ts.tv_nsec / 1000000u;
+}
+
+static uint64_t resolve_program_timeout_ms(uint64_t default_timeout_ms) {
+  const char *scale_text = getenv("HOST_WORKLOAD_PROGRAM_TIMEOUT_SCALE");
+  char *end = NULL;
+  unsigned long long scale = 1u;
+
+  if (scale_text == NULL || scale_text[0] == '\0') {
+    return default_timeout_ms;
+  }
+
+  errno = 0;
+  scale = strtoull(scale_text, &end, 10);
+  if (errno != 0 || end == scale_text || *end != '\0' || scale == 0u) {
+    fprintf(stderr,
+            "WARN: Ignoring invalid HOST_WORKLOAD_PROGRAM_TIMEOUT_SCALE=%s\n",
+            scale_text);
+    return default_timeout_ms;
+  }
+
+  if (default_timeout_ms > UINT64_MAX / (uint64_t)scale) {
+    return UINT64_MAX;
+  }
+
+  return default_timeout_ms * (uint64_t)scale;
 }
 
 static bool ensure_directory(const char *path) {
@@ -243,6 +269,8 @@ static workload_result_t run_program_fixture_workload(
   const program_fixture_scenario_t *scenario) {
   function_worker_t worker;
   pthread_t worker_thread;
+  size_t gmp_mem_after_load = 0u;
+  size_t gmp_mem_after_run = 0u;
   uint64_t activity_started_at = 0;
   bool saw_pause = false;
   bool saw_waiting = false;
@@ -256,6 +284,7 @@ static workload_result_t run_program_fixture_workload(
   uint64_t deadline = 0;
   uint64_t direct_stop_requests = 0;
   uint64_t lcd_refresh_count = 0;
+  uint64_t timeout_ms = resolve_program_timeout_ms(scenario->timeout_ms);
 
   if (!stage_program_file(runtime_dir, program_root, scenario->program_name)) {
     return WORKLOAD_RESULT_FAIL;
@@ -279,12 +308,13 @@ static workload_result_t run_program_fixture_workload(
 
   load_step = currentLocalStepNumber;
   max_step = currentLocalStepNumber;
+  gmp_mem_after_load = gmpMemInBytes;
   r47_reset_host_lcd_refresh_count();
   if (!start_worker(&worker, ITM_RS, &worker_thread)) {
     return WORKLOAD_RESULT_FAIL;
   }
 
-  deadline = monotonic_ms() + scenario->timeout_ms;
+  deadline = monotonic_ms() + timeout_ms;
   while (!worker.done) {
     uint64_t now = monotonic_ms();
 
@@ -342,13 +372,16 @@ static workload_result_t run_program_fixture_workload(
               "(timeoutMs=%llu, directStop=%s, directStopRequests=%llu, "
               "runStop=%u)\n",
               scenario->program_name,
-              (unsigned long long)scenario->timeout_ms,
+              (unsigned long long)timeout_ms,
               requested_direct_stop ? "yes" : "no",
               (unsigned long long)direct_stop_requests,
               (unsigned int)programRunStop);
       return WORKLOAD_RESULT_STOP_TIMEOUT;
     }
-    fprintf(stderr, "ERROR: %s workload timed out\n", scenario->program_name);
+    fprintf(stderr,
+            "ERROR: %s workload timed out (timeoutMs=%llu)\n",
+            scenario->program_name,
+            (unsigned long long)timeout_ms);
     return WORKLOAD_RESULT_FAIL;
   }
   if (!finish_worker(worker_thread)) {
@@ -356,6 +389,7 @@ static workload_result_t run_program_fixture_workload(
             scenario->program_name);
     return WORKLOAD_RESULT_FAIL;
   }
+  gmp_mem_after_run = gmpMemInBytes;
 
   saw_pause = saw_pause || programRunStop == PGM_PAUSED;
   saw_waiting = saw_waiting || programRunStop == PGM_WAITING;
@@ -387,6 +421,21 @@ static workload_result_t run_program_fixture_workload(
             scenario->program_name,
             (unsigned int)programRunStop);
     return WORKLOAD_RESULT_FAIL;
+  }
+  if (gmp_mem_after_run != gmp_mem_after_load) {
+    long long gmp_mem_delta = 0;
+
+    if (gmp_mem_after_run >= gmp_mem_after_load) {
+      gmp_mem_delta = (long long)(gmp_mem_after_run - gmp_mem_after_load);
+    } else {
+      gmp_mem_delta = -(long long)(gmp_mem_after_load - gmp_mem_after_run);
+    }
+
+    fprintf(stderr,
+            "WARN: %s workload changed gmpMemInBytes across execution "
+            "(start=%zu, end=%zu, delta=%lld)\n",
+            scenario->program_name, gmp_mem_after_load, gmp_mem_after_run,
+            gmp_mem_delta);
   }
 
   fprintf(stderr,

@@ -176,6 +176,7 @@ jobs:
             ninja-build \
             pkg-config \
             unzip \
+            wget \
             zip
 
       - name: Set up Java 17
@@ -247,12 +248,6 @@ jobs:
           make \
             NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
             test
-
-      - name: Run host workload regressions
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash ./scripts/workload-regressions/run_workload_regressions.sh
 
   android-build-test-package:
     name: Build, test, and package Android debug APK
@@ -390,6 +385,30 @@ jobs:
             "cmake;${{ steps.defaults.outputs.cmake_version }}" \
             "ndk;${{ steps.defaults.outputs.ndk_version }}"
 
+      - name: Install matching host LLVM profiling runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ndk_root="${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}"
+          clang_bin="$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+          llvm_major="$($clang_bin --version | sed -nE '1s/.*clang version ([0-9]+).*/\1/p')"
+
+          if [[ -z "$llvm_major" ]]; then
+            echo "Failed to determine LLVM major version from $clang_bin" >&2
+            exit 1
+          fi
+
+          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" ./llvm.sh "$llvm_major"
+          sudo apt-get install --yes --no-install-recommends \
+            "clang-${llvm_major}" \
+            "clang-tools-${llvm_major}" \
+            "lld-${llvm_major}" \
+            "libclang-rt-${llvm_major}-dev"
+
+          llvm_bindir="$(llvm-config-"$llvm_major" --bindir)"
+          echo "$llvm_bindir" >> "$GITHUB_PATH"
+
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
@@ -485,6 +504,7 @@ jobs:
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
           R47_GRADLE_ARGS: ${{ env.R47_CI_GRADLE_ARGS }}
+          R47_PGO_OUTPUT_DIR: ${{ github.workspace }}/ci-artifacts/pgo
           R47_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_SOURCE_COMMIT: ${{ github.sha }}
           R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
@@ -495,7 +515,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ci-artifacts/logs
-          ./scripts/android/build_android.sh --run-sim-tests 2>&1 | tee ci-artifacts/logs/build-android.log
+          ./scripts/android/build_android.sh \
+            --run-sim-tests \
+            --collect-host-pgo \
+            --validate-release-pgo \
+            2>&1 | tee ci-artifacts/logs/build-android.log
 
       - name: Run Android lint
         shell: bash
@@ -595,44 +619,6 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Collect host-core PGO profile
-        shell: bash
-        env:
-          R47_PGO_OUTPUT_DIR: ${{ github.workspace }}/ci-artifacts/pgo
-        run: |
-          set -euo pipefail
-
-          mkdir -p ci-artifacts/logs
-
-          bash ./scripts/workload-regressions/collect_host_pgo_profile.sh \
-            --output-dir "$R47_PGO_OUTPUT_DIR" \
-            2>&1 | tee ci-artifacts/logs/host-core-pgo.log
-
-      - name: Validate Android release-native PGO build
-        shell: bash
-        env:
-          R47_PGO_PROFILE_PATH: ${{ github.workspace }}/ci-artifacts/pgo/r47-host-core.profdata
-        run: |
-          set -euo pipefail
-
-          mkdir -p ci-artifacts/logs
-
-          cd android
-          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
-            :app:externalNativeBuildRelease \
-            -x prepareStagedNativeInputs \
-            ${{ env.R47_CI_GRADLE_WARNING_ARGS }} \
-            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
-            -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
-            -Pr47.pgoProfilePath="$R47_PGO_PROFILE_PATH" \
-            -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
-            -Pr47.sourceCommit=${{ github.sha }} \
-            -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
-            -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
-            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
-            -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
-            2>&1 | tee ../ci-artifacts/logs/android-external-native-build-release-pgo.log
-
       - name: Upload host-core PGO artifact
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -640,8 +626,7 @@ jobs:
           name: ${{ steps.meta.outputs.artifact_name }}-host-core-pgo
           path: |
             ci-artifacts/pgo/
-            ci-artifacts/logs/host-core-pgo.log
-            ci-artifacts/logs/android-external-native-build-release-pgo.log
+            ci-artifacts/logs/build-android.log
           if-no-files-found: warn
           retention-days: 14
 

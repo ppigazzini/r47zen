@@ -143,7 +143,12 @@ for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
     fi
 done
 
-R47_ANDROID_STAGED_CPP_DIR="$STAGED_CPP_DIR" \
+env \
+    -u CC \
+    -u CPPFLAGS \
+    -u CFLAGS \
+    -u LDFLAGS \
+    R47_ANDROID_STAGED_CPP_DIR="$STAGED_CPP_DIR" \
     bash "$PREPARE_NATIVE_INPUTS_SCRIPT"
 
 mkdir -p "$BUILD_DIR"

@@ -254,6 +254,10 @@ Public maintainer entrypoints:
   Android and NDK parity lane that forwards test execution into
   `scripts/android/build_sim_assets.sh --run-tests`, and `--android-only` for
   the fast module-local lane that refuses stale staged native inputs.
+  `--collect-host-pgo` and `--validate-release-pgo` are full-build-only flags
+  that let the wrapper own the host-side PGO collector and the Android
+  release-native consumer check in one pass, while `--host-pgo-output-dir`
+  chooses the emitted `.profdata` location.
   It also forwards optional extra Gradle arguments from `R47_GRADLE_ARGS`, which
   is how hosted CI applies the temporary multi-ABI emulator override. Add
   `--verify-packaging` when you want the local build to write the same release
@@ -267,6 +271,9 @@ Public maintainer entrypoints:
   reproduction path for Android-lane simulator parity. It requires the full
   build path, stages `res/testPgms/testPgms.bin` before the suite runs, and is
   intentionally incompatible with `--android-only`.
+- `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
+  is the CI-matching Android build lane when you need the wrapper to own the
+  host-core PGO collector and the release-native consumer check in one pass.
 - `cd android && ./gradlew assembleDebug` is appropriate only when the staged
   build-only native tree under `android/.staged-native/cpp` is already current
   and the change is isolated to the Android module.
@@ -357,7 +364,12 @@ Internal helpers:
 - `scripts/workload-regressions/run_workload_regressions.sh` owns the grouped
   workload-regression implementation: it compiles the host harness once, runs
   each required fixture in its own host process, and applies the same outer
-  timeout-and-kill safety net to every canonical `PROGRAMS` fixture.
+  timeout-and-kill safety net to every canonical `PROGRAMS` fixture. This is
+  the focused host compatibility harness, not the normal pull-request owner of
+  the collector-driven host-core PGO contract.
+- `scripts/workload-regressions/collect_host_pgo_profile.sh` owns the lower-
+  level host-core PGO collector implementation and is normally invoked through
+  `scripts/android/build_android.sh --collect-host-pgo`.
 - `scripts/package-notices/generate_simulator_notice_artifacts.sh` owns the
   grouped simulator-package notice implementation.
 

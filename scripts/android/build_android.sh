@@ -31,15 +31,22 @@ DOCTOR_MODE=false
 RUN_SIM_TESTS=false
 VERIFY_PACKAGING=false
 VERIFY_PACKAGING_DIR=""
+COLLECT_HOST_PGO=false
+VALIDATE_RELEASE_PGO=false
+HOST_PGO_OUTPUT_DIR="${R47_PGO_OUTPUT_DIR-}"
+DEFAULT_HOST_PGO_OUTPUT_DIR="$ANDROID_PROJECT_DIR/build/host-pgo"
+COLLECTED_HOST_PGO_PROFILE_PATH=""
 
 usage() {
     cat <<'EOF'
-Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--run-sim-tests] [--verify-packaging] [--verify-packaging-dir <dir>]
+Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--run-sim-tests] [--collect-host-pgo] [--validate-release-pgo] [--host-pgo-output-dir <dir>] [--verify-packaging] [--verify-packaging-dir <dir>]
 
 Modes:
     --android-only         Rebuild only the Android module after confirming staged native inputs are current.
     --doctor               Print SDK, NDK, CMake, xlsxio, upstream lock, and staged-input status.
     --run-sim-tests        Run the simulator/native Meson test suite from the Android full-build path.
+    --collect-host-pgo     Collect a host-core PGO profile through the Android build wrapper.
+    --validate-release-pgo Validate :app:externalNativeBuildRelease against a collected or provided .profdata file.
 EOF
 }
 
@@ -147,6 +154,20 @@ while [ "$#" -gt 0 ]; do
         --run-sim-tests)
             RUN_SIM_TESTS=true
             shift
+            ;;
+        --collect-host-pgo)
+            COLLECT_HOST_PGO=true
+            shift
+            ;;
+        --validate-release-pgo)
+            VALIDATE_RELEASE_PGO=true
+            shift
+            ;;
+        --host-pgo-output-dir)
+            COLLECT_HOST_PGO=true
+            [ "$#" -ge 2 ] || fail "Missing value for --host-pgo-output-dir"
+            HOST_PGO_OUTPUT_DIR="$2"
+            shift 2
             ;;
         --verify-packaging)
             VERIFY_PACKAGING=true
@@ -287,6 +308,43 @@ run_gradle() {
     fi
 
     "$ANDROID_PROJECT_DIR/gradlew" "$@"
+}
+
+run_host_pgo_collector() {
+    local collector_args=()
+
+    echo "--- Collecting host-core PGO profile ---"
+
+    if [ -n "$HOST_PGO_OUTPUT_DIR" ]; then
+        collector_args+=(--output-dir "$HOST_PGO_OUTPUT_DIR")
+        COLLECTED_HOST_PGO_PROFILE_PATH="$HOST_PGO_OUTPUT_DIR/r47-host-core.profdata"
+    else
+        COLLECTED_HOST_PGO_PROFILE_PATH="$DEFAULT_HOST_PGO_OUTPUT_DIR/r47-host-core.profdata"
+    fi
+
+    (
+        cd "$PROJECT_ROOT"
+        bash "$SCRIPTS_DIR/workload-regressions/collect_host_pgo_profile.sh" "${collector_args[@]}"
+    )
+
+    [ -f "$COLLECTED_HOST_PGO_PROFILE_PATH" ] || \
+        fail "Host-core PGO collection did not produce $COLLECTED_HOST_PGO_PROFILE_PATH"
+}
+
+run_release_native_pgo_validation() {
+    local profile_path="$1"
+    local release_gradle_props=""
+
+    [ -n "$profile_path" ] || fail "Release-native PGO validation requires a .profdata path."
+    [ -f "$profile_path" ] || fail "Release-native PGO profile $profile_path does not exist."
+
+    echo "--- Validating Android release-native PGO build with $profile_path ---"
+
+    release_gradle_props="$GRADLE_PROPS -Pr47.pgoProfilePath=$profile_path"
+    run_gradle --max-workers "$R47_BUILD_JOBS" \
+        :app:externalNativeBuildRelease \
+        -x prepareStagedNativeInputs \
+        $GRADLE_EXTRA_ARGS $release_gradle_props
 }
 
 R47_BUILD_JOBS_INPUT=${R47_BUILD_JOBS-}
@@ -662,6 +720,10 @@ if [ "$ANDROID_ONLY" = true ] && [ "$RUN_SIM_TESTS" = true ]; then
     fail "--run-sim-tests requires the full Android build path. Run without --android-only."
 fi
 
+if [ "$ANDROID_ONLY" = true ] && { [ "$COLLECT_HOST_PGO" = true ] || [ "$VALIDATE_RELEASE_PGO" = true ]; }; then
+    fail "--collect-host-pgo and --validate-release-pgo require the full Android build path. Run without --android-only."
+fi
+
 [ -n "$R47_CMAKE_BIN" ] || fail "No usable cmake executable found. Install cmake or Android SDK CMake $R47_CMAKE_VERSION."
 ensure_retired_legacy_cpp_paths_absent
 
@@ -681,6 +743,11 @@ echo "SDK: $ANDROID_SDK_ROOT"
 echo "NDK: $ANDROID_NDK_ROOT"
 echo "Jobs: $R47_BUILD_JOBS"
 echo "Simulator tests: $( [ "$RUN_SIM_TESTS" = true ] && printf 'enabled' || printf 'disabled' )"
+echo "Host-core PGO collection: $( [ "$COLLECT_HOST_PGO" = true ] && printf 'enabled' || printf 'disabled' )"
+echo "Release-native PGO validation: $( [ "$VALIDATE_RELEASE_PGO" = true ] && printf 'enabled' || printf 'disabled' )"
+if [ "$COLLECT_HOST_PGO" = true ] || [ "$VALIDATE_RELEASE_PGO" = true ]; then
+    echo "Host-core PGO output dir: ${HOST_PGO_OUTPUT_DIR:-$DEFAULT_HOST_PGO_OUTPUT_DIR}"
+fi
 echo "======================================================="
 
 if [ "$ANDROID_ONLY" = true ]; then
@@ -727,6 +794,10 @@ UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE=${R47_UPSTREAM_SOURCE_REPOSITORY_URL-}
 UPSTREAM_SOURCE_COMMIT_OVERRIDE=${R47_UPSTREAM_SOURCE_COMMIT-}
 XLSXIO_SOURCE_REPOSITORY_URL_VALUE=${R47_XLSXIO_URL-}
 XLSXIO_SOURCE_COMMIT_VALUE=${R47_XLSXIO_COMMIT-}
+
+if [ "$VALIDATE_RELEASE_PGO" = true ] && [ "$COLLECT_HOST_PGO" = false ] && [ -z "$PGO_PROFILE_PATH_OVERRIDE" ]; then
+    fail "--validate-release-pgo requires --collect-host-pgo or R47_PGO_PROFILE_PATH."
+fi
 
 if [ -z "$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE" ]; then
     UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE="$RESOLVED_UPSTREAM_URL"
@@ -796,4 +867,19 @@ if [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; then
         --xlsxio-source-repository-url "$XLSXIO_SOURCE_REPOSITORY_URL_VALUE" \
         --xlsxio-source-commit "$XLSXIO_SOURCE_COMMIT_VALUE" \
         --signing-mode debug
+fi
+
+if [ "$COLLECT_HOST_PGO" = true ]; then
+    run_host_pgo_collector
+fi
+
+if [ "$VALIDATE_RELEASE_PGO" = true ]; then
+    if [ "$COLLECT_HOST_PGO" = true ]; then
+        if [ -n "$PGO_PROFILE_PATH_OVERRIDE" ]; then
+            echo "--- Ignoring R47_PGO_PROFILE_PATH because --collect-host-pgo produced the validation profile ---"
+        fi
+        run_release_native_pgo_validation "$COLLECTED_HOST_PGO_PROFILE_PATH"
+    else
+        run_release_native_pgo_validation "$PGO_PROFILE_PATH_OVERRIDE"
+    fi
 fi

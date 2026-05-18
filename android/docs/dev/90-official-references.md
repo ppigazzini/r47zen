@@ -278,11 +278,18 @@ flowchart TD
   official jank and frozen-frame guidance for the 16 ms, 700 ms, and 5 s
   thresholds, plus the UI-thread and `RenderThread` split used when diagnosing
   rendering regressions.
+- [Benchmark your app](https://developer.android.com/topic/performance/benchmarking/benchmarking-overview):
+  official Android benchmarking overview for choosing Macrobenchmark versus
+  Microbenchmark, preventing regressions, and treating benchmarking as a
+  repeatable quality surface rather than an ad hoc profiler session.
 - [Write a Macrobenchmark](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview):
   official release-like Android app benchmark setup for startup and complex UI
   flows. Use a separate `com.android.test` module, benchmark a `profileable`
   non-debuggable target configured as close to release as possible, collect the
   JSON and trace outputs, and treat emulator numbers as non-representative.
+- [Overview of measuring app performance](https://developer.android.com/topic/performance/measuring-performance):
+  official Android triage guide for startup, scroll jank, and other app
+  performance problems before committing to one benchmark or profiling surface.
 - [Baseline Profiles overview](https://developer.android.com/topic/performance/baselineprofiles/overview):
   official ART install-time optimization guidance for app startup and critical
   user journeys. The current guidance says many apps see about 30% faster first

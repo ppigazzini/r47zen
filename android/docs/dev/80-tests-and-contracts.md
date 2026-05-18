@@ -55,7 +55,7 @@ flowchart TD
 | main shell visible bars and settings-discovery hint surfaces | `MainActivity.kt`, `WindowModeController.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/themes.xml` | `MainShellThemeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest` |
 | SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `requestedProgramFixtureNames`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest` |
-| pause, wait, and progress compatibility in `PC_BUILD` mode | `android_runtime.c`, staged core, workload harness | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` | host workload regression, then `./scripts/android/build_android.sh --run-sim-tests` |
+| pause, wait, and progress compatibility in `PC_BUILD` mode | `android_runtime.c`, staged core, workload harness | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` | host workload regression, then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
 | upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
 
 ## Python Contract Suite
@@ -281,7 +281,9 @@ Android compatibility layer.
   `NQueens.p47`, and `SPIRALk.p47` workload fixtures through the host
   compatibility path. Every canonical fixture now runs in its own host process
   under the same outer timeout-and-kill safety net, while `MANSLV2` remains
-  the bounded direct-stop-after-activity probe inside that framework
+  the bounded direct-stop-after-activity probe inside that framework. This is
+  the focused host compatibility rerun surface, not the normal pull-request
+  owner of the collector-driven host-core PGO contract
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
   contract. It does prove that the shared compatibility path can start all five
   workloads and accept a bounded direct stop for `MANSLV2`, or record degraded
@@ -295,9 +297,11 @@ Android compatibility layer.
   consumed by the Android release-native build
 - `scripts/workload-regressions/host_workload_regression.c` is the harness that
   probes the wait, pause, progress, and workload-run behavior behind that lane
-- `./scripts/android/build_android.sh --run-sim-tests` rebuilds `build.sim`,
-  stages `testPgms.bin`, and runs the explicit Android-lane simulator parity
-  path before Gradle packaging
+- `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
+  is now the normal pull-request owner of the Android wrapper testSuite rerun,
+  the host-side PGO collector, and the Android release-native PGO consumer
+  check in one lane. The lower-level collector script remains available for
+  focused debugging.
 - `scripts/upstream-sync/upstream.sh verify-restore-boundary` fails when the
   repo-owned restore allowlist would re-own authoritative upstream root
   surfaces, and `sync` runs that same guard before it restores tracked paths
@@ -327,6 +331,8 @@ assume the problem is Android UI code.
   `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary`
 - pause, wait, progress, or `PC_BUILD` event-loop compatibility change: run
   `scripts/workload-regressions/run_workload_regressions.sh`
+- host-core PGO collector or release-native consumer change: run
+  `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
 - staged-native, simulator, or CI-critical verification change: run
   `./scripts/android/build_android.sh --run-sim-tests`
 - release identity, signing, or packaging change: run lint,

@@ -140,10 +140,19 @@ resolve_host_profile_runtime_suffix() {
     esac
 }
 
+resolve_ndk_llvm_major_version() {
+    local version_text=""
+
+    version_text="$($CLANG_BIN --version | head -n1)"
+    sed -nE 's/.*clang version ([0-9]+).*/\1/p' <<< "$version_text"
+}
+
 resolve_host_profile_runtime_path() {
+    local llvm_major="$1"
     local runtime_suffix=""
     local runtime_path=""
     local resource_dir=""
+    local versioned_clang=""
 
     if [[ -n "$HOST_PROFILE_RUNTIME_PATH" ]]; then
         [[ -f "$HOST_PROFILE_RUNTIME_PATH" ]] || fail "Host profile runtime archive $HOST_PROFILE_RUNTIME_PATH does not exist."
@@ -153,19 +162,28 @@ resolve_host_profile_runtime_path() {
 
     runtime_suffix=$(resolve_host_profile_runtime_suffix)
 
-    if command -v clang >/dev/null 2>&1; then
+    [[ -n "$llvm_major" ]] || fail "Missing LLVM major version for host profile runtime lookup."
+
+    versioned_clang="$(command -v "clang-$llvm_major" 2>/dev/null || true)"
+    if [[ -n "$versioned_clang" ]]; then
+        resource_dir="$($versioned_clang --print-resource-dir 2>/dev/null || true)"
+    elif command -v clang >/dev/null 2>&1; then
         resource_dir="$(clang --print-resource-dir 2>/dev/null || true)"
-        if [[ -n "$resource_dir" ]]; then
-            runtime_path="$resource_dir/lib/linux/libclang_rt.profile-${runtime_suffix}.a"
-            if [[ -f "$runtime_path" ]]; then
-                printf '%s\n' "$runtime_path"
-                return 0
-            fi
+        if [[ "$resource_dir" != *"/$llvm_major"* ]]; then
+            resource_dir=""
         fi
     fi
 
-    runtime_path="$({ find /usr/lib -path "*/lib/clang/*/lib/linux/libclang_rt.profile-${runtime_suffix}.a" 2>/dev/null || true; } | LC_ALL=C sort -V | tail -n 1)"
-    [[ -n "$runtime_path" ]] || fail "Could not locate a host LLVM profiling runtime archive for ${runtime_suffix}. Install a host LLVM package that provides libclang_rt.profile-${runtime_suffix}.a or set R47_HOST_PROFILE_RUNTIME_PATH."
+    if [[ -n "$resource_dir" ]]; then
+        runtime_path="$resource_dir/lib/linux/libclang_rt.profile-${runtime_suffix}.a"
+        if [[ -f "$runtime_path" ]]; then
+            printf '%s\n' "$runtime_path"
+            return 0
+        fi
+    fi
+
+    runtime_path="$({ find /usr/lib -path "*/lib/clang/${llvm_major}*/lib/linux/libclang_rt.profile-${runtime_suffix}.a" 2>/dev/null || true; } | LC_ALL=C sort -V | tail -n 1)"
+    [[ -n "$runtime_path" ]] || fail "Could not locate a host LLVM profiling runtime archive matching LLVM ${llvm_major} for ${runtime_suffix}. Install clang-${llvm_major} and libclang-rt-${llvm_major}-dev, or set R47_HOST_PROFILE_RUNTIME_PATH explicitly."
     printf '%s\n' "$runtime_path"
 }
 
@@ -241,11 +259,15 @@ NDK_ROOT=$(resolve_android_ndk_root)
 PROGRAM_ROOT=$(resolve_program_root)
 CLANG_BIN=$(resolve_llvm_tool clang "$NDK_ROOT")
 LLVM_PROFDATA_BIN=$(resolve_llvm_tool llvm-profdata "$NDK_ROOT")
+NDK_LLVM_MAJOR=$(resolve_ndk_llvm_major_version)
 RAW_PROFILE_DIR="$OUTPUT_DIR/$RAW_PROFILE_SUBDIR"
 HOST_BUILD_DIR="$OUTPUT_DIR/$HOST_BUILD_SUBDIR"
 PROFILE_PATH="$OUTPUT_DIR/$PROFILE_NAME"
 METADATA_PATH="$OUTPUT_DIR/BUILD-METADATA.txt"
-HOST_PROFILE_RUNTIME_PATH=$(resolve_host_profile_runtime_path)
+
+[[ -n "$NDK_LLVM_MAJOR" ]] || fail "Failed to determine LLVM major version from $CLANG_BIN"
+
+HOST_PROFILE_RUNTIME_PATH=$(resolve_host_profile_runtime_path "$NDK_LLVM_MAJOR")
 
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$RAW_PROFILE_DIR"
@@ -258,18 +280,28 @@ CFLAGS="-O2 -fprofile-generate=$RAW_PROFILE_DIR -fprofile-update=atomic -resourc
 LDFLAGS="-fprofile-generate=$RAW_PROFILE_DIR -resource-dir=$RESOURCE_DIR_SHIM" \
 HOST_WORKLOAD_BUILD_DIR="$HOST_BUILD_DIR" \
 HOST_WORKLOAD_OUTPUT_NAME="r47-workload-regression-pgo" \
+HOST_WORKLOAD_PROGRAM_TIMEOUT_SCALE="${HOST_WORKLOAD_PROGRAM_TIMEOUT_SCALE:-4}" \
+HOST_WORKLOAD_FIXTURE_TIMEOUT="${HOST_WORKLOAD_FIXTURE_TIMEOUT:-120s}" \
+HOST_WORKLOAD_FIXTURE_KILL_AFTER="${HOST_WORKLOAD_FIXTURE_KILL_AFTER:-10s}" \
 PROGRAM_ROOT="$PROGRAM_ROOT" \
 bash "$SCRIPT_DIR/run_workload_regressions.sh"
 
+mapfile -t RAW_PROFILES < <(find "$RAW_PROFILE_DIR" -type f -name '*.profraw' | LC_ALL=C sort)
+
+if [[ ${#RAW_PROFILES[@]} -eq 0 ]]; then
+    fail "No raw LLVM profile files were generated in $RAW_PROFILE_DIR. This usually means the host profiling runtime is incompatible with $CLANG_BIN."
+fi
+
 "$LLVM_PROFDATA_BIN" merge \
     --output="$PROFILE_PATH" \
-    "$RAW_PROFILE_DIR"
+    "${RAW_PROFILES[@]}"
 
 cat > "$METADATA_PATH" <<EOF
 collector=host-workload-regression
 profile_path=$PROFILE_PATH
 program_root=$PROGRAM_ROOT
 ndk_root=$NDK_ROOT
+ndk_llvm_major=$NDK_LLVM_MAJOR
 clang=$CLANG_BIN
 llvm_profdata=$LLVM_PROFDATA_BIN
 ndk_resource_dir=$NDK_RESOURCE_DIR

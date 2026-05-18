@@ -166,13 +166,17 @@ supports that model by keeping shared synchronization in native code:
   runs under the same outer GNU `timeout --kill-after` safety net so a hung
   workload degrades coverage instead of wedging the host lane. Inside that
   shared framework, the maintained `MANSLV2` scenario still waits for observed
-  run activity and then publishes a direct stop through `fnStopProgram(0)`
+  run activity and then publishes a direct stop through `fnStopProgram(0)`. The
+  script remains the focused host-compatibility rerun surface, not the normal
+  pull-request owner of the collector-driven PGO contract
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` builds that same
   host harness with the pinned NDK Clang and `llvm-profdata` pair under LLVM
   IRPGO instrumentation, injects a temporary resource-dir shim so the Linux
   host link can reuse a host-installed `libclang_rt.profile` archive that the
   NDK does not ship, then produces the indexed profile artifact now consumed by
-  the release-native Android build path
+  the release-native Android build path. The maintained full-lane owner of that
+  collector plus consumer sequence is now
+  `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
 - `jni_program_load_test.c` exposes the instrumentation-only bridge used by
   both `ProgramFixtureInstrumentedTest` and
   `DisplayLifecycleInstrumentedTest`. It provides READP or RUN worker control,
