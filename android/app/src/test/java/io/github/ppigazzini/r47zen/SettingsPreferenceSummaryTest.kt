@@ -177,6 +177,20 @@ class SettingsPreferenceSummaryTest {
     }
 
     @Test
+    fun performanceStatsPreference_usesFixedDeveloperCopy() {
+        val preference = launchSettingsAndFindSwitch("show_developer_performance_hud")
+
+        assertEquals(
+            "Show Performance Stats",
+            preference.title?.toString(),
+        )
+        assertEquals(
+            "Show red UI and LCD timing stats above the LCD.",
+            preference.summary?.toString(),
+        )
+    }
+
+    @Test
     fun hapticToggle_usesShortMasterTitle() {
         val preference = launchSettingsAndFindSwitch("haptic_enabled")
 

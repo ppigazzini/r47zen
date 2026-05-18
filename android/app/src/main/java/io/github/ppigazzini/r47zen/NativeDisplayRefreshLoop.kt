@@ -10,6 +10,7 @@ internal interface DisplayRefreshLoop {
 internal class NativeDisplayRefreshLoop(
     private val isAppRunning: () -> Boolean,
     private val isNativeInitialized: () -> Boolean,
+    private val isPerformanceSnapshotEnabled: () -> Boolean = { true },
     private val getPackedDisplayGeneration: () -> Int,
     private val getPackedDisplayBuffer: (ByteArray) -> Boolean,
     private val getKeypadSnapshotGeneration: () -> Int,
@@ -17,11 +18,21 @@ internal class NativeDisplayRefreshLoop(
     private val refreshKeypadSnapshot: (Int) -> NativeKeypadSnapshotRefreshResult,
     private val onPackedLcd: (ByteArray) -> Boolean,
     private val onDynamicRefresh: (KeypadSnapshot) -> Unit,
+    private val onPerformanceSnapshot: (DeveloperPerformanceSnapshot) -> Unit = {},
+    private val measureNanos: () -> Long = System::nanoTime,
 ) : DisplayRefreshLoop {
+    companion object {
+        private const val PERFORMANCE_WINDOW_MILLIS = 500L
+    }
+
     private val packedLcdBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
     private var lastDisplayGeneration = Int.MIN_VALUE
     private var lastLabelRefresh = 0L
     private var lastKeypadGeneration = Int.MIN_VALUE
+    private var performanceWindowStartMillis = 0L
+    private var performanceFrameCount = 0
+    private var performanceLcdUpdateCount = 0
+    private var performanceLcdUpdateNanos = 0L
     private var isActive = false
 
     private val frameCallback = object : Choreographer.FrameCallback {
@@ -43,10 +54,32 @@ internal class NativeDisplayRefreshLoop(
             return
         }
 
+        val isPerformanceSnapshotEnabled = isPerformanceSnapshotEnabled()
+        if (isPerformanceSnapshotEnabled) {
+            if (performanceWindowStartMillis == 0L) {
+                performanceWindowStartMillis = nowMillis
+            }
+            performanceFrameCount += 1
+        } else if (performanceWindowStartMillis != 0L) {
+            resetPerformanceWindow()
+        }
+
         val currentDisplayGeneration = getPackedDisplayGeneration()
-        if (currentDisplayGeneration != lastDisplayGeneration && getPackedDisplayBuffer(packedLcdBuffer)) {
-            onPackedLcd(packedLcdBuffer)
-            lastDisplayGeneration = currentDisplayGeneration
+        if (currentDisplayGeneration != lastDisplayGeneration) {
+            val updateStartNanos = if (isPerformanceSnapshotEnabled) {
+                measureNanos()
+            } else {
+                0L
+            }
+            if (getPackedDisplayBuffer(packedLcdBuffer)) {
+                onPackedLcd(packedLcdBuffer)
+                lastDisplayGeneration = currentDisplayGeneration
+                if (isPerformanceSnapshotEnabled) {
+                    performanceLcdUpdateCount += 1
+                    performanceLcdUpdateNanos +=
+                        (measureNanos() - updateStartNanos).coerceAtLeast(0L)
+                }
+            }
         }
 
         val currentKeypadGeneration = getKeypadSnapshotGeneration()
@@ -63,6 +96,45 @@ internal class NativeDisplayRefreshLoop(
                 lastKeypadGeneration = refreshResult.observedGeneration
             }
         }
+
+        if (isPerformanceSnapshotEnabled) {
+            publishPerformanceSnapshotIfReady(nowMillis)
+        }
+    }
+
+    private fun publishPerformanceSnapshotIfReady(nowMillis: Long) {
+        val elapsedMillis = nowMillis - performanceWindowStartMillis
+        if (elapsedMillis < PERFORMANCE_WINDOW_MILLIS) {
+            return
+        }
+
+        val elapsedSeconds = elapsedMillis / 1000f
+        onPerformanceSnapshot(
+            DeveloperPerformanceSnapshot(
+                uiFramesPerSecond = performanceFrameCount / elapsedSeconds,
+                lcdUpdatesPerSecond = performanceLcdUpdateCount / elapsedSeconds,
+                averageLcdUpdateMillis = if (performanceLcdUpdateCount > 0) {
+                    performanceLcdUpdateNanos.toFloat() /
+                        performanceLcdUpdateCount.toFloat() /
+                        1_000_000f
+                } else {
+                    0f
+                },
+                lcdUpdateSamples = performanceLcdUpdateCount,
+            )
+        )
+
+        performanceWindowStartMillis = nowMillis
+        performanceFrameCount = 0
+        performanceLcdUpdateCount = 0
+        performanceLcdUpdateNanos = 0L
+    }
+
+    private fun resetPerformanceWindow() {
+        performanceWindowStartMillis = 0L
+        performanceFrameCount = 0
+        performanceLcdUpdateCount = 0
+        performanceLcdUpdateNanos = 0L
     }
 
     override fun start() {
@@ -74,6 +146,7 @@ internal class NativeDisplayRefreshLoop(
         lastDisplayGeneration = Int.MIN_VALUE
         lastLabelRefresh = 0L
         lastKeypadGeneration = Int.MIN_VALUE
+        resetPerformanceWindow()
         Choreographer.getInstance().postFrameCallback(frameCallback)
     }
 

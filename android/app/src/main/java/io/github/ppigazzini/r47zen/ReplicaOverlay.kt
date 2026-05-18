@@ -88,9 +88,19 @@ class ReplicaOverlay @JvmOverloads constructor(
         textSize = dp(14f)
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     }
+    private val developerPerformanceTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(228, 52, 52)
+        textAlign = Paint.Align.LEFT
+        textSize = dp(12f)
+        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        setShadowLayer(dp(2f), 0f, 0f, Color.argb(208, 0, 0, 0))
+    }
     private var lcdTextColor = 0xFF303030.toInt()
     private var lcdBackgroundColor = 0xFFDFF5CC.toInt()
+    private var showDeveloperPerformanceHud = false
     private var showSettingsDiscoveryHint = false
+    private var developerPerformanceSnapshot = DeveloperPerformanceSnapshot.EMPTY
+    private var developerPerformanceLabel = developerPerformanceSnapshot.overlayLabel()
     private var settingsHintLayoutCache: SettingsHintLayoutCache? = null
 
     var onPiPKeyEvent: ((Int) -> Unit)? = null
@@ -143,6 +153,27 @@ class ReplicaOverlay @JvmOverloads constructor(
     fun setShowTouchZones(show: Boolean) {
         showTouchZones = show
         invalidate()
+    }
+
+    fun setShowDeveloperPerformanceHud(show: Boolean) {
+        if (showDeveloperPerformanceHud == show) {
+            return
+        }
+
+        showDeveloperPerformanceHud = show
+        invalidate()
+    }
+
+    internal fun updateDeveloperPerformanceSnapshot(snapshot: DeveloperPerformanceSnapshot) {
+        if (developerPerformanceSnapshot == snapshot) {
+            return
+        }
+
+        developerPerformanceSnapshot = snapshot
+        developerPerformanceLabel = snapshot.overlayLabel()
+        if (showDeveloperPerformanceHud && !showSettingsDiscoveryHint) {
+            postInvalidateOnAnimation()
+        }
     }
 
     fun setShowSettingsDiscoveryHint(show: Boolean) {
@@ -588,6 +619,10 @@ class ReplicaOverlay @JvmOverloads constructor(
 
         super.dispatchDraw(canvas)
 
+        if (showDeveloperPerformanceHud && !showSettingsDiscoveryHint) {
+            drawDeveloperPerformanceHud(canvas)
+        }
+
         if (showSettingsDiscoveryHint) {
             if (settingsHintLayoutCache == null) {
                 updateSettingsHintLayoutCache()
@@ -647,5 +682,25 @@ class ReplicaOverlay @JvmOverloads constructor(
 
             postInvalidateOnAnimation()
         }
+    }
+
+    private fun drawDeveloperPerformanceHud(canvas: Canvas) {
+        val label = developerPerformanceLabel
+        if (label.isEmpty()) {
+            return
+        }
+
+        val availableHeight = (lcdDestRect.top - shellRect.top).coerceAtLeast(dp(24f))
+        developerPerformanceTextPaint.textSize = (availableHeight * 0.09f).coerceIn(dp(10f), dp(16f))
+
+        val maxLabelWidth = (lcdDestRect.width() - dp(8f)).coerceAtLeast(dp(48f))
+        val measuredWidth = developerPerformanceTextPaint.measureText(label)
+        if (measuredWidth > maxLabelWidth && measuredWidth > 0f) {
+            developerPerformanceTextPaint.textSize *= maxLabelWidth / measuredWidth
+        }
+
+        val baseline = (lcdDestRect.top - dp(6f))
+            .coerceAtLeast(shellRect.top + developerPerformanceTextPaint.textSize)
+        canvas.drawText(label, lcdDestRect.left + dp(2f), baseline, developerPerformanceTextPaint)
     }
 }

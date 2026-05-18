@@ -140,6 +140,8 @@ class NativeCoreRuntimeTest {
             },
             onPackedLcd = { false },
             onDynamicRefresh = {},
+            isPerformanceSnapshotEnabled = { true },
+            onPerformanceSnapshot = {},
             displayRefreshLoop = object : DisplayRefreshLoop {
                 override fun start() {}
 

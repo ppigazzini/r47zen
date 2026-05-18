@@ -135,7 +135,10 @@ flowchart TD
   explicitly, merge them with the same NDK `llvm-profdata`, and then rebuild
   with `-fprofile-use`. The doc also notes that library profiles are generally
   reusable across architectures unless the library has architecture-specific
-  code paths.
+  code paths. Keep host-workload training as the maintained shared-core lane in
+  this repo; if Android app-process profile collection is ever added, treat it
+  as a separate experiment rather than as a replacement for host-core training
+  or app benchmarking.
 - [Configure the NDK for the Android Gradle plugin](https://developer.android.com/studio/projects/configure-agp-ndk):
   `ndkVersion` guidance for AGP-based projects, including the command-line
   `sdkmanager` package syntax this repo uses in CI.
@@ -151,7 +154,9 @@ flowchart TD
   native profiler for symbol, DSO, thread, and call-graph attribution before
   hot-path micro-optimization. Current guidance is to identify the hottest
   DSOs, functions, and threads first, then inspect call graphs before changing
-  code.
+  code. Use it after a physical-device benchmark or canonical workload timing
+  run points at a regression; the in-app developer HUD is only a quick local
+  smoke signal.
 - [Custom trace events in native code](https://developer.android.com/topic/performance/tracing/custom-events-native):
   official ATrace or Perfetto guidance for Android-owned native spans and
   thread naming.
@@ -273,6 +278,21 @@ flowchart TD
   official jank and frozen-frame guidance for the 16 ms, 700 ms, and 5 s
   thresholds, plus the UI-thread and `RenderThread` split used when diagnosing
   rendering regressions.
+- [Write a Macrobenchmark](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview):
+  official release-like Android app benchmark setup for startup and complex UI
+  flows. Use a separate `com.android.test` module, benchmark a `profileable`
+  non-debuggable target configured as close to release as possible, collect the
+  JSON and trace outputs, and treat emulator numbers as non-representative.
+- [Baseline Profiles overview](https://developer.android.com/topic/performance/baselineprofiles/overview):
+  official ART install-time optimization guidance for app startup and critical
+  user journeys. The current guidance says many apps see about 30% faster first
+  launch or runtime on covered paths, that profile-generation and release
+  builds need different minify settings, and that release builds should remain
+  minified while profile generation stays unobfuscated.
+- [JankStats library](https://developer.android.com/topic/performance/jankstats):
+  official per-window frame-reporting and UI-state annotation library. Use it
+  only as optional Android-local observability when stateful jank reports help;
+  it is not this repo's primary CI or contract surface.
 - [BufferQueue and Gralloc](https://source.android.com/docs/core/graphics/arch-bq-gralloc):
   AOSP graphics-pipeline reference explaining that Android already moves
   graphics buffers through `BufferQueue` by handle rather than by copying.
@@ -349,8 +369,10 @@ flowchart TD
   size-dependent geometry into `onSizeChanged()`.
 - [Optimize a custom view](https://developer.android.com/develop/ui/views/layout/custom-views/optimizing-view):
   official custom-view hot-path guidance for keeping `onDraw()` lean,
-  eliminating avoidable allocations during drawing, minimizing unnecessary
-  `invalidate()` calls, and avoiding stray `requestLayout()` churn.
+  eliminating avoidable allocations during drawing or animation, minimizing
+  unnecessary `invalidate()` calls, avoiding stray `requestLayout()` churn, and
+  preferring shallow hierarchies or custom `ViewGroup` ownership when
+  application-specific layout assumptions reduce work.
 - [How Android draws views](https://developer.android.com/guide/topics/ui/how-android-draws):
   official measure, layout, and draw-pass overview for View-based rendering,
   including invalid-region behavior and when `requestLayout()` rather than

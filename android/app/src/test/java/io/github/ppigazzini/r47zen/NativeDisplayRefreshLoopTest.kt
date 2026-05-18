@@ -11,6 +11,88 @@ import java.util.concurrent.atomic.AtomicInteger
 @Config(sdk = [34])
 class NativeDisplayRefreshLoopTest {
     @Test
+    fun refreshFrame_publishesDeveloperPerformanceSnapshotAcrossRecentWindow() {
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
+        val performanceSnapshots = mutableListOf<DeveloperPerformanceSnapshot>()
+        var nextDisplayGeneration = 1
+        val measureTimesNanos = longArrayOf(
+            100_000_000L,
+            100_400_000L,
+            200_000_000L,
+            200_400_000L,
+            300_000_000L,
+            300_400_000L,
+        )
+        var measureIndex = 0
+        val loop = NativeDisplayRefreshLoop(
+            isAppRunning = { true },
+            isNativeInitialized = { true },
+            getPackedDisplayGeneration = { nextDisplayGeneration++ },
+            getPackedDisplayBuffer = { true },
+            getKeypadSnapshotGeneration = { 3 },
+            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(
+                    observedGeneration = 3,
+                    snapshot = snapshot,
+                    isUpToDate = true,
+                )
+            },
+            onPackedLcd = { true },
+            onDynamicRefresh = {},
+            onPerformanceSnapshot = { performanceSnapshots += it },
+            measureNanos = { measureTimesNanos[measureIndex++] },
+        )
+
+        loop.refreshFrame(nowMillis = 1_000L)
+        loop.refreshFrame(nowMillis = 1_250L)
+        loop.refreshFrame(nowMillis = 1_500L)
+
+        assertEquals(1, performanceSnapshots.size)
+        val performanceSnapshot = performanceSnapshots.single()
+        assertEquals(6.0f, performanceSnapshot.uiFramesPerSecond)
+        assertEquals(6.0f, performanceSnapshot.lcdUpdatesPerSecond)
+        assertEquals(0.4f, performanceSnapshot.averageLcdUpdateMillis)
+        assertEquals(3, performanceSnapshot.lcdUpdateSamples)
+    }
+
+    @Test
+    fun refreshFrame_skipsPerformanceSampling_whenHudIsDisabled() {
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
+        val performanceSnapshots = mutableListOf<DeveloperPerformanceSnapshot>()
+        val measureCalls = AtomicInteger(0)
+        val loop = NativeDisplayRefreshLoop(
+            isAppRunning = { true },
+            isNativeInitialized = { true },
+            isPerformanceSnapshotEnabled = { false },
+            getPackedDisplayGeneration = { 1 },
+            getPackedDisplayBuffer = { true },
+            getKeypadSnapshotGeneration = { 3 },
+            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(
+                    observedGeneration = 3,
+                    snapshot = snapshot,
+                    isUpToDate = true,
+                )
+            },
+            onPackedLcd = { true },
+            onDynamicRefresh = {},
+            onPerformanceSnapshot = { performanceSnapshots += it },
+            measureNanos = {
+                measureCalls.incrementAndGet()
+                100_000_000L
+            },
+        )
+
+        loop.refreshFrame(nowMillis = 1_000L)
+        loop.refreshFrame(nowMillis = 1_500L)
+
+        assertEquals(0, performanceSnapshots.size)
+        assertEquals(0, measureCalls.get())
+    }
+
+    @Test
     fun refreshFrame_skipsPackedBufferPull_whenGenerationIsUnchanged() {
         val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
         val packedBufferPulls = AtomicInteger(0)

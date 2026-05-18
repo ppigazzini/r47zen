@@ -116,6 +116,11 @@
 
     <PreferenceCategory app:title="@string/settings_developer_tools_category_title">
         <SwitchPreferenceCompat
+            app:key="show_developer_performance_hud"
+            app:title="@string/settings_show_performance_stats_title"
+            app:summary="@string/settings_show_performance_stats_summary"
+            app:defaultValue="false" />
+        <SwitchPreferenceCompat
             app:key="show_touch_zones"
             app:title="@string/settings_show_touch_zones_title"
             app:defaultValue="false" />

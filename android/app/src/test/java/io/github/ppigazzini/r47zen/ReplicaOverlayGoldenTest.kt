@@ -75,6 +75,27 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
+    fun developerPerformanceHud_changesRenderedChromeWhenEnabled() {
+        val baseOverlay = configuredOverlay().apply {
+            updateLcd(sampleLcdPixels())
+        }
+        val performanceOverlay = configuredOverlay().apply {
+            updateLcd(sampleLcdPixels())
+            setShowDeveloperPerformanceHud(true)
+            updateDeveloperPerformanceSnapshot(
+                DeveloperPerformanceSnapshot(
+                    uiFramesPerSecond = 59.8f,
+                    lcdUpdatesPerSecond = 12.4f,
+                    averageLcdUpdateMillis = 0.38f,
+                    lcdUpdateSamples = 8,
+                )
+            )
+        }
+
+        assertFalse(renderHash(baseOverlay) == renderHash(performanceOverlay))
+    }
+
+    @Test
     fun topSettingsStripTapInvokesListener() {
         val overlay = configuredOverlay()
         var taps = 0

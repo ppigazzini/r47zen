@@ -21,9 +21,12 @@ internal class NativeCoreRuntime(
     private val refreshKeypadSnapshot: (Int) -> NativeKeypadSnapshotRefreshResult,
     private val onPackedLcd: (ByteArray) -> Boolean,
     private val onDynamicRefresh: (KeypadSnapshot) -> Unit,
+    private val isPerformanceSnapshotEnabled: () -> Boolean = { true },
+    private val onPerformanceSnapshot: (DeveloperPerformanceSnapshot) -> Unit = {},
     private val displayRefreshLoop: DisplayRefreshLoop = NativeDisplayRefreshLoop(
         isAppRunning = { isAppRunningShared },
         isNativeInitialized = { isNativeInitializedShared },
+        isPerformanceSnapshotEnabled = isPerformanceSnapshotEnabled,
         getPackedDisplayGeneration = getPackedDisplayGeneration,
         getPackedDisplayBuffer = getPackedDisplayBuffer,
         getKeypadSnapshotGeneration = getKeypadSnapshotGeneration,
@@ -31,6 +34,7 @@ internal class NativeCoreRuntime(
         refreshKeypadSnapshot = refreshKeypadSnapshot,
         onPackedLcd = onPackedLcd,
         onDynamicRefresh = onDynamicRefresh,
+        onPerformanceSnapshot = onPerformanceSnapshot,
     ),
     private val startCoreThread: (Runnable) -> Unit = { runnable ->
         Thread(runnable, "R47CoreRuntime").start()

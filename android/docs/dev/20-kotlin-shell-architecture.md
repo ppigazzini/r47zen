@@ -59,7 +59,7 @@ flowchart LR
 | Concern | Primary Kotlin owner | Boundary this page cares about | Read next |
 | --- | --- | --- | --- |
 | activity and settings coordination | `MainActivity`, `SettingsActivity` | startup, preferences, PiP, intent routing, helper wiring | `30-upstream-interface-surfaces.md` |
-| native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, and one cached keypad snapshot owner | `60-runtime-hot-paths.md` |
+| native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `60-runtime-hot-paths.md` |
 | overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `50-ui-rendering-and-gtk-mapping.md` |
 | storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, slot metadata, save and load ordering | `30-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
 | Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `30-upstream-interface-surfaces.md` |
@@ -103,12 +103,19 @@ Main flow:
 4. `NativeDisplayRefreshLoop` is the single UI-side poller for LCD and keypad
    scene state.
 5. `NativeDisplayRefreshLoop` watches packed-display and keypad-snapshot
-  generations, then refreshes `NativeKeypadSnapshotStore` with the current
-  main-key mode code from `ReplicaOverlayController`.
+  generations, refreshes `NativeKeypadSnapshotStore` with the current
+  main-key mode code from `ReplicaOverlayController`, and emits a lightweight
+  `DeveloperPerformanceSnapshot` for Android-owned observability.
 6. `ReplicaOverlayController.currentKeypadSnapshot()` resolves that cached
   `KeypadSnapshot`, applies any `user` or `virtuoso` keypad composition plus
   the softkey graphic or static mask, and `ReplicaKeypadLayout` applies scene
   changes after a real layout boundary.
+
+The performance snapshot stays Android-local. `NativeCoreRuntime` forwards it
+through `MainActivity`, `MainActivityPreferenceController` owns the
+`show_developer_performance_hud` preference, and `ReplicaOverlay` may paint the
+red developer HUD above the LCD. This is a manual observability aid, not a
+runtime-policy seam or a replacement for real benchmark and profiler work.
 
 This page stops at the coordination boundary. Read
 `60-runtime-hot-paths.md` for cadence, skip gates, and lock-sensitive loops;
@@ -239,6 +246,10 @@ while matching the desktop simulator's stop-key parity during an active run.
   `lcd_theme` values, clamps `lcd_luminance` to the XML-declared `20..120`
   range, and routes the optional `lcd_negative` inverse-display toggle before
   `MainActivity.kt` applies the selected palette
+- `show_developer_performance_hud` is a developer-only Android setting.
+  `MainActivityPreferenceController.kt` reads and dispatches it directly to
+  `ReplicaOverlay.kt`, while `NativeDisplayRefreshLoop.kt` supplies the sampled
+  `DeveloperPerformanceSnapshot` label data used by the overlay
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`
   now uses press-only keypad haptics for calculator interaction. `ACTION_DOWN`
   uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` and
@@ -252,7 +263,8 @@ while matching the desktop simulator's stop-key parity during an active run.
   values switch to short app-owned one-shot press pulses that intentionally
   override the system touch-haptics setting, while `0 ms` means no app pulse
 - haptics, audio, fullscreen state, LCD display theme, scaling mode, keypad
-  label modes, and touch-zone overlays are preference-driven Android concerns
+  label modes, touch-zone overlays, and the developer-only performance HUD are
+  preference-driven Android concerns
 
 - `SettingsFragment` keeps the haptics surface intentionally lean and
   duration-focused: `Haptic feedback` is the master switch,

@@ -204,11 +204,47 @@ class MainActivityPreferenceControllerTest {
         assertEquals(false, preferences.contains("lcd_mode"))
     }
 
+    @Test
+    fun applyDeferredOverlayPreferences_dispatchesDeveloperPerformanceHudPreference() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        preferences.edit()
+            .putBoolean("show_developer_performance_hud", true)
+            .commit()
+
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+        controllerState.controller.applyDeferredOverlayPreferences()
+
+        assertEquals(true, controllerState.controller.showDeveloperPerformanceHud)
+        assertEquals(listOf(true), controllerState.developerPerformanceHudCalls)
+    }
+
+    @Test
+    fun onPreferenceChanged_dispatchesDeveloperPerformanceHudPreference() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+        controllerState.controller.applyDeferredOverlayPreferences()
+        controllerState.developerPerformanceHudCalls.clear()
+
+        preferences.edit()
+            .putBoolean("show_developer_performance_hud", true)
+            .commit()
+
+        assertTrue(controllerState.controller.onPreferenceChanged("show_developer_performance_hud"))
+
+        assertEquals(true, controllerState.controller.showDeveloperPerformanceHud)
+        assertEquals(listOf(true), controllerState.developerPerformanceHudCalls)
+    }
+
     private fun buildController(preferences: android.content.SharedPreferences): ControllerState {
         val activity = Robolectric.buildActivity(PreferenceControllerActivity::class.java)
             .setup()
             .get()
         val audioSettingsCalls = mutableListOf<Pair<Boolean, Int>>()
+        val developerPerformanceHudCalls = mutableListOf<Boolean>()
         val lcdThemeCalls = mutableListOf<LcdThemeCall>()
 
         val controller = MainActivityPreferenceController(
@@ -226,12 +262,16 @@ class MainActivityPreferenceControllerTest {
             },
             applyScalingMode = {},
             applyShowTouchZones = {},
+            applyShowDeveloperPerformanceHud = { enabled ->
+                developerPerformanceHudCalls += enabled
+            },
             applyKeypadLabelModes = { _, _ -> },
         )
 
         return ControllerState(
             controller = controller,
             audioSettingsCalls = audioSettingsCalls,
+            developerPerformanceHudCalls = developerPerformanceHudCalls,
             lcdThemeCalls = lcdThemeCalls,
         )
     }
@@ -239,6 +279,7 @@ class MainActivityPreferenceControllerTest {
     private data class ControllerState(
         val controller: MainActivityPreferenceController,
         val audioSettingsCalls: MutableList<Pair<Boolean, Int>>,
+        val developerPerformanceHudCalls: MutableList<Boolean>,
         val lcdThemeCalls: MutableList<LcdThemeCall>,
     )
 

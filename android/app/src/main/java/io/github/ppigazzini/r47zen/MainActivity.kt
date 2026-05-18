@@ -251,6 +251,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             applyLcdTheme = ::applyLcdTheme,
             applyScalingMode = replicaOverlayController::applyScalingMode,
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
+            applyShowDeveloperPerformanceHud = replicaOverlay::setShowDeveloperPerformanceHud,
             applyKeypadLabelModes = replicaOverlayController::applyKeypadLabelModes,
         )
     }
@@ -283,6 +284,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             refreshKeypadSnapshot = keypadSnapshotStore::refreshSnapshot,
             onPackedLcd = replicaOverlay::updatePackedLcd,
             onDynamicRefresh = replicaOverlayController::refreshDynamicKeys,
+            isPerformanceSnapshotEnabled = { preferenceController.showDeveloperPerformanceHud },
+            onPerformanceSnapshot = replicaOverlay::updateDeveloperPerformanceSnapshot,
         )
     }
 

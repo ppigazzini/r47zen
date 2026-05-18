@@ -13,6 +13,7 @@ internal class MainActivityPreferenceController(
     private val applyLcdTheme: (String, Int, Boolean) -> Unit,
     private val applyScalingMode: (String) -> Unit,
     private val applyShowTouchZones: (Boolean) -> Unit,
+    private val applyShowDeveloperPerformanceHud: (Boolean) -> Unit,
     private val applyKeypadLabelModes: (MainKeyDynamicMode, SoftkeyDynamicMode) -> Unit,
 ) {
     companion object {
@@ -37,6 +38,7 @@ internal class MainActivityPreferenceController(
         private const val KEY_LCD_LUMINANCE = "lcd_luminance"
         private const val KEY_MAIN_KEY_DYNAMIC_MODE = "main_key_dynamic_mode"
         private const val KEY_SCALING_MODE = "scaling_mode"
+        private const val KEY_SHOW_DEVELOPER_PERFORMANCE_HUD = "show_developer_performance_hud"
         private const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
         private const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
         private const val LEGACY_KEY_LCD_MODE = "lcd_mode"
@@ -63,6 +65,9 @@ internal class MainActivityPreferenceController(
     var scalingMode = DEFAULT_SCALING_MODE
         private set
 
+    var showDeveloperPerformanceHud = false
+        private set
+
     var showTouchZones = false
         private set
 
@@ -80,6 +85,8 @@ internal class MainActivityPreferenceController(
         mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
         scalingMode =
             preferences.getString(KEY_SCALING_MODE, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
+        showDeveloperPerformanceHud =
+            preferences.getBoolean(KEY_SHOW_DEVELOPER_PERFORMANCE_HUD, false)
         showTouchZones = preferences.getBoolean(KEY_SHOW_TOUCH_ZONES, false)
         softkeyDynamicMode = readNormalizedSoftkeyDynamicMode()
 
@@ -91,6 +98,7 @@ internal class MainActivityPreferenceController(
 
     fun applyDeferredOverlayPreferences() {
         applyShowTouchZones(showTouchZones)
+        applyShowDeveloperPerformanceHud(showDeveloperPerformanceHud)
         applyScalingMode(scalingMode)
         applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
     }
@@ -133,6 +141,10 @@ internal class MainActivityPreferenceController(
             KEY_SCALING_MODE -> {
                 scalingMode = preferences.getString(key, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
                 applyScalingMode(scalingMode)
+            }
+            KEY_SHOW_DEVELOPER_PERFORMANCE_HUD -> {
+                showDeveloperPerformanceHud = preferences.getBoolean(key, false)
+                applyShowDeveloperPerformanceHud(showDeveloperPerformanceHud)
             }
             KEY_SHOW_TOUCH_ZONES -> {
                 showTouchZones = preferences.getBoolean(key, false)
