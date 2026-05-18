@@ -289,9 +289,15 @@ Public maintainer entrypoints:
   `:app:connectedDebugAndroidTest` requires a device or emulator, and
   `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
   emulator is `x86_64`. The current required emulator-backed coverage includes
-  `ProgramFixtureInstrumentedTest`, which loads and runs `BinetV3.p47`,
-  `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47` through the
-  Android `READP` path. The `MANSLV2` scenario is bounded: once the harness
+  the repo-owned `scripts/android/run_connected_android_tests.sh` wrapper,
+  which runs the non-fixture instrumentation classes plus one filtered
+  `ProgramFixtureInstrumentedTest` method per required `.p47` file. That keeps
+  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `SPIRALk.p47` in isolated `connectedDebugAndroidTest` selections under GNU
+  `timeout --kill-after` so a hung fixture degrades coverage instead of
+  wedging the whole emulator step. Inside each selection,
+  `ProgramFixtureInstrumentedTest` still loads the program through the Android
+  `READP` path, and the `MANSLV2` selection remains bounded: once the harness
   observes real run activity it publishes a direct stop through the same
   native stop seam that backs live `R/S` and `EXIT`. The required emulator
   coverage also includes `DisplayLifecycleInstrumentedTest`, which proves that
@@ -344,8 +350,14 @@ Internal helpers:
   `android/app/build.gradle`.
 - `scripts/keypad-fixtures/export_upstream_keypad_fixtures.sh` owns the grouped
   keypad-fixture exporter implementation.
+- `scripts/android/run_connected_android_tests.sh` owns the grouped hosted
+  emulator instrumentation wrapper. It runs the non-fixture Android test
+  classes directly and executes each canonical `PROGRAMS` fixture as its own
+  filtered `connectedDebugAndroidTest` selection under GNU `timeout`.
 - `scripts/workload-regressions/run_workload_regressions.sh` owns the grouped
-  workload-regression implementation.
+  workload-regression implementation: it compiles the host harness once, runs
+  each required fixture in its own host process, and applies the same outer
+  timeout-and-kill safety net to every canonical `PROGRAMS` fixture.
 - `scripts/package-notices/generate_simulator_notice_artifacts.sh` owns the
   grouped simulator-package notice implementation.
 
@@ -507,21 +519,25 @@ ownership model as the local build:
 - `android-tests` uses the same resolved upstream commit and staged-native
   build path, applies the defaults-file `android_test_abi_filters` override
   only for the hosted test lane, assembles `:app:assembleDebugAndroidTest`,
-  runs `:app:testDebugUnitTest`, enables KVM, and runs
-  `:app:connectedDebugAndroidTest` on the defaults-file hosted emulator API.
-  That emulator lane stages canonical upstream `PROGRAMS` fixtures into
-  generated assets and currently requires `ProgramFixtureInstrumentedTest` to
-  load and run `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`,
-  and `SPIRALk.p47` through the Android `READP` path. `MANSLV2.p47` is kept as
-  a bounded interrupt scenario: the harness waits for observed run activity and
-  then publishes a direct stop through the same native seam used by live `R/S`
-  and `EXIT`. It also requires `DisplayLifecycleInstrumentedTest` so passive
-  lifecycle transitions preserve the visible packed LCD snapshot across
-  background save, a Settings-style pause or resume, and full activity
-  recreation. The Android test seam also counts LCD redraw activity as valid
-  run evidence for fast-returning workloads so `GudrmPL`-style short runs do
-  not false-fail after a clean return. Hosted CI still proves 16 KB packaging
-  readiness rather than 16 KB runtime execution; the connected 16 KB runtime
+  runs `:app:testDebugUnitTest`, enables KVM, and runs the repo-owned
+  `scripts/android/run_connected_android_tests.sh` wrapper on the defaults-file
+  hosted emulator API. That emulator lane stages canonical upstream
+  `PROGRAMS` fixtures into generated assets and requires
+  `ProgramFixtureInstrumentedTest` to expose one Android test method per
+  required fixture: `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
+  `NQueens.p47`, and `SPIRALk.p47`. Every one of those `.p47` selections is
+  isolated under GNU `timeout --kill-after` so a hung fixture is logged as
+  degraded coverage and the remaining Android fixture lane keeps moving.
+  `MANSLV2.p47` is still the bounded interrupt scenario inside that shared
+  framework: the harness waits for observed run activity and then publishes a
+  direct stop through the same native seam used by live `R/S` and `EXIT`.
+  It also requires `DisplayLifecycleInstrumentedTest` so passive lifecycle
+  transitions preserve the visible packed LCD snapshot across background save,
+  a Settings-style pause or resume, and full activity recreation. The Android
+  test seam also counts LCD redraw activity as valid run evidence for
+  fast-returning workloads so `GudrmPL`-style short runs do not false-fail
+  after a clean return. Hosted CI still proves 16 KB packaging readiness
+  rather than 16 KB runtime execution; the connected 16 KB runtime
   smoke stays a local lane through `scripts/android/run_16kb_runtime_smoke.sh`.
 - the upstream simulator sanity, Android build/test/package, and Android test
   jobs consume the same resolved upstream commit for a given workflow run.
@@ -600,12 +616,14 @@ keeps the default debug CI lane secret-free.
     `cd android && ./gradlew :app:assembleDebugAndroidTest`, then
   `:app:connectedDebugAndroidTest` on a device or emulator. Add
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
-  current hosted smoke gate must still pass `ProgramFixtureInstrumentedTest`
-  over the load-and-run matrix for `BinetV3.p47`, `GudrmPL.p47`,
-  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. The maintained `MANSLV2`
-  scenario must observe run activity and then stop cleanly through the
-  direct-stop seam. When the change touches background save, Settings return,
-  or packed-LCD lifecycle preservation, the same lane must also pass
+  current hosted smoke gate must still pass the filtered
+  `ProgramFixtureInstrumentedTest` methods for `BinetV3.p47`, `GudrmPL.p47`,
+  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`, preferably through
+  `scripts/android/run_connected_android_tests.sh` so each fixture keeps its
+  own timeout-and-kill safety boundary. The maintained `MANSLV2` scenario must
+  observe run activity and then stop cleanly through the direct-stop seam.
+  When the change touches background save, Settings return, or packed-LCD
+  lifecycle preservation, the same lane must also pass
   `DisplayLifecycleInstrumentedTest`.
 - JNI, HAL, CMake, or packaging changes: `./scripts/android/build_android.sh`.
 - packaging evidence changes with local proof: `./scripts/android/build_android.sh --verify-packaging`

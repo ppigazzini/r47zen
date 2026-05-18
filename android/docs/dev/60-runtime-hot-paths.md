@@ -262,8 +262,9 @@ program, a save or load operation, or a progress or pause loop.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path across the canonical
   `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47` workloads, with `MANSLV2` kept under a maintained
-  direct-stop-after-activity budget.
+  `SPIRALk.p47` workloads. Each fixture now runs in its own host process under
+  the same outer timeout-and-kill safety net, while `MANSLV2` stays the
+  maintained direct-stop-after-activity scenario inside that framework.
 - There is now focused automated Android coverage proving that the direct-stop
   publisher can interrupt a maintained `MANSLV2` run after observed activity.
   There is still no focused automated lane proving that keypad snapshot export
@@ -274,7 +275,9 @@ program, a save or load operation, or a progress or pause loop.
 - `ProgramFixtureInstrumentedTest` drives canonical program fixtures through the
   Android `READP` path used by the live app and reuses the same native
   direct-stop publisher as live `R/S` and `EXIT` for the bounded
-  `MANSLV2` interrupt scenario.
+  `MANSLV2` interrupt scenario. Hosted CI now runs one filtered
+  `ProgramFixtureInstrumentedTest` method per fixture under the same outer
+  timeout-and-kill safety net used by the host wrapper.
 
 When a task changes one of these hot paths, update the narrowest relevant
 verification lane first and widen only if the first check does not cover the

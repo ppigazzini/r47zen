@@ -54,10 +54,18 @@ typedef struct {
   uint64_t stop_after_activity_ms;
 } program_fixture_scenario_t;
 
+typedef enum {
+  WORKLOAD_RESULT_PASS = 0,
+  WORKLOAD_RESULT_FAIL,
+  WORKLOAD_RESULT_STOP_TIMEOUT,
+} workload_result_t;
+
 extern void fnStopProgram(uint16_t unusedButMandatoryParameter);
 
 static void usage(const char *argv0) {
-  fprintf(stderr, "Usage: %s --program-root <dir>\n", argv0);
+  fprintf(stderr,
+          "Usage: %s --program-root <dir> [--program-name <fixture>]\n",
+          argv0);
 }
 
 static uint64_t monotonic_ms(void) {
@@ -230,9 +238,9 @@ static bool seed_spiralk_runtime_registers(void) {
   return true;
 }
 
-static bool run_program_fixture_workload(const char *runtime_dir,
-                                         const char *program_root,
-                                         const program_fixture_scenario_t *scenario) {
+static workload_result_t run_program_fixture_workload(
+  const char *runtime_dir, const char *program_root,
+  const program_fixture_scenario_t *scenario) {
   function_worker_t worker;
   pthread_t worker_thread;
   uint64_t activity_started_at = 0;
@@ -250,30 +258,30 @@ static bool run_program_fixture_workload(const char *runtime_dir,
   uint64_t lcd_refresh_count = 0;
 
   if (!stage_program_file(runtime_dir, program_root, scenario->program_name)) {
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
 
   r47_init_runtime(0);
   if (scenario->seed_runtime != NULL && !scenario->seed_runtime()) {
     fprintf(stderr, "ERROR: %s workload failed to seed runtime state\n",
             scenario->program_name);
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
   fnLoadProgram(NOPARAM);
   if (fail_last_error(scenario->program_name)) {
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
   if (numberOfPrograms == 0u) {
     fprintf(stderr, "ERROR: %s workload did not load any programs\n",
             scenario->program_name);
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
 
   load_step = currentLocalStepNumber;
   max_step = currentLocalStepNumber;
   r47_reset_host_lcd_refresh_count();
   if (!start_worker(&worker, ITM_RS, &worker_thread)) {
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
 
   deadline = monotonic_ms() + scenario->timeout_ms;
@@ -285,7 +293,7 @@ static bool run_program_fixture_workload(const char *runtime_dir,
     }
 
     if (fail_last_error(scenario->program_name)) {
-      return false;
+      return WORKLOAD_RESULT_FAIL;
     }
 
     if (currentLocalStepNumber > max_step) {
@@ -327,13 +335,26 @@ static bool run_program_fixture_workload(const char *runtime_dir,
   }
 
   if (!worker.done) {
+    if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
+        activity_started_at != 0u) {
+      fprintf(stderr,
+              "WARN: %s bounded interrupt timed out "
+              "(timeoutMs=%llu, directStop=%s, directStopRequests=%llu, "
+              "runStop=%u)\n",
+              scenario->program_name,
+              (unsigned long long)scenario->timeout_ms,
+              requested_direct_stop ? "yes" : "no",
+              (unsigned long long)direct_stop_requests,
+              (unsigned int)programRunStop);
+      return WORKLOAD_RESULT_STOP_TIMEOUT;
+    }
     fprintf(stderr, "ERROR: %s workload timed out\n", scenario->program_name);
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
   if (!finish_worker(worker_thread)) {
     fprintf(stderr, "ERROR: Failed to join %s worker thread\n",
             scenario->program_name);
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
 
   saw_pause = saw_pause || programRunStop == PGM_PAUSED;
@@ -351,21 +372,21 @@ static bool run_program_fixture_workload(const char *runtime_dir,
             (unsigned int)max_step, (unsigned int)temporaryInformation,
             (unsigned int)programRunStop,
             (unsigned long long)r47_get_host_lcd_refresh_count());
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
   if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
       !requested_direct_stop) {
     fprintf(stderr,
             "ERROR: %s workload finished before the maintained direct-stop probe ran\n",
             scenario->program_name);
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
   if (programRunStop == PGM_RUNNING || programRunStop == PGM_PAUSED) {
     fprintf(stderr,
             "ERROR: %s workload finished in an unexpected run state %u\n",
             scenario->program_name,
             (unsigned int)programRunStop);
-    return false;
+    return WORKLOAD_RESULT_FAIL;
   }
 
   fprintf(stderr,
@@ -376,7 +397,7 @@ static bool run_program_fixture_workload(const char *runtime_dir,
           (unsigned long long)r47_get_host_lcd_refresh_count(),
           requested_direct_stop ? "yes" : "no",
           (unsigned long long)direct_stop_requests);
-  return true;
+  return WORKLOAD_RESULT_PASS;
 }
 
 static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
@@ -412,13 +433,33 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_after_activity_ms = 0u},
 };
 
+static const program_fixture_scenario_t *find_program_fixture_scenario(
+    const char *program_name) {
+  for (size_t index = 0;
+       index < sizeof(kProgramFixtureScenarios) /
+                   sizeof(kProgramFixtureScenarios[0]);
+       ++index) {
+    if (strcmp(kProgramFixtureScenarios[index].program_name, program_name) ==
+        0) {
+      return &kProgramFixtureScenarios[index];
+    }
+  }
+
+  return NULL;
+}
+
 int main(int argc, char **argv) {
   const char *program_root = NULL;
+  const char *program_name = NULL;
   char runtime_dir[PATH_MAX];
 
   for (int index = 1; index < argc; index++) {
     if (strcmp(argv[index], "--program-root") == 0 && index + 1 < argc) {
       program_root = argv[++index];
+      continue;
+    }
+    if (strcmp(argv[index], "--program-name") == 0 && index + 1 < argc) {
+      program_name = argv[++index];
       continue;
     }
 
@@ -444,11 +485,32 @@ int main(int argc, char **argv) {
   }
   fprintf(stderr, "PASS: Android PC_BUILD wait/progress shim probe\n");
 
+  if (program_name != NULL) {
+    workload_result_t result;
+    const program_fixture_scenario_t *scenario =
+        find_program_fixture_scenario(program_name);
+
+    if (scenario == NULL) {
+      fprintf(stderr, "ERROR: Unknown program fixture %s\n", program_name);
+      return 1;
+    }
+
+    result = run_program_fixture_workload(runtime_dir, program_root, scenario);
+    if (result == WORKLOAD_RESULT_STOP_TIMEOUT) {
+      return 3;
+    }
+    return result == WORKLOAD_RESULT_PASS ? 0 : 1;
+  }
+
   for (size_t index = 0;
        index < sizeof(kProgramFixtureScenarios) / sizeof(kProgramFixtureScenarios[0]);
        ++index) {
-    if (!run_program_fixture_workload(runtime_dir, program_root,
-                                      &kProgramFixtureScenarios[index])) {
+    workload_result_t result = run_program_fixture_workload(
+        runtime_dir, program_root, &kProgramFixtureScenarios[index]);
+    if (result == WORKLOAD_RESULT_STOP_TIMEOUT) {
+      return 3;
+    }
+    if (result != WORKLOAD_RESULT_PASS) {
       return 1;
     }
   }

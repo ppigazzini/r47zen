@@ -974,6 +974,17 @@ jobs:
 
       - name: Run Android instrumentation tests on emulator
         uses: ReactiveCircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        env:
+          R47_CONNECTED_ANDROID_TEST_JOBS: ${{ steps.jobs.outputs.jobs }}
+          R47_CONNECTED_ANDROID_TEST_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
+          R47_CONNECTED_ANDROID_TEST_ABI_FILTERS: ${{ steps.defaults.outputs.android_test_abi_filters }}
+          R47_CONNECTED_ANDROID_TEST_CORE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
+          R47_CONNECTED_ANDROID_TEST_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+          R47_CONNECTED_ANDROID_TEST_SOURCE_COMMIT: ${{ github.sha }}
+          R47_CONNECTED_ANDROID_TEST_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
+          R47_CONNECTED_ANDROID_TEST_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
+          R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_REPOSITORY_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
         with:
           api-level: ${{ steps.defaults.outputs.android_test_api_level }}
           target: default
@@ -985,23 +996,7 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           working-directory: ./android
           script: >-
-            bash --noprofile --norc -c 'set -euo pipefail;
-            core_version=$(printf "%.8s" "${{ steps.upstream.outputs.upstream_commit }}");
-            mkdir -p ../ci-artifacts/logs;
-            log_file=../ci-artifacts/logs/android-connected-debug-android-test.log;
-            ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}"
-            :app:connectedDebugAndroidTest
-            --no-daemon --stacktrace --console=plain
-            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }}
-            -Pr47.abiFilters="${{ steps.defaults.outputs.android_test_abi_filters }}"
-            -Pr47.coreVersion="$core_version"
-            -Pr47.sourceRepositoryUrl="${{ github.server_url }}/${{ github.repository }}"
-            -Pr47.sourceCommit="${{ github.sha }}"
-            -Pr47.upstreamSourceRepositoryUrl="${{ steps.upstream.outputs.upstream_url }}"
-            -Pr47.upstreamSourceCommit="${{ steps.upstream.outputs.upstream_commit }}"
-            -Pr47.xlsxioSourceRepositoryUrl="${{ steps.defaults.outputs.xlsxio_url }}"
-            -Pr47.xlsxioSourceCommit="${{ steps.defaults.outputs.xlsxio_commit }}"
-            2>&1 | tee "$log_file"'
+            bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh
 
       - name: Upload Android test reports
         if: always()

@@ -162,9 +162,11 @@ supports that model by keeping shared synchronization in native code:
   progress shims in `android_runtime.c`, then loads and runs the canonical
   upstream fixtures `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
   `NQueens.p47`, and `SPIRALk.p47` through the host-side Android
-  compatibility path. The maintained `MANSLV2` scenario waits for observed run
-  activity and then publishes a direct stop through `fnStopProgram(0)` instead
-  of leaving the workload behind an optional environment gate
+  compatibility path in isolated host processes. Every canonical fixture now
+  runs under the same outer GNU `timeout --kill-after` safety net so a hung
+  workload degrades coverage instead of wedging the host lane. Inside that
+  shared framework, the maintained `MANSLV2` scenario still waits for observed
+  run activity and then publishes a direct stop through `fnStopProgram(0)`
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` builds that same
   host harness with the pinned NDK Clang and `llvm-profdata` pair under LLVM
   IRPGO instrumentation, injects a temporary resource-dir shim so the Linux
@@ -177,7 +179,7 @@ supports that model by keeping shared synchronization in native code:
   explicit refresh and background-save helpers, LCD refresh count, a
   packed-LCD snapshot hash, the synthetic `00` key path used to resume staged
   `SPIRALk` runs, and the direct-stop publisher plus explicit refresh helper
-  reused by `ProgramFixtureInstrumentedTest` and
+  reused by the per-fixture `ProgramFixtureInstrumentedTest` methods and
   `DisplayLifecycleInstrumentedTest` to prove bounded `MANSLV2` interrupt
   delivery and first-stop LCD cleanup through the same native seams as live
   `R/S`, `EXIT`, and `forceRefreshNative()`.

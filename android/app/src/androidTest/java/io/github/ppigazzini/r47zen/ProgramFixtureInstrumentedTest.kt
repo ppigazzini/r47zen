@@ -15,15 +15,37 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class ProgramFixtureInstrumentedTest {
     @Test
-    fun loadAndRunRequestedProgramsThroughAndroidRuntime() {
-        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
-        val fixtures = collectProgramFixtures(targetContext.assets)
-        val failures = mutableListOf<String>()
-        val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
-        val fixtureCount = fixtures.size
+    fun loadAndRunBinetV3ThroughAndroidRuntime() {
+        runRequestedProgramFixture("BinetV3.p47")
+    }
 
-        assertTrue("No staged program fixtures found in APK assets", fixtureCount > 0)
-        reportStatus("Collected $fixtureCount staged PROGRAMS fixtures for Android READP load-and-run coverage\n")
+    @Test
+    fun loadAndRunGudrmPLThroughAndroidRuntime() {
+        runRequestedProgramFixture("GudrmPL.p47")
+    }
+
+    @Test
+    fun loadAndRunMANSLV2ThroughAndroidRuntime() {
+        runRequestedProgramFixture("MANSLV2.p47")
+    }
+
+    @Test
+    fun loadAndRunNQueensThroughAndroidRuntime() {
+        runRequestedProgramFixture("NQueens.p47")
+    }
+
+    @Test
+    fun loadAndRunSPIRALkThroughAndroidRuntime() {
+        runRequestedProgramFixture("SPIRALk.p47")
+    }
+
+    private fun runRequestedProgramFixture(fileName: String) {
+        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val fixture = loadProgramFixture(targetContext.assets, requireProgramFixtureScenario(fileName))
+        val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
+        var failure: String? = null
+
+        reportStatus("Program fixture: ${fixture.displayName}\n")
 
         try {
             ActivityScenario.launch(MainActivity::class.java).use {
@@ -31,144 +53,151 @@ class ProgramFixtureInstrumentedTest {
                     "Native runtime did not become ready for PROGRAMS fixture coverage",
                     waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
                 )
-                reportStatus("Native runtime ready; loading and running $fixtureCount staged PROGRAMS fixtures\n")
-
-                for ((index, fixture) in fixtures.withIndex()) {
-                    reportStatus("Program fixture ${index + 1}/$fixtureCount: ${fixture.displayName}\n")
-                    ProgramLoadTestBridge.resetRuntime()
-                    val resetState = ProgramLoadTestBridge.snapshotState()
-                    if (resetState.lastErrorCode != ERROR_NONE || resetState.numberOfPrograms != EMPTY_RESET_PROGRAM_COUNT) {
-                        failures += buildFailure(
-                            fixture = fixture,
-                            phase = "reset",
-                            state = resetState,
-                            details = "expected the empty reset baseline before staging the next fixture",
-                        )
-                        break
-                    }
-
-                    writeFixtureToProgramFile(fixture, targetProgramFile)
-                    if (ProgramLoadTestBridge.isSimFunctionRunning()) {
-                        failures += buildFailure(
-                            fixture = fixture,
-                            phase = "load",
-                            state = null,
-                            details = "READP worker was still running before the next fixture started",
-                        )
-                        break
-                    }
-
-                    val stagedProgramFd = try {
-                        ParcelFileDescriptor.open(targetProgramFile, ParcelFileDescriptor.MODE_READ_ONLY)?.detachFd()
-                    } catch (error: Exception) {
-                        failures += buildFailure(
-                            fixture = fixture,
-                            phase = "load",
-                            state = null,
-                            details = "failed to open staged program file: ${error.message ?: error.javaClass.simpleName}",
-                        )
-                        break
-                    }
-                    if (stagedProgramFd == null) {
-                        failures += buildFailure(
-                            fixture = fixture,
-                            phase = "load",
-                            state = null,
-                            details = "failed to open staged program file",
-                        )
-                        break
-                    }
-
-                    var loadState: ProgramLoadState? = null
-                    var loadFailed = false
-                    ProgramLoadTestBridge.setNextLoadProgramFd(stagedProgramFd)
-                    try {
-                        val started = ProgramLoadTestBridge.beginSimFunction(ITM_READP)
-                        if (!started) {
-                            failures += buildFailure(
-                                fixture = fixture,
-                                phase = "load",
-                                state = null,
-                                details = "failed to start the asynchronous READP worker",
-                            )
-                            loadFailed = true
-                        } else {
-                            val loaded = waitUntil(LOAD_TIMEOUT_MS) {
-                                if (ProgramLoadTestBridge.isSimFunctionRunning()) {
-                                    return@waitUntil false
-                                }
-                                val state = ProgramLoadTestBridge.snapshotState()
-                                state.lastErrorCode != ERROR_NONE ||
-                                    state.numberOfPrograms > resetState.numberOfPrograms ||
-                                    state.temporaryInformation == TI_PROGRAM_LOADED
-                            }
-                            if (ProgramLoadTestBridge.isSimFunctionRunning()) {
-                                failures += buildFailure(
-                                    fixture = fixture,
-                                    phase = "load",
-                                    state = null,
-                                    details = "READP did not return within ${LOAD_TIMEOUT_MS} ms",
-                                )
-                                loadFailed = true
-                            }
-
-                            loadState = ProgramLoadTestBridge.snapshotState()
-                            val programLoaded = loadState.temporaryInformation == TI_PROGRAM_LOADED
-                            if (!loaded || loadState.lastErrorCode != ERROR_NONE ||
-                                (!programLoaded && loadState.numberOfPrograms <= resetState.numberOfPrograms)
-                            ) {
-                                failures += buildFailure(
-                                    fixture = fixture,
-                                    phase = "load",
-                                    state = loadState,
-                                    details = "loaded=$loaded",
-                                )
-                                loadFailed = true
-                            }
-                        }
-                    } finally {
-                        ProgramLoadTestBridge.clearLoadProgramFdOverride()
-                    }
-
-                    if (loadFailed || loadState == null) {
-                        continue
-                    }
-
-                    if (!seedFixtureRuntime(fixture)) {
-                        failures += buildFailure(
-                            fixture = fixture,
-                            phase = "seed",
-                            state = loadState,
-                            details = fixture.seedFailureMessage,
-                        )
-                        continue
-                    }
-
-                    val runFailure = runFixtureScenario(fixture, loadState)
-                    if (runFailure != null) {
-                        failures += runFailure
-                    }
-                }
+                reportStatus("Native runtime ready; loading and running ${fixture.displayName}\n")
+                failure = exerciseFixture(fixture, targetProgramFile)
             }
         } finally {
             ProgramLoadTestBridge.clearLoadProgramFdOverride()
         }
 
         assertTrue(
-            "Program fixture load-and-run failures:\n${failures.joinToString(separator = "\n")}",
-            failures.isEmpty(),
+            "Program fixture load-and-run failure:\n${failure ?: "unknown failure"}",
+            failure == null,
         )
     }
 
-    private fun collectProgramFixtures(assets: AssetManager): List<ProgramFixture> {
-        return REQUIRED_FIXTURE_SCENARIOS.map { scenario ->
-            val assetPath = "$PROGRAMS_ASSET_ROOT/${scenario.fileName}"
-            ProgramFixture(
-                displayName = "PROGRAMS/${scenario.fileName}",
-                content = assets.open(assetPath).use { input -> input.readBytes() },
-                scenario = scenario,
+    private fun loadProgramFixture(
+        assets: AssetManager,
+        scenario: ProgramFixtureScenario,
+    ): ProgramFixture {
+        val assetPath = "$PROGRAMS_ASSET_ROOT/${scenario.fileName}"
+        return ProgramFixture(
+            displayName = "PROGRAMS/${scenario.fileName}",
+            content = assets.open(assetPath).use { input -> input.readBytes() },
+            scenario = scenario,
+        )
+    }
+
+    private fun requireProgramFixtureScenario(fileName: String): ProgramFixtureScenario {
+        return REQUIRED_FIXTURE_SCENARIOS_BY_NAME[fileName]
+            ?: error("Missing PROGRAMS fixture scenario for $fileName")
+    }
+
+    private fun exerciseFixture(
+        fixture: ProgramFixture,
+        targetProgramFile: File,
+    ): String? {
+        ProgramLoadTestBridge.resetRuntime()
+        val resetState = ProgramLoadTestBridge.snapshotState()
+        if (resetState.lastErrorCode != ERROR_NONE || resetState.numberOfPrograms != EMPTY_RESET_PROGRAM_COUNT) {
+            return buildFailure(
+                fixture = fixture,
+                phase = "reset",
+                state = resetState,
+                details = "expected the empty reset baseline before staging the next fixture",
             )
         }
+
+        writeFixtureToProgramFile(fixture, targetProgramFile)
+        if (ProgramLoadTestBridge.isSimFunctionRunning()) {
+            return buildFailure(
+                fixture = fixture,
+                phase = "load",
+                state = null,
+                details = "READP worker was still running before the fixture started",
+            )
+        }
+
+        val stagedProgramFd = try {
+            ParcelFileDescriptor.open(targetProgramFile, ParcelFileDescriptor.MODE_READ_ONLY)?.detachFd()
+        } catch (error: Exception) {
+            return buildFailure(
+                fixture = fixture,
+                phase = "load",
+                state = null,
+                details = "failed to open staged program file: ${error.message ?: error.javaClass.simpleName}",
+            )
+        }
+        if (stagedProgramFd == null) {
+            return buildFailure(
+                fixture = fixture,
+                phase = "load",
+                state = null,
+                details = "failed to open staged program file",
+            )
+        }
+
+        var loadState: ProgramLoadState? = null
+        var loadFailure: String? = null
+        ProgramLoadTestBridge.setNextLoadProgramFd(stagedProgramFd)
+        try {
+            val started = ProgramLoadTestBridge.beginSimFunction(ITM_READP)
+            if (!started) {
+                loadFailure = buildFailure(
+                    fixture = fixture,
+                    phase = "load",
+                    state = null,
+                    details = "failed to start the asynchronous READP worker",
+                )
+            } else {
+                val loaded = waitUntil(LOAD_TIMEOUT_MS) {
+                    if (ProgramLoadTestBridge.isSimFunctionRunning()) {
+                        return@waitUntil false
+                    }
+                    val state = ProgramLoadTestBridge.snapshotState()
+                    state.lastErrorCode != ERROR_NONE ||
+                        state.numberOfPrograms > resetState.numberOfPrograms ||
+                        state.temporaryInformation == TI_PROGRAM_LOADED
+                }
+                if (ProgramLoadTestBridge.isSimFunctionRunning()) {
+                    loadFailure = buildFailure(
+                        fixture = fixture,
+                        phase = "load",
+                        state = null,
+                        details = "READP did not return within ${LOAD_TIMEOUT_MS} ms",
+                    )
+                }
+
+                loadState = ProgramLoadTestBridge.snapshotState()
+                val currentLoadState = loadState
+                val programLoaded = currentLoadState.temporaryInformation == TI_PROGRAM_LOADED
+                if (!loaded || currentLoadState.lastErrorCode != ERROR_NONE ||
+                    (!programLoaded && currentLoadState.numberOfPrograms <= resetState.numberOfPrograms)
+                ) {
+                    loadFailure = buildFailure(
+                        fixture = fixture,
+                        phase = "load",
+                        state = currentLoadState,
+                        details = "loaded=$loaded",
+                    )
+                }
+            }
+        } finally {
+            ProgramLoadTestBridge.clearLoadProgramFdOverride()
+        }
+
+        if (loadFailure != null) {
+            return loadFailure
+        }
+
+        val loadedFixtureState = loadState
+            ?: return buildFailure(
+                fixture = fixture,
+                phase = "load",
+                state = null,
+                details = "fixture load did not produce a terminal state snapshot",
+            )
+
+        if (!seedFixtureRuntime(fixture)) {
+            return buildFailure(
+                fixture = fixture,
+                phase = "seed",
+                state = loadedFixtureState,
+                details = fixture.seedFailureMessage,
+            )
+        }
+
+        return runFixtureScenario(fixture, loadedFixtureState)
     }
 
     private fun seedFixtureRuntime(fixture: ProgramFixture): Boolean {
@@ -468,5 +497,6 @@ class ProgramFixtureInstrumentedTest {
                 stopAfterActivityMs = 0L,
             ),
         )
+        private val REQUIRED_FIXTURE_SCENARIOS_BY_NAME = REQUIRED_FIXTURE_SCENARIOS.associateBy { it.fileName }
     }
 }

@@ -90,7 +90,11 @@ It:
 - provisions Java 17 and the pinned `xlsxio` toolchain
 - syncs the authoritative upstream tree
 - runs `make test`
-- runs `scripts/workload-regressions/run_workload_regressions.sh`
+- runs `scripts/workload-regressions/run_workload_regressions.sh`, which
+  isolates each required fixture in its own host process and applies the same
+  timeout-and-kill safety net to every canonical `PROGRAMS` selection, while
+  still treating `MANSLV2` as the maintained direct-stop probe inside that
+  framework
 
 Use this lane as the first reference when a change looks like shared core,
 Meson, or wait or progress compatibility drift rather than Android UI drift.
@@ -137,18 +141,23 @@ It:
 - assembles the instrumentation APKs
 - runs `:app:testDebugUnitTest`
 - creates or restores an `x86_64` emulator snapshot
-- runs `:app:connectedDebugAndroidTest` with the temporary ABI override from
-  `r47.abiFilters`
+- runs `scripts/android/run_connected_android_tests.sh`, which invokes
+  `connectedDebugAndroidTest` once per non-fixture instrumentation class and
+  once per canonical `PROGRAMS` fixture method with the temporary ABI override
+  from `r47.abiFilters`
 - uploads logs plus JVM and instrumentation reports in the Android test artifact
   bundle `r47-android-tests-<upstream short>-<android short>`
 
 The hosted instrumentation lane currently relies on two distinct Android-owned
 contracts:
 
-- `ProgramFixtureInstrumentedTest` for the READP load-and-run matrix over
-  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47`, with `MANSLV2` treated as a bounded interrupt scenario that
-  reuses the same native direct-stop publisher as live `R/S` and `EXIT`
+- `ProgramFixtureInstrumentedTest` plus
+  `scripts/android/run_connected_android_tests.sh` for the READP load-and-run
+  matrix over `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `SPIRALk.p47`. Each `.p47` file now runs as its own filtered
+  `connectedDebugAndroidTest` selection under GNU `timeout --kill-after`, with
+  `MANSLV2` still treated as the bounded interrupt scenario that reuses the
+  same native direct-stop publisher as live `R/S` and `EXIT`
 - `DisplayLifecycleInstrumentedTest` for passive lifecycle LCD preservation and
   first-stop graph cleanup so background save, a Settings-style pause or
   resume, activity recreation, and the first direct stop on staged `SPIRALk`

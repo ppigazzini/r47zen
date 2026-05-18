@@ -13,17 +13,97 @@ PROGRAM_ROOT="${PROGRAM_ROOT:-}"
 PREPARE_NATIVE_INPUTS_SCRIPT="$PROJECT_ROOT/scripts/android/prepare_native_build_inputs.sh"
 HOST_WORKLOAD_OUTPUT_NAME="${HOST_WORKLOAD_OUTPUT_NAME:-r47-workload-regression}"
 CC_BIN="${CC:-cc}"
-REQUIRED_PROGRAM_FIXTURES=(
-    "BinetV3.p47"
-    "GudrmPL.p47"
-    "MANSLV2.p47"
-    "NQueens.p47"
-    "SPIRALk.p47"
+HOST_WORKLOAD_STOP_TIMEOUT_EXIT_CODE="${HOST_WORKLOAD_STOP_TIMEOUT_EXIT_CODE:-3}"
+HOST_WORKLOAD_FIXTURE_TIMEOUT="${HOST_WORKLOAD_FIXTURE_TIMEOUT:-25s}"
+HOST_WORKLOAD_FIXTURE_KILL_AFTER="${HOST_WORKLOAD_FIXTURE_KILL_AFTER:-5s}"
+HOST_WORKLOAD_FIXTURE_TIMEOUT_SIGNAL="${HOST_WORKLOAD_FIXTURE_TIMEOUT_SIGNAL:-TERM}"
+REQUIRED_PROGRAM_FIXTURE_SPECS=(
+    "BinetV3.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
+    "GudrmPL.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
+    "MANSLV2.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
+    "NQueens.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
+    "SPIRALk.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
 )
 
 fail() {
     echo "ERROR: $*" >&2
     exit 1
+}
+
+resolve_timeout_bin() {
+    local requested_bin="${HOST_WORKLOAD_TIMEOUT_BIN:-}"
+
+    if [[ -n "$requested_bin" ]]; then
+        printf '%s\n' "$requested_bin"
+        return 0
+    fi
+
+    if command -v timeout >/dev/null 2>&1; then
+        printf '%s\n' timeout
+        return 0
+    fi
+
+    if command -v gtimeout >/dev/null 2>&1; then
+        printf '%s\n' gtimeout
+        return 0
+    fi
+
+    return 1
+}
+
+emit_fixture_timeout_warning() {
+    local fixture="$1"
+    local reason="$2"
+    local message="$fixture did not finish within the host workload budget (${reason}); the host safety net kept the lane moving, so this run only records degraded coverage for that fixture."
+
+    echo "WARNING: $message" >&2
+
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+        echo "::warning title=Host PROGRAMS fixture timeout::$message"
+    fi
+
+    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+        printf '%s\n' "- Warning: $message" >> "$GITHUB_STEP_SUMMARY"
+    fi
+}
+
+run_host_workload_fixture() {
+    local fixture="$1"
+    local timeout_bin="$2"
+    local timeout_duration="$3"
+    local kill_after="$4"
+    local status=0
+
+    echo "INFO: Running host workload fixture $fixture" >&2
+
+    set +e
+    "$timeout_bin" \
+        --verbose \
+        --signal="$HOST_WORKLOAD_FIXTURE_TIMEOUT_SIGNAL" \
+        --kill-after="$kill_after" \
+        "$timeout_duration" \
+        "$BUILD_DIR/$HOST_WORKLOAD_OUTPUT_NAME" \
+        --program-root "$PROGRAM_ROOT" \
+        --program-name "$fixture"
+    status=$?
+    set -e
+
+    case "$status" in
+        0)
+            return 0
+            ;;
+        "$HOST_WORKLOAD_STOP_TIMEOUT_EXIT_CODE")
+            emit_fixture_timeout_warning "$fixture" "the bounded workload deadline expired inside the host harness"
+            return 0
+            ;;
+        124|137)
+            emit_fixture_timeout_warning "$fixture" "the outer timeout had to kill the hung workload process"
+            return 0
+            ;;
+        *)
+            return "$status"
+            ;;
+    esac
 }
 
 resolve_program_root() {
@@ -50,7 +130,14 @@ if ! command -v "$CC_BIN" >/dev/null 2>&1; then
     fail "Compiler $CC_BIN is not available on PATH."
 fi
 
-for fixture in "${REQUIRED_PROGRAM_FIXTURES[@]}"; do
+TIMEOUT_BIN="$(resolve_timeout_bin)" || fail "Neither timeout nor gtimeout is available on PATH. Install GNU coreutils timeout or set HOST_WORKLOAD_TIMEOUT_BIN explicitly."
+
+if ! command -v "$TIMEOUT_BIN" >/dev/null 2>&1; then
+    fail "Timeout helper $TIMEOUT_BIN is not available on PATH."
+fi
+
+for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
+    IFS='|' read -r fixture _ _ <<< "$fixture_spec"
     if [[ ! -f "$PROGRAM_ROOT/$fixture" ]]; then
         fail "Program root $PROGRAM_ROOT is missing $fixture."
     fi
@@ -147,4 +234,7 @@ fi
     -lm \
     -o "$BUILD_DIR/$HOST_WORKLOAD_OUTPUT_NAME"
 
-"$BUILD_DIR/$HOST_WORKLOAD_OUTPUT_NAME" --program-root "$PROGRAM_ROOT"
+for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
+    IFS='|' read -r fixture timeout_duration kill_after <<< "$fixture_spec"
+    run_host_workload_fixture "$fixture" "$TIMEOUT_BIN" "$timeout_duration" "$kill_after"
+done

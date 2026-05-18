@@ -220,13 +220,19 @@ Important files include:
   direct-stop publication, and state snapshots, including a visible-LCD
   snapshot hash that ignores transport dirty flags
 - `ProgramFixtureInstrumentedTest.kt`: stages canonical `PROGRAMS` fixtures and
-  drives `READP` plus `RUN` through the live Android runtime for
-  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47`
+  exposes one Android test method per required fixture so the hosted emulator
+  lane can run `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `SPIRALk.p47` as isolated filtered `connectedDebugAndroidTest` selections
+- `scripts/android/run_connected_android_tests.sh`: owns the hosted emulator
+  wrapper that runs non-fixture instrumentation classes directly and executes
+  each canonical `PROGRAMS` fixture under GNU `timeout --kill-after`, logging
+  degraded coverage instead of wedging the whole Android step when a selection
+  hangs
 - The connected-device lane now includes a maintained `MANSLV2.p47` interrupt
-  scenario: after observed post-load activity it requests a direct stop
-  through `ProgramLoadTestBridge.requestStopProgram()`, which reuses the same
-  native stop publisher as live `R/S` and `EXIT`. That proves bounded Android
+  scenario inside that shared per-fixture wrapper: after observed post-load
+  activity it requests a direct stop through
+  `ProgramLoadTestBridge.requestStopProgram()`, which reuses the same native
+  stop publisher as live `R/S` and `EXIT`. That proves bounded Android
   interrupt delivery through the owned seam. The remaining gap is narrower:
   there is still no focused device lane proving that a forced-busy keypad
   snapshot path stays responsive under every non-yielding shared-core loop.
@@ -260,12 +266,13 @@ Android compatibility layer.
   core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then loads and
   runs the canonical `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
   `NQueens.p47`, and `SPIRALk.p47` workload fixtures through the host
-  compatibility path; the `MANSLV2` scenario is now maintained as a bounded
-  direct-stop-after-activity probe instead of an optional environment-gated
-  diagnostic
+  compatibility path. Every canonical fixture now runs in its own host process
+  under the same outer timeout-and-kill safety net, while `MANSLV2` remains
+  the bounded direct-stop-after-activity probe inside that framework
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
   contract. It does prove that the shared compatibility path can start all five
-  workloads and accept a bounded direct stop for `MANSLV2` before
+  workloads and accept a bounded direct stop for `MANSLV2`, or record degraded
+  coverage for any individual hung fixture without hanging the lane, before
   Android-shell responsiveness enters the picture.
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` rebuilds that same
   host compatibility path with the pinned NDK Clang and `llvm-profdata` pair
