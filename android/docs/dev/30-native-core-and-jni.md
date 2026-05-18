@@ -176,9 +176,11 @@ supports that model by keeping shared synchronization in native code:
   `DisplayLifecycleInstrumentedTest`. It provides READP or RUN worker control,
   explicit refresh and background-save helpers, LCD refresh count, a
   packed-LCD snapshot hash, the synthetic `00` key path used to resume staged
-  `SPIRALk` runs, and the direct-stop publisher reused by
-  `ProgramFixtureInstrumentedTest` to stop `MANSLV2` through the same native
-  seam as live `R/S` and `EXIT`.
+  `SPIRALk` runs, and the direct-stop publisher plus explicit refresh helper
+  reused by `ProgramFixtureInstrumentedTest` and
+  `DisplayLifecycleInstrumentedTest` to prove bounded `MANSLV2` interrupt
+  delivery and first-stop LCD cleanup through the same native seams as live
+  `R/S`, `EXIT`, and `forceRefreshNative()`.
 - The lifecycle snapshot helper hashes only visible packed LCD bytes. It does
   not hash the row-dirty transport flag that `getPackedDisplayBuffer(...)`
   clears after each successful UI poll.
@@ -196,7 +198,15 @@ supports that model by keeping shared synchronization in native code:
   `EXIT` presses to `requestStopProgramNative()` before queue fallback.
   `requestStopProgramNative()`
   publishes stop intent through the existing upstream `fnStopProgram()` path
-  without taking `screenMutex` or queueing onto `NativeCoreRuntime`.
+  without taking `screenMutex` or queueing onto `NativeCoreRuntime`, and it
+  also marks a pending stop-refresh request.
+- `tick()` in `jni_lifecycle.c` and `yieldToAndroidWithMs()` in
+  `android_runtime.c` are the two core-owned consumption points for that
+  pending stop-refresh request. They re-arm `SCRUPD_AUTO`, set
+  `reDraw = true`, run `refreshScreen(190)`, `refreshLcd(NULL)`, and
+  `lcd_refresh()`, then push `nextScreenRefresh` forward so the first direct
+  stop on a staged `SPIRALk` graph already matches `forceRefreshNative()`
+  without moving redraw work onto the UI thread.
 - Android's official ANR guidance explicitly calls out main-thread lock
   contention as a foreground input-dispatch failure mode. The landed whole-
   snapshot try-copy repair removes the previous split blocking keypad export
@@ -238,6 +248,11 @@ share the same contract.
 - `forceRefreshNative()` routes to `r47_force_refresh()`, which is the explicit
   native redraw path for real state-change owners such as runtime init,
   `loadStateNative()`, and test-owned refresh seams.
+- The direct-stop pending refresh seam is a third owner in this area.
+  `requestStopProgramNative()` publishes only the request; `tick()` and
+  `yieldToAndroidWithMs()` later consume it under `screenMutex`, so first-stop
+  cleanup stays off the UI thread and shares the same full-refresh primitives
+  as `forceRefreshNative()`.
 
 The key distinction is whether the calculator state changed.
 

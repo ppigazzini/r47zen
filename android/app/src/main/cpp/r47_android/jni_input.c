@@ -146,5 +146,6 @@ Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
   }
 
   fnStopProgram(0);
+  r47_request_stop_refresh();
   return JNI_TRUE;
 }

@@ -23,6 +23,8 @@ uint32_t nextScreenRefresh = 0;
 GdkEvent pressEvent;
 GdkEvent releaseEvent;
 
+static volatile bool g_r47_stop_refresh_pending = false;
+
 typedef struct {
   guint id;
   guint interval_ms;
@@ -110,6 +112,23 @@ uint32_t sys_current_ms(void) {
   return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
+void r47_request_stop_refresh(void) { g_r47_stop_refresh_pending = true; }
+
+bool r47_apply_pending_stop_refresh_locked(void) {
+  if (!g_r47_stop_refresh_pending || !ram) {
+    return false;
+  }
+
+  g_r47_stop_refresh_pending = false;
+  screenUpdatingMode = SCRUPD_AUTO;
+  reDraw = true;
+  refreshScreen(190);
+  refreshLcd(NULL);
+  lcd_refresh();
+  nextScreenRefresh = sys_current_ms() + 100;
+  return true;
+}
+
 void yieldToAndroidWithMs(int ms) {
   if (!ram) {
     return;
@@ -123,8 +142,10 @@ void yieldToAndroidWithMs(int ms) {
     nextTimerRefresh = now + 5;
   }
 
-  refreshLcd(NULL);
-  lcd_refresh();
+  if (!r47_apply_pending_stop_refresh_locked()) {
+    refreshLcd(NULL);
+    lcd_refresh();
+  }
 
   int lockCount = 0;
   while (pthread_mutex_unlock(&screenMutex) == 0) {
@@ -142,6 +163,8 @@ void yieldToAndroidWithMs(int ms) {
     pthread_mutex_lock(&screenMutex);
     lockCount--;
   }
+
+  r47_apply_pending_stop_refresh_locked();
 }
 
 void yieldToAndroid(void) { yieldToAndroidWithMs(1); }

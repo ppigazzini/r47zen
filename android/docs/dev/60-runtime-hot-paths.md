@@ -14,8 +14,9 @@ contract-to-regression map that proves these loops.
 | --- | --- | --- | --- | --- |
 | core-thread coordinator | `NativeCoreRuntime` loop while the app is running; drains tasks, calls `tick()`, then waits for queued work up to the returned deadline | `NativeCoreRuntime.kt`, `jni_lifecycle.c` | every Android-owned action reaches the core through this loop | blocking work or queue growth stalls native progress |
 | live stop delivery during RUN | user presses live `R/S` or `EXIT` while a program is already running; `MainActivity` first tries direct stop publication and only falls back to the normal key queue when native state says the run is already idle | `MainActivity.kt`, `ReplicaOverlayController.kt`, `NativeCoreRuntime.kt`, `jni_input.c`, `android_runtime.c` | this is the control-plane path that decides whether Android can publish stop intent without waiting on the core-owner queue | shared-core loops that never observe `programRunStop` can still ignore the published stop and make the app appear hung |
+| direct-stop refresh finalization | after live `R/S` or `EXIT` publishes stop during RUN or PAUSE, native code marks a pending stop-refresh request and the next `tick()` or `yieldToAndroidWithMs()` consumes it under `screenMutex` | `jni_input.c`, `jni_lifecycle.c`, `android_runtime.c` | this is the display-plane path that makes the first stop look finished instead of waiting for a second key press or explicit refresh | if `SCRUPD_AUTO` or `reDraw` is not rearmed here, graph pixels and post-stop text can mix on the first stop |
 | native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms, then returns the next wake delay | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle |
-| frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad labels refresh every 500 ms or on meta change | `NativeDisplayRefreshLoop.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | blocking keypad JNI under `screenMutex` can stall input dispatch and turn a native run into a foreground ANR |
+| frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad snapshots refresh every 500 ms or on generation change | `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | breaking generation or busy-copy handling can regress to stale or blocking keypad refreshes |
 | packed LCD row decode | each accepted LCD update copies only dirty packed rows, decodes them to the bitmap, and invalidates the touched display rows | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
 | keypad scene apply | scene changes update all live key views, invalidate per-key specs, and may request layout | `ReplicaOverlayController.kt`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt` | keypad labels, render specs, and layout are the largest recurring view updates outside the LCD | bypassing the refresh gate or forcing layout or invalidation on unchanged scenes creates churn |
 | lifecycle save and explicit refresh | background save waits on the core thread; explicit redraw remains opt-in for real state changes | `NativeCoreRuntime.kt`, `MainActivity.kt`, `jni_lifecycle.c` | lifecycle callbacks are easy places to hide destructive redraw work | synthetic redraws during passive save or resume mutate the LCD without a real calculator transition |
@@ -63,6 +64,9 @@ flowchart LR
 - Live touchscreen and PiP `R/S` or `EXIT` now bypass that queue through
   `requestStopProgramNative()`, but every other key still follows the normal
   queued path.
+- The direct stop seam is therefore not "more work on the queue". It publishes
+  stop intent immediately and leaves the first-stop full refresh to the native
+  `tick()` or `yieldToAndroidWithMs()` consumption points under `screenMutex`.
 
 Inspect this path when Android requests appear to arrive late, state saves time
 out, or the app behaves as if work is happening on multiple native threads.
@@ -77,6 +81,11 @@ out, or the app behaves as if work is happening on multiple native threads.
 - When the lock is available, timers advance every 5 ms through
   `refreshTimer(NULL)` and the LCD refresh path runs every 100 ms through
   `refreshLcd(NULL)` plus `lcd_refresh()`.
+- Before the ordinary 100 ms LCD refresh, `tick()` now checks
+  `r47_apply_pending_stop_refresh_locked()`. When a live direct stop has
+  published a refresh request, that helper re-arms `SCRUPD_AUTO`, sets
+  `reDraw = true`, runs `refreshScreen(190)`, `refreshLcd(NULL)`, and
+  `lcd_refresh()`, then schedules the next steady-state LCD refresh.
 - After servicing due work, `tick()` returns the next wake delay computed from
   `nextTimerRefresh` and `nextScreenRefresh`, so the Kotlin side can wait on a
   real native deadline instead of a fixed JVM sleep.
@@ -94,22 +103,22 @@ Changes here affect the full runtime even when the Android UI code is untouched.
   forwards accepted packed rows to `ReplicaOverlay.updatePackedLcd(...)`.
 - If the non-blocking packed-buffer copy fails, the same generation is retried
   on the next frame instead of being treated as consumed.
-- The loop still requests keypad metadata through `getKeypadMetaNative(...)`
-  using the current main-key mode code from `ReplicaOverlayController`.
-- When label refresh is needed, the `getKeypadSnapshot(...)` callback resolves
-  to `ReplicaOverlayController.currentKeypadSnapshot()`, which also calls
-  `getKeypadLabelsNative(...)` on the UI thread.
-- `getPackedDisplayBuffer(...)` uses `pthread_mutex_trylock`, but
-  `getKeypadMetaNative(...)` and `getKeypadLabelsNative(...)` in
-  `jni_display.c` still use blocking `pthread_mutex_lock(&screenMutex)`. A
-  non-yielding native run can therefore stall the frame loop even when packed
-  LCD export itself skips cleanly.
-- Label refresh work runs only when either of these is true:
-  - the keypad metadata differs from the last frame
-  - more than 500 ms passed since `lastLabelRefresh`
-- When refresh is needed, the loop converts metadata into `KeypadSnapshot` and
-  forwards it to `ReplicaOverlayController.refreshDynamicKeys(...)`, which may
-  also apply the `virtuoso` blank-keycap composition plus the softkey
+- The loop reads `getKeypadSnapshotGeneration()` and refreshes keypad state
+  only when the generation changed or more than 500 ms passed since
+  `lastLabelRefresh`.
+- `refreshKeypadSnapshot(...)` delegates to
+  `NativeKeypadSnapshotStore.refreshSnapshot(...)`, which owns reusable
+  metadata and label buffers plus one cached `KeypadSnapshot` per main-key
+  mode.
+- `copyKeypadSnapshotNative(...)` assembles one coherent keypad snapshot under
+  a single `pthread_mutex_trylock(&screenMutex)` window. When the lock is busy,
+  the store returns the last accepted snapshot for that mode instead of
+  blocking the UI thread or synthesizing an empty scene.
+- Only a refresh result marked `isUpToDate` advances `lastKeypadGeneration`.
+  That keeps busy skips retryable on the next frame while still letting the
+  renderer reuse the last good snapshot.
+- `ReplicaOverlayController.currentKeypadSnapshot()` still applies the main-key
+  mode transform plus the `virtuoso` blank-keycap composition and softkey
   `graphic` or `off` mask before the renderer path runs.
 
 Do not add a second polling loop for LCD pixels, keypad labels, or scene state.
@@ -154,6 +163,11 @@ if it were visible LCD state.
   path for the current keypad snapshot instead of forcing a native redraw.
 - `r47_force_refresh()` remains the explicit redraw path for real state-change
   owners such as runtime init, state load, and test-owned refresh seams.
+- A live direct stop is not a passive lifecycle transition, but it is also not
+  a UI-thread `forceRefreshNative()` call. `requestStopProgramNative()` only
+  sets up the pending stop-refresh request, and `tick()` or
+  `yieldToAndroidWithMs()` consume it later under `screenMutex` so the first
+  post-stop LCD matches an explicit refresh without corrupting the hot path.
 
 This is the place to inspect first when a theme, settings, or lifecycle change
 corrupts a graph or mixes status text into an otherwise stable LCD snapshot.
@@ -191,8 +205,9 @@ moved into the per-frame LCD path.
 
 - `yieldToAndroidWithMs(...)` in `android_runtime.c` is the long-running native
   yield path.
-- Before sleeping, it refreshes timers when the 5 ms cadence expires,
-  refreshes the LCD, fully releases the recursive `screenMutex`, calls
+- Before sleeping, it advances timers when the 5 ms cadence expires and then
+  either consumes a pending stop-refresh request or runs the ordinary LCD
+  refresh before it fully releases the recursive `screenMutex`, calls
   `processCoreTasksNative()`, sleeps for `ms` or 1 ms, then reacquires the lock
   the same number of times.
 - `requestAndroidFile(...)` in `jni_storage.c` uses the same release and later
@@ -202,9 +217,10 @@ moved into the per-frame LCD path.
   flag and declines new keypad work.
 - `hal/io.c::ioFileOpen(...)` is what sends state, program, RTF export, and
   manual-save traffic onto this boundary in the first place.
-- This path is also the only Android-owned mid-run drain for queued stop input,
-  because `yieldToAndroidWithMs(...)` calls `processCoreTasksNative()` before
-  sleeping.
+- This path is also one of the two core-owned consumption points for the
+  pending stop-refresh handshake because it can reacquire `screenMutex`, apply
+  the full refresh, and then continue the long run. Queued non-stop work still
+  drains through `processCoreTasksNative()` before sleep.
 
 This is the place to inspect first when the app appears hung in a long-running
 program, a save or load operation, or a progress or pause loop.
@@ -214,6 +230,9 @@ program, a save or load operation, or a progress or pause loop.
 - The improved hot path solved the old throughput and redraw issues: the app
   now runs heavy workloads smoothly, keeps LCD updates responsive, and can
   publish live `R/S` or `EXIT` stop intent without waiting on the core queue.
+- The narrower display-plane bug from graph workloads is also fixed on the
+  Android-owned side: direct stop publication now schedules a core-owned full
+  refresh so the first post-stop LCD matches an explicit `forceRefresh()`.
 - The remaining Android-only hang appears when a shared-core program drifts
   into a non-terminating `NaN` loop and never reaches a path that observes
   `programRunStop` or yields back through an Android compatibility seam.
@@ -236,6 +255,10 @@ program, a save or load operation, or a progress or pause loop.
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/ReplicaOverlayGoldenTest.kt`
   covers renderer stability for the borderless native shell and the retained
   top settings-strip interaction.
+- `android/app/src/androidTest/java/io/github/ppigazzini/r47zen/DisplayLifecycleInstrumentedTest.kt`
+  now proves that passive lifecycle edges preserve a staged `SPIRALk` graph and
+  that the first direct stop on that same workload already matches an explicit
+  `forceRefresh()` snapshot.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path across the canonical
   `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and

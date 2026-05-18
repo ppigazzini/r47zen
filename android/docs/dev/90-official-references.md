@@ -98,6 +98,9 @@ flowchart TD
   registration rules.
 - [Develop Android apps with Kotlin](https://developer.android.com/kotlin):
   Android-specific Kotlin guidance and tooling entry point.
+- [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html):
+  official file naming, formatting, immutability, and test-naming guidance for
+  Kotlin maintainability.
 - [Kotlin language documentation](https://kotlinlang.org/docs/home.html):
   language-level reference.
 
@@ -247,6 +250,22 @@ flowchart TD
   press-only keypad pulse for calculator interaction, defaults to the Android
   system response through a dedicated toggle, and reserves the custom
   `0..100 ms` slider for explicit app-owned override behavior.
+- [Keep your app responsive](https://developer.android.com/training/articles/perf-anr):
+  official Android guidance for 5 s input deadlines, minimizing main-thread
+  work, minimizing lock contention, and using Perfetto or CPU profiling when
+  responsiveness regresses.
+- [Rendering](https://developer.android.com/topic/performance/rendering):
+  official entry point for reducing overdraw, optimizing view hierarchies, and
+  using Profile GPU Rendering on View-based UI.
+- [Slow rendering](https://developer.android.com/topic/performance/vitals/render):
+  official jank and frozen-frame guidance for the 16 ms, 700 ms, and 5 s
+  thresholds, plus the UI-thread and `RenderThread` split used when diagnosing
+  rendering regressions.
+- [BufferQueue and Gralloc](https://source.android.com/docs/core/graphics/arch-bq-gralloc):
+  AOSP graphics-pipeline reference explaining that Android already moves
+  graphics buffers through `BufferQueue` by handle rather than by copying.
+  Use this when evaluating and rejecting app-local triple buffering for a
+  View-based LCD path.
 - [Haptics design principles](https://developer.android.com/develop/ui/views/haptics/haptics-principles):
   official Android guidance for subtle frequent touch feedback, matching
   effect strength to event importance, and avoiding overly long or buzzy

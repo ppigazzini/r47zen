@@ -149,11 +149,12 @@ contracts:
   `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
   `SPIRALk.p47`, with `MANSLV2` treated as a bounded interrupt scenario that
   reuses the same native direct-stop publisher as live `R/S` and `EXIT`
-- `DisplayLifecycleInstrumentedTest` for passive lifecycle LCD preservation so
-  background save and a Settings-style pause or resume keep the visible packed
-  LCD snapshot stable on a staged `SPIRALk` graph, with retrying synthetic
-  `00` resumes while paused and a `90 s` hosted-emulator budget for that
-  heavier probe
+- `DisplayLifecycleInstrumentedTest` for passive lifecycle LCD preservation and
+  first-stop graph cleanup so background save, a Settings-style pause or
+  resume, activity recreation, and the first direct stop on staged `SPIRALk`
+  keep or converge to the correct visible packed LCD snapshot, with retrying
+  synthetic `00` resumes while paused and a `90 s` hosted-emulator budget for
+  that heavier probe
 
 Use this lane when the task touches SAF, lifecycle, activity behavior,
 instrumentation fixtures, or Android-only test seams.

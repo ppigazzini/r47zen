@@ -19,7 +19,7 @@ verification surfaces.
 | --- | --- | --- | --- | --- |
 | runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and `updateNativeActivityRef()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach stays display-passive |
 | lifecycle save, load, and explicit refresh | `saveStateNative()`, `loadStateNative()`, `forceRefreshNative()` | `jni_lifecycle.c` | `saveCalc()`, `restoreCalc()`, `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` | `saveStateNative()` must stay display-passive for background save; redraw belongs only to real state loads or explicit refresh owners |
-| direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop without taking `screenMutex`; the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
+| direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `setLcdColors()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()`, `getKeypadMetaNative()`, `getKeypadLabelsNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, compatibility `screenData`, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work, `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early when the lock is busy, and the legacy split keypad getters remain compatibility surfaces rather than the hot UI path |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to activity callbacks | `requestFile()`, `playTone()`, `stopTone()`, `processCoreTasks()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned, and reattach must not redraw the LCD |
@@ -95,6 +95,11 @@ flowchart LR
   When native code reports that no program is running or paused, the same key
   falls back to the normal queued `sendKey(...)` path and keeps its standard
   calculator meaning.
+- That direct seam is intentionally two-phase. `requestStopProgramNative()`
+  publishes stop intent immediately and also marks a pending stop-refresh
+  request; `tick()` or `yieldToAndroidWithMs()` later consume that request
+  under `screenMutex` so the first post-stop LCD matches an explicit refresh
+  without moving redraw work onto the UI thread.
 - That queue-bound control path is not the whole Android ANR story. Touch
   dispatch itself stays lightweight; the stronger current suspect is the
   main-thread snapshot export path in `NativeDisplayRefreshLoop`.
@@ -207,9 +212,10 @@ yield behavior.
   process, sleep, and reacquire pattern for long-running native work. It also
   advances timers every 5 ms, refreshes the LCD, and calls
   `processCoreTasksNative()` before sleeping.
-- That makes `yieldToAndroidWithMs(...)` the only Android-owned mid-run bridge
-  that can currently drain queued stop input while a long shared-core run is
-  still executing.
+- That makes `yieldToAndroidWithMs(...)` both the Android-owned mid-run bridge
+  that can drain queued non-stop work while a long shared-core run is still
+  executing and one of the two core-owned consumption points for the pending
+  stop-refresh request published by `requestStopProgramNative()`.
 - The base path configured by `nativePreInit(...)` and the SAF work-directory
   URI owned by `WorkDirectory` are separate contracts. The docs and code must
   keep them separate.

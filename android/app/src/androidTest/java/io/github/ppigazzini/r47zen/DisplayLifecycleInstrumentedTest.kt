@@ -138,6 +138,61 @@ class DisplayLifecycleInstrumentedTest {
         }
     }
 
+    @Test
+    fun directStopMatchesForcedRefreshSpiralkSnapshot() {
+        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
+        val spiralkFixture = targetContext.assets.open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
+
+        ActivityScenario.launch(MainActivity::class.java).use {
+            assertTrue(
+                "Native runtime did not become ready for SPIRALk direct-stop coverage",
+                waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
+            )
+
+            ProgramLoadTestBridge.resetRuntime()
+            val loadState = loadProgramFixture(targetProgramFile, spiralkFixture)
+            assertTrue(
+                "failed to seed SPIRALk register J with 2",
+                ProgramLoadTestBridge.seedSpiralkInput(),
+            )
+
+            val loadStep = loadState.currentLocalStepNumber
+            assertTrue(
+                "failed to start the asynchronous MainActivity R/S key worker for SPIRALk direct-stop coverage",
+                ProgramLoadTestBridge.beginMainActivityKeySequence(RS_KEY_CODE),
+            )
+            assertTrue(
+                "SPIRALk did not show any run-side display activity before direct stop",
+                waitForRunActivity(loadStep),
+            )
+
+            assertTrue(
+                "direct stop request was not accepted while SPIRALk was running",
+                ProgramLoadTestBridge.requestStopProgram(),
+            )
+            assertTrue(
+                "direct stop did not settle SPIRALk in time",
+                waitUntil(DIRECT_STOP_TIMEOUT_MS) {
+                    val state = ProgramLoadTestBridge.snapshotState()
+                    !ProgramLoadTestBridge.isSimFunctionRunning() &&
+                        state.programRunStop != PGM_RUNNING &&
+                        state.programRunStop != PGM_PAUSED
+                },
+            )
+
+            val firstStopHash = ProgramLoadTestBridge.captureDisplayHash()
+            ProgramLoadTestBridge.forceRefresh()
+            val forcedRefreshHash = ProgramLoadTestBridge.captureDisplayHash()
+
+            assertEquals(
+                "The first direct stop should already produce the same packed LCD snapshot as a forced refresh",
+                forcedRefreshHash,
+                firstStopHash,
+            )
+        }
+    }
+
     private fun loadProgramFixture(targetProgramFile: File, content: ByteArray): ProgramLoadState {
         targetProgramFile.parentFile?.mkdirs()
         targetProgramFile.delete()
@@ -249,6 +304,26 @@ class DisplayLifecycleInstrumentedTest {
         return condition()
     }
 
+    private fun waitForRunActivity(loadStep: Int): Boolean {
+        var maxStep = loadStep
+        var sawPause = false
+        var sawWaiting = false
+        var sawView = false
+        var sawLcdRefresh = false
+
+        return waitUntil(RUN_ACTIVITY_TIMEOUT_MS) {
+            val state = ProgramLoadTestBridge.snapshotState()
+            if (state.currentLocalStepNumber > maxStep) {
+                maxStep = state.currentLocalStepNumber
+            }
+            sawPause = sawPause || state.programRunStop == PGM_PAUSED
+            sawWaiting = sawWaiting || state.programRunStop == PGM_WAITING
+            sawView = sawView || state.temporaryInformation == TI_VIEW_REGISTER
+            sawLcdRefresh = sawLcdRefresh || state.lcdRefreshCount > 0
+            maxStep > loadStep || sawPause || sawWaiting || sawView || sawLcdRefresh
+        }
+    }
+
     private companion object {
         private const val SPIRALK_ASSET_PATH = "program-fixtures/PROGRAMS/SPIRALk.p47"
         private const val ITM_READP = 1567
@@ -256,11 +331,14 @@ class DisplayLifecycleInstrumentedTest {
         private const val ERROR_NONE = 0
         private const val TI_VIEW_REGISTER = 15
         private const val TI_PROGRAM_LOADED = 86
+        private const val PGM_RUNNING = 1
         private const val PGM_WAITING = 2
         private const val PGM_PAUSED = 3
         private const val RUNTIME_READY_TIMEOUT_MS = 15_000L
         private const val LOAD_TIMEOUT_MS = 10_000L
         private const val RUN_TIMEOUT_MS = 90_000L
+        private const val RUN_ACTIVITY_TIMEOUT_MS = 15_000L
+        private const val DIRECT_STOP_TIMEOUT_MS = 15_000L
         private const val POLL_INTERVAL_MS = 25L
         private const val PAUSE_RESUME_SETTLE_MS = 50L
         private const val PAUSE_RESUME_RETRY_MS = 1_000L

@@ -88,6 +88,23 @@ Current honest follow-up:
   bug should now be classified as shared-core stop observation rather than as
   Android queue starvation or UI-thread keypad export blocking
 
+## Follow-up status (2026-05-18)
+
+A narrower display-plane bug remained after the queue and snapshot repairs.
+
+- direct stop could publish `programRunStop` quickly, but the first post-stop
+  LCD on a staged `SPIRALk` graph did not always traverse the same full-refresh
+  path as `forceRefresh()`
+- Android now fixes that follow-up in its own bridge layer:
+  `requestStopProgramNative()` also publishes a pending stop-refresh request,
+  and `tick()` plus `yieldToAndroidWithMs()` consume it later under
+  `screenMutex`
+- the consuming helper re-arms `SCRUPD_AUTO`, sets `reDraw = true`, and runs
+  the same full LCD refresh primitives as the explicit refresh seam
+- `DisplayLifecycleInstrumentedTest#directStopMatchesForcedRefreshSpiralkSnapshot`
+  is the focused Android proof, and `REPORT-15-LCD-SCREEN.md` now carries the
+  rendering-specific analysis
+
 ## Problem statement
 
 Observed behavior:

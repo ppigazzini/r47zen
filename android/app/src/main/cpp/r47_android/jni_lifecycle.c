@@ -173,7 +173,9 @@ JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
     refreshTimer(NULL);
     nextTimerRefresh = now + 5;
   }
-  if (nextScreenRefresh <= now) {
+  if (r47_apply_pending_stop_refresh_locked()) {
+    now = sys_current_ms();
+  } else if (nextScreenRefresh <= now) {
     refreshLcd(NULL);
     lcd_refresh();
     nextScreenRefresh = now + 100;
