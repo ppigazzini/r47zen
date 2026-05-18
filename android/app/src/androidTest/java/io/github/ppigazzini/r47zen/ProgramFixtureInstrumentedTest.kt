@@ -234,9 +234,50 @@ class ProgramFixtureInstrumentedTest {
         var resumeAttempts = 0
         var lastDirectStopAttemptAtMs = 0L
         var lastResumeAttemptAtMs = 0L
+        var snapshotMisses = 0
+        val runStartedAtMs = SystemClock.elapsedRealtime()
+        var lastObservedState = loadState
+        var sawAcceptedDirectStop = false
+
+        fun maybeRequestDirectStop(now: Long) {
+            if (fixture.scenario.stopPolicy != StopPolicy.DIRECT_STOP_AFTER_ACTIVITY) {
+                return
+            }
+
+            val directStopAnchorMs = if (activityStartedAtMs != 0L) {
+                activityStartedAtMs
+            } else {
+                runStartedAtMs
+            }
+            if (now - directStopAnchorMs < fixture.scenario.stopAfterActivityMs ||
+                now - lastDirectStopAttemptAtMs < DIRECT_STOP_RETRY_MS
+            ) {
+                return
+            }
+
+            if (ProgramLoadTestBridge.requestStopProgram()) {
+                requestedDirectStop = true
+                sawAcceptedDirectStop = true
+                directStopRequests += 1
+                if (activityStartedAtMs == 0L) {
+                    activityStartedAtMs = now
+                }
+            }
+            lastDirectStopAttemptAtMs = now
+        }
 
         val completed = waitUntil(fixture.scenario.timeoutMs) {
-            val state = ProgramLoadTestBridge.snapshotState()
+            val now = SystemClock.elapsedRealtime()
+            val state = ProgramLoadTestBridge.trySnapshotState()
+            if (state == null) {
+                snapshotMisses += 1
+
+                maybeRequestDirectStop(now)
+
+                return@waitUntil !ProgramLoadTestBridge.isSimFunctionRunning()
+            }
+
+            lastObservedState = state
             if (state.currentLocalStepNumber > maxStep) {
                 maxStep = state.currentLocalStepNumber
             }
@@ -245,8 +286,9 @@ class ProgramFixtureInstrumentedTest {
             sawWaiting = sawWaiting || state.programRunStop == PGM_WAITING
             sawView = sawView || state.temporaryInformation == TI_VIEW_REGISTER
             sawLcdRefresh = sawLcdRefresh || state.lcdRefreshCount > 0
-            val hasRunActivity = maxStep > loadStep || sawPause || sawWaiting || sawView || sawLcdRefresh
-            val now = SystemClock.elapsedRealtime()
+            val hasRunActivity =
+                maxStep > loadStep || sawPause || sawWaiting || sawView || sawLcdRefresh ||
+                    sawAcceptedDirectStop
 
             if (hasRunActivity && activityStartedAtMs == 0L) {
                 activityStartedAtMs = now
@@ -264,37 +306,30 @@ class ProgramFixtureInstrumentedTest {
                 lastResumeAttemptAtMs = SystemClock.elapsedRealtime()
             }
 
-            if (
-                fixture.scenario.stopPolicy == StopPolicy.DIRECT_STOP_AFTER_ACTIVITY &&
-                activityStartedAtMs != 0L &&
-                now - activityStartedAtMs >= fixture.scenario.stopAfterActivityMs &&
-                now - lastDirectStopAttemptAtMs >= DIRECT_STOP_RETRY_MS &&
-                (state.programRunStop == PGM_RUNNING || state.programRunStop == PGM_PAUSED)
-            ) {
-                if (ProgramLoadTestBridge.requestStopProgram()) {
-                    requestedDirectStop = true
-                    directStopRequests += 1
-                }
-                lastDirectStopAttemptAtMs = now
-            }
+            maybeRequestDirectStop(now)
 
             wasPaused = isPaused
 
             state.lastErrorCode != ERROR_NONE || !ProgramLoadTestBridge.isSimFunctionRunning()
         }
 
-        val finalState = ProgramLoadTestBridge.snapshotState()
+        val workerStillRunning = ProgramLoadTestBridge.isSimFunctionRunning()
+        val finalState = if (workerStillRunning) {
+            ProgramLoadTestBridge.trySnapshotState() ?: lastObservedState
+        } else {
+            ProgramLoadTestBridge.snapshotState()
+        }
         sawPause = sawPause || finalState.programRunStop == PGM_PAUSED
         sawWaiting = sawWaiting || finalState.programRunStop == PGM_WAITING
         sawView = sawView || finalState.temporaryInformation == TI_VIEW_REGISTER
         sawLcdRefresh = sawLcdRefresh || finalState.lcdRefreshCount > 0
 
-        if (!completed || ProgramLoadTestBridge.isSimFunctionRunning()) {
+        if (!completed || workerStillRunning) {
             return buildFailure(
                 fixture = fixture,
                 phase = "run",
                 state = finalState,
-                details = "RUN did not return within ${fixture.scenario.timeoutMs} ms (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh, resumeAttempts=$resumeAttempts, finalRunStop=${finalState.programRunStop}, finalStep=${finalState.currentLocalStepNumber})",
+                details = "RUN did not return within ${fixture.scenario.timeoutMs} ms (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh, directStopAccepted=$sawAcceptedDirectStop, resumeAttempts=$resumeAttempts, snapshotMisses=$snapshotMisses, finalRunStop=${finalState.programRunStop}, finalStep=${finalState.currentLocalStepNumber})",
             )
         }
         if (finalState.lastErrorCode != ERROR_NONE) {
@@ -305,12 +340,19 @@ class ProgramFixtureInstrumentedTest {
                 details = "RUN hit calculator error ${finalState.lastErrorCode}",
             )
         }
-        if (maxStep <= loadStep && !sawPause && !sawWaiting && !sawView && !sawLcdRefresh) {
+        if (
+            maxStep <= loadStep &&
+            !sawPause &&
+            !sawWaiting &&
+            !sawView &&
+            !sawLcdRefresh &&
+            !sawAcceptedDirectStop
+        ) {
             return buildFailure(
                 fixture = fixture,
                 phase = "run",
                 state = finalState,
-                details = "workload never showed run activity after load (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh)",
+                details = "workload never showed run activity after load (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh, directStopAccepted=$sawAcceptedDirectStop)",
             )
         }
         if (fixture.scenario.stopPolicy == StopPolicy.DIRECT_STOP_AFTER_ACTIVITY && !requestedDirectStop) {
@@ -331,7 +373,7 @@ class ProgramFixtureInstrumentedTest {
         }
 
         reportStatus(
-            "${fixture.displayName} ran (load_step=$loadStep, max_step=$maxStep, pause=${yesNo(sawPause)}, waiting=${yesNo(sawWaiting)}, view=${yesNo(sawView)}, lcdRefresh=${yesNo(sawLcdRefresh)}, directStop=${yesNo(requestedDirectStop)}, directStopRequests=$directStopRequests)\n",
+            "${fixture.displayName} ran (load_step=$loadStep, max_step=$maxStep, pause=${yesNo(sawPause)}, waiting=${yesNo(sawWaiting)}, view=${yesNo(sawView)}, lcdRefresh=${yesNo(sawLcdRefresh)}, directStop=${yesNo(requestedDirectStop)}, directStopAccepted=${yesNo(sawAcceptedDirectStop)}, directStopRequests=$directStopRequests, snapshotMisses=$snapshotMisses)\n",
         )
         return null
     }

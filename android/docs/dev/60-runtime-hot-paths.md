@@ -266,9 +266,11 @@ program, a save or load operation, or a progress or pause loop.
   the same outer timeout-and-kill safety net, while `MANSLV2` stays the
   maintained direct-stop-after-activity scenario inside that framework.
 - There is now focused automated Android coverage proving that the direct-stop
-  publisher can interrupt a maintained `MANSLV2` run after observed activity.
-  There is still no focused automated lane proving that keypad snapshot export
-  itself stays non-blocking on the UI thread during the same class of
+  publisher can interrupt the required `MANSLV2` bounded-stop regression after
+  observed activity, and the Android wrapper now treats a timed-out
+  `MANSLV2` selection as a hard failure instead of degraded coverage. There is
+  still no focused automated lane proving that keypad snapshot export itself
+  stays non-blocking on the UI thread during the same class of
   deliberately non-yielding run.
 - `./scripts/android/build_android.sh --run-sim-tests` keeps the Android full
   build path aligned with the `build.sim` Meson and Ninja lane.

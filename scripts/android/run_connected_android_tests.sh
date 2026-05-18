@@ -11,6 +11,15 @@ PROGRAM_FIXTURE_TEST_CLASS="io.github.ppigazzini.r47zen.ProgramFixtureInstrument
 R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT="${R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT:-6m}"
 R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER="${R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER:-30s}"
 R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT_SIGNAL="${R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT_SIGNAL:-TERM}"
+NON_FIXTURE_TEST_CLASSES=(
+    "io.github.ppigazzini.r47zen.FactorsInstrumentedTest"
+    "io.github.ppigazzini.r47zen.DisplayLifecycleInstrumentedTest"
+    "io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest"
+    "io.github.ppigazzini.r47zen.StorageAccessCoordinatorInstrumentedTest"
+)
+REQUIRED_CONNECTED_ANDROID_SELECTIONS=(
+    "PROGRAMS/MANSLV2.p47"
+)
 
 fail() {
     echo "ERROR: $*" >&2
@@ -70,6 +79,19 @@ sanitize_label() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-'
 }
 
+selection_requires_timeout_failure() {
+    local selection_name="$1"
+    local required_selection
+
+    for required_selection in "${REQUIRED_CONNECTED_ANDROID_SELECTIONS[@]}"; do
+        if [[ "$selection_name" == "$required_selection" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 emit_fixture_timeout_warning() {
     local fixture="$1"
     local reason="$2"
@@ -83,6 +105,23 @@ emit_fixture_timeout_warning() {
 
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         printf '%s\n' "- Warning: $message" >> "$GITHUB_STEP_SUMMARY"
+    fi
+}
+
+emit_required_fixture_timeout_error() {
+    local fixture="$1"
+    local reason="$2"
+    local log_file="$3"
+    local message="$fixture did not finish within the Android fixture budget (${reason}); this required connected-test selection now fails the Android lane. See $log_file."
+
+    echo "ERROR: $message" >&2
+
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+        echo "::error title=Required Android PROGRAMS fixture timeout::$message"
+    fi
+
+    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+        printf '%s\n' "- Error: $message" >> "$GITHUB_STEP_SUMMARY"
     fi
 }
 
@@ -179,11 +218,10 @@ R47_ANDROID_APPLICATION_ID="$(read_default_property R47_DEFAULT_ANDROID_APPLICAT
 R47_DEBUG_APPLICATION_ID="${R47_ANDROID_APPLICATION_ID}.debug"
 R47_DEBUG_TEST_APPLICATION_ID="${R47_DEBUG_APPLICATION_ID}.test"
 
+NON_FIXTURE_TEST_FILTER="$(IFS=,; printf '%s' "${NON_FIXTURE_TEST_CLASSES[*]}")"
+
 TEST_SELECTION_SPECS=(
-    "FactorsInstrumentedTest|io.github.ppigazzini.r47zen.FactorsInstrumentedTest||"
-    "DisplayLifecycleInstrumentedTest|io.github.ppigazzini.r47zen.DisplayLifecycleInstrumentedTest||"
-    "GraphRedrawInstrumentedTest|io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest||"
-    "StorageAccessCoordinatorInstrumentedTest|io.github.ppigazzini.r47zen.StorageAccessCoordinatorInstrumentedTest||"
+    "NonFixtureInstrumentation|$NON_FIXTURE_TEST_FILTER||"
     "PROGRAMS/BinetV3.p47|${PROGRAM_FIXTURE_TEST_CLASS}#loadAndRunBinetV3ThroughAndroidRuntime|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
     "PROGRAMS/GudrmPL.p47|${PROGRAM_FIXTURE_TEST_CLASS}#loadAndRunGudrmPLThroughAndroidRuntime|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
     "PROGRAMS/MANSLV2.p47|${PROGRAM_FIXTURE_TEST_CLASS}#loadAndRunMANSLV2ThroughAndroidRuntime|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
@@ -205,8 +243,12 @@ for selection_spec in "${TEST_SELECTION_SPECS[@]}"; do
 
     case "$status" in
         124|137)
-            emit_fixture_timeout_warning "$selection_name" "the outer timeout had to stop the hung connected-test selection"
             cleanup_connected_test_processes
+            if selection_requires_timeout_failure "$selection_name"; then
+                emit_required_fixture_timeout_error "$selection_name" "the outer timeout had to stop the hung connected-test selection" "$log_file"
+                exit 1
+            fi
+            emit_fixture_timeout_warning "$selection_name" "the outer timeout had to stop the hung connected-test selection"
             ;;
         *)
             fail "Connected Android test selection $selection_name failed with exit status $status. See $log_file."

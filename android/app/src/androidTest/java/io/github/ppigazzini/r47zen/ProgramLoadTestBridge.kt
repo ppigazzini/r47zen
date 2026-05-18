@@ -61,6 +61,11 @@ object ProgramLoadTestBridge {
 
     fun requestStopProgram(): Boolean = requestStopProgramNative()
 
+    fun trySnapshotState(): ProgramLoadState? {
+        val raw = snapshotStateIfAvailableNative() ?: return null
+        return decodeState(raw)
+    }
+
     fun setNextLoadProgramFd(fd: Int) {
         setNextLoadProgramFdNative(fd)
     }
@@ -75,8 +80,9 @@ object ProgramLoadTestBridge {
 
     fun getXRegisterString(): String = getXRegisterStringNative()
 
-    fun snapshotState(): ProgramLoadState {
-        val raw = snapshotStateNative()
+    fun snapshotState(): ProgramLoadState = decodeState(snapshotStateNative())
+
+    private fun decodeState(raw: IntArray): ProgramLoadState {
         require(raw.size == STATE_LENGTH) {
             "Expected $STATE_LENGTH program-load state values, got ${raw.size}"
         }
@@ -109,6 +115,7 @@ object ProgramLoadTestBridge {
     private external fun clearLoadProgramFdOverrideNative()
     private external fun isSimFunctionRunningNative(): Boolean
     private external fun snapshotStateNative(): IntArray
+    private external fun snapshotStateIfAvailableNative(): IntArray?
     private external fun getXRegisterTypeNative(): Int
     private external fun getXRegisterStringNative(): String
 }

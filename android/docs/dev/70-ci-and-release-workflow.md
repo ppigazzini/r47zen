@@ -144,9 +144,9 @@ It:
   second full `build_android.sh` pass
 - creates or restores an `x86_64` emulator snapshot
 - runs `scripts/android/run_connected_android_tests.sh`, which invokes
-  `connectedDebugAndroidTest` once per non-fixture instrumentation class and
-  once per canonical `PROGRAMS` fixture method with the temporary ABI override
-  from `r47.abiFilters`
+  `connectedDebugAndroidTest` once for the grouped non-fixture Android
+  instrumentation class filter and once per canonical `PROGRAMS` fixture
+  method with the temporary ABI override from `r47.abiFilters`
 - uploads logs plus JVM and instrumentation reports in the Android test artifact
   bundle `r47-android-tests-<upstream short>-<android short>`
 
@@ -156,10 +156,16 @@ contracts:
 - `ProgramFixtureInstrumentedTest` plus
   `scripts/android/run_connected_android_tests.sh` for the READP load-and-run
   matrix over `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47`. Each `.p47` file now runs as its own filtered
-  `connectedDebugAndroidTest` selection under GNU `timeout --kill-after`, with
-  `MANSLV2` still treated as the bounded interrupt scenario that reuses the
-  same native direct-stop publisher as live `R/S` and `EXIT`
+  `SPIRALk.p47`. The wrapper batches the four non-fixture Android
+  instrumentation classes into one filtered connected-test selection, while
+  each `.p47` file still runs as its own filtered
+  `connectedDebugAndroidTest` selection. Non-`MANSLV2` fixture timeouts still
+  sit behind GNU `timeout --kill-after` so the lane can log degraded coverage
+  and keep moving, while `MANSLV2` is now the required bounded-stop Android
+  regression: it resets to the upstream `doFnReset(CONFIRMED, false)` baseline
+  before load, reuses the same native `fnStopProgram(0)` publisher as live
+  `R/S` and `EXIT`, and fails the Android lane if its own selection hits the
+  outer timeout
 - `DisplayLifecycleInstrumentedTest` for passive lifecycle LCD preservation and
   first-stop graph cleanup so background save, a Settings-style pause or
   resume, activity recreation, and the first direct stop on staged `SPIRALk`

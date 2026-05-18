@@ -180,9 +180,9 @@ supports that model by keeping shared synchronization in native code:
   packed-LCD snapshot hash, the synthetic `00` key path used to resume staged
   `SPIRALk` runs, and the direct-stop publisher plus explicit refresh helper
   reused by the per-fixture `ProgramFixtureInstrumentedTest` methods and
-  `DisplayLifecycleInstrumentedTest` to prove bounded `MANSLV2` interrupt
-  delivery and first-stop LCD cleanup through the same native seams as live
-  `R/S`, `EXIT`, and `forceRefreshNative()`.
+  `DisplayLifecycleInstrumentedTest` to prove the required `MANSLV2`
+  bounded-stop regression and first-stop LCD cleanup through the same native
+  seams as live `R/S`, `EXIT`, and `forceRefreshNative()`.
 - The lifecycle snapshot helper hashes only visible packed LCD bytes. It does
   not hash the row-dirty transport flag that `getPackedDisplayBuffer(...)`
   clears after each successful UI poll.

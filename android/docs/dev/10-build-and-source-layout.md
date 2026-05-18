@@ -526,11 +526,12 @@ ownership model as the local build:
   `ProgramFixtureInstrumentedTest` to expose one Android test method per
   required fixture: `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
   `NQueens.p47`, and `SPIRALk.p47`. Every one of those `.p47` selections is
-  isolated under GNU `timeout --kill-after` so a hung fixture is logged as
-  degraded coverage and the remaining Android fixture lane keeps moving.
-  `MANSLV2.p47` is still the bounded interrupt scenario inside that shared
-  framework: the harness waits for observed run activity and then publishes a
-  direct stop through the same native seam used by live `R/S` and `EXIT`.
+  isolated under GNU `timeout --kill-after`. The non-`MANSLV2` selections
+  still log degraded coverage if that safety net has to kill them, while
+  `MANSLV2.p47` is now the required bounded-stop Android regression inside
+  that shared framework: the harness waits for observed run activity, then
+  publishes a direct stop through the same native seam used by live `R/S` and
+  `EXIT`, and the lane fails if that selection times out.
   It also requires `DisplayLifecycleInstrumentedTest` so passive lifecycle
   transitions preserve the visible packed LCD snapshot across background save,
   a Settings-style pause or resume, and full activity recreation. The Android
@@ -620,8 +621,9 @@ keeps the default debug CI lane secret-free.
   `ProgramFixtureInstrumentedTest` methods for `BinetV3.p47`, `GudrmPL.p47`,
   `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`, preferably through
   `scripts/android/run_connected_android_tests.sh` so each fixture keeps its
-  own timeout-and-kill safety boundary. The maintained `MANSLV2` scenario must
-  observe run activity and then stop cleanly through the direct-stop seam.
+  own timeout-and-kill safety boundary. The required `MANSLV2` regression must
+  observe run activity, stop cleanly through the direct-stop seam, and fail the
+  Android lane if its own selection hits the outer timeout.
   When the change touches background save, Settings return, or packed-LCD
   lifecycle preservation, the same lane must also pass
   `DisplayLifecycleInstrumentedTest`.

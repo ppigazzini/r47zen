@@ -99,6 +99,37 @@ static uint64_t r47_capture_display_hash_locked(void) {
   return hash;
 }
 
+static void r47_fill_program_load_state_values(
+    jint values[R47_PROGRAM_LOAD_STATE_LENGTH]) {
+  values[R47_PROGRAM_LOAD_LAST_ERROR_INDEX] = (jint)lastErrorCode;
+  values[R47_PROGRAM_LOAD_TEMP_INFO_INDEX] = (jint)temporaryInformation;
+  values[R47_PROGRAM_LOAD_RUN_STOP_INDEX] = (jint)programRunStop;
+  values[R47_PROGRAM_LOAD_PROGRAM_COUNT_INDEX] = (jint)numberOfPrograms;
+  values[R47_PROGRAM_LOAD_LOCAL_STEP_INDEX] = (jint)currentLocalStepNumber;
+  values[R47_PROGRAM_LOAD_CURRENT_PROGRAM_INDEX] = (jint)currentProgramNumber;
+  values[R47_PROGRAM_LOAD_LCD_REFRESH_INDEX] =
+      (jint)r47_get_host_lcd_refresh_count();
+}
+
+static jintArray r47_new_program_load_state_array(
+    JNIEnv *env, const jint values[R47_PROGRAM_LOAD_STATE_LENGTH]) {
+  jintArray result = (*env)->NewIntArray(env, R47_PROGRAM_LOAD_STATE_LENGTH);
+  if (result == NULL ||
+      jni_check_and_clear_exception(env,
+                                    "ProgramLoadTestBridge.NewIntArray")) {
+    return NULL;
+  }
+
+  (*env)->SetIntArrayRegion(env, result, 0, R47_PROGRAM_LOAD_STATE_LENGTH,
+                            values);
+  if (jni_check_and_clear_exception(env,
+                                    "ProgramLoadTestBridge.SetIntArrayRegion")) {
+    return NULL;
+  }
+
+  return result;
+}
+
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isRuntimeReadyNative(
     JNIEnv *env, jobject thiz) {
@@ -393,32 +424,30 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_snapshotStateNative(
 
   if (ram) {
     pthread_mutex_lock(&screenMutex);
-    values[R47_PROGRAM_LOAD_LAST_ERROR_INDEX] = (jint)lastErrorCode;
-    values[R47_PROGRAM_LOAD_TEMP_INFO_INDEX] = (jint)temporaryInformation;
-    values[R47_PROGRAM_LOAD_RUN_STOP_INDEX] = (jint)programRunStop;
-    values[R47_PROGRAM_LOAD_PROGRAM_COUNT_INDEX] = (jint)numberOfPrograms;
-    values[R47_PROGRAM_LOAD_LOCAL_STEP_INDEX] = (jint)currentLocalStepNumber;
-    values[R47_PROGRAM_LOAD_CURRENT_PROGRAM_INDEX] = (jint)currentProgramNumber;
-    values[R47_PROGRAM_LOAD_LCD_REFRESH_INDEX] =
-        (jint)r47_get_host_lcd_refresh_count();
+    r47_fill_program_load_state_values(values);
     pthread_mutex_unlock(&screenMutex);
   }
 
-  jintArray result = (*env)->NewIntArray(env, R47_PROGRAM_LOAD_STATE_LENGTH);
-  if (result == NULL ||
-      jni_check_and_clear_exception(env,
-                                    "ProgramLoadTestBridge.NewIntArray")) {
-    return NULL;
+  return r47_new_program_load_state_array(env, values);
+}
+
+JNIEXPORT jintArray JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_snapshotStateIfAvailableNative(
+    JNIEnv *env, jobject thiz) {
+  (void)thiz;
+
+  jint values[R47_PROGRAM_LOAD_STATE_LENGTH];
+  memset(values, 0, sizeof(values));
+
+  if (ram) {
+    if (pthread_mutex_trylock(&screenMutex) != 0) {
+      return NULL;
+    }
+    r47_fill_program_load_state_values(values);
+    pthread_mutex_unlock(&screenMutex);
   }
 
-  (*env)->SetIntArrayRegion(env, result, 0, R47_PROGRAM_LOAD_STATE_LENGTH,
-                            values);
-  if (jni_check_and_clear_exception(env,
-                                    "ProgramLoadTestBridge.SetIntArrayRegion")) {
-    return NULL;
-  }
-
-  return result;
+  return r47_new_program_load_state_array(env, values);
 }
 
 JNIEXPORT jint JNICALL

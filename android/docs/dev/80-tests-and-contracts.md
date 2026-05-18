@@ -224,18 +224,26 @@ Important files include:
   lane can run `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
   `SPIRALk.p47` as isolated filtered `connectedDebugAndroidTest` selections
 - `scripts/android/run_connected_android_tests.sh`: owns the hosted emulator
-  wrapper that runs non-fixture instrumentation classes directly and executes
-  each canonical `PROGRAMS` fixture under GNU `timeout --kill-after`, logging
-  degraded coverage instead of wedging the whole Android step when a selection
+  wrapper that runs the four non-fixture instrumentation classes as one
+  grouped class-filter selection and executes each canonical `PROGRAMS`
+  fixture under GNU `timeout --kill-after`, logging degraded coverage for the
+  non-`MANSLV2` selections instead of wedging the whole Android step when one
   hangs
-- The connected-device lane now includes a maintained `MANSLV2.p47` interrupt
-  scenario inside that shared per-fixture wrapper: after observed post-load
-  activity it requests a direct stop through
-  `ProgramLoadTestBridge.requestStopProgram()`, which reuses the same native
-  stop publisher as live `R/S` and `EXIT`. That proves bounded Android
-  interrupt delivery through the owned seam. The remaining gap is narrower:
-  there is still no focused device lane proving that a forced-busy keypad
-  snapshot path stays responsive under every non-yielding shared-core loop.
+- The connected-device lane now includes a required `MANSLV2.p47`
+  bounded-stop regression inside that shared per-fixture wrapper: after
+  observed post-load activity it requests a direct stop through
+  `ProgramLoadTestBridge.requestStopProgram()`, which reuses the same upstream
+  `fnStopProgram(0)` publisher as live `R/S` and `EXIT`. The Android fixture
+  now resets every staged run to the upstream `doFnReset(CONFIRMED, false)`
+  baseline before load and skips blocked state snapshots instead of stalling
+  the test thread behind `screenMutex`, so the harness can keep publishing the
+  bounded stop request while the shared core is busy. That proves the required
+  Android bounded-stop delivery path through the owned seam, and the hosted
+  wrapper now fails the lane if `MANSLV2` times out instead of downgrading it
+  to degraded coverage. The remaining gap is narrower: there is still no
+  focused device lane proving that a
+  forced-busy keypad snapshot path stays responsive under every non-yielding
+  shared-core loop.
 - `DisplayLifecycleInstrumentedTest.kt`: locks the lifecycle LCD contract so a
   background save, a Settings-style pause or resume, and full
   `ActivityScenario.recreate()` preserve the visible packed LCD snapshot on
