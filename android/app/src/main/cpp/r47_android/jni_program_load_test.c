@@ -346,6 +346,14 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_beginMainActivityKeySeque
   return JNI_TRUE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_requestStopProgramNative(
+    JNIEnv *env, jobject thiz) {
+  (void)thiz;
+
+  return Java_com_example_r47_MainActivity_requestStopProgramNative(env, NULL);
+}
+
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setNextLoadProgramFdNative(
     JNIEnv *env, jobject thiz, jint fd) {

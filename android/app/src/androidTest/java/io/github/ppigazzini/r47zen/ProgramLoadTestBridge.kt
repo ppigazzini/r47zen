@@ -59,6 +59,8 @@ object ProgramLoadTestBridge {
 
     fun beginMainActivityKeySequence(keyCode: Int): Boolean = beginMainActivityKeySequenceNative(keyCode)
 
+    fun requestStopProgram(): Boolean = requestStopProgramNative()
+
     fun setNextLoadProgramFd(fd: Int) {
         setNextLoadProgramFdNative(fd)
     }
@@ -102,6 +104,7 @@ object ProgramLoadTestBridge {
     private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)
     private external fun beginSimFunctionNative(funcId: Int): Boolean
     private external fun beginMainActivityKeySequenceNative(keyCode: Int): Boolean
+    private external fun requestStopProgramNative(): Boolean
     private external fun setNextLoadProgramFdNative(fd: Int)
     private external fun clearLoadProgramFdOverrideNative()
     private external fun isSimFunctionRunningNative(): Boolean

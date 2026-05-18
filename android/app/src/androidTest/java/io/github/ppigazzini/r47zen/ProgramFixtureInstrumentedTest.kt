@@ -198,8 +198,12 @@ class ProgramFixtureInstrumentedTest {
         var sawWaiting = false
         var sawView = false
         var sawLcdRefresh = false
+        var activityStartedAtMs = 0L
+        var requestedDirectStop = false
         var wasPaused = false
+        var directStopRequests = 0
         var resumeAttempts = 0
+        var lastDirectStopAttemptAtMs = 0L
         var lastResumeAttemptAtMs = 0L
 
         val completed = waitUntil(fixture.scenario.timeoutMs) {
@@ -212,10 +216,16 @@ class ProgramFixtureInstrumentedTest {
             sawWaiting = sawWaiting || state.programRunStop == PGM_WAITING
             sawView = sawView || state.temporaryInformation == TI_VIEW_REGISTER
             sawLcdRefresh = sawLcdRefresh || state.lcdRefreshCount > 0
+            val hasRunActivity = maxStep > loadStep || sawPause || sawWaiting || sawView || sawLcdRefresh
+            val now = SystemClock.elapsedRealtime()
+
+            if (hasRunActivity && activityStartedAtMs == 0L) {
+                activityStartedAtMs = now
+            }
 
             if (
                 isPaused &&
-                (!wasPaused || SystemClock.elapsedRealtime() - lastResumeAttemptAtMs >= PAUSE_RESUME_RETRY_MS) &&
+                (!wasPaused || now - lastResumeAttemptAtMs >= PAUSE_RESUME_RETRY_MS) &&
                 fixture.scenario.pauseResumePolicy == PauseResumePolicy.RESUME_ZERO_ON_PAUSE_EDGE
             ) {
                 ProgramLoadTestBridge.sendSimKey("00", isFn = false, isRelease = false)
@@ -223,6 +233,20 @@ class ProgramFixtureInstrumentedTest {
                 ProgramLoadTestBridge.sendSimKey("00", isFn = false, isRelease = true)
                 resumeAttempts += 1
                 lastResumeAttemptAtMs = SystemClock.elapsedRealtime()
+            }
+
+            if (
+                fixture.scenario.stopPolicy == StopPolicy.DIRECT_STOP_AFTER_ACTIVITY &&
+                activityStartedAtMs != 0L &&
+                now - activityStartedAtMs >= fixture.scenario.stopAfterActivityMs &&
+                now - lastDirectStopAttemptAtMs >= DIRECT_STOP_RETRY_MS &&
+                (state.programRunStop == PGM_RUNNING || state.programRunStop == PGM_PAUSED)
+            ) {
+                if (ProgramLoadTestBridge.requestStopProgram()) {
+                    requestedDirectStop = true
+                    directStopRequests += 1
+                }
+                lastDirectStopAttemptAtMs = now
             }
 
             wasPaused = isPaused
@@ -260,6 +284,14 @@ class ProgramFixtureInstrumentedTest {
                 details = "workload never showed run activity after load (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh)",
             )
         }
+        if (fixture.scenario.stopPolicy == StopPolicy.DIRECT_STOP_AFTER_ACTIVITY && !requestedDirectStop) {
+            return buildFailure(
+                fixture = fixture,
+                phase = "run",
+                state = finalState,
+                details = "workload finished before the maintained direct-stop probe ran",
+            )
+        }
         if (finalState.programRunStop == PGM_RUNNING || finalState.programRunStop == PGM_PAUSED) {
             return buildFailure(
                 fixture = fixture,
@@ -270,7 +302,7 @@ class ProgramFixtureInstrumentedTest {
         }
 
         reportStatus(
-            "${fixture.displayName} ran (load_step=$loadStep, max_step=$maxStep, pause=${yesNo(sawPause)}, waiting=${yesNo(sawWaiting)}, view=${yesNo(sawView)}, lcdRefresh=${yesNo(sawLcdRefresh)})\n",
+            "${fixture.displayName} ran (load_step=$loadStep, max_step=$maxStep, pause=${yesNo(sawPause)}, waiting=${yesNo(sawWaiting)}, view=${yesNo(sawView)}, lcdRefresh=${yesNo(sawLcdRefresh)}, directStop=${yesNo(requestedDirectStop)}, directStopRequests=$directStopRequests)\n",
         )
         return null
     }
@@ -357,6 +389,8 @@ class ProgramFixtureInstrumentedTest {
         val timeoutMs: Long,
         val pauseResumePolicy: PauseResumePolicy,
         val seedMode: SeedMode,
+        val stopPolicy: StopPolicy,
+        val stopAfterActivityMs: Long,
     )
 
     private enum class SeedMode {
@@ -367,6 +401,11 @@ class ProgramFixtureInstrumentedTest {
     private enum class PauseResumePolicy {
         NONE,
         RESUME_ZERO_ON_PAUSE_EDGE,
+    }
+
+    private enum class StopPolicy {
+        NONE,
+        DIRECT_STOP_AFTER_ACTIVITY,
     }
 
     companion object {
@@ -383,6 +422,7 @@ class ProgramFixtureInstrumentedTest {
         private const val RUNTIME_READY_TIMEOUT_MS = 15_000L
         private const val LOAD_TIMEOUT_MS = 10_000L
         private const val RUN_TIMEOUT_MS = 20_000L
+        private const val DIRECT_STOP_RETRY_MS = 250L
         private const val POLL_INTERVAL_MS = 25L
         private const val PAUSE_RESUME_SETTLE_MS = 50L
         private const val PAUSE_RESUME_RETRY_MS = 1_000L
@@ -392,24 +432,40 @@ class ProgramFixtureInstrumentedTest {
                 timeoutMs = RUN_TIMEOUT_MS,
                 pauseResumePolicy = PauseResumePolicy.NONE,
                 seedMode = SeedMode.NONE,
+                stopPolicy = StopPolicy.NONE,
+                stopAfterActivityMs = 0L,
             ),
             ProgramFixtureScenario(
                 fileName = "GudrmPL.p47",
                 timeoutMs = RUN_TIMEOUT_MS,
                 pauseResumePolicy = PauseResumePolicy.NONE,
                 seedMode = SeedMode.NONE,
+                stopPolicy = StopPolicy.NONE,
+                stopAfterActivityMs = 0L,
+            ),
+            ProgramFixtureScenario(
+                fileName = "MANSLV2.p47",
+                timeoutMs = 30_000L,
+                pauseResumePolicy = PauseResumePolicy.NONE,
+                seedMode = SeedMode.NONE,
+                stopPolicy = StopPolicy.DIRECT_STOP_AFTER_ACTIVITY,
+                stopAfterActivityMs = 3_000L,
             ),
             ProgramFixtureScenario(
                 fileName = "NQueens.p47",
                 timeoutMs = RUN_TIMEOUT_MS,
                 pauseResumePolicy = PauseResumePolicy.NONE,
                 seedMode = SeedMode.NONE,
+                stopPolicy = StopPolicy.NONE,
+                stopAfterActivityMs = 0L,
             ),
             ProgramFixtureScenario(
                 fileName = "SPIRALk.p47",
                 timeoutMs = RUN_TIMEOUT_MS,
                 pauseResumePolicy = PauseResumePolicy.RESUME_ZERO_ON_PAUSE_EDGE,
                 seedMode = SeedMode.SPIRALK_J_EQUALS_2,
+                stopPolicy = StopPolicy.NONE,
+                stopAfterActivityMs = 0L,
             ),
         )
     }

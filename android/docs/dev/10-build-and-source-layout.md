@@ -290,21 +290,23 @@ Public maintainer entrypoints:
   `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
   emulator is `x86_64`. The current required emulator-backed coverage includes
   `ProgramFixtureInstrumentedTest`, which loads and runs `BinetV3.p47`,
-  `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47` through the Android `READP`
-  path, plus `DisplayLifecycleInstrumentedTest`, which proves that background
-  save and a Settings-style pause or resume preserve the visible packed LCD
-  snapshot on a staged `SPIRALk` graph.
+  `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47` through the
+  Android `READP` path. The `MANSLV2` scenario is bounded: once the harness
+  observes real run activity it publishes a direct stop through the same
+  native stop seam that backs live `R/S` and `EXIT`. The required emulator
+  coverage also includes `DisplayLifecycleInstrumentedTest`, which proves that
+  background save and a Settings-style pause or resume preserve the visible
+  packed LCD snapshot on a staged `SPIRALk` graph.
 - `ProgramFixtureInstrumentedTest` also treats LCD redraw activity from the JNI
   snapshot as valid run evidence for fast-returning fixtures such as
   `GudrmPL.p47`, matching the host workload harness instead of requiring only
   step, pause, wait, or `VIEW` markers.
-- `MANSLV2.p47` remains an upstream example program, but the repo excludes it
-  from the required smoke gate because the upstream export text describes it as
-  a manual solver with no checks and stabilisations, and the latest Android
-  runtime recheck still exposes a queue-bound stop-delivery hang once that
-  program drifts into a non-yielding `NaN` loop. Treat it as a diagnostic or
-  manual repro surface until the Android stop-interrupt seam has a dedicated
-  proof lane.
+- `MANSLV2.p47` remains an upstream example program whose public export text
+  still calls it a manual solver with no checks and stabilisations, so the repo
+  treats it as a bounded interrupt contract rather than a completion contract.
+  Both the host and Android-owned lanes must let it show post-load activity,
+  then publish a direct stop inside a maintained budget and require a clean
+  stop verdict without calculator error.
 - `make sim` is the canonical root simulator and generator validation path for
   the upstream-shaped desktop lane. Android full builds now drive the same
   `build.sim` Meson/Ninja targets through `scripts/android/build_sim_assets.sh`
@@ -509,16 +511,18 @@ ownership model as the local build:
   `:app:connectedDebugAndroidTest` on the defaults-file hosted emulator API.
   That emulator lane stages canonical upstream `PROGRAMS` fixtures into
   generated assets and currently requires `ProgramFixtureInstrumentedTest` to
-  load and run `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and
-  `SPIRALk.p47` through the Android `READP` path. It also requires
-  `DisplayLifecycleInstrumentedTest` so passive lifecycle transitions preserve
-  the visible packed LCD snapshot across background save, a Settings-style
-  pause or resume, and full activity recreation. The Android test seam also
-  counts LCD redraw activity as valid run evidence for fast-returning
-  workloads so `GudrmPL`-style short runs do not false-fail after a clean
-  return. Hosted CI still proves 16 KB packaging readiness rather than 16 KB
-  runtime execution; the connected 16 KB runtime smoke stays a local lane
-  through `scripts/android/run_16kb_runtime_smoke.sh`.
+  load and run `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`,
+  and `SPIRALk.p47` through the Android `READP` path. `MANSLV2.p47` is kept as
+  a bounded interrupt scenario: the harness waits for observed run activity and
+  then publishes a direct stop through the same native seam used by live `R/S`
+  and `EXIT`. It also requires `DisplayLifecycleInstrumentedTest` so passive
+  lifecycle transitions preserve the visible packed LCD snapshot across
+  background save, a Settings-style pause or resume, and full activity
+  recreation. The Android test seam also counts LCD redraw activity as valid
+  run evidence for fast-returning workloads so `GudrmPL`-style short runs do
+  not false-fail after a clean return. Hosted CI still proves 16 KB packaging
+  readiness rather than 16 KB runtime execution; the connected 16 KB runtime
+  smoke stays a local lane through `scripts/android/run_16kb_runtime_smoke.sh`.
 - the upstream simulator sanity, Android build/test/package, and Android test
   jobs consume the same resolved upstream commit for a given workflow run.
 - Android build logs, Android test logs, and test reports are uploaded with
@@ -598,9 +602,11 @@ keeps the default debug CI lane secret-free.
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
   current hosted smoke gate must still pass `ProgramFixtureInstrumentedTest`
   over the load-and-run matrix for `BinetV3.p47`, `GudrmPL.p47`,
-  `NQueens.p47`, and `SPIRALk.p47`. When the change touches background save,
-  Settings return, or packed-LCD lifecycle preservation, the same lane must
-  also pass `DisplayLifecycleInstrumentedTest`.
+  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. The maintained `MANSLV2`
+  scenario must observe run activity and then stop cleanly through the
+  direct-stop seam. When the change touches background save, Settings return,
+  or packed-LCD lifecycle preservation, the same lane must also pass
+  `DisplayLifecycleInstrumentedTest`.
 - JNI, HAL, CMake, or packaging changes: `./scripts/android/build_android.sh`.
 - packaging evidence changes with local proof: `./scripts/android/build_android.sh --verify-packaging`
 - root core or generator changes: `make test` and then `./scripts/android/build_android.sh`.

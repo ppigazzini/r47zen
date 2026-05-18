@@ -39,6 +39,7 @@ def runtimeFontAssetNames = [
 def requestedProgramFixtureNames = [
     'BinetV3.p47',
     'GudrmPL.p47',
+    'MANSLV2.p47',
     'NQueens.p47',
     'SPIRALk.p47'
 ]

@@ -16,6 +16,7 @@ CC_BIN="${CC:-cc}"
 REQUIRED_PROGRAM_FIXTURES=(
     "BinetV3.p47"
     "GudrmPL.p47"
+    "MANSLV2.p47"
     "NQueens.p47"
     "SPIRALk.p47"
 )

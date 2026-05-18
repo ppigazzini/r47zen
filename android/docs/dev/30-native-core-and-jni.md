@@ -160,11 +160,11 @@ supports that model by keeping shared synchronization in native code:
   for that compatibility contract. It compiles the staged core plus the
   Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, probes the wait or
   progress shims in `android_runtime.c`, then loads and runs the canonical
-  upstream fixtures `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and
-  `SPIRALk.p47` through the host-side Android compatibility
-  path. The optional `MANSLV2.p47` probe stays behind
-  `R47_INCLUDE_MANSLV2=1` and is diagnostic-only at the current host harness
-  budget
+  upstream fixtures `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
+  `NQueens.p47`, and `SPIRALk.p47` through the host-side Android
+  compatibility path. The maintained `MANSLV2` scenario waits for observed run
+  activity and then publishes a direct stop through `fnStopProgram(0)` instead
+  of leaving the workload behind an optional environment gate
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` builds that same
   host harness with the pinned NDK Clang and `llvm-profdata` pair under LLVM
   IRPGO instrumentation, injects a temporary resource-dir shim so the Linux
@@ -175,8 +175,10 @@ supports that model by keeping shared synchronization in native code:
   both `ProgramFixtureInstrumentedTest` and
   `DisplayLifecycleInstrumentedTest`. It provides READP or RUN worker control,
   explicit refresh and background-save helpers, LCD refresh count, a
-  packed-LCD snapshot hash, and the synthetic `00` key path used to resume
-  staged `SPIRALk` runs.
+  packed-LCD snapshot hash, the synthetic `00` key path used to resume staged
+  `SPIRALk` runs, and the direct-stop publisher reused by
+  `ProgramFixtureInstrumentedTest` to stop `MANSLV2` through the same native
+  seam as live `R/S` and `EXIT`.
 - The lifecycle snapshot helper hashes only visible packed LCD bytes. It does
   not hash the row-dirty transport flag that `getPackedDisplayBuffer(...)`
   clears after each successful UI poll.

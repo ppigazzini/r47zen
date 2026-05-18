@@ -40,18 +40,21 @@ typedef struct {
   unsigned int firings;
 } timeout_probe_t;
 
+typedef enum {
+  STOP_POLICY_NONE = 0,
+  STOP_POLICY_DIRECT_AFTER_ACTIVITY,
+} stop_policy_t;
+
 typedef struct {
   const char *program_name;
   uint64_t timeout_ms;
   bool resume_pause_with_zero_key;
   bool (*seed_runtime)(void);
+  stop_policy_t stop_policy;
+  uint64_t stop_after_activity_ms;
 } program_fixture_scenario_t;
 
-static bool should_run_optional_manslv2(void) {
-  const char *value = getenv("R47_INCLUDE_MANSLV2");
-
-  return value != NULL && value[0] != '\0' && strcmp(value, "0") != 0;
-}
+extern void fnStopProgram(uint16_t unusedButMandatoryParameter);
 
 static void usage(const char *argv0) {
   fprintf(stderr, "Usage: %s --program-root <dir>\n", argv0);
@@ -232,14 +235,18 @@ static bool run_program_fixture_workload(const char *runtime_dir,
                                          const program_fixture_scenario_t *scenario) {
   function_worker_t worker;
   pthread_t worker_thread;
+  uint64_t activity_started_at = 0;
   bool saw_pause = false;
   bool saw_waiting = false;
   bool saw_view = false;
   bool saw_lcd_refresh = false;
+  bool requested_direct_stop = false;
   bool sent_resume_key = false;
+  uint64_t last_direct_stop_request_at = 0;
   uint16_t load_step = 0;
   uint16_t max_step = 0;
   uint64_t deadline = 0;
+  uint64_t direct_stop_requests = 0;
   uint64_t lcd_refresh_count = 0;
 
   if (!stage_program_file(runtime_dir, program_root, scenario->program_name)) {
@@ -270,7 +277,13 @@ static bool run_program_fixture_workload(const char *runtime_dir,
   }
 
   deadline = monotonic_ms() + scenario->timeout_ms;
-  while (!worker.done && monotonic_ms() < deadline) {
+  while (!worker.done) {
+    uint64_t now = monotonic_ms();
+
+    if (now >= deadline) {
+      break;
+    }
+
     if (fail_last_error(scenario->program_name)) {
       return false;
     }
@@ -291,6 +304,23 @@ static bool run_program_fixture_workload(const char *runtime_dir,
         r47_send_sim_key("00", false, true);
         sent_resume_key = true;
       }
+    }
+
+    if ((max_step > load_step || saw_pause || saw_waiting || saw_view ||
+         saw_lcd_refresh) &&
+        activity_started_at == 0u) {
+      activity_started_at = now;
+    }
+
+    if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
+        activity_started_at != 0u &&
+        now - activity_started_at >= scenario->stop_after_activity_ms &&
+        now - last_direct_stop_request_at >= 250u &&
+        (programRunStop == PGM_RUNNING || programRunStop == PGM_PAUSED)) {
+      fnStopProgram(0);
+      requested_direct_stop = true;
+      last_direct_stop_request_at = now;
+      direct_stop_requests++;
     }
 
     usleep(5000);
@@ -323,6 +353,13 @@ static bool run_program_fixture_workload(const char *runtime_dir,
             (unsigned long long)r47_get_host_lcd_refresh_count());
     return false;
   }
+  if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
+      !requested_direct_stop) {
+    fprintf(stderr,
+            "ERROR: %s workload finished before the maintained direct-stop probe ran\n",
+            scenario->program_name);
+    return false;
+  }
   if (programRunStop == PGM_RUNNING || programRunStop == PGM_PAUSED) {
     fprintf(stderr,
             "ERROR: %s workload finished in an unexpected run state %u\n",
@@ -332,11 +369,13 @@ static bool run_program_fixture_workload(const char *runtime_dir,
   }
 
   fprintf(stderr,
-          "PASS: %s workload loaded and ran (load_step=%u, max_step=%u, pause=%s, waiting=%s, view=%s, lcdRefreshes=%llu)\n",
+          "PASS: %s workload loaded and ran (load_step=%u, max_step=%u, pause=%s, waiting=%s, view=%s, lcdRefreshes=%llu, directStop=%s, directStopRequests=%llu)\n",
           scenario->program_name, (unsigned int)load_step,
           (unsigned int)max_step, saw_pause ? "yes" : "no",
           saw_waiting ? "yes" : "no", saw_view ? "yes" : "no",
-          (unsigned long long)r47_get_host_lcd_refresh_count());
+          (unsigned long long)r47_get_host_lcd_refresh_count(),
+          requested_direct_stop ? "yes" : "no",
+          (unsigned long long)direct_stop_requests);
   return true;
 }
 
@@ -344,27 +383,34 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
     {.program_name = "BinetV3.p47",
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = false,
-     .seed_runtime = NULL},
+     .seed_runtime = NULL,
+     .stop_policy = STOP_POLICY_NONE,
+     .stop_after_activity_ms = 0u},
     {.program_name = "GudrmPL.p47",
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = false,
-     .seed_runtime = NULL},
+     .seed_runtime = NULL,
+     .stop_policy = STOP_POLICY_NONE,
+     .stop_after_activity_ms = 0u},
+    {.program_name = "MANSLV2.p47",
+     .timeout_ms = 15000u,
+     .resume_pause_with_zero_key = false,
+     .seed_runtime = NULL,
+     .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
+     .stop_after_activity_ms = 3000u},
     {.program_name = "NQueens.p47",
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = false,
-     .seed_runtime = NULL},
+     .seed_runtime = NULL,
+     .stop_policy = STOP_POLICY_NONE,
+     .stop_after_activity_ms = 0u},
     {.program_name = "SPIRALk.p47",
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = true,
-     .seed_runtime = seed_spiralk_runtime_registers},
+     .seed_runtime = seed_spiralk_runtime_registers,
+     .stop_policy = STOP_POLICY_NONE,
+     .stop_after_activity_ms = 0u},
 };
-
-  static const program_fixture_scenario_t kOptionalManslv2Scenario = {
-    .program_name = "MANSLV2.p47",
-    .timeout_ms = 10000u,
-    .resume_pause_with_zero_key = false,
-    .seed_runtime = NULL,
-  };
 
 int main(int argc, char **argv) {
   const char *program_root = NULL;
@@ -405,12 +451,6 @@ int main(int argc, char **argv) {
                                       &kProgramFixtureScenarios[index])) {
       return 1;
     }
-  }
-
-  if (should_run_optional_manslv2() &&
-      !run_program_fixture_workload(runtime_dir, program_root,
-                                    &kOptionalManslv2Scenario)) {
-    return 1;
   }
 
   return 0;

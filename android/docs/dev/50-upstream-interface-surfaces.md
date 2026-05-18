@@ -157,11 +157,12 @@ flowchart LR
 
 ## Instrumentation-Only Bridge Contract
 
-- `ProgramLoadTestBridge` is the Android-owned instrumentation seam for both
-  READP program execution coverage and passive lifecycle LCD preservation.
-- `beginSimFunction(...)`, `snapshotState()`, and the file-descriptor override
-  helpers drive the same READP or RUN worker paths used by
-  `ProgramFixtureInstrumentedTest`.
+- `ProgramLoadTestBridge` is the Android-owned instrumentation seam for READP
+  program execution coverage, direct-stop publication, and passive lifecycle
+  LCD preservation.
+- `beginSimFunction(...)`, `snapshotState()`, `requestStopProgram()`, and the
+  file-descriptor override helpers drive the same READP or RUN worker paths
+  used by `ProgramFixtureInstrumentedTest`.
 - `saveBackgroundStateForTest()` routes directly to
   `r47_save_background_state_locked()` so lifecycle tests can assert that the
   pause-side save path is display-passive.

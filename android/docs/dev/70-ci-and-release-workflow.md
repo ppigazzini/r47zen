@@ -146,7 +146,9 @@ The hosted instrumentation lane currently relies on two distinct Android-owned
 contracts:
 
 - `ProgramFixtureInstrumentedTest` for the READP load-and-run matrix over
-  `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47`
+  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `SPIRALk.p47`, with `MANSLV2` treated as a bounded interrupt scenario that
+  reuses the same native direct-stop publisher as live `R/S` and `EXIT`
 - `DisplayLifecycleInstrumentedTest` for passive lifecycle LCD preservation so
   background save and a Settings-style pause or resume keep the visible packed
   LCD snapshot stable on a staged `SPIRALk` graph, with retrying synthetic

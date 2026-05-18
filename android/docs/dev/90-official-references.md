@@ -115,9 +115,12 @@ flowchart TD
   runtime dispatch.
 - [Profile-guided Optimization](https://developer.android.com/ndk/guides/pgo):
   official NDK guidance for host-driven core optimization after the maintained
-  Android ThinLTO baseline, including the note that library profiles are
-  generally reusable across architectures unless the library has
-  architecture-specific code paths.
+  Android ThinLTO baseline: start with representative workloads, build with
+  `-fprofile-generate`, make Android app-processes write raw profiles
+  explicitly, merge them with the same NDK `llvm-profdata`, and then rebuild
+  with `-fprofile-use`. The doc also notes that library profiles are generally
+  reusable across architectures unless the library has architecture-specific
+  code paths.
 - [Configure the NDK for the Android Gradle plugin](https://developer.android.com/studio/projects/configure-agp-ndk):
   `ndkVersion` guidance for AGP-based projects, including the command-line
   `sdkmanager` package syntax this repo uses in CI.
@@ -131,18 +134,26 @@ flowchart TD
   useful when historical Android notes still reference the older URL.
 - [simpleperf](https://developer.android.com/ndk/guides/simpleperf): official
   native profiler for symbol, DSO, thread, and call-graph attribution before
-  hot-path micro-optimization.
+  hot-path micro-optimization. Current guidance is to identify the hottest
+  DSOs, functions, and threads first, then inspect call graphs before changing
+  code.
 - [Custom trace events in native code](https://developer.android.com/topic/performance/tracing/custom-events-native):
   official ATrace or Perfetto guidance for Android-owned native spans and
   thread naming.
 - [Clang Users Manual](https://clang.llvm.org/docs/UsersManual.html): official
   Clang optimization, profile-generation, and profile-use reference behind NDK
-  PGO flag interpretation.
+  PGO flag interpretation. It distinguishes sampling from instrumentation
+  profiles, recommends representative workloads, and treats IR-based
+  instrumentation as the preferred optimization profile format.
 - [How To Build With PGO](https://llvm.org/docs/HowToBuildWithPGO.html): LLVM
-  reference for instrumentation, raw profile collection, and merged profdata
-  use.
+  reference for instrumentation, raw profile collection, merged profdata use,
+  and benchmark selection. It emphasizes that representative build and test
+  coverage produces better profiles than narrow microbench-only training.
 - [llvm-profdata](https://llvm.org/docs/CommandGuide/llvm-profdata.html):
-  official merge and inspection tool for indexed profile data.
+  official merge and inspection tool for indexed profile data. Use the
+  `llvm-profdata` build that matches the producing Clang or NDK revision,
+  `merge` raw profiles before `-fprofile-use`, and `show` or `overlap` when
+  diagnosing profile quality.
 - [target_compile_options](https://cmake.org/cmake/help/latest/command/target_compile_options.html):
   target-scoped compile-flag ownership, including config-specific generator
   expressions.

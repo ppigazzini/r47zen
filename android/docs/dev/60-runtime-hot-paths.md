@@ -238,16 +238,20 @@ program, a save or load operation, or a progress or pause loop.
   top settings-strip interaction.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path across the canonical
-  `BinetV3.p47`, `GudrmPL.p47`, `NQueens.p47`, and `SPIRALk.p47` workloads.
-- There is currently no focused automated Android lane proving that keypad
-  snapshot export stays non-blocking on the UI thread during a deliberately
-  non-yielding run, or that Android can interrupt once input remains live. The
-  recent `MANSLV2.p47` NaN-loop stop failure remains a documented gap until
-  those seams are added and tested.
+  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `SPIRALk.p47` workloads, with `MANSLV2` kept under a maintained
+  direct-stop-after-activity budget.
+- There is now focused automated Android coverage proving that the direct-stop
+  publisher can interrupt a maintained `MANSLV2` run after observed activity.
+  There is still no focused automated lane proving that keypad snapshot export
+  itself stays non-blocking on the UI thread during the same class of
+  deliberately non-yielding run.
 - `./scripts/android/build_android.sh --run-sim-tests` keeps the Android full
   build path aligned with the `build.sim` Meson and Ninja lane.
 - `ProgramFixtureInstrumentedTest` drives canonical program fixtures through the
-  Android `READP` path used by the live app.
+  Android `READP` path used by the live app and reuses the same native
+  direct-stop publisher as live `R/S` and `EXIT` for the bounded
+  `MANSLV2` interrupt scenario.
 
 When a task changes one of these hot paths, update the narrowest relevant
 verification lane first and widen only if the first check does not cover the
