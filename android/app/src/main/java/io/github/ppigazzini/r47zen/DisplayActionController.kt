@@ -5,7 +5,10 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Handler
 import android.util.Log
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.view.Gravity
+import android.view.Menu
+import android.view.View
+import androidx.appcompat.widget.PopupMenu
 import java.util.Locale
 
 internal class DisplayActionController(
@@ -19,32 +22,60 @@ internal class DisplayActionController(
 ) {
     companion object {
         private const val TAG = "R47DisplayActions"
+        private const val MENU_SETTINGS = 1
+        private const val MENU_COPY_X_REGISTER = 2
+        private const val MENU_PASTE_NUMBER = 3
+        private const val MENU_PICTURE_IN_PICTURE = 4
     }
 
-    fun bindOverlay(overlay: ReplicaOverlay) {
-        overlay.onLongPressListener = { x, y ->
-            if (isDisplayLongPress(overlay, x, y)) {
-                showDisplayActionsDialog()
-            }
-        }
-    }
+    fun showMainMenu(anchor: View, onOpenSettings: () -> Unit) {
+        PopupMenu(context, anchor, Gravity.END).apply {
+            menu.add(Menu.NONE, MENU_SETTINGS, 0, context.getString(R.string.main_menu_settings))
+            menu.add(
+                Menu.NONE,
+                MENU_COPY_X_REGISTER,
+                1,
+                context.getString(R.string.main_menu_copy_x_register),
+            )
+            menu.add(
+                Menu.NONE,
+                MENU_PASTE_NUMBER,
+                2,
+                context.getString(R.string.main_menu_paste_number),
+            )
+            menu.add(
+                Menu.NONE,
+                MENU_PICTURE_IN_PICTURE,
+                3,
+                context.getString(R.string.main_menu_picture_in_picture),
+            )
+            setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    MENU_SETTINGS -> {
+                        onOpenSettings()
+                        true
+                    }
 
-    private fun isDisplayLongPress(overlay: ReplicaOverlay, x: Float, y: Float): Boolean {
-        return overlay.isPointInLcd(x, y)
-    }
+                    MENU_COPY_X_REGISTER -> {
+                        copyXToClipboard()
+                        true
+                    }
 
-    private fun showDisplayActionsDialog() {
-        MaterialAlertDialogBuilder(context)
-            .setTitle("Display & Clipboard")
-            .setItems(arrayOf("Copy X Register", "Paste Number", "Enter PiP Mode")) { _, which ->
-                when (which) {
-                    0 -> copyXToClipboard()
-                    1 -> pasteFromClipboard()
-                    2 -> enterPiP()
+                    MENU_PASTE_NUMBER -> {
+                        pasteFromClipboard()
+                        true
+                    }
+
+                    MENU_PICTURE_IN_PICTURE -> {
+                        enterPiP()
+                        true
+                    }
+
+                    else -> false
                 }
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+            show()
+        }
     }
 
     private fun copyXToClipboard() {

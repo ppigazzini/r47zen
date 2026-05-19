@@ -2,15 +2,23 @@ package io.github.ppigazzini.r47zen
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.media.AudioManager
 import android.os.*
 import android.util.Log
+import android.view.View
 import android.view.*
 import androidx.annotation.Keep
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatImageButton
+import androidx.appcompat.widget.TooltipCompat
 import io.github.ppigazzini.r47zen.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
+import android.widget.ImageView
+import com.google.android.material.color.MaterialColors
+import kotlin.math.roundToInt
 
 @Keep
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
@@ -39,6 +47,14 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     companion object {
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
+        private const val MAIN_MENU_BUTTON_WIDTH = 264f
+        private const val MAIN_MENU_BUTTON_HEIGHT = R47AndroidChromeGeometry.TOP_BEZEL_SETTINGS_TAP_HEIGHT
+        private const val MAIN_MENU_BUTTON_X =
+            R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_LEFT +
+                R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_WIDTH -
+                MAIN_MENU_BUTTON_WIDTH
+        private const val MAIN_MENU_BUTTON_Y =
+            R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_TOP - MAIN_MENU_BUTTON_HEIGHT
 
         init {
             System.loadLibrary("r47_android")
@@ -209,6 +225,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         keypadSnapshotStore = createKeypadSnapshotStore()
         replicaOverlayController = createReplicaOverlayController()
         replicaOverlayController.bindOverlay()
+        installMainMenuButton()
 
         preferenceController = createPreferenceController(prefs)
         prefs.registerOnSharedPreferenceChangeListener(this)
@@ -218,9 +235,43 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             preferenceController.applyDeferredOverlayPreferences()
             replicaOverlayController.refreshDynamicKeys()
         }
+    }
 
-        displayActionController.bindOverlay(replicaOverlay)
-        replicaOverlay.onSettingsTapListener = ::handleSettingsTap
+    private fun installMainMenuButton() {
+        val button = AppCompatImageButton(this).apply {
+            background = AppCompatResources.getDrawable(context, R.drawable.main_menu_button_background)
+            setImageDrawable(
+                AppCompatResources.getDrawable(
+                    context,
+                    androidx.appcompat.R.drawable.abc_ic_menu_overflow_material,
+                )?.mutate(),
+            )
+            imageTintList = ColorStateList.valueOf(
+                MaterialColors.getColor(this, com.google.android.material.R.attr.colorSecondary),
+            )
+            scaleType = ImageView.ScaleType.CENTER
+            contentDescription = context.getString(R.string.main_menu_button_content_description)
+            TooltipCompat.setTooltipText(this, contentDescription)
+            isClickable = true
+            isFocusable = true
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            setPadding(dpToPx(6f), dpToPx(6f), dpToPx(6f), dpToPx(6f))
+            setOnClickListener { anchor ->
+                completeSettingsDiscovery()
+                displayActionController.showMainMenu(anchor) {
+                    openSettingsFromMainMenu()
+                }
+            }
+        }
+
+        replicaOverlay.addReplicaView(
+            button,
+            MAIN_MENU_BUTTON_X,
+            MAIN_MENU_BUTTON_Y,
+            MAIN_MENU_BUTTON_WIDTH,
+            MAIN_MENU_BUTTON_HEIGHT,
+            showTouchZone = true,
+        )
     }
 
     private fun createReplicaOverlayController(): ReplicaOverlayController {
@@ -256,9 +307,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         )
     }
 
-    private fun handleSettingsTap() {
-        Log.i(TAG, "Settings tap received in MainActivity")
-        completeSettingsDiscovery(openSettings = true)
+    private fun openSettingsFromMainMenu() {
+        startActivity(Intent(this, SettingsActivity::class.java))
+    }
+
+    private fun dpToPx(value: Float): Int {
+        return (value * resources.displayMetrics.density).roundToInt()
     }
 
     private fun startCoreRuntime() {
@@ -331,16 +385,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         maybeShowSettingsDiscoveryHint()
     }
 
-    override fun onPause() {
-        super.onPause()
-        val isEnteringPiP = windowModeController.isEnteringPictureInPicture()
-        Log.i(TAG, "onPause: isEnteringPiP=$isEnteringPiP")
-        if (!isEnteringPiP && !factoryResetController.isResetInProgress && appPreferences.getBoolean("auto_save_minimize", true)) {
-            Log.i(TAG, "Auto-saving state on pause (synchronous via core thread)...")
-            coreRuntime.saveStateOnPause(autoSaveEnabled = true)
-        }
-    }
-
     private fun maybeShowSettingsDiscoveryHint() {
         if (!appPreferences.getBoolean(PREF_SETTINGS_DISCOVERY_PENDING, true)) {
             return
@@ -351,11 +395,18 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         replicaOverlay.setShowSettingsDiscoveryHint(true)
     }
 
-    private fun completeSettingsDiscovery(openSettings: Boolean) {
+    private fun completeSettingsDiscovery() {
         appPreferences.edit().putBoolean(PREF_SETTINGS_DISCOVERY_PENDING, false).apply()
         replicaOverlay.setShowSettingsDiscoveryHint(false)
-        if (openSettings) {
-            startActivity(Intent(this, SettingsActivity::class.java))
+    }
+
+    override fun onPause() {
+        super.onPause()
+        val isEnteringPiP = windowModeController.isEnteringPictureInPicture()
+        Log.i(TAG, "onPause: isEnteringPiP=$isEnteringPiP")
+        if (!isEnteringPiP && !factoryResetController.isResetInProgress && appPreferences.getBoolean("auto_save_minimize", true)) {
+            Log.i(TAG, "Auto-saving state on pause (synchronous via core thread)...")
+            coreRuntime.saveStateOnPause(autoSaveEnabled = true)
         }
     }
 

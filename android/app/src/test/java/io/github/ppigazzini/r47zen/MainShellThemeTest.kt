@@ -93,14 +93,25 @@ class MainShellThemeTest {
     }
 
     @Test
-    fun settingsDiscoveryHint_copyReferencesKeypadLayoutDynamic() {
+    fun settingsDiscoveryHint_copyReferencesTopRightMenu() {
         val activity = buildThemedActivity()
 
-        assertEquals("Tap here to enter Settings", activity.getString(R.string.settings_entry_hint_chip))
+        assertEquals("Open the top-right menu", activity.getString(R.string.settings_entry_hint_chip))
         assertEquals(
-            "Welcome to R47 Zen\nSet Keypad Layout in settings to change your keypad layout mode.\nSet your Working Directory to save and load your custom stacks.",
+            "Welcome to R47 Zen\nOpen the top-right menu for Settings.\nSet Keypad Layout and Working Directory there.",
             activity.getString(R.string.settings_entry_hint_message),
         )
+    }
+
+    @Test
+    fun mainMenuCopy_usesFixedShellStrings() {
+        val activity = buildThemedActivity()
+
+        assertEquals("Open menu", activity.getString(R.string.main_menu_button_content_description))
+        assertEquals("Settings", activity.getString(R.string.main_menu_settings))
+        assertEquals("Copy X Register", activity.getString(R.string.main_menu_copy_x_register))
+        assertEquals("Paste Number", activity.getString(R.string.main_menu_paste_number))
+        assertEquals("Picture in picture", activity.getString(R.string.main_menu_picture_in_picture))
     }
 
     private fun buildThemedActivity(): ThemedShellActivity {

@@ -96,27 +96,17 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
-    fun topSettingsStripTapInvokesListener() {
+    fun topBezelTapIsNotIntercepted() {
         val overlay = configuredOverlay()
-        var taps = 0
-        overlay.onSettingsTapListener = {
-            taps += 1
-        }
 
         val tapPoint = settingsStripTapPoint(overlay)
         val down = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, tapPoint.first, tapPoint.second, 0)
-        val up = MotionEvent.obtain(0L, 10L, MotionEvent.ACTION_UP, tapPoint.first, tapPoint.second, 0)
 
         try {
-            assertTrue(overlay.onInterceptTouchEvent(down))
-            assertTrue(overlay.onTouchEvent(down))
-            assertTrue(overlay.onTouchEvent(up))
+            assertFalse(overlay.onInterceptTouchEvent(down))
         } finally {
             down.recycle()
-            up.recycle()
         }
-
-        assertEquals(1, taps)
     }
 
     @Test

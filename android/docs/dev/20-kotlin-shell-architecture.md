@@ -180,7 +180,8 @@ The Kotlin shell currently accepts input from five paths:
 - accessibility click activation on those same key views once they hold focus
 - physical keyboard mappings handled by `PhysicalKeyboardInputController`,
   `PhysicalKeyboardMapper`, and `PhysicalKeyboardBindingTables`
-- display long-press actions coordinated by `DisplayActionController`
+- the projected top-bezel main-menu button coordinated by
+  `DisplayActionController`
 - PiP touch mapping handled by `ReplicaOverlay`
 
 Each path ultimately resolves to core-thread work or a small Android-side action.
@@ -225,6 +226,11 @@ while matching the desktop simulator's stop-key parity during an active run.
   letterbox or window the shell according to Android compatibility behavior
 - Picture-in-Picture is enabled
 - settings live in a separate non-exported `SettingsActivity`
+- `MainActivity` now installs one projected top-right menu button into
+  `ReplicaOverlay` after keypad rebuild. `DisplayActionController` anchors the
+  shell popup there for `Settings`, `Copy X Register`, `Paste Number`, and
+  `Picture in picture`, while `ReplicaOverlay` no longer treats the full top
+  bezel as one hidden settings strip
 - `SettingsActivity` stays Preference-based, but its host layout is now
   adaptive: the base `settings_activity.xml` uses `ConstraintLayout`, and
   `layout-w600dp/settings_activity.xml` centers the preferences inside a
@@ -239,8 +245,8 @@ while matching the desktop simulator's stop-key parity during an active run.
   on or off state
 - `MainActivity` keeps the calculator shell dark even on a light-themed
   device: `WindowModeController` applies a dark visible system-bar treatment
-  when fullscreen is off, and `ReplicaOverlay` keeps the first-run
-  settings-discovery hint cards on fixed dark shell surfaces
+  when fullscreen is off, and the projected main-menu affordance stays on that
+  same dark shell surface instead of depending on a hidden top-bezel gesture
 - LCD appearance stays on a curated Android-local theme list owned by
   `LcdThemePolicy.kt`; `MainActivityPreferenceController.kt` normalizes stored
   `lcd_theme` values, clamps `lcd_luminance` to the XML-declared `20..120`
@@ -249,7 +255,9 @@ while matching the desktop simulator's stop-key parity during an active run.
 - `show_developer_performance_hud` is a developer-only Android setting.
   `MainActivityPreferenceController.kt` reads and dispatches it directly to
   `ReplicaOverlay.kt`, while `NativeDisplayRefreshLoop.kt` supplies the sampled
-  `DeveloperPerformanceSnapshot` label data used by the overlay
+  `DeveloperPerformanceSnapshot` label data used by the overlay. The fixed
+  settings summary now explicitly names the three HUD fields as `DEV fps`,
+  `LCD /s`, and `LCD copy ms`
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`
   now uses press-only keypad haptics for calculator interaction. `ACTION_DOWN`
   uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` and

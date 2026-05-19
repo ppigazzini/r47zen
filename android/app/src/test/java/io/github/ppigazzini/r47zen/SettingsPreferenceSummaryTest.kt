@@ -185,7 +185,7 @@ class SettingsPreferenceSummaryTest {
             preference.title?.toString(),
         )
         assertEquals(
-            "Show red UI and LCD timing stats above the LCD.",
+            "Show DEV fps, LCD /s, and LCD copy ms above the LCD.",
             preference.summary?.toString(),
         )
     }

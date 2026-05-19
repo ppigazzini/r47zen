@@ -53,8 +53,8 @@ flowchart LR
 - all shell projection, LCD placement, keypad children, and touch zones resolve
   from that logical canvas before projection into the current window
 - `chrome.native_shell_draw_corner_radius` is `0`, so the native shell keeps no
-  painted outer body and retains only the top settings strip plus LCD frame as
-  shared shell chrome
+  painted outer body and retains only the projected top-right menu affordance
+  zone plus LCD frame as shared shell chrome
 - `full_width` uses one shared visible-frame trim of `42 / 49 / 42 / 56`
 - `chrome.lcd_windows` keeps one native LCD rectangle on that shared canvas:
   `85 / 229 / 1650 / 990`
@@ -65,7 +65,9 @@ flowchart LR
 - `ReplicaOverlay` projects one borderless native shell surface from the shared
   logical contract
 - `ReplicaKeypadLayout` owns one normalized shared touch-cell map, and
-  `ReplicaOverlay` owns one shared settings-entry touch strip
+  `MainActivity` installs one projected top-right menu button through
+  `ReplicaOverlay.addReplicaView(...)`, so `ReplicaOverlay` no longer
+  intercepts the full top bezel as one hidden settings-entry strip
 - PiP uses the LCD-only contract: `WindowModeController` requests the exact
   native `400 x 240` width-over-height ratio, then `ReplicaOverlay` draws the
   LCD full-window and maps horizontal touches across that surface to the six

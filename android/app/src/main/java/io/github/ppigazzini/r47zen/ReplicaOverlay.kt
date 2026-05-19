@@ -367,16 +367,6 @@ class ReplicaOverlay @JvmOverloads constructor(
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (isPiPMode) return false
         gestureDetector.onTouchEvent(ev)
-
-        val projection = chromeLayout.computeProjection(width.toFloat(), height.toFloat())
-        val lY = (ev.y - projection.offsetY) / projection.scale
-        val spec = currentChromeSpec()
-
-        // Intercept touches in the settings area (top bezel)
-        if (lY < spec.topBezelSettingsTapHeight && lY > 0) {
-            return true
-        }
-
         return false
     }
 
@@ -389,19 +379,6 @@ class ReplicaOverlay @JvmOverloads constructor(
                 onPiPKeyEvent?.invoke(fKey)
             } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
                 onPiPKeyEvent?.invoke(0)
-            }
-            return true
-        }
-
-        val projection = chromeLayout.computeProjection(width.toFloat(), height.toFloat())
-        val lY = (event.y - projection.offsetY) / projection.scale
-        val spec = currentChromeSpec()
-
-        // If we intercepted this (or no one else took it), and it's in the bezel area
-        if (lY < spec.topBezelSettingsTapHeight && lY > 0) {
-            if (event.action == MotionEvent.ACTION_UP) {
-                Log.i("ReplicaOverlay", "Settings area tap received")
-                onSettingsTapListener?.invoke()
             }
             return true
         }
@@ -607,14 +584,6 @@ class ReplicaOverlay @JvmOverloads constructor(
                     zonePaint
                 )
             }
-            // Show settings zone
-            canvas.drawRect(
-                projection.offsetX,
-                projection.offsetY,
-                projection.offsetX + layoutSpec.shellWidth * projection.scale,
-                projection.offsetY + layoutSpec.topBezelSettingsTapHeight * projection.scale,
-                zonePaint,
-            )
         }
 
         super.dispatchDraw(canvas)
