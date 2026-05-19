@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
@@ -43,6 +44,12 @@ _FLOAT_TOLERANCE = 1e-6
 _KOTLIN_GEOMETRY_PATH = KOTLIN_R47ZEN_ROOT / "R47Geometry.kt"
 _KOTLIN_KEYPAD_POLICY_PATH = KOTLIN_R47ZEN_ROOT / "R47KeypadPolicy.kt"
 _KOTLIN_KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
+_KOTLIN_SETTINGS_MENU_GLYPH_PATH = KOTLIN_R47ZEN_ROOT / "SettingsMenuGlyph.kt"
+_KOTLIN_REPLICA_OVERLAY_PATH = KOTLIN_R47ZEN_ROOT / "ReplicaOverlay.kt"
+_ARGB_COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{8}$")
+_SIGNED_INT32_THRESHOLD = 0x80000000
+_UINT32_RANGE = 0x100000000
+_ALPHA_MAX = 255
 
 
 class GeometryValidationError(ValueError):
@@ -87,6 +94,7 @@ class _SplitAndroidUiContractContext:
     chrome: dict[str, object]
     key_surface: dict[str, object]
     lcd_windows: dict[str, object]
+    main_menu_button: dict[str, object]
     native_lcd_window: dict[str, object]
     lcd_frame_buffer: dict[str, object]
     main_key_surface: dict[str, object]
@@ -97,6 +105,11 @@ class _SplitAndroidUiContractContext:
     third_label: dict[str, object]
     fourth_label: dict[str, object]
     top_label_solver: dict[str, object]
+    overlay_visual_policy: dict[str, object]
+    settings_menu_glyph_policy: dict[str, object]
+    settings_discovery_hint_policy: dict[str, object]
+    developer_performance_hud_policy: dict[str, object]
+    touch_zone_debug_policy: dict[str, object]
     row_height: int
     row_gap: int
     softkey_row_top: int
@@ -156,6 +169,35 @@ def _require_string(value: object, *, label: str) -> str:
         message = f"Expected {label} to be a non-empty string, got {value!r}"
         raise GeometryValidationError(message)
     return value
+
+
+def _argb_color_member(mapping: dict[str, object], key: str, *, label: str) -> int:
+    raw_value = contract_string_member(mapping, key, label=label)
+    if _ARGB_COLOR_PATTERN.fullmatch(raw_value) is None:
+        message = f"Expected {label}.{key} to be #AARRGGBB, got {raw_value!r}"
+        raise GeometryValidationError(message)
+
+    parsed = int(raw_value[1:], 16)
+    if parsed >= _SIGNED_INT32_THRESHOLD:
+        parsed -= _UINT32_RANGE
+    return parsed
+
+
+def _policy_error(label: str, message: str) -> str:
+    return f"ERROR [{label}] {message}"
+
+
+def _positive_field_errors(
+    mapping: dict[str, object],
+    keys: tuple[str, ...],
+    *,
+    label: str,
+) -> list[str]:
+    return [
+        _policy_error(label, f"{key} must be positive")
+        for key in keys
+        if contract_number_member(mapping, key, label=label) <= 0
+    ]
 
 
 def load_raw_entries(data_path: Path) -> list[RawEntry]:
@@ -618,6 +660,11 @@ def _build_split_android_ui_contract_context(
         "key_surface",
         label="android_ui_contract",
     )
+    overlay_visual_policy = contract_mapping_member(
+        android_contract,
+        "overlay_visual_policy",
+        label="android_ui_contract",
+    )
     label_layout = contract_mapping_member(
         android_contract,
         "label_layout",
@@ -686,6 +733,11 @@ def _build_split_android_ui_contract_context(
             "lcd_windows",
             label="android_ui_contract.chrome",
         ),
+        main_menu_button=contract_mapping_member(
+            chrome,
+            "main_menu_button",
+            label="android_ui_contract.chrome",
+        ),
         native_lcd_window=contract_mapping_member(
             contract_mapping_member(
                 chrome,
@@ -727,6 +779,27 @@ def _build_split_android_ui_contract_context(
             android_contract,
             "top_label_solver",
             label="android_ui_contract",
+        ),
+        overlay_visual_policy=overlay_visual_policy,
+        settings_menu_glyph_policy=contract_mapping_member(
+            overlay_visual_policy,
+            "settings_menu_glyph",
+            label="android_ui_contract.overlay_visual_policy",
+        ),
+        settings_discovery_hint_policy=contract_mapping_member(
+            overlay_visual_policy,
+            "settings_discovery_hint",
+            label="android_ui_contract.overlay_visual_policy",
+        ),
+        developer_performance_hud_policy=contract_mapping_member(
+            overlay_visual_policy,
+            "developer_performance_hud",
+            label="android_ui_contract.overlay_visual_policy",
+        ),
+        touch_zone_debug_policy=contract_mapping_member(
+            overlay_visual_policy,
+            "touch_zone_debug",
+            label="android_ui_contract.overlay_visual_policy",
         ),
         row_height=row_height,
         row_gap=row_pitch - row_height,
@@ -863,6 +936,14 @@ def _split_android_ui_layout_errors(
             frame_buffer_aspect_ratio=(
                 lcd_frame_buffer_width / lcd_frame_buffer_height
             ),
+        ),
+    )
+
+    errors.extend(
+        _main_menu_button_layout_errors(
+            rect=context.main_menu_button,
+            native_lcd_window=context.native_lcd_window,
+            settings_strip_tap_height=settings_strip_tap_height,
         ),
     )
 
@@ -1035,6 +1116,471 @@ def _native_lcd_window_layout_errors(
     return errors
 
 
+def _main_menu_button_layout_errors(
+    *,
+    rect: dict[str, object],
+    native_lcd_window: dict[str, object],
+    settings_strip_tap_height: float,
+) -> list[str]:
+    menu_top = contract_number_member(
+        rect,
+        "top",
+        label="android_ui_contract.chrome.main_menu_button",
+    )
+    menu_left = contract_number_member(
+        rect,
+        "left",
+        label="android_ui_contract.chrome.main_menu_button",
+    )
+    menu_width = contract_number_member(
+        rect,
+        "width",
+        label="android_ui_contract.chrome.main_menu_button",
+    )
+    menu_height = contract_number_member(
+        rect,
+        "height",
+        label="android_ui_contract.chrome.main_menu_button",
+    )
+    native_left = contract_number_member(
+        native_lcd_window,
+        "left",
+        label="android_ui_contract.chrome.lcd_windows.native",
+    )
+    native_top = contract_number_member(
+        native_lcd_window,
+        "top",
+        label="android_ui_contract.chrome.lcd_windows.native",
+    )
+    native_width = contract_number_member(
+        native_lcd_window,
+        "width",
+        label="android_ui_contract.chrome.lcd_windows.native",
+    )
+    errors: list[str] = []
+    if abs(menu_top) > _FLOAT_TOLERANCE:
+        errors.append(
+            (
+                "ERROR [android_ui_contract.chrome.main_menu_button] top must "
+                "stay at the shell top"
+            ),
+        )
+
+    if abs(menu_height - settings_strip_tap_height) > _FLOAT_TOLERANCE:
+        errors.append(
+            (
+                "ERROR [android_ui_contract.chrome.main_menu_button] height must "
+                "match settings_strip_tap_height"
+            ),
+        )
+
+    if abs((menu_top + menu_height) - native_top) > _FLOAT_TOLERANCE:
+        errors.append(
+            (
+                "ERROR [android_ui_contract.chrome.main_menu_button] bottom must "
+                "align with lcd_windows.native.top"
+            ),
+        )
+
+    if abs((menu_left + menu_width) - (native_left + native_width)) > _FLOAT_TOLERANCE:
+        errors.append(
+            (
+                "ERROR [android_ui_contract.chrome.main_menu_button] right edge "
+                "must align with lcd_windows.native.right"
+            ),
+        )
+
+    if menu_left < native_left - _FLOAT_TOLERANCE:
+        errors.append(
+            (
+                "ERROR [android_ui_contract.chrome.main_menu_button] left edge "
+                "must stay inside the native LCD span"
+            ),
+        )
+
+    return errors
+
+
+def _split_android_ui_visual_policy_errors(  # noqa: C901, PLR0912, PLR0915
+    context: _SplitAndroidUiContractContext,
+) -> list[str]:
+    errors: list[str] = []
+
+    overlay_label = "android_ui_contract.overlay_visual_policy"
+    settings_menu_glyph_label = f"{overlay_label}.settings_menu_glyph"
+    main_menu_label = f"{settings_menu_glyph_label}.main_menu"
+    onboarding_hint_label = f"{settings_menu_glyph_label}.onboarding_hint"
+    settings_discovery_hint_label = f"{overlay_label}.settings_discovery_hint"
+    settings_discovery_hint_colors_label = f"{settings_discovery_hint_label}.colors"
+    settings_discovery_hint_card_label = f"{settings_discovery_hint_label}.card"
+    settings_discovery_hint_stroke_label = f"{settings_discovery_hint_label}.stroke"
+    settings_discovery_hint_text_label = f"{settings_discovery_hint_label}.text"
+    settings_discovery_hint_fill_label = f"{settings_discovery_hint_label}.fill"
+    settings_discovery_hint_pulse_label = f"{settings_discovery_hint_label}.pulse"
+    developer_performance_hud_label = f"{overlay_label}.developer_performance_hud"
+    developer_performance_hud_text_label = f"{developer_performance_hud_label}.text"
+    developer_performance_hud_shadow_label = f"{developer_performance_hud_label}.shadow"
+    touch_zone_debug_label = f"{overlay_label}.touch_zone_debug"
+
+    settings_menu_glyph = context.settings_menu_glyph_policy
+    main_menu = contract_mapping_member(
+        settings_menu_glyph,
+        "main_menu",
+        label=settings_menu_glyph_label,
+    )
+    onboarding_hint = contract_mapping_member(
+        settings_menu_glyph,
+        "onboarding_hint",
+        label=settings_menu_glyph_label,
+    )
+
+    tab_width_ratio = contract_number_member(
+        settings_menu_glyph,
+        "tab_width_to_height_ratio",
+        label=settings_menu_glyph_label,
+    )
+    if tab_width_ratio <= 0:
+        errors.append(
+            _policy_error(
+                settings_menu_glyph_label,
+                "tab_width_to_height_ratio must be positive",
+            ),
+        )
+
+    main_menu_tab_height = contract_number_member(
+        main_menu,
+        "tab_height_dp",
+        label=main_menu_label,
+    )
+    main_menu_gap = contract_number_member(
+        main_menu,
+        "gap_dp",
+        label=main_menu_label,
+    )
+    main_menu_bottom_inset = contract_number_member(
+        main_menu,
+        "bottom_inset_dp",
+        label=main_menu_label,
+    )
+    onboarding_tab_height = contract_number_member(
+        onboarding_hint,
+        "tab_height_dp",
+        label=onboarding_hint_label,
+    )
+    onboarding_gap = contract_number_member(
+        onboarding_hint,
+        "gap_dp",
+        label=onboarding_hint_label,
+    )
+    if (
+        min(
+            main_menu_tab_height,
+            main_menu_gap,
+            main_menu_bottom_inset,
+            onboarding_tab_height,
+            onboarding_gap,
+        )
+        <= 0
+    ):
+        errors.append(
+            _policy_error(
+                settings_menu_glyph_label,
+                "main-menu and onboarding glyph dimensions must be positive",
+            ),
+        )
+    if onboarding_tab_height <= main_menu_tab_height:
+        errors.append(
+            _policy_error(
+                onboarding_hint_label,
+                "tab_height_dp must exceed the main-menu glyph height",
+            ),
+        )
+
+    settings_discovery_hint = context.settings_discovery_hint_policy
+    settings_discovery_hint_colors = contract_mapping_member(
+        settings_discovery_hint,
+        "colors",
+        label=settings_discovery_hint_label,
+    )
+    settings_discovery_hint_card = contract_mapping_member(
+        settings_discovery_hint,
+        "card",
+        label=settings_discovery_hint_label,
+    )
+    settings_discovery_hint_stroke = contract_mapping_member(
+        settings_discovery_hint,
+        "stroke",
+        label=settings_discovery_hint_label,
+    )
+    settings_discovery_hint_text = contract_mapping_member(
+        settings_discovery_hint,
+        "text",
+        label=settings_discovery_hint_label,
+    )
+    settings_discovery_hint_fill = contract_mapping_member(
+        settings_discovery_hint,
+        "fill",
+        label=settings_discovery_hint_label,
+    )
+    settings_discovery_hint_pulse = contract_mapping_member(
+        settings_discovery_hint,
+        "pulse",
+        label=settings_discovery_hint_label,
+    )
+
+    for color_key in (
+        "surface_argb",
+        "on_surface_argb",
+        "stroke_argb",
+        "menu_orange_fallback_argb",
+        "menu_blue_fallback_argb",
+    ):
+        _argb_color_member(
+            settings_discovery_hint_colors,
+            color_key,
+            label=settings_discovery_hint_colors_label,
+        )
+
+    card_min_width = contract_number_member(
+        settings_discovery_hint_card,
+        "min_width_dp",
+        label=settings_discovery_hint_card_label,
+    )
+    card_max_width = contract_number_member(
+        settings_discovery_hint_card,
+        "max_width_dp",
+        label=settings_discovery_hint_card_label,
+    )
+    card_width_ratio = contract_number_member(
+        settings_discovery_hint_card,
+        "width_ratio",
+        label=settings_discovery_hint_card_label,
+    )
+    if card_min_width <= 0 or card_max_width <= 0:
+        errors.append(
+            _policy_error(
+                settings_discovery_hint_card_label,
+                "min_width_dp and max_width_dp must be positive",
+            ),
+        )
+    if card_min_width > card_max_width:
+        errors.append(
+            _policy_error(
+                settings_discovery_hint_card_label,
+                "min_width_dp must not exceed max_width_dp",
+            ),
+        )
+    if card_width_ratio <= 0 or card_width_ratio > 1:
+        errors.append(
+            _policy_error(
+                settings_discovery_hint_card_label,
+                "width_ratio must stay in (0, 1]",
+            ),
+        )
+
+    errors.extend(
+        _positive_field_errors(
+            settings_discovery_hint_card,
+            (
+                "outer_margin_dp",
+                "horizontal_padding_dp",
+                "vertical_padding_dp",
+                "corner_radius_dp",
+                "line_spacing_dp",
+                "glyph_text_gap_dp",
+            ),
+            label=settings_discovery_hint_card_label,
+        ),
+    )
+    errors.extend(
+        _positive_field_errors(
+            settings_discovery_hint_stroke,
+            ("width_dp", "extra_width_dp"),
+            label=settings_discovery_hint_stroke_label,
+        ),
+    )
+
+    fill_alpha_base = contract_number_member(
+        settings_discovery_hint_fill,
+        "alpha_base",
+        label=settings_discovery_hint_fill_label,
+    )
+    fill_alpha_delta = contract_number_member(
+        settings_discovery_hint_fill,
+        "alpha_delta",
+        label=settings_discovery_hint_fill_label,
+    )
+    stroke_alpha_base = contract_number_member(
+        settings_discovery_hint_stroke,
+        "alpha_base",
+        label=settings_discovery_hint_stroke_label,
+    )
+    stroke_alpha_delta = contract_number_member(
+        settings_discovery_hint_stroke,
+        "alpha_delta",
+        label=settings_discovery_hint_stroke_label,
+    )
+    if (
+        min(
+            fill_alpha_base,
+            fill_alpha_delta,
+            stroke_alpha_base,
+            stroke_alpha_delta,
+        )
+        < 0
+    ):
+        errors.append(
+            _policy_error(
+                settings_discovery_hint_label,
+                "alpha values must be non-negative",
+            ),
+        )
+    if fill_alpha_base + fill_alpha_delta > _ALPHA_MAX:
+        errors.append(
+            _policy_error(
+                settings_discovery_hint_fill_label,
+                f"alpha_base + alpha_delta must not exceed {_ALPHA_MAX}",
+            ),
+        )
+    if stroke_alpha_base + stroke_alpha_delta > _ALPHA_MAX:
+        errors.append(
+            _policy_error(
+                settings_discovery_hint_stroke_label,
+                f"alpha_base + alpha_delta must not exceed {_ALPHA_MAX}",
+            ),
+        )
+
+    if (
+        contract_number_member(
+            settings_discovery_hint_text,
+            "size_dp",
+            label=settings_discovery_hint_text_label,
+        )
+        <= 0
+    ):
+        errors.append(
+            _policy_error(
+                settings_discovery_hint_text_label,
+                "size_dp must be positive",
+            ),
+        )
+    if (
+        contract_number_member(
+            settings_discovery_hint_pulse,
+            "period_ms",
+            label=settings_discovery_hint_pulse_label,
+        )
+        <= 0
+    ):
+        errors.append(
+            _policy_error(
+                settings_discovery_hint_pulse_label,
+                "period_ms must be positive",
+            ),
+        )
+
+    developer_performance_hud = context.developer_performance_hud_policy
+    developer_performance_hud_text = contract_mapping_member(
+        developer_performance_hud,
+        "text",
+        label=developer_performance_hud_label,
+    )
+    developer_performance_hud_shadow = contract_mapping_member(
+        developer_performance_hud,
+        "shadow",
+        label=developer_performance_hud_label,
+    )
+    hud_min_text_size = contract_number_member(
+        developer_performance_hud_text,
+        "min_size_dp",
+        label=developer_performance_hud_text_label,
+    )
+    hud_max_text_size = contract_number_member(
+        developer_performance_hud_text,
+        "max_size_dp",
+        label=developer_performance_hud_text_label,
+    )
+    if hud_min_text_size <= 0 or hud_max_text_size <= 0:
+        errors.append(
+            _policy_error(
+                developer_performance_hud_text_label,
+                "min_size_dp and max_size_dp must be positive",
+            ),
+        )
+    if hud_min_text_size > hud_max_text_size:
+        errors.append(
+            _policy_error(
+                developer_performance_hud_text_label,
+                "min_size_dp must not exceed max_size_dp",
+            ),
+        )
+    errors.extend(
+        _positive_field_errors(
+            developer_performance_hud_text,
+            (
+                "size_dp",
+                "min_available_height_dp",
+                "height_ratio",
+                "min_label_width_dp",
+                "max_label_horizontal_margin_dp",
+                "baseline_bottom_inset_dp",
+                "leading_inset_dp",
+            ),
+            label=developer_performance_hud_text_label,
+        ),
+    )
+
+    if (
+        contract_number_member(
+            developer_performance_hud_shadow,
+            "radius_dp",
+            label=developer_performance_hud_shadow_label,
+        )
+        <= 0
+    ):
+        errors.append(
+            _policy_error(
+                developer_performance_hud_shadow_label,
+                "radius_dp must be positive",
+            ),
+        )
+    _argb_color_member(
+        developer_performance_hud_shadow,
+        "argb",
+        label=developer_performance_hud_shadow_label,
+    )
+
+    touch_zone_debug = context.touch_zone_debug_policy
+    if (
+        contract_number_member(
+            touch_zone_debug,
+            "stroke_width_dp",
+            label=touch_zone_debug_label,
+        )
+        <= 0
+    ):
+        errors.append(
+            _policy_error(
+                touch_zone_debug_label,
+                "stroke_width_dp must be positive",
+            ),
+        )
+    touch_zone_stroke_alpha = contract_number_member(
+        touch_zone_debug,
+        "stroke_alpha",
+        label=touch_zone_debug_label,
+    )
+    if touch_zone_stroke_alpha < 0 or touch_zone_stroke_alpha > _ALPHA_MAX:
+        errors.append(
+            _policy_error(
+                touch_zone_debug_label,
+                f"stroke_alpha must stay within 0..{_ALPHA_MAX}",
+            ),
+        )
+
+    return errors
+
+
 def _split_android_ui_constant_errors(
     context: _SplitAndroidUiContractContext,
 ) -> list[str]:
@@ -1103,6 +1649,38 @@ def _split_android_ui_constant_errors(
                     context.native_lcd_window,
                     "height",
                     label="android_ui_contract.chrome.lcd_windows.native",
+                ),
+            ),
+            (
+                "MAIN_MENU_BUTTON_LEFT",
+                contract_number_member(
+                    context.main_menu_button,
+                    "left",
+                    label="android_ui_contract.chrome.main_menu_button",
+                ),
+            ),
+            (
+                "MAIN_MENU_BUTTON_TOP",
+                contract_number_member(
+                    context.main_menu_button,
+                    "top",
+                    label="android_ui_contract.chrome.main_menu_button",
+                ),
+            ),
+            (
+                "MAIN_MENU_BUTTON_WIDTH",
+                contract_number_member(
+                    context.main_menu_button,
+                    "width",
+                    label="android_ui_contract.chrome.main_menu_button",
+                ),
+            ),
+            (
+                "MAIN_MENU_BUTTON_HEIGHT",
+                contract_number_member(
+                    context.main_menu_button,
+                    "height",
+                    label="android_ui_contract.chrome.main_menu_button",
                 ),
             ),
             (
@@ -1289,6 +1867,402 @@ def _split_android_ui_constant_errors(
             kotlin_label="CalculatorKeyView.kt",
         ),
     )
+    settings_menu_glyph = context.settings_menu_glyph_policy
+    settings_menu_main = contract_mapping_member(
+        settings_menu_glyph,
+        "main_menu",
+        label="android_ui_contract.overlay_visual_policy.settings_menu_glyph",
+    )
+    settings_menu_onboarding = contract_mapping_member(
+        settings_menu_glyph,
+        "onboarding_hint",
+        label="android_ui_contract.overlay_visual_policy.settings_menu_glyph",
+    )
+    settings_discovery_hint = context.settings_discovery_hint_policy
+    settings_discovery_hint_colors = contract_mapping_member(
+        settings_discovery_hint,
+        "colors",
+        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint",
+    )
+    settings_discovery_hint_card = contract_mapping_member(
+        settings_discovery_hint,
+        "card",
+        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint",
+    )
+    settings_discovery_hint_stroke = contract_mapping_member(
+        settings_discovery_hint,
+        "stroke",
+        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint",
+    )
+    settings_discovery_hint_text = contract_mapping_member(
+        settings_discovery_hint,
+        "text",
+        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint",
+    )
+    settings_discovery_hint_fill = contract_mapping_member(
+        settings_discovery_hint,
+        "fill",
+        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint",
+    )
+    settings_discovery_hint_pulse = contract_mapping_member(
+        settings_discovery_hint,
+        "pulse",
+        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint",
+    )
+    developer_performance_hud = context.developer_performance_hud_policy
+    developer_performance_hud_text = contract_mapping_member(
+        developer_performance_hud,
+        "text",
+        label="android_ui_contract.overlay_visual_policy.developer_performance_hud",
+    )
+    developer_performance_hud_shadow = contract_mapping_member(
+        developer_performance_hud,
+        "shadow",
+        label="android_ui_contract.overlay_visual_policy.developer_performance_hud",
+    )
+    touch_zone_debug = context.touch_zone_debug_policy
+    overlay_visual_consts = parse_kotlin_const_values_from_paths(
+        [
+            _KOTLIN_SETTINGS_MENU_GLYPH_PATH,
+            _KOTLIN_REPLICA_OVERLAY_PATH,
+        ],
+    )
+    errors.extend(
+        _const_mismatch_errors(
+            overlay_visual_consts,
+            (
+                (
+                    "TAB_WIDTH_TO_HEIGHT_RATIO",
+                    contract_number_member(
+                        settings_menu_glyph,
+                        "tab_width_to_height_ratio",
+                        label="android_ui_contract.overlay_visual_policy.settings_menu_glyph",
+                    ),
+                ),
+                (
+                    "MAIN_MENU_TAB_HEIGHT_DP",
+                    contract_number_member(
+                        settings_menu_main,
+                        "tab_height_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_menu_glyph.main_menu",
+                    ),
+                ),
+                (
+                    "MAIN_MENU_GAP_DP",
+                    contract_number_member(
+                        settings_menu_main,
+                        "gap_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_menu_glyph.main_menu",
+                    ),
+                ),
+                (
+                    "MAIN_MENU_BOTTOM_INSET_DP",
+                    contract_number_member(
+                        settings_menu_main,
+                        "bottom_inset_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_menu_glyph.main_menu",
+                    ),
+                ),
+                (
+                    "ONBOARDING_TAB_HEIGHT_DP",
+                    contract_number_member(
+                        settings_menu_onboarding,
+                        "tab_height_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_menu_glyph.onboarding_hint",
+                    ),
+                ),
+                (
+                    "ONBOARDING_GAP_DP",
+                    contract_number_member(
+                        settings_menu_onboarding,
+                        "gap_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_menu_glyph.onboarding_hint",
+                    ),
+                ),
+                (
+                    "SURFACE_COLOR_ARGB",
+                    _argb_color_member(
+                        settings_discovery_hint_colors,
+                        "surface_argb",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.colors",
+                    ),
+                ),
+                (
+                    "ON_SURFACE_COLOR_ARGB",
+                    _argb_color_member(
+                        settings_discovery_hint_colors,
+                        "on_surface_argb",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.colors",
+                    ),
+                ),
+                (
+                    "STROKE_COLOR_ARGB",
+                    _argb_color_member(
+                        settings_discovery_hint_colors,
+                        "stroke_argb",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.colors",
+                    ),
+                ),
+                (
+                    "MENU_ORANGE_FALLBACK_COLOR_ARGB",
+                    _argb_color_member(
+                        settings_discovery_hint_colors,
+                        "menu_orange_fallback_argb",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.colors",
+                    ),
+                ),
+                (
+                    "MENU_BLUE_FALLBACK_COLOR_ARGB",
+                    _argb_color_member(
+                        settings_discovery_hint_colors,
+                        "menu_blue_fallback_argb",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.colors",
+                    ),
+                ),
+                (
+                    "CARD_OUTER_MARGIN_DP",
+                    contract_number_member(
+                        settings_discovery_hint_card,
+                        "outer_margin_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.card",
+                    ),
+                ),
+                (
+                    "CARD_MIN_WIDTH_DP",
+                    contract_number_member(
+                        settings_discovery_hint_card,
+                        "min_width_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.card",
+                    ),
+                ),
+                (
+                    "CARD_MAX_WIDTH_DP",
+                    contract_number_member(
+                        settings_discovery_hint_card,
+                        "max_width_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.card",
+                    ),
+                ),
+                (
+                    "CARD_WIDTH_RATIO",
+                    contract_number_member(
+                        settings_discovery_hint_card,
+                        "width_ratio",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.card",
+                    ),
+                ),
+                (
+                    "CARD_HORIZONTAL_PADDING_DP",
+                    contract_number_member(
+                        settings_discovery_hint_card,
+                        "horizontal_padding_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.card",
+                    ),
+                ),
+                (
+                    "CARD_VERTICAL_PADDING_DP",
+                    contract_number_member(
+                        settings_discovery_hint_card,
+                        "vertical_padding_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.card",
+                    ),
+                ),
+                (
+                    "CARD_CORNER_RADIUS_DP",
+                    contract_number_member(
+                        settings_discovery_hint_card,
+                        "corner_radius_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.card",
+                    ),
+                ),
+                (
+                    "CARD_LINE_SPACING_DP",
+                    contract_number_member(
+                        settings_discovery_hint_card,
+                        "line_spacing_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.card",
+                    ),
+                ),
+                (
+                    "CARD_GLYPH_TEXT_GAP_DP",
+                    contract_number_member(
+                        settings_discovery_hint_card,
+                        "glyph_text_gap_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.card",
+                    ),
+                ),
+                (
+                    "CARD_STROKE_WIDTH_DP",
+                    contract_number_member(
+                        settings_discovery_hint_stroke,
+                        "width_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.stroke",
+                    ),
+                ),
+                (
+                    "CARD_STROKE_EXTRA_WIDTH_DP",
+                    contract_number_member(
+                        settings_discovery_hint_stroke,
+                        "extra_width_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.stroke",
+                    ),
+                ),
+                (
+                    "INFO_TEXT_SIZE_DP",
+                    contract_number_member(
+                        settings_discovery_hint_text,
+                        "size_dp",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.text",
+                    ),
+                ),
+                (
+                    "FILL_ALPHA_BASE",
+                    contract_number_member(
+                        settings_discovery_hint_fill,
+                        "alpha_base",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.fill",
+                    ),
+                ),
+                (
+                    "FILL_ALPHA_DELTA",
+                    contract_number_member(
+                        settings_discovery_hint_fill,
+                        "alpha_delta",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.fill",
+                    ),
+                ),
+                (
+                    "CARD_STROKE_ALPHA_BASE",
+                    contract_number_member(
+                        settings_discovery_hint_stroke,
+                        "alpha_base",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.stroke",
+                    ),
+                ),
+                (
+                    "CARD_STROKE_ALPHA_DELTA",
+                    contract_number_member(
+                        settings_discovery_hint_stroke,
+                        "alpha_delta",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.stroke",
+                    ),
+                ),
+                (
+                    "PULSE_PERIOD_MS",
+                    contract_number_member(
+                        settings_discovery_hint_pulse,
+                        "period_ms",
+                        label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.pulse",
+                    ),
+                ),
+                (
+                    "TEXT_SIZE_DP",
+                    contract_number_member(
+                        developer_performance_hud_text,
+                        "size_dp",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.text",
+                    ),
+                ),
+                (
+                    "MIN_AVAILABLE_HEIGHT_DP",
+                    contract_number_member(
+                        developer_performance_hud_text,
+                        "min_available_height_dp",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.text",
+                    ),
+                ),
+                (
+                    "TEXT_HEIGHT_RATIO",
+                    contract_number_member(
+                        developer_performance_hud_text,
+                        "height_ratio",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.text",
+                    ),
+                ),
+                (
+                    "MIN_TEXT_SIZE_DP",
+                    contract_number_member(
+                        developer_performance_hud_text,
+                        "min_size_dp",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.text",
+                    ),
+                ),
+                (
+                    "MAX_TEXT_SIZE_DP",
+                    contract_number_member(
+                        developer_performance_hud_text,
+                        "max_size_dp",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.text",
+                    ),
+                ),
+                (
+                    "MIN_LABEL_WIDTH_DP",
+                    contract_number_member(
+                        developer_performance_hud_text,
+                        "min_label_width_dp",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.text",
+                    ),
+                ),
+                (
+                    "MAX_LABEL_HORIZONTAL_MARGIN_DP",
+                    contract_number_member(
+                        developer_performance_hud_text,
+                        "max_label_horizontal_margin_dp",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.text",
+                    ),
+                ),
+                (
+                    "BASELINE_BOTTOM_INSET_DP",
+                    contract_number_member(
+                        developer_performance_hud_text,
+                        "baseline_bottom_inset_dp",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.text",
+                    ),
+                ),
+                (
+                    "LEADING_INSET_DP",
+                    contract_number_member(
+                        developer_performance_hud_text,
+                        "leading_inset_dp",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.text",
+                    ),
+                ),
+                (
+                    "SHADOW_RADIUS_DP",
+                    contract_number_member(
+                        developer_performance_hud_shadow,
+                        "radius_dp",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.shadow",
+                    ),
+                ),
+                (
+                    "SHADOW_COLOR_ARGB",
+                    _argb_color_member(
+                        developer_performance_hud_shadow,
+                        "argb",
+                        label="android_ui_contract.overlay_visual_policy.developer_performance_hud.shadow",
+                    ),
+                ),
+                (
+                    "ZONE_STROKE_WIDTH_DP",
+                    contract_number_member(
+                        touch_zone_debug,
+                        "stroke_width_dp",
+                        label="android_ui_contract.overlay_visual_policy.touch_zone_debug",
+                    ),
+                ),
+                (
+                    "STROKE_ALPHA",
+                    contract_number_member(
+                        touch_zone_debug,
+                        "stroke_alpha",
+                        label="android_ui_contract.overlay_visual_policy.touch_zone_debug",
+                    ),
+                ),
+            ),
+            kotlin_label="SettingsMenuGlyph.kt / ReplicaOverlay.kt",
+        ),
+    )
     return errors
 
 
@@ -1304,6 +2278,7 @@ def _split_android_ui_contract_errors(
     )
     errors = _split_android_ui_metadata_errors(context)
     errors.extend(_split_android_ui_layout_errors(context))
+    errors.extend(_split_android_ui_visual_policy_errors(context))
     errors.extend(_split_android_ui_constant_errors(context))
     return errors
 

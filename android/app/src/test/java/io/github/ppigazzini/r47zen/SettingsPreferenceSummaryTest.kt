@@ -181,11 +181,11 @@ class SettingsPreferenceSummaryTest {
         val preference = launchSettingsAndFindSwitch("show_developer_performance_hud")
 
         assertEquals(
-            "Show Performance Stats",
+            "HUD Telemetry",
             preference.title?.toString(),
         )
         assertEquals(
-            "Show DEV fps, LCD /s, and LCD copy ms above the LCD.",
+            "App fps, LCD updates per second, and LCD buffer copy ms.",
             preference.summary?.toString(),
         )
     }

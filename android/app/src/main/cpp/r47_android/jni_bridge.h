@@ -236,6 +236,15 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_setSlotNative(
 JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getXRegisterNative(JNIEnv *env,
                                                             jobject thiz);
+JNIEXPORT jstring JNICALL
+Java_com_example_r47_MainActivity_getClipboardXRegisterNative(JNIEnv *env,
+                                                                     jobject thiz);
+JNIEXPORT jstring JNICALL
+Java_com_example_r47_MainActivity_getClipboardStackRegistersNative(JNIEnv *env,
+                                                                          jobject thiz);
+JNIEXPORT jstring JNICALL
+Java_com_example_r47_MainActivity_getClipboardAllRegistersNative(JNIEnv *env,
+                                                                        jobject thiz);
 JNIEXPORT jint JNICALL
 Java_com_example_r47_MainActivity_getPackedDisplayGeneration(JNIEnv *env,
                                                                     jobject thiz);

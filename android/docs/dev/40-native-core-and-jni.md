@@ -75,7 +75,8 @@ The Android bridge code is intentionally split by responsibility:
 
 - `jni_lifecycle.c` for init, deadline-driven tick, refresh, and slot-state lifecycle work
 - `jni_input.c` for key and menu dispatch
-- `jni_display.c` for packed LCD generations, pixels, keypad snapshots, and X-register queries
+- `jni_display.c` for packed LCD generations, pixels, keypad snapshots, and
+  clipboard-export queries for X, stack, and all-register payloads
 - `jni_storage.c` for SAF-backed blocking file handoff
 - `jni_registration.c` for `JNI_OnLoad()` and explicit native registration
 - `jni_activity_bridge.c` for shared JVM, activity callbacks, and bridge globals
@@ -95,8 +96,17 @@ The registered native surface includes:
 - packed LCD generation reads and packed LCD transfer
 - keypad snapshot generation reads and whole-snapshot copy, plus the legacy
   keypad metadata and label getters kept for bridge compatibility
-- slot selection and X-register fetch
+- slot selection plus clipboard-export fetches for X register, stack
+  registers, and all registers
 - SAF file selection callbacks
+
+The clipboard-export getters are Android-owned bridge seams. They mirror the
+upstream desktop clipboard payload shapes for `Copy X Register`, `Copy Stack
+Registers`, and `Copy All Registers` without moving Android menu policy into
+the upstream core. When those payloads change, keep
+`DisplayActionController.kt`, `jni_display.c`, and the formatter helpers in
+`android_helpers.c` aligned with the upstream reference behavior in
+`src/c47/screen.c`.
 
 Shared helpers in `jni_bridge.h` centralize `JNIEnv` acquisition,
 detach-on-scope-exit for native-owned threads, exception detection and clearing

@@ -10,17 +10,17 @@ internal data class DeveloperPerformanceSnapshot(
 ) {
     fun overlayLabel(): String {
         if (uiFramesPerSecond <= 0f && lcdUpdateSamples == 0) {
-            return "DEV -- fps | LCD --/s | copy --"
+            return "App -- fps | LCD -- ups | Copy --"
         }
 
         val copyLabel = if (lcdUpdateSamples > 0) {
-            String.format(Locale.US, "%.2f ms", averageLcdUpdateMillis)
+            String.format(Locale.US, "%.1f ms", averageLcdUpdateMillis)
         } else {
             "--"
         }
         return String.format(
             Locale.US,
-            "DEV %.1f fps | LCD %.1f/s | copy %s",
+            "App %.1f fps | LCD %.1f ups | Copy %s",
             uiFramesPerSecond,
             lcdUpdatesPerSecond,
             copyLabel,

@@ -1506,6 +1506,60 @@ Java_com_example_r47_MainActivity_getXRegisterNative(
 }
 
 JNIEXPORT jstring JNICALL
+Java_com_example_r47_MainActivity_getClipboardXRegisterNative(
+    JNIEnv *env, jobject thiz) {
+  (void)thiz;
+  if (!ram || isCoreBlockingForIo) {
+    return jni_new_string_utf(env, "", NULL,
+                              "getClipboardXRegisterNative default NewStringUTF");
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  extern char *getClipboardXRegisterString(void);
+  char *registerText = getClipboardXRegisterString();
+  jstring result = jni_new_string_utf(env, registerText ? registerText : "",
+                                      "", "getClipboardXRegisterNative NewStringUTF");
+  pthread_mutex_unlock(&screenMutex);
+  return result;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_example_r47_MainActivity_getClipboardStackRegistersNative(
+    JNIEnv *env, jobject thiz) {
+  (void)thiz;
+  if (!ram || isCoreBlockingForIo) {
+    return jni_new_string_utf(env, "", NULL,
+                              "getClipboardStackRegistersNative default NewStringUTF");
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  extern char *getClipboardStackRegistersString(void);
+  char *registerText = getClipboardStackRegistersString();
+  jstring result = jni_new_string_utf(env, registerText ? registerText : "",
+                                      "", "getClipboardStackRegistersNative NewStringUTF");
+  pthread_mutex_unlock(&screenMutex);
+  return result;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_example_r47_MainActivity_getClipboardAllRegistersNative(
+    JNIEnv *env, jobject thiz) {
+  (void)thiz;
+  if (!ram || isCoreBlockingForIo) {
+    return jni_new_string_utf(env, "", NULL,
+                              "getClipboardAllRegistersNative default NewStringUTF");
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  extern char *getClipboardAllRegistersString(void);
+  char *registerText = getClipboardAllRegistersString();
+  jstring result = jni_new_string_utf(env, registerText ? registerText : "",
+                                      "", "getClipboardAllRegistersNative NewStringUTF");
+  pthread_mutex_unlock(&screenMutex);
+  return result;
+}
+
+JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
                                                               jobject thiz,
                                                               jint keyCode,

@@ -114,7 +114,7 @@ Main flow:
 The performance snapshot stays Android-local. `NativeCoreRuntime` forwards it
 through `MainActivity`, `MainActivityPreferenceController` owns the
 `show_developer_performance_hud` preference, and `ReplicaOverlay` may paint the
-red developer HUD above the LCD. This is a manual observability aid, not a
+red developer HUD in the top shell area. This is a manual observability aid, not a
 runtime-policy seam or a replacement for real benchmark and profiler work.
 
 This page stops at the coordination boundary. Read
@@ -226,11 +226,18 @@ while matching the desktop simulator's stop-key parity during an active run.
   letterbox or window the shell according to Android compatibility behavior
 - Picture-in-Picture is enabled
 - settings live in a separate non-exported `SettingsActivity`
-- `MainActivity` now installs one projected top-right menu button into
-  `ReplicaOverlay` after keypad rebuild. `DisplayActionController` anchors the
-  shell popup there for `Settings`, `Copy X Register`, `Paste Number`, and
-  `Picture in picture`, while `ReplicaOverlay` no longer treats the full top
-  bezel as one hidden settings strip
+- `MainActivity` now installs one projected top-right orange-left and
+  blue-right rectangle touch target into `ReplicaOverlay` after keypad
+  rebuild. The visible marker sits near the LCD top edge, but the touch zone
+  still extends around and above it.
+  `DisplayActionController` anchors the shell popup there for `Settings`,
+  `Copy...`, `Paste Number`, and `Picture in Picture`. `Copy...` now opens a
+  dedicated follow-up popup that mirrors the upstream desktop clipboard actions
+  with `Copy X Register`, `Copy Stack Registers`, and `Copy All Registers`.
+  Both popup layers use a dedicated dark popup theme so device light mode can
+  never flip the shell menu to a light surface, while `ReplicaOverlay` no
+  longer treats the full top bezel as one hidden settings strip and dismisses
+  the onboarding card on the first shell touch
 - `SettingsActivity` stays Preference-based, but its host layout is now
   adaptive: the base `settings_activity.xml` uses `ConstraintLayout`, and
   `layout-w600dp/settings_activity.xml` centers the preferences inside a
@@ -244,9 +251,14 @@ while matching the desktop simulator's stop-key parity during an active run.
   describe what enabling each toggle does instead of duplicating the visible
   on or off state
 - `MainActivity` keeps the calculator shell dark even on a light-themed
-  device: `WindowModeController` applies a dark visible system-bar treatment
-  when fullscreen is off, and the projected main-menu affordance stays on that
-  same dark shell surface instead of depending on a hidden top-bezel gesture
+  device: `Theme.R47` is a fixed dark Material 3 theme, not a DayNight theme,
+  and the phone light or dark setting must never change the app theme.
+  `DisplayActionController` also wraps popup menus in the dedicated dark
+  `Theme.R47.PopupMenu` context so that invariant still holds if future work
+  touches activity theming. `WindowModeController` applies a dark visible
+  system-bar treatment when fullscreen is off, and the projected main-menu
+  affordance stays on that same dark shell surface instead of depending on a
+  hidden top-bezel gesture
 - LCD appearance stays on a curated Android-local theme list owned by
   `LcdThemePolicy.kt`; `MainActivityPreferenceController.kt` normalizes stored
   `lcd_theme` values, clamps `lcd_luminance` to the XML-declared `20..120`
@@ -256,8 +268,8 @@ while matching the desktop simulator's stop-key parity during an active run.
   `MainActivityPreferenceController.kt` reads and dispatches it directly to
   `ReplicaOverlay.kt`, while `NativeDisplayRefreshLoop.kt` supplies the sampled
   `DeveloperPerformanceSnapshot` label data used by the overlay. The fixed
-  settings summary now explicitly names the three HUD fields as `DEV fps`,
-  `LCD /s`, and `LCD copy ms`
+  settings copy now names those fields as app fps, LCD updates per second, and
+  LCD buffer copy ms
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`
   now uses press-only keypad haptics for calculator interaction. `ACTION_DOWN`
   uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` and

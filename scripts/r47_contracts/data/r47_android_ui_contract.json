@@ -20,6 +20,12 @@
       "bottom": 56
     },
     "settings_strip_tap_height": 229,
+    "main_menu_button": {
+      "left": 1471,
+      "top": 0,
+      "width": 264,
+      "height": 229
+    },
     "lcd_windows": {
       "native": {
         "left": 85,
@@ -33,6 +39,77 @@
       "pixel_height": 240
     },
     "non_softkey_view_height": 236
+  },
+  "overlay_visual_policy": {
+    "settings_menu_glyph": {
+      "tab_width_to_height_ratio": 1.0,
+      "main_menu": {
+        "tab_height_dp": 11,
+        "gap_dp": 4,
+        "bottom_inset_dp": 4
+      },
+      "onboarding_hint": {
+        "tab_height_dp": 18,
+        "gap_dp": 6
+      }
+    },
+    "settings_discovery_hint": {
+      "colors": {
+        "surface_argb": "#EC12151A",
+        "on_surface_argb": "#FFF7F3EA",
+        "stroke_argb": "#FF8EDAFE",
+        "menu_orange_fallback_argb": "#FFFFC36F",
+        "menu_blue_fallback_argb": "#FF8EDAFE"
+      },
+      "card": {
+        "outer_margin_dp": 24,
+        "min_width_dp": 220,
+        "max_width_dp": 360,
+        "width_ratio": 0.72,
+        "horizontal_padding_dp": 18,
+        "vertical_padding_dp": 16,
+        "corner_radius_dp": 22,
+        "line_spacing_dp": 4,
+        "glyph_text_gap_dp": 12
+      },
+      "stroke": {
+        "width_dp": 2.5,
+        "extra_width_dp": 1.5,
+        "alpha_base": 150,
+        "alpha_delta": 105
+      },
+      "text": {
+        "size_dp": 14
+      },
+      "fill": {
+        "alpha_base": 220,
+        "alpha_delta": 16
+      },
+      "pulse": {
+        "period_ms": 1400
+      }
+    },
+    "developer_performance_hud": {
+      "text": {
+        "size_dp": 12,
+        "min_available_height_dp": 24,
+        "height_ratio": 0.09,
+        "min_size_dp": 10,
+        "max_size_dp": 16,
+        "min_label_width_dp": 48,
+        "max_label_horizontal_margin_dp": 8,
+        "baseline_bottom_inset_dp": 6,
+        "leading_inset_dp": 2
+      },
+      "shadow": {
+        "radius_dp": 2,
+        "argb": "#D0000000"
+      }
+    },
+    "touch_zone_debug": {
+      "stroke_width_dp": 2,
+      "stroke_alpha": 180
+    }
   },
   "key_surface": {
     "main_key": {

@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.R47" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.R47" parent="Theme.Material3.Dark.NoActionBar">
         <!-- Primary brand color (requested R47 orange accent). -->
         <item name="colorPrimary">#FFC36F</item>
         <item name="colorOnPrimary">#000000</item>
@@ -19,6 +19,10 @@
         <!-- Keep the role split so slider track and thumb stay distinct. -->
         <item name="colorPrimaryContainer">#8EDAFE</item>
         <item name="colorOnPrimaryContainer">#000000</item>
+        <item name="colorSurface">#12151A</item>
+        <item name="colorOnSurface">#F7F3EA</item>
+        <item name="colorSurfaceContainer">#12151A</item>
+        <item name="android:colorBackground">#12151A</item>
         <!-- Customize your theme here. -->
         <!-- Legacy/Fallback compatibility -->
         <item name="colorControlActivated">#8EDAFE</item>
@@ -39,9 +43,23 @@
         <item name="colorOnTertiaryContainer">#000000</item>
         <item name="colorPrimaryContainer">#8EDAFE</item>
         <item name="colorOnPrimaryContainer">#000000</item>
+        <item name="colorSurface">#12151A</item>
+        <item name="colorOnSurface">#F7F3EA</item>
+        <item name="android:colorBackground">#12151A</item>
         <item name="colorControlActivated">#8EDAFE</item>
         <item name="android:navigationBarColor">?attr/colorSurface</item>
         <item name="android:statusBarColor">?attr/colorSurfaceContainer</item>
+    </style>
+
+    <style name="Theme.R47.PopupMenu" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#FFC36F</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorSecondary">#8EDAFE</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSurface">#12151A</item>
+        <item name="colorOnSurface">#F7F3EA</item>
+        <item name="colorSurfaceContainer">#12151A</item>
+        <item name="android:colorBackground">#12151A</item>
     </style>
 
     <style name="VisibleReplicaKey">

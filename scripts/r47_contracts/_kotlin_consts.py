@@ -14,6 +14,19 @@ _CONST_PATTERN = re.compile(
     r"(?:private\s+|internal\s+)?const val\s+(\w+)\s*=\s*(.+)",
 )
 _FLOAT_SUFFIX_PATTERN = re.compile(r"(?<=\d)f\b")
+_LONG_SUFFIX_PATTERN = re.compile(r"(?<=\d)[lL]\b")
+_TO_INT_PATTERN = re.compile(r"(?P<expr>0x[0-9A-Fa-f]+|\d+)\.toInt\(\)")
+_TO_LONG_PATTERN = re.compile(r"(?P<expr>0x[0-9A-Fa-f]+|\d+)\.toLong\(\)")
+_UINT32_MASK = 0xFFFFFFFF
+_SIGNED_INT32_THRESHOLD = 0x80000000
+_UINT32_RANGE = 0x100000000
+
+
+def _to_signed_int32(value: float) -> float:
+    coerced = int(value) & _UINT32_MASK
+    if coerced >= _SIGNED_INT32_THRESHOLD:
+        coerced -= _UINT32_RANGE
+    return float(coerced)
 
 
 class _ConstExpressionEvaluator(ast.NodeVisitor):
@@ -58,6 +71,21 @@ class _ConstExpressionEvaluator(ast.NodeVisitor):
         message = f"Unsupported binary op: {ast.dump(node)}"
         raise TypeError(message)
 
+    def visit_Call(self, node: ast.Call) -> float:
+        if node.keywords or len(node.args) != 1:
+            message = f"Unsupported call: {ast.dump(node)}"
+            raise TypeError(message)
+
+        argument = self.visit(node.args[0])
+        if isinstance(node.func, ast.Name):
+            if node.func.id == "toInt":
+                return _to_signed_int32(argument)
+            if node.func.id == "toLong":
+                return float(int(argument))
+
+        message = f"Unsupported call: {ast.dump(node)}"
+        raise TypeError(message)
+
     def generic_visit(self, node: ast.AST) -> float:
         message = f"Unsupported expression: {ast.dump(node)}"
         raise TypeError(message)
@@ -79,6 +107,9 @@ def parse_kotlin_const_values(
 
         name, expression = match.groups()
         sanitized = _FLOAT_SUFFIX_PATTERN.sub("", expression)
+        sanitized = _LONG_SUFFIX_PATTERN.sub("", sanitized)
+        sanitized = _TO_INT_PATTERN.sub(r"toInt(\g<expr>)", sanitized)
+        sanitized = _TO_LONG_PATTERN.sub(r"toLong(\g<expr>)", sanitized)
         parsed = ast.parse(sanitized, mode="eval")
         try:
             values[name] = _ConstExpressionEvaluator(values).visit(parsed)
@@ -133,6 +164,8 @@ def _starts_new_const_block(line: str) -> bool:
     if stripped.startswith("//"):
         return True
     if stripped.startswith(("private ", "internal ")):
+        return True
+    if stripped.startswith(("val ", "object ")):
         return True
     if stripped.startswith(("fun ", "data class ")):
         return True

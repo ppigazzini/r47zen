@@ -65,9 +65,16 @@ flowchart LR
 - `ReplicaOverlay` projects one borderless native shell surface from the shared
   logical contract
 - `ReplicaKeypadLayout` owns one normalized shared touch-cell map, and
-  `MainActivity` installs one projected top-right menu button through
-  `ReplicaOverlay.addReplicaView(...)`, so `ReplicaOverlay` no longer
-  intercepts the full top bezel as one hidden settings-entry strip
+  `MainActivity` installs one projected top-right orange-blue marker touch
+  target through `ReplicaOverlay.addReplicaView(...)`, so `ReplicaOverlay` no
+  longer intercepts the full top bezel as one hidden settings-entry strip
+- `DisplayActionController` keeps the Android shell menu replica-first by
+  keeping `Settings`, `Copy...`, `Paste Number`, and `Picture in Picture` on
+  the primary popup, then opening a follow-up `Copy...` popup for the
+  upstream-style clipboard exports on that same projected top-right affordance.
+  Both popups are forced through the dark popup theme so phone light mode can
+  never change shell menu surfaces, and the retained onboarding card clears on
+  the first shell touch instead of waiting for a menu tap
 - PiP uses the LCD-only contract: `WindowModeController` requests the exact
   native `400 x 240` width-over-height ratio, then `ReplicaOverlay` draws the
   LCD full-window and maps horizontal touches across that surface to the six

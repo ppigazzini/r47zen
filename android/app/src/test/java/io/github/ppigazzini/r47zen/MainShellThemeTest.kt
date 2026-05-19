@@ -17,6 +17,7 @@ import android.util.TypedValue
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowInsetsControllerCompat
+import com.google.android.material.color.MaterialColors
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -34,6 +35,10 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "notnight")
 class MainShellThemeTest {
+
+    companion object {
+        private const val INFO_CARD_SAMPLE_INSET_DP = 14f
+    }
 
     @Test
     fun enterPictureInPicture_usesLcdAspectRatio() {
@@ -85,20 +90,35 @@ class MainShellThemeTest {
         overlay.draw(Canvas(bitmap))
 
         val samplePoints = computeHintSamplePoints(activity, overlay)
-        val topBannerColor = bitmap.getPixel(samplePoints.topX, samplePoints.topY)
         val infoCardColor = bitmap.getPixel(samplePoints.infoX, samplePoints.infoY)
 
-        assertTrue(ColorUtils.calculateLuminance(topBannerColor) < 0.15)
         assertTrue(ColorUtils.calculateLuminance(infoCardColor) < 0.15)
+    }
+
+    @Test
+    fun mainShellTheme_keepsDarkSurfacesInLightSystemMode() {
+        val activity = buildThemedActivity()
+        val surface = MaterialColors.getColor(
+            activity,
+            com.google.android.material.R.attr.colorSurface,
+            Color.MAGENTA,
+        )
+        val onSurface = MaterialColors.getColor(
+            activity,
+            com.google.android.material.R.attr.colorOnSurface,
+            Color.MAGENTA,
+        )
+
+        assertTrue(ColorUtils.calculateLuminance(surface) < 0.15)
+        assertTrue(ColorUtils.calculateLuminance(onSurface) > 0.7)
     }
 
     @Test
     fun settingsDiscoveryHint_copyReferencesTopRightMenu() {
         val activity = buildThemedActivity()
 
-        assertEquals("Open the top-right menu", activity.getString(R.string.settings_entry_hint_chip))
         assertEquals(
-            "Welcome to R47 Zen\nOpen the top-right menu for Settings.\nSet Keypad Layout and Working Directory there.",
+            "Welcome to R47 Zen\nTap the orange and blue rectangles at top right to open the menu for Settings, Copy Actions, and Paste Number.\nSet Keypad Layout and Working Directory there.",
             activity.getString(R.string.settings_entry_hint_message),
         )
     }
@@ -107,11 +127,40 @@ class MainShellThemeTest {
     fun mainMenuCopy_usesFixedShellStrings() {
         val activity = buildThemedActivity()
 
-        assertEquals("Open menu", activity.getString(R.string.main_menu_button_content_description))
+        assertEquals("Open top-right menu", activity.getString(R.string.main_menu_button_content_description))
         assertEquals("Settings", activity.getString(R.string.main_menu_settings))
+        assertEquals("Copy...", activity.getString(R.string.main_menu_copy))
         assertEquals("Copy X Register", activity.getString(R.string.main_menu_copy_x_register))
+        assertEquals("Copy Stack Registers", activity.getString(R.string.main_menu_copy_stack_registers))
+        assertEquals("Copy All Registers", activity.getString(R.string.main_menu_copy_all_registers))
         assertEquals("Paste Number", activity.getString(R.string.main_menu_paste_number))
-        assertEquals("Picture in picture", activity.getString(R.string.main_menu_picture_in_picture))
+        assertEquals("Picture in Picture", activity.getString(R.string.main_menu_picture_in_picture))
+    }
+
+    @Test
+    fun mainMenuGeometry_staysRightAlignedToLcdInsideTopBezel() {
+        val activity = buildThemedActivity()
+        val chromeLayout = ReplicaChromeLayout(activity.resources).apply {
+            setScalingMode("full_width")
+        }
+        val spec = chromeLayout.currentChromeSpec()
+        val projection = chromeLayout.computeProjection(spec, 1080f, 2160f)
+
+        val menuLeft = projection.offsetX + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_LEFT * projection.scale
+        val menuTop = projection.offsetY + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_TOP * projection.scale
+        val menuRight = projection.offsetX +
+            (R47AndroidChromeGeometry.MAIN_MENU_BUTTON_LEFT + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_WIDTH) * projection.scale
+        val menuBottom = projection.offsetY +
+            (R47AndroidChromeGeometry.MAIN_MENU_BUTTON_TOP + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_HEIGHT) * projection.scale
+        val lcdLeft = projection.offsetX + spec.lcdWindowLeft * projection.scale
+        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
+        val lcdRight = projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth) * projection.scale
+        val shellTop = projection.offsetY
+
+        assertEquals(shellTop, menuTop, 0.01f)
+        assertEquals(lcdTop, menuBottom, 0.01f)
+        assertEquals(lcdRight, menuRight, 0.01f)
+        assertTrue(menuLeft >= lcdLeft)
     }
 
     private fun buildThemedActivity(): ThemedShellActivity {
@@ -141,35 +190,39 @@ class MainShellThemeTest {
             projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth) * projection.scale,
             projection.offsetY + (spec.lcdWindowTop + spec.lcdWindowHeight) * projection.scale,
         )
-        val bannerWidth = min(
-            shellRect.width() - dp(activity, 24f),
-            max(dp(activity, 220f), min(dp(activity, 360f), shellRect.width() * 0.72f)),
+        val infoCardWidth = min(
+            shellRect.width() - dp(activity, SettingsDiscoveryHintVisualPolicy.CARD_OUTER_MARGIN_DP),
+            max(
+                dp(activity, SettingsDiscoveryHintVisualPolicy.CARD_MIN_WIDTH_DP),
+                min(
+                    dp(activity, SettingsDiscoveryHintVisualPolicy.CARD_MAX_WIDTH_DP),
+                    shellRect.width() * SettingsDiscoveryHintVisualPolicy.CARD_WIDTH_RATIO,
+                ),
+            ),
         )
-        val topBannerRect = RectF(
-            shellRect.centerX() - bannerWidth / 2f,
-            projection.offsetY + dp(activity, 8f),
-            shellRect.centerX() + bannerWidth / 2f,
-            projection.offsetY + spec.topBezelSettingsTapHeight * projection.scale - dp(activity, 8f),
-        )
+        val overlayDensity = activity.resources.displayMetrics.density
+        val infoGlyphTabHeight = SettingsMenuGlyph.ONBOARDING_GEOMETRY.tabHeightPx(overlayDensity)
+        val infoGlyphTextGap = dp(activity, SettingsDiscoveryHintVisualPolicy.CARD_GLYPH_TEXT_GAP_DP)
 
-        val infoPaddingHorizontal = dp(activity, 18f)
-        val infoPaddingVertical = dp(activity, 16f)
+        val infoPaddingHorizontal = dp(activity, SettingsDiscoveryHintVisualPolicy.CARD_HORIZONTAL_PADDING_DP)
+        val infoPaddingVertical = dp(activity, SettingsDiscoveryHintVisualPolicy.CARD_VERTICAL_PADDING_DP)
         val infoPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#F7F3EA")
-            textSize = dp(activity, 14f)
+            textSize = dp(activity, SettingsDiscoveryHintVisualPolicy.INFO_TEXT_SIZE_DP)
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)
         }
         val infoMessage = activity.getString(R.string.settings_entry_hint_message)
-        val infoTextWidth = (bannerWidth - infoPaddingHorizontal * 2f).roundToInt().coerceAtLeast(1)
+        val infoTextWidth = (infoCardWidth - infoPaddingHorizontal * 2f).roundToInt().coerceAtLeast(1)
         val infoLayout = StaticLayout.Builder
             .obtain(infoMessage, 0, infoMessage.length, infoPaint, infoTextWidth)
             .setAlignment(Layout.Alignment.ALIGN_CENTER)
             .setIncludePad(false)
-            .setLineSpacing(dp(activity, 4f), 1f)
+            .setLineSpacing(dp(activity, SettingsDiscoveryHintVisualPolicy.CARD_LINE_SPACING_DP), 1f)
             .build()
-        val infoCardHeight = infoLayout.height + infoPaddingVertical * 2f
-        val minInfoTop = max(topBannerRect.bottom + dp(activity, 24f), lcdDestRect.bottom + dp(activity, 24f))
-        val maxInfoTop = shellRect.bottom - infoCardHeight - dp(activity, 24f)
+        val infoCardHeight = infoLayout.height + infoPaddingVertical * 2f + infoGlyphTabHeight + infoGlyphTextGap
+        val infoCardOuterMargin = dp(activity, SettingsDiscoveryHintVisualPolicy.CARD_OUTER_MARGIN_DP)
+        val minInfoTop = max(shellRect.top + infoCardOuterMargin, lcdDestRect.bottom + infoCardOuterMargin)
+        val maxInfoTop = shellRect.bottom - infoCardHeight - infoCardOuterMargin
         val preferredInfoTop = shellRect.centerY() - infoCardHeight / 2f
         val infoTop = if (maxInfoTop > minInfoTop) {
             preferredInfoTop.coerceIn(minInfoTop, maxInfoTop)
@@ -177,17 +230,15 @@ class MainShellThemeTest {
             minInfoTop
         }
         val infoCardRect = RectF(
-            shellRect.centerX() - bannerWidth / 2f,
+            shellRect.centerX() - infoCardWidth / 2f,
             infoTop,
-            shellRect.centerX() + bannerWidth / 2f,
+            shellRect.centerX() + infoCardWidth / 2f,
             infoTop + infoCardHeight,
         )
 
         return HintSamplePoints(
-            topX = topBannerRect.centerX().roundToInt(),
-            topY = (topBannerRect.top + dp(activity, 12f)).roundToInt(),
-            infoX = infoCardRect.centerX().roundToInt(),
-            infoY = (infoCardRect.top + dp(activity, 12f)).roundToInt(),
+            infoX = (infoCardRect.left + dp(activity, INFO_CARD_SAMPLE_INSET_DP)).roundToInt(),
+            infoY = (infoCardRect.top + dp(activity, INFO_CARD_SAMPLE_INSET_DP)).roundToInt(),
         )
     }
 
@@ -204,8 +255,6 @@ class MainShellThemeTest {
     }
 
     private data class HintSamplePoints(
-        val topX: Int,
-        val topY: Int,
         val infoX: Int,
         val infoY: Int,
     )

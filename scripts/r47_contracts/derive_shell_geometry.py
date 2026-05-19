@@ -197,6 +197,11 @@ def build_shell_geometry_payload() -> dict[str, object]:
         "lcd_windows",
         label="android_app_contract.chrome",
     )
+    main_menu_button_contract = contract_mapping_member(
+        chrome_contract,
+        "main_menu_button",
+        label="android_app_contract.chrome",
+    )
     native_lcd_window_contract = contract_mapping_member(
         lcd_windows_contract,
         "native",
@@ -253,8 +258,13 @@ def build_shell_geometry_payload() -> dict[str, object]:
         native_lcd_window_contract,
         label="android_app_contract.chrome.lcd_windows.native",
     )
+    logical_main_menu_button = _rect_from_contract(
+        main_menu_button_contract,
+        label="android_app_contract.chrome.main_menu_button",
+    )
     logical_real_lcd = _reference_lcd_rect(geometry)
     native_lcd_rect = _rounded_rect(logical_native_lcd_window)
+    main_menu_button_rect = _rounded_rect(logical_main_menu_button)
     real_lcd_rect = _rounded_rect(logical_real_lcd)
 
     logical_shell_center_x = logical_width / 2.0
@@ -319,6 +329,7 @@ def build_shell_geometry_payload() -> dict[str, object]:
                 "bottom": scaled_mode_fit_trim_bottom,
             },
             "top_bezel_settings_tap_height": top_bezel_settings_tap_height,
+            "main_menu_button": dict(main_menu_button_rect),
             "lcd_windows": {
                 "native": dict(native_lcd_rect),
             },
@@ -398,6 +409,14 @@ def build_shell_geometry_payload() -> dict[str, object]:
                     - 1.0
                 )
                 * 100.0,
+            ),
+            "main_menu_button_right_delta_vs_native_lcd_right": _rounded(
+                (logical_main_menu_button.left + logical_main_menu_button.width)
+                - (logical_native_lcd_window.left + logical_native_lcd_window.width),
+            ),
+            "main_menu_button_bottom_delta_vs_native_lcd_top": _rounded(
+                (logical_main_menu_button.top + logical_main_menu_button.height)
+                - logical_native_lcd_window.top,
             ),
         },
     }

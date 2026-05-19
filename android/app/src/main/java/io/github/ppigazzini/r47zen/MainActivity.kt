@@ -2,21 +2,19 @@ package io.github.ppigazzini.r47zen
 
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.media.AudioManager
 import android.os.*
 import android.util.Log
 import android.view.View
 import android.view.*
 import androidx.annotation.Keep
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.TooltipCompat
 import io.github.ppigazzini.r47zen.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
-import android.widget.ImageView
 import com.google.android.material.color.MaterialColors
 import kotlin.math.roundToInt
 
@@ -47,14 +45,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     companion object {
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
-        private const val MAIN_MENU_BUTTON_WIDTH = 264f
-        private const val MAIN_MENU_BUTTON_HEIGHT = R47AndroidChromeGeometry.TOP_BEZEL_SETTINGS_TAP_HEIGHT
-        private const val MAIN_MENU_BUTTON_X =
-            R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_LEFT +
-                R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_WIDTH -
-                MAIN_MENU_BUTTON_WIDTH
-        private const val MAIN_MENU_BUTTON_Y =
-            R47AndroidChromeGeometry.NATIVE_LCD_WINDOW_TOP - MAIN_MENU_BUTTON_HEIGHT
 
         init {
             System.loadLibrary("r47_android")
@@ -194,7 +184,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             context = this,
             mainHandler = mainHandler,
             offerCoreTask = ::offerCoreTask,
-            getXRegisterNative = ::getXRegisterNative,
+            getClipboardXRegisterNative = ::getClipboardXRegisterNative,
+            getClipboardStackRegistersNative = ::getClipboardStackRegistersNative,
+            getClipboardAllRegistersNative = ::getClipboardAllRegistersNative,
             sendSimFuncNative = ::sendSimFuncNative,
             sendSimKeyNative = ::sendSimKeyNative,
             enterPiP = windowModeController::enterPictureInPicture,
@@ -222,6 +214,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun initializeOverlayAndPreferences(prefs: SharedPreferences) {
         replicaOverlay = binding.replicaOverlay
+        replicaOverlay.onSettingsDiscoveryCompleted = ::markSettingsDiscoveryComplete
         keypadSnapshotStore = createKeypadSnapshotStore()
         replicaOverlayController = createReplicaOverlayController()
         replicaOverlayController.bindOverlay()
@@ -238,24 +231,49 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun installMainMenuButton() {
-        val button = AppCompatImageButton(this).apply {
-            background = AppCompatResources.getDrawable(context, R.drawable.main_menu_button_background)
-            setImageDrawable(
-                AppCompatResources.getDrawable(
-                    context,
-                    androidx.appcompat.R.drawable.abc_ic_menu_overflow_material,
-                )?.mutate(),
+        val button = object : View(this) {
+            private val menuGlyphGeometry = SettingsMenuGlyph.MAIN_MENU_GEOMETRY
+            private val orangeColor = MaterialColors.getColor(
+                this,
+                com.google.android.material.R.attr.colorPrimary,
             )
-            imageTintList = ColorStateList.valueOf(
-                MaterialColors.getColor(this, com.google.android.material.R.attr.colorSecondary),
+            private val blueColor = MaterialColors.getColor(
+                this,
+                com.google.android.material.R.attr.colorSecondary,
             )
-            scaleType = ImageView.ScaleType.CENTER
+            private val orangePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = orangeColor
+                style = Paint.Style.FILL
+            }
+            private val bluePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = blueColor
+                style = Paint.Style.FILL
+            }
+
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+
+                val density = resources.displayMetrics.density
+                val tabHeight = menuGlyphGeometry.tabHeightPx(density)
+                val gap = menuGlyphGeometry.gapPx(density)
+                val top = height - tabHeight - (SettingsMenuGlyph.MAIN_MENU_BOTTOM_INSET_DP * density)
+
+                SettingsMenuGlyph.drawRightAligned(
+                    canvas = canvas,
+                    right = width.toFloat(),
+                    top = top,
+                    tabHeight = tabHeight,
+                    gap = gap,
+                    orangePaint = orangePaint,
+                    bluePaint = bluePaint,
+                )
+            }
+        }.apply {
             contentDescription = context.getString(R.string.main_menu_button_content_description)
             TooltipCompat.setTooltipText(this, contentDescription)
             isClickable = true
             isFocusable = true
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
-            setPadding(dpToPx(6f), dpToPx(6f), dpToPx(6f), dpToPx(6f))
             setOnClickListener { anchor ->
                 completeSettingsDiscovery()
                 displayActionController.showMainMenu(anchor) {
@@ -266,10 +284,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         replicaOverlay.addReplicaView(
             button,
-            MAIN_MENU_BUTTON_X,
-            MAIN_MENU_BUTTON_Y,
-            MAIN_MENU_BUTTON_WIDTH,
-            MAIN_MENU_BUTTON_HEIGHT,
+            R47AndroidChromeGeometry.MAIN_MENU_BUTTON_LEFT,
+            R47AndroidChromeGeometry.MAIN_MENU_BUTTON_TOP,
+            R47AndroidChromeGeometry.MAIN_MENU_BUTTON_WIDTH,
+            R47AndroidChromeGeometry.MAIN_MENU_BUTTON_HEIGHT,
             showTouchZone = true,
         )
     }
@@ -396,8 +414,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun completeSettingsDiscovery() {
+        markSettingsDiscoveryComplete()
+        replicaOverlay.dismissSettingsDiscoveryHint()
+    }
+
+    private fun markSettingsDiscoveryComplete() {
         appPreferences.edit().putBoolean(PREF_SETTINGS_DISCOVERY_PENDING, false).apply()
-        replicaOverlay.setShowSettingsDiscoveryHint(false)
     }
 
     override fun onPause() {
@@ -453,6 +475,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun forceRefreshNative()
     private external fun setSlotNative(slot: Int)
     private external fun getXRegisterNative(): String
+    private external fun getClipboardXRegisterNative(): String
+    private external fun getClipboardStackRegistersNative(): String
+    private external fun getClipboardAllRegistersNative(): String
     private external fun getPackedDisplayGeneration(): Int
     private external fun getPackedDisplayBuffer(buffer: ByteArray): Boolean
     private external fun getKeypadSnapshotGeneration(): Int

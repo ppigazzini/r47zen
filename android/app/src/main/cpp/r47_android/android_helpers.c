@@ -1,4 +1,6 @@
 #include "c47.h"
+#include "screen.h"
+#include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
 #include <android/log.h>
@@ -9,6 +11,8 @@
 #define LOG_TAG "R47Helpers"
 #endif
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+
+#define ANDROID_CLIPSTR 30000
 
 static void ascii_clean(char *str, size_t str_size) {
     if (!str || !*str) return;
@@ -63,8 +67,219 @@ static void trimTrailingRadix(char *str) {
     }
 }
 
+static void angularUnitToClipboardString(angularMode_t angularMode, char *string) {
+    switch (angularMode) {
+        case amRadian:
+            strcpy(string, "r");
+            break;
+        case amMultPi:
+            strcpy(string, STD_pi);
+            break;
+        case amGrad:
+            strcpy(string, "g");
+            break;
+        case amDegree:
+            strcpy(string, STD_DEGREE);
+            break;
+        case amDMS:
+            strcpy(string, "d.ms");
+            break;
+        case amNone:
+            string[0] = '\0';
+            break;
+        default:
+            strcpy(string, "?");
+            break;
+    }
+}
+
+static void copyRegisterToClipboardUtf8String(calcRegister_t regist, char *clipboardString) {
+    longInteger_t lgInt;
+    int16_t base;
+    int16_t sign;
+    int16_t n;
+    uint64_t shortInt;
+    char string[ANDROID_CLIPSTR];
+
+    switch (getRegisterDataType(regist)) {
+        case dtLongInteger:
+            convertLongIntegerRegisterToLongInteger(regist, lgInt);
+            longIntegerToAllocatedString(lgInt, string, ANDROID_CLIPSTR);
+            longIntegerFree(lgInt);
+            break;
+
+        case dtTime:
+            timeToDisplayString(regist, string, false);
+            break;
+
+        case dtDate:
+            dateToDisplayString(regist, string);
+            break;
+
+        case dtString:
+            COPY_REGISTER_STRING_TO(string, regist);
+            break;
+
+        case dtReal34Matrix: {
+            matrixHeader_t *matrixHeader = REGISTER_MATRIX_HEADER(regist);
+            real34_t *real34 = REGISTER_REAL34_MATRIX_ELEMENTS(regist);
+            real34_t reduced;
+            uint32_t rows = matrixHeader->matrixRows;
+            uint32_t columns = matrixHeader->matrixColumns;
+
+            sprintf(string, "%" PRIu32 "x%" PRIu32, rows, columns);
+
+            for (uint32_t i = 0; i < rows * columns; i++) {
+                uint32_t len;
+
+                strcat(string, LINEBREAK);
+                len = (uint32_t)strlen(string);
+                real34Reduce(real34++, &reduced);
+                real34ToString(&reduced, string + len);
+
+                if (strchr(string + len, '.') == NULL && strchr(string + len, 'E') == NULL) {
+                    strcat(string + len, ".");
+                }
+            }
+            break;
+        }
+
+        case dtComplex34Matrix: {
+            matrixHeader_t *matrixHeader = REGISTER_MATRIX_HEADER(regist);
+            complex34_t *complex34 = REGISTER_COMPLEX34_MATRIX_ELEMENTS(regist);
+            real34_t reduced;
+            uint32_t rows = matrixHeader->matrixRows;
+            uint32_t columns = matrixHeader->matrixColumns;
+
+            sprintf(string, "%" PRIu32 "x%" PRIu32, rows, columns);
+
+            for (uint32_t i = 0; i < rows * columns; i++, complex34++) {
+                uint32_t len;
+
+                strcat(string, LINEBREAK);
+                len = (uint32_t)strlen(string);
+
+                real34Reduce((real34_t *)complex34, &reduced);
+                real34ToString(&reduced, string + len);
+                if (strchr(string + len, '.') == NULL && strchr(string + len, 'E') == NULL) {
+                    strcat(string + len, ".");
+                }
+                len = (uint32_t)strlen(string);
+
+                real34Reduce(((real34_t *)complex34) + 1, &reduced);
+                if (real34IsNegative(&reduced)) {
+                    sprintf(string + len, " - %sx", COMPLEX_UNIT);
+                    len += 5;
+                    real34SetPositiveSign(&reduced);
+                    real34ToString(&reduced, string + len);
+                } else {
+                    sprintf(string + len, " + %sx", COMPLEX_UNIT);
+                    len += 5;
+                    real34ToString(&reduced, string + len);
+                }
+                if (strchr(string + len, '.') == NULL && strchr(string + len, 'E') == NULL) {
+                    strcat(string + len, ".");
+                }
+            }
+            break;
+        }
+
+        case dtShortInteger:
+            convertShortIntegerRegisterToUInt64(regist, &sign, &shortInt);
+            base = getRegisterShortIntegerBase(regist);
+
+            n = ERROR_MESSAGE_LENGTH - 100;
+            sprintf(errorMessage + n--, "#%d (word size = %u)", base, shortIntegerWordSize);
+
+            if (shortInt == 0) {
+                errorMessage[n--] = '0';
+            } else {
+                while (shortInt != 0) {
+                    errorMessage[n--] = baseDigits[shortInt % base];
+                    shortInt /= base;
+                }
+                if (sign) {
+                    errorMessage[n--] = '-';
+                }
+            }
+            n++;
+
+            strcpy(string, errorMessage + n);
+            break;
+
+        case dtReal34: {
+            real34_t reduced;
+
+            real34Reduce(REGISTER_REAL34_DATA(regist), &reduced);
+            real34ToString(&reduced, string);
+            if (strchr(string, '.') == NULL && strchr(string, 'E') == NULL) {
+                strcat(string, ".");
+            }
+            angularUnitToClipboardString(getRegisterAngularMode(regist), string + strlen(string));
+            break;
+        }
+
+        case dtComplex34: {
+            real34_t reduced;
+            int len;
+            char tmpStr[100];
+
+            real34Reduce(REGISTER_REAL34_DATA(regist), &reduced);
+            real34ToString(&reduced, tmpStr);
+            if (strchr(tmpStr, '.') == NULL && strchr(tmpStr, 'E') == NULL) {
+                strcat(tmpStr, ".");
+            }
+            len = (int)strlen(tmpStr);
+
+            real34Reduce(REGISTER_IMAG34_DATA(regist), &reduced);
+            if (real34IsNegative(&reduced)) {
+                sprintf(string, "%s - %sx", tmpStr, COMPLEX_UNIT);
+                len += 5;
+                real34SetPositiveSign(&reduced);
+                real34ToString(&reduced, string + len);
+            } else {
+                sprintf(string, "%s + %sx", tmpStr, COMPLEX_UNIT);
+                len += 5;
+                real34ToString(&reduced, string + len);
+            }
+            if (strchr(string + len, '.') == NULL && strchr(string + len, 'E') == NULL) {
+                strcat(string + len, ".");
+            }
+            break;
+        }
+
+        case dtConfig:
+            xcopy(string, "Configuration data", 19);
+            break;
+
+        default:
+            sprintf(
+                string,
+                "In function copyRegisterXToClipboard, the data type %" PRIu32 " is unknown! Please try to reproduce and submit a bug.",
+                getRegisterDataType(regist));
+            break;
+    }
+
+    stringToUtf8(string, (uint8_t *)clipboardString);
+}
+
+static void copyStackRegistersToClipboardUtf8String(
+    char *clipboardString,
+    calcRegister_t lastRegist
+) {
+    char *ptr = clipboardString;
+    const char *sep = "";
+
+    for (calcRegister_t regist = lastRegist; regist >= REGISTER_X; regist--) {
+        ptr += sprintf(ptr, "%s%c = ", sep, letteredRegisterName(regist));
+        copyRegisterToClipboardUtf8String(regist, ptr);
+        ptr = strchr(ptr, '\0');
+        sep = LINEBREAK;
+    }
+}
+
 char* getXRegisterString() {
-    static char result[2048]; // Increased size for UTF-8 conversion
+    static char result[2048];
     char coreBuf[1024];
     coreBuf[0] = '\0';
 
@@ -104,10 +319,111 @@ char* getXRegisterString() {
     ascii_clean(coreBuf, sizeof(coreBuf));
     trimTrailingRadix(coreBuf);
 
-    // Convert core glyphs to valid UTF-8
-    extern void stringToUtf8(const char *str, uint8_t *utf8);
     stringToUtf8(coreBuf, (uint8_t*)result);
 
     LOGI("getXRegisterString: Result='%s'", result);
+    return result;
+}
+
+char* getClipboardXRegisterString() {
+    static char result[ANDROID_CLIPSTR];
+
+    result[0] = '\0';
+    if (!ram) {
+        return result;
+    }
+
+    copyRegisterToClipboardUtf8String(REGISTER_X, result);
+    return result;
+}
+
+char* getClipboardStackRegistersString() {
+    static char result[ANDROID_CLIPSTR];
+
+    result[0] = '\0';
+    if (!ram) {
+        return result;
+    }
+
+    copyStackRegistersToClipboardUtf8String(result, REGISTER_K);
+    return result;
+}
+
+char* getClipboardAllRegistersString() {
+    static char result[ANDROID_CLIPSTR];
+    char *ptr = result;
+
+    result[0] = '\0';
+    if (!ram) {
+        return result;
+    }
+
+    copyStackRegistersToClipboardUtf8String(ptr, LAST_SPARE_REGISTER);
+
+    for (int32_t regist = 99; regist >= 0; --regist) {
+        ptr += strlen(ptr);
+        sprintf(ptr, LINEBREAK "R%02d = ", regist);
+        ptr += strlen(ptr);
+        copyRegisterToClipboardUtf8String(regist, ptr);
+    }
+
+    for (int32_t regist = currentNumberOfLocalRegisters - 1; regist >= 0; --regist) {
+        ptr += strlen(ptr);
+        sprintf(ptr, LINEBREAK "R.%02d = ", regist);
+        ptr += strlen(ptr);
+        copyRegisterToClipboardUtf8String(FIRST_LOCAL_REGISTER + regist, ptr);
+    }
+
+    if (statisticalSumsPointer != NULL) {
+        const char * const statSumNames[NUMBER_OF_STATISTICAL_SUMS] = {
+            /* 0*/ "n             ",
+            /* 1*/ STD_SIGMA "(x)          ",
+            /* 2*/ STD_SIGMA "(y)          ",
+            /* 3*/ STD_SIGMA "(x" STD_SUP_2 ")         ",
+            /* 4*/ STD_SIGMA "(x" STD_SUP_2 "y)        ",
+            /* 5*/ STD_SIGMA "(y" STD_SUP_2 ")         ",
+            /* 6*/ STD_SIGMA "(xy)         ",
+            /* 7*/ STD_SIGMA "(ln(x)" STD_CROSS "ln(y))",
+            /* 8*/ STD_SIGMA "(ln(x))      ",
+            /* 9*/ STD_SIGMA "(ln" STD_SUP_2 "(x))     ",
+            /*10*/ STD_SIGMA "(y ln(x))    ",
+            /*11*/ STD_SIGMA "(ln(y))      ",
+            /*12*/ STD_SIGMA "(ln" STD_SUP_2 "(y))     ",
+            /*13*/ STD_SIGMA "(x ln(y))    ",
+            /*14*/ STD_SIGMA "(ln(y)/x)    ",
+            /*15*/ STD_SIGMA "(x" STD_SUP_2 "/y)       ",
+            /*16*/ STD_SIGMA "(1/x)        ",
+            /*17*/ STD_SIGMA "(1/x" STD_SUP_2 ")       ",
+            /*18*/ STD_SIGMA "(x/y)        ",
+            /*19*/ STD_SIGMA "(1/y)        ",
+            /*20*/ STD_SIGMA "(1/y" STD_SUP_2 ")       ",
+            /*21*/ STD_SIGMA "(x" STD_SUP_3 ")         ",
+            /*22*/ STD_SIGMA "(x" STD_SUP_4 ")         ",
+            /*23*/ "x min         ",
+            /*24*/ "x max         ",
+            /*25*/ "y min         ",
+            /*26*/ "y max         "
+        };
+        char sumName[40];
+        char statValue[256];
+
+        for (int32_t sum = 0; sum < NUMBER_OF_STATISTICAL_SUMS; sum++) {
+            ptr += strlen(ptr);
+            strcpy(sumName, statSumNames[sum]);
+
+            sprintf(ptr, LINEBREAK "SR%02d = ", sum);
+            ptr += strlen(ptr);
+            stringToUtf8(sumName, (uint8_t *)ptr);
+            ptr += strlen(ptr);
+            strcpy(ptr, " = ");
+            ptr += strlen(ptr);
+            realToString(statisticalSumsPointer + sum, statValue);
+            if (strchr(statValue, '.') == NULL && strchr(statValue, 'E') == NULL) {
+                strcat(statValue, ".");
+            }
+            strcpy(ptr, statValue);
+        }
+    }
+
     return result;
 }

@@ -3,13 +3,19 @@
     <string name="launcher_name">R47 Zen</string>
     <string name="settings_title" translatable="false">Settings</string>
     <string name="settings_return_action" translatable="false">Calculator</string>
-    <string name="main_menu_button_content_description" translatable="false">Open menu</string>
+    <string name="main_menu_button_content_description" translatable="false">Open top-right menu</string>
     <string name="main_menu_settings" translatable="false">Settings</string>
+    <string name="main_menu_copy" translatable="false">Copy...</string>
     <string name="main_menu_copy_x_register" translatable="false">Copy X Register</string>
+    <string name="main_menu_copy_stack_registers" translatable="false">Copy Stack Registers</string>
+    <string name="main_menu_copy_all_registers" translatable="false">Copy All Registers</string>
+    <string name="main_menu_copy_x_register_copied" translatable="false">Copied X Register</string>
+    <string name="main_menu_copy_stack_registers_copied" translatable="false">Copied Stack Registers</string>
+    <string name="main_menu_copy_all_registers_copied" translatable="false">Copied All Registers</string>
     <string name="main_menu_paste_number" translatable="false">Paste Number</string>
-    <string name="main_menu_picture_in_picture" translatable="false">Picture in picture</string>
-    <string name="settings_entry_hint_chip" translatable="false">Open the top-right menu</string>
-    <string name="settings_entry_hint_message" translatable="false">Welcome to R47 Zen\nOpen the top-right menu for Settings.\nSet Keypad Layout and Working Directory there.</string>
+    <string name="main_menu_picture_in_picture" translatable="false">Picture in Picture</string>
+    <string name="settings_entry_hint_chip" translatable="false">Use the top-right menu</string>
+    <string name="settings_entry_hint_message" translatable="false">Welcome to R47 Zen\nTap the orange and blue rectangles at top right to open the menu for Settings, Copy Actions, and Paste Number.\nSet Keypad Layout and Working Directory there.</string>
     <string name="settings_session_storage_title" translatable="false">Session Restore Storage</string>
     <string name="settings_session_storage_summary" translatable="false">Private app storage managed by Android. Restores your last session on restart.</string>
     <string name="settings_keypad_labels_category_title" translatable="false">Keypad Layout</string>
@@ -54,8 +60,8 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_force_close_on_exit_title" translatable="false">Force Close on f-shift EXIT</string>
     <string name="settings_force_close_on_exit_summary" translatable="false">Make f-shift EXIT close R47 Zen and remove it from Recents.</string>
     <string name="settings_developer_tools_category_title" translatable="false">Developer Tools</string>
-    <string name="settings_show_performance_stats_title" translatable="false">Show Performance Stats</string>
-    <string name="settings_show_performance_stats_summary" translatable="false">Show DEV fps, LCD /s, and LCD copy ms above the LCD.</string>
+    <string name="settings_show_performance_stats_title" translatable="false">HUD Telemetry</string>
+    <string name="settings_show_performance_stats_summary" translatable="false">App fps, LCD updates per second, and LCD buffer copy ms.</string>
     <string name="settings_show_touch_zones_title" translatable="false">Show Touch Zones</string>
     <string name="settings_cancel_action" translatable="false">Cancel</string>
     <string name="settings_factory_reset_title" translatable="false">Reset to Factory Defaults</string>

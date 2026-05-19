@@ -54,6 +54,10 @@ class NativeDisplayRefreshLoopTest {
         assertEquals(6.0f, performanceSnapshot.lcdUpdatesPerSecond)
         assertEquals(0.4f, performanceSnapshot.averageLcdUpdateMillis)
         assertEquals(3, performanceSnapshot.lcdUpdateSamples)
+        assertEquals(
+            "App 6.0 fps | LCD 6.0 ups | Copy 0.4 ms",
+            performanceSnapshot.overlayLabel(),
+        )
     }
 
     @Test

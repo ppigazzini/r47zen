@@ -19,20 +19,69 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
+internal object SettingsDiscoveryHintVisualPolicy {
+    const val SURFACE_COLOR_ARGB = 0xEC12151A.toInt()
+    const val ON_SURFACE_COLOR_ARGB = 0xFFF7F3EA.toInt()
+    const val STROKE_COLOR_ARGB = 0xFF8EDAFE.toInt()
+    const val MENU_ORANGE_FALLBACK_COLOR_ARGB = 0xFFFFC36F.toInt()
+    const val MENU_BLUE_FALLBACK_COLOR_ARGB = 0xFF8EDAFE.toInt()
+
+    const val CARD_OUTER_MARGIN_DP = 24f
+    const val CARD_MIN_WIDTH_DP = 220f
+    const val CARD_MAX_WIDTH_DP = 360f
+    const val CARD_WIDTH_RATIO = 0.72f
+    const val CARD_HORIZONTAL_PADDING_DP = 18f
+    const val CARD_VERTICAL_PADDING_DP = 16f
+    const val CARD_CORNER_RADIUS_DP = 22f
+    const val CARD_LINE_SPACING_DP = 4f
+    const val CARD_GLYPH_TEXT_GAP_DP = 12f
+
+    const val CARD_STROKE_WIDTH_DP = 2.5f
+    const val CARD_STROKE_EXTRA_WIDTH_DP = 1.5f
+    const val INFO_TEXT_SIZE_DP = 14f
+
+    const val FILL_ALPHA_BASE = 220
+    const val FILL_ALPHA_DELTA = 16f
+    const val CARD_STROKE_ALPHA_BASE = 150
+    const val CARD_STROKE_ALPHA_DELTA = 105f
+    const val PULSE_PERIOD_MS = 1400L
+
+    val FULL_PULSE_RADIANS = 2.0 * PI
+}
+
+internal object DeveloperPerformanceHudVisualPolicy {
+    const val TEXT_SIZE_DP = 12f
+    const val MIN_AVAILABLE_HEIGHT_DP = 24f
+    const val TEXT_HEIGHT_RATIO = 0.09f
+    const val MIN_TEXT_SIZE_DP = 10f
+    const val MAX_TEXT_SIZE_DP = 16f
+    const val MIN_LABEL_WIDTH_DP = 48f
+    const val MAX_LABEL_HORIZONTAL_MARGIN_DP = 8f
+    const val BASELINE_BOTTOM_INSET_DP = 6f
+    const val LEADING_INSET_DP = 2f
+    const val SHADOW_RADIUS_DP = 2f
+    const val SHADOW_COLOR_ARGB = 0xD0000000.toInt()
+}
+
+internal object TouchZoneDebugVisualPolicy {
+    const val ZONE_STROKE_WIDTH_DP = 2f
+    const val STROKE_ALPHA = 180
+}
+
 class ReplicaOverlay @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : ViewGroup(context, attrs, defStyleAttr) {
 
     private data class SettingsHintLayoutCache(
-        val topBannerRect: RectF,
-        val topCornerRadius: Float,
-        val topText: String,
-        val topTextSize: Float,
-        val topTextBaseline: Float,
         val infoCardRect: RectF,
         val infoCornerRadius: Float,
+        val infoGlyphTop: Float,
+        val infoGlyphRight: Float,
+        val infoGlyphTabHeight: Float,
+        val infoGlyphGap: Float,
         val infoPaddingHorizontal: Float,
         val infoPaddingVertical: Float,
+        val infoTextTop: Float,
         val infoLayout: StaticLayout,
     )
 
@@ -56,44 +105,49 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val zonePaint = Paint().apply {
         color = Color.RED
         style = Paint.Style.STROKE
-        strokeWidth = 2f * resources.displayMetrics.density
-        alpha = 180
+        strokeWidth = TouchZoneDebugVisualPolicy.ZONE_STROKE_WIDTH_DP * resources.displayMetrics.density
+        alpha = TouchZoneDebugVisualPolicy.STROKE_ALPHA
     }
-    private val settingsHintSurfaceColor = Color.argb(236, 18, 21, 26)
-    private val settingsHintOnSurfaceColor = Color.parseColor("#F7F3EA")
-    private val settingsHintTopFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = settingsHintSurfaceColor
-    }
-    private val settingsHintTopStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(142, 218, 254)
-        style = Paint.Style.STROKE
-        strokeWidth = dp(2.5f)
-    }
+    private val settingsHintSurfaceColor = SettingsDiscoveryHintVisualPolicy.SURFACE_COLOR_ARGB
+    private val settingsHintOnSurfaceColor = SettingsDiscoveryHintVisualPolicy.ON_SURFACE_COLOR_ARGB
     private val settingsHintInfoFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = settingsHintSurfaceColor
     }
     private val settingsHintInfoStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(142, 218, 254)
+        color = SettingsDiscoveryHintVisualPolicy.STROKE_COLOR_ARGB
         style = Paint.Style.STROKE
-        strokeWidth = dp(2.5f)
+        strokeWidth = dp(SettingsDiscoveryHintVisualPolicy.CARD_STROKE_WIDTH_DP)
     }
-    private val settingsHintTopTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = settingsHintOnSurfaceColor
-        textAlign = Paint.Align.CENTER
-        textSize = dp(15f)
-        typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+    private val settingsHintMenuOrangePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = resolveThemeColor(
+            com.google.android.material.R.attr.colorPrimary,
+            SettingsDiscoveryHintVisualPolicy.MENU_ORANGE_FALLBACK_COLOR_ARGB,
+        )
+        style = Paint.Style.FILL
+    }
+    private val settingsHintMenuBluePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = resolveThemeColor(
+            com.google.android.material.R.attr.colorSecondary,
+            SettingsDiscoveryHintVisualPolicy.MENU_BLUE_FALLBACK_COLOR_ARGB,
+        )
+        style = Paint.Style.FILL
     }
     private val settingsHintInfoTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         color = settingsHintOnSurfaceColor
-        textSize = dp(14f)
+        textSize = dp(SettingsDiscoveryHintVisualPolicy.INFO_TEXT_SIZE_DP)
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     }
     private val developerPerformanceTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(228, 52, 52)
+        color = Color.RED
         textAlign = Paint.Align.LEFT
-        textSize = dp(12f)
+        textSize = dp(DeveloperPerformanceHudVisualPolicy.TEXT_SIZE_DP)
         typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        setShadowLayer(dp(2f), 0f, 0f, Color.argb(208, 0, 0, 0))
+        setShadowLayer(
+            dp(DeveloperPerformanceHudVisualPolicy.SHADOW_RADIUS_DP),
+            0f,
+            0f,
+            DeveloperPerformanceHudVisualPolicy.SHADOW_COLOR_ARGB,
+        )
     }
     private var lcdTextColor = 0xFF303030.toInt()
     private var lcdBackgroundColor = 0xFFDFF5CC.toInt()
@@ -106,6 +160,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     var onPiPKeyEvent: ((Int) -> Unit)? = null
     var onLongPressListener: ((Float, Float) -> Unit)? = null
     var onSettingsTapListener: (() -> Unit)? = null
+    var onSettingsDiscoveryCompleted: (() -> Unit)? = null
     var onGeometryLaidOut: (() -> Unit)? = null
 
     private val gestureDetector: GestureDetector
@@ -134,6 +189,20 @@ class ReplicaOverlay @JvmOverloads constructor(
             value,
             resources.displayMetrics,
         )
+    }
+
+    private fun resolveThemeColor(attributeResId: Int, fallbackColor: Int): Int {
+        val typedValue = TypedValue()
+        val resolved = context.theme?.resolveAttribute(attributeResId, typedValue, true) == true
+        if (!resolved) {
+            return fallbackColor
+        }
+
+        return if (typedValue.resourceId != 0) {
+            resources.getColor(typedValue.resourceId, context.theme)
+        } else {
+            typedValue.data
+        }
     }
 
     fun setPiPMode(enabled: Boolean) {
@@ -184,6 +253,19 @@ class ReplicaOverlay @JvmOverloads constructor(
         showSettingsDiscoveryHint = show
         updateSettingsHintLayoutCache()
         invalidate()
+    }
+
+    fun dismissSettingsDiscoveryHint() {
+        setShowSettingsDiscoveryHint(false)
+    }
+
+    private fun completeSettingsDiscoveryHint() {
+        if (!showSettingsDiscoveryHint) {
+            return
+        }
+
+        dismissSettingsDiscoveryHint()
+        onSettingsDiscoveryCompleted?.invoke()
     }
 
     fun setLcdColors(text: Int, background: Int) {
@@ -366,6 +448,9 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (isPiPMode) return false
+        if (showSettingsDiscoveryHint && ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            completeSettingsDiscoveryHint()
+        }
         gestureDetector.onTouchEvent(ev)
         return false
     }
@@ -475,41 +560,36 @@ class ReplicaOverlay @JvmOverloads constructor(
             projection.offsetY + (layoutSpec.lcdWindowTop + layoutSpec.lcdWindowHeight) * projection.scale,
         )
 
-        val maxBannerWidth = localShellRect.width() - dp(24f)
-        val desiredBannerWidth = min(dp(360f), localShellRect.width() * 0.72f)
-        val bannerWidth = min(maxBannerWidth, max(dp(220f), desiredBannerWidth))
-        val topCornerRadius = dp(18f)
-        val topBannerRect = RectF(
-            localShellRect.centerX() - bannerWidth / 2f,
-            projection.offsetY + dp(8f),
-            localShellRect.centerX() + bannerWidth / 2f,
-            projection.offsetY + layoutSpec.topBezelSettingsTapHeight * projection.scale - dp(8f),
+        val overlayDensity = resources.displayMetrics.density
+        val maxInfoCardWidth =
+            localShellRect.width() - dp(SettingsDiscoveryHintVisualPolicy.CARD_OUTER_MARGIN_DP)
+        val desiredInfoCardWidth = min(
+            dp(SettingsDiscoveryHintVisualPolicy.CARD_MAX_WIDTH_DP),
+            localShellRect.width() * SettingsDiscoveryHintVisualPolicy.CARD_WIDTH_RATIO,
         )
-        val topText = resources.getString(R.string.settings_entry_hint_chip)
+        val infoCardWidth = min(
+            maxInfoCardWidth,
+            max(dp(SettingsDiscoveryHintVisualPolicy.CARD_MIN_WIDTH_DP), desiredInfoCardWidth),
+        )
+        val onboardingGlyphGeometry = SettingsMenuGlyph.ONBOARDING_GEOMETRY
+        val infoGlyphTabHeight = onboardingGlyphGeometry.tabHeightPx(overlayDensity)
+        val infoGlyphGap = onboardingGlyphGeometry.gapPx(overlayDensity)
+        val infoGlyphTextGap = dp(SettingsDiscoveryHintVisualPolicy.CARD_GLYPH_TEXT_GAP_DP)
 
-        settingsHintTopTextPaint.textSize = (topBannerRect.height() * 0.29f).coerceIn(dp(11f), dp(17f))
-        val topTextWidth = settingsHintTopTextPaint.measureText(topText)
-        val topTextMaxWidth = topBannerRect.width() - dp(28f)
-        if (topTextWidth > topTextMaxWidth && topTextWidth > 0f) {
-            settingsHintTopTextPaint.textSize *= topTextMaxWidth / topTextWidth
-        }
-        val topTextSize = settingsHintTopTextPaint.textSize
-        val topTextBaseline =
-            topBannerRect.centerY() - (settingsHintTopTextPaint.descent() + settingsHintTopTextPaint.ascent()) / 2f
-
-        val infoPaddingHorizontal = dp(18f)
-        val infoPaddingVertical = dp(16f)
+        val infoPaddingHorizontal = dp(SettingsDiscoveryHintVisualPolicy.CARD_HORIZONTAL_PADDING_DP)
+        val infoPaddingVertical = dp(SettingsDiscoveryHintVisualPolicy.CARD_VERTICAL_PADDING_DP)
         val infoMessage = resources.getString(R.string.settings_entry_hint_message)
-        val infoTextWidth = (bannerWidth - infoPaddingHorizontal * 2f).roundToInt().coerceAtLeast(1)
+        val infoTextWidth = (infoCardWidth - infoPaddingHorizontal * 2f).roundToInt().coerceAtLeast(1)
         val infoLayout = StaticLayout.Builder
             .obtain(infoMessage, 0, infoMessage.length, settingsHintInfoTextPaint, infoTextWidth)
             .setAlignment(Layout.Alignment.ALIGN_CENTER)
             .setIncludePad(false)
-            .setLineSpacing(dp(4f), 1f)
+            .setLineSpacing(dp(SettingsDiscoveryHintVisualPolicy.CARD_LINE_SPACING_DP), 1f)
             .build()
-        val infoCardHeight = infoLayout.height + infoPaddingVertical * 2f
-        val minInfoTop = max(topBannerRect.bottom + dp(24f), localLcdDestRect.bottom + dp(24f))
-        val maxInfoTop = localShellRect.bottom - infoCardHeight - dp(24f)
+        val infoCardHeight = infoLayout.height + infoPaddingVertical * 2f + infoGlyphTabHeight + infoGlyphTextGap
+        val infoCardOuterMargin = dp(SettingsDiscoveryHintVisualPolicy.CARD_OUTER_MARGIN_DP)
+        val minInfoTop = max(localShellRect.top + infoCardOuterMargin, localLcdDestRect.bottom + infoCardOuterMargin)
+        val maxInfoTop = localShellRect.bottom - infoCardHeight - infoCardOuterMargin
         val preferredInfoTop = localShellRect.centerY() - infoCardHeight / 2f
         val infoTop = if (maxInfoTop > minInfoTop) {
             preferredInfoTop.coerceIn(minInfoTop, maxInfoTop)
@@ -517,22 +597,26 @@ class ReplicaOverlay @JvmOverloads constructor(
             minInfoTop
         }
         val infoCardRect = RectF(
-            localShellRect.centerX() - bannerWidth / 2f,
+            localShellRect.centerX() - infoCardWidth / 2f,
             infoTop,
-            localShellRect.centerX() + bannerWidth / 2f,
+            localShellRect.centerX() + infoCardWidth / 2f,
             infoTop + infoCardHeight,
         )
+        val infoGlyphTop = infoCardRect.top + infoPaddingVertical
+        val infoGlyphRight =
+            infoCardRect.centerX() + onboardingGlyphGeometry.totalWidthPx(overlayDensity) / 2f
+        val infoTextTop = infoGlyphTop + infoGlyphTabHeight + infoGlyphTextGap
 
         settingsHintLayoutCache = SettingsHintLayoutCache(
-            topBannerRect = RectF(topBannerRect),
-            topCornerRadius = topCornerRadius,
-            topText = topText,
-            topTextSize = topTextSize,
-            topTextBaseline = topTextBaseline,
             infoCardRect = RectF(infoCardRect),
-            infoCornerRadius = dp(22f),
+            infoCornerRadius = dp(SettingsDiscoveryHintVisualPolicy.CARD_CORNER_RADIUS_DP),
+            infoGlyphTop = infoGlyphTop,
+            infoGlyphRight = infoGlyphRight,
+            infoGlyphTabHeight = infoGlyphTabHeight,
+            infoGlyphGap = infoGlyphGap,
             infoPaddingHorizontal = infoPaddingHorizontal,
             infoPaddingVertical = infoPaddingVertical,
+            infoTextTop = infoTextTop,
             infoLayout = infoLayout,
         )
     }
@@ -598,37 +682,21 @@ class ReplicaOverlay @JvmOverloads constructor(
             }
             val hintLayoutCache = settingsHintLayoutCache ?: return
 
-            val topPulse = (((sin((SystemClock.uptimeMillis() % 1400L) / 1400.0 * (2.0 * PI)) + 1.0) * 0.5)).toFloat()
-            val bottomPulse = (((sin((SystemClock.uptimeMillis() % 4200L) / 4200.0 * (2.0 * PI)) + 1.0) * 0.5)).toFloat()
-            val topBorderAlpha = (150 + topPulse * 105f).roundToInt()
-            val topBorderWidth = dp(2.5f) + topPulse * dp(1.5f)
-
-            settingsHintTopStrokePaint.alpha = topBorderAlpha
-            settingsHintTopStrokePaint.strokeWidth = topBorderWidth
-            settingsHintTopTextPaint.textSize = hintLayoutCache.topTextSize
-
-            canvas.drawRoundRect(
-                hintLayoutCache.topBannerRect,
-                hintLayoutCache.topCornerRadius,
-                hintLayoutCache.topCornerRadius,
-                settingsHintTopFillPaint,
+            val infoPulse = oscillatingUnitPulse(
+                nowMillis = SystemClock.uptimeMillis(),
+                periodMillis = SettingsDiscoveryHintVisualPolicy.PULSE_PERIOD_MS,
             )
-            canvas.drawRoundRect(
-                hintLayoutCache.topBannerRect,
-                hintLayoutCache.topCornerRadius,
-                hintLayoutCache.topCornerRadius,
-                settingsHintTopStrokePaint,
-            )
-
-            canvas.drawText(
-                hintLayoutCache.topText,
-                hintLayoutCache.topBannerRect.centerX(),
-                hintLayoutCache.topTextBaseline,
-                settingsHintTopTextPaint,
-            )
-
-            settingsHintInfoStrokePaint.alpha = (150 + bottomPulse * 105f).roundToInt()
-            settingsHintInfoStrokePaint.strokeWidth = dp(2.5f) + bottomPulse * dp(1.5f)
+            settingsHintInfoFillPaint.alpha = (
+                SettingsDiscoveryHintVisualPolicy.FILL_ALPHA_BASE +
+                    infoPulse * SettingsDiscoveryHintVisualPolicy.FILL_ALPHA_DELTA
+                ).roundToInt()
+            settingsHintInfoStrokePaint.alpha = (
+                SettingsDiscoveryHintVisualPolicy.CARD_STROKE_ALPHA_BASE +
+                    infoPulse * SettingsDiscoveryHintVisualPolicy.CARD_STROKE_ALPHA_DELTA
+                ).roundToInt()
+            settingsHintInfoStrokePaint.strokeWidth =
+                dp(SettingsDiscoveryHintVisualPolicy.CARD_STROKE_WIDTH_DP) +
+                    infoPulse * dp(SettingsDiscoveryHintVisualPolicy.CARD_STROKE_EXTRA_WIDTH_DP)
             canvas.drawRoundRect(
                 hintLayoutCache.infoCardRect,
                 hintLayoutCache.infoCornerRadius,
@@ -641,10 +709,19 @@ class ReplicaOverlay @JvmOverloads constructor(
                 hintLayoutCache.infoCornerRadius,
                 settingsHintInfoStrokePaint,
             )
+            SettingsMenuGlyph.drawRightAligned(
+                canvas = canvas,
+                right = hintLayoutCache.infoGlyphRight,
+                top = hintLayoutCache.infoGlyphTop,
+                tabHeight = hintLayoutCache.infoGlyphTabHeight,
+                gap = hintLayoutCache.infoGlyphGap,
+                orangePaint = settingsHintMenuOrangePaint,
+                bluePaint = settingsHintMenuBluePaint,
+            )
             canvas.save()
             canvas.translate(
                 hintLayoutCache.infoCardRect.left + hintLayoutCache.infoPaddingHorizontal,
-                hintLayoutCache.infoCardRect.top + hintLayoutCache.infoPaddingVertical,
+                hintLayoutCache.infoTextTop,
             )
             hintLayoutCache.infoLayout.draw(canvas)
             canvas.restore()
@@ -653,23 +730,38 @@ class ReplicaOverlay @JvmOverloads constructor(
         }
     }
 
+    private fun oscillatingUnitPulse(nowMillis: Long, periodMillis: Long): Float {
+        return (((sin((nowMillis % periodMillis) / periodMillis.toDouble() * SettingsDiscoveryHintVisualPolicy.FULL_PULSE_RADIANS) + 1.0) * 0.5)).toFloat()
+    }
+
     private fun drawDeveloperPerformanceHud(canvas: Canvas) {
         val label = developerPerformanceLabel
         if (label.isEmpty()) {
             return
         }
 
-        val availableHeight = (lcdDestRect.top - shellRect.top).coerceAtLeast(dp(24f))
-        developerPerformanceTextPaint.textSize = (availableHeight * 0.09f).coerceIn(dp(10f), dp(16f))
+        val availableHeight = (lcdDestRect.top - shellRect.top)
+            .coerceAtLeast(dp(DeveloperPerformanceHudVisualPolicy.MIN_AVAILABLE_HEIGHT_DP))
+        developerPerformanceTextPaint.textSize = (availableHeight * DeveloperPerformanceHudVisualPolicy.TEXT_HEIGHT_RATIO)
+            .coerceIn(
+                dp(DeveloperPerformanceHudVisualPolicy.MIN_TEXT_SIZE_DP),
+                dp(DeveloperPerformanceHudVisualPolicy.MAX_TEXT_SIZE_DP),
+            )
 
-        val maxLabelWidth = (lcdDestRect.width() - dp(8f)).coerceAtLeast(dp(48f))
+        val maxLabelWidth = (lcdDestRect.width() - dp(DeveloperPerformanceHudVisualPolicy.MAX_LABEL_HORIZONTAL_MARGIN_DP))
+            .coerceAtLeast(dp(DeveloperPerformanceHudVisualPolicy.MIN_LABEL_WIDTH_DP))
         val measuredWidth = developerPerformanceTextPaint.measureText(label)
         if (measuredWidth > maxLabelWidth && measuredWidth > 0f) {
             developerPerformanceTextPaint.textSize *= maxLabelWidth / measuredWidth
         }
 
-        val baseline = (lcdDestRect.top - dp(6f))
+        val baseline = (lcdDestRect.top - dp(DeveloperPerformanceHudVisualPolicy.BASELINE_BOTTOM_INSET_DP))
             .coerceAtLeast(shellRect.top + developerPerformanceTextPaint.textSize)
-        canvas.drawText(label, lcdDestRect.left + dp(2f), baseline, developerPerformanceTextPaint)
+        canvas.drawText(
+            label,
+            lcdDestRect.left + dp(DeveloperPerformanceHudVisualPolicy.LEADING_INSET_DP),
+            baseline,
+            developerPerformanceTextPaint,
+        )
     }
 }
