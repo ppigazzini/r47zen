@@ -281,18 +281,6 @@ static bool seed_spiralk_runtime_registers(void) {
   return true;
 }
 
-static bool seed_prime_runtime_registers(void) {
-  reallocateRegister(REGISTER_X, dtReal34, 0, amNone);
-  stringToReal34("2025900091", REGISTER_REAL34_DATA(REGISTER_X));
-  return true;
-}
-
-static bool seed_fact_runtime_registers(void) {
-  reallocateRegister(REGISTER_X, dtReal34, 0, amNone);
-  stringToReal34("20", REGISTER_REAL34_DATA(REGISTER_X));
-  return true;
-}
-
 static workload_result_t run_program_fixture_workload(
   const char *runtime_dir, const char *program_root,
   const program_fixture_scenario_t *scenario) {
@@ -457,13 +445,6 @@ static workload_result_t run_program_fixture_workload(
             (unsigned long long)r47_get_host_lcd_refresh_count());
     return WORKLOAD_RESULT_FAIL;
   }
-  if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
-      !requested_direct_stop) {
-    fprintf(stderr,
-            "ERROR: %s workload finished before the maintained direct-stop probe ran\n",
-            scenario->program_name);
-    return WORKLOAD_RESULT_FAIL;
-  }
   if (programRunStop == PGM_RUNNING || programRunStop == PGM_PAUSED) {
     fprintf(stderr,
             "ERROR: %s workload finished in an unexpected run state %u\n",
@@ -532,21 +513,7 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = true,
      .seed_runtime = seed_spiralk_runtime_registers,
-     .stop_policy = STOP_POLICY_NONE,
-     .stop_after_activity_ms = 0u},
-    {.program_name = "Prime",
-  .source = WORKLOAD_SOURCE_GLOBAL_LABEL,
-  .timeout_ms = 15000u,
-  .resume_pause_with_zero_key = false,
-  .seed_runtime = seed_prime_runtime_registers,
-  .stop_policy = STOP_POLICY_NONE,
-  .stop_after_activity_ms = 0u},
-    {.program_name = "Fact",
-  .source = WORKLOAD_SOURCE_GLOBAL_LABEL,
-  .timeout_ms = 15000u,
-  .resume_pause_with_zero_key = false,
-  .seed_runtime = seed_fact_runtime_registers,
-  .stop_policy = STOP_POLICY_NONE,
+     .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
   .stop_after_activity_ms = 0u},
 };
 

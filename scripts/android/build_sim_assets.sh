@@ -83,7 +83,7 @@ configure_build_dir() {
     fi
 
     if [ -f "$BUILD_DIR/build.ninja" ]; then
-        meson setup "$BUILD_DIR" \
+        meson setup "$BUILD_DIR" "$PROJECT_ROOT" \
             --reconfigure \
             --buildtype=custom \
             -DRASPBERRY=false \
@@ -91,7 +91,7 @@ configure_build_dir() {
         return 0
     fi
 
-    meson setup "$BUILD_DIR" \
+    meson setup "$BUILD_DIR" "$PROJECT_ROOT" \
         --buildtype=custom \
         -DRASPBERRY=false \
         -DDECNUMBER_FASTMUL=true

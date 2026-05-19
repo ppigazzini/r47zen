@@ -121,10 +121,22 @@ host-core optimization sequence:
 - the Android wrapper testSuite rerun still proves the repo-owned simulator
   parity path before Gradle packaging
 - the host-side PGO collector now runs under the same wrapper-owned lane,
-  produces the `.profdata` artifact uploaded by CI, and executes the canonical
-  host workload set: the five imported `.p47` fixtures plus the built-in
-  calculator programs `Prime` and `Fact` borrowed from
-  `src/testSuite/tests/programs.txt`
+  produces the `.profdata` artifact uploaded by CI, and builds instrumented
+  upstream `src/testSuite/testSuite` with the maintained `broad-ci` corpus of
+  `programs`, `tvm`, `jacobi_audit`, `normal_i`, `gamma`, `trig`, `prime`,
+  `factorial`, and the generated `matrix_prefix_85` slice derived from
+  `src/testSuite/tests/matrix.txt`
+- the collector stages `res/testPgms/testPgms.bin` into its runtime root when
+  `programs.txt` is present so the built-in `Prime`, `Fact`, and `SPIRAL`
+  cases exercise the real generated program bundle rather than a stubbed path,
+  then runs the imported `.p47` fixture overlay through the host compatibility
+  path so graph, pause, wait, and LCD-style workloads are merged into the same
+  uploaded `.profdata`
+- the canonical host workload set of the five imported `.p47` fixtures remains
+  the focused Android bridge compatibility harness exposed by
+  `scripts/workload-regressions/run_workload_regressions.sh`, not the CI PGO
+  corpus. The broad `broad-ci` base already covers `prime` and `factorial`
+  through upstream `testSuite` inputs
 - the collector still resolves `clang` and `llvm-profdata` from that same
   pinned NDK, while the Linux lane installs the matching host
   `libclang_rt.profile` runtime for the derived LLVM major through the explicit

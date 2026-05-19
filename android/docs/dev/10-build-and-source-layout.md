@@ -368,7 +368,15 @@ Internal helpers:
   the focused host compatibility harness, not the normal pull-request owner of
   the collector-driven host-core PGO contract.
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` owns the lower-
-  level host-core PGO collector implementation and is normally invoked through
+  level host-core PGO collector implementation: it builds instrumented
+  upstream `src/testSuite/testSuite` with the pinned NDK Clang plus ThinLTO,
+  trains on the maintained `broad-ci` corpus of `programs`, `tvm`,
+  `jacobi_audit`, `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and an
+  upstream-derived `matrix_prefix_85` slice from `src/testSuite/tests/matrix.txt`,
+  stages `res/testPgms/testPgms.bin` into a runtime root when `programs.txt`
+  is included, then runs the imported `.p47` fixture overlay through the host
+  compatibility path so those workloads also contribute raw profiles to the
+  same merged `.profdata`, and is normally invoked through
   `scripts/android/build_android.sh --collect-host-pgo`.
 - `scripts/package-notices/generate_simulator_notice_artifacts.sh` owns the
   grouped simulator-package notice implementation.
@@ -531,11 +539,22 @@ ownership model as the local build:
   snapshot paths stay absent, and records packaging evidence for the default
   `arm64-v8a` debug APK through
   `scripts/android/collect_packaging_evidence.sh`.
-- That host-core collector now runs the canonical host workload set: the
-  imported `.p47` fixtures `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
-  `NQueens.p47`, and `SPIRALk.p47`, plus the directly reusable built-in
-  calculator programs `Prime` and `Fact` borrowed from
-  `src/testSuite/tests/programs.txt`.
+- That host-core collector now builds instrumented upstream
+  `src/testSuite/testSuite` with the pinned NDK `clang` plus ThinLTO, runs the
+  maintained `broad-ci` corpus of `programs`, `tvm`, `jacobi_audit`,
+  `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the generated
+  `matrix_prefix_85` slice from `src/testSuite/tests/matrix.txt`, stages
+  `res/testPgms/testPgms.bin` into a runtime root for the `programs.txt`
+  cases, then runs the imported `.p47` fixture overlay through the host
+  compatibility path so graph or LCD-style workloads also contribute raw
+  profiles, and merges the combined raw profiles into the uploaded
+  `.profdata` artifact.
+- The canonical host workload set of the imported `.p47` fixtures
+  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `SPIRALk.p47` remains the focused Android bridge compatibility harness
+  exercised by `scripts/workload-regressions/run_workload_regressions.sh`, not
+  the normal CI PGO corpus. The broad `broad-ci` base already covers `prime`
+  and `factorial` through upstream `testSuite` inputs.
 - `android-tests` uses the same resolved upstream commit and staged-native
   build path, applies the defaults-file `android_test_abi_filters` override
   only for the hosted test lane, assembles `:app:assembleDebugAndroidTest`,

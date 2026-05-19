@@ -135,10 +135,21 @@ flowchart TD
   explicitly, merge them with the same NDK `llvm-profdata`, and then rebuild
   with `-fprofile-use`. The doc also notes that library profiles are generally
   reusable across architectures unless the library has architecture-specific
-  code paths. Keep host-workload training as the maintained shared-core lane in
-  this repo; if Android app-process profile collection is ever added, treat it
-  as a separate experiment rather than as a replacement for host-core training
-  or app benchmarking.
+  code paths. In this repo, the maintained host-core training surface is the
+  broad `broad-ci` `testSuite` base plus the imported `.p47` overlay merged
+  into one host profile; keep that separate from the host compatibility rerun
+  and Android test lanes. If Android app-process profile collection is ever
+  added, treat it as a separate experiment rather than as a replacement for
+  host-core training or app benchmarking.
+- [Macrobenchmark overview](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview):
+  official Android app benchmarking guidance. Benchmark a release-like,
+  profileable app from a separate `com.android.test` module and treat the
+  generated JSON or trace artifacts as a distinct app-performance surface, not
+  as a substitute for shared-core PGO corpus selection.
+- [System tracing overview](https://developer.android.com/topic/performance/tracing):
+  official Perfetto and system tracing overview. Use tracing for root-cause
+  analysis once a benchmark or workload points at a regression; it complements
+  native-core PGO and Android benchmarking rather than replacing either one.
 - [Configure the NDK for the Android Gradle plugin](https://developer.android.com/studio/projects/configure-agp-ndk):
   `ndkVersion` guidance for AGP-based projects, including the command-line
   `sdkmanager` package syntax this repo uses in CI.
@@ -167,8 +178,8 @@ flowchart TD
   instrumentation as the preferred optimization profile format.
 - [How To Build With PGO](https://llvm.org/docs/HowToBuildWithPGO.html): LLVM
   reference for instrumentation, raw profile collection, merged profdata use,
-  and benchmark selection. It emphasizes that representative build and test
-  coverage produces better profiles than narrow microbench-only training.
+  and benchmark selection. It emphasizes that representative training coverage
+  produces better profiles than narrow microbench-only training.
 - [llvm-profdata](https://llvm.org/docs/CommandGuide/llvm-profdata.html):
   official merge and inspection tool for indexed profile data. Use the
   `llvm-profdata` build that matches the producing Clang or NDK revision,

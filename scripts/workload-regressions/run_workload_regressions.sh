@@ -24,10 +24,6 @@ REQUIRED_PROGRAM_FIXTURE_SPECS=(
     "NQueens.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
     "SPIRALk.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
 )
-REQUIRED_BUILTIN_PROGRAM_SPECS=(
-    "Prime|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
-    "Fact|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
-)
 
 fail() {
     echo "ERROR: $*" >&2
@@ -244,11 +240,6 @@ fi
     -o "$BUILD_DIR/$HOST_WORKLOAD_OUTPUT_NAME"
 
 for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
-    IFS='|' read -r fixture timeout_duration kill_after <<< "$fixture_spec"
-    run_host_workload_fixture "$fixture" "$TIMEOUT_BIN" "$timeout_duration" "$kill_after"
-done
-
-for fixture_spec in "${REQUIRED_BUILTIN_PROGRAM_SPECS[@]}"; do
     IFS='|' read -r fixture timeout_duration kill_after <<< "$fixture_spec"
     run_host_workload_fixture "$fixture" "$TIMEOUT_BIN" "$timeout_duration" "$kill_after"
 done

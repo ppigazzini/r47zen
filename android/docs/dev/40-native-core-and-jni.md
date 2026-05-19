@@ -162,24 +162,29 @@ supports that model by keeping shared synchronization in native code:
   wait or progress shims in `android_runtime.c`, then runs the canonical host
   workload set through the host-side Android compatibility path in isolated
   host processes: the imported `.p47` fixtures `BinetV3.p47`, `GudrmPL.p47`,
-  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`, plus the directly reusable
-  built-in calculator programs `Prime` and `Fact` borrowed from
-  `src/testSuite/tests/programs.txt` through the label-driven `XEQ` path.
-  Every workload now runs under the same outer GNU `timeout --kill-after`
-  safety net so a hung workload degrades coverage instead of wedging the host
-  lane. Inside that shared framework, the maintained `MANSLV2` scenario still
-  waits for observed run activity and then publishes a direct stop through
-  `fnStopProgram(0)`. The script remains the focused host-compatibility rerun
-  surface, not the normal pull-request owner of the collector-driven PGO
-  contract
+  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Every workload now runs
+  under the same outer GNU `timeout --kill-after` safety net so a hung
+  workload degrades coverage instead of wedging the host lane. Inside that
+  shared framework, the maintained `MANSLV2` scenario still waits for observed
+  run activity and then publishes a direct stop through `fnStopProgram(0)`.
+  The script remains the focused host-compatibility rerun surface, not the
+  normal pull-request owner of the collector-driven PGO contract; the broad
+  `broad-ci` base already covers `prime` and `factorial` through upstream
+  `testSuite` inputs
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` builds that same
-  host harness and canonical host workload set with the pinned NDK Clang and
-  `llvm-profdata` pair under LLVM IRPGO instrumentation, injects a temporary
-  resource-dir shim so the Linux host link can reuse a host-installed
-  `libclang_rt.profile` archive that the NDK does not ship, then produces the
-  indexed profile artifact now consumed by the release-native Android build
-  path. The maintained full-lane owner of that collector plus consumer
-  sequence is now
+  upstream `src/testSuite/testSuite` target in Meson `release` with the pinned
+  NDK Clang and `llvm-profdata` pair under ThinLTO plus LLVM IRPGO
+  instrumentation, runs the maintained `broad-ci` corpus of `programs`, `tvm`,
+  `jacobi_audit`, `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the
+  generated `matrix_prefix_85` slice from `src/testSuite/tests/matrix.txt`,
+  stages `res/testPgms/testPgms.bin` into a runtime root for the built-in
+  program cases, then runs the imported `.p47` fixture overlay through the
+  host compatibility path so the same indexed profile also covers graph,
+  pause, wait, and LCD-style workloads, injects a temporary resource-dir shim
+  so the Linux host link can reuse a host-installed `libclang_rt.profile`
+  archive that the NDK does not ship, then produces the indexed profile
+  artifact now consumed by the release-native Android build path. The
+  maintained full-lane owner of that collector plus consumer sequence is now
   `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
 - `jni_program_load_test.c` exposes the instrumentation-only bridge used by
   both `ProgramFixtureInstrumentedTest` and

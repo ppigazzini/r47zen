@@ -262,12 +262,17 @@ program, a save or load operation, or a progress or pause loop.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path across the canonical host
   workload set: the imported `.p47` fixtures `BinetV3.p47`, `GudrmPL.p47`,
-  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`, plus the built-in
-  calculator programs `Prime` and `Fact` borrowed from
-  `src/testSuite/tests/programs.txt` through the host-only label-driven `XEQ`
-  path. Each workload now runs in its own host process under the same outer
-  timeout-and-kill safety net, while `MANSLV2` stays the maintained
-  direct-stop-after-activity scenario inside that framework.
+  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Each workload now runs in
+  its own host process under the same outer timeout-and-kill safety net, while
+  `MANSLV2` stays the maintained direct-stop-after-activity scenario inside
+  that framework. The broad `broad-ci` base already covers `prime` and
+  `factorial` through upstream `testSuite` inputs.
+- `scripts/workload-regressions/collect_host_pgo_profile.sh` uses a separate
+  merged host profile surface: it runs the maintained `broad-ci` `testSuite`
+  base, stages `res/testPgms/testPgms.bin` for the built-in `programs.txt`
+  cases, then runs the imported `.p47` fixture overlay through the same host
+  compatibility path so graph, pause, wait, and LCD-style workloads also land
+  in the indexed `.profdata` consumed by the Android release-native build.
 - There is now focused automated Android coverage proving that the direct-stop
   publisher can interrupt the required `MANSLV2` bounded-stop regression after
   observed activity, and the Android wrapper now treats a timed-out
