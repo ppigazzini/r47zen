@@ -260,11 +260,14 @@ program, a save or load operation, or a progress or pause loop.
   that the first direct stop on that same workload already matches an explicit
   `forceRefresh()` snapshot.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
-  Android-compatibility wait and progress path across the canonical
-  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47` workloads. Each fixture now runs in its own host process under
-  the same outer timeout-and-kill safety net, while `MANSLV2` stays the
-  maintained direct-stop-after-activity scenario inside that framework.
+  Android-compatibility wait and progress path across the canonical host
+  workload set: the imported `.p47` fixtures `BinetV3.p47`, `GudrmPL.p47`,
+  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`, plus the built-in
+  calculator programs `Prime` and `Fact` borrowed from
+  `src/testSuite/tests/programs.txt` through the host-only label-driven `XEQ`
+  path. Each workload now runs in its own host process under the same outer
+  timeout-and-kill safety net, while `MANSLV2` stays the maintained
+  direct-stop-after-activity scenario inside that framework.
 - There is now focused automated Android coverage proving that the direct-stop
   publisher can interrupt the required `MANSLV2` bounded-stop regression after
   observed activity, and the Android wrapper now treats a timed-out

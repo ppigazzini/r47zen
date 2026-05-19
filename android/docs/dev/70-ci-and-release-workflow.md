@@ -101,6 +101,10 @@ This is the main Android build, packaging, and artifact lane.
 It:
 
 - provisions Java, Gradle cache, Android SDK packages, NDK, CMake, and xlsxio
+- derives the Linux host LLVM major from the pinned NDK `clang`, then installs
+  matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
+  `libclang-rt-<major>-dev` packages so the host PGO runtime shim does not
+  drift onto the runner-default LLVM toolchain
 - syncs the authoritative upstream tree
 - runs `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
 - runs `cd android && ./gradlew lint` explicitly because normal Gradle builds do
@@ -116,8 +120,17 @@ host-core optimization sequence:
 
 - the Android wrapper testSuite rerun still proves the repo-owned simulator
   parity path before Gradle packaging
-- the host-side PGO collector now runs under the same wrapper-owned lane and
-  produces the `.profdata` artifact uploaded by CI
+- the host-side PGO collector now runs under the same wrapper-owned lane,
+  produces the `.profdata` artifact uploaded by CI, and executes the canonical
+  host workload set: the five imported `.p47` fixtures plus the built-in
+  calculator programs `Prime` and `Fact` borrowed from
+  `src/testSuite/tests/programs.txt`
+- the collector still resolves `clang` and `llvm-profdata` from that same
+  pinned NDK, while the Linux lane installs the matching host
+  `libclang_rt.profile` runtime for the derived LLVM major through the explicit
+  CI package step
+- the Android emulator lane remains narrower and still owns only the five
+  staged `.p47` `PROGRAMS` fixtures
 - the Android release-native PGO consumer check now runs inside that same
   wrapper-owned build step, so the build log records the full collector-to-
   consumer sequence in one place

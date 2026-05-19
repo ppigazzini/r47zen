@@ -27,13 +27,17 @@ extern uint16_t numberOfPrograms;
 extern size_t gmpMemInBytes;
 
 extern void runFunction(int16_t func);
+extern void reallyRunFunction(int16_t func, uint16_t param);
 extern void fnLoadProgram(uint16_t unusedButMandatoryParameter);
+extern calcRegister_t findNamedLabel(const char *labelName);
 extern void reallocateRegister(calcRegister_t regist, uint32_t dataType,
                                uint16_t dataSizeWithoutDataLenBlocks,
                                uint32_t tag);
 
 typedef struct {
   int16_t func_id;
+  uint16_t param;
+  bool uses_param;
   volatile bool done;
 } function_worker_t;
 
@@ -46,8 +50,14 @@ typedef enum {
   STOP_POLICY_DIRECT_AFTER_ACTIVITY,
 } stop_policy_t;
 
+typedef enum {
+  WORKLOAD_SOURCE_PROGRAM_FILE = 0,
+  WORKLOAD_SOURCE_GLOBAL_LABEL,
+} workload_source_t;
+
 typedef struct {
   const char *program_name;
+  workload_source_t source;
   uint64_t timeout_ms;
   bool resume_pause_with_zero_key;
   bool (*seed_runtime)(void);
@@ -65,7 +75,7 @@ extern void fnStopProgram(uint16_t unusedButMandatoryParameter);
 
 static void usage(const char *argv0) {
   fprintf(stderr,
-          "Usage: %s --program-root <dir> [--program-name <fixture>]\n",
+          "Usage: %s --program-root <dir> [--program-name <workload>]\n",
           argv0);
 }
 
@@ -189,15 +199,22 @@ static bool stage_program_file(const char *runtime_dir, const char *program_root
 static void *run_function_worker(void *user_data) {
   function_worker_t *worker = (function_worker_t *)user_data;
   pthread_mutex_lock(&screenMutex);
-  runFunction(worker->func_id);
+  if (worker->uses_param) {
+    reallyRunFunction(worker->func_id, worker->param);
+  } else {
+    runFunction(worker->func_id);
+  }
   pthread_mutex_unlock(&screenMutex);
   worker->done = true;
   return NULL;
 }
 
 static bool start_worker(function_worker_t *worker, int16_t func_id,
+                         uint16_t param, bool uses_param,
                          pthread_t *thread_id) {
   worker->func_id = func_id;
+  worker->param = param;
+  worker->uses_param = uses_param;
   worker->done = false;
   if (pthread_create(thread_id, NULL, run_function_worker, worker) != 0) {
     fprintf(stderr, "ERROR: Failed to start worker thread\n");
@@ -264,6 +281,18 @@ static bool seed_spiralk_runtime_registers(void) {
   return true;
 }
 
+static bool seed_prime_runtime_registers(void) {
+  reallocateRegister(REGISTER_X, dtReal34, 0, amNone);
+  stringToReal34("2025900091", REGISTER_REAL34_DATA(REGISTER_X));
+  return true;
+}
+
+static bool seed_fact_runtime_registers(void) {
+  reallocateRegister(REGISTER_X, dtReal34, 0, amNone);
+  stringToReal34("20", REGISTER_REAL34_DATA(REGISTER_X));
+  return true;
+}
+
 static workload_result_t run_program_fixture_workload(
   const char *runtime_dir, const char *program_root,
   const program_fixture_scenario_t *scenario) {
@@ -278,16 +307,22 @@ static workload_result_t run_program_fixture_workload(
   bool saw_lcd_refresh = false;
   bool requested_direct_stop = false;
   bool sent_resume_key = false;
+  bool uses_param = false;
+  calcRegister_t label = INVALID_VARIABLE;
   uint64_t last_direct_stop_request_at = 0;
   uint16_t load_step = 0;
   uint16_t max_step = 0;
+  uint16_t run_parameter = NOPARAM;
   uint64_t deadline = 0;
   uint64_t direct_stop_requests = 0;
   uint64_t lcd_refresh_count = 0;
   uint64_t timeout_ms = resolve_program_timeout_ms(scenario->timeout_ms);
+  int16_t run_function_id = ITM_RS;
 
-  if (!stage_program_file(runtime_dir, program_root, scenario->program_name)) {
-    return WORKLOAD_RESULT_FAIL;
+  if (scenario->source == WORKLOAD_SOURCE_PROGRAM_FILE) {
+    if (!stage_program_file(runtime_dir, program_root, scenario->program_name)) {
+      return WORKLOAD_RESULT_FAIL;
+    }
   }
 
   r47_init_runtime(0);
@@ -296,21 +331,35 @@ static workload_result_t run_program_fixture_workload(
             scenario->program_name);
     return WORKLOAD_RESULT_FAIL;
   }
-  fnLoadProgram(NOPARAM);
-  if (fail_last_error(scenario->program_name)) {
-    return WORKLOAD_RESULT_FAIL;
-  }
-  if (numberOfPrograms == 0u) {
-    fprintf(stderr, "ERROR: %s workload did not load any programs\n",
-            scenario->program_name);
-    return WORKLOAD_RESULT_FAIL;
+
+  if (scenario->source == WORKLOAD_SOURCE_PROGRAM_FILE) {
+    fnLoadProgram(NOPARAM);
+    if (fail_last_error(scenario->program_name)) {
+      return WORKLOAD_RESULT_FAIL;
+    }
+    if (numberOfPrograms == 0u) {
+      fprintf(stderr, "ERROR: %s workload did not load any programs\n",
+              scenario->program_name);
+      return WORKLOAD_RESULT_FAIL;
+    }
+  } else {
+    label = findNamedLabel(scenario->program_name);
+    if (label == INVALID_VARIABLE) {
+      fprintf(stderr, "ERROR: %s workload could not resolve built-in label\n",
+              scenario->program_name);
+      return WORKLOAD_RESULT_FAIL;
+    }
+    run_function_id = ITM_XEQ;
+    run_parameter = label;
+    uses_param = true;
   }
 
   load_step = currentLocalStepNumber;
   max_step = currentLocalStepNumber;
   gmp_mem_after_load = gmpMemInBytes;
   r47_reset_host_lcd_refresh_count();
-  if (!start_worker(&worker, ITM_RS, &worker_thread)) {
+  if (!start_worker(&worker, run_function_id, run_parameter, uses_param,
+                    &worker_thread)) {
     return WORKLOAD_RESULT_FAIL;
   }
 
@@ -451,35 +500,54 @@ static workload_result_t run_program_fixture_workload(
 
 static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
     {.program_name = "BinetV3.p47",
+  .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = false,
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u},
     {.program_name = "GudrmPL.p47",
+  .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = false,
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u},
     {.program_name = "MANSLV2.p47",
+  .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 15000u,
      .resume_pause_with_zero_key = false,
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
      .stop_after_activity_ms = 3000u},
     {.program_name = "NQueens.p47",
+  .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = false,
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u},
     {.program_name = "SPIRALk.p47",
+  .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = true,
      .seed_runtime = seed_spiralk_runtime_registers,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u},
+    {.program_name = "Prime",
+  .source = WORKLOAD_SOURCE_GLOBAL_LABEL,
+  .timeout_ms = 15000u,
+  .resume_pause_with_zero_key = false,
+  .seed_runtime = seed_prime_runtime_registers,
+  .stop_policy = STOP_POLICY_NONE,
+  .stop_after_activity_ms = 0u},
+    {.program_name = "Fact",
+  .source = WORKLOAD_SOURCE_GLOBAL_LABEL,
+  .timeout_ms = 15000u,
+  .resume_pause_with_zero_key = false,
+  .seed_runtime = seed_fact_runtime_registers,
+  .stop_policy = STOP_POLICY_NONE,
+  .stop_after_activity_ms = 0u},
 };
 
 static const program_fixture_scenario_t *find_program_fixture_scenario(
@@ -540,7 +608,7 @@ int main(int argc, char **argv) {
         find_program_fixture_scenario(program_name);
 
     if (scenario == NULL) {
-      fprintf(stderr, "ERROR: Unknown program fixture %s\n", program_name);
+      fprintf(stderr, "ERROR: Unknown host workload %s\n", program_name);
       return 1;
     }
 

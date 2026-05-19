@@ -276,19 +276,28 @@ The repo also keeps non-device contract surfaces for the shared core and the
 Android compatibility layer.
 
 - `scripts/workload-regressions/run_workload_regressions.sh` builds the staged
-  core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then loads and
-  runs the canonical `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
-  `NQueens.p47`, and `SPIRALk.p47` workload fixtures through the host
-  compatibility path. Every canonical fixture now runs in its own host process
-  under the same outer timeout-and-kill safety net, while `MANSLV2` remains
-  the bounded direct-stop-after-activity probe inside that framework. This is
-  the focused host compatibility rerun surface, not the normal pull-request
-  owner of the collector-driven host-core PGO contract
+  core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then runs the
+  canonical host workload set through the host compatibility path: the
+  imported `.p47` fixtures `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
+  `NQueens.p47`, and `SPIRALk.p47`, plus the directly reusable built-in
+  calculator programs `Prime` and `Fact` borrowed from
+  `src/testSuite/tests/programs.txt` through the label-driven `PGM=` or `XEQ`
+  path. Every imported fixture and built-in workload now runs in its own host
+  process under the same outer timeout-and-kill safety net, while `MANSLV2`
+  remains the bounded direct-stop-after-activity probe inside that framework.
+  This is the focused host compatibility rerun surface, not the normal
+  pull-request owner of the collector-driven host-core PGO contract
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
-  contract. It does prove that the shared compatibility path can start all five
-  workloads and accept a bounded direct stop for `MANSLV2`, or record degraded
-  coverage for any individual hung fixture without hanging the lane, before
-  Android-shell responsiveness enters the picture.
+  contract. It does prove that the shared compatibility path can start the five
+  imported fixtures plus the built-in `Prime` and `Fact` workloads and accept a
+  bounded direct stop for `MANSLV2`, or record degraded coverage for any
+  individual hung workload without hanging the lane, before Android-shell
+  responsiveness enters the picture.
+- That host-only Phase 4 borrow does not widen the Android emulator
+  `PROGRAMS` fixture matrix. The broader upstream `testSuite` corpus still
+  contains `281` files and `9548` explicit `Out:` cases, and most of that
+  text-driven surface still belongs to the standalone `testSuite` binary
+  rather than the host workload harness.
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` rebuilds that same
   host compatibility path with the pinned NDK Clang and `llvm-profdata` pair
   under LLVM IRPGO instrumentation, reuses a host-installed

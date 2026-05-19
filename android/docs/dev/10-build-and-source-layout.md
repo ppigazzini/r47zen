@@ -522,12 +522,20 @@ ownership model as the local build:
   sane before Android-specific work begins. The sync step also fails if the
   restore allowlist drifts back onto authoritative upstream root surfaces.
 - `android-build-test-package` installs the pinned SDK, CMake, and NDK
-  versions, runs `./scripts/android/build_android.sh --run-sim-tests` to build
-  Android-owned inputs and rerun the simulator-native suite from the Android
-  and NDK path, verifies that build-only staged metadata exists under
-  `android/.staged-native/cpp` while the retired app-module snapshot paths stay
-  absent, and records packaging evidence for the default `arm64-v8a` debug APK
-  through `scripts/android/collect_packaging_evidence.sh`.
+  versions, runs
+  `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
+  to build Android-owned inputs, rerun the simulator-native suite from the
+  Android and NDK path, collect the host-core profile, and validate
+  release-native profile consumption, verifies that build-only staged metadata
+  exists under `android/.staged-native/cpp` while the retired app-module
+  snapshot paths stay absent, and records packaging evidence for the default
+  `arm64-v8a` debug APK through
+  `scripts/android/collect_packaging_evidence.sh`.
+- That host-core collector now runs the canonical host workload set: the
+  imported `.p47` fixtures `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
+  `NQueens.p47`, and `SPIRALk.p47`, plus the directly reusable built-in
+  calculator programs `Prime` and `Fact` borrowed from
+  `src/testSuite/tests/programs.txt`.
 - `android-tests` uses the same resolved upstream commit and staged-native
   build path, applies the defaults-file `android_test_abi_filters` override
   only for the hosted test lane, assembles `:app:assembleDebugAndroidTest`,
