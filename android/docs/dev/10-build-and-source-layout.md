@@ -622,9 +622,12 @@ keeps the default debug CI lane secret-free.
   configuration error.
 - `.github/workflows/android-release.yml` is the maintained CI path for a
   signed production bundle. It takes manual `version_code` and `version_name`
-  inputs, decodes `R47_RELEASE_STORE_FILE_BASE64` into `RUNNER_TEMP`, and feeds
-  the existing `R47_RELEASE_*` environment hooks to Gradle only inside the
-  protected `production-release` environment.
+  inputs, reruns the same wrapper-owned host-core optimization flow as
+  `android-build-test-package`, decodes `R47_RELEASE_STORE_FILE_BASE64` into
+  `RUNNER_TEMP`, and feeds the existing `R47_RELEASE_*` environment hooks to
+  Gradle only inside the protected `production-release` environment. The
+  workflow then passes the collected `ci-artifacts/pgo/r47-host-core.profdata`
+  back into `:app:bundleRelease` through `r47.pgoProfilePath`.
 - Release builds default `minifyEnabled` and `shrinkResources` to `true` and
   request `ndk.debugSymbolLevel "FULL"`.
 - `bundleRelease` is the canonical AAB command. `assembleRelease` remains
@@ -679,7 +682,10 @@ keeps the default debug CI lane secret-free.
   another, promote it through `jobs.<job_id>.outputs` and consume it via
   `needs.<job_id>.outputs.*` instead of reading another job's
   `steps.<step_id>.outputs.*`. In the Windows lane, keep any step that runs
-  before `msys2/setup-msys2` on a host shell such as `pwsh` or `bash`.
+  before `msys2/setup-msys2` on a host shell such as `pwsh` or `bash`. Keep the
+  protected release workflow on the same wrapper-owned host-core optimization
+  flow as `android-build-test-package`, and keep the signed bundle on the
+  collected `r47-host-core.profdata` path.
 - sync or restore-boundary changes: confirm restore logic still excludes `^src/`
   and does not reintroduce tracked local overrides under `src/**`; confirm the
   build-only staged metadata under `android/.staged-native/cpp` regenerates and

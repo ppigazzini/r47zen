@@ -38,9 +38,11 @@ flowchart TD
 
 - resolve one authoritative upstream commit per workflow run
 - keep upstream simulator correctness separate from Android packaging and tests
-- let the Android build lane own the collector-driven host-core PGO artifact and
-  release-native consumer check without making that lane depend on emulator
-  profiling
+- keep the Android build lane as the normal-CI owner of the collector-driven
+  host-core PGO artifact and release-native consumer check without making that
+  lane depend on emulator profiling
+- make the protected release workflow rerun the same wrapper-owned host-core
+  optimization flow before it signs the store bundle
 - run Android lint explicitly instead of assuming Gradle builds cover it
 - publish logs and packaging evidence as first-class artifacts
 - publish the main snapshot only after all required lanes pass
@@ -215,9 +217,15 @@ flowchart TD
   B[production-release environment approval]
   C[resolve-upstream-core]
   D[build-production-release-bundle]
-  E[signed AAB plus evidence artifact]
+  E[wrapper-owned host-core optimization flow]
+  F[signed bundle using collected host profile]
+  G[signed AAB plus evidence artifact]
 
-  A --> B --> C --> D --> E
+  A --> B --> C --> D
+  D --> E
+  D --> F
+  E --> G
+  F --> G
 ```
 
 ### `build-production-release-bundle`
@@ -225,8 +233,13 @@ flowchart TD
 This workflow:
 
 - resolves and syncs the authoritative upstream tree
-- reruns `./scripts/android/build_android.sh --run-sim-tests` so release builds
-  start from the same staged-native contract as the debug CI lane
+- derives the Linux host LLVM major from the pinned NDK `clang`, then installs
+  the matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
+  `libclang-rt-<major>-dev` packages before collecting host profiles
+- reruns `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
+  so the protected release lane uses the same wrapper-owned host-core
+  optimization flow as the debug CI lane and writes
+  `ci-artifacts/pgo/r47-host-core.profdata`
 - runs Android lint, `:app:testDebugUnitTest`, and
   `:app:assembleDebugAndroidTest` before signing the release bundle
 - requires manual `version_code` and `version_name` inputs
@@ -234,7 +247,11 @@ This workflow:
   through `R47_RELEASE_STORE_FILE`
 - reads `R47_RELEASE_STORE_PASSWORD`, `R47_RELEASE_KEY_ALIAS`, and
   `R47_RELEASE_KEY_PASSWORD` only from the protected environment
-- builds `:app:bundleRelease` and uploads the signed AAB artifact bundle
+- builds `:app:bundleRelease -Pr47.pgoProfilePath=...` so the signed release
+  bundle consumes the same collected host-core profile that the wrapper already
+  validated
+- uploads the release build logs, the host-core PGO artifact bundle, and the
+  signed AAB artifact bundle
   `r47-android-<upstream short>-<android short>-release`
 - ships `r47-android-<upstream short>-<android short>-release.aab`,
   `BUILD-METADATA.txt`, `SHA256SUMS.txt`, `mapping.txt`,
@@ -276,9 +293,10 @@ The workflow publishes three main artifact classes:
 - Android build logs from the packaging lane
 - debug APK packaging evidence and compliance outputs
 - Android JVM and instrumentation test reports and logs
-- host-core PGO profiles from the Linux packaging lane; the same build log now
-  includes the collector and release-native validation output because the
-  wrapper owns that sequence
+- host-core PGO profiles from the Linux packaging lane and the protected
+  release workflow; each lane's build log records the wrapper-owned collector
+  and release-native validation output, and the protected release workflow also
+  records the final signed-bundle consumer path
 
 Android artifact names use the two-commit Android identity
 `upstream short + Android short`. Linux and Windows simulator package workflows
@@ -309,10 +327,15 @@ Use the smallest local lane that matches the failure surface:
   `cd android && ./gradlew :app:testDebugUnitTest`
 - instrumentation packaging with current staged inputs:
   `cd android && ./gradlew :app:assembleDebugAndroidTest`
+- protected-release parity with a collected host profile:
+  `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`, then
+  `cd android && ./gradlew :app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`
+  with the `R47_RELEASE_*` environment variables plus explicit `r47.versionCode`
+  and `r47.versionName` inputs
 - signed production bundle with current staged inputs:
-  `cd android && ./gradlew :app:bundleRelease` with the `R47_RELEASE_*`
-  environment variables plus explicit `r47.versionCode` and `r47.versionName`
-  inputs
+  `cd android && ./gradlew :app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`
+  with the `R47_RELEASE_*` environment variables plus explicit
+  `r47.versionCode` and `r47.versionName` inputs
 
 If the task touches staging, generated inputs, or upstream hydration, prefer
 the full build script over isolated Gradle invocations.
@@ -333,6 +356,10 @@ the full build script over isolated Gradle invocations.
 - Keep the `android-tests` pre-emulator Gradle work in one focused task graph
   unless staged-native prep becomes incrementally cheap enough to justify
   splitting it again.
+- Keep the protected release workflow on the same wrapper-owned host-core
+  optimization flow as `android-build-test-package`, and keep the signed bundle
+  on the collected `r47-host-core.profdata` path instead of silently falling
+  back to a non-PGO release-native build.
 - Keep store-release signing in the dedicated protected workflow. Do not fold
   production secrets into `.github/workflows/android-ci.yml`.
 - Keep the Android artifact identity separate from the upstream-only simulator

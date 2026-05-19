@@ -141,6 +141,11 @@ flowchart TD
   and Android test lanes. If Android app-process profile collection is ever
   added, treat it as a separate experiment rather than as a replacement for
   host-core training or app benchmarking.
+- [Benchmark your app](https://developer.android.com/topic/performance/benchmarking/benchmarking-overview):
+  official Android benchmark map, updated 2026-05-19. Use Macrobenchmark for
+  out-of-process end-user flows such as startup, scrolling, and animations, and
+  use Microbenchmark only for isolated hot functions or UI subroutines after a
+  profiler or trace has already identified the bottleneck.
 - [Macrobenchmark overview](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview):
   official Android app benchmarking guidance. Benchmark a release-like,
   profileable app from a separate `com.android.test` module and treat the
@@ -150,6 +155,15 @@ flowchart TD
   official Perfetto and system tracing overview. Use tracing for root-cause
   analysis once a benchmark or workload points at a regression; it complements
   native-core PGO and Android benchmarking rather than replacing either one.
+- [Slow rendering](https://developer.android.com/topic/performance/vitals/render):
+  official Android jank and render-time guidance, updated 2026-05-19. Treat
+  16.67 ms as the 60 fps frame budget, validate jank on release-like builds,
+  use Perfetto or Systrace for frame-level diagnosis, and keep field reporting
+  separate for slow and frozen frames.
+- [Inspect GPU rendering](https://developer.android.com/topic/performance/rendering/inspect-gpu-rendering):
+  official developer-option guidance for mapping on-screen frame bars to the
+  rendering pipeline, updated 2026-05-19. Use it as a fast local visualizer for
+  input, layout, draw, upload, and GPU-wait pressure before deeper tracing.
 - [Configure the NDK for the Android Gradle plugin](https://developer.android.com/studio/projects/configure-agp-ndk):
   `ndkVersion` guidance for AGP-based projects, including the command-line
   `sdkmanager` package syntax this repo uses in CI.

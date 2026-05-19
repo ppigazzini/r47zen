@@ -320,9 +320,11 @@ Android compatibility layer.
 - the CI workflow keeps three main verification jobs distinct:
   `upstream-simulator-sanity`, `android-build-test-package`, and
   `android-tests`
-- `.github/workflows/android-release.yml` reuses the full staged-native build
-  path, then runs lint, JVM tests, instrumentation assembly, and
-  `:app:bundleRelease` before it publishes signed release evidence
+- `.github/workflows/android-release.yml` reruns the same wrapper-owned
+  host-core optimization flow as `android-build-test-package`, then runs lint,
+  JVM tests, instrumentation assembly, and
+  `:app:bundleRelease -Pr47.pgoProfilePath=...` before it publishes signed
+  release evidence
 
 When a change touches staged-core compatibility, `yieldToAndroidWithMs(...)`,
 or wait and progress behavior, start with the host workload harness before you
@@ -348,9 +350,10 @@ assume the problem is Android UI code.
 - staged-native, simulator, or CI-critical verification change: run
   `./scripts/android/build_android.sh --run-sim-tests`
 - release identity, signing, or packaging change: run lint,
-  `:app:testDebugUnitTest`, `:app:assembleDebugAndroidTest`, and
-  `:app:bundleRelease`, then collect packaging evidence when the release
-  artifact contract moves
+  `:app:testDebugUnitTest`, `:app:assembleDebugAndroidTest`,
+  `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`, and
+  `:app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`,
+  then collect packaging evidence when the release artifact contract moves
 
 ## Contract Change Rules
 
