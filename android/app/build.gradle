@@ -125,7 +125,7 @@ def normalizeRepositoryUrl(String url) {
 
 def inferredAndroidSourceRepositoryUrl = normalizeRepositoryUrl(readGitOutput(['config', '--get', 'remote.origin.url']))
 def defaultApplicationId = readDefaultValue('R47_DEFAULT_ANDROID_APPLICATION_ID')
-def androidSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.sourceRepositoryUrl') ?: inferredAndroidSourceRepositoryUrl ?: "https://github.com/ppigazzini/r47_android").toString())
+def androidSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.sourceRepositoryUrl') ?: inferredAndroidSourceRepositoryUrl ?: "https://github.com/ppigazzini/r47zen").toString())
 def androidSourceCommit = (project.findProperty('r47.sourceCommit') ?: readGitOutput(['rev-parse', 'HEAD']) ?: 'unknown').toString()
 def upstreamSourceRepositoryUrl = normalizeRepositoryUrl(project.findProperty('r47.upstreamSourceRepositoryUrl')?.toString())
 def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toString()?.trim()
@@ -538,8 +538,8 @@ tasks.register('generateThirdPartySpdx') {
         }
 
         addPackage([
-            SPDXID          : toSpdxRef('r47-android-source'),
-            name            : 'r47_android',
+            SPDXID          : toSpdxRef('r47zen-source'),
+            name            : 'r47zen',
             downloadLocation: androidSourceRepositoryUrl ?: 'NOASSERTION',
             licenseDeclared : 'GPL-3.0-only',
             versionInfo     : androidSourceCommit ?: 'unknown',

@@ -246,7 +246,7 @@ when the app still launches.
 ## Interface Change Rules
 
 - Change canonical upstream sources for shared calculator behavior.
-- Change `r47_android` only for Android runtime compatibility, JNI, HAL, or
+- Change `r47zen` only for Android runtime compatibility, JNI, HAL, or
   marshalling behavior.
 - Keep Kotlin external declarations, `JNINativeMethod` registration, cached
   `jmethodID`s, and native implementations aligned in one change.

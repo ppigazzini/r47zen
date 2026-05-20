@@ -13,7 +13,7 @@ surfaces.
 flowchart LR
   A[MainActivity external methods]
   B[JNI registration table]
-  C[r47_android bridge files]
+  C[r47zen bridge files]
   D[screenMutex and fileMutex boundaries]
   E[staged PC_BUILD core]
   F[activity callbacks requestFile playTone processCoreTasks]
@@ -24,8 +24,8 @@ flowchart LR
 
 ## Native library shape
 
-The Android module builds one shared library: `r47_android`. `MainActivity`
-loads it from a static initializer via `System.loadLibrary("r47_android")`.
+The Android module builds one shared library: `r47zen`. `MainActivity`
+loads it from a static initializer via `System.loadLibrary("r47zen")`.
 
 The Android-owned CMake target keeps that single-library load path. It does
 not ship same-ABI CPU-specific variants or a runtime dispatcher. When
@@ -49,12 +49,12 @@ CMake builds the library from:
 - build-only staged generated sources under
   `android/.staged-native/cpp/generated`
 - Android-specific bridge and HAL files under
-  `android/app/src/main/cpp/r47_android`
+  `android/app/src/main/cpp/r47zen`
 - build-only staged mini-gmp sources under `android/.staged-native/cpp/gmp`
 - the tracked Android mini-gmp staging source under
   `android/compat/mini-gmp-fallback`
 
-Tracked Android stub headers under `r47_android/stubs` and the forced include
+Tracked Android stub headers under `r47zen/stubs` and the forced include
 of `android_mocks.h` let the Android build satisfy upstream GTK, GDK, and Cairo
 includes without rewriting staged source files during the Gradle build.
 
@@ -339,7 +339,7 @@ round trip.
 
 - For shared calculator behavior, change the canonical root core and restage it
   into `android/.staged-native/cpp` through the normal Android build flow.
-- Change `android/app/src/main/cpp/r47_android` directly only for Android
+- Change `android/app/src/main/cpp/r47zen` directly only for Android
   bridge, HAL, or stub behavior.
 - Do not patch build-only staged upstream C files in place when a tracked
   Android stub or bridge-layer fix can own the compatibility rule.

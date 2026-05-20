@@ -24,7 +24,7 @@ rerun-lane map.
 - Gradle and CMake then compile the Android app against the staged native tree.
 - The upstream Meson graph already hard-enables `b_lto=true` for the desktop
   `c47` and `r47` simulator executables in `src/c47-gtk/meson.build`.
-- The Android-owned `r47_android` CMake target keeps one shared library load
+- The Android-owned `r47zen` CMake target keeps one shared library load
   path and applies target-scoped ThinLTO compile and link flags on the
   release-native configs, `Release` and `RelWithDebInfo`, using `lld` for the
   link step.
@@ -59,7 +59,7 @@ repo root
 |  |- r47_contracts/
 |  |  |- data/
 |  |  |  |- r47_physical_geometry.json
-|  |  |  `- r47_android_ui_contract.json
+|  |  |  `- r47zen_ui_contract.json
 |  |  |- validate_geometry_dataset.py
 |  |  |- derive_touch_grid.py
 |  |  |- derive_shell_geometry.py
@@ -79,7 +79,7 @@ repo root
   |  |- R47Geometry.kt
   |  |- R47KeypadPolicy.kt
   |  `- TopLabelLaneLayout.kt
-    |- app/src/main/cpp/r47_android/
+    |- app/src/main/cpp/r47zen/
   |- docs/dev/
   |- .staged-native/cpp/
   |- gradle/wrapper/
@@ -400,7 +400,7 @@ Canonical inputs for shared core work:
 - `dep/decNumberICU`
 - generated outputs under `build.sim`
 - Android-only code under `android/app/src/main/java`
-- Android bridge, HAL, and stub code under `android/app/src/main/cpp/r47_android`
+- Android bridge, HAL, and stub code under `android/app/src/main/cpp/r47zen`
 - the tracked Android mini-gmp staging source under
   `android/compat/mini-gmp-fallback`
 
@@ -417,7 +417,7 @@ Development rule:
 - Change the build-only staged tree directly only when working on staging logic
   or generated metadata.
 - Change tracked Android-specific code under
-  `android/app/src/main/cpp/r47_android` for shims, stubs, and bridge logic.
+  `android/app/src/main/cpp/r47zen` for shims, stubs, and bridge logic.
 
 Build-safety rule:
 
@@ -433,7 +433,7 @@ Build-safety rule:
   guard for that contract, and `sync` runs the same check before it restores
   tracked repo-owned paths.
 - Android-only native fixes belong under
-  `android/app/src/main/cpp/r47_android` or in staging logic, not in tracked
+  `android/app/src/main/cpp/r47zen` or in staging logic, not in tracked
   root `src/**` overrides.
 - The former tracked directories
   `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are retired
@@ -459,7 +459,7 @@ Build-safety rule:
    `android/app/src/main/cpp/CMakeLists.txt` and passes
    `-DR47_STAGED_CPP_DIR=<repo>/android/.staged-native/cpp`.
 5. CMake regenerates the staged metadata when needed and builds the
-  `r47_android` shared library from the build-only staged core, explicit
+  `r47zen` shared library from the build-only staged core, explicit
   decNumberICU sources, generated files, Android bridge files, and mini-gmp
   without using recursive globs.
 6. Gradle packages the debug APK as
@@ -467,7 +467,7 @@ Build-safety rule:
 7. When the caller requests packaging verification, the repo-owned helper
   `scripts/android/collect_packaging_evidence.sh` copies that APK to the
   published Android debug artifact name
-  `r47-android-<upstream short>-<android short>-debug.apk` and writes ABI,
+  `r47zen-<upstream short>-<android short>-debug.apk` and writes ABI,
   zipalign, ELF `LOAD` segment, SHA256, and provenance evidence beside it.
 
 ## Local Start-To-End Pipeline
@@ -603,14 +603,14 @@ ownership model as the local build:
   `android-build-test-package`, and `android-tests` before publishing a
   main-branch prerelease.
 - the uploaded Android build artifact uses the stem
-  `r47-android-<upstream short>-<android short>` and contains the packaged
-  debug APK `r47-android-<upstream short>-<android short>-debug.apk` plus
+  `r47zen-<upstream short>-<android short>` and contains the packaged
+  debug APK `r47zen-<upstream short>-<android short>-debug.apk` plus
   `SHA256SUMS.txt`, `abis.txt`, `zipalign.txt`, `elf-load-segments.txt`, and
   `BUILD-METADATA.txt`.
 - the uploaded Android test artifact uses the stem
-  `r47-android-tests-<upstream short>-<android short>`.
+  `r47zen-tests-<upstream short>-<android short>`.
 - pushes to `main` and manual runs on `main` publish a debug-signed prerelease
-  tagged and titled `r47-android-<upstream short>-<android short>`.
+  tagged and titled `r47zen-<upstream short>-<android short>`.
 - Linux and Windows simulator package workflows keep their upstream-only
   artifact identity because they do not depend on the Android overlay commit.
 
@@ -649,12 +649,12 @@ keeps the default debug CI lane secret-free.
   bundle, mapping file, and native-symbol archive so provenance can travel with
   the output.
 - For debug packaging, the published Android artifact identity is
-  `r47-android-<upstream short>-<android short>`, and the packaged APK copy is
-  `r47-android-<upstream short>-<android short>-debug.apk`.
+  `r47zen-<upstream short>-<android short>`, and the packaged APK copy is
+  `r47zen-<upstream short>-<android short>-debug.apk`.
 - For the protected release workflow, the uploaded artifact bundle uses the stem
-  `r47-android-<upstream short>-<android short>-release`, and the signed AAB
+  `r47zen-<upstream short>-<android short>-release`, and the signed AAB
   inside that bundle is named
-  `r47-android-<upstream short>-<android short>-release.aab`.
+  `r47zen-<upstream short>-<android short>-release.aab`.
 
 ## Verification by change type
 

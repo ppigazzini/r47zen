@@ -1,7 +1,7 @@
-# R47 Android
-[![Android CI](https://github.com/ppigazzini/r47_android/actions/workflows/android-ci.yml/badge.svg)](https://github.com/ppigazzini/r47_android/actions/workflows/android-ci.yml)
+# R47 Zen
+[![Android CI](https://github.com/ppigazzini/r47zen/actions/workflows/android-ci.yml/badge.svg)](https://github.com/ppigazzini/r47zen/actions/workflows/android-ci.yml)
 
-R47 Android packages the upstream C47 calculator core as an Android app for the
+R47 Zen packages the upstream C47 calculator core as an Android app for the
 R47 calculator variant.
 
 This repository builds the APK, stages the shared native calculator core for
@@ -17,7 +17,7 @@ C47.
 
 - `android/`: Android app, Gradle project, packaging, and Android-owned native
   glue
-- `android/app/src/main/cpp/r47_android/`: Android bridge, JNI, HAL, and other
+- `android/app/src/main/cpp/r47zen/`: Android bridge, JNI, HAL, and other
   Android-local native code
 - `scripts/`: repo-owned Android build, staging, and upstream sync automation
 - `android/docs/dev/`: maintainer docs for source ownership, build flow, JNI,

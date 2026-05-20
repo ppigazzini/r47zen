@@ -60,20 +60,20 @@ STAGED_DEC_SOURCES=(
 )
 
 ANDROID_BRIDGE_SOURCES=(
-    "$TRACKED_CPP_DIR/r47_android/android_runtime.c"
-    "$TRACKED_CPP_DIR/r47_android/android_helpers.c"
-    "$TRACKED_CPP_DIR/r47_android/clipboard_utils.c"
-    "$TRACKED_CPP_DIR/r47_android/hal/audio.c"
-    "$TRACKED_CPP_DIR/r47_android/hal/gui.c"
-    "$TRACKED_CPP_DIR/r47_android/hal/io.c"
-    "$TRACKED_CPP_DIR/r47_android/hal/lcd.c"
-    "$TRACKED_CPP_DIR/r47_android/hal/print_ir.c"
-    "$TRACKED_CPP_DIR/r47_android/jni_activity_bridge.c"
-    "$TRACKED_CPP_DIR/r47_android/jni_display.c"
-    "$TRACKED_CPP_DIR/r47_android/jni_input.c"
-    "$TRACKED_CPP_DIR/r47_android/jni_lifecycle.c"
-    "$TRACKED_CPP_DIR/r47_android/jni_registration.c"
-    "$TRACKED_CPP_DIR/r47_android/jni_storage.c"
+    "$TRACKED_CPP_DIR/r47zen/android_runtime.c"
+    "$TRACKED_CPP_DIR/r47zen/android_helpers.c"
+    "$TRACKED_CPP_DIR/r47zen/clipboard_utils.c"
+    "$TRACKED_CPP_DIR/r47zen/hal/audio.c"
+    "$TRACKED_CPP_DIR/r47zen/hal/gui.c"
+    "$TRACKED_CPP_DIR/r47zen/hal/io.c"
+    "$TRACKED_CPP_DIR/r47zen/hal/lcd.c"
+    "$TRACKED_CPP_DIR/r47zen/hal/print_ir.c"
+    "$TRACKED_CPP_DIR/r47zen/jni_activity_bridge.c"
+    "$TRACKED_CPP_DIR/r47zen/jni_display.c"
+    "$TRACKED_CPP_DIR/r47zen/jni_input.c"
+    "$TRACKED_CPP_DIR/r47zen/jni_lifecycle.c"
+    "$TRACKED_CPP_DIR/r47zen/jni_registration.c"
+    "$TRACKED_CPP_DIR/r47zen/jni_storage.c"
 )
 
 cc -std=c99 -O0 -g -pthread \
@@ -82,7 +82,7 @@ cc -std=c99 -O0 -g -pthread \
     -Dmpz_div_2exp=mpz_tdiv_q_2exp -Dmpz_fits_uint_p=mpz_fits_ulong_p \
     -I"$JDK_HOME/include" \
     -I"$JDK_HOME/include/linux" \
-    -I"$TRACKED_CPP_DIR/r47_android/stubs" \
+    -I"$TRACKED_CPP_DIR/r47zen/stubs" \
     -I"$STAGED_CPP_DIR/c47" \
     -I"$STAGED_CPP_DIR/c47/core" \
     -I"$STAGED_CPP_DIR/c47/hal" \
@@ -96,9 +96,9 @@ cc -std=c99 -O0 -g -pthread \
     -I"$STAGED_CPP_DIR/c47/c47Extensions" \
     -I"$STAGED_CPP_DIR/decNumberICU" \
     -I"$STAGED_CPP_DIR/generated" \
-    -I"$TRACKED_CPP_DIR/r47_android" \
+    -I"$TRACKED_CPP_DIR/r47zen" \
     -I"$STAGED_CPP_DIR/gmp" \
-    -include "$TRACKED_CPP_DIR/r47_android/android_mocks.h" \
+    -include "$TRACKED_CPP_DIR/r47zen/android_mocks.h" \
     "$PROJECT_ROOT/scripts/keypad-fixtures/keypad_fixture_exporter.c" \
     "${STAGED_C47_SOURCES[@]}" \
     "${STAGED_GENERATED_SOURCES[@]}" \

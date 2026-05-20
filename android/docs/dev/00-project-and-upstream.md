@@ -36,7 +36,7 @@ repo root, clean tracked overlay
 |  |- app/src/main/java/io/github/ppigazzini/r47zen/
 |  |  |- R47Geometry.kt
 |  |  `- R47KeypadPolicy.kt
-|  |- app/src/main/cpp/r47_android/
+|  |- app/src/main/cpp/r47zen/
 |  |- docs/dev/
 |  `- r47-defaults.properties
 |- scripts/
@@ -113,7 +113,7 @@ Its main responsibilities are:
 
 - the Android app module under `android/`
 - the Android-owned native bridge under
-  `android/app/src/main/cpp/r47_android`
+  `android/app/src/main/cpp/r47zen`
 - repo-only sync, staging, build, packaging, contract, and workload scripts
   under `scripts/`
 - GitHub Actions workflow and release plumbing under `.github/`
@@ -161,7 +161,7 @@ compiled-input boundary, not the owner of shared calculator logic.
 | Surface | Owner | Purpose |
 | --- | --- | --- |
 | `android/app/src/main/java/io/github/ppigazzini/r47zen` | this repo | Android lifecycle, UI, storage, and shell behavior |
-| `android/app/src/main/cpp/r47_android` | this repo | JNI, Android HAL seams, and Android runtime compatibility |
+| `android/app/src/main/cpp/r47zen` | this repo | JNI, Android HAL seams, and Android runtime compatibility |
 | `scripts/android/` | this repo | Android staging, build, and packaging automation |
 | `scripts/upstream-sync/` | this repo | upstream resolution and overlay restore boundary |
 | `src/`, `dep/`, `meson.build`, `res/fonts` | upstream when hydrated | shared calculator core and build inputs |
@@ -207,7 +207,7 @@ menu logic, and most shared keypad or display semantics.
 ## Runtime Boundary Summary
 
 - Kotlin owns lifecycle, settings, storage UI, and Android view rendering.
-- JNI and `r47_android` own registration, marshalling, and Android runtime
+- JNI and `r47zen` own registration, marshalling, and Android runtime
   compatibility.
 - The staged upstream core owns calculator execution and shared runtime state.
 

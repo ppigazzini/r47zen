@@ -51,12 +51,12 @@ normalize_commit_token() {
 
 upstream_short_commit=$(normalize_commit_token "$upstream_commit")
 android_short_commit=$(normalize_commit_token "$android_commit")
-artifact_stem="r47-android-${upstream_short_commit}-${android_short_commit}"
+artifact_stem="r47zen-${upstream_short_commit}-${android_short_commit}"
 
 printf 'R47_ANDROID_UPSTREAM_SHORT_COMMIT=%q\n' "$upstream_short_commit"
 printf 'R47_ANDROID_SOURCE_SHORT_COMMIT=%q\n' "$android_short_commit"
 printf 'R47_ANDROID_ARTIFACT_STEM=%q\n' "$artifact_stem"
-printf 'R47_ANDROID_TEST_ARTIFACT_STEM=%q\n' "r47-android-tests-${upstream_short_commit}-${android_short_commit}"
+printf 'R47_ANDROID_TEST_ARTIFACT_STEM=%q\n' "r47zen-tests-${upstream_short_commit}-${android_short_commit}"
 printf 'R47_ANDROID_DEBUG_APK_NAME=%q\n' "${artifact_stem}-debug.apk"
 printf 'R47_ANDROID_RELEASE_ARTIFACT_STEM=%q\n' "${artifact_stem}-release"
 printf 'R47_ANDROID_RELEASE_AAB_NAME=%q\n' "${artifact_stem}-release.aab"

@@ -115,7 +115,7 @@ It:
   staging remains build-only under `android/.staged-native/cpp`
 - collects packaging evidence for the debug APK
 - uploads the build log, the host-core PGO artifact, and the Android packaging artifact bundle
-  `r47-android-<upstream short>-<android short>`
+  `r47zen-<upstream short>-<android short>`
 
 That means the debug packaging lane now owns the full normal-pull-request
 host-core optimization sequence:
@@ -169,7 +169,7 @@ It:
   instrumentation class filter and once per canonical `PROGRAMS` fixture
   method with the temporary ABI override from `r47.abiFilters`
 - uploads logs plus JVM and instrumentation reports in the Android test artifact
-  bundle `r47-android-tests-<upstream short>-<android short>`
+  bundle `r47zen-tests-<upstream short>-<android short>`
 
 The hosted instrumentation lane currently relies on two distinct Android-owned
 contracts:
@@ -204,7 +204,7 @@ verification jobs succeed.
 
 It downloads the packaged Android artifacts, archives the packaging evidence,
 and publishes the main-branch snapshot prerelease tagged
-`r47-android-<upstream short>-<android short>` with the same template used for
+`r47zen-<upstream short>-<android short>` with the same template used for
 the release title.
 
 ## Production release workflow
@@ -252,8 +252,8 @@ This workflow:
   validated
 - uploads the release build logs, the host-core PGO artifact bundle, and the
   signed AAB artifact bundle
-  `r47-android-<upstream short>-<android short>-release`
-- ships `r47-android-<upstream short>-<android short>-release.aab`,
+  `r47zen-<upstream short>-<android short>-release`
+- ships `r47zen-<upstream short>-<android short>-release.aab`,
   `BUILD-METADATA.txt`, `SHA256SUMS.txt`, `mapping.txt`,
   `native-debug-symbols.zip`, and the compliance-assets payload together
 - stops at artifact publication; Play Console upload remains a manual

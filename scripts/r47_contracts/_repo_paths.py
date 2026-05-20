@@ -8,7 +8,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = PACKAGE_ROOT / "data"
 REPO_ROOT = PACKAGE_ROOT.parents[1]
 ANDROID_APP_ROOT = REPO_ROOT / "android" / "app" / "src" / "main"
-ANDROID_CPP_ROOT = ANDROID_APP_ROOT / "cpp" / "r47_android"
+ANDROID_CPP_ROOT = ANDROID_APP_ROOT / "cpp" / "r47zen"
 ANDROID_RES_ROOT = ANDROID_APP_ROOT / "res"
 ANDROID_TEST_RESOURCES_ROOT = (
     REPO_ROOT / "android" / "app" / "src" / "test" / "resources"
@@ -19,5 +19,5 @@ KOTLIN_R47ZEN_ROOT = (
 )
 STAGED_NATIVE_C47_ROOT = REPO_ROOT / "android" / ".staged-native" / "cpp" / "c47"
 R47_PHYSICAL_GEOMETRY_DATA_PATH = DATA_ROOT / "r47_physical_geometry.json"
-R47_ANDROID_UI_CONTRACT_PATH = DATA_ROOT / "r47_android_ui_contract.json"
+R47_ANDROID_UI_CONTRACT_PATH = DATA_ROOT / "r47zen_ui_contract.json"
 R47_KEY_FONT_POLICY_CONTRACT_PATH = DATA_ROOT / "r47_key_font_policy_contract.json"

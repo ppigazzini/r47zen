@@ -3,7 +3,7 @@
 Only two tracked native surfaces are live under this directory:
 
 - `CMakeLists.txt`
-- `r47_android/`
+- `r47zen/`
 
 Shared native inputs are staged into `android/.staged-native/cpp` during the
 Android build.

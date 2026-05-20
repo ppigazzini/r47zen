@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project("r47_android")
+project("r47zen")
 
 set(R47_TRACKED_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -36,13 +36,13 @@ add_definitions(-Dmpz_div_2exp=mpz_tdiv_q_2exp)
 add_definitions(-Dmpz_fits_uint_p=mpz_fits_ulong_p)
 
 # Forced include of mocks to ensure they are seen everywhere
-add_compile_options("-include" "${CMAKE_CURRENT_SOURCE_DIR}/r47_android/android_mocks.h")
+add_compile_options("-include" "${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_mocks.h")
 
 # Android stub headers satisfy upstream GTK/GDK/Cairo includes without
 # rewriting the staged native tree during scripts/build_android.sh.
 # Include directories
 include_directories(
-    r47_android/stubs
+    r47zen/stubs
     ${R47_STAGED_C47_DIR}
     ${R47_STAGED_C47_DIR}/core
     ${R47_STAGED_C47_DIR}/hal
@@ -56,7 +56,7 @@ include_directories(
     ${R47_STAGED_C47_DIR}/c47Extensions
     ${R47_STAGED_DECNUMBER_DIR}
     ${R47_STAGED_GENERATED_DIR}
-    r47_android
+    r47zen
     ${R47_STAGED_GMP_DIR}
 )
 
@@ -88,25 +88,25 @@ set(DEC_SOURCES
 )
 
 set(ANDROID_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/android_runtime.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/android_helpers.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/clipboard_utils.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/audio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/gui.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/io.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/lcd.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/hal/print_ir.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_activity_bridge.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_display.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_input.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_lifecycle.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_program_load_test.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_registration.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47_android/jni_storage.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_helpers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/clipboard_utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/audio.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/gui.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/io.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/lcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/print_ir.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_activity_bridge.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_display.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_input.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_lifecycle.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_program_load_test.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_registration.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_storage.c
 )
 
 # Shared library
-add_library(r47_android SHARED
+add_library(r47zen SHARED
     ${R47_STAGED_C47_SOURCES}
     ${DEC_SOURCES}
     ${R47_STAGED_GENERATED_SOURCES}
@@ -118,19 +118,19 @@ add_library(r47_android SHARED
 # gold-based link step that fails in this workspace. Keep ThinLTO on the real
 # shared-library target and scope it to the native shipping configs.
 foreach(R47_ANDROID_LTO_CONFIG IN ITEMS Release RelWithDebInfo)
-    target_compile_options(r47_android PRIVATE
+    target_compile_options(r47zen PRIVATE
         "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-flto=thin>"
     )
-    target_link_options(r47_android PRIVATE
+    target_link_options(r47zen PRIVATE
         "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-flto=thin>"
         "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-fuse-ld=lld>"
     )
 
     if(NOT "${R47_RESOLVED_PGO_PROFILE_PATH}" STREQUAL "")
-        target_compile_options(r47_android PRIVATE
+        target_compile_options(r47zen PRIVATE
             "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-fprofile-use=${R47_RESOLVED_PGO_PROFILE_PATH}>"
         )
-        target_link_options(r47_android PRIVATE
+        target_link_options(r47zen PRIVATE
             "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-fprofile-use=${R47_RESOLVED_PGO_PROFILE_PATH}>"
         )
     endif()
@@ -140,7 +140,7 @@ endforeach()
 find_library(log-lib log)
 find_library(m-lib m)
 
-target_link_libraries(r47_android
+target_link_libraries(r47zen
     ${log-lib}
     ${m-lib}
 )

@@ -1,5 +1,5 @@
 {
-  "dataset": "r47_android_ui_contract",
+  "dataset": "r47zen_ui_contract",
   "version": 1,
   "description": "Machine-readable Android UI geometry and label policy layered on the measured R47 reference canvas.",
   "coordinate_space": "logical_canvas",

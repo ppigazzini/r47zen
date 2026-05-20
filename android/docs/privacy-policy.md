@@ -3,9 +3,9 @@
 This privacy policy applies to the independently maintained Android app
 R47 Zen RPN Calculator published from this repository.
 
-Repository: https://github.com/ppigazzini/r47_android
+Repository: https://github.com/ppigazzini/r47zen
 
-Privacy contact mechanism: https://github.com/ppigazzini/r47_android/issues
+Privacy contact mechanism: https://github.com/ppigazzini/r47zen/issues
 
 ## What This App Does
 
