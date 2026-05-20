@@ -18,6 +18,7 @@ from r47_contracts._repo_paths import (
     R47_PHYSICAL_GEOMETRY_DATA_PATH,
     REPO_ROOT,
 )
+from r47_contracts.derive_touch_grid import build_touch_grid_payload
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -106,6 +107,29 @@ def _require_scalar(value: object, *, label: str) -> str | int | float:
     if isinstance(value, bool) or not isinstance(value, str | int | float):
         raise ShellGeometryContractError.invalid_data(label, "a scalar value", value)
     return value
+
+
+def _softkey_touch_row_top() -> float:
+    touch_grid_payload = _require_mapping(
+        build_touch_grid_payload(),
+        label="touch_grid_payload",
+    )
+    logical_canvas_geometry = _require_mapping(
+        touch_grid_payload["logical_canvas_geometry"],
+        label="touch_grid_payload.logical_canvas_geometry",
+    )
+    upper = _require_mapping(
+        logical_canvas_geometry["upper"],
+        label="touch_grid_payload.logical_canvas_geometry.upper",
+    )
+    row_boundaries = _require_list(
+        upper["row_boundaries"],
+        label="touch_grid_payload.logical_canvas_geometry.upper.row_boundaries",
+    )
+    return _require_number(
+        row_boundaries[0],
+        label="touch_grid_payload.logical_canvas_geometry.upper.row_boundaries[0]",
+    )
 
 
 def _load_geometry(
@@ -272,6 +296,7 @@ def build_shell_geometry_payload() -> dict[str, object]:
     row_height = 144.0 * logical_scale_y
     row_step = 260.0 * logical_scale_y
     row_gap = row_step - row_height
+    softkey_touch_row_top = _softkey_touch_row_top()
     softkey_row_top = 1290.0 * logical_scale_y
 
     return {
@@ -345,6 +370,7 @@ def build_shell_geometry_payload() -> dict[str, object]:
                 "row_height": _rounded(row_height),
                 "row_step": _rounded(row_step),
                 "row_gap": _rounded(row_gap),
+                "softkey_touch_row_top": _rounded(softkey_touch_row_top),
                 "softkey_row_top": _rounded(softkey_row_top),
                 "first_small_row_top": _rounded(1550.0 * logical_scale_y),
                 "enter_row_top": _rounded(2070.0 * logical_scale_y),
@@ -409,6 +435,10 @@ def build_shell_geometry_payload() -> dict[str, object]:
                     - 1.0
                 )
                 * 100.0,
+            ),
+            "native_lcd_window_bottom_delta_vs_softkey_touch_row_top": _rounded(
+                (logical_native_lcd_window.top + logical_native_lcd_window.height)
+                - softkey_touch_row_top,
             ),
             "main_menu_button_right_delta_vs_native_lcd_right": _rounded(
                 (logical_main_menu_button.left + logical_main_menu_button.width)

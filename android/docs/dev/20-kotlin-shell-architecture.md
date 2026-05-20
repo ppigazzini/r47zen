@@ -19,7 +19,8 @@ surfaces.
 
 ## Kotlin Structure At A Glance
 
-- activity entrypoints: `MainActivity.kt`, `SettingsActivity.kt`
+- activity entrypoints and settings surfaces: `MainActivity.kt`, `SettingsActivity.kt`,
+  `SettingsSwitchPreference.kt`
 - runtime loops: `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`,
   `NativeKeypadSnapshotStore.kt`
 - shell coordination: `ReplicaOverlayController.kt`,
@@ -58,7 +59,7 @@ flowchart LR
 
 | Concern | Primary Kotlin owner | Boundary this page cares about | Read next |
 | --- | --- | --- | --- |
-| activity and settings coordination | `MainActivity`, `SettingsActivity` | startup, preferences, PiP, intent routing, helper wiring | `30-upstream-interface-surfaces.md` |
+| activity and settings coordination | `MainActivity`, `SettingsActivity`, `SettingsSwitchPreference` | startup, preferences, PiP, intent routing, helper wiring, and explicit settings-switch widget tinting | `30-upstream-interface-surfaces.md` |
 | native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `60-runtime-hot-paths.md` |
 | overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `50-ui-rendering-and-gtk-mapping.md` |
 | storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, slot metadata, save and load ordering | `30-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
@@ -282,7 +283,7 @@ while matching the desktop simulator's stop-key parity during an active run.
   the controller keeps the Android view-first path; with it off, positive
   values switch to short app-owned one-shot press pulses that intentionally
   override the system touch-haptics setting, while `0 ms` means no app pulse
-- haptics, audio, fullscreen state, LCD display theme, scaling mode, keypad
+- haptics, audio, fullscreen state, LCD display theme, keypad
   label modes, touch-zone overlays, and the developer-only performance HUD are
   preference-driven Android concerns
 

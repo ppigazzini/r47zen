@@ -69,7 +69,7 @@ class ReplicaOverlayGoldenTest {
 
         assertEquals(
             "ReplicaOverlay golden changed: $actualHash",
-            "bbe7dd2a00d8eaa0707c216c9611a28fb7b94781acbc7c0c2006169c2f3f5f47",
+            "189c4672a1f2f7976f68d9627b5299f50678d71ddd4e6e5d535d31aa8d47b453",
             actualHash,
         )
     }
@@ -127,7 +127,6 @@ class ReplicaOverlayGoldenTest {
 
     private fun configuredOverlay(): ReplicaOverlay {
         return ReplicaOverlay(ApplicationProvider.getApplicationContext()).apply {
-            setScalingMode("full_width")
             measure(exactly(1080), exactly(2160))
             layout(0, 0, 1080, 2160)
         }

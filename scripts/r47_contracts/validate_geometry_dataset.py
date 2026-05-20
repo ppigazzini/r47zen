@@ -30,6 +30,7 @@ from r47_contracts._repo_paths import (
     R47_ANDROID_UI_CONTRACT_PATH,
     R47_PHYSICAL_GEOMETRY_DATA_PATH,
 )
+from r47_contracts.derive_touch_grid import build_touch_grid_payload
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -112,6 +113,7 @@ class _SplitAndroidUiContractContext:
     touch_zone_debug_policy: dict[str, object]
     row_height: int
     row_gap: int
+    softkey_touch_row_top: int
     softkey_row_top: int
     standard_key_width: int
     standard_pitch: int
@@ -136,6 +138,33 @@ def _family_first_start(
         message = f"Missing start positions for {table}/{family}"
         raise GeometryValidationError(message)
     return min(starts)
+
+
+def _softkey_touch_row_top() -> int:
+    touch_grid_payload = _require_mapping(
+        build_touch_grid_payload(),
+        label="touch_grid_payload",
+    )
+    logical_canvas_geometry = _require_mapping(
+        touch_grid_payload["logical_canvas_geometry"],
+        label="touch_grid_payload.logical_canvas_geometry",
+    )
+    upper = _require_mapping(
+        logical_canvas_geometry["upper"],
+        label="touch_grid_payload.logical_canvas_geometry.upper",
+    )
+    row_boundaries = _require_list(
+        upper["row_boundaries"],
+        label="touch_grid_payload.logical_canvas_geometry.upper.row_boundaries",
+    )
+    raw_boundary = row_boundaries[0]
+    if isinstance(raw_boundary, bool) or not isinstance(raw_boundary, int | float):
+        message = (
+            "Expected touch_grid_payload.logical_canvas_geometry.upper."
+            f"row_boundaries[0] to be numeric, got {raw_boundary!r}"
+        )
+        raise GeometryValidationError(message)
+    return int(raw_boundary)
 
 
 def _parse_int(value: object) -> int | None:
@@ -695,6 +724,7 @@ def _build_split_android_ui_contract_context(
         table="vertical_main",
         family="rows",
     )
+    softkey_touch_row_top = _softkey_touch_row_top()
     softkey_row_top = _family_first_start(
         entries,
         table="vertical_main",
@@ -803,6 +833,7 @@ def _build_split_android_ui_contract_context(
         ),
         row_height=row_height,
         row_gap=row_pitch - row_height,
+        softkey_touch_row_top=softkey_touch_row_top,
         softkey_row_top=softkey_row_top,
         standard_key_width=standard_key_width,
         standard_pitch=standard_pitch,
@@ -1075,6 +1106,11 @@ def _native_lcd_window_layout_errors(
     *,
     frame_buffer_aspect_ratio: float,
 ) -> list[str]:
+    native_lcd_window_top = contract_number_member(
+        context.native_lcd_window,
+        "top",
+        label="android_ui_contract.chrome.lcd_windows.native",
+    )
     native_lcd_window_height = contract_number_member(
         context.native_lcd_window,
         "height",
@@ -1111,6 +1147,20 @@ def _native_lcd_window_layout_errors(
             (
                 "ERROR [android_ui_contract.chrome.lcd_windows.native] width and "
                 "height must preserve the 400x240 frame-buffer aspect ratio"
+            ),
+        )
+
+    if (
+        abs(
+            (native_lcd_window_top + native_lcd_window_height)
+            - context.softkey_touch_row_top,
+        )
+        > _FLOAT_TOLERANCE
+    ):
+        errors.append(
+            (
+                "ERROR [android_ui_contract.chrome.lcd_windows.native] bottom edge "
+                "must align with the first softkey touch-zone row boundary"
             ),
         )
     return errors

@@ -993,7 +993,7 @@ class DynamicKeypadParityFixtureTest {
         keyView.fLabel.text = expectedText.take(2)
         keyView.fLabel.paintFlags = keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG.inv()
 
-        controller.applyScalingMode("physical")
+        controller.requestGeometryReplay()
         controller.onHostResumed()
 
         overlay.measure(exactly(1200), exactly(2400))

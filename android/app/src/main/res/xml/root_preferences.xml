@@ -13,18 +13,11 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_display_and_layout_category_title">
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="fullscreen_mode"
             app:title="@string/settings_fullscreen_mode_title"
             app:summary="@string/settings_fullscreen_mode_summary"
             app:defaultValue="true" />
-        <ListPreference
-            app:key="scaling_mode"
-            app:title="@string/settings_scaling_mode_title"
-            app:entries="@array/scaling_entries"
-            app:entryValues="@array/scaling_values"
-            app:defaultValue="full_width"
-            app:useSimpleSummaryProvider="true" />
         <ListPreference
             app:key="lcd_theme"
             app:title="@string/settings_lcd_theme_title"
@@ -32,7 +25,7 @@
             app:entryValues="@array/lcd_theme_values"
             app:defaultValue="high_contrast"
             app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="lcd_negative"
             app:title="@string/settings_lcd_negative_title"
             app:defaultValue="false" />
@@ -63,11 +56,11 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_interaction_category_title">
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="haptic_enabled"
             app:title="@string/settings_haptic_enabled_title"
             app:defaultValue="true" />
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="haptic_use_android_default"
             app:title="@string/settings_haptic_use_android_default_title"
             app:defaultValue="true"
@@ -84,7 +77,7 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_audio_category_title">
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="beeper_enabled"
             app:title="@string/settings_beeper_enabled_title"
             app:defaultValue="true" />
@@ -99,15 +92,15 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_app_behavior_category_title">
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="keep_screen_on"
             app:title="@string/settings_keep_screen_on_title"
             app:defaultValue="false" />
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="auto_save_minimize"
             app:title="@string/settings_auto_save_minimize_title"
             app:defaultValue="true" />
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="force_close_on_exit"
             app:title="@string/settings_force_close_on_exit_title"
             app:summary="@string/settings_force_close_on_exit_summary"
@@ -115,12 +108,12 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_developer_tools_category_title">
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="show_developer_performance_hud"
             app:title="@string/settings_show_performance_stats_title"
             app:summary="@string/settings_show_performance_stats_summary"
             app:defaultValue="false" />
-        <SwitchPreferenceCompat
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="show_touch_zones"
             app:title="@string/settings_show_touch_zones_title"
             app:defaultValue="false" />

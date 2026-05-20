@@ -11,7 +11,6 @@ internal class MainActivityPreferenceController(
     private val windowModeController: WindowModeController,
     private val syncAudioSettings: (Boolean, Int) -> Unit,
     private val applyLcdTheme: (String, Int, Boolean) -> Unit,
-    private val applyScalingMode: (String) -> Unit,
     private val applyShowTouchZones: (Boolean) -> Unit,
     private val applyShowDeveloperPerformanceHud: (Boolean) -> Unit,
     private val applyKeypadLabelModes: (MainKeyDynamicMode, SoftkeyDynamicMode) -> Unit,
@@ -26,7 +25,6 @@ internal class MainActivityPreferenceController(
         val DEFAULT_MAIN_KEY_DYNAMIC_MODE = MainKeyDynamicMode.DEFAULT
         const val MIN_LCD_LUMINANCE = 20
         const val MAX_LCD_LUMINANCE = 120
-        const val DEFAULT_SCALING_MODE = "full_width"
         val DEFAULT_SOFTKEY_DYNAMIC_MODE = SoftkeyDynamicMode.DEFAULT
 
         private const val KEY_BEEPER_ENABLED = "beeper_enabled"
@@ -37,7 +35,6 @@ internal class MainActivityPreferenceController(
         private const val KEY_LCD_THEME = "lcd_theme"
         private const val KEY_LCD_LUMINANCE = "lcd_luminance"
         private const val KEY_MAIN_KEY_DYNAMIC_MODE = "main_key_dynamic_mode"
-        private const val KEY_SCALING_MODE = "scaling_mode"
         private const val KEY_SHOW_DEVELOPER_PERFORMANCE_HUD = "show_developer_performance_hud"
         private const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
         private const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
@@ -62,9 +59,6 @@ internal class MainActivityPreferenceController(
     var mainKeyDynamicMode = DEFAULT_MAIN_KEY_DYNAMIC_MODE
         private set
 
-    var scalingMode = DEFAULT_SCALING_MODE
-        private set
-
     var showDeveloperPerformanceHud = false
         private set
 
@@ -83,8 +77,6 @@ internal class MainActivityPreferenceController(
         lcdLuminance = readNormalizedLcdLuminance()
         isLcdNegative = preferences.getBoolean(KEY_LCD_NEGATIVE, DEFAULT_LCD_NEGATIVE)
         mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
-        scalingMode =
-            preferences.getString(KEY_SCALING_MODE, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
         showDeveloperPerformanceHud =
             preferences.getBoolean(KEY_SHOW_DEVELOPER_PERFORMANCE_HUD, false)
         showTouchZones = preferences.getBoolean(KEY_SHOW_TOUCH_ZONES, false)
@@ -99,7 +91,6 @@ internal class MainActivityPreferenceController(
     fun applyDeferredOverlayPreferences() {
         applyShowTouchZones(showTouchZones)
         applyShowDeveloperPerformanceHud(showDeveloperPerformanceHud)
-        applyScalingMode(scalingMode)
         applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
     }
 
@@ -137,10 +128,6 @@ internal class MainActivityPreferenceController(
             KEY_MAIN_KEY_DYNAMIC_MODE -> {
                 mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
                 applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
-            }
-            KEY_SCALING_MODE -> {
-                scalingMode = preferences.getString(key, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
-                applyScalingMode(scalingMode)
             }
             KEY_SHOW_DEVELOPER_PERFORMANCE_HUD -> {
                 showDeveloperPerformanceHud = preferences.getBoolean(key, false)

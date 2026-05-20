@@ -212,13 +212,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setScalingMode(mode: String) {
-        chromeLayout.setScalingMode(mode)
-        settingsHintLayoutCache = null
-        requestLayout()
-        invalidate()
-    }
-
     fun setShowTouchZones(show: Boolean) {
         showTouchZones = show
         invalidate()

@@ -2,12 +2,14 @@ package io.github.ppigazzini.r47zen
 
 import android.content.Context
 import androidx.preference.ListPreference
+import androidx.preference.Preference
 import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.test.core.app.ApplicationProvider
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -140,6 +142,17 @@ class SettingsPreferenceSummaryTest {
             ),
             preference.entryValues.map { it.toString() },
         )
+    }
+
+    @Test
+    fun displaySettings_omitLegacyScalingPreference() {
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java)
+            .setup()
+            .get()
+
+        val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
+
+        assertNull(fragment.findPreference<Preference>("scaling_mode"))
     }
 
     @Test

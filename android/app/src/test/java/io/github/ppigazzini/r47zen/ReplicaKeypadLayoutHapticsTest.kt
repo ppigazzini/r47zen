@@ -74,7 +74,6 @@ class ReplicaKeypadLayoutHapticsTest {
         onKeyEvent: (Int) -> Unit,
     ): ReplicaOverlay {
         return ReplicaOverlay(context).apply {
-            setScalingMode("full_width")
             ReplicaKeypadLayout.rebuild(
                 context = context,
                 overlay = this,

@@ -340,6 +340,7 @@ class ShellGeometryContractTest(unittest.TestCase):
             ("ENTER_WIDTH", "enter_width"),
             ("ROW_HEIGHT", "row_height"),
             ("ROW_STEP", "row_step"),
+            ("SOFTKEY_TOUCH_ROW_TOP", "softkey_touch_row_top"),
             ("SOFTKEY_ROW_TOP", "softkey_row_top"),
             ("FIRST_SMALL_ROW_TOP", "first_small_row_top"),
             ("ENTER_ROW_TOP", "enter_row_top"),
@@ -380,6 +381,14 @@ class ShellGeometryContractTest(unittest.TestCase):
         _assert_float_equal(
             _number_member(
                 checks,
+                "native_lcd_window_bottom_delta_vs_softkey_touch_row_top",
+                label="checks",
+            ),
+            0.0,
+        )
+        _assert_float_equal(
+            _number_member(
+                checks,
                 "native_lcd_window_center_x_delta_vs_shell_center",
                 label="checks",
             ),
@@ -403,7 +412,23 @@ class ShellGeometryContractTest(unittest.TestCase):
         )
         _assert_float_equal(
             _number_member(native_lcd_window, "top", label="native_lcd_window"),
-            229.0,
+            242.0,
+        )
+        native_bottom_edge = (
+            _number_member(
+                native_lcd_window,
+                "top",
+                label="native_lcd_window",
+            )
+            + native_height
+        )
+        _assert_float_equal(
+            native_bottom_edge,
+            self.kotlin["SOFTKEY_TOUCH_ROW_TOP"],
+        )
+        _assert_float_equal(
+            native_bottom_edge - 1.0,
+            self.kotlin["SOFTKEY_TOUCH_ROW_TOP"] - 1.0,
         )
         _assert_float_equal(
             _number_member(native_lcd_window, "width", label="native_lcd_window"),

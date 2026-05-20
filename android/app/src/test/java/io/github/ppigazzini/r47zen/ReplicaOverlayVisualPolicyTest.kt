@@ -50,9 +50,7 @@ class ReplicaOverlayVisualPolicyTest {
 
         val density = activity.resources.displayMetrics.density
         val onboardingGeometry = SettingsMenuGlyph.ONBOARDING_GEOMETRY
-        val chromeLayout = ReplicaChromeLayout(activity.resources).apply {
-            setScalingMode("full_width")
-        }
+        val chromeLayout = ReplicaChromeLayout(activity.resources)
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
         val shellRect = RectF(
@@ -202,7 +200,6 @@ class ReplicaOverlayVisualPolicyTest {
 
     private fun configuredOverlay(activity: AppCompatActivity): ReplicaOverlay {
         return ReplicaOverlay(activity).apply {
-            setScalingMode("full_width")
             measure(exactly(1080), exactly(2160))
             layout(0, 0, 1080, 2160)
         }

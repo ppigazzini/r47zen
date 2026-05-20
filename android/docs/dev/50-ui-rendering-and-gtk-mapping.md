@@ -55,13 +55,14 @@ flowchart LR
 - `chrome.native_shell_draw_corner_radius` is `0`, so the native shell keeps no
   painted outer body and retains only the projected top-right menu affordance
   zone plus LCD frame as shared shell chrome
-- `full_width` uses one shared visible-frame trim of `42 / 49 / 42 / 56`
+- the Android shell now ships one adaptive projection path with one shared
+  visible-frame trim of `48 / 49 / 48 / 56`
 - `chrome.lcd_windows` keeps one native LCD rectangle on that shared canvas:
-  `85 / 229 / 1650 / 990`
+  `85 / 242 / 1650 / 990`
 - the native LCD stays horizontally centered on the `1820` logical canvas and
-  preserves the exact integer `400 x 240` frame-buffer aspect ratio
-- `physical` caps fit scale to the density-resolved `360 dp` shell width
-  divided by `R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH`
+  preserves the exact integer `400 x 240` frame-buffer aspect ratio while its
+  bottom edge aligns with `softkey_touch_row_top`; the last LCD pixel row is
+  `1231` and the first softkey touch-row pixel is `1232`
 - `ReplicaOverlay` projects one borderless native shell surface from the shared
   logical contract
 - `ReplicaKeypadLayout` owns one normalized shared touch-cell map, and
@@ -93,8 +94,9 @@ keypad all look correct locally but are globally misplaced together.
   state; this page covers ownership while `60-runtime-hot-paths.md` covers the
   cadence and skip gates
 - `ReplicaOverlayController` owns geometry-triggered same-snapshot replay for
-  the keypad path. Scaling changes and PiP exit mark a geometry change, wait
-  for a real overlay layout boundary, then replay the current scene once.
+  the keypad path. Chrome-geometry changes and PiP exit mark a geometry
+  change, wait for a real overlay layout boundary, then replay the current
+  scene once.
 - `ReplicaChromeLayout` owns the native LCD rectangle and shell projection.
   Change that geometry there instead of branching the draw path in
   `ReplicaOverlay`.
@@ -127,6 +129,7 @@ consumes for view construction and touch-row membership. The live constants are:
 - enter width: `462`
 - measured row height: `144`
 - row step: `260`
+- softkey touch-row top: `1232`
 - softkey row top: `1290`
 - first small-row top: `1550`
 - enter-row top: `2070`

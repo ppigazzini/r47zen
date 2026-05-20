@@ -318,7 +318,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             windowModeController = windowModeController,
             syncAudioSettings = ::syncAudioSettings,
             applyLcdTheme = ::applyLcdTheme,
-            applyScalingMode = replicaOverlayController::applyScalingMode,
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
             applyShowDeveloperPerformanceHud = replicaOverlay::setShowDeveloperPerformanceHud,
             applyKeypadLabelModes = replicaOverlayController::applyKeypadLabelModes,

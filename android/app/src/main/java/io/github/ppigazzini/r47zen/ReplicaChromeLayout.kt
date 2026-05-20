@@ -23,12 +23,8 @@ internal data class ReplicaChromeSpec(
 )
 
 internal class ReplicaChromeLayout(
-    private val resources: Resources,
+    @Suppress("UNUSED_PARAMETER") resources: Resources,
 ) {
-    private companion object {
-        private const val PHYSICAL_SHELL_WIDTH_DP = 360f
-    }
-
     private val nativeChromeSpec = ReplicaChromeSpec(
         shellWidth = R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH,
         shellHeight = R47ReferenceGeometry.LOGICAL_CANVAS_HEIGHT,
@@ -42,11 +38,6 @@ internal class ReplicaChromeLayout(
         scaledModeFitTrimRight = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_RIGHT,
         scaledModeFitTrimBottom = R47AndroidChromeGeometry.SCALED_MODE_FIT_TRIM_BOTTOM,
     )
-    private var scalingMode = "full_width"
-
-    fun setScalingMode(mode: String) {
-        scalingMode = mode
-    }
 
     fun currentChromeSpec(): ReplicaChromeSpec {
         return nativeChromeSpec
@@ -61,30 +52,14 @@ internal class ReplicaChromeLayout(
         availableWidth: Float,
         availableHeight: Float,
     ): ReplicaProjection {
-        val fitLeft = if (scalingMode == "physical") 0f else spec.scaledModeFitTrimLeft
-        val fitTop = if (scalingMode == "physical") 0f else spec.scaledModeFitTrimTop
-        val fitWidth = if (scalingMode == "physical") {
-            spec.shellWidth
-        } else {
-            spec.shellWidth - spec.scaledModeFitTrimLeft - spec.scaledModeFitTrimRight
-        }
-        val fitHeight = if (scalingMode == "physical") {
-            spec.shellHeight
-        } else {
-            spec.shellHeight - spec.scaledModeFitTrimTop - spec.scaledModeFitTrimBottom
-        }
+        val fitLeft = spec.scaledModeFitTrimLeft
+        val fitTop = spec.scaledModeFitTrimTop
+        val fitWidth = spec.shellWidth - spec.scaledModeFitTrimLeft - spec.scaledModeFitTrimRight
+        val fitHeight = spec.shellHeight - spec.scaledModeFitTrimTop - spec.scaledModeFitTrimBottom
         val fitScale = min(availableWidth / fitWidth, availableHeight / fitHeight)
-        val scale = if (scalingMode == "physical") {
-            val oneToOneProjectionScaleCap =
-                resolvedShellPhysicalWidthForCurrentDensity() /
-                    R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH
-            min(oneToOneProjectionScaleCap, fitScale)
-        } else {
-            fitScale
-        }
-        val offsetX = (availableWidth - fitWidth * scale) / 2f - fitLeft * scale
-        val offsetY = (availableHeight - fitHeight * scale) / 2f - fitTop * scale
-        return ReplicaProjection(scale, offsetX, offsetY)
+        val offsetX = (availableWidth - fitWidth * fitScale) / 2f - fitLeft * fitScale
+        val offsetY = (availableHeight - fitHeight * fitScale) / 2f - fitTop * fitScale
+        return ReplicaProjection(fitScale, offsetX, offsetY)
     }
 
     fun drawShellBackground(
@@ -95,9 +70,5 @@ internal class ReplicaChromeLayout(
     ) {
         // Native-only chrome keeps the calculator surface borderless. The
         // shell rect still anchors the LCD, touch strip, and discovery hint.
-    }
-
-    private fun resolvedShellPhysicalWidthForCurrentDensity(): Float {
-        return PHYSICAL_SHELL_WIDTH_DP * resources.displayMetrics.density
     }
 }

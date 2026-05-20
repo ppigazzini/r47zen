@@ -347,6 +347,14 @@ flowchart TD
 - [Display content edge-to-edge in views](https://developer.android.com/develop/ui/views/layout/edge-to-edge):
   visible-system-bar, inset, icon-contrast, and scrim guidance for view-based
   activities that draw behind or alongside system bars.
+- [Core app quality guidelines](https://developer.android.com/docs/quality-guidelines/core-app-quality):
+  current Android quality baseline for standard components, adaptive parity,
+  touch-target sizing, content descriptions, and readable visuals across form
+  factors.
+- [Adaptive app quality guidelines](https://developer.android.com/docs/quality-guidelines/adaptive-app-quality):
+  current Android adaptive-layout guidance for apps that should fill the
+  available window and keep critical flows usable across phones, tablets,
+  foldables, and resizable windows.
 - [Hide system bars for immersive mode](https://developer.android.com/develop/ui/views/layout/immersive):
   `WindowInsetsControllerCompat.hide()` and `show()` behavior plus transient
   bar guidance for fullscreen content.
@@ -395,6 +403,10 @@ flowchart TD
 - [Button groups](https://m3.material.io/components/button-groups/overview):
   current Material 3 replacement for deprecated segmented buttons when a future
   custom settings surface needs grouped option controls.
+- [Switch](https://m3.material.io/components/switch/overview):
+  current Material 3 guidance for standard on-off settings controls, visible
+  selected state, and the stock rounded switch shape used by
+  `SwitchPreferenceCompat`.
 - [Create a custom drawing](https://developer.android.com/develop/ui/views/layout/custom-views/custom-drawing):
   `Canvas`, `Paint`, measurement, and drawing guidance for custom views,
   including the rule to create drawing objects ahead of time and move

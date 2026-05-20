@@ -19,7 +19,13 @@ internal object ReplicaKeypadLayout {
         KeypadLane.MATRIX_ROW_4,
     )
     private val UPPER_COLUMN_BOUNDARIES = floatArrayOf(94.0f, 366.0f, 638.0f, 910.0f, 1182.0f, 1454.0f, 1726.0f)
-    private val UPPER_ROW_BOUNDARIES = floatArrayOf(1232.0f, 1492.0f, 1752.0f, 2012.0f, 2272.0f)
+    private val UPPER_ROW_BOUNDARIES = floatArrayOf(
+        R47ReferenceGeometry.SOFTKEY_TOUCH_ROW_TOP,
+        1492.0f,
+        1752.0f,
+        2012.0f,
+        2272.0f,
+    )
     private val LOWER_COLUMN_BOUNDARIES = floatArrayOf(82.5f, 413.5f, 744.5f, 1075.5f, 1406.5f, 1737.5f)
     private val LOWER_ROW_BOUNDARIES = floatArrayOf(2272.0f, 2532.0f, 2792.0f, 3052.0f, 3312.0f)
 

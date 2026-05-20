@@ -59,8 +59,9 @@ internal class ReplicaOverlayController(
         markGeometryChange()
     }
 
-    fun applyScalingMode(mode: String) {
-        overlay.setScalingMode(mode)
+    fun requestGeometryReplay() {
+        overlay.requestLayout()
+        overlay.invalidate()
         markGeometryChange()
     }
 

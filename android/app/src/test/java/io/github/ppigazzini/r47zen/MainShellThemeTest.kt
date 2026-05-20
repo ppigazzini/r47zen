@@ -80,7 +80,6 @@ class MainShellThemeTest {
     fun settingsDiscoveryHint_keepsDarkCardsInLightSystemMode() {
         val activity = buildThemedActivity()
         val overlay = ReplicaOverlay(activity).apply {
-            setScalingMode("full_width")
             setShowSettingsDiscoveryHint(true)
             measure(exactly(1080), exactly(2160))
             layout(0, 0, 1080, 2160)
@@ -140,9 +139,7 @@ class MainShellThemeTest {
     @Test
     fun mainMenuGeometry_staysRightAlignedToLcdInsideTopBezel() {
         val activity = buildThemedActivity()
-        val chromeLayout = ReplicaChromeLayout(activity.resources).apply {
-            setScalingMode("full_width")
-        }
+        val chromeLayout = ReplicaChromeLayout(activity.resources)
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, 1080f, 2160f)
 
@@ -173,9 +170,7 @@ class MainShellThemeTest {
         activity: ThemedShellActivity,
         overlay: ReplicaOverlay,
     ): HintSamplePoints {
-        val chromeLayout = ReplicaChromeLayout(activity.resources).apply {
-            setScalingMode("full_width")
-        }
+        val chromeLayout = ReplicaChromeLayout(activity.resources)
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
         val shellRect = RectF(

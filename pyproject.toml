@@ -1,0 +1,22 @@
+[project]
+name = "r47-internal-python-tools"
+version = "0.0.0"
+requires-python = ">=3.14"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.0",
+    "ruff>=0.15.12",
+    "ty>=0.0.35",
+    "fontTools>=4.63.0",
+]
+
+[tool.ruff]
+target-version = "py314"
+src = ["scripts"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+[tool.ty.environment]
+python-version = "3.14"

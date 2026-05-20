@@ -44,7 +44,6 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_display_and_layout_category_title" translatable="false">Display and Layout</string>
     <string name="settings_fullscreen_mode_title" translatable="false">Full Screen Mode</string>
     <string name="settings_fullscreen_mode_summary" translatable="false">Hide the Android status and navigation bars.</string>
-    <string name="settings_scaling_mode_title" translatable="false">Scaling</string>
     <string name="settings_lcd_theme_title" translatable="false">LCD Color Theme</string>
     <string name="settings_lcd_negative_title" translatable="false">Negative LCD</string>
     <string name="settings_interaction_category_title" translatable="false">Interaction</string>

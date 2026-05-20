@@ -14,6 +14,7 @@ internal object R47ReferenceGeometry {
     const val ENTER_WIDTH = 462f
     const val ROW_HEIGHT = 144f
     const val ROW_STEP = 260f
+    const val SOFTKEY_TOUCH_ROW_TOP = 1232f
     const val SOFTKEY_ROW_TOP = 1290f
     const val FIRST_SMALL_ROW_TOP = 1550f
     const val ENTER_ROW_TOP = 2070f
@@ -24,17 +25,17 @@ internal object R47AndroidChromeGeometry {
     // Android-only chrome values, already rebased into reference-space coordinates.
     const val NATIVE_SHELL_DRAW_CORNER_RADIUS = 0f
 
-    const val SCALED_MODE_FIT_TRIM_LEFT = 42f
+    const val SCALED_MODE_FIT_TRIM_LEFT = 48f
     const val SCALED_MODE_FIT_TRIM_TOP = 49f
-    const val SCALED_MODE_FIT_TRIM_RIGHT = 42f
+    const val SCALED_MODE_FIT_TRIM_RIGHT = 48f
     const val SCALED_MODE_FIT_TRIM_BOTTOM = 56f
 
-    const val TOP_BEZEL_SETTINGS_TAP_HEIGHT = 229f
+    const val TOP_BEZEL_SETTINGS_TAP_HEIGHT = 242f
     const val NATIVE_LCD_WINDOW_LEFT = 85f
-    const val NATIVE_LCD_WINDOW_TOP = 229f
+    const val NATIVE_LCD_WINDOW_TOP = 242f
     const val NATIVE_LCD_WINDOW_WIDTH = 1650f
     const val NATIVE_LCD_WINDOW_HEIGHT = 990f
-    const val MAIN_MENU_BUTTON_WIDTH = 264f
+    const val MAIN_MENU_BUTTON_WIDTH = TOP_BEZEL_SETTINGS_TAP_HEIGHT
     const val MAIN_MENU_BUTTON_HEIGHT = TOP_BEZEL_SETTINGS_TAP_HEIGHT
     const val MAIN_MENU_BUTTON_LEFT =
         NATIVE_LCD_WINDOW_LEFT + NATIVE_LCD_WINDOW_WIDTH - MAIN_MENU_BUTTON_WIDTH

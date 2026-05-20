@@ -14,22 +14,22 @@
   "chrome": {
     "native_shell_draw_corner_radius": 0,
     "scaled_mode_fit_trim": {
-      "left": 42,
+      "left": 48,
       "top": 49,
-      "right": 42,
+      "right": 48,
       "bottom": 56
     },
-    "settings_strip_tap_height": 229,
+    "settings_strip_tap_height": 242,
     "main_menu_button": {
-      "left": 1471,
+      "left": 1493,
       "top": 0,
-      "width": 264,
-      "height": 229
+      "width": 242,
+      "height": 242
     },
     "lcd_windows": {
       "native": {
         "left": 85,
-        "top": 229,
+        "top": 242,
         "width": 1650,
         "height": 990
       }

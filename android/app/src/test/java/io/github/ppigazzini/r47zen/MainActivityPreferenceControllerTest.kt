@@ -260,7 +260,6 @@ class MainActivityPreferenceControllerTest {
             applyLcdTheme = { theme, luminance, isNegative ->
                 lcdThemeCalls += LcdThemeCall(theme, luminance, isNegative)
             },
-            applyScalingMode = {},
             applyShowTouchZones = {},
             applyShowDeveloperPerformanceHud = { enabled ->
                 developerPerformanceHudCalls += enabled

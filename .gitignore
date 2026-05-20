@@ -1,9 +1,9 @@
 # R47 project rules
 
 # Local maintainer workspace
-/__DEV/
+__DEV/
 /upstream.lock
-/.venv/
+.venv/
 
 # Android / Gradle local state and build outputs
 **/.gradle/
@@ -55,6 +55,8 @@ google-services.json
 /*
 !/.github/
 !/.gitignore
+!/pyproject.toml
+!/.pre-commit-config.yaml
 !/COPYING
 !/README.md
 !/android/
