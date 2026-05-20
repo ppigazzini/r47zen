@@ -1,0 +1,4 @@
+# Git-tracked upstream source defaults for the authoritative C43 import.
+# upstream.lock is generated locally and may optionally pin a specific commit.
+upstream_url=https://gitlab.com/rpncalculators/c43.git
+upstream_ref=HEAD

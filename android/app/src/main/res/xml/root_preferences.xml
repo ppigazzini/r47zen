@@ -1,0 +1,136 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory app:title="Preferences">
+        <SwitchPreferenceCompat
+            app:key="haptic_enabled"
+            app:title="Enable Haptic Feedback"
+            app:defaultValue="true" />
+        <SwitchPreferenceCompat
+            app:key="haptic_hifi_enabled"
+            app:title="High-Fidelity Haptics (Modern)"
+            app:defaultValue="true"
+            app:dependency="haptic_enabled" />
+        <SeekBarPreference
+            app:key="haptic_intensity"
+            app:title="Haptic Intensity"
+            app:min="0"
+            android:max="255"
+            app:defaultValue="64"
+            app:dependency="haptic_enabled"
+            app:showSeekBarValue="true" />
+        <SwitchPreferenceCompat
+            app:key="keep_screen_on"
+            app:title="Keep Screen On"
+            app:defaultValue="false" />
+        <SwitchPreferenceCompat
+            app:key="auto_save_minimize"
+            app:title="Auto-Save on Minimize"
+            app:defaultValue="true" />
+        <SwitchPreferenceCompat
+            app:key="force_close_on_exit"
+            app:title="Force Close on f-shift EXIT"
+            app:summaryOn="Finishes activity and removes from recents"
+            app:summaryOff="Minimizes to background (stays in recents)"
+            app:defaultValue="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Audio Settings">
+        <SwitchPreferenceCompat
+            app:key="beeper_enabled"
+            app:title="Simulated Beeper"
+            app:defaultValue="true" />
+        <SeekBarPreference
+            app:key="beeper_volume"
+            app:title="Beeper Volume"
+            app:min="0"
+            android:max="100"
+            app:defaultValue="20"
+            app:dependency="beeper_enabled"
+            app:showSeekBarValue="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Customization">
+        <Preference
+            app:key="work_directory"
+            app:title="Work Directory"
+            app:summary="Select a folder for organized storage (STATE, PROGRAMS, etc.)" />
+        <SwitchPreferenceCompat
+            app:key="fullscreen_mode"
+            app:title="Full Screen Mode"
+            app:summaryOn="Hides status and navigation bars"
+            app:summaryOff="Shows status and navigation bars (for 3-button navigation)"
+            app:defaultValue="true" />
+        <ListPreference
+            app:key="chrome_mode"
+            app:title="Shell Chrome"
+            app:entries="@array/chrome_entries"
+            app:entryValues="@array/chrome_values"
+            app:defaultValue="native"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:key="lcd_mode"
+            app:title="LCD Mode"
+            app:entries="@array/lcd_entries"
+            app:entryValues="@array/lcd_values"
+            app:defaultValue="high_contrast"
+            app:useSimpleSummaryProvider="true" />
+        <SeekBarPreference
+            app:key="lcd_luminance"
+            app:title="@string/lcd_luminance_title"
+            app:summary="@string/lcd_luminance_summary"
+            app:min="60"
+            android:max="120"
+            app:defaultValue="100"
+            app:showSeekBarValue="true" />
+        <ListPreference
+            app:key="scaling_mode"
+            app:title="Scaling"
+            app:entries="@array/scaling_entries"
+            app:entryValues="@array/scaling_values"
+            app:defaultValue="full_width"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Developer Tools">
+        <SwitchPreferenceCompat
+            app:key="show_touch_zones"
+            app:title="Show Touch Zones"
+            app:defaultValue="false" />
+        <Preference
+            app:key="factory_reset"
+            app:title="Reset to Factory Defaults"
+            app:summary="Wipe internal app data and relaunch R47" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="About R47">
+        <Preference
+            app:key="about_version"
+            app:title="Version"
+            app:summary="@string/about_version_summary" />
+        <Preference
+            app:key="view_gpl_license"
+            app:title="@string/about_gpl_license_title"
+            app:summary="@string/about_gpl_license_summary" />
+        <Preference
+            app:key="view_android_source"
+            app:title="@string/about_android_source_title"
+            app:summary="@string/about_android_source_summary" />
+        <Preference
+            app:key="view_repo_notices"
+            app:title="@string/about_repo_notices_title"
+            app:summary="@string/about_repo_notices_summary" />
+        <Preference
+            app:key="view_android_library_licenses"
+            app:title="@string/about_android_library_licenses_title"
+            app:summary="@string/about_android_library_licenses_summary" />
+        <Preference
+            app:key="view_third_party_inventory"
+            app:title="@string/about_spdx_inventory_title"
+            app:summary="@string/about_spdx_inventory_summary" />
+        <Preference
+            app:key="visit_gitlab"
+            app:title="@string/about_upstream_project_title" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

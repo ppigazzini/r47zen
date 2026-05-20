@@ -1,0 +1,654 @@
+import java.util.Properties
+import java.util.Locale
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import groovy.xml.XmlSlurper
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+
+plugins {
+    alias(libs.plugins.android.application)
+    id 'com.google.android.gms.oss-licenses-plugin'
+}
+
+def defaultsProperties = new Properties()
+def defaultsPropertiesFile = rootProject.file('r47-defaults.properties')
+def repositoryRootDir = rootProject.file('..').canonicalFile
+def repoNoticeInventoryFile = rootProject.file('compliance/repo-notices/components.json')
+def xlsxioLicenseSourceFile = new File(repositoryRootDir, 'android/compliance/repo-notices/source-texts/xlsxio-mit.txt')
+
+if (!defaultsPropertiesFile.exists()) {
+    throw new GradleException("Missing Android defaults file: ${defaultsPropertiesFile}")
+}
+
+if (!repoNoticeInventoryFile.isFile()) {
+    throw new GradleException("Missing repo notice inventory file: ${repoNoticeInventoryFile}")
+}
+
+if (!xlsxioLicenseSourceFile.isFile()) {
+    throw new GradleException("Missing xlsxio license source file: ${xlsxioLicenseSourceFile}")
+}
+
+def canonicalRuntimeFontDir = new File(repositoryRootDir, 'res/fonts')
+def runtimeFontAssetNames = [
+    'C47__StandardFont.ttf',
+    'C47__NumericFont.ttf',
+    'C47__TinyFont.ttf'
+]
+
+if (!canonicalRuntimeFontDir.isDirectory()) {
+    throw new GradleException("Missing canonical runtime font directory: ${canonicalRuntimeFontDir}")
+}
+
+runtimeFontAssetNames.each { fontName ->
+    def fontFile = new File(canonicalRuntimeFontDir, fontName)
+    if (!fontFile.isFile()) {
+        throw new GradleException("Missing canonical runtime font asset: ${fontFile}")
+    }
+}
+
+defaultsPropertiesFile.withInputStream { defaultsProperties.load(it) }
+
+def readDefaultValue = { String key ->
+    def value = defaultsProperties.getProperty(key)?.trim()
+    if (!value) {
+        throw new GradleException("Missing ${key} in ${defaultsPropertiesFile}")
+    }
+    return value
+}
+
+def readDefaultInteger = { String key ->
+    return Integer.parseInt(readDefaultValue(key))
+}
+
+def readOptionalProperty(String propertyName, String envName = null) {
+    def value = project.findProperty(propertyName)?.toString()?.trim()
+    if ((!value || value.isEmpty()) && envName) {
+        value = System.getenv(envName)?.trim()
+    }
+    return value ? value : null
+}
+
+def readBooleanProperty(String propertyName, boolean defaultValue) {
+    def value = project.findProperty(propertyName)?.toString()?.trim()
+    if (!value) {
+        return defaultValue
+    }
+    return value.toBoolean()
+}
+
+def readGitOutput(List<String> args) {
+    def stdout = new ByteArrayOutputStream()
+    try {
+        exec {
+            workingDir rootProject.file('..')
+            commandLine(['git'] + args)
+            standardOutput = stdout
+            errorOutput = new ByteArrayOutputStream()
+            ignoreExitValue = true
+        }
+    } catch (Exception ignored) {
+        return null
+    }
+
+    def output = stdout.toString().trim()
+    return output ? output : null
+}
+
+def normalizeRepositoryUrl(String url) {
+    if (!url) {
+        return null
+    }
+
+    def normalizedUrl = url.trim().replaceAll(/\.git$/, '')
+    if (normalizedUrl.startsWith('ssh://')) {
+        def sshUrl = normalizedUrl.substring('ssh://'.length()).replaceFirst(/^[^@]+@/, '')
+        return "https://${sshUrl}"
+    }
+
+    if (!normalizedUrl.contains('://') && normalizedUrl.contains(':')) {
+        def scpStyleUrl = normalizedUrl.replaceFirst(/^[^@]+@/, '').replaceFirst(':', '/')
+        return "https://${scpStyleUrl}"
+    }
+
+    return normalizedUrl
+}
+
+def inferredAndroidSourceRepositoryUrl = normalizeRepositoryUrl(readGitOutput(['config', '--get', 'remote.origin.url']))
+def defaultApplicationId = readDefaultValue('R47_DEFAULT_ANDROID_APPLICATION_ID')
+def androidSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.sourceRepositoryUrl') ?: inferredAndroidSourceRepositoryUrl ?: "https://github.com/ppigazzini/r47_android").toString())
+def androidSourceCommit = (project.findProperty('r47.sourceCommit') ?: readGitOutput(['rev-parse', 'HEAD']) ?: 'unknown').toString()
+def upstreamSourceRepositoryUrl = normalizeRepositoryUrl(project.findProperty('r47.upstreamSourceRepositoryUrl')?.toString())
+def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toString()?.trim()
+def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.xlsxioSourceRepositoryUrl') ?: System.getenv('R47_XLSXIO_URL') ?: System.getenv('XLSXIO_URL') ?: readDefaultValue('R47_DEFAULT_XLSXIO_URL')).toString())
+def xlsxioSourceCommit = (project.findProperty('r47.xlsxioSourceCommit') ?: System.getenv('R47_XLSXIO_COMMIT') ?: System.getenv('XLSXIO_COMMIT') ?: readDefaultValue('R47_DEFAULT_XLSXIO_COMMIT')).toString()
+def generatedComplianceAssetsDir = "$buildDir/generated/assets/compliance"
+def generatedRuntimeAssetsDir = "$buildDir/generated/assets/runtime"
+def stagedNativeCppDir = rootProject.file('.staged-native/cpp').absolutePath
+def nativePrepScript = rootProject.file('../scripts/android/prepare_native_build_inputs.sh').absolutePath
+def repoNoticeInventory = new JsonSlurper().parse(repoNoticeInventoryFile)
+def releaseMinifyEnabled = readBooleanProperty('r47.releaseMinify', true)
+def releaseShrinkResourcesEnabled = readBooleanProperty('r47.releaseShrinkResources', releaseMinifyEnabled)
+def releaseNativeDebugSymbolLevel = (readOptionalProperty('r47.releaseNativeDebugSymbolLevel', 'R47_RELEASE_NATIVE_DEBUG_SYMBOL_LEVEL') ?: 'FULL').toUpperCase()
+def releaseStoreFilePath = readOptionalProperty('r47.releaseStoreFile', 'R47_RELEASE_STORE_FILE')
+def releaseStorePassword = readOptionalProperty('r47.releaseStorePassword', 'R47_RELEASE_STORE_PASSWORD')
+def releaseKeyAlias = readOptionalProperty('r47.releaseKeyAlias', 'R47_RELEASE_KEY_ALIAS')
+def releaseKeyPassword = readOptionalProperty('r47.releaseKeyPassword', 'R47_RELEASE_KEY_PASSWORD')
+def releaseSigningValues = [releaseStoreFilePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword].findAll { it }
+def isReleaseSigningConfigured = releaseSigningValues.size() == 4
+
+if (!releaseSigningValues.isEmpty() && !isReleaseSigningConfigured) {
+    throw new GradleException('Release signing requires r47.releaseStoreFile, r47.releaseStorePassword, r47.releaseKeyAlias, and r47.releaseKeyPassword together.')
+}
+
+if (!(releaseNativeDebugSymbolLevel in ['NONE', 'SYMBOL_TABLE', 'FULL'])) {
+    throw new GradleException("Unsupported r47.releaseNativeDebugSymbolLevel value: ${releaseNativeDebugSymbolLevel}")
+}
+
+def configuredAbiFilters = (project.findProperty('r47.abiFilters') ?: readDefaultValue('R47_DEFAULT_ANDROID_ABI_FILTERS'))
+    .toString()
+    .split(',')
+    .collect { it.trim() }
+    .findAll { !it.isEmpty() }
+
+if (configuredAbiFilters.isEmpty()) {
+    configuredAbiFilters = ['arm64-v8a']
+}
+
+def asSpdxToken = { String value ->
+    value
+        .replaceAll(/[^A-Za-z0-9.-]+/, '-')
+        .replaceAll(/-+/, '-')
+        .replaceAll(/^-|-$/, '')
+}
+
+def toSpdxRef = { String value ->
+    def token = asSpdxToken(value ?: 'unknown')
+    return token ? "SPDXRef-${token}" : 'SPDXRef-unknown'
+}
+
+def mapPomLicenseToSpdx = { String name, String url ->
+    def haystack = "${name ?: ''} ${url ?: ''}".toLowerCase(Locale.ROOT)
+    if (haystack.contains('apache') && haystack.contains('2.0')) {
+        return 'Apache-2.0'
+    }
+    if (haystack.contains('mit')) {
+        return 'MIT'
+    }
+    if (haystack.contains('bsd') && haystack.contains('3')) {
+        return 'BSD-3-Clause'
+    }
+    if (haystack.contains('bsd') && haystack.contains('2')) {
+        return 'BSD-2-Clause'
+    }
+    if (haystack.contains('eclipse public license') && haystack.contains('2.0')) {
+        return 'EPL-2.0'
+    }
+    if (haystack.contains('mozilla public license') && haystack.contains('2.0')) {
+        return 'MPL-2.0'
+    }
+    return null
+}
+
+def createSpdxPackage = { Map values ->
+    def packageEntry = [
+        SPDXID           : values.SPDXID,
+        name             : values.name,
+        downloadLocation : values.downloadLocation ?: 'NOASSERTION',
+        filesAnalyzed    : false,
+        licenseConcluded : values.licenseConcluded ?: 'NOASSERTION',
+        licenseDeclared  : values.licenseDeclared ?: 'NOASSERTION',
+        copyrightText    : values.copyrightText ?: 'NOASSERTION'
+    ]
+
+    [
+        'versionInfo',
+        'summary',
+        'description',
+        'homepage',
+        'licenseComments',
+        'sourceInfo'
+    ].each { optionalKey ->
+        if (values[optionalKey]) {
+            packageEntry[optionalKey] = values[optionalKey]
+        }
+    }
+
+    if (values.externalRefs) {
+        packageEntry.externalRefs = values.externalRefs
+    }
+
+    return packageEntry
+}
+
+def resolveRepoNoticeSourceFile = { Map component ->
+    def sourcePath = component.sourcePath?.toString()?.trim()
+    if (!sourcePath) {
+        throw new GradleException("Repo notice component is missing sourcePath: ${component}")
+    }
+    return new File(repositoryRootDir, sourcePath)
+}
+
+android {
+    namespace defaultApplicationId
+    compileSdk project.findProperty('r47.compileSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK')
+    def coreVersion = (project.findProperty('r47.coreVersion') ?: "unknown").toString()
+    def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z._-]/, "_")
+    def releaseVersionCode = Integer.parseInt((project.findProperty('r47.versionCode') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_CODE')).toString())
+    def releaseVersionName = (project.findProperty('r47.versionName') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_NAME')).toString()
+
+    signingConfigs {
+        if (isReleaseSigningConfigured) {
+            release {
+                storeFile rootProject.file(releaseStoreFilePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+                enableV4Signing true
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId defaultApplicationId
+        minSdk project.findProperty('r47.minSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_MIN_SDK')
+        targetSdk project.findProperty('r47.targetSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_TARGET_SDK')
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        versionCode releaseVersionCode
+        versionName releaseVersionName
+        resValue "string", "about_version_summary", "R47 Android ${releaseVersionName} (Core: ${coreVersion})"
+        resValue "string", "android_source_repository_url", androidSourceRepositoryUrl
+        
+        // Use property override if provided, otherwise default to a verified version
+        // To use system default, user can pass -Pr47.ndkVersion=
+        ndkVersion project.findProperty('r47.ndkVersion') ?: readDefaultValue('R47_DEFAULT_ANDROID_NDK_VERSION')
+
+        externalNativeBuild {
+            cmake {
+                cppFlags ""
+                arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON", "-DR47_STAGED_CPP_DIR=${stagedNativeCppDir}"
+            }
+        }
+        ndk {
+            abiFilters(*configuredAbiFilters)
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            jniDebuggable true
+            // Keep the debug snapshot lane separate from a future store release.
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-snapshot.${normalizedCoreVersion}"
+        }
+        release {
+            minifyEnabled releaseMinifyEnabled
+            shrinkResources releaseShrinkResourcesEnabled
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            ndk {
+                debugSymbolLevel releaseNativeDebugSymbolLevel
+            }
+            if (isReleaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    buildFeatures {
+        resValues true
+        viewBinding true
+    }
+    
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version project.findProperty('r47.cmakeVersion') ?: readDefaultValue('R47_DEFAULT_ANDROID_CMAKE_VERSION')
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.toVersion(readDefaultValue('R47_DEFAULT_ANDROID_JAVA_VERSION'))
+        targetCompatibility JavaVersion.toVersion(readDefaultValue('R47_DEFAULT_ANDROID_JAVA_VERSION'))
+    }
+
+    sourceSets {
+        main {
+            assets.srcDir generatedComplianceAssetsDir
+            assets.srcDir generatedRuntimeAssetsDir
+        }
+    }
+
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
+
+}
+
+dependencies {
+    implementation libs.androidx.core.ktx
+    implementation libs.androidx.appcompat
+    implementation libs.androidx.activity.ktx
+    implementation libs.material
+    implementation libs.androidx.constraintlayout
+    implementation libs.androidx.preference.ktx
+    implementation libs.play.services.oss.licenses
+
+    testImplementation libs.junit4
+    testImplementation libs.androidx.test.core
+    testImplementation libs.robolectric
+
+    androidTestImplementation libs.androidx.test.core
+    androidTestImplementation libs.androidx.test.ext.junit
+    androidTestImplementation libs.androidx.test.runner
+}
+
+def prepareStagedNativeInputs = tasks.register('prepareStagedNativeInputs', Exec) {
+    description = 'Hydrate missing authoritative native inputs, generate build.sim assets through the Android Meson/Ninja helper, and refresh android/.staged-native/cpp for direct Gradle builds.'
+    outputs.upToDateWhen { false }
+
+    doFirst {
+        def requestedBuildJobs = (project.findProperty('r47.buildJobs') ?: System.getenv('R47_BUILD_JOBS') ?: System.getenv('CMAKE_BUILD_PARALLEL_LEVEL') ?: gradle.startParameter.maxWorkerCount ?: Runtime.runtime.availableProcessors()).toString()
+        def cacheBinDir = new File(System.getProperty('user.home'), ".cache/r47/xlsxio/${xlsxioSourceCommit}/bin")
+        def pathEntries = []
+        if (cacheBinDir.isDirectory()) {
+            pathEntries << cacheBinDir.absolutePath
+        }
+        if (System.getenv('PATH')) {
+            pathEntries << System.getenv('PATH')
+        }
+
+        workingDir rootProject.file('..')
+        environment 'PATH', pathEntries.join(File.pathSeparator)
+        environment 'R47_BUILD_JOBS', requestedBuildJobs
+        environment 'R47_ANDROID_STAGED_CPP_DIR', stagedNativeCppDir
+        commandLine 'bash', nativePrepScript
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name.startsWith('configureCMake') || task.name.startsWith('generateJsonModel') || task.name.startsWith('externalNativeBuild')) {
+        task.dependsOn(prepareStagedNativeInputs)
+    }
+}
+
+tasks.register('copyGplLicense', Copy) {
+    from rootProject.file('../COPYING')
+    into generatedComplianceAssetsDir
+}
+
+tasks.register('generateRuntimeFontAssets') {
+    runtimeFontAssetNames.each { fontName ->
+        inputs.file(new File(canonicalRuntimeFontDir, fontName))
+    }
+    outputs.dir(generatedRuntimeAssetsDir)
+
+    doLast {
+        def generatedAssetsDir = file(generatedRuntimeAssetsDir)
+        def fontsDir = new File(generatedAssetsDir, 'fonts')
+        delete(generatedAssetsDir)
+        fontsDir.mkdirs()
+
+        runtimeFontAssetNames.each { fontName ->
+            def sourceFile = new File(canonicalRuntimeFontDir, fontName)
+            def targetFile = new File(fontsDir, fontName)
+            targetFile.bytes = sourceFile.bytes
+        }
+    }
+}
+
+tasks.register('generateRepoNoticeAssets') {
+    inputs.file(repoNoticeInventoryFile)
+    repoNoticeInventory.components.each { component ->
+        inputs.file(resolveRepoNoticeSourceFile(component as Map))
+    }
+    outputs.dir("${generatedComplianceAssetsDir}/repo-notices")
+
+    doLast {
+        def generatedAssetsDir = file(generatedComplianceAssetsDir)
+        def repoAssetsDir = new File(generatedAssetsDir, 'repo-notices')
+        delete(repoAssetsDir)
+        repoAssetsDir.mkdirs()
+
+        def indexEntries = []
+        repoNoticeInventory.components.each { rawComponent ->
+            def component = rawComponent as Map
+            def sourceFile = resolveRepoNoticeSourceFile(component)
+            if (!sourceFile.isFile()) {
+                throw new GradleException("Missing repo notice source file: ${sourceFile}")
+            }
+
+            def assetPath = component.assetPath?.toString()?.trim()
+            if (!assetPath) {
+                throw new GradleException("Repo notice component is missing assetPath: ${component}")
+            }
+
+            def targetFile = new File(generatedAssetsDir, assetPath)
+            targetFile.parentFile.mkdirs()
+            targetFile.bytes = sourceFile.bytes
+
+            indexEntries << [
+                id              : component.id,
+                title           : component.title,
+                summary         : component.summary,
+                assetPath       : assetPath,
+                contentType     : component.contentType ?: 'text/plain',
+                declaredLicense : component.declaredLicense ?: 'NOASSERTION'
+            ]
+        }
+
+        def indexFile = new File(repoAssetsDir, 'NOTICE-INDEX.json')
+        indexFile.text = JsonOutput.prettyPrint(JsonOutput.toJson([
+            schemaVersion : repoNoticeInventory.schemaVersion ?: 1,
+            title         : repoNoticeInventory.title ?: 'R47 repo-owned notices',
+            entries       : indexEntries
+        ])) + '\n'
+    }
+}
+
+tasks.register('generateXlsxioLicense') {
+    inputs.file(xlsxioLicenseSourceFile)
+    inputs.property('xlsxioSourceRepositoryUrl', xlsxioSourceRepositoryUrl ?: '')
+    inputs.property('xlsxioSourceCommit', xlsxioSourceCommit ?: '')
+    outputs.file("${generatedComplianceAssetsDir}/LICENSE.txt")
+
+    doLast {
+        def generatedAssetsDir = file(generatedComplianceAssetsDir)
+        generatedAssetsDir.mkdirs()
+        file("${generatedAssetsDir}/LICENSE.txt").bytes = xlsxioLicenseSourceFile.bytes
+    }
+}
+
+tasks.register('generateThirdPartySpdx') {
+    inputs.file(repoNoticeInventoryFile)
+    repoNoticeInventory.components.each { component ->
+        inputs.file(resolveRepoNoticeSourceFile(component as Map))
+    }
+    inputs.property('androidSourceRepositoryUrl', androidSourceRepositoryUrl ?: '')
+    inputs.property('androidSourceCommit', androidSourceCommit ?: '')
+    inputs.property('upstreamSourceRepositoryUrl', upstreamSourceRepositoryUrl ?: '')
+    inputs.property('upstreamSourceCommit', upstreamSourceCommit ?: '')
+    inputs.property('xlsxioSourceRepositoryUrl', xlsxioSourceRepositoryUrl ?: '')
+    inputs.property('xlsxioSourceCommit', xlsxioSourceCommit ?: '')
+    outputs.file("${generatedComplianceAssetsDir}/THIRD-PARTY.spdx.json")
+
+    doLast {
+        def generatedAssetsDir = file(generatedComplianceAssetsDir)
+        generatedAssetsDir.mkdirs()
+
+        def packages = []
+        def documentDescribes = []
+
+        def addPackage = { Map values ->
+            def packageEntry = createSpdxPackage(values)
+            packages << packageEntry
+            documentDescribes << packageEntry.SPDXID
+        }
+
+        addPackage([
+            SPDXID          : toSpdxRef('r47-android-source'),
+            name            : 'r47_android',
+            downloadLocation: androidSourceRepositoryUrl ?: 'NOASSERTION',
+            licenseDeclared : 'GPL-3.0-only',
+            versionInfo     : androidSourceCommit ?: 'unknown',
+            summary         : 'Android fork source repository for the packaged R47 application.',
+            sourceInfo      : 'Recorded from the local Git checkout used for this build.'
+        ])
+
+        if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
+            addPackage([
+                SPDXID          : toSpdxRef('r47-upstream-core'),
+                name            : 'r47-upstream-core',
+                downloadLocation: upstreamSourceRepositoryUrl,
+                licenseDeclared : 'GPL-3.0-only',
+                versionInfo     : upstreamSourceCommit,
+                summary         : 'Authoritative upstream core revision synchronized into the Android build.',
+                sourceInfo      : 'Recorded from the synchronized upstream core metadata for this build.'
+            ])
+        }
+
+        addPackage([
+            SPDXID          : toSpdxRef('xlsxio'),
+            name            : 'xlsxio',
+            downloadLocation: xlsxioSourceRepositoryUrl ?: 'NOASSERTION',
+            licenseDeclared : 'MIT',
+            versionInfo     : xlsxioSourceCommit ?: 'unknown',
+            summary         : 'Vendored spreadsheet I/O dependency packaged with the Android build.',
+            sourceInfo      : 'Version and source URL come from the shared Android defaults or explicit build properties.'
+        ])
+
+        addPackage([
+            SPDXID          : toSpdxRef('decnumbericu'),
+            name            : 'decNumberICU',
+            downloadLocation: 'NOASSERTION',
+            licenseDeclared : 'ICU',
+            summary         : 'Vendored decimal arithmetic sources under dep/decNumberICU.',
+            sourceInfo      : 'Notice source is hydrated from upstream at dep/decNumberICU/ICU-license.html during the build.'
+        ])
+
+        addPackage([
+            SPDXID          : toSpdxRef('mini-gmp-fallback'),
+            name            : 'mini-gmp fallback',
+            downloadLocation: 'https://gmplib.org/',
+            licenseDeclared : 'LGPL-3.0-or-later OR GPL-2.0-or-later',
+            summary         : 'Fallback big integer implementation under android/compat/mini-gmp-fallback.',
+            sourceInfo      : 'Notice text is recorded in the repo-owned notice inventory.'
+        ])
+
+        def runtimeConfiguration = configurations.findByName('releaseRuntimeClasspath') ?: configurations.findByName('debugRuntimeClasspath')
+        if (runtimeConfiguration == null) {
+            throw new GradleException('Unable to resolve an Android runtime classpath for SPDX inventory generation.')
+        }
+
+        def runtimeModules = runtimeConfiguration.incoming.resolutionResult.allComponents
+            .collect { it.id }
+            .findAll { it instanceof ModuleComponentIdentifier }
+            .unique { id -> "${id.group}:${id.module}:${id.version}" }
+            .sort { left, right ->
+                "${left.group}:${left.module}:${left.version}" <=> "${right.group}:${right.module}:${right.version}"
+            }
+
+        runtimeModules.each { ModuleComponentIdentifier moduleId ->
+            def licenses = []
+            def pomUrl = null
+
+            try {
+                def pomConfiguration = configurations.detachedConfiguration(
+                    dependencies.create("${moduleId.group}:${moduleId.module}:${moduleId.version}@pom")
+                )
+                pomConfiguration.transitive = false
+                def pomFile = pomConfiguration.singleFile
+                def pom = new XmlSlurper(false, false).parse(pomFile)
+                licenses = pom.licenses.license.collect { licenseNode ->
+                    [
+                        name: licenseNode.name.text()?.trim(),
+                        url : licenseNode.url.text()?.trim()
+                    ]
+                }
+                pomUrl = pom.url.text()?.trim()
+            } catch (Exception ignored) {
+                licenses = []
+            }
+
+            def knownSpdxLicenses = licenses.collect { license ->
+                mapPomLicenseToSpdx(license.name as String, license.url as String)
+            }.findAll { it }.unique()
+
+            def rawLicenseSummary = licenses.collect { license ->
+                [license.name, license.url].findAll { it }.join(' - ')
+            }.findAll { it }.join('; ')
+
+            addPackage([
+                SPDXID          : toSpdxRef("maven-${moduleId.group}-${moduleId.module}-${moduleId.version}"),
+                name            : "${moduleId.group}:${moduleId.module}",
+                downloadLocation: "https://repo1.maven.org/maven2/${moduleId.group.replace('.', '/')}/${moduleId.module}/${moduleId.version}",
+                licenseDeclared : knownSpdxLicenses.size() == 1 ? knownSpdxLicenses[0] : 'NOASSERTION',
+                versionInfo     : moduleId.version,
+                homepage        : pomUrl ?: null,
+                summary         : "Android runtime dependency ${moduleId.group}:${moduleId.module}:${moduleId.version}.",
+                licenseComments : rawLicenseSummary ?: 'License metadata was not available in the resolved POM.',
+                sourceInfo      : 'Collected from the resolved runtime classpath and each dependency POM.',
+                externalRefs    : [[
+                    referenceCategory: 'PACKAGE-MANAGER',
+                    referenceType    : 'purl',
+                    referenceLocator : "pkg:maven/${moduleId.group}/${moduleId.module}@${moduleId.version}"
+                ]]
+            ])
+        }
+
+        def spdxDocument = [
+            spdxVersion      : 'SPDX-2.3',
+            dataLicense      : 'CC0-1.0',
+            SPDXID           : 'SPDXRef-DOCUMENT',
+            name             : 'R47 Android third-party inventory',
+            documentNamespace: "https://r47.invalid/spdx/android/${androidSourceCommit ?: 'unknown'}",
+            creationInfo     : [
+                created : new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC')),
+                creators: ['Tool: Gradle generateThirdPartySpdx task']
+            ],
+            documentDescribes: documentDescribes,
+            packages         : packages
+        ]
+
+        file("${generatedAssetsDir}/THIRD-PARTY.spdx.json").text = JsonOutput.prettyPrint(JsonOutput.toJson(spdxDocument)) + '\n'
+    }
+}
+
+tasks.register('generateSourceManifest') {
+    inputs.property('androidSourceRepositoryUrl', androidSourceRepositoryUrl ?: '')
+    inputs.property('androidSourceCommit', androidSourceCommit ?: '')
+    inputs.property('upstreamSourceRepositoryUrl', upstreamSourceRepositoryUrl ?: '')
+    inputs.property('upstreamSourceCommit', upstreamSourceCommit ?: '')
+    inputs.property('xlsxioSourceRepositoryUrl', xlsxioSourceRepositoryUrl ?: '')
+    inputs.property('xlsxioSourceCommit', xlsxioSourceCommit ?: '')
+    outputs.file("${generatedComplianceAssetsDir}/SOURCE")
+
+    doLast {
+        def generatedAssetsDir = file(generatedComplianceAssetsDir)
+        generatedAssetsDir.mkdirs()
+        def sourceLines = []
+
+        if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
+            sourceLines << "upstream_url=${upstreamSourceRepositoryUrl}"
+            sourceLines << "upstream_commit=${upstreamSourceCommit}"
+        }
+
+        sourceLines << "android_source_repository_url=${androidSourceRepositoryUrl}"
+        sourceLines << "android_source_commit=${androidSourceCommit}"
+        sourceLines << "xlsxio_url=${xlsxioSourceRepositoryUrl}"
+        sourceLines << "xlsxio_commit=${xlsxioSourceCommit}"
+
+        file("${generatedAssetsDir}/SOURCE").text = sourceLines.join('\n') + '\n'
+    }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('copyGplLicense')
+    dependsOn tasks.named('generateRuntimeFontAssets')
+    dependsOn tasks.named('generateRepoNoticeAssets')
+    dependsOn tasks.named('generateThirdPartySpdx')
+    dependsOn tasks.named('generateXlsxioLicense')
+    dependsOn tasks.named('generateSourceManifest')
+}

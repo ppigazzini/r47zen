@@ -1,0 +1,46 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.R47" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary brand color (HSL lightness +10% from the hardware F palette). -->
+        <item name="colorPrimary">#F2AB5E</item>
+        <item name="colorOnPrimary">#000000</item>
+        <!-- Secondary brand color (HSL lightness +10% from the hardware G palette). Used for toggles and headers. -->
+        <item name="colorSecondary">#83B7DF</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSecondaryContainer">#83B7DF</item>
+        <item name="colorOnSecondaryContainer">#000000</item>
+        
+        <!-- Tertiary colors stay on the lifted hardware G palette. -->
+        <item name="colorTertiary">#83B7DF</item>
+        <item name="colorOnTertiary">#000000</item>
+        <item name="colorTertiaryContainer">#83B7DF</item>
+        <item name="colorOnTertiaryContainer">#000000</item>
+
+        <!-- Keep the upstream role split so slider track and thumb stay distinct. -->
+        <item name="colorPrimaryContainer">#83B7DF</item>
+        <item name="colorOnPrimaryContainer">#000000</item>
+        <!-- Customize your theme here. -->
+        <!-- Legacy/Fallback compatibility -->
+        <item name="colorControlActivated">#83B7DF</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="VisibleReplicaKey">
+        <item name="android:layout_width">47dp</item>
+        <item name="android:layout_height">32dp</item>
+        <item name="android:background">?attr/selectableItemBackground</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:padding">0dp</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:elevation">0dp</item>
+    </style>
+    
+    <style name="SoftVisibleReplicaKey" parent="VisibleReplicaKey">
+       <!-- Same style for now -->
+    </style>
+</resources>

@@ -1,0 +1,31 @@
+[versions]
+agp = "9.2.0"
+androidxActivityKtx = "1.8.2"
+androidxAppcompat = "1.6.1"
+androidxConstraintlayout = "2.1.4"
+androidxCore = "1.12.0"
+androidxPreference = "1.2.1"
+androidxTestCore = "1.6.1"
+androidxTestExtJunit = "1.2.1"
+androidxTestRunner = "1.6.2"
+junit4 = "4.13.2"
+material = "1.11.0"
+playServicesOssLicenses = "17.0.1"
+robolectric = "4.12.2"
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+
+[libraries]
+androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "androidxActivityKtx" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidxAppcompat" }
+androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "androidxConstraintlayout" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+androidx-preference-ktx = { module = "androidx.preference:preference-ktx", version.ref = "androidxPreference" }
+androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
+junit4 = { module = "junit:junit", version.ref = "junit4" }
+material = { module = "com.google.android.material:material", version.ref = "material" }
+play-services-oss-licenses = { module = "com.google.android.gms:play-services-oss-licenses", version.ref = "playServicesOssLicenses" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
