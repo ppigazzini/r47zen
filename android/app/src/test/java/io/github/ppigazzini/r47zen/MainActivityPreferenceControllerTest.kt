@@ -239,12 +239,48 @@ class MainActivityPreferenceControllerTest {
         assertEquals(listOf(true), controllerState.developerPerformanceHudCalls)
     }
 
+    @Test
+    fun applyDeferredOverlayPreferences_dispatchesLcdGraphTouchPreference() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        preferences.edit()
+            .putBoolean("lcd_graph_touch_enabled", false)
+            .commit()
+
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+        controllerState.controller.applyDeferredOverlayPreferences()
+
+        assertEquals(false, controllerState.controller.isLcdGraphTouchEnabled)
+        assertEquals(listOf(false), controllerState.lcdGraphTouchEnabledCalls)
+    }
+
+    @Test
+    fun onPreferenceChanged_dispatchesLcdGraphTouchPreference() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+        controllerState.controller.applyDeferredOverlayPreferences()
+        controllerState.lcdGraphTouchEnabledCalls.clear()
+
+        preferences.edit()
+            .putBoolean("lcd_graph_touch_enabled", false)
+            .commit()
+
+        assertTrue(controllerState.controller.onPreferenceChanged("lcd_graph_touch_enabled"))
+
+        assertEquals(false, controllerState.controller.isLcdGraphTouchEnabled)
+        assertEquals(listOf(false), controllerState.lcdGraphTouchEnabledCalls)
+    }
+
     private fun buildController(preferences: android.content.SharedPreferences): ControllerState {
         val activity = Robolectric.buildActivity(PreferenceControllerActivity::class.java)
             .setup()
             .get()
         val audioSettingsCalls = mutableListOf<Pair<Boolean, Int>>()
         val developerPerformanceHudCalls = mutableListOf<Boolean>()
+        val lcdGraphTouchEnabledCalls = mutableListOf<Boolean>()
         val lcdThemeCalls = mutableListOf<LcdThemeCall>()
 
         val controller = MainActivityPreferenceController(
@@ -260,6 +296,9 @@ class MainActivityPreferenceControllerTest {
             applyLcdTheme = { theme, luminance, isNegative ->
                 lcdThemeCalls += LcdThemeCall(theme, luminance, isNegative)
             },
+            applyLcdGraphTouchEnabled = { enabled ->
+                lcdGraphTouchEnabledCalls += enabled
+            },
             applyShowTouchZones = {},
             applyShowDeveloperPerformanceHud = { enabled ->
                 developerPerformanceHudCalls += enabled
@@ -271,6 +310,7 @@ class MainActivityPreferenceControllerTest {
             controller = controller,
             audioSettingsCalls = audioSettingsCalls,
             developerPerformanceHudCalls = developerPerformanceHudCalls,
+            lcdGraphTouchEnabledCalls = lcdGraphTouchEnabledCalls,
             lcdThemeCalls = lcdThemeCalls,
         )
     }
@@ -279,6 +319,7 @@ class MainActivityPreferenceControllerTest {
         val controller: MainActivityPreferenceController,
         val audioSettingsCalls: MutableList<Pair<Boolean, Int>>,
         val developerPerformanceHudCalls: MutableList<Boolean>,
+        val lcdGraphTouchEnabledCalls: MutableList<Boolean>,
         val lcdThemeCalls: MutableList<LcdThemeCall>,
     )
 

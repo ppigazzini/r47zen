@@ -204,6 +204,16 @@ class SettingsPreferenceSummaryTest {
     }
 
     @Test
+    fun lcdGraphTouchPreference_usesRequestedSummaryCopy() {
+        val preference = launchSettingsAndFindSwitch("lcd_graph_touch_enabled")
+
+        assertEquals(
+            "Drag and pinch gestures on graph screens.",
+            preference.summary?.toString(),
+        )
+    }
+
+    @Test
     fun hapticToggle_usesShortMasterTitle() {
         val preference = launchSettingsAndFindSwitch("haptic_enabled")
 

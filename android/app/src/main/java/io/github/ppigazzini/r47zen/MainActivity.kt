@@ -16,6 +16,7 @@ import io.github.ppigazzini.r47zen.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import com.google.android.material.color.MaterialColors
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Keep
@@ -41,10 +42,19 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var slotSessionController: SlotSessionController
     private lateinit var windowModeController: WindowModeController
 
+    private val graphGestureLock = Any()
+    private var graphGestureFlushQueued = false
+    private var pendingGraphPanDxNorm = 0f
+    private var pendingGraphPanDyNorm = 0f
+    private var pendingGraphScaleFactor = 1f
     private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
+        private const val GRAPH_PAN_FLUSH_EPSILON = 0.0005f
+        private const val GRAPH_SCALE_FLUSH_EPSILON = 0.0001f
+        private const val GRAPH_SCALE_FACTOR_MIN = 0.4f
+        private const val GRAPH_SCALE_FACTOR_MAX = 2.5f
 
         init {
             System.loadLibrary("r47zen")
@@ -94,6 +104,81 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun offerCoreTask(task: Runnable) {
         coreRuntime.offerTask(task)
+    }
+
+    private fun queueGraphPan(dxNorm: Float, dyNorm: Float) {
+        if (dxNorm == 0f && dyNorm == 0f) {
+            return
+        }
+
+        synchronized(graphGestureLock) {
+            pendingGraphPanDxNorm += dxNorm
+            pendingGraphPanDyNorm += dyNorm
+        }
+        scheduleGraphGestureFlush()
+    }
+
+    private fun queueGraphPinch(scaleFactor: Float) {
+        if (!scaleFactor.isFinite() || scaleFactor <= 0f) {
+            return
+        }
+
+        synchronized(graphGestureLock) {
+            pendingGraphScaleFactor = (pendingGraphScaleFactor * scaleFactor)
+                .coerceIn(GRAPH_SCALE_FACTOR_MIN, GRAPH_SCALE_FACTOR_MAX)
+        }
+        scheduleGraphGestureFlush()
+    }
+
+    private fun scheduleGraphGestureFlush() {
+        val shouldEnqueue = synchronized(graphGestureLock) {
+            if (graphGestureFlushQueued) {
+                false
+            } else {
+                graphGestureFlushQueued = true
+                true
+            }
+        }
+
+        if (!shouldEnqueue) {
+            return
+        }
+
+        offerCoreTask(Runnable { flushGraphGesturesOnCoreThread() })
+    }
+
+    private fun flushGraphGesturesOnCoreThread() {
+        while (true) {
+            val (dxNorm, dyNorm, scaleFactor) = synchronized(graphGestureLock) {
+                val values = Triple(pendingGraphPanDxNorm, pendingGraphPanDyNorm, pendingGraphScaleFactor)
+                pendingGraphPanDxNorm = 0f
+                pendingGraphPanDyNorm = 0f
+                pendingGraphScaleFactor = 1f
+                values
+            }
+
+            if (abs(dxNorm) > GRAPH_PAN_FLUSH_EPSILON || abs(dyNorm) > GRAPH_PAN_FLUSH_EPSILON) {
+                applyGraphPanNative(dxNorm, dyNorm)
+            }
+            if (abs(scaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON) {
+                applyGraphPinchZoomNative(scaleFactor)
+            }
+
+            val shouldContinue = synchronized(graphGestureLock) {
+                val hasPending =
+                    abs(pendingGraphPanDxNorm) > GRAPH_PAN_FLUSH_EPSILON ||
+                        abs(pendingGraphPanDyNorm) > GRAPH_PAN_FLUSH_EPSILON ||
+                        abs(pendingGraphScaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON
+                if (!hasPending) {
+                    graphGestureFlushQueued = false
+                }
+                hasPending
+            }
+
+            if (!shouldContinue) {
+                return
+            }
+        }
     }
 
     private fun dispatchLiveKey(keyCode: Int) {
@@ -215,6 +300,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun initializeOverlayAndPreferences(prefs: SharedPreferences) {
         replicaOverlay = binding.replicaOverlay
         replicaOverlay.onSettingsDiscoveryCompleted = ::markSettingsDiscoveryComplete
+        replicaOverlay.onLcdPanListener = ::queueGraphPan
+        replicaOverlay.onLcdPinchListener = ::queueGraphPinch
         keypadSnapshotStore = createKeypadSnapshotStore()
         replicaOverlayController = createReplicaOverlayController()
         replicaOverlayController.bindOverlay()
@@ -318,6 +405,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             windowModeController = windowModeController,
             syncAudioSettings = ::syncAudioSettings,
             applyLcdTheme = ::applyLcdTheme,
+            applyLcdGraphTouchEnabled = replicaOverlay::setLcdGraphTouchEnabled,
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
             applyShowDeveloperPerformanceHud = replicaOverlay::setShowDeveloperPerformanceHud,
             applyKeypadLabelModes = replicaOverlayController::applyKeypadLabelModes,
@@ -469,6 +557,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)
     private external fun sendSimMenuNative(menuId: Int)
     private external fun sendSimFuncNative(funcId: Int)
+    private external fun applyGraphPanNative(dxNorm: Float, dyNorm: Float): Boolean
+    private external fun applyGraphPinchZoomNative(scaleFactor: Float): Boolean
     private external fun saveStateNative()
     private external fun loadStateNative()
     private external fun forceRefreshNative()

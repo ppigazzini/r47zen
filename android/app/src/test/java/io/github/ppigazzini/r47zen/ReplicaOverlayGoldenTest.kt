@@ -14,6 +14,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
+import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -110,7 +111,7 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
-    fun touchBelowSettingsStripIsNotIntercepted() {
+    fun touchBelowSettingsStripIsIntercepted() {
         val overlay = configuredOverlay()
         val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
         val spec = chromeLayout.currentChromeSpec()
@@ -119,10 +120,210 @@ class ReplicaOverlayGoldenTest {
         val touchEvent = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, overlay.width / 2f, touchY, 0)
 
         try {
-            assertFalse(overlay.onInterceptTouchEvent(touchEvent))
+            assertTrue(overlay.onInterceptTouchEvent(touchEvent))
         } finally {
             touchEvent.recycle()
         }
+    }
+
+    @Test
+    fun lcdGraphTouchSettingDisablesLcdGestureIntercept() {
+        val overlay = configuredOverlay()
+        val lcdCenter = lcdWindowCenter(overlay)
+
+        overlay.setLcdGraphTouchEnabled(false)
+        val downWhileDisabled = MotionEvent.obtain(
+            0L,
+            0L,
+            MotionEvent.ACTION_DOWN,
+            lcdCenter.first,
+            lcdCenter.second,
+            0,
+        )
+
+        try {
+            assertFalse(overlay.onInterceptTouchEvent(downWhileDisabled))
+        } finally {
+            downWhileDisabled.recycle()
+        }
+
+        overlay.setLcdGraphTouchEnabled(true)
+        val downWhileEnabled = MotionEvent.obtain(
+            0L,
+            16L,
+            MotionEvent.ACTION_DOWN,
+            lcdCenter.first,
+            lcdCenter.second,
+            0,
+        )
+
+        try {
+            assertTrue(overlay.onInterceptTouchEvent(downWhileEnabled))
+        } finally {
+            downWhileEnabled.recycle()
+        }
+    }
+
+    @Test
+    fun primaryPointerUpRebindsToSurvivingPointer() {
+        val overlay = configuredOverlay()
+
+        val lcdCenter = lcdWindowCenter(overlay)
+        val y = lcdCenter.second
+        val pointer0StartX = lcdCenter.first - 140f
+        val pointer1StartX = lcdCenter.first
+
+        val down = MotionEvent.obtain(
+            0L,
+            0L,
+            MotionEvent.ACTION_DOWN,
+            pointer0StartX,
+            y,
+            0,
+        )
+        val pointerDown = obtainMultiTouchEvent(
+            downTime = 0L,
+            eventTime = 8L,
+            actionMasked = MotionEvent.ACTION_POINTER_DOWN,
+            actionIndex = 1,
+            pointers = listOf(
+                PointerSample(id = 0, x = pointer0StartX, y = y),
+                PointerSample(id = 1, x = pointer1StartX, y = y),
+            ),
+        )
+        val pointerUp = obtainMultiTouchEvent(
+            downTime = 0L,
+            eventTime = 16L,
+            actionMasked = MotionEvent.ACTION_POINTER_UP,
+            actionIndex = 0,
+            pointers = listOf(
+                PointerSample(id = 0, x = pointer0StartX, y = y),
+                PointerSample(id = 1, x = pointer1StartX, y = y),
+            ),
+        )
+
+        try {
+            assertTrue(overlay.onInterceptTouchEvent(down))
+            assertTrue(overlay.onTouchEvent(down))
+            assertTrue(overlay.onTouchEvent(pointerDown))
+            assertTrue(overlay.onTouchEvent(pointerUp))
+        } finally {
+            down.recycle()
+            pointerDown.recycle()
+            pointerUp.recycle()
+        }
+
+        assertEquals(1, readPrivateField<Int>(overlay, "activeLcdPointerId"))
+        assertEquals(pointer1StartX, readPrivateField<Float>(overlay, "lcdLastTouchX"), 0.01f)
+        assertEquals(y, readPrivateField<Float>(overlay, "lcdLastTouchY"), 0.01f)
+    }
+
+    @Test
+    fun slowContinuousPanStartsAfterAccumulatedSlopAndKeepsReporting() {
+        val overlay = configuredOverlay()
+        renderHash(overlay)
+        val lcdCenter = lcdWindowCenter(overlay)
+        val panSlop = readPrivateField<Float>(overlay, "panTouchSlopPx")
+        val capturedDeltas = mutableListOf<Float>()
+        overlay.onLcdPanListener = { dxNorm, _ ->
+            capturedDeltas += dxNorm
+        }
+
+        val startX = lcdCenter.first
+        val y = lcdCenter.second
+        val stepPx = maxOf(1f, panSlop / 3f)
+
+        val down = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, startX, y, 0)
+        val move1 = MotionEvent.obtain(0L, 16L, MotionEvent.ACTION_MOVE, startX + stepPx, y, 0)
+        val move2 = MotionEvent.obtain(0L, 32L, MotionEvent.ACTION_MOVE, startX + stepPx * 2f, y, 0)
+        val move3 = MotionEvent.obtain(0L, 48L, MotionEvent.ACTION_MOVE, startX + stepPx * 3f, y, 0)
+        val move4 = MotionEvent.obtain(0L, 64L, MotionEvent.ACTION_MOVE, startX + stepPx * 4f, y, 0)
+
+        try {
+            assertTrue(overlay.onInterceptTouchEvent(down))
+            assertTrue(overlay.onTouchEvent(down))
+            assertTrue(overlay.onTouchEvent(move1))
+            assertTrue(overlay.onTouchEvent(move2))
+            assertTrue(overlay.onTouchEvent(move3))
+            assertTrue(overlay.onTouchEvent(move4))
+        } finally {
+            down.recycle()
+            move1.recycle()
+            move2.recycle()
+            move3.recycle()
+            move4.recycle()
+        }
+
+        assertTrue(capturedDeltas.size >= 2)
+        assertTrue(abs(capturedDeltas[0]) > 0f)
+        assertTrue(abs(capturedDeltas[1]) > 0f)
+    }
+
+    @Test
+    fun pinchPointerLiftResetsPanAnchorAndAvoidsSpuriousTranslation() {
+        val overlay = configuredOverlay()
+        renderHash(overlay)
+
+        val lcdCenter = lcdWindowCenter(overlay)
+        val y = lcdCenter.second
+        val pointer0X = lcdCenter.first - 40f
+        val pointer1X = lcdCenter.first + 40f
+        val panSlop = readPrivateField<Float>(overlay, "panTouchSlopPx")
+
+        val capturedPan = mutableListOf<Float>()
+        overlay.onLcdPanListener = { dxNorm, _ ->
+            capturedPan += dxNorm
+        }
+
+        val down = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, pointer0X, y, 0)
+        val pointerDown = obtainMultiTouchEvent(
+            downTime = 0L,
+            eventTime = 8L,
+            actionMasked = MotionEvent.ACTION_POINTER_DOWN,
+            actionIndex = 1,
+            pointers = listOf(
+                PointerSample(id = 0, x = pointer0X, y = y),
+                PointerSample(id = 1, x = pointer1X, y = y),
+            ),
+        )
+        val pointerUp = obtainMultiTouchEvent(
+            downTime = 0L,
+            eventTime = 16L,
+            actionMasked = MotionEvent.ACTION_POINTER_UP,
+            actionIndex = 1,
+            pointers = listOf(
+                PointerSample(id = 0, x = pointer0X, y = y),
+                PointerSample(id = 1, x = pointer1X, y = y),
+            ),
+        )
+        val smallMove = MotionEvent.obtain(
+            0L,
+            24L,
+            MotionEvent.ACTION_MOVE,
+            pointer0X + maxOf(1f, panSlop * 0.25f),
+            y,
+            0,
+        )
+
+        try {
+            assertTrue(overlay.onInterceptTouchEvent(down))
+            assertTrue(overlay.onTouchEvent(down))
+            setPrivateField(overlay, "lcdScalingActive", true)
+            setPrivateField(overlay, "lcdPanStarted", true)
+            assertTrue(overlay.onTouchEvent(pointerDown))
+            assertTrue(overlay.onTouchEvent(pointerUp))
+            assertTrue(overlay.onTouchEvent(smallMove))
+        } finally {
+            down.recycle()
+            pointerDown.recycle()
+            pointerUp.recycle()
+            smallMove.recycle()
+        }
+
+        assertTrue(capturedPan.isEmpty())
+        assertFalse(readPrivateField<Boolean>(overlay, "lcdPanStarted"))
+        assertFalse(readPrivateField<Boolean>(overlay, "lcdScalingActive"))
+        assertEquals(0, readPrivateField<Int>(overlay, "activeLcdPointerId"))
     }
 
     private fun configuredOverlay(): ReplicaOverlay {
@@ -130,6 +331,74 @@ class ReplicaOverlayGoldenTest {
             measure(exactly(1080), exactly(2160))
             layout(0, 0, 1080, 2160)
         }
+    }
+
+    private fun lcdWindowCenter(overlay: ReplicaOverlay): Pair<Float, Float> {
+        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val spec = chromeLayout.currentChromeSpec()
+        val projection = chromeLayout.computeProjection(overlay.width.toFloat(), overlay.height.toFloat())
+        val x = projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth * 0.5f) * projection.scale
+        val y = projection.offsetY + (spec.lcdWindowTop + spec.lcdWindowHeight * 0.5f) * projection.scale
+        return Pair(x, y)
+    }
+
+    private data class PointerSample(
+        val id: Int,
+        val x: Float,
+        val y: Float,
+    )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> readPrivateField(instance: Any, fieldName: String): T {
+        val field = instance.javaClass.getDeclaredField(fieldName)
+        field.isAccessible = true
+        return field.get(instance) as T
+    }
+
+    private fun setPrivateField(instance: Any, fieldName: String, value: Any) {
+        val field = instance.javaClass.getDeclaredField(fieldName)
+        field.isAccessible = true
+        field.set(instance, value)
+    }
+
+    private fun obtainMultiTouchEvent(
+        downTime: Long,
+        eventTime: Long,
+        actionMasked: Int,
+        actionIndex: Int = 0,
+        pointers: List<PointerSample>,
+    ): MotionEvent {
+        val pointerProperties = Array(pointers.size) { index ->
+            MotionEvent.PointerProperties().apply {
+                id = pointers[index].id
+                toolType = MotionEvent.TOOL_TYPE_FINGER
+            }
+        }
+        val pointerCoords = Array(pointers.size) { index ->
+            MotionEvent.PointerCoords().apply {
+                x = pointers[index].x
+                y = pointers[index].y
+                pressure = 1f
+                size = 1f
+            }
+        }
+        val action = actionMasked or (actionIndex shl MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+        return MotionEvent.obtain(
+            downTime,
+            eventTime,
+            action,
+            pointers.size,
+            pointerProperties,
+            pointerCoords,
+            0,
+            0,
+            1f,
+            1f,
+            0,
+            0,
+            0,
+            0,
+        )
     }
 
     private fun settingsStripTapPoint(overlay: ReplicaOverlay): Pair<Float, Float> {

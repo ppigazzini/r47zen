@@ -209,6 +209,15 @@ JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
     JNIEnv *env, jobject thiz, jint keyCode);
 JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_applyGraphPanNative(JNIEnv *env,
+                                                     jobject thiz,
+                                                     jfloat dxNorm,
+                                                     jfloat dyNorm);
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
+                                                            jobject thiz,
+                                                            jfloat scaleFactor);
+JNIEXPORT jboolean JNICALL
 Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
                                                            jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimKeyNative(

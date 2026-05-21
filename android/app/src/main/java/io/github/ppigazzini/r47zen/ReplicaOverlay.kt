@@ -10,10 +10,13 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.util.Log
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -66,6 +69,11 @@ internal object DeveloperPerformanceHudVisualPolicy {
 internal object TouchZoneDebugVisualPolicy {
     const val ZONE_STROKE_WIDTH_DP = 2f
     const val STROKE_ALPHA = 180
+}
+
+internal object GraphTouchVisualPolicy {
+    const val PAN_GAIN = 1.0f
+    const val PINCH_EPSILON = 0.0001f
 }
 
 class ReplicaOverlay @JvmOverloads constructor(
@@ -153,17 +161,30 @@ class ReplicaOverlay @JvmOverloads constructor(
     private var lcdBackgroundColor = 0xFFDFF5CC.toInt()
     private var showDeveloperPerformanceHud = false
     private var showSettingsDiscoveryHint = false
+    private var lcdGraphTouchEnabled = true
     private var developerPerformanceSnapshot = DeveloperPerformanceSnapshot.EMPTY
     private var developerPerformanceLabel = developerPerformanceSnapshot.overlayLabel()
     private var settingsHintLayoutCache: SettingsHintLayoutCache? = null
 
     var onPiPKeyEvent: ((Int) -> Unit)? = null
     var onLongPressListener: ((Float, Float) -> Unit)? = null
+    var onLcdPanListener: ((Float, Float) -> Unit)? = null
+    var onLcdPinchListener: ((Float) -> Unit)? = null
     var onSettingsTapListener: (() -> Unit)? = null
     var onSettingsDiscoveryCompleted: (() -> Unit)? = null
     var onGeometryLaidOut: (() -> Unit)? = null
 
     private val gestureDetector: GestureDetector
+    private val scaleGestureDetector: ScaleGestureDetector
+    private val panTouchSlopPx: Float = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
+    private var lcdGestureActive = false
+    private var lcdPanStarted = false
+    private var lcdScalingActive = false
+    private var activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
+    private var lcdLastTouchX = 0f
+    private var lcdLastTouchY = 0f
+    private var lcdPanStartX = 0f
+    private var lcdPanStartY = 0f
 
     init {
         setBackgroundColor(Color.BLACK)
@@ -181,6 +202,39 @@ class ReplicaOverlay @JvmOverloads constructor(
                 onLongPressListener?.invoke(e.x, e.y)
             }
         })
+
+        scaleGestureDetector = ScaleGestureDetector(
+            context,
+            object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                    val shouldScale =
+                        lcdGraphTouchEnabled && lcdGestureActive && isPointInLcd(detector.focusX, detector.focusY)
+                    lcdScalingActive = shouldScale
+                    if (shouldScale) {
+                        lcdPanStarted = false
+                    }
+                    return shouldScale
+                }
+
+                override fun onScale(detector: ScaleGestureDetector): Boolean {
+                    if (!lcdScalingActive) {
+                        return false
+                    }
+
+                    val scaleFactor = detector.scaleFactor
+                    if (!scaleFactor.isFinite() || abs(scaleFactor - 1f) < GraphTouchVisualPolicy.PINCH_EPSILON) {
+                        return false
+                    }
+
+                    onLcdPinchListener?.invoke(scaleFactor)
+                    return true
+                }
+
+                override fun onScaleEnd(detector: ScaleGestureDetector) {
+                    lcdScalingActive = false
+                }
+            },
+        )
     }
 
     private fun dp(value: Float): Float {
@@ -205,6 +259,15 @@ class ReplicaOverlay @JvmOverloads constructor(
         }
     }
 
+    private fun resetPanAnchor(pointerId: Int, x: Float, y: Float) {
+        activeLcdPointerId = pointerId
+        lcdLastTouchX = x
+        lcdLastTouchY = y
+        lcdPanStartX = x
+        lcdPanStartY = y
+        lcdPanStarted = false
+    }
+
     fun setPiPMode(enabled: Boolean) {
         isPiPMode = enabled
         settingsHintLayoutCache = null
@@ -224,6 +287,17 @@ class ReplicaOverlay @JvmOverloads constructor(
 
         showDeveloperPerformanceHud = show
         invalidate()
+    }
+
+    fun setLcdGraphTouchEnabled(enabled: Boolean) {
+        if (lcdGraphTouchEnabled == enabled) {
+            return
+        }
+
+        lcdGraphTouchEnabled = enabled
+        lcdGestureActive = false
+        lcdScalingActive = false
+        activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
     }
 
     internal fun updateDeveloperPerformanceSnapshot(snapshot: DeveloperPerformanceSnapshot) {
@@ -441,10 +515,37 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (isPiPMode) return false
+        if (!lcdGraphTouchEnabled) {
+            lcdGestureActive = false
+            lcdPanStarted = false
+            lcdScalingActive = false
+            activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
+            return false
+        }
         if (showSettingsDiscoveryHint && ev.actionMasked == MotionEvent.ACTION_DOWN) {
             completeSettingsDiscoveryHint()
         }
         gestureDetector.onTouchEvent(ev)
+
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                lcdGestureActive = isPointInLcd(ev.x, ev.y)
+                lcdPanStarted = false
+                lcdScalingActive = false
+                resetPanAnchor(ev.getPointerId(0), ev.x, ev.y)
+            }
+
+            MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_UP -> {
+                lcdGestureActive = false
+                lcdPanStarted = false
+                lcdScalingActive = false
+                activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
+            }
+        }
+
+        if (lcdGestureActive) {
+            return true
+        }
         return false
     }
 
@@ -461,7 +562,110 @@ class ReplicaOverlay @JvmOverloads constructor(
             return true
         }
 
-        return super.onTouchEvent(event)
+        if (!lcdGraphTouchEnabled) {
+            lcdGestureActive = false
+            lcdPanStarted = false
+            lcdScalingActive = false
+            activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
+            return super.onTouchEvent(event)
+        }
+
+        if (!lcdGestureActive) {
+            return super.onTouchEvent(event)
+        }
+
+        scaleGestureDetector.onTouchEvent(event)
+
+        when (event.actionMasked) {
+            MotionEvent.ACTION_MOVE -> {
+                if (!lcdScalingActive && event.pointerCount == 1) {
+                    val pointerIndex = event.findPointerIndex(activeLcdPointerId)
+                    if (pointerIndex < 0) {
+                        resetPanAnchor(event.getPointerId(0), event.getX(0), event.getY(0))
+                        return true
+                    }
+
+                    val currentX = event.getX(pointerIndex)
+                    val currentY = event.getY(pointerIndex)
+                    val dxPixels = currentX - lcdLastTouchX
+                    val dyPixels = currentY - lcdLastTouchY
+
+                    if (!lcdPanStarted) {
+                        val totalDxPixels = currentX - lcdPanStartX
+                        val totalDyPixels = currentY - lcdPanStartY
+                        if (abs(totalDxPixels) >= panTouchSlopPx || abs(totalDyPixels) >= panTouchSlopPx) {
+                            lcdPanStarted = true
+                        }
+                    }
+
+                    lcdLastTouchX = currentX
+                    lcdLastTouchY = currentY
+
+                    if (lcdPanStarted) {
+                        val lcdWidth = lcdDestRect.width()
+                        val lcdHeight = lcdDestRect.height()
+                        if (lcdWidth > 0f && lcdHeight > 0f) {
+                            onLcdPanListener?.invoke(dxPixels / lcdWidth, dyPixels / lcdHeight)
+                        }
+                    }
+                }
+            }
+
+            MotionEvent.ACTION_POINTER_DOWN,
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
+                    val actionIndex = event.actionIndex
+                    // Transitioning from pinch to one-finger drag needs a fresh pan anchor
+                    // to avoid a jump from stale coordinates.
+                    val remainingPointerCount = event.pointerCount - 1
+                    if (remainingPointerCount == 1) {
+                        lcdScalingActive = false
+                        val remainingPointerIndex = if (actionIndex == 0) 1 else 0
+                        if (remainingPointerIndex < event.pointerCount) {
+                            resetPanAnchor(
+                                event.getPointerId(remainingPointerIndex),
+                                event.getX(remainingPointerIndex),
+                                event.getY(remainingPointerIndex),
+                            )
+                        } else {
+                            activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
+                            lcdPanStarted = false
+                        }
+                    } else if (event.getPointerId(actionIndex) == activeLcdPointerId) {
+                        val newPointerIndex = if (actionIndex == 0) 1 else 0
+                        if (newPointerIndex < event.pointerCount) {
+                            resetPanAnchor(
+                                event.getPointerId(newPointerIndex),
+                                event.getX(newPointerIndex),
+                                event.getY(newPointerIndex),
+                            )
+                        } else {
+                            activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
+                            lcdPanStarted = false
+                        }
+                    }
+                } else if (activeLcdPointerId == MotionEvent.INVALID_POINTER_ID) {
+                    val actionIndex = event.actionIndex
+                    resetPanAnchor(
+                        event.getPointerId(actionIndex),
+                        event.getX(actionIndex),
+                        event.getY(actionIndex),
+                    )
+                } else {
+                    lcdPanStarted = false
+                }
+            }
+
+            MotionEvent.ACTION_CANCEL,
+            MotionEvent.ACTION_UP -> {
+                lcdGestureActive = false
+                lcdPanStarted = false
+                lcdScalingActive = false
+                activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
+            }
+        }
+
+        return true
     }
 
     class LayoutParams(
@@ -649,6 +853,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         canvas.drawBitmap(lcdBitmap, lcdRect, lcdDestRect, paint)
 
         if (showTouchZones) {
+            canvas.drawRect(lcdDestRect, zonePaint)
+
             for (i in 0 until childCount) {
                 val child = getChildAt(i)
                 val lp = child.layoutParams as? LayoutParams ?: continue

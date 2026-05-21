@@ -46,6 +46,8 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_fullscreen_mode_summary" translatable="false">Hide the Android status and navigation bars.</string>
     <string name="settings_lcd_theme_title" translatable="false">LCD Color Theme</string>
     <string name="settings_lcd_negative_title" translatable="false">Negative LCD</string>
+    <string name="settings_lcd_graph_touch_title" translatable="false">LCD Graph Touch</string>
+    <string name="settings_lcd_graph_touch_summary" translatable="false">Drag and pinch gestures on graph screens.</string>
     <string name="settings_interaction_category_title" translatable="false">Interaction</string>
     <string name="settings_haptic_enabled_title" translatable="false">Haptic feedback</string>
     <string name="settings_haptic_use_android_default_title" translatable="false">Use system duration</string>

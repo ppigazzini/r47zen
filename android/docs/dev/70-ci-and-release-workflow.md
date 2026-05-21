@@ -194,6 +194,12 @@ contracts:
   synthetic `00` resumes while paused and a `90 s` hosted-emulator budget for
   that heavier probe
 
+The JVM segment of this lane also keeps graph-touch gating regression coverage
+in the same run through `ReplicaOverlayGoldenTest` and
+`MainActivityPreferenceControllerTest`, including settings-gate behavior,
+multi-touch pointer continuity, graph-touch preference dispatch, and the
+widened queue-clamp zoom configuration shipped by `MainActivity`.
+
 Use this lane when the task touches SAF, lifecycle, activity behavior,
 instrumentation fixtures, or Android-only test seams.
 

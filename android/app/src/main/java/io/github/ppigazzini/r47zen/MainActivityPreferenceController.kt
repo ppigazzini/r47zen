@@ -11,6 +11,7 @@ internal class MainActivityPreferenceController(
     private val windowModeController: WindowModeController,
     private val syncAudioSettings: (Boolean, Int) -> Unit,
     private val applyLcdTheme: (String, Int, Boolean) -> Unit,
+    private val applyLcdGraphTouchEnabled: (Boolean) -> Unit,
     private val applyShowTouchZones: (Boolean) -> Unit,
     private val applyShowDeveloperPerformanceHud: (Boolean) -> Unit,
     private val applyKeypadLabelModes: (MainKeyDynamicMode, SoftkeyDynamicMode) -> Unit,
@@ -22,6 +23,7 @@ internal class MainActivityPreferenceController(
         const val DEFAULT_LCD_NEGATIVE = false
         const val DEFAULT_LCD_THEME = DEFAULT_LCD_THEME_STORAGE_VALUE
         const val DEFAULT_LCD_LUMINANCE = 100
+        const val DEFAULT_LCD_GRAPH_TOUCH_ENABLED = true
         val DEFAULT_MAIN_KEY_DYNAMIC_MODE = MainKeyDynamicMode.DEFAULT
         const val MIN_LCD_LUMINANCE = 20
         const val MAX_LCD_LUMINANCE = 120
@@ -31,6 +33,7 @@ internal class MainActivityPreferenceController(
         private const val KEY_BEEPER_VOLUME = "beeper_volume"
         private const val KEY_FULLSCREEN_MODE = "fullscreen_mode"
         private const val KEY_LCD_NEGATIVE = "lcd_negative"
+        private const val KEY_LCD_GRAPH_TOUCH_ENABLED = "lcd_graph_touch_enabled"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_LCD_THEME = "lcd_theme"
         private const val KEY_LCD_LUMINANCE = "lcd_luminance"
@@ -56,6 +59,9 @@ internal class MainActivityPreferenceController(
     var isLcdNegative = DEFAULT_LCD_NEGATIVE
         private set
 
+    var isLcdGraphTouchEnabled = DEFAULT_LCD_GRAPH_TOUCH_ENABLED
+        private set
+
     var mainKeyDynamicMode = DEFAULT_MAIN_KEY_DYNAMIC_MODE
         private set
 
@@ -76,6 +82,7 @@ internal class MainActivityPreferenceController(
         lcdTheme = readNormalizedLcdTheme()
         lcdLuminance = readNormalizedLcdLuminance()
         isLcdNegative = preferences.getBoolean(KEY_LCD_NEGATIVE, DEFAULT_LCD_NEGATIVE)
+        isLcdGraphTouchEnabled = preferences.getBoolean(KEY_LCD_GRAPH_TOUCH_ENABLED, DEFAULT_LCD_GRAPH_TOUCH_ENABLED)
         mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
         showDeveloperPerformanceHud =
             preferences.getBoolean(KEY_SHOW_DEVELOPER_PERFORMANCE_HUD, false)
@@ -92,6 +99,7 @@ internal class MainActivityPreferenceController(
         applyShowTouchZones(showTouchZones)
         applyShowDeveloperPerformanceHud(showDeveloperPerformanceHud)
         applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
+        applyLcdGraphTouchEnabled(isLcdGraphTouchEnabled)
     }
 
     fun onPreferenceChanged(key: String): Boolean {
@@ -124,6 +132,10 @@ internal class MainActivityPreferenceController(
             KEY_LCD_NEGATIVE -> {
                 isLcdNegative = preferences.getBoolean(key, DEFAULT_LCD_NEGATIVE)
                 applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
+            }
+            KEY_LCD_GRAPH_TOUCH_ENABLED -> {
+                isLcdGraphTouchEnabled = preferences.getBoolean(key, DEFAULT_LCD_GRAPH_TOUCH_ENABLED)
+                applyLcdGraphTouchEnabled(isLcdGraphTouchEnabled)
             }
             KEY_MAIN_KEY_DYNAMIC_MODE -> {
                 mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()

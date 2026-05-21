@@ -92,6 +92,13 @@ The registered native surface includes:
 - activity reattachment and final runtime release
 - native pre-init, init, and tick
 - key, menu, and function dispatch, plus direct live-program stop publication
+- LCD graph-touch dispatch for drag-pan and pinch-zoom, gated to the proven
+  graph-active path (`CM_GRAPH` with menus `-MNU_PLOT_FUNC` and
+  `-MNU_GRAPHS`) and defined as a no-op outside supported graph screens
+- native-owned graph-touch sensitivity calibration for pan and pinch, with
+  Kotlin forwarding raw normalized deltas and scale factors, plus one
+  coalescing safety clamp for queued pinch factors (`0.4f..2.5f`) before
+  native apply
 - state save, load, and force refresh
 - packed LCD generation reads and packed LCD transfer
 - keypad snapshot generation reads and whole-snapshot copy, plus the legacy
@@ -123,6 +130,10 @@ Development rule:
 - Use `jni_acquire_env(...)`, `jni_release_env(...)`, and
   `jni_check_and_clear_exception(...)` for native-owned JVM work instead of
   duplicating attach, detach, and exception logic at each call site.
+- Keep graph-touch sensitivity in one layer. If touch feel must change,
+  update native calibration constants in `jni_input.c`; keep Kotlin gesture
+  forwarding linear except for the coalescing safety clamp used by
+  `MainActivity` queue flush.
 
 That alignment rule is the main Android-owned seam. The upstream core remains
 the source of calculator behavior, while the bridge owns registration,
