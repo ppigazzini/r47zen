@@ -177,7 +177,7 @@ contracts:
 - `ProgramFixtureInstrumentedTest` plus
   `scripts/android/run_connected_android_tests.sh` for the READP load-and-run
   matrix over `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47`. The wrapper batches the four non-fixture Android
+  `SPIRALk.p47`. The wrapper batches the five non-fixture Android
   instrumentation classes into one filtered connected-test selection, while
   each `.p47` file still runs as its own filtered
   `connectedDebugAndroidTest` selection. Non-`MANSLV2` fixture timeouts still
@@ -193,6 +193,9 @@ contracts:
   keep or converge to the correct visible packed LCD snapshot, with retrying
   synthetic `00` resumes while paused and a `90 s` hosted-emulator budget for
   that heavier probe
+- `GraphTouchStressInstrumentedTest` for the native graph-touch hardening seam,
+  proving that repeated extreme pan and pinch inputs never commit non-finite or
+  out-of-range graph bounds through the instrumentation bridge
 
 The JVM segment of this lane also keeps graph-touch gating regression coverage
 in the same run through `ReplicaOverlayGoldenTest` and

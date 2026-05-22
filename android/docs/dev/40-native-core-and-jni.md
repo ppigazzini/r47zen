@@ -99,6 +99,9 @@ The registered native surface includes:
   Kotlin forwarding raw normalized deltas and scale factors, plus one
   coalescing safety clamp for queued pinch factors (`0.4f..2.5f`) before
   native apply
+- transactional graph-bounds commit checks for pan and pinch so candidate
+  bounds must remain finite and inside the shared-core-compatible
+  `+/-1.0e38f` domain before state is written
 - state save, load, and force refresh
 - packed LCD generation reads and packed LCD transfer
 - keypad snapshot generation reads and whole-snapshot copy, plus the legacy
@@ -208,15 +211,15 @@ supports that model by keeping shared synchronization in native code:
   maintained full-lane owner of that collector plus consumer sequence is now
   `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
 - `jni_program_load_test.c` exposes the instrumentation-only bridge used by
-  both `ProgramFixtureInstrumentedTest` and
-  `DisplayLifecycleInstrumentedTest`. It provides READP or RUN worker control,
+  `ProgramFixtureInstrumentedTest`, `DisplayLifecycleInstrumentedTest`, and
+  `GraphTouchStressInstrumentedTest`. It provides READP or RUN worker control,
   explicit refresh and background-save helpers, LCD refresh count, a
   packed-LCD snapshot hash, the synthetic `00` key path used to resume staged
-  `SPIRALk` runs, and the direct-stop publisher plus explicit refresh helper
+  `SPIRALk` runs, the direct-stop publisher plus explicit refresh helper
   reused by the per-fixture `ProgramFixtureInstrumentedTest` methods and
-  `DisplayLifecycleInstrumentedTest` to prove the required `MANSLV2`
-  bounded-stop regression and first-stop LCD cleanup through the same native
-  seams as live `R/S`, `EXIT`, and `forceRefreshNative()`.
+  `DisplayLifecycleInstrumentedTest`, and an extreme graph-touch stress helper
+  that repeatedly applies very large pan and pinch deltas while asserting no
+  non-finite or out-of-range graph bounds are ever committed.
 - The lifecycle snapshot helper hashes only visible packed LCD bytes. It does
   not hash the row-dirty transport flag that `getPackedDisplayBuffer(...)`
   clears after each successful UI poll.

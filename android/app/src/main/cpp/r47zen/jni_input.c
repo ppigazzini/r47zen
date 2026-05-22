@@ -16,6 +16,7 @@ static int currentPressedKeyCode = 0;
 static const float r47_graph_pan_gain = 1.00f;
 static const float r47_graph_zoom_gain = 1.00f;
 static const float r47_graph_scale_epsilon = 0.0001f;
+static const float r47_graph_bounds_limit = 1.0e38f;
 
 extern void fnEqSolvGraph(uint16_t func);
 extern int8_t PLOT_ZMY;
@@ -81,14 +82,24 @@ static bool r47_apply_graph_pan_locked(float dxNorm, float dyNorm) {
     return false;
   }
 
-  x_min += shiftX;
-  x_max += shiftX;
-  y_min += shiftY;
-  y_max += shiftY;
-  if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
-      !isfinite(y_max)) {
+  const float nextXMin = x_min + shiftX;
+  const float nextXMax = x_max + shiftX;
+  const float nextYMin = y_min + shiftY;
+  const float nextYMax = y_max + shiftY;
+
+  if (!isfinite(nextXMin) || !isfinite(nextXMax) || !isfinite(nextYMin) ||
+      !isfinite(nextYMax) || nextXMin <= -r47_graph_bounds_limit ||
+      nextXMin >= r47_graph_bounds_limit || nextXMax <= -r47_graph_bounds_limit ||
+      nextXMax >= r47_graph_bounds_limit || nextYMin <= -r47_graph_bounds_limit ||
+      nextYMin >= r47_graph_bounds_limit || nextYMax <= -r47_graph_bounds_limit ||
+      nextYMax >= r47_graph_bounds_limit) {
     return false;
   }
+
+  x_min = nextXMin;
+  x_max = nextXMax;
+  y_min = nextYMin;
+  y_max = nextYMax;
 
   r47_sync_graph_bounds_reserved_vars_locked();
   r47_draw_graph_from_lu_locked();
@@ -127,18 +138,84 @@ static bool r47_apply_graph_pinch_zoom_locked(float scaleFactor) {
     return false;
   }
 
-  x_min = centerX - 0.5f * newSpanX;
-  x_max = centerX + 0.5f * newSpanX;
-  y_min = centerY - 0.5f * newSpanY;
-  y_max = centerY + 0.5f * newSpanY;
-  if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
-      !isfinite(y_max)) {
+  const float nextXMin = centerX - 0.5f * newSpanX;
+  const float nextXMax = centerX + 0.5f * newSpanX;
+  const float nextYMin = centerY - 0.5f * newSpanY;
+  const float nextYMax = centerY + 0.5f * newSpanY;
+
+  if (!isfinite(nextXMin) || !isfinite(nextXMax) || !isfinite(nextYMin) ||
+      !isfinite(nextYMax) || nextXMin <= -r47_graph_bounds_limit ||
+      nextXMin >= r47_graph_bounds_limit || nextXMax <= -r47_graph_bounds_limit ||
+      nextXMax >= r47_graph_bounds_limit || nextYMin <= -r47_graph_bounds_limit ||
+      nextYMin >= r47_graph_bounds_limit || nextYMax <= -r47_graph_bounds_limit ||
+      nextYMax >= r47_graph_bounds_limit) {
     return false;
   }
+
+  x_min = nextXMin;
+  x_max = nextXMax;
+  y_min = nextYMin;
+  y_max = nextYMax;
 
   r47_sync_graph_bounds_reserved_vars_locked();
   r47_draw_graph_from_lu_locked();
   return true;
+}
+
+bool r47_graph_touch_no_nan_stress_locked(int iterations) {
+  if (!ram || iterations <= 0) {
+    return false;
+  }
+
+  const float savedXMin = x_min;
+  const float savedXMax = x_max;
+  const float savedYMin = y_min;
+  const float savedYMax = y_max;
+  const int8_t savedCalcMode = calcMode;
+  const int16_t savedMenu = currentMenu();
+
+  if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
+      !isfinite(y_max) || fabsf(x_max - x_min) < 1.0e-6f ||
+      fabsf(y_max - y_min) < 1.0e-6f) {
+    x_min = -10.0f;
+    x_max = 10.0f;
+    y_min = -10.0f;
+    y_max = 10.0f;
+  }
+
+  extern void showSoftmenu(int16_t id);
+  calcMode = CM_GRAPH;
+  showSoftmenu(-MNU_PLOT_FUNC);
+
+  bool ok = true;
+  for (int i = 0; i < iterations; i++) {
+    const float extremePan = (i & 1) == 0 ? 1.0e20f : -1.0e20f;
+    const float extremeScale = (i & 1) == 0 ? 1.0e20f : 1.0e-20f;
+
+    (void)r47_apply_graph_pan_locked(extremePan, -extremePan);
+    (void)r47_apply_graph_pinch_zoom_locked(extremeScale);
+
+    if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
+        !isfinite(y_max) || x_min <= -r47_graph_bounds_limit ||
+        x_min >= r47_graph_bounds_limit || x_max <= -r47_graph_bounds_limit ||
+        x_max >= r47_graph_bounds_limit || y_min <= -r47_graph_bounds_limit ||
+        y_min >= r47_graph_bounds_limit || y_max <= -r47_graph_bounds_limit ||
+        y_max >= r47_graph_bounds_limit) {
+      ok = false;
+      break;
+    }
+  }
+
+  x_min = savedXMin;
+  x_max = savedXMax;
+  y_min = savedYMin;
+  y_max = savedYMax;
+  calcMode = savedCalcMode;
+  if (savedMenu < 0) {
+    showSoftmenu(savedMenu);
+  }
+
+  return ok;
 }
 
 void r47_send_sim_function(int funcId) {

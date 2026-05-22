@@ -250,6 +250,27 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isRedrawFlagSetForTestNat
   return enabled;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_runExtremeGraphTouchStressNative(
+    JNIEnv *env, jobject thiz, jint iterations) {
+  (void)env;
+  (void)thiz;
+
+  if (!ram) {
+    return JNI_FALSE;
+  }
+
+  int loops = (int)iterations;
+  if (loops <= 0) {
+    loops = 1;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  bool ok = r47_graph_touch_no_nan_stress_locked(loops);
+  pthread_mutex_unlock(&screenMutex);
+  return ok ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_resetRuntimeNative(
     JNIEnv *env, jobject thiz) {

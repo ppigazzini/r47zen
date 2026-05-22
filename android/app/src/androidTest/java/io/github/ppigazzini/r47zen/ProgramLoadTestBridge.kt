@@ -39,6 +39,9 @@ object ProgramLoadTestBridge {
 
     fun isRedrawFlagSetForTest(): Boolean = isRedrawFlagSetForTestNative()
 
+    fun runExtremeGraphTouchStress(iterations: Int = 512): Boolean =
+        runExtremeGraphTouchStressNative(iterations)
+
     fun resetRuntime() {
         resetRuntimeNative()
     }
@@ -105,6 +108,7 @@ object ProgramLoadTestBridge {
     private external fun captureDisplayHashNative(): Long
     private external fun setRedrawFlagForTestNative(enabled: Boolean)
     private external fun isRedrawFlagSetForTestNative(): Boolean
+    private external fun runExtremeGraphTouchStressNative(iterations: Int): Boolean
     private external fun resetRuntimeNative()
     private external fun sendSimFunctionNative(funcId: Int)
     private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)

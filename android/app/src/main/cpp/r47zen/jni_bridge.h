@@ -185,6 +185,7 @@ uint32_t sys_current_ms(void);
 void processCoreTasksNative(void);
 void r47_request_stop_refresh(void);
 bool r47_apply_pending_stop_refresh_locked(void);
+bool r47_graph_touch_no_nan_stress_locked(int iterations);
 void yieldToAndroidWithMs(int ms);
 void yieldToAndroid(void);
 int requestAndroidFile(int isSave, const char *defaultName, int fileType);
