@@ -117,7 +117,11 @@ internal class ReplicaOverlayController(
     }
 
     fun refreshDynamicKeys(snapshot: KeypadSnapshot? = null, forceApply: Boolean = false) {
-        val resolvedSnapshot = snapshot ?: currentKeypadSnapshot()
+        val resolvedSnapshot = if (snapshot == null) {
+            currentKeypadSnapshot()
+        } else {
+            snapshot.applySoftkeyDynamicMode(softkeyDynamicMode)
+        }
         if (!forceApply && !refreshGate.shouldApply(resolvedSnapshot)) {
             return
         }

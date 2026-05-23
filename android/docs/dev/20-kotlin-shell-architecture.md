@@ -110,7 +110,9 @@ Main flow:
 6. `ReplicaOverlayController.currentKeypadSnapshot()` resolves that cached
   `KeypadSnapshot`, applies any `user` or `virtuoso` keypad composition plus
   the softkey graphic or static mask, and `ReplicaKeypadLayout` applies scene
-  changes after a real layout boundary.
+  changes after a real layout boundary. Runtime-provided non-null snapshots
+  from `NativeDisplayRefreshLoop` also pass through the same softkey-mode mask
+  normalization before scene apply.
 
 The performance snapshot stays Android-local. `NativeCoreRuntime` forwards it
 through `MainActivity`, `MainActivityPreferenceController` owns the

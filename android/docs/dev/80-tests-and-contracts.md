@@ -186,7 +186,9 @@ Important contract files include:
   contract that still keeps printed main-key legends, the Virtuoso blank-keycap
   composition, and the Kotlin-side softkey `graphic` and `off` scene masks,
   including the requirement that those masks keep enabled blank capsules
-  distinct from native empty-slot scenes
+  distinct from native empty-slot scenes, plus runtime non-null snapshot
+  refresh normalization so selected softkey mode does not regress back to
+  dynamic full labels
 - `PhysicalKeyboardInputParityTest.kt`: locks printable, function-key,
   shortcut, and modifier-tap mapping behavior
 - `NativeCoreRuntimeTest.kt`: locks single-init, queued-task,

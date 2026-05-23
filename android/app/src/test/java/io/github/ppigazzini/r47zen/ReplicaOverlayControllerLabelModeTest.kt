@@ -195,6 +195,29 @@ class ReplicaOverlayControllerLabelModeTest {
     }
 
     @Test
+    fun runtimeRefreshSnapshotKeepsSelectedSoftkeyMode() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val overlay = ReplicaOverlay(context)
+        val labels = emptyLabels().apply {
+            this[labelIndex(38, KeypadSceneContract.LABEL_PRIMARY)] = "FILE"
+            this[labelIndex(38, KeypadSceneContract.LABEL_AUX)] = "LOAD"
+        }
+        val runtimeSnapshot = KeypadSnapshot.fromNative(graphicSoftkeyMeta(), labels)
+        val controller = createController(
+            overlay = overlay,
+            getSnapshot = { runtimeSnapshot },
+            runtimeReady = true,
+        )
+
+        controller.bindOverlay()
+        controller.applyKeypadLabelModes(MainKeyDynamicMode.ON, SoftkeyDynamicMode.OFF)
+        controller.refreshDynamicKeys(snapshot = runtimeSnapshot)
+
+        val softkeyView = requireNotNull(findKeyView(overlay, 38))
+        assertEquals("", softkeyView.contentDescription.toString())
+    }
+
+    @Test
     fun virtuosoModeKeepsStaticKeycapsAndBlanksRenderedKeyContent() {
         val mainKeyCode = 12
         val labels = emptyLabels().apply {
@@ -260,21 +283,33 @@ class ReplicaOverlayControllerLabelModeTest {
     }
 
     private fun createController(
+        overlay: ReplicaOverlay = ReplicaOverlay(ApplicationProvider.getApplicationContext()),
         getMeta: (Int) -> IntArray = { baseMeta() },
         getLabels: (Int) -> Array<String> = { emptyLabels() },
         getSnapshot: ((Int) -> KeypadSnapshot?)? = null,
+        runtimeReady: Boolean = false,
     ): ReplicaOverlayController {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         return ReplicaOverlayController(
             context = context,
-            overlay = ReplicaOverlay(context),
+            overlay = overlay,
             performHapticClick = { _ -> },
             dispatchLiveKey = {},
             getKeypadSnapshot = getSnapshot ?: { mode ->
                 KeypadSnapshot.fromNative(getMeta(mode), getLabels(mode))
             },
-            isRuntimeReady = { false },
+            isRuntimeReady = { runtimeReady },
         )
+    }
+
+    private fun findKeyView(overlay: ReplicaOverlay, code: Int): CalculatorKeyView? {
+        for (index in 0 until overlay.childCount) {
+            val child = overlay.getChildAt(index)
+            if (child is CalculatorKeyView && child.keyCode == code) {
+                return child
+            }
+        }
+        return null
     }
 
     private fun baseMeta(userModeEnabled: Boolean = false): IntArray {
