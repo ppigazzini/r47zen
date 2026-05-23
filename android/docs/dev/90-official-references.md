@@ -116,6 +116,30 @@ flowchart TD
 - [Kotlin language documentation](https://kotlinlang.org/docs/home.html):
   language-level reference.
 
+## Launcher icon pipeline
+
+- [AdaptiveIconDrawable reference](https://developer.android.com/reference/android/graphics/drawable/AdaptiveIconDrawable):
+  authoritative Android runtime model for adaptive icon foreground/background
+  layers and mask behavior.
+- [Splash screen guidance](https://developer.android.com/develop/ui/views/launch/splash-screen):
+  launcher icon interaction with splash-screen surfaces on modern Android.
+- [Google Play icon design specifications](https://developer.android.com/distribute/google-play/resources/icon-design-specifications):
+  Play listing icon requirements (512x512 PNG) which are separate from runtime
+  launcher resources.
+
+Current repository icon surfaces:
+
+- Canonical SVG source artifact:
+  `android/app/src/main/assets/icons/r47zen.svg`
+- Adaptive icon XML:
+  `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` and
+  `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml`
+- Runtime vectors and fallbacks:
+  `android/app/src/main/res/drawable/ic_launcher_foreground.xml`,
+  `android/app/src/main/res/drawable/ic_launcher_legacy.xml`,
+  `android/app/src/main/res/mipmap/ic_launcher.xml`, and
+  `android/app/src/main/res/mipmap/ic_launcher_round.xml`
+
 ## Native and build integration
 
 - [Configure your app module](https://developer.android.com/build/configure-app-module):
