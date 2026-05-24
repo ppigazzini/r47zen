@@ -12,6 +12,14 @@ internal class PhysicalKeyboardInputController(
     private var interceptedWhileHeld = false
     private val activeKeyIdMap = mutableMapOf<Int, PhysicalKeyboardAction>()
 
+    fun onKeyEvent(event: KeyEvent): Boolean {
+        return when (event.action) {
+            KeyEvent.ACTION_DOWN -> onKeyDown(event.keyCode, event)
+            KeyEvent.ACTION_UP -> onKeyUp(event.keyCode)
+            else -> false
+        }
+    }
+
     fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
             return false

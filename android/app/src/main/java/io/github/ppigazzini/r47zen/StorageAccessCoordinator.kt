@@ -190,10 +190,6 @@ internal class StorageAccessCoordinator(
         return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
-            putExtra(
-                Intent.EXTRA_MIME_TYPES,
-                arrayOf("application/octet-stream", "text/plain"),
-            )
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && initialUri != null) {
                 putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri)
             }

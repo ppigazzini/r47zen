@@ -3,7 +3,6 @@ package io.github.ppigazzini.r47zen
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -86,10 +85,7 @@ class StorageAccessCoordinatorTest {
         assertEquals(1, capturedFileType)
         assertEquals(Intent.ACTION_OPEN_DOCUMENT, intent.action)
         assertEquals("*/*", intent.type)
-        assertArrayEquals(
-            arrayOf("application/octet-stream", "text/plain"),
-            intent.getStringArrayExtra(Intent.EXTRA_MIME_TYPES),
-        )
+        assertNull(intent.getStringArrayExtra(Intent.EXTRA_MIME_TYPES))
         assertEquals(
             resolvedUri,
             intent.getParcelableExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, Uri::class.java),

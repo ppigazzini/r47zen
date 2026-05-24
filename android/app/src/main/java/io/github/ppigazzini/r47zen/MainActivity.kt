@@ -88,6 +88,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         preferenceController.onPreferenceChanged(key)
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (physicalKeyboardInputController.onKeyEvent(event)) {
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (physicalKeyboardInputController.onKeyDown(keyCode, event)) {
             return true

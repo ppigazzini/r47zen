@@ -2,6 +2,7 @@ package io.github.ppigazzini.r47zen
 
 import android.view.KeyEvent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -181,6 +182,44 @@ class PhysicalKeyboardInputParityTest {
         )
     }
 
+    @Test
+    fun keyEventEntryPointDispatchesDownAndUpActions() {
+        val sentActions = mutableListOf<String>()
+        val controller = PhysicalKeyboardInputController(
+            offerCoreTask = { runnable -> runnable.run() },
+            sendSimKeyNative = { id, isFunctionKey, isRelease ->
+                sentActions += "${id}:${isFunctionKey}:${isRelease}"
+            },
+            sendSimMenuNative = { _ -> },
+        )
+
+        assertTrue(controller.onKeyEvent(keyEvent(KeyEvent.KEYCODE_0, action = KeyEvent.ACTION_DOWN)))
+        assertTrue(controller.onKeyEvent(keyEvent(KeyEvent.KEYCODE_0, action = KeyEvent.ACTION_UP)))
+        assertEquals(
+            listOf("33:false:false", "33:false:true"),
+            sentActions,
+        )
+    }
+
+    @Test
+    fun keyEventEntryPointIgnoresUnsupportedActions() {
+        val controller = PhysicalKeyboardInputController(
+            offerCoreTask = { runnable -> runnable.run() },
+            sendSimKeyNative = { _, _, _ -> },
+            sendSimMenuNative = { _ -> },
+        )
+
+        assertFalse(
+            controller.onKeyEvent(
+                keyEvent(
+                    keyCode = KeyEvent.KEYCODE_A,
+                    action = 99,
+                    repeatCount = 1,
+                ),
+            ),
+        )
+    }
+
     private fun dispatchShortcut(id: PhysicalKeyboardShortcutId, expectedOperations: Int): List<String> {
         val operations = Collections.synchronizedList(mutableListOf<String>())
         val latch = CountDownLatch(expectedOperations)
@@ -203,8 +242,13 @@ class PhysicalKeyboardInputParityTest {
         return operations.toList()
     }
 
-    private fun keyEvent(keyCode: Int, metaState: Int = 0): KeyEvent {
-        return KeyEvent(0L, 0L, KeyEvent.ACTION_DOWN, keyCode, 0, metaState)
+    private fun keyEvent(
+        keyCode: Int,
+        metaState: Int = 0,
+        action: Int = KeyEvent.ACTION_DOWN,
+        repeatCount: Int = 0,
+    ): KeyEvent {
+        return KeyEvent(0L, 0L, action, keyCode, repeatCount, metaState)
     }
 
     private fun assertShortcut(action: PhysicalKeyboardAction?, expectedId: PhysicalKeyboardShortcutId) {
