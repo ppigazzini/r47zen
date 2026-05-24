@@ -218,6 +218,48 @@ class ReplicaOverlayControllerLabelModeTest {
     }
 
     @Test
+    fun runtimeRefreshSnapshotKeepsSelectedVirtuosoMode() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val overlay = ReplicaOverlay(context)
+        val mainKeyCode = 12
+        val labels = emptyLabels().apply {
+            this[labelIndex(mainKeyCode, KeypadSceneContract.LABEL_PRIMARY)] = "7"
+            this[labelIndex(mainKeyCode, KeypadSceneContract.LABEL_F)] = "LASTx"
+            this[labelIndex(mainKeyCode, KeypadSceneContract.LABEL_G)] = "STK"
+            this[labelIndex(mainKeyCode, KeypadSceneContract.LABEL_LETTER)] = "A"
+            this[labelIndex(38, KeypadSceneContract.LABEL_PRIMARY)] = "FILE"
+            this[labelIndex(38, KeypadSceneContract.LABEL_AUX)] = "LOAD"
+        }
+        val runtimeSnapshot = KeypadSnapshot.fromNative(
+            graphicSoftkeyMeta().apply {
+                this[META_KEY_ENABLED_OFFSET + mainKeyCode - 1] = 1
+                this[META_STYLE_ROLE_OFFSET + mainKeyCode - 1] = KeypadSceneContract.STYLE_SHIFT_F
+                this[META_LABEL_ROLE_OFFSET + mainKeyCode - 1] =
+                    packLabelRole(KeypadSceneContract.LABEL_PRIMARY, KeypadSceneContract.TEXT_ROLE_PRIMARY) or
+                        packLabelRole(KeypadSceneContract.LABEL_F, KeypadSceneContract.TEXT_ROLE_F) or
+                        packLabelRole(KeypadSceneContract.LABEL_G, KeypadSceneContract.TEXT_ROLE_G) or
+                        packLabelRole(KeypadSceneContract.LABEL_LETTER, KeypadSceneContract.TEXT_ROLE_LETTER)
+            },
+            labels,
+        )
+        val controller = createController(
+            overlay = overlay,
+            getSnapshot = { runtimeSnapshot },
+            runtimeReady = true,
+        )
+
+        controller.bindOverlay()
+        controller.applyKeypadLabelModes(MainKeyDynamicMode.VIRTUOSO, SoftkeyDynamicMode.ON)
+        controller.refreshDynamicKeys(snapshot = runtimeSnapshot)
+
+        val mainKeyView = requireNotNull(findKeyView(overlay, mainKeyCode))
+        val softkeyView = requireNotNull(findKeyView(overlay, 38))
+
+        assertEquals("", mainKeyView.contentDescription.toString())
+        assertEquals("", softkeyView.contentDescription.toString())
+    }
+
+    @Test
     fun virtuosoModeKeepsStaticKeycapsAndBlanksRenderedKeyContent() {
         val mainKeyCode = 12
         val labels = emptyLabels().apply {
