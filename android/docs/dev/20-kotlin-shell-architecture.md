@@ -271,8 +271,8 @@ while matching the desktop simulator's stop-key parity during an active run.
   `MainActivityPreferenceController.kt` reads and dispatches it directly to
   `ReplicaOverlay.kt`, while `NativeDisplayRefreshLoop.kt` supplies the sampled
   `DeveloperPerformanceSnapshot` label data used by the overlay. The fixed
-  settings copy now names those fields as app fps, LCD updates per second, and
-  LCD buffer copy ms
+  settings copy now names those fields as app fps, LCD updates per second, LCD
+  buffer copy ms, and `DR%` (average dirty-row percentage)
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`
   now uses press-only keypad haptics for calculator interaction. `ACTION_DOWN`
   uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` and

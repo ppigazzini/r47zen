@@ -198,7 +198,7 @@ class SettingsPreferenceSummaryTest {
             preference.title?.toString(),
         )
         assertEquals(
-            "App fps, LCD updates per second, and LCD buffer copy ms.",
+            "App fps, LCD updates per second, LCD buffer copy ms, and Dirty Rows %.",
             preference.summary?.toString(),
         )
     }

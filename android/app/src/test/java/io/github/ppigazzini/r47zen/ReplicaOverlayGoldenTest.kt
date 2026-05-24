@@ -2,6 +2,7 @@ package io.github.ppigazzini.r47zen
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Rect
 import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
@@ -14,6 +15,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
+import kotlin.math.ceil
 import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
@@ -59,6 +61,116 @@ class ReplicaOverlayGoldenTest {
         }
 
         assertEquals(renderHash(expectedOverlay), renderHash(overlay))
+    }
+
+    @Test
+    fun packedLcd_singleDirtyRow_invalidatesOnlyTouchedRowSpan() {
+        val overlay = configuredOverlay()
+        val touchedRow = 137
+        val packedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(packedBuffer, x = 64, y = touchedRow)
+
+        assertTrue(overlay.updatePackedLcd(packedBuffer))
+
+        val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
+        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val spec = chromeLayout.currentChromeSpec()
+        val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
+        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
+        val lcdHeight = spec.lcdWindowHeight * projection.scale
+        val expectedTop = (lcdTop + lcdHeight * (touchedRow.toFloat() / R47LcdContract.PIXEL_HEIGHT.toFloat())).toInt()
+        val expectedBottom = ceil(
+            lcdTop + lcdHeight * ((touchedRow + 1).toFloat() / R47LcdContract.PIXEL_HEIGHT.toFloat())
+        ).toInt()
+        val expectedLeft = (projection.offsetX + spec.lcdWindowLeft * projection.scale).toInt()
+        val expectedRight = (
+            projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth) * projection.scale
+        ).toInt()
+
+        assertEquals(expectedLeft, dirtyRect.left)
+        assertTrue(dirtyRect.top <= expectedTop)
+        assertTrue(dirtyRect.top >= expectedTop - 1)
+        assertEquals(expectedRight, dirtyRect.right)
+        assertTrue(dirtyRect.bottom >= expectedBottom)
+        assertTrue(dirtyRect.bottom <= expectedBottom + 1)
+    }
+
+    @Test
+    fun packedLcd_singleDirtyRow_doesNotInvalidateFullLcdHeight() {
+        val overlay = configuredOverlay()
+        val touchedRow = 11
+        val packedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(packedBuffer, x = 8, y = touchedRow)
+
+        assertTrue(overlay.updatePackedLcd(packedBuffer))
+
+        val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
+        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val spec = chromeLayout.currentChromeSpec()
+        val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
+        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
+        val lcdBottom = projection.offsetY + (spec.lcdWindowTop + spec.lcdWindowHeight) * projection.scale
+        val fullLcdHeight = ceil(lcdBottom).toInt() - lcdTop.toInt()
+
+        assertTrue("dirty rect should be row-band sized, not full LCD height", dirtyRect.height() < fullLcdHeight)
+    }
+
+    @Test
+    fun packedLcd_unchangedDirtyRow_isSkipped() {
+        val overlay = configuredOverlay()
+        val firstBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(firstBuffer, x = 24, y = 33)
+        assertTrue(overlay.updatePackedLcd(firstBuffer))
+
+        val unchangedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(unchangedBuffer, x = 24, y = 33)
+
+        assertFalse(overlay.updatePackedLcd(unchangedBuffer))
+    }
+
+    @Test
+    fun packedLcd_dirtyRowUpdate_preservesUntouchedRowPixels() {
+        val overlay = configuredOverlay()
+        val seedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(seedBuffer, x = 40, y = 40)
+        setPackedPixel(seedBuffer, x = 56, y = 41)
+        assertTrue(overlay.updatePackedLcd(seedBuffer))
+
+        val bitmapBefore = readPrivateField<Bitmap>(overlay, "lcdBitmap")
+        val untouchedRowY = 41
+        val sampleX = 56
+        val untouchedPixelBefore = bitmapBefore.getPixel(sampleX, untouchedRowY)
+
+        val updateBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(updateBuffer, x = 64, y = 40)
+        assertTrue(overlay.updatePackedLcd(updateBuffer))
+
+        val bitmapAfter = readPrivateField<Bitmap>(overlay, "lcdBitmap")
+        val untouchedPixelAfter = bitmapAfter.getPixel(sampleX, untouchedRowY)
+        assertEquals(untouchedPixelBefore, untouchedPixelAfter)
+    }
+
+    @Test
+    fun packedLcd_singleDirtyRow_invalidationExpandsForSamplingSafety() {
+        val overlay = configuredOverlay()
+        val touchedRow = 120
+        val packedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(packedBuffer, x = 100, y = touchedRow)
+        assertTrue(overlay.updatePackedLcd(packedBuffer))
+
+        val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
+        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val spec = chromeLayout.currentChromeSpec()
+        val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
+        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
+        val lcdHeight = spec.lcdWindowHeight * projection.scale
+        val expectedTop = (lcdTop + lcdHeight * (touchedRow.toFloat() / R47LcdContract.PIXEL_HEIGHT.toFloat())).toInt()
+        val expectedBottom = ceil(
+            lcdTop + lcdHeight * ((touchedRow + 1).toFloat() / R47LcdContract.PIXEL_HEIGHT.toFloat())
+        ).toInt()
+
+        assertTrue("dirty rect top should include a sampling guard", dirtyRect.top <= expectedTop - 1)
+        assertTrue("dirty rect bottom should include a sampling guard", dirtyRect.bottom >= expectedBottom + 1)
     }
 
     @Test

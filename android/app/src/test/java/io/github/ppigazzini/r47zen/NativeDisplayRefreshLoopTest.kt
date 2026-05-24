@@ -55,9 +55,48 @@ class NativeDisplayRefreshLoopTest {
         assertEquals(0.4f, performanceSnapshot.averageLcdUpdateMillis)
         assertEquals(3, performanceSnapshot.lcdUpdateSamples)
         assertEquals(
-            "App 6.0 fps | LCD 6.0 ups | Copy 0.4 ms",
+            "App 6.0 fps | LCD 6.0 ups | Copy 0.4 ms | DR 0%",
             performanceSnapshot.overlayLabel(),
         )
+    }
+
+    @Test
+    fun refreshFrame_reportsAverageDirtyRowPercentageAcrossWindow() {
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
+        val performanceSnapshots = mutableListOf<DeveloperPerformanceSnapshot>()
+        var nextDisplayGeneration = 1
+        val loop = NativeDisplayRefreshLoop(
+            isAppRunning = { true },
+            isNativeInitialized = { true },
+            getPackedDisplayGeneration = { nextDisplayGeneration++ },
+            getPackedDisplayBuffer = { packedBuffer ->
+                packedBuffer.fill(0)
+                packedBuffer[0] = 1
+                packedBuffer[R47LcdContract.PACKED_ROW_SIZE_BYTES] = 1
+                true
+            },
+            getKeypadSnapshotGeneration = { 3 },
+            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(
+                    observedGeneration = 3,
+                    snapshot = snapshot,
+                    isUpToDate = true,
+                )
+            },
+            onPackedLcd = { true },
+            onDynamicRefresh = {},
+            onPerformanceSnapshot = { performanceSnapshots += it },
+        )
+
+        loop.refreshFrame(nowMillis = 1_000L)
+        loop.refreshFrame(nowMillis = 1_260L)
+        loop.refreshFrame(nowMillis = 1_520L)
+
+        assertEquals(1, performanceSnapshots.size)
+        val performanceSnapshot = performanceSnapshots.single()
+        assertEquals(2f * 100f / 240f, performanceSnapshot.averageDirtyRowsPercent, 0.001f)
+        assertEquals("DR 1%", performanceSnapshot.overlayLabel().takeLast(5))
     }
 
     @Test

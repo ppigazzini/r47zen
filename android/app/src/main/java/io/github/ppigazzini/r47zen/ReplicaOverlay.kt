@@ -17,6 +17,8 @@ import android.view.ViewGroup
 import android.util.Log
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -409,6 +411,11 @@ class ReplicaOverlay @JvmOverloads constructor(
                 continue
             }
 
+            if (isPackedRowUnchanged(buffer, rowOffset)) {
+                buffer[rowOffset] = 0
+                continue
+            }
+
             System.arraycopy(
                 buffer,
                 rowOffset,
@@ -439,6 +446,16 @@ class ReplicaOverlay @JvmOverloads constructor(
             pixelWidthF = R47LcdContract.PIXEL_WIDTH.toFloat(),
             pixelHeightF = R47LcdContract.PIXEL_HEIGHT.toFloat(),
         )
+        return true
+    }
+
+    private fun isPackedRowUnchanged(buffer: ByteArray, rowOffset: Int): Boolean {
+        // Compare row id + payload and ignore the transport dirty byte.
+        for (index in 1 until R47LcdContract.PACKED_ROW_SIZE_BYTES) {
+            if (buffer[rowOffset + index] != lastPackedLcd[rowOffset + index]) {
+                return false
+            }
+        }
         return true
     }
 
@@ -501,15 +518,31 @@ class ReplicaOverlay @JvmOverloads constructor(
         val spec = currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, width.toFloat(), height.toFloat())
 
-        // The packed bitmap already contains the cumulative LCD state. Repaint
-        // the full LCD window so scaled graph frames do not leave stale crops
-        // after repeated theme, resume, or settings transitions.
-        val left = projection.offsetX + spec.lcdWindowLeft * projection.scale
-        val top = projection.offsetY + spec.lcdWindowTop * projection.scale
-        val right = projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth) * projection.scale
-        val bottom = projection.offsetY + (spec.lcdWindowTop + spec.lcdWindowHeight) * projection.scale
+        val clampedMinY = minY.coerceIn(0, R47LcdContract.PIXEL_HEIGHT - 1)
+        val clampedMaxY = maxY.coerceIn(clampedMinY, R47LcdContract.PIXEL_HEIGHT - 1)
 
-        dirtyRect.set(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
+        // Keep horizontal invalidation wide for scaled bitmap sampling, but
+        // only invalidate touched LCD rows to avoid repaint churn on static rows.
+        val left = projection.offsetX + spec.lcdWindowLeft * projection.scale
+        val right = projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth) * projection.scale
+        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
+        val lcdHeight = spec.lcdWindowHeight * projection.scale
+        val lcdBottom = lcdTop + lcdHeight
+        val top = lcdTop + lcdHeight * (clampedMinY.toFloat() / pixelHeightF)
+        val bottom = lcdTop + lcdHeight * ((clampedMaxY + 1).toFloat() / pixelHeightF)
+
+        // Filtered bitmap sampling can blend across the dirty-band edge,
+        // so expand invalidation by one display pixel vertically.
+        val verticalGuardPx = if (paint.isFilterBitmap) 1f else 0f
+        val guardedTop = (top - verticalGuardPx).coerceAtLeast(lcdTop)
+        val guardedBottom = (bottom + verticalGuardPx).coerceAtMost(lcdBottom)
+
+        dirtyRect.set(
+            left.toInt(),
+            floor(guardedTop).toInt(),
+            right.toInt(),
+            ceil(guardedBottom).toInt(),
+        )
         postInvalidateOnAnimation(dirtyRect.left, dirtyRect.top, dirtyRect.right, dirtyRect.bottom)
     }
 

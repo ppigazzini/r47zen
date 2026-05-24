@@ -33,6 +33,7 @@ internal class NativeDisplayRefreshLoop(
     private var performanceFrameCount = 0
     private var performanceLcdUpdateCount = 0
     private var performanceLcdUpdateNanos = 0L
+    private var performanceDirtyRowsTotal = 0
     private var isActive = false
 
     private val frameCallback = object : Choreographer.FrameCallback {
@@ -72,12 +73,18 @@ internal class NativeDisplayRefreshLoop(
                 0L
             }
             if (getPackedDisplayBuffer(packedLcdBuffer)) {
+                val dirtyRowsInFrame = if (isPerformanceSnapshotEnabled) {
+                    countDirtyRows(packedLcdBuffer)
+                } else {
+                    0
+                }
                 onPackedLcd(packedLcdBuffer)
                 lastDisplayGeneration = currentDisplayGeneration
                 if (isPerformanceSnapshotEnabled) {
                     performanceLcdUpdateCount += 1
                     performanceLcdUpdateNanos +=
                         (measureNanos() - updateStartNanos).coerceAtLeast(0L)
+                    performanceDirtyRowsTotal += dirtyRowsInFrame
                 }
             }
         }
@@ -121,6 +128,12 @@ internal class NativeDisplayRefreshLoop(
                     0f
                 },
                 lcdUpdateSamples = performanceLcdUpdateCount,
+                averageDirtyRowsPercent = if (performanceLcdUpdateCount > 0) {
+                    performanceDirtyRowsTotal.toFloat() * 100f /
+                        (performanceLcdUpdateCount.toFloat() * R47LcdContract.PIXEL_HEIGHT.toFloat())
+                } else {
+                    0f
+                },
             )
         )
 
@@ -128,6 +141,7 @@ internal class NativeDisplayRefreshLoop(
         performanceFrameCount = 0
         performanceLcdUpdateCount = 0
         performanceLcdUpdateNanos = 0L
+        performanceDirtyRowsTotal = 0
     }
 
     private fun resetPerformanceWindow() {
@@ -135,6 +149,18 @@ internal class NativeDisplayRefreshLoop(
         performanceFrameCount = 0
         performanceLcdUpdateCount = 0
         performanceLcdUpdateNanos = 0L
+        performanceDirtyRowsTotal = 0
+    }
+
+    private fun countDirtyRows(buffer: ByteArray): Int {
+        var dirtyRows = 0
+        for (bufferRow in 0 until R47LcdContract.PIXEL_HEIGHT) {
+            val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
+            if ((buffer[rowOffset].toInt() and 0xFF) != 0) {
+                dirtyRows += 1
+            }
+        }
+        return dirtyRows
     }
 
     override fun start() {

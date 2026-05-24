@@ -7,10 +7,11 @@ internal data class DeveloperPerformanceSnapshot(
     val lcdUpdatesPerSecond: Float,
     val averageLcdUpdateMillis: Float,
     val lcdUpdateSamples: Int,
+    val averageDirtyRowsPercent: Float = 0f,
 ) {
     fun overlayLabel(): String {
         if (uiFramesPerSecond <= 0f && lcdUpdateSamples == 0) {
-            return "App -- fps | LCD -- ups | Copy --"
+            return "App -- fps | LCD -- ups | Copy -- | DR --"
         }
 
         val copyLabel = if (lcdUpdateSamples > 0) {
@@ -18,12 +19,18 @@ internal data class DeveloperPerformanceSnapshot(
         } else {
             "--"
         }
+        val dirtyRowsLabel = if (lcdUpdateSamples > 0) {
+            String.format(Locale.US, "%.0f%%", averageDirtyRowsPercent)
+        } else {
+            "--"
+        }
         return String.format(
             Locale.US,
-            "App %.1f fps | LCD %.1f ups | Copy %s",
+            "App %.1f fps | LCD %.1f ups | Copy %s | DR %s",
             uiFramesPerSecond,
             lcdUpdatesPerSecond,
             copyLabel,
+            dirtyRowsLabel,
         )
     }
 
@@ -33,6 +40,7 @@ internal data class DeveloperPerformanceSnapshot(
             lcdUpdatesPerSecond = 0f,
             averageLcdUpdateMillis = 0f,
             lcdUpdateSamples = 0,
+            averageDirtyRowsPercent = 0f,
         )
     }
 }
