@@ -127,7 +127,7 @@ hydrated on demand, or only exercised in CI before updating the docs.
   AGP `9.2.0` plugin coordinate plus AndroidX and Material library versions.
 - Jetifier explicitly disabled in `android/gradle.properties`
 - base `namespace` and `applicationId` `io.github.ppigazzini.r47zen`
-- Android app, debug, JVM-test, and instrumentation-test sources live under
+- Android app, debug, release, JVM-test, and instrumentation-test sources live under
   `app/src/**/java/io/github/ppigazzini/r47zen` so manifest, layout, and JNI class
   wiring stay aligned with that checked-in identity
 - debug builds add `applicationIdSuffix ".debug"`
@@ -135,6 +135,10 @@ hydrated on demand, or only exercised in CI before updating the docs.
   `r47.coreVersion`
 - release minify and resource shrinking default to on via
   `r47.releaseMinify` and `r47.releaseShrinkResources`
+- `r47.releaseChannel=dev` switches the release install identity to `.dev`,
+  appends `-dev.<token>` to `versionName`, defaults `testBuildType` to
+  `release`, and uses dedicated prerelease signing when the full
+  `R47_PRERELEASE_*` or `r47.prerelease*` input set is present
 - release native debug symbols default to `FULL` via
   `r47.releaseNativeDebugSymbolLevel`
 
@@ -272,7 +276,7 @@ Public maintainer entrypoints:
   It also forwards optional extra Gradle arguments from `R47_GRADLE_ARGS`, which
   is how hosted CI applies the temporary multi-ABI emulator override. Add
   `--verify-packaging` when you want the local build to write the same release
-  evidence files CI publishes for the debug APK.
+  evidence files CI publishes for Android APK artifacts.
 - `./scripts/android/build_android.sh --android-only` is the preferred fast Android-only path.
   It skips Meson and native restaging, and refuses to continue unless
   `android/.staged-native/cpp/STAGED-INPUTS.properties` still matches the
@@ -548,7 +552,7 @@ ownership model as the local build:
   release-native profile consumption, verifies that build-only staged metadata
   exists under `android/.staged-native/cpp` while the retired app-module
   snapshot paths stay absent, and records packaging evidence for the default
-  `arm64-v8a` debug APK through
+  `arm64-v8a` signed dev-prerelease release APK through
   `scripts/android/collect_packaging_evidence.sh`.
 - That host-core collector now builds instrumented upstream
   `src/testSuite/testSuite` with the pinned NDK `clang` plus ThinLTO, runs the
@@ -567,29 +571,28 @@ ownership model as the local build:
   the normal CI PGO corpus. The broad `broad-ci` base already covers `prime`
   and `factorial` through upstream `testSuite` inputs.
 - `android-tests` uses the same resolved upstream commit and staged-native
-  build path, applies the defaults-file `android_test_abi_filters` override
-  only for the hosted test lane, assembles `:app:assembleDebugAndroidTest`,
-  runs `:app:testDebugUnitTest`, enables KVM, and runs the repo-owned
+  build path, validates and decodes the dedicated prerelease keystore for the
+  hosted test lane, applies the defaults-file `android_test_abi_filters`
+  override only there, and runs one focused Gradle invocation for
+  `:app:assembleRelease`, `:app:assembleReleaseAndroidTest`, and
+  `:app:testReleaseUnitTest` with `r47.releaseChannel=dev`,
+  `r47.testBuildType=release`, and temporary
+  `r47.releaseMinify=false` plus `r47.releaseShrinkResources=false` before it
+  enables KVM and runs the repo-owned
   `scripts/android/run_connected_android_tests.sh` wrapper on the defaults-file
   hosted emulator API. That emulator lane stages canonical upstream
-  `PROGRAMS` fixtures into generated assets and requires
-  `ProgramFixtureInstrumentedTest` to expose one Android test method per
-  required fixture: `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
-  `NQueens.p47`, and `SPIRALk.p47`. Every one of those `.p47` selections is
-  isolated under GNU `timeout --kill-after`. The non-`MANSLV2` selections
-  still log degraded coverage if that safety net has to kill them, while
-  `MANSLV2.p47` is now the required bounded-stop Android regression inside
-  that shared framework: the harness waits for observed run activity, then
-  publishes a direct stop through the same native seam used by live `R/S` and
-  `EXIT`, and the lane fails if that selection times out.
-  It also requires `DisplayLifecycleInstrumentedTest` so passive lifecycle
-  transitions preserve the visible packed LCD snapshot across background save,
-  a Settings-style pause or resume, and full activity recreation. The Android
-  test seam also counts LCD redraw activity as valid run evidence for
-  fast-returning workloads so `GudrmPL`-style short runs do not false-fail
-  after a clean return. Hosted CI still proves 16 KB packaging readiness
-  rather than 16 KB runtime execution; the connected 16 KB runtime
-  smoke stays a local lane through `scripts/android/run_16kb_runtime_smoke.sh`.
+  `PROGRAMS` fixtures into generated assets and keeps full Android
+  instrumentation coverage while reducing repeated Gradle startup: one grouped
+  selection covers `FactorsInstrumentedTest`,
+  `DisplayLifecycleInstrumentedTest`, `GraphRedrawInstrumentedTest`, and
+  `StorageAccessCoordinatorInstrumentedTest`, and one second bounded selection
+  runs the complete `ProgramFixtureInstrumentedTest` class for
+  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `SPIRALk.p47`. That grouped PROGRAMS selection still contains the bounded-stop
+  `MANSLV2` regression and fails the Android lane if its outer timeout is hit.
+  Hosted CI still proves 16 KB packaging readiness rather than 16 KB runtime
+  execution; the connected 16 KB runtime smoke stays a local lane through
+  `scripts/android/run_16kb_runtime_smoke.sh`.
 - the upstream simulator sanity, Android build/test/package, and Android test
   jobs consume the same resolved upstream commit for a given workflow run.
 - Android build logs, Android test logs, and test reports are uploaded with
@@ -604,15 +607,17 @@ ownership model as the local build:
   main-branch prerelease.
 - the uploaded Android build artifact uses the stem
   `r47zen-<upstream short>-<android short>` and contains the packaged
-  debug APK `r47zen-<upstream short>-<android short>-debug.apk` plus
+  signed dev-prerelease APK `r47zen-<upstream short>-<android short>-dev.apk` plus
   `SHA256SUMS.txt`, `abis.txt`, `zipalign.txt`, `elf-load-segments.txt`, and
   `BUILD-METADATA.txt`.
 - the uploaded Android test artifact uses the stem
   `r47zen-tests-<upstream short>-<android short>`.
-- pushes to `main` publish a debug-signed prerelease tagged and titled
-  `r47zen-<upstream short>-<android short>`; because that APK uses the
-  runner-owned default debug keystore, it is not the stable Obtanium or
-  production update channel.
+- pushes to `main` and scheduled CI runs publish a signed dev-prerelease tagged
+  and titled `r47zen-<upstream short>-<android short>-dev` and package
+  `r47zen-<upstream short>-<android short>-dev.apk` from the release build
+  path with `r47.releaseChannel=dev`.
+- the dev-prerelease lane uses dedicated `R47_PRERELEASE_*` signing inputs and
+  never reuses the production `R47_RELEASE_*` signing key material.
 - Linux and Windows simulator package workflows keep their upstream-only
   artifact identity because they do not depend on the Android overlay commit.
 
@@ -621,10 +626,9 @@ real 16 KB target stays a local maintainer lane through
 `scripts/android/run_16kb_runtime_smoke.sh`. This is not a store-release lane.
 
 Store-release signing lives in the separate protected workflow
-`.github/workflows/android-release.yml`. That workflow runs on manual dispatch
-and on the daily `14 3 * * *` schedule, is bound to the
-`production-release` environment, expects protected signing secrets there, and
-keeps the default debug CI lane secret-free.
+`.github/workflows/android-release.yml`. That workflow is manual-dispatch only,
+is bound to the `production-release` environment, and expects protected
+production signing secrets there.
 
 ## Release and packaging policy
 
@@ -634,22 +638,25 @@ keeps the default debug CI lane secret-free.
   `r47.releaseStoreFile`, `r47.releaseStorePassword`, `r47.releaseKeyAlias`,
   and `r47.releaseKeyPassword`. Supplying only some of those values is a hard
   configuration error.
-- `.github/workflows/android-release.yml` is the maintained CI path for a
+- `.github/workflows/android-release.yml` is the maintained CI path for
   signed production assets. It resolves `version_code` and `version_name`
-  from manual workflow inputs or, on the daily schedule, auto-generates
-  `version_code=<UTC YYYYMMDD>01` and
-  `version_name=<default Android version name>-signed.<UTC YYYYMMDD>`. It
-  reruns the same wrapper-owned host-core optimization flow as
-  `android-build-test-package`, decodes `R47_RELEASE_STORE_FILE_BASE64` into
-  `RUNNER_TEMP`, and feeds the existing `R47_RELEASE_*` environment hooks to
-  Gradle only inside the protected `production-release` environment. The
+  only from manual workflow inputs, reruns the same wrapper-owned host-core
+  optimization flow as `android-build-test-package`, decodes
+  `R47_RELEASE_STORE_FILE_BASE64` into `RUNNER_TEMP`, and feeds the existing
+  `R47_RELEASE_*` environment hooks to Gradle only inside the protected
+  `production-release` environment. Before publication it reruns Android lint,
+  `:app:assembleRelease`, `:app:assembleReleaseAndroidTest`,
+  `:app:testReleaseUnitTest`, and grouped `connectedReleaseAndroidTest`
+  selections on the hosted emulator with CI-only
+  `r47.releaseMinify=false` and `r47.releaseShrinkResources=false`. The
   workflow then passes the collected `ci-artifacts/pgo/r47-host-core.profdata`
   back into `:app:assembleRelease` and `:app:bundleRelease` through
   `r47.pgoProfilePath`, uploads separate APK and AAB artifact bundles, and
   publishes the versioned GitHub release tag `r47zen-v<sanitized version_name>`.
-- The daily scheduled public Android artifact now comes from the signed release
-  lane, not from the debug CI workflow. Manual CI dispatches remain debug-only
-  unless the maintainer explicitly runs the protected release workflow.
+- The signed dev-prerelease publication now lives in
+  `.github/workflows/android-ci.yml` and runs on main-branch push, schedule,
+  and manual-dispatch CI runs after the required verification lanes pass.
+  The protected production-release workflow remains separate and manual-only.
 - Release builds default `minifyEnabled` and `shrinkResources` to `true` and
   request `ndk.debugSymbolLevel "FULL"`.
 - `bundleRelease` is the canonical AAB command. `assembleRelease` remains
@@ -660,9 +667,11 @@ keeps the default debug CI lane secret-free.
   zip alignment, and ELF `LOAD` segment alignment. For release it also accepts a
   bundle, mapping file, and native-symbol archive so provenance can travel with
   the output.
-- For debug packaging, the published Android artifact identity is
-  `r47zen-<upstream short>-<android short>`, and the packaged APK copy is
-  `r47zen-<upstream short>-<android short>-debug.apk`.
+- The signed dev-prerelease lane publishes the artifact stem
+  `r47zen-<upstream short>-<android short>-dev`, packages the APK as
+  `r47zen-<upstream short>-<android short>-dev.apk`, and keeps that public
+  prerelease identity separate from the local debug build output at
+  `android/app/build/outputs/apk/debug/app-debug.apk`.
 - For the protected release workflow, the uploaded artifact bundle uses the stem
   `r47zen-<upstream short>-<android short>-release`, the uploaded APK artifact
   bundle uses the stem `r47zen-<upstream short>-<android short>-release-apk`,
@@ -678,26 +687,25 @@ keeps the default debug CI lane secret-free.
 - Android module-only changes with the staged tree already current:
   `./scripts/android/build_android.sh --android-only`.
 - Host or cache diagnosis before building: `./scripts/android/build_android.sh --doctor`.
-- Robolectric, fixture, or runtime-seam changes:
-    `cd android && ./gradlew :app:testDebugUnitTest` when the build-only staged
-  native tree is already current.
-- PROGRAMS fixture, SAF, debug-manifest, or Activity Result lifecycle changes:
-    `cd android && ./gradlew :app:assembleDebugAndroidTest`, then
-  `:app:connectedDebugAndroidTest` on a device or emulator. Add
+- Robolectric, release-test-helper, or runtime-seam changes:
+    `cd android && ./gradlew :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
+  when the build-only staged native tree is already current.
+- PROGRAMS fixture, SAF, release-source-set helper, or Activity Result
+  lifecycle changes:
+    `cd android && ./gradlew :app:assembleReleaseAndroidTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`,
+  then run `scripts/android/run_connected_android_tests.sh` on a device or
+  emulator with the same prerelease signing inputs CI uses. Add
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
-  current hosted smoke gate must still pass the filtered
-  `ProgramFixtureInstrumentedTest` methods for `BinetV3.p47`, `GudrmPL.p47`,
-  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`, preferably through
-  `scripts/android/run_connected_android_tests.sh` so each fixture keeps its
-  own timeout-and-kill safety boundary. The required `MANSLV2` regression must
-  observe run activity, stop cleanly through the direct-stop seam, and fail the
-  Android lane if its own selection hits the outer timeout.
-  When the change touches background save, Settings return, or packed-LCD
-  lifecycle preservation, the same lane must also pass
-  `DisplayLifecycleInstrumentedTest`.
+  current hosted gate now runs one grouped non-fixture selection plus one
+  bounded `ProgramFixtureInstrumentedTest` selection that still covers
+  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `SPIRALk.p47`. That grouped PROGRAMS selection must still observe run
+  activity, stop cleanly through the direct-stop seam, and fail the Android
+  lane if its outer timeout is hit. When the change touches background save,
+  Settings return, or packed-LCD lifecycle preservation, the same release-path
+  wrapper lane must also pass `DisplayLifecycleInstrumentedTest`.
 - JNI, HAL, CMake, or packaging changes: `./scripts/android/build_android.sh`.
 - packaging evidence changes with local proof: `./scripts/android/build_android.sh --verify-packaging`
-- root core or generator changes: `make test` and then `./scripts/android/build_android.sh`.
 - root core or generator changes: `make test` and then `./scripts/android/build_android.sh`.
   If `xlsxio_xlsx2csv` is only available in the pinned cache, export the cached
   `~/.cache/r47/xlsxio/<commit>/bin` path first.

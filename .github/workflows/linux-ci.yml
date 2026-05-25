@@ -96,6 +96,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             build-essential \
+            ccache \
             cmake \
             libexpat1-dev \
             libgmp-dev \
@@ -108,6 +109,32 @@ jobs:
             unzip \
             xvfb \
             zip
+
+      - name: Restore compiler cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ runner.temp }}/ccache-linux
+          key: ${{ runner.os }}-linux-ccache-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-linux-ccache-${{ github.ref_name }}-
+            ${{ runner.os }}-linux-ccache-
+
+      - name: Configure compiler cache
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ccache_dir="${RUNNER_TEMP}/ccache-linux"
+          mkdir -p "$ccache_dir"
+
+          {
+            echo "CCACHE_DIR=$ccache_dir"
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CCACHE_COMPILERCHECK=content"
+            echo "CCACHE_MAXSIZE=750M"
+          } >> "$GITHUB_ENV"
+
+          ccache --zero-stats
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
@@ -188,6 +215,8 @@ jobs:
       - name: Build Linux simulator package
         shell: bash
         env:
+          CC: ccache gcc
+          CXX: ccache g++
           R47_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
           R47_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
         run: |
@@ -198,6 +227,13 @@ jobs:
             NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
             XVFB=xvfb-run \
             dist_linux 2>&1 | tee ci-artifacts/logs/build-linux.log
+
+      - name: Show compiler cache stats
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          ccache --show-stats
 
       - name: Upload Linux build log
         if: always()

@@ -784,6 +784,8 @@ echo "--- Building APK ---"
 # Pass detected NDK/SDK versions as Project Properties to override build.gradle defaults
 GRADLE_PROPS="-Pr47.ndkVersion=$IF_NDK_VERSION"
 GRADLE_PROPS="$GRADLE_PROPS -Pr47.coreVersion=$COMMIT_HASH"
+RELEASE_CHANNEL_OVERRIDE=${R47_RELEASE_CHANNEL-}
+RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE=${R47_RELEASE_CHANNEL_BUILD_TOKEN-}
 COMPILE_SDK_OVERRIDE=${R47_COMPILE_SDK-}
 VERSION_CODE_OVERRIDE=${R47_VERSION_CODE-}
 VERSION_NAME_OVERRIDE=${R47_VERSION_NAME-}
@@ -809,6 +811,8 @@ fi
 if [ -n "$COMPILE_SDK_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.compileSdk=$COMPILE_SDK_OVERRIDE"; fi
 if [ -n "$VERSION_CODE_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionCode=$VERSION_CODE_OVERRIDE"; fi
 if [ -n "$VERSION_NAME_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionName=$VERSION_NAME_OVERRIDE"; fi
+if [ -n "$RELEASE_CHANNEL_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.releaseChannel=$RELEASE_CHANNEL_OVERRIDE"; fi
+if [ -n "$RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.releaseChannelBuildToken=$RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE"; fi
 if [ -n "$SOURCE_REPOSITORY_URL_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.sourceRepositoryUrl=$SOURCE_REPOSITORY_URL_OVERRIDE"; fi
 if [ -n "$SOURCE_COMMIT_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.sourceCommit=$SOURCE_COMMIT_OVERRIDE"; fi
 if [ -n "$PGO_PROFILE_PATH_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.pgoProfilePath=$PGO_PROFILE_PATH_OVERRIDE"; fi
@@ -829,17 +833,28 @@ artifact_metadata_args=(
     --android-commit "${SOURCE_COMMIT_OVERRIDE:-}"
 )
 eval "$(bash "$ANDROID_SCRIPTS_DIR/resolve_android_artifact_metadata.sh" "${artifact_metadata_args[@]}")"
-PACKAGED_DEBUG_APK_NAME="$R47_ANDROID_DEBUG_APK_NAME"
 COMPILE_SDK_VALUE=${COMPILE_SDK_OVERRIDE:-$R47_DEFAULT_ANDROID_COMPILE_SDK}
+ASSEMBLE_TASK="assembleDebug"
+APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+PACKAGED_APK_NAME="$R47_ANDROID_DEBUG_APK_NAME"
+PACKAGING_VARIANT="debug"
+PACKAGING_SIGNING_MODE="debug"
+
+if [ "$RELEASE_CHANNEL_OVERRIDE" = "dev" ]; then
+    ASSEMBLE_TASK="assembleRelease"
+    APK_PATH="app/build/outputs/apk/release/app-release.apk"
+    PACKAGED_APK_NAME="$R47_ANDROID_DEV_APK_NAME"
+    PACKAGING_VARIANT="release"
+    PACKAGING_SIGNING_MODE="prerelease"
+fi
 
 if [ "$ANDROID_ONLY" = false ]; then
     rm -rf app/.cxx
     run_gradle clean $GRADLE_EXTRA_ARGS
 fi
-run_gradle --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_EXTRA_ARGS $GRADLE_PROPS
+run_gradle --max-workers "$R47_BUILD_JOBS" "$ASSEMBLE_TASK" $GRADLE_EXTRA_ARGS $GRADLE_PROPS
 ensure_retired_legacy_cpp_paths_absent
 
-APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
 if [ -f "$APK_PATH" ]; then
     echo "SUCCESS: APK created at: $ANDROID_PROJECT_DIR/$APK_PATH"
 else
@@ -848,13 +863,13 @@ else
 fi
 
 if [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; then
-    PACKAGING_OUTPUT_DIR=${VERIFY_PACKAGING_DIR:-${R47_VERIFY_PACKAGING_DIR:-$ANDROID_PROJECT_DIR/build/outputs/packaging/debug}}
+    PACKAGING_OUTPUT_DIR=${VERIFY_PACKAGING_DIR:-${R47_VERIFY_PACKAGING_DIR:-$ANDROID_PROJECT_DIR/build/outputs/packaging/$PACKAGING_VARIANT}}
     PACKAGING_EXPECTED_ABIS=${R47_VERIFY_PACKAGING_ABIS:-arm64-v8a}
     bash "$ANDROID_SCRIPTS_DIR/collect_packaging_evidence.sh" \
-        --variant debug \
+        --variant "$PACKAGING_VARIANT" \
         --apk "$ANDROID_PROJECT_DIR/$APK_PATH" \
         --output-dir "$PACKAGING_OUTPUT_DIR" \
-        --artifact-name "$PACKAGED_DEBUG_APK_NAME" \
+        --artifact-name "$PACKAGED_APK_NAME" \
         --expected-abis "$PACKAGING_EXPECTED_ABIS" \
         --android-sdk-root "$ANDROID_SDK_ROOT" \
         --ndk-version "$IF_NDK_VERSION" \
@@ -866,7 +881,7 @@ if [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; then
         --upstream-source-commit "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" \
         --xlsxio-source-repository-url "$XLSXIO_SOURCE_REPOSITORY_URL_VALUE" \
         --xlsxio-source-commit "$XLSXIO_SOURCE_COMMIT_VALUE" \
-        --signing-mode debug
+        --signing-mode "$PACKAGING_SIGNING_MODE"
 fi
 
 if [ "$COLLECT_HOST_PGO" = true ]; then

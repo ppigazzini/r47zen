@@ -67,6 +67,10 @@ flowchart TD
   official Gradle CLI reference for running multiple tasks in one invocation,
   setting `--max-workers`, and keeping CI task graphs explicit instead of
   splitting overlapping work across extra Gradle processes.
+- [Configuration Cache](https://docs.gradle.org/current/userguide/configuration_cache.html):
+  official Gradle guidance for reusing configuration work across repeated task
+  graphs; the Android connected-test wrapper enables it in CI because the lane
+  repeats the same release-variant task graph across grouped selections.
 - [Build Environment Configuration](https://docs.gradle.org/current/userguide/build_environment.html):
   official reference for `gradle.properties`, command-line precedence, and the
   documented homes for settings such as `org.gradle.parallel`,
@@ -79,6 +83,9 @@ flowchart TD
 - [CMake release notes index](https://cmake.org/cmake/help/latest/release/index.html):
   official release-note index for tracking when it is worth leaving the current
   checked-in CMake line.
+- [ccache manual](https://ccache.dev/manual/latest.html): official compiler
+  cache reference for the Linux and Windows simulator lanes; use it when
+  changing cache directories, compiler wrappers, or hit-rate expectations.
 
 ## Architecture and Kotlin
 
@@ -257,10 +264,10 @@ Current repository icon surfaces:
   restrictions, and environment-secret gating for the protected release lane.
 - [Events that trigger workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule):
   schedule-trigger semantics, default-branch-only execution, UTC defaults, and
-  delay or drop behavior relevant to the daily signed release lane.
+  delay or drop behavior relevant to the daily signed dev-prerelease lane.
 - [Manually running a workflow](https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow):
   the maintainer entry point for versioned protected releases outside the
-  daily schedule.
+  scheduled dev-prerelease lane.
 - [Passing information between jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs):
   GitHub Actions guidance for promoting step outputs through
   `jobs.<job_id>.outputs` and consuming them in dependent jobs through

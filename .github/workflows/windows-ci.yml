@@ -99,6 +99,7 @@ jobs:
             ${{ matrix.package_prefix }}-adwaita-icon-theme
             ${{ matrix.package_prefix }}-ca-certificates
             ${{ matrix.package_prefix }}-cc
+            ${{ matrix.package_prefix }}-ccache
             ${{ matrix.package_prefix }}-freetype
             ${{ matrix.package_prefix }}-glib-networking
             ${{ matrix.package_prefix }}-gsettings-desktop-schemas
@@ -110,6 +111,32 @@ jobs:
             ${{ matrix.package_prefix }}-pkgconf
             ${{ matrix.package_prefix }}-shared-mime-info
             ${{ matrix.package_prefix }}-xlsxio
+
+      - name: Restore compiler cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ runner.temp }}/ccache-${{ matrix.artifact_suffix }}
+          key: ${{ runner.os }}-${{ matrix.artifact_suffix }}-ccache-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.artifact_suffix }}-ccache-${{ github.ref_name }}-
+            ${{ runner.os }}-${{ matrix.artifact_suffix }}-ccache-
+
+      - name: Configure compiler cache
+        run: |
+          set -euo pipefail
+
+          ccache_dir="$(cygpath -u "$RUNNER_TEMP")/ccache-${{ matrix.artifact_suffix }}"
+          workspace_dir="$(cygpath -u "$GITHUB_WORKSPACE")"
+          mkdir -p "$ccache_dir"
+
+          {
+            echo "CCACHE_DIR=$ccache_dir"
+            echo "CCACHE_BASEDIR=$workspace_dir"
+            echo "CCACHE_COMPILERCHECK=content"
+            echo "CCACHE_MAXSIZE=750M"
+          } >> "$GITHUB_ENV"
+
+          ccache --zero-stats
 
       - name: Verify MSYS2 toolchain
         run: |
@@ -178,6 +205,8 @@ jobs:
 
       - name: Build upstream Windows package
         env:
+          CC: ccache gcc
+          CXX: ccache g++
           R47_SOURCE_REPOSITORY_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
           R47_SOURCE_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
         run: |
@@ -189,6 +218,12 @@ jobs:
           make \
             NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
             dist_windows 2>&1 | tee "$log_file"
+
+      - name: Show compiler cache stats
+        if: always()
+        run: |
+          set -euo pipefail
+          ccache --show-stats
 
       - name: Bundle stripped runtime and name artifact
         id: bundle

@@ -139,6 +139,15 @@ def repoNoticeInventory = new JsonSlurper().parse(repoNoticeInventoryFile)
 def releaseMinifyEnabled = readBooleanProperty('r47.releaseMinify', true)
 def releaseShrinkResourcesEnabled = readBooleanProperty('r47.releaseShrinkResources', releaseMinifyEnabled)
 def releaseNativeDebugSymbolLevel = (readOptionalProperty('r47.releaseNativeDebugSymbolLevel', 'R47_RELEASE_NATIVE_DEBUG_SYMBOL_LEVEL') ?: 'FULL').toUpperCase()
+def releaseChannel = (readOptionalProperty('r47.releaseChannel', 'R47_RELEASE_CHANNEL') ?: 'prod').toLowerCase(Locale.ROOT)
+def configuredTestBuildType = (readOptionalProperty('r47.testBuildType', 'R47_TEST_BUILD_TYPE') ?: (releaseChannel == 'dev' ? 'release' : 'debug')).toLowerCase(Locale.ROOT)
+def releaseChannelBuildToken = readOptionalProperty('r47.releaseChannelBuildToken', 'R47_RELEASE_CHANNEL_BUILD_TOKEN')
+def prereleaseStoreFilePath = readOptionalProperty('r47.prereleaseStoreFile', 'R47_PRERELEASE_STORE_FILE')
+def prereleaseStorePassword = readOptionalProperty('r47.prereleaseStorePassword', 'R47_PRERELEASE_STORE_PASSWORD')
+def prereleaseKeyAlias = readOptionalProperty('r47.prereleaseKeyAlias', 'R47_PRERELEASE_KEY_ALIAS')
+def prereleaseKeyPassword = readOptionalProperty('r47.prereleaseKeyPassword', 'R47_PRERELEASE_KEY_PASSWORD')
+def prereleaseSigningValues = [prereleaseStoreFilePath, prereleaseStorePassword, prereleaseKeyAlias, prereleaseKeyPassword].findAll { it }
+def isPrereleaseSigningConfigured = prereleaseSigningValues.size() == 4
 def releaseStoreFilePath = readOptionalProperty('r47.releaseStoreFile', 'R47_RELEASE_STORE_FILE')
 def releaseStorePassword = readOptionalProperty('r47.releaseStorePassword', 'R47_RELEASE_STORE_PASSWORD')
 def releaseKeyAlias = readOptionalProperty('r47.releaseKeyAlias', 'R47_RELEASE_KEY_ALIAS')
@@ -164,12 +173,24 @@ if (pgoProfilePath) {
     externalNativeBuildArguments += "-DR47_PGO_PROFILE_PATH=${pgoProfilePath}"
 }
 
+if (!prereleaseSigningValues.isEmpty() && !isPrereleaseSigningConfigured) {
+    throw new GradleException('Prerelease signing requires r47.prereleaseStoreFile, r47.prereleaseStorePassword, r47.prereleaseKeyAlias, and r47.prereleaseKeyPassword together.')
+}
+
 if (!releaseSigningValues.isEmpty() && !isReleaseSigningConfigured) {
     throw new GradleException('Release signing requires r47.releaseStoreFile, r47.releaseStorePassword, r47.releaseKeyAlias, and r47.releaseKeyPassword together.')
 }
 
 if (!(releaseNativeDebugSymbolLevel in ['NONE', 'SYMBOL_TABLE', 'FULL'])) {
     throw new GradleException("Unsupported r47.releaseNativeDebugSymbolLevel value: ${releaseNativeDebugSymbolLevel}")
+}
+
+if (!(releaseChannel in ['prod', 'dev'])) {
+    throw new GradleException("Unsupported r47.releaseChannel value: ${releaseChannel}")
+}
+
+if (!(configuredTestBuildType in ['debug', 'release'])) {
+    throw new GradleException("Unsupported r47.testBuildType value: ${configuredTestBuildType}")
 }
 
 def configuredAbiFilters = (project.findProperty('r47.abiFilters') ?: readDefaultValue('R47_DEFAULT_ANDROID_ABI_FILTERS'))
@@ -261,10 +282,26 @@ android {
     compileSdk = project.findProperty('r47.compileSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK')
     def coreVersion = (project.findProperty('r47.coreVersion') ?: "unknown").toString()
     def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z._-]/, "_")
+    def normalizedReleaseChannelBuildToken = releaseChannelBuildToken?.replaceAll(/[^0-9A-Za-z._-]/, "_")
     def releaseVersionCode = Integer.parseInt((project.findProperty('r47.versionCode') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_CODE')).toString())
     def releaseVersionName = (project.findProperty('r47.versionName') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_NAME')).toString()
+    def isDevReleaseChannel = releaseChannel == 'dev'
+    def effectiveDevReleaseToken = normalizedReleaseChannelBuildToken ?: normalizedCoreVersion
+    def effectiveAboutVersionName = isDevReleaseChannel ? "${releaseVersionName}-dev.${effectiveDevReleaseToken}" : releaseVersionName
 
     signingConfigs {
+        if (isPrereleaseSigningConfigured) {
+            prerelease {
+                storeFile = rootProject.file(prereleaseStoreFilePath)
+                storePassword = prereleaseStorePassword
+                keyAlias = prereleaseKeyAlias
+                keyPassword = prereleaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
         if (isReleaseSigningConfigured) {
             release {
                 storeFile = rootProject.file(releaseStoreFilePath)
@@ -286,7 +323,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = releaseVersionCode
         versionName = releaseVersionName
-        resValue "string", "about_version_summary", "R47 Zen ${releaseVersionName} (Core: ${coreVersion})"
+        resValue "string", "about_version_summary", "R47 Zen ${effectiveAboutVersionName} (Core: ${coreVersion})"
         resValue "string", "android_source_repository_url", androidSourceRepositoryUrl
 
         // Use property override if provided, otherwise default to a verified version
@@ -315,15 +352,24 @@ android {
         release {
             minifyEnabled = releaseMinifyEnabled
             shrinkResources = releaseShrinkResourcesEnabled
+            if (isDevReleaseChannel) {
+                applicationIdSuffix = ".dev"
+                versionNameSuffix = "-dev.${effectiveDevReleaseToken}"
+                if (isPrereleaseSigningConfigured) {
+                    signingConfig = signingConfigs.prerelease
+                }
+            }
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             ndk {
                 debugSymbolLevel = releaseNativeDebugSymbolLevel
             }
-            if (isReleaseSigningConfigured) {
+            if (!isDevReleaseChannel && isReleaseSigningConfigured) {
                 signingConfig = signingConfigs.release
             }
         }
     }
+
+    testBuildType = configuredTestBuildType
 
     buildFeatures {
         resValues = true

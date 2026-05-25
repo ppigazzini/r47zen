@@ -24,7 +24,7 @@ Usage:
     [--application-id <id>] \
     [--version-code <code>] \
     [--version-name <name>] \
-    [--signing-mode <debug|release|unsigned>] \
+    [--signing-mode <debug|prerelease|release|unsigned>] \
     [--ref <git-ref>] \
     [--sha <git-sha>] \
     [--run-id <id>] \

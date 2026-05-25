@@ -11,8 +11,6 @@ on:
         description: Android versionName for the signed release bundle
         required: true
         type: string
-  schedule:
-    - cron: '14 3 * * *'
 
 permissions:
   contents: read
@@ -48,18 +46,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
-            . ./android/r47-defaults.properties
-
-            schedule_date=$(date -u +%Y%m%d)
-            version_code="${schedule_date}01"
-            version_name="${R47_DEFAULT_ANDROID_VERSION_NAME}-signed.${schedule_date}"
-            release_mode="scheduled"
-          else
-            version_code="$R47_VERSION_CODE_INPUT"
-            version_name="$R47_VERSION_NAME_INPUT"
-            release_mode="manual"
-          fi
+          version_code="$R47_VERSION_CODE_INPUT"
+          version_name="$R47_VERSION_NAME_INPUT"
+          release_mode="manual"
 
           case "$version_code" in
             ''|*[!0-9]*)
@@ -147,6 +136,7 @@ jobs:
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "android_test_api_level=$R47_DEFAULT_ANDROID_TEST_API_LEVEL" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
           echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
@@ -205,6 +195,34 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
 
+      - name: Accept Android SDK licenses non-interactively
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdkmanager_bin="$(command -v sdkmanager || true)"
+          if [[ -z "$sdkmanager_bin" ]]; then
+            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+            for candidate in \
+              "$sdk_root/cmdline-tools/latest/bin/sdkmanager" \
+              "$sdk_root/cmdline-tools/20.0/bin/sdkmanager" \
+              "$sdk_root/cmdline-tools/19.0/bin/sdkmanager"; do
+              if [[ -x "$candidate" ]]; then
+                sdkmanager_bin="$candidate"
+                break
+              fi
+            done
+          fi
+
+          if [[ -z "$sdkmanager_bin" ]]; then
+            echo "Unable to locate sdkmanager after setup-android." >&2
+            exit 1
+          fi
+
+          set +o pipefail
+          yes | "$sdkmanager_bin" --licenses > /dev/null
+          set -o pipefail
+
       - name: Resolve Android SDK cache paths
         id: android-sdk
         shell: bash
@@ -230,7 +248,9 @@ jobs:
             ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.defaults.outputs.build_tools_version }}
             ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.defaults.outputs.cmake_version }}
             ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}
-          key: ${{ runner.os }}-android-sdk-${{ steps.defaults.outputs.compile_sdk }}-${{ steps.defaults.outputs.build_tools_version }}-${{ steps.defaults.outputs.cmake_version }}-${{ steps.defaults.outputs.ndk_version }}-v1
+            ${{ steps.android-sdk.outputs.sdk_root }}/emulator
+            ${{ steps.android-sdk.outputs.sdk_root }}/system-images/android-${{ steps.defaults.outputs.android_test_api_level }}/default/x86_64
+          key: ${{ runner.os }}-android-sdk-${{ steps.defaults.outputs.compile_sdk }}-${{ steps.defaults.outputs.build_tools_version }}-${{ steps.defaults.outputs.cmake_version }}-${{ steps.defaults.outputs.ndk_version }}-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-v1
 
       - name: Install Android SDK packages
         if: steps.android-sdk-cache.outputs.cache-hit != 'true'
@@ -242,7 +262,36 @@ jobs:
             "platforms;android-${{ steps.defaults.outputs.compile_sdk }}" \
             "build-tools;${{ steps.defaults.outputs.build_tools_version }}" \
             "cmake;${{ steps.defaults.outputs.cmake_version }}" \
-            "ndk;${{ steps.defaults.outputs.ndk_version }}"
+            "ndk;${{ steps.defaults.outputs.ndk_version }}" \
+            "emulator" \
+            "system-images;android-${{ steps.defaults.outputs.android_test_api_level }};default;x86_64"
+
+      - name: Materialize release keystore
+        shell: bash
+        env:
+          R47_RELEASE_STORE_FILE_BASE64: ${{ secrets.R47_RELEASE_STORE_FILE_BASE64 }}
+          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
+          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
+          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          for secret_name in \
+            R47_RELEASE_STORE_FILE_BASE64 \
+            R47_RELEASE_STORE_PASSWORD \
+            R47_RELEASE_KEY_ALIAS \
+            R47_RELEASE_KEY_PASSWORD
+          do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "Missing required production-release environment secret: ${secret_name}" >&2
+              exit 1
+            fi
+          done
+
+          keystore_path="${RUNNER_TEMP}/r47-release-upload-key.jks"
+          printf '%s' "$R47_RELEASE_STORE_FILE_BASE64" | base64 --decode > "$keystore_path"
+          chmod 600 "$keystore_path"
+          echo "R47_RELEASE_STORE_FILE=$keystore_path" >> "$GITHUB_ENV"
 
       - name: Install matching host LLVM profiling runtime
         shell: bash
@@ -383,11 +432,14 @@ jobs:
             --validate-release-pgo \
             2>&1 | tee ci-artifacts/logs/build-android-release.log
 
-      - name: Run Android release verification
+      - name: Build Android release verification artifacts and run JVM tests
         shell: bash
         env:
           R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
+          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
+          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
           GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
         run: |
           set -euo pipefail
@@ -396,10 +448,14 @@ jobs:
           cd android
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             lint \
-            :app:testDebugUnitTest \
-            :app:assembleDebugAndroidTest \
+            :app:assembleRelease \
+            :app:assembleReleaseAndroidTest \
+            :app:testReleaseUnitTest \
             --no-daemon --stacktrace --console=plain --warning-mode all \
+            -Pr47.releaseMinify=false \
+            -Pr47.releaseShrinkResources=false \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+            -Pr47.testBuildType=release \
             -Pr47.versionCode="$R47_VERSION_CODE_INPUT" \
             -Pr47.versionName="$R47_VERSION_NAME_INPUT" \
             -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
@@ -411,32 +467,75 @@ jobs:
             -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
             2>&1 | tee ../ci-artifacts/logs/android-release-verification.log
 
-      - name: Materialize release keystore
+      - name: Restore Android emulator AVD cache
+        id: avd-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: ${{ runner.os }}-android-avd-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-pixel_7-v1
+
+      - name: Enable KVM access for Android emulator
         shell: bash
-        env:
-          R47_RELEASE_STORE_FILE_BASE64: ${{ secrets.R47_RELEASE_STORE_FILE_BASE64 }}
-          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
-          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
-          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
-          for secret_name in \
-            R47_RELEASE_STORE_FILE_BASE64 \
-            R47_RELEASE_STORE_PASSWORD \
-            R47_RELEASE_KEY_ALIAS \
-            R47_RELEASE_KEY_PASSWORD
-          do
-            if [[ -z "${!secret_name:-}" ]]; then
-              echo "Missing required production-release environment secret: ${secret_name}" >&2
-              exit 1
-            fi
-          done
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
-          keystore_path="${RUNNER_TEMP}/r47-release-upload-key.jks"
-          printf '%s' "$R47_RELEASE_STORE_FILE_BASE64" | base64 --decode > "$keystore_path"
-          chmod 600 "$keystore_path"
-          echo "R47_RELEASE_STORE_FILE=$keystore_path" >> "$GITHUB_ENV"
+      - name: Create Android emulator snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: ReactiveCircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        with:
+          api-level: ${{ steps.defaults.outputs.android_test_api_level }}
+          target: default
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: false
+          emulator-boot-timeout: 900
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          working-directory: ./android
+          script: echo "Generated Android emulator snapshot."
+
+      - name: Run Android release instrumentation tests on emulator
+        uses: ReactiveCircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        env:
+          R47_CONNECTED_ANDROID_TEST_JOBS: ${{ steps.jobs.outputs.jobs }}
+          R47_CONNECTED_ANDROID_TEST_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
+          R47_CONNECTED_ANDROID_TEST_ABI_FILTERS: arm64-v8a,x86_64
+          R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL: prod
+          R47_CONNECTED_ANDROID_TEST_BUILD_TYPE: release
+          R47_CONNECTED_ANDROID_TEST_RELEASE_MINIFY: 'false'
+          R47_CONNECTED_ANDROID_TEST_RELEASE_SHRINK_RESOURCES: 'false'
+          R47_CONNECTED_ANDROID_ENABLE_CONFIGURATION_CACHE: 'true'
+          R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT: 3m
+          R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER: 20s
+          R47_CONNECTED_ANDROID_USE_DAEMON: 'true'
+          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
+          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
+          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+          R47_CONNECTED_ANDROID_TEST_CORE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
+          R47_CONNECTED_ANDROID_TEST_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+          R47_CONNECTED_ANDROID_TEST_SOURCE_COMMIT: ${{ github.sha }}
+          R47_CONNECTED_ANDROID_TEST_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
+          R47_CONNECTED_ANDROID_TEST_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
+          R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_REPOSITORY_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+        with:
+          api-level: ${{ steps.defaults.outputs.android_test_api_level }}
+          target: default
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: false
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          working-directory: ./android
+          script: >-
+            bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh
 
       - name: Build signed release APK and bundle
         shell: bash
@@ -569,7 +668,12 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ${{ steps.meta.outputs.artifact_name }}-logs
-          path: ci-artifacts/logs/
+          path: |
+            ci-artifacts/logs/
+            android/app/build/reports/tests
+            android/app/build/test-results
+            android/app/build/reports/androidTests
+            android/app/build/outputs/androidTest-results
           if-no-files-found: warn
           retention-days: 30
 
@@ -697,8 +801,9 @@ jobs:
           Console upload.
 
           The protected release workflow rebuilt the authoritative upstream core,
-          reran the wrapper-owned host-core optimization flow, Android lint, JVM
-          tests, and instrumentation packaging before publishing these assets.
+          reran the wrapper-owned host-core optimization flow, Android lint,
+          release-path JVM tests, and release-path instrumentation tests before
+          publishing these assets.
 
           The Linux host toolchain built xlsxio_xlsx2csv from ${xlsxio_url} at
           commit ${xlsxio_commit} to satisfy the upstream font-generation

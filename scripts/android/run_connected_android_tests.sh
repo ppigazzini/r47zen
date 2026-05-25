@@ -18,7 +18,7 @@ NON_FIXTURE_TEST_CLASSES=(
     "io.github.ppigazzini.r47zen.StorageAccessCoordinatorInstrumentedTest"
 )
 REQUIRED_CONNECTED_ANDROID_SELECTIONS=(
-    "PROGRAMS/MANSLV2.p47"
+    "ProgramFixtureInstrumentation"
 )
 
 fail() {
@@ -93,14 +93,14 @@ selection_requires_timeout_failure() {
 }
 
 emit_fixture_timeout_warning() {
-    local fixture="$1"
+    local selection="$1"
     local reason="$2"
-    local message="$fixture did not finish within the Android fixture budget (${reason}); the connected-test safety net killed the selection and continued with degraded coverage for this fixture."
+    local message="$selection did not finish within the Android connected-test budget (${reason}); the connected-test safety net killed that grouped selection and continued with degraded coverage."
 
     echo "WARNING: $message" >&2
 
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-        echo "::warning title=Android PROGRAMS fixture timeout::$message"
+        echo "::warning title=Android connected-test selection timeout::$message"
     fi
 
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
@@ -109,15 +109,15 @@ emit_fixture_timeout_warning() {
 }
 
 emit_required_fixture_timeout_error() {
-    local fixture="$1"
+    local selection="$1"
     local reason="$2"
     local log_file="$3"
-    local message="$fixture did not finish within the Android fixture budget (${reason}); this required connected-test selection now fails the Android lane. See $log_file."
+    local message="$selection did not finish within the Android connected-test budget (${reason}); this required connected-test selection now fails the Android lane. See $log_file."
 
     echo "ERROR: $message" >&2
 
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-        echo "::error title=Required Android PROGRAMS fixture timeout::$message"
+        echo "::error title=Required Android connected-test selection timeout::$message"
     fi
 
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
@@ -130,8 +130,8 @@ cleanup_connected_test_processes() {
         return 0
     fi
 
-    adb shell am force-stop "$R47_DEBUG_TEST_APPLICATION_ID" >/dev/null 2>&1 || true
-    adb shell am force-stop "$R47_DEBUG_APPLICATION_ID" >/dev/null 2>&1 || true
+    adb shell am force-stop "$R47_CONNECTED_ANDROID_TEST_APPLICATION_ID" >/dev/null 2>&1 || true
+    adb shell am force-stop "$R47_CONNECTED_ANDROID_APPLICATION_ID" >/dev/null 2>&1 || true
 }
 
 run_connected_selection() {
@@ -143,7 +143,7 @@ run_connected_selection() {
     local status=0
     local gradle_args=(
         --max-workers "$R47_CONNECTED_ANDROID_TEST_JOBS"
-        :app:connectedDebugAndroidTest
+        "$R47_CONNECTED_ANDROID_TASK"
     )
 
     if is_truthy "${R47_CONNECTED_ANDROID_USE_DAEMON:-}"; then
@@ -164,7 +164,10 @@ run_connected_selection() {
     gradle_args+=(
         "-Pr47.ndkVersion=$R47_CONNECTED_ANDROID_TEST_NDK_VERSION"
         "-Pr47.abiFilters=$R47_CONNECTED_ANDROID_TEST_ABI_FILTERS"
+        "-Pr47.releaseMinify=$R47_CONNECTED_ANDROID_TEST_RELEASE_MINIFY"
+        "-Pr47.releaseShrinkResources=$R47_CONNECTED_ANDROID_TEST_RELEASE_SHRINK_RESOURCES"
         "-Pr47.coreVersion=$R47_CONNECTED_ANDROID_TEST_CORE_VERSION"
+        "-Pr47.releaseChannel=$R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL"
         "-Pr47.sourceRepositoryUrl=$R47_CONNECTED_ANDROID_TEST_SOURCE_REPOSITORY_URL"
         "-Pr47.sourceCommit=$R47_CONNECTED_ANDROID_TEST_SOURCE_COMMIT"
         "-Pr47.upstreamSourceRepositoryUrl=$R47_CONNECTED_ANDROID_TEST_UPSTREAM_SOURCE_REPOSITORY_URL"
@@ -214,19 +217,44 @@ if [[ ! -f "$DEFAULTS_PATH" ]]; then
 fi
 
 R47_CONNECTED_ANDROID_TEST_CORE_VERSION="$(printf '%.8s' "$R47_CONNECTED_ANDROID_TEST_CORE_COMMIT")"
+R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL="${R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL:-dev}"
+R47_CONNECTED_ANDROID_TEST_BUILD_TYPE="${R47_CONNECTED_ANDROID_TEST_BUILD_TYPE:-}"
+R47_CONNECTED_ANDROID_TEST_RELEASE_MINIFY="${R47_CONNECTED_ANDROID_TEST_RELEASE_MINIFY:-false}"
+R47_CONNECTED_ANDROID_TEST_RELEASE_SHRINK_RESOURCES="${R47_CONNECTED_ANDROID_TEST_RELEASE_SHRINK_RESOURCES:-false}"
+if [[ -z "$R47_CONNECTED_ANDROID_TEST_BUILD_TYPE" ]]; then
+    if [[ "$R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL" == "dev" ]]; then
+        R47_CONNECTED_ANDROID_TEST_BUILD_TYPE="release"
+    else
+        R47_CONNECTED_ANDROID_TEST_BUILD_TYPE="debug"
+    fi
+fi
 R47_ANDROID_APPLICATION_ID="$(read_default_property R47_DEFAULT_ANDROID_APPLICATION_ID)"
-R47_DEBUG_APPLICATION_ID="${R47_ANDROID_APPLICATION_ID}.debug"
-R47_DEBUG_TEST_APPLICATION_ID="${R47_DEBUG_APPLICATION_ID}.test"
+
+case "$R47_CONNECTED_ANDROID_TEST_BUILD_TYPE" in
+debug)
+    R47_CONNECTED_ANDROID_TASK=":app:connectedDebugAndroidTest"
+    R47_CONNECTED_ANDROID_APPLICATION_ID="${R47_ANDROID_APPLICATION_ID}.debug"
+    ;;
+release)
+    R47_CONNECTED_ANDROID_TASK=":app:connectedReleaseAndroidTest"
+    if [[ "$R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL" == "dev" ]]; then
+        R47_CONNECTED_ANDROID_APPLICATION_ID="${R47_ANDROID_APPLICATION_ID}.dev"
+    else
+        R47_CONNECTED_ANDROID_APPLICATION_ID="$R47_ANDROID_APPLICATION_ID"
+    fi
+    ;;
+*)
+    fail "Unsupported R47_CONNECTED_ANDROID_TEST_BUILD_TYPE value: $R47_CONNECTED_ANDROID_TEST_BUILD_TYPE"
+    ;;
+esac
+
+R47_CONNECTED_ANDROID_TEST_APPLICATION_ID="${R47_CONNECTED_ANDROID_APPLICATION_ID}.test"
 
 NON_FIXTURE_TEST_FILTER="$(IFS=,; printf '%s' "${NON_FIXTURE_TEST_CLASSES[*]}")"
 
 TEST_SELECTION_SPECS=(
     "NonFixtureInstrumentation|$NON_FIXTURE_TEST_FILTER||"
-    "PROGRAMS/BinetV3.p47|${PROGRAM_FIXTURE_TEST_CLASS}#loadAndRunBinetV3ThroughAndroidRuntime|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
-    "PROGRAMS/GudrmPL.p47|${PROGRAM_FIXTURE_TEST_CLASS}#loadAndRunGudrmPLThroughAndroidRuntime|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
-    "PROGRAMS/MANSLV2.p47|${PROGRAM_FIXTURE_TEST_CLASS}#loadAndRunMANSLV2ThroughAndroidRuntime|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
-    "PROGRAMS/NQueens.p47|${PROGRAM_FIXTURE_TEST_CLASS}#loadAndRunNQueensThroughAndroidRuntime|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
-    "PROGRAMS/SPIRALk.p47|${PROGRAM_FIXTURE_TEST_CLASS}#loadAndRunSPIRALkThroughAndroidRuntime|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
+    "ProgramFixtureInstrumentation|${PROGRAM_FIXTURE_TEST_CLASS}|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
 )
 
 cd "$ANDROID_DIR"

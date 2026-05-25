@@ -118,6 +118,11 @@ add_library(r47zen SHARED
 # gold-based link step that fails in this workspace. Keep ThinLTO on the real
 # shared-library target and scope it to the native shipping configs.
 foreach(R47_ANDROID_LTO_CONFIG IN ITEMS Release RelWithDebInfo)
+    # AGP maps app shipping builds through RelWithDebInfo, so force the same
+    # high-optimization level on both shipping-native configurations.
+    target_compile_options(r47zen PRIVATE
+        "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-O3>"
+    )
     target_compile_options(r47zen PRIVATE
         "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-flto=thin>"
     )

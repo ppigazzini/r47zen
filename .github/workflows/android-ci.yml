@@ -2,11 +2,22 @@ name: Android CI
 
 on:
   workflow_dispatch:
+    inputs:
+      dev_version_code:
+        description: Monotonic Android versionCode for the signed dev prerelease lane
+        required: false
+        type: string
+      dev_version_name:
+        description: Android versionName base for the signed dev prerelease lane
+        required: false
+        type: string
   push:
     branches:
       - github_ci
       - main
   pull_request:
+  schedule:
+    - cron: '14 3 * * *'
 
 permissions:
   contents: read
@@ -54,6 +65,9 @@ jobs:
     outputs:
       should_run: ${{ steps.decide.outputs.should_run }}
       release_tag: ${{ steps.decide.outputs.release_tag }}
+      dev_version_code: ${{ steps.decide.outputs.dev_version_code }}
+      dev_version_name: ${{ steps.decide.outputs.dev_version_name }}
+      dev_build_token: ${{ steps.decide.outputs.dev_build_token }}
     steps:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -66,6 +80,8 @@ jobs:
         env:
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           ANDROID_COMMIT: ${{ github.sha }}
+          DEV_VERSION_CODE_INPUT: ${{ github.event.inputs.dev_version_code }}
+          DEV_VERSION_NAME_INPUT: ${{ github.event.inputs.dev_version_name }}
         run: |
           set -euo pipefail
 
@@ -84,6 +100,34 @@ jobs:
 
           release_tag="$R47_ANDROID_RELEASE_TAG"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+
+          dev_build_token="${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "${DEV_VERSION_CODE_INPUT:-}" ]]; then
+            dev_version_code="$DEV_VERSION_CODE_INPUT"
+          else
+            dev_version_code="$GITHUB_RUN_NUMBER"
+          fi
+
+          if [[ "$dev_version_code" =~ [^0-9] || "$dev_version_code" -lt 1 ]]; then
+            echo "Dev prerelease version code must be a positive integer. Got: $dev_version_code" >&2
+            exit 1
+          fi
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "${DEV_VERSION_NAME_INPUT:-}" ]]; then
+            dev_version_name="$DEV_VERSION_NAME_INPUT"
+          else
+            dev_version_name="0.1.0"
+          fi
+
+          if [[ -z "$dev_version_name" ]]; then
+            echo "Dev prerelease version name must be non-empty." >&2
+            exit 1
+          fi
+
+          echo "dev_version_code=$dev_version_code" >> "$GITHUB_OUTPUT"
+          echo "dev_version_name=$dev_version_name" >> "$GITHUB_OUTPUT"
+          echo "dev_build_token=$dev_build_token" >> "$GITHUB_OUTPUT"
 
           echo "should_run=true" >> "$GITHUB_OUTPUT"
 
@@ -221,7 +265,7 @@ jobs:
             test
 
   android-build-test-package:
-    name: Build, test, and package Android debug APK
+    name: Build, test, and package Android signed dev prerelease APK
     if: needs.upstream-release-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
@@ -316,6 +360,34 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+
+      - name: Accept Android SDK licenses non-interactively
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdkmanager_bin="$(command -v sdkmanager || true)"
+          if [[ -z "$sdkmanager_bin" ]]; then
+            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+            for candidate in \
+              "$sdk_root/cmdline-tools/latest/bin/sdkmanager" \
+              "$sdk_root/cmdline-tools/20.0/bin/sdkmanager" \
+              "$sdk_root/cmdline-tools/19.0/bin/sdkmanager"; do
+              if [[ -x "$candidate" ]]; then
+                sdkmanager_bin="$candidate"
+                break
+              fi
+            done
+          fi
+
+          if [[ -z "$sdkmanager_bin" ]]; then
+            echo "Unable to locate sdkmanager after setup-android." >&2
+            exit 1
+          fi
+
+          set +o pipefail
+          yes | "$sdkmanager_bin" --licenses > /dev/null
+          set -o pipefail
 
       - name: Resolve Android SDK cache paths
         id: android-sdk
@@ -461,14 +533,38 @@ jobs:
             --android-commit "$android_commit")"
 
           echo "artifact_name=$R47_ANDROID_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
-          echo "debug_apk_name=$R47_ANDROID_DEBUG_APK_NAME" >> "$GITHUB_OUTPUT"
+          echo "dev_apk_name=$R47_ANDROID_DEV_APK_NAME" >> "$GITHUB_OUTPUT"
 
           if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
-            echo "release_tag=$R47_ANDROID_RELEASE_TAG" >> "$GITHUB_OUTPUT"
-            echo "release_title=$R47_ANDROID_RELEASE_TITLE" >> "$GITHUB_OUTPUT"
+            echo "release_tag=$R47_ANDROID_DEV_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+            echo "release_title=$R47_ANDROID_DEV_RELEASE_TITLE" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build, test, and package Android debug APK
+      - name: Validate prerelease signing inputs
+        shell: bash
+        env:
+          R47_PRERELEASE_STORE_FILE_BASE64: ${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}
+          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
+          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
+          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          required=(
+            R47_PRERELEASE_STORE_FILE_BASE64
+            R47_PRERELEASE_STORE_PASSWORD
+            R47_PRERELEASE_KEY_ALIAS
+            R47_PRERELEASE_KEY_PASSWORD
+          )
+
+          for secret_name in "${required[@]}"; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "Missing required prerelease secret: ${secret_name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Build, test, and package Android signed dev prerelease APK
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
@@ -482,10 +578,21 @@ jobs:
           R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
           R47_XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+          R47_RELEASE_CHANNEL: dev
+          R47_RELEASE_CHANNEL_BUILD_TOKEN: ${{ needs.upstream-release-gate.outputs.dev_build_token }}
+          R47_VERSION_CODE: ${{ needs.upstream-release-gate.outputs.dev_version_code }}
+          R47_VERSION_NAME: ${{ needs.upstream-release-gate.outputs.dev_version_name }}
+          R47_PRERELEASE_STORE_FILE: ${{ github.workspace }}/ci-signing/prerelease.keystore
+          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
+          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
+          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
           GRADLE_OPTS: '-Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
           mkdir -p ci-artifacts/logs
+          mkdir -p ci-signing
+          printf '%s' '${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}' | base64 --decode > "$R47_PRERELEASE_STORE_FILE"
+
           ./scripts/android/build_android.sh \
             --run-sim-tests \
             --collect-host-pgo \
@@ -561,10 +668,10 @@ jobs:
           set -euo pipefail
 
           bash ./scripts/android/collect_packaging_evidence.sh \
-            --variant debug \
-            --apk android/app/build/outputs/apk/debug/app-debug.apk \
+            --variant release \
+            --apk android/app/build/outputs/apk/release/app-release.apk \
             --output-dir ci-artifacts/release \
-            --artifact-name "${{ steps.meta.outputs.debug_apk_name }}" \
+            --artifact-name "${{ steps.meta.outputs.dev_apk_name }}" \
             --expected-abis arm64-v8a \
             --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
             --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
@@ -576,7 +683,9 @@ jobs:
             --upstream-source-commit "${{ steps.upstream.outputs.upstream_commit }}" \
             --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
             --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
-            --signing-mode debug \
+            --version-code "${{ needs.upstream-release-gate.outputs.dev_version_code }}" \
+            --version-name "${{ needs.upstream-release-gate.outputs.dev_version_name }}" \
+            --signing-mode prerelease \
             --ref "${GITHUB_REF}" \
             --sha "${GITHUB_SHA}" \
             --run-id "${GITHUB_RUN_ID}" \
@@ -694,6 +803,34 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
 
+      - name: Accept Android SDK licenses non-interactively
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdkmanager_bin="$(command -v sdkmanager || true)"
+          if [[ -z "$sdkmanager_bin" ]]; then
+            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+            for candidate in \
+              "$sdk_root/cmdline-tools/latest/bin/sdkmanager" \
+              "$sdk_root/cmdline-tools/20.0/bin/sdkmanager" \
+              "$sdk_root/cmdline-tools/19.0/bin/sdkmanager"; do
+              if [[ -x "$candidate" ]]; then
+                sdkmanager_bin="$candidate"
+                break
+              fi
+            done
+          fi
+
+          if [[ -z "$sdkmanager_bin" ]]; then
+            echo "Unable to locate sdkmanager after setup-android." >&2
+            exit 1
+          fi
+
+          set +o pipefail
+          yes | "$sdkmanager_bin" --licenses > /dev/null
+          set -o pipefail
+
       - name: Resolve Android SDK cache paths
         id: android-sdk
         shell: bash
@@ -736,6 +873,43 @@ jobs:
             "ndk;${{ steps.defaults.outputs.ndk_version }}" \
             "emulator" \
             "system-images;android-${{ steps.defaults.outputs.android_test_api_level }};default;x86_64"
+
+      - name: Validate prerelease signing inputs
+        shell: bash
+        env:
+          R47_PRERELEASE_STORE_FILE_BASE64: ${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}
+          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
+          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
+          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          required=(
+            R47_PRERELEASE_STORE_FILE_BASE64
+            R47_PRERELEASE_STORE_PASSWORD
+            R47_PRERELEASE_KEY_ALIAS
+            R47_PRERELEASE_KEY_PASSWORD
+          )
+
+          for secret_name in "${required[@]}"; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "Missing required prerelease secret: ${secret_name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Prepare prerelease keystore for connected tests
+        shell: bash
+        env:
+          R47_PRERELEASE_STORE_FILE_BASE64: ${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}
+          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
+          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
+          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p ci-signing
+          printf '%s' "$R47_PRERELEASE_STORE_FILE_BASE64" | base64 --decode > ci-signing/prerelease.keystore
 
       - name: Make scripts executable
         shell: bash
@@ -825,7 +999,7 @@ jobs:
 
           echo "artifact_name=$R47_ANDROID_TEST_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
 
-      - name: Build Android debug artifacts and run JVM tests
+      - name: Build Android dev-release artifacts and run JVM tests
         shell: bash
         run: |
           set -euo pipefail
@@ -837,20 +1011,25 @@ jobs:
 
           cd android
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
-            :app:assembleDebug \
-            :app:assembleDebugAndroidTest \
-            :app:testDebugUnitTest \
+            :app:assembleRelease \
+            :app:assembleReleaseAndroidTest \
+            :app:testReleaseUnitTest \
             ${{ env.R47_CI_GRADLE_ARGS }} \
+            -Pr47.releaseMinify=false \
+            -Pr47.releaseShrinkResources=false \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
             -Pr47.abiFilters=${{ steps.defaults.outputs.android_test_abi_filters }} \
             -Pr47.coreVersion="$core_version" \
+            -Pr47.releaseChannel=dev \
+            -Pr47.testBuildType=release \
+            -Pr47.releaseChannelBuildToken=${{ needs.upstream-release-gate.outputs.dev_build_token }} \
             -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
             -Pr47.sourceCommit=${{ github.sha }} \
             -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
             -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
             -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
             -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
-            2>&1 | tee ../ci-artifacts/logs/android-debug-build-and-unit.log
+            2>&1 | tee ../ci-artifacts/logs/android-dev-release-build-and-unit.log
 
       - name: Restore Android emulator AVD cache
         id: avd-cache
@@ -891,7 +1070,18 @@ jobs:
           R47_CONNECTED_ANDROID_TEST_JOBS: ${{ steps.jobs.outputs.jobs }}
           R47_CONNECTED_ANDROID_TEST_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
           R47_CONNECTED_ANDROID_TEST_ABI_FILTERS: ${{ steps.defaults.outputs.android_test_abi_filters }}
+          R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL: dev
+          R47_CONNECTED_ANDROID_TEST_BUILD_TYPE: release
+          R47_CONNECTED_ANDROID_TEST_RELEASE_MINIFY: 'false'
+          R47_CONNECTED_ANDROID_TEST_RELEASE_SHRINK_RESOURCES: 'false'
+          R47_CONNECTED_ANDROID_ENABLE_CONFIGURATION_CACHE: 'true'
+          R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT: 3m
+          R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER: 20s
           R47_CONNECTED_ANDROID_USE_DAEMON: 'true'
+          R47_PRERELEASE_STORE_FILE: ${{ github.workspace }}/ci-signing/prerelease.keystore
+          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
+          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
+          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
           R47_CONNECTED_ANDROID_TEST_CORE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_COMMIT: ${{ github.sha }}
@@ -927,11 +1117,11 @@ jobs:
           retention-days: 14
 
   publish-main-snapshot:
-    name: Publish main snapshot prerelease
+    name: Publish signed dev prerelease
     if: |
       needs.upstream-release-gate.outputs.should_run == 'true' &&
       github.ref == 'refs/heads/main' &&
-      github.event_name == 'push'
+      (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     needs:
       - upstream-release-gate
       - upstream-simulator-sanity
@@ -954,12 +1144,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          debug_apk_name=$(sed -n 's/^artifact_name=//p' release-assets/BUILD-METADATA.txt)
-          if [[ -z "$debug_apk_name" ]]; then
+          dev_apk_name=$(sed -n 's/^artifact_name=//p' release-assets/BUILD-METADATA.txt)
+          if [[ -z "$dev_apk_name" ]]; then
             echo "BUILD-METADATA.txt did not contain artifact_name." >&2
             exit 1
           fi
-          evidence_archive_name="${debug_apk_name%.apk}-packaging-evidence.zip"
+          evidence_archive_name="${dev_apk_name%.apk}-packaging-evidence.zip"
 
           rm -f "release-assets/${evidence_archive_name}"
           (
@@ -986,23 +1176,24 @@ jobs:
           android_commit=$(sed -n 's/^android_source_commit=//p' release-assets/BUILD-METADATA.txt)
           xlsxio_commit=$(sed -n 's/^xlsxio_commit=//p' release-assets/BUILD-METADATA.txt)
           xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-assets/BUILD-METADATA.txt)
-          debug_apk_name=$(sed -n 's/^artifact_name=//p' release-assets/BUILD-METADATA.txt)
+          dev_apk_name=$(sed -n 's/^artifact_name=//p' release-assets/BUILD-METADATA.txt)
           release_tag="${{ needs.android-build-test-package.outputs.release_tag }}"
-          if [[ -z "$debug_apk_name" ]]; then
+          if [[ -z "$dev_apk_name" ]]; then
             echo "BUILD-METADATA.txt did not contain artifact_name." >&2
             exit 1
           fi
           upstream_short_commit="${upstream_commit:0:8}"
           android_short_commit="${android_commit:0:8}"
-          evidence_archive_name="${debug_apk_name%.apk}-packaging-evidence.zip"
+          evidence_archive_name="${dev_apk_name%.apk}-packaging-evidence.zip"
 
           cat > release-notes.md <<EOF
           - Snapshot tag ${release_tag}
           - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
           - Build Android overlay commit [${android_short_commit}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${android_commit})
 
-          This prerelease contains the debug-signed debug APK ${debug_apk_name}
-          built by ./scripts/android/build_android.sh from Android repository
+          This prerelease contains the signed dev-channel APK ${dev_apk_name}
+          built from the release variant by ./scripts/android/build_android.sh
+          in dev lane mode from Android repository
           commit ${android_commit}.
 
           The calculator core was synchronized from ${upstream_url} at commit
@@ -1013,21 +1204,18 @@ jobs:
           contract.
 
           Included assets:
-          - ${debug_apk_name}
+          - ${dev_apk_name}
           - ${evidence_archive_name}
 
           Notes:
-          - This is a main-branch snapshot prerelease, not a signed store release.
-          - The included APK is signed with the default debug signing config
-            generated on the GitHub runner for this workflow run.
-          - Debug-keystore continuity is not guaranteed across snapshot
-            releases, so this prerelease is not the stable Obtanium or
-            seamless-update channel.
+          - This is a signed prerelease lane that is separate from the
+            production release key and from the manual production release
+            workflow.
           - The workflow first sanity-checked the authoritative upstream
             simulator core with parallel make test.
           - The Android lane rebuilt assets, reran the simulator-native suite
             from ./scripts/android/build_android.sh --run-sim-tests, and then
-            packaged the debug APK.
+            packaged the signed dev-channel APK.
           - The workflow verified packaged ABIs and ran the Android 16 KB zip
             alignment check described in the Android docs.
           - ${evidence_archive_name} preserves the compliance-assets/ directory,
