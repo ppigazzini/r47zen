@@ -255,6 +255,12 @@ Current repository icon surfaces:
 - [Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments):
   environment protection rules, required reviewers, deployment branch
   restrictions, and environment-secret gating for the protected release lane.
+- [Events that trigger workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule):
+  schedule-trigger semantics, default-branch-only execution, UTC defaults, and
+  delay or drop behavior relevant to the daily signed release lane.
+- [Manually running a workflow](https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow):
+  the maintainer entry point for versioned protected releases outside the
+  daily schedule.
 - [Passing information between jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs):
   GitHub Actions guidance for promoting step outputs through
   `jobs.<job_id>.outputs` and consuming them in dependent jobs through

@@ -46,7 +46,8 @@ flowchart TD
 - run Android lint explicitly instead of assuming Gradle builds cover it
 - publish logs and packaging evidence as first-class artifacts
 - publish the main snapshot only after all required lanes pass
-- keep production signing in a separate protected manual workflow
+- keep production signing and user-facing release publication in a separate
+  protected scheduled or manual workflow
 
 ## Workflow triggers and gating
 
@@ -55,7 +56,6 @@ The main workflow is `.github/workflows/android-ci.yml`.
 It runs on:
 
 - manual dispatch
-- a daily schedule
 - pushes to `main` and `github_ci`
 - pull requests
 
@@ -67,16 +67,18 @@ upstream commit and applies a release gate:
 
 - `resolve-upstream-core` resolves the upstream URL and commit through
   `scripts/upstream-sync/upstream.sh resolve --latest`
-- `upstream-release-gate` decides whether the downstream lanes should run and,
-  for scheduled executions, skips the release path when the resolved upstream
-  commit plus the current Android repository commit already has a matching
-  Android prerelease tag in this repository
+- `upstream-release-gate` computes the downstream Android prerelease tag from
+  the resolved upstream commit plus the current Android repository commit and
+  enables the downstream CI lanes for the current trigger set
 
 Production signing does not run in `.github/workflows/android-ci.yml`.
-The separate manual workflow `.github/workflows/android-release.yml` owns the
-signed store-bundle lane. It should be restricted to `main` through the
-`production-release` environment and protected there with required reviewers,
-deployment-branch rules, and environment secrets.
+The separate protected workflow `.github/workflows/android-release.yml` owns
+the signed release lane for the installable APK, the Play upload AAB, and the
+versioned GitHub release publication. It runs on manual dispatch and on the
+daily `14 3 * * *` schedule. GitHub schedules run only on the default branch,
+default to UTC, and can be delayed or dropped under heavy Actions load. If the
+`production-release` environment keeps required reviewers enabled, the
+scheduled run pauses there before GitHub exposes the signing secrets.
 
 ## Job graph
 
@@ -213,10 +215,19 @@ instrumentation fixtures, or Android-only test seams.
 This job runs only on `main` after the release gate passes and all required
 verification jobs succeed.
 
+It publishes only on `push` events to `main`; manual CI dispatches still run
+the debug verification lanes, but they no longer create the public debug
+prerelease.
+
 It downloads the packaged Android artifacts, archives the packaging evidence,
 and publishes the main-branch snapshot prerelease tagged
 `r47zen-<upstream short>-<android short>` with the same template used for
 the release title.
+
+This prerelease is intentionally not the stable user update channel. The APK
+keeps the debug package identity and uses the runner-local default debug
+keystore for that workflow run, so signer continuity is not guaranteed across
+snapshot publications.
 
 ## Production release workflow
 
@@ -224,19 +235,23 @@ The protected production workflow is `.github/workflows/android-release.yml`.
 
 ```mermaid
 flowchart TD
-  A[workflow_dispatch on main]
-  B[production-release environment approval]
+  A[workflow_dispatch or schedule]
+  B[resolve-release-inputs]
   C[resolve-upstream-core]
-  D[build-production-release-bundle]
-  E[wrapper-owned host-core optimization flow]
-  F[signed bundle using collected host profile]
-  G[signed AAB plus evidence artifact]
+  D[production-release environment approval]
+  E[build-production-release-bundle]
+  F[wrapper-owned host-core optimization flow]
+  G[signed release APK and AAB]
+  H[upload workflow artifacts]
+  I[publish-production-release]
+  J[versioned GitHub release]
 
-  A --> B --> C --> D
-  D --> E
-  D --> F
+  A --> B --> E
+  A --> C --> E
+  A --> D --> E
+  E --> F
   E --> G
-  F --> G
+  G --> H --> I --> J
 ```
 
 ### `build-production-release-bundle`
@@ -253,22 +268,45 @@ This workflow:
   `ci-artifacts/pgo/r47-host-core.profdata`
 - runs Android lint, `:app:testDebugUnitTest`, and
   `:app:assembleDebugAndroidTest` before signing the release bundle
-- requires manual `version_code` and `version_name` inputs
+- resolves `version_code` and `version_name` from workflow inputs for manual
+  runs or auto-generates them for scheduled runs
+- uses the scheduled values `version_code=<UTC YYYYMMDD>01` and
+  `version_name=<default Android version name>-signed.<UTC YYYYMMDD>` so the
+  daily signed lane stays monotonic without manual inputs
 - decodes `R47_RELEASE_STORE_FILE_BASE64` onto the runner and passes the path
   through `R47_RELEASE_STORE_FILE`
 - reads `R47_RELEASE_STORE_PASSWORD`, `R47_RELEASE_KEY_ALIAS`, and
   `R47_RELEASE_KEY_PASSWORD` only from the protected environment
-- builds `:app:bundleRelease -Pr47.pgoProfilePath=...` so the signed release
-  bundle consumes the same collected host-core profile that the wrapper already
-  validated
-- uploads the release build logs, the host-core PGO artifact bundle, and the
-  signed AAB artifact bundle
-  `r47zen-<upstream short>-<android short>-release`
+- builds `:app:assembleRelease :app:bundleRelease
+  -Pr47.pgoProfilePath=...` so the signed release APK and AAB consume the same
+  collected host-core profile that the wrapper already validated
+- uploads the release build logs, the host-core PGO artifact bundle, the
+  signed AAB artifact bundle `r47zen-<upstream short>-<android short>-release`,
+  and the signed APK artifact bundle
+  `r47zen-<upstream short>-<android short>-release-apk`
 - ships `r47zen-<upstream short>-<android short>-release.aab`,
+  `r47zen-<upstream short>-<android short>-release.apk`,
   `BUILD-METADATA.txt`, `SHA256SUMS.txt`, `mapping.txt`,
-  `native-debug-symbols.zip`, and the compliance-assets payload together
-- stops at artifact publication; Play Console upload remains a manual
-  maintainer action after review
+  `native-debug-symbols.zip`, and the compliance-assets payload in the
+  workflow artifacts
+
+### `publish-production-release`
+
+This workflow job:
+
+- downloads the signed AAB and APK workflow artifact bundles after the build
+  job succeeds
+- repacks maintainers' packaging-evidence zips for the AAB and APK from the
+  collected compliance assets, provenance, mapping, symbols, and packaging
+  reports
+- creates or updates the GitHub release tag
+  `r47zen-v<sanitized version_name>` titled `R47 Zen <version_name>`
+- attaches the signed installable APK, the signed Play upload AAB, and both
+  packaging-evidence archives to that GitHub release
+- keeps Play Console upload manual after review; this workflow does not push to
+  Google Play
+- writes release notes that state whether the GitHub release came from the
+  scheduled signed lane or from a manual protected run
 
 The manual Play handoff still requires the maintainer-owned publication inputs
 that do not live in the Gradle workflow itself:
@@ -308,11 +346,15 @@ The workflow publishes three main artifact classes:
   release workflow; each lane's build log records the wrapper-owned collector
   and release-native validation output, and the protected release workflow also
   records the final signed-bundle consumer path
+- protected-release workflow artifact bundles for the signed AAB and the signed
+  APK, plus the versioned GitHub release assets published from those bundles
 
 Android artifact names use the two-commit Android identity
 `upstream short + Android short`. Linux and Windows simulator package workflows
 stay upstream-only because they ship the synced core without the Android
-overlay.
+overlay. The public production GitHub release tag uses the sanitized
+`version_name` instead so user-facing version discovery does not depend on the
+two commit tokens.
 
 The build lane also records packaging metadata such as expected ABIs and source
 provenance. Packaging-sensitive doc changes should stay aligned with those
@@ -340,11 +382,11 @@ Use the smallest local lane that matches the failure surface:
   `cd android && ./gradlew :app:assembleDebugAndroidTest`
 - protected-release parity with a collected host profile:
   `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`, then
-  `cd android && ./gradlew :app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`
+  `cd android && ./gradlew :app:assembleRelease :app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`
   with the `R47_RELEASE_*` environment variables plus explicit `r47.versionCode`
   and `r47.versionName` inputs
-- signed production bundle with current staged inputs:
-  `cd android && ./gradlew :app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`
+- signed production APK and bundle with current staged inputs:
+  `cd android && ./gradlew :app:assembleRelease :app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`
   with the `R47_RELEASE_*` environment variables plus explicit
   `r47.versionCode` and `r47.versionName` inputs
 
@@ -373,6 +415,9 @@ the full build script over isolated Gradle invocations.
   back to a non-PGO release-native build.
 - Keep store-release signing in the dedicated protected workflow. Do not fold
   production secrets into `.github/workflows/android-ci.yml`.
+- Keep the snapshot prerelease explicitly debug and non-upgrade-stable. Do not
+  drop `debug` from that lane's artifact names unless a separate stable signing
+  key and publication policy land first.
 - Keep the Android artifact identity separate from the upstream-only simulator
   package identity.
 - Update this page when job names, release gating, artifact names, or local

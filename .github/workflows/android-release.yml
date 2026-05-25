@@ -11,6 +11,8 @@ on:
         description: Android versionName for the signed release bundle
         required: true
         type: string
+  schedule:
+    - cron: '14 3 * * *'
 
 permissions:
   contents: read
@@ -23,6 +25,63 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  resolve-release-inputs:
+    name: Resolve release version inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version_code: ${{ steps.resolve.outputs.version_code }}
+      version_name: ${{ steps.resolve.outputs.version_name }}
+      release_mode: ${{ steps.resolve.outputs.release_mode }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve release version inputs
+        id: resolve
+        shell: bash
+        env:
+          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            . ./android/r47-defaults.properties
+
+            schedule_date=$(date -u +%Y%m%d)
+            version_code="${schedule_date}01"
+            version_name="${R47_DEFAULT_ANDROID_VERSION_NAME}-signed.${schedule_date}"
+            release_mode="scheduled"
+          else
+            version_code="$R47_VERSION_CODE_INPUT"
+            version_name="$R47_VERSION_NAME_INPUT"
+            release_mode="manual"
+          fi
+
+          case "$version_code" in
+            ''|*[!0-9]*)
+              echo "version_code must be a positive integer." >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ "$version_code" -lt 1 ]]; then
+            echo "version_code must be greater than zero." >&2
+            exit 1
+          fi
+
+          if [[ -z "$version_name" ]]; then
+            echo "version_name must be non-empty." >&2
+            exit 1
+          fi
+
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "release_mode=$release_mode" >> "$GITHUB_OUTPUT"
+
   resolve-upstream-core:
     name: Resolve authoritative upstream core revision
     runs-on: ubuntu-latest
@@ -48,16 +107,21 @@ jobs:
           echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
 
   build-production-release-bundle:
-    name: Build signed production release bundle
+    name: Build signed production release assets
     if: github.ref == 'refs/heads/main'
     needs:
+      - resolve-release-inputs
       - resolve-upstream-core
     environment: production-release
     runs-on: ubuntu-latest
     timeout-minutes: 120
     outputs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
+      apk_artifact_name: ${{ steps.meta.outputs.apk_artifact_name }}
       release_bundle_name: ${{ steps.meta.outputs.release_bundle_name }}
+      release_apk_name: ${{ steps.meta.outputs.release_apk_name }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      release_title: ${{ steps.meta.outputs.release_title }}
     steps:
       - name: Configure Git init defaults
         shell: bash
@@ -70,34 +134,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-
-      - name: Validate release inputs
-        shell: bash
-        env:
-          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
-          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
-        run: |
-          set -euo pipefail
-
-          version_code="$R47_VERSION_CODE_INPUT"
-          version_name="$R47_VERSION_NAME_INPUT"
-
-          case "$version_code" in
-            ''|*[!0-9]*)
-              echo "version_code must be a positive integer." >&2
-              exit 1
-              ;;
-          esac
-
-          if [[ "$version_code" -lt 1 ]]; then
-            echo "version_code must be greater than zero." >&2
-            exit 1
-          fi
-
-          if [[ -z "$version_name" ]]; then
-            echo "version_name must be non-empty." >&2
-            exit 1
-          fi
 
       - name: Load shared Android defaults
         id: defaults
@@ -300,6 +336,8 @@ jobs:
       - name: Set release metadata
         id: meta
         shell: bash
+        env:
+          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
         run: |
           set -euo pipefail
 
@@ -307,8 +345,19 @@ jobs:
             --upstream-commit "${{ steps.upstream.outputs.upstream_commit }}" \
             --android-commit "${{ github.sha }}")"
 
+          release_version_token=$(printf '%s' "$R47_VERSION_NAME_INPUT" | sed -e 's/[^0-9A-Za-z._-]/-/g' -e 's/^-*//' -e 's/-*$//')
+          release_version_token="${release_version_token#[Vv]}"
+          if [[ -z "$release_version_token" ]]; then
+            echo "version_name did not contain any characters suitable for a GitHub release tag." >&2
+            exit 1
+          fi
+
           echo "artifact_name=$R47_ANDROID_RELEASE_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
+          echo "apk_artifact_name=${R47_ANDROID_RELEASE_ARTIFACT_STEM}-apk" >> "$GITHUB_OUTPUT"
           echo "release_bundle_name=$R47_ANDROID_RELEASE_AAB_NAME" >> "$GITHUB_OUTPUT"
+          echo "release_apk_name=$R47_ANDROID_RELEASE_APK_NAME" >> "$GITHUB_OUTPUT"
+          echo "release_tag=r47zen-v${release_version_token}" >> "$GITHUB_OUTPUT"
+          echo "release_title=R47 Zen ${R47_VERSION_NAME_INPUT}" >> "$GITHUB_OUTPUT"
 
       - name: Prepare staged native inputs and simulator parity
         shell: bash
@@ -389,15 +438,15 @@ jobs:
           chmod 600 "$keystore_path"
           echo "R47_RELEASE_STORE_FILE=$keystore_path" >> "$GITHUB_ENV"
 
-      - name: Build signed release bundle
+      - name: Build signed release APK and bundle
         shell: bash
         env:
           R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
           R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
           R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
           R47_RELEASE_HOST_PGO_PROFILE: ${{ github.workspace }}/ci-artifacts/pgo/r47-host-core.profdata
-          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
-          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
           GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
         run: |
           set -euo pipefail
@@ -405,6 +454,7 @@ jobs:
 
           cd android
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+            :app:assembleRelease \
             :app:bundleRelease \
             --no-daemon --stacktrace --console=plain --warning-mode all \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
@@ -423,18 +473,25 @@ jobs:
       - name: Collect release packaging evidence
         shell: bash
         env:
-          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
-          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
         run: |
           set -euo pipefail
 
+          bundle_output_dir='ci-artifacts/release-aab'
+          apk_output_dir='ci-artifacts/release-apk'
           bundle_path='android/app/build/outputs/bundle/release/app-release.aab'
+          release_apk_path='android/app/build/outputs/apk/release/app-release.apk'
           mapping_path='android/app/build/outputs/mapping/release/mapping.txt'
           native_symbols_dir='android/app/build/intermediates/native_debug_metadata/release/extractReleaseNativeDebugMetadata/out'
           native_symbols_path="$PWD/ci-artifacts/native-debug-symbols.zip"
 
           if [[ ! -f "$bundle_path" ]]; then
             echo "Missing release bundle at ${bundle_path}." >&2
+            exit 1
+          fi
+          if [[ ! -f "$release_apk_path" ]]; then
+            echo "Missing release APK at ${release_apk_path}." >&2
             exit 1
           fi
           if [[ ! -f "$mapping_path" ]]; then
@@ -446,7 +503,7 @@ jobs:
             exit 1
           fi
 
-          mkdir -p ci-artifacts
+          mkdir -p ci-artifacts "$bundle_output_dir" "$apk_output_dir"
           rm -f "$native_symbols_path"
           (
             cd "$native_symbols_dir"
@@ -456,8 +513,35 @@ jobs:
           bash ./scripts/android/collect_packaging_evidence.sh \
             --variant release \
             --bundle "$bundle_path" \
-            --output-dir ci-artifacts/release \
+            --output-dir "$bundle_output_dir" \
             --artifact-name "${{ steps.meta.outputs.release_bundle_name }}" \
+            --expected-abis arm64-v8a \
+            --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
+            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
+            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
+            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
+            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --android-source-commit "${GITHUB_SHA}" \
+            --upstream-source-repository-url "${{ steps.upstream.outputs.upstream_url }}" \
+            --upstream-source-commit "${{ steps.upstream.outputs.upstream_commit }}" \
+            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
+            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
+            --application-id "${{ steps.defaults.outputs.application_id }}" \
+            --version-code "$R47_VERSION_CODE_INPUT" \
+            --version-name "$R47_VERSION_NAME_INPUT" \
+            --signing-mode release \
+            --ref "${GITHUB_REF}" \
+            --sha "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --mapping-file "$mapping_path" \
+            --native-symbols "$native_symbols_path"
+
+          bash ./scripts/android/collect_packaging_evidence.sh \
+            --variant release \
+            --apk "$release_apk_path" \
+            --output-dir "$apk_output_dir" \
+            --artifact-name "${{ steps.meta.outputs.release_apk_name }}" \
             --expected-abis arm64-v8a \
             --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
             --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
@@ -500,10 +584,162 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Upload signed release artifact
+      - name: Upload signed release AAB artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
-          path: ci-artifacts/release/
+          path: ci-artifacts/release-aab/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload signed release APK artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.meta.outputs.apk_artifact_name }}
+          path: ci-artifacts/release-apk/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-production-release:
+    name: Publish production GitHub release
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - build-production-release-bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download release AAB artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
+          path: release-aab
+
+      - name: Download release APK artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
+          path: release-apk
+
+      - name: Pack release evidence archives
+        id: evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          aab_name=$(sed -n 's/^artifact_name=//p' release-aab/BUILD-METADATA.txt)
+          apk_name=$(sed -n 's/^artifact_name=//p' release-apk/BUILD-METADATA.txt)
+
+          if [[ -z "$aab_name" || -z "$apk_name" ]]; then
+            echo "Release build metadata did not contain both artifact names." >&2
+            exit 1
+          fi
+
+          aab_evidence_archive_name="${aab_name%.aab}-packaging-evidence.zip"
+          apk_evidence_archive_name="${apk_name%.apk}-packaging-evidence.zip"
+
+          rm -f "release-aab/${aab_evidence_archive_name}" "release-apk/${apk_evidence_archive_name}"
+          (
+            cd release-aab
+            zip -qr "$aab_evidence_archive_name" \
+              BUILD-METADATA.txt \
+              PACKAGED-COMPLIANCE-ASSETS.txt \
+              SHA256SUMS.txt \
+              mapping.txt \
+              native-debug-symbols.zip \
+              compliance-assets
+          )
+          (
+            cd release-apk
+            zip -qr "$apk_evidence_archive_name" \
+              BUILD-METADATA.txt \
+              PACKAGED-COMPLIANCE-ASSETS.txt \
+              SHA256SUMS.txt \
+              abis.txt \
+              zipalign.txt \
+              elf-load-segments.txt \
+              mapping.txt \
+              native-debug-symbols.zip \
+              compliance-assets
+          )
+
+          echo "aab_evidence_archive_name=${aab_evidence_archive_name}" >> "$GITHUB_OUTPUT"
+          echo "apk_evidence_archive_name=${apk_evidence_archive_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Write release notes
+        shell: bash
+        env:
+          R47_RELEASE_MODE: ${{ needs.resolve-release-inputs.outputs.release_mode }}
+        run: |
+          set -euo pipefail
+
+          upstream_commit=$(sed -n 's/^upstream_commit=//p' release-aab/BUILD-METADATA.txt)
+          upstream_url=$(sed -n 's/^upstream_url=//p' release-aab/BUILD-METADATA.txt)
+          android_commit=$(sed -n 's/^android_source_commit=//p' release-aab/BUILD-METADATA.txt)
+          version_name=$(sed -n 's/^version_name=//p' release-aab/BUILD-METADATA.txt)
+          version_code=$(sed -n 's/^version_code=//p' release-aab/BUILD-METADATA.txt)
+          xlsxio_commit=$(sed -n 's/^xlsxio_commit=//p' release-aab/BUILD-METADATA.txt)
+          xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-aab/BUILD-METADATA.txt)
+          aab_name=$(sed -n 's/^artifact_name=//p' release-aab/BUILD-METADATA.txt)
+          apk_name=$(sed -n 's/^artifact_name=//p' release-apk/BUILD-METADATA.txt)
+          upstream_short_commit="${upstream_commit:0:8}"
+          android_short_commit="${android_commit:0:8}"
+
+          cat > release-notes.md <<EOF
+          - Release tag ${{ needs.build-production-release-bundle.outputs.release_tag }}
+          - Android version ${version_name} (${version_code})
+          - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
+          - Build Android overlay commit [${android_short_commit}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${android_commit})
+
+          This release contains the signed production APK ${apk_name} for direct
+          installation and the signed production AAB ${aab_name} for Play
+          Console upload.
+
+          The protected release workflow rebuilt the authoritative upstream core,
+          reran the wrapper-owned host-core optimization flow, Android lint, JVM
+          tests, and instrumentation packaging before publishing these assets.
+
+          The Linux host toolchain built xlsxio_xlsx2csv from ${xlsxio_url} at
+          commit ${xlsxio_commit} to satisfy the upstream font-generation
+          contract.
+
+          Included assets:
+          - ${apk_name}
+          - ${aab_name}
+          - ${{ steps.evidence.outputs.apk_evidence_archive_name }}
+          - ${{ steps.evidence.outputs.aab_evidence_archive_name }}
+
+          Notes:
+          - This GitHub release was published from the ${R47_RELEASE_MODE} signed
+            release lane.
+          - The APK is the GitHub-distributed installable artifact for direct
+            sideload updates.
+          - The AAB is the Play Console upload artifact.
+          - If Google Play later distributes builds signed by a different
+            Play-held app-signing key, switching from this GitHub APK channel to
+            Play delivery can still require reinstall.
+          - The evidence archives preserve compliance assets, source provenance,
+            signing metadata, and release packaging reports.
+
+          Workflow run:
+          https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+
+      - name: Create and publish production release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: ${{ needs.build-production-release-bundle.outputs.release_tag }}
+          name: ${{ needs.build-production-release-bundle.outputs.release_title }}
+          target_commitish: ${{ github.sha }}
+          body_path: release-notes.md
+          files: |
+            release-apk/*.apk
+            release-aab/*.aab
+            release-apk/${{ steps.evidence.outputs.apk_evidence_archive_name }}
+            release-aab/${{ steps.evidence.outputs.aab_evidence_archive_name }}
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          prerelease: false
+          draft: false
+          make_latest: true

@@ -609,8 +609,10 @@ ownership model as the local build:
   `BUILD-METADATA.txt`.
 - the uploaded Android test artifact uses the stem
   `r47zen-tests-<upstream short>-<android short>`.
-- pushes to `main` and manual runs on `main` publish a debug-signed prerelease
-  tagged and titled `r47zen-<upstream short>-<android short>`.
+- pushes to `main` publish a debug-signed prerelease tagged and titled
+  `r47zen-<upstream short>-<android short>`; because that APK uses the
+  runner-owned default debug keystore, it is not the stable Obtanium or
+  production update channel.
 - Linux and Windows simulator package workflows keep their upstream-only
   artifact identity because they do not depend on the Android overlay commit.
 
@@ -618,8 +620,9 @@ The CI lane verifies packaged ABIs and 16 KB alignment. Runtime execution on a
 real 16 KB target stays a local maintainer lane through
 `scripts/android/run_16kb_runtime_smoke.sh`. This is not a store-release lane.
 
-Store-release signing lives in the separate manual workflow
-`.github/workflows/android-release.yml`. That workflow is bound to the
+Store-release signing lives in the separate protected workflow
+`.github/workflows/android-release.yml`. That workflow runs on manual dispatch
+and on the daily `14 3 * * *` schedule, is bound to the
 `production-release` environment, expects protected signing secrets there, and
 keeps the default debug CI lane secret-free.
 
@@ -632,17 +635,26 @@ keeps the default debug CI lane secret-free.
   and `r47.releaseKeyPassword`. Supplying only some of those values is a hard
   configuration error.
 - `.github/workflows/android-release.yml` is the maintained CI path for a
-  signed production bundle. It takes manual `version_code` and `version_name`
-  inputs, reruns the same wrapper-owned host-core optimization flow as
+  signed production assets. It resolves `version_code` and `version_name`
+  from manual workflow inputs or, on the daily schedule, auto-generates
+  `version_code=<UTC YYYYMMDD>01` and
+  `version_name=<default Android version name>-signed.<UTC YYYYMMDD>`. It
+  reruns the same wrapper-owned host-core optimization flow as
   `android-build-test-package`, decodes `R47_RELEASE_STORE_FILE_BASE64` into
   `RUNNER_TEMP`, and feeds the existing `R47_RELEASE_*` environment hooks to
   Gradle only inside the protected `production-release` environment. The
   workflow then passes the collected `ci-artifacts/pgo/r47-host-core.profdata`
-  back into `:app:bundleRelease` through `r47.pgoProfilePath`.
+  back into `:app:assembleRelease` and `:app:bundleRelease` through
+  `r47.pgoProfilePath`, uploads separate APK and AAB artifact bundles, and
+  publishes the versioned GitHub release tag `r47zen-v<sanitized version_name>`.
+- The daily scheduled public Android artifact now comes from the signed release
+  lane, not from the debug CI workflow. Manual CI dispatches remain debug-only
+  unless the maintainer explicitly runs the protected release workflow.
 - Release builds default `minifyEnabled` and `shrinkResources` to `true` and
   request `ndk.debugSymbolLevel "FULL"`.
 - `bundleRelease` is the canonical AAB command. `assembleRelease` remains
-  available when an APK is required for local inspection.
+  available when an APK is required for local inspection or GitHub
+  distribution.
 - `scripts/android/collect_packaging_evidence.sh` is the canonical provenance collector
   for both CI and local packaging checks. For debug it verifies ABI contents,
   zip alignment, and ELF `LOAD` segment alignment. For release it also accepts a
@@ -652,9 +664,12 @@ keeps the default debug CI lane secret-free.
   `r47zen-<upstream short>-<android short>`, and the packaged APK copy is
   `r47zen-<upstream short>-<android short>-debug.apk`.
 - For the protected release workflow, the uploaded artifact bundle uses the stem
-  `r47zen-<upstream short>-<android short>-release`, and the signed AAB
-  inside that bundle is named
-  `r47zen-<upstream short>-<android short>-release.aab`.
+  `r47zen-<upstream short>-<android short>-release`, the uploaded APK artifact
+  bundle uses the stem `r47zen-<upstream short>-<android short>-release-apk`,
+  the signed AAB inside that bundle is named
+  `r47zen-<upstream short>-<android short>-release.aab`, the signed APK is
+  `r47zen-<upstream short>-<android short>-release.apk`, and the published
+  GitHub release tag is `r47zen-v<sanitized version_name>`.
 
 ## Verification by change type
 
