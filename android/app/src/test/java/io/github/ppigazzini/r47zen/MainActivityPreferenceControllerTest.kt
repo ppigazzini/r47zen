@@ -240,6 +240,50 @@ class MainActivityPreferenceControllerTest {
     }
 
     @Test
+    fun applyInitialPreferences_clampsDeveloperPerformanceHudWindowMillis() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        preferences.edit()
+            .putInt("developer_performance_hud_window_millis", 50)
+            .commit()
+
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+
+        assertEquals(
+            MainActivityPreferenceController.MIN_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
+            controllerState.controller.developerPerformanceHudWindowMillis,
+        )
+        assertEquals(
+            MainActivityPreferenceController.MIN_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
+            preferences.getInt("developer_performance_hud_window_millis", -1),
+        )
+    }
+
+    @Test
+    fun onPreferenceChanged_clampsDeveloperPerformanceHudWindowMillis() {
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+
+        preferences.edit()
+            .putInt("developer_performance_hud_window_millis", 9_999)
+            .commit()
+
+        assertTrue(controllerState.controller.onPreferenceChanged("developer_performance_hud_window_millis"))
+
+        assertEquals(
+            MainActivityPreferenceController.MAX_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
+            controllerState.controller.developerPerformanceHudWindowMillis,
+        )
+        assertEquals(
+            MainActivityPreferenceController.MAX_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
+            preferences.getInt("developer_performance_hud_window_millis", -1),
+        )
+    }
+
+    @Test
     fun applyDeferredOverlayPreferences_dispatchesLcdGraphTouchPreference() {
         val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
         preferences.edit()

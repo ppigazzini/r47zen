@@ -198,9 +198,36 @@ class SettingsPreferenceSummaryTest {
             preference.title?.toString(),
         )
         assertEquals(
-            "App fps, LCD updates per second, LCD buffer copy ms, and Dirty Rows %.",
+            "UI Hz, LCD Hz, Dirty-Row %, and Copy ms.",
             preference.summary?.toString(),
         )
+    }
+
+    @Test
+    fun performanceStatsWindowPreference_defaultsToDisabledDeveloperSlider() {
+        val preference = launchSettingsAndFindSeekBar("developer_performance_hud_window_millis")
+
+        assertEquals(
+            "HUD Sample Window (ms)",
+            preference.title?.toString(),
+        )
+        assertEquals(MainActivityPreferenceController.MAX_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS, preference.max)
+        assertEquals(MainActivityPreferenceController.DEFAULT_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS, preference.value)
+        assertFalse(preference.isEnabled)
+    }
+
+    @Test
+    fun performanceStatsWindowPreference_reflectsStoredValueWhenHudIsEnabled() {
+        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("show_developer_performance_hud", true)
+            .putInt("developer_performance_hud_window_millis", 750)
+            .commit()
+
+        val preference = launchSettingsAndFindSeekBar("developer_performance_hud_window_millis")
+
+        assertEquals(750, preference.value)
+        assertTrue(preference.isEnabled)
     }
 
     @Test

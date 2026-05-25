@@ -24,8 +24,11 @@ internal class MainActivityPreferenceController(
         const val DEFAULT_LCD_THEME = DEFAULT_LCD_THEME_STORAGE_VALUE
         const val DEFAULT_LCD_LUMINANCE = 100
         const val DEFAULT_LCD_GRAPH_TOUCH_ENABLED = true
+        const val DEFAULT_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = 500
         val DEFAULT_MAIN_KEY_DYNAMIC_MODE = MainKeyDynamicMode.DEFAULT
+        const val MIN_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = 100
         const val MIN_LCD_LUMINANCE = 20
+        const val MAX_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = 1000
         const val MAX_LCD_LUMINANCE = 120
         val DEFAULT_SOFTKEY_DYNAMIC_MODE = SoftkeyDynamicMode.DEFAULT
 
@@ -38,6 +41,7 @@ internal class MainActivityPreferenceController(
         private const val KEY_LCD_THEME = "lcd_theme"
         private const val KEY_LCD_LUMINANCE = "lcd_luminance"
         private const val KEY_MAIN_KEY_DYNAMIC_MODE = "main_key_dynamic_mode"
+        private const val KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = "developer_performance_hud_window_millis"
         private const val KEY_SHOW_DEVELOPER_PERFORMANCE_HUD = "show_developer_performance_hud"
         private const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
         private const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
@@ -62,6 +66,9 @@ internal class MainActivityPreferenceController(
     var isLcdGraphTouchEnabled = DEFAULT_LCD_GRAPH_TOUCH_ENABLED
         private set
 
+    var developerPerformanceHudWindowMillis = DEFAULT_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS
+        private set
+
     var mainKeyDynamicMode = DEFAULT_MAIN_KEY_DYNAMIC_MODE
         private set
 
@@ -83,6 +90,7 @@ internal class MainActivityPreferenceController(
         lcdLuminance = readNormalizedLcdLuminance()
         isLcdNegative = preferences.getBoolean(KEY_LCD_NEGATIVE, DEFAULT_LCD_NEGATIVE)
         isLcdGraphTouchEnabled = preferences.getBoolean(KEY_LCD_GRAPH_TOUCH_ENABLED, DEFAULT_LCD_GRAPH_TOUCH_ENABLED)
+        developerPerformanceHudWindowMillis = readNormalizedDeveloperPerformanceHudWindowMillis()
         mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
         showDeveloperPerformanceHud =
             preferences.getBoolean(KEY_SHOW_DEVELOPER_PERFORMANCE_HUD, false)
@@ -137,6 +145,9 @@ internal class MainActivityPreferenceController(
                 isLcdGraphTouchEnabled = preferences.getBoolean(key, DEFAULT_LCD_GRAPH_TOUCH_ENABLED)
                 applyLcdGraphTouchEnabled(isLcdGraphTouchEnabled)
             }
+            KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS -> {
+                developerPerformanceHudWindowMillis = readNormalizedDeveloperPerformanceHudWindowMillis()
+            }
             KEY_MAIN_KEY_DYNAMIC_MODE -> {
                 mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
                 applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
@@ -186,6 +197,23 @@ internal class MainActivityPreferenceController(
             preferences.edit().putInt(KEY_LCD_LUMINANCE, normalizedLuminance).apply()
         }
         return normalizedLuminance
+    }
+
+    private fun readNormalizedDeveloperPerformanceHudWindowMillis(): Int {
+        val storedWindowMillis = preferences.getInt(
+            KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
+            DEFAULT_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
+        )
+        val normalizedWindowMillis = storedWindowMillis.coerceIn(
+            MIN_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
+            MAX_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
+        )
+        if (storedWindowMillis != normalizedWindowMillis) {
+            preferences.edit()
+                .putInt(KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS, normalizedWindowMillis)
+                .apply()
+        }
+        return normalizedWindowMillis
     }
 
     private fun readNormalizedLcdTheme(): String {

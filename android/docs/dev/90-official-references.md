@@ -90,6 +90,11 @@ flowchart TD
   guidance used for the deadline-driven core-thread design and the rule that the
   keypad refresh path must keep long or numerous work off the main thread. The
   current page was last updated 2024-01-03.
+- [Choreographer.FrameCallback](https://developer.android.com/reference/android/view/Choreographer.FrameCallback):
+  official frame-callback contract for `doFrame(...)`. The callback runs on the
+  `Looper` thread attached to the `Choreographer` when a new display frame is
+  being rendered. Use this when documenting UI-side cadence fields or other
+  frame-sensitive polling loops such as `NativeDisplayRefreshLoop`.
 - [ANRs](https://developer.android.com/topic/performance/vitals/anr):
   official foreground input-dispatch timeout, main-thread lock-contention, and
   ANR trace guidance used when Android-specific hangs look like UI-thread

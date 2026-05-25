@@ -103,6 +103,22 @@ Changes here affect the full runtime even when the Android UI code is untouched.
   forwards accepted packed rows to `ReplicaOverlay.updatePackedLcd(...)`.
 - If the non-blocking packed-buffer copy fails, the same generation is retried
   on the next frame instead of being treated as consumed.
+- When `show_developer_performance_hud` is enabled, that same loop also
+  aggregates a developer-only sample window. The default is `500 ms`, and the
+  developer-only `developer_performance_hud_window_millis` preference clamps
+  that window to `100..1000 ms`.
+- `UI Hz` counts `Choreographer#doFrame(...)` callbacks in the active sample
+  window. It is the app's observed UI callback cadence, not the panel's raw
+  hardware refresh rate.
+- `LCD Hz` counts accepted non-empty `getPackedDisplayBuffer(...)` copies in
+  that same active sample window.
+- `DR` is the average dirty-row count per accepted snapshot in that window,
+  normalized by the `240` LCD rows and shown as a percent.
+- `Copy` is the average successful packed-buffer copy duration for those
+  accepted snapshots in the same window.
+- If a sample window finishes with no accepted packed copy, the HUD leaves
+  `DR` and `Copy` blank instead of synthesizing zeros. Disabling the HUD or
+  changing the configured window resets the active sample window.
 - The loop reads `getKeypadSnapshotGeneration()` and refreshes keypad state
   only when the generation changed or more than 500 ms passed since
   `lastLabelRefresh`.
@@ -130,6 +146,10 @@ That would duplicate the most expensive JNI reads in the shell.
   `lcdBufferDirty` is false, and `NativeDisplayRefreshLoop` only attempts the
   copy after `getPackedDisplayGeneration()` changes, so Kotlin does not receive
   a fresh packed snapshot on unchanged frames.
+- `hal/lcd.c::LCD_write_line(...)` increments `packedDisplayGeneration` once per
+  dirty-row write. That means multiple native row writes can collapse into one
+  accepted Kotlin snapshot before the next UI frame, which is why the HUD's
+  `LCD Hz` field is snapshot cadence rather than raw row-write frequency.
 - After a successful copy, the JNI export clears each row's dirty flag in the
   packed transport buffer. That dirty flag is transport bookkeeping, not part of
   the visible LCD contract.

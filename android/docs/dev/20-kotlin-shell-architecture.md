@@ -268,11 +268,17 @@ while matching the desktop simulator's stop-key parity during an active run.
   range, and routes the optional `lcd_negative` inverse-display toggle before
   `MainActivity.kt` applies the selected palette
 - `show_developer_performance_hud` is a developer-only Android setting.
-  `MainActivityPreferenceController.kt` reads and dispatches it directly to
-  `ReplicaOverlay.kt`, while `NativeDisplayRefreshLoop.kt` supplies the sampled
-  `DeveloperPerformanceSnapshot` label data used by the overlay. The fixed
-  settings copy now names those fields as app fps, LCD updates per second, LCD
-  buffer copy ms, and `DR%` (average dirty-row percentage)
+  `MainActivityPreferenceController.kt` reads that toggle plus the companion
+  `developer_performance_hud_window_millis` slider and dispatches them
+  directly to `ReplicaOverlay.kt` and `NativeDisplayRefreshLoop.kt`, while the
+  loop supplies the sampled `DeveloperPerformanceSnapshot` label data used by
+  the overlay. The fixed settings copy now names those fields as UI Hz, LCD
+  Hz, dirty-row percent, and copy ms. The first field is the UI-thread
+  `Choreographer#doFrame(...)` cadence, not the phone panel's raw refresh
+  rate. The second field counts accepted non-empty packed LCD snapshot copies,
+  not raw native row writes. Read `60-runtime-hot-paths.md` for the default
+  `500 ms` sample window, the `100..1000 ms` clamp, and the exact `DR` and
+  `Copy` semantics.
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`
   now uses press-only keypad haptics for calculator interaction. `ACTION_DOWN`
   uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` and

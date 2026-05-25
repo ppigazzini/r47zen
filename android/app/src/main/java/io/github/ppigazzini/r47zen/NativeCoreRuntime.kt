@@ -22,11 +22,13 @@ internal class NativeCoreRuntime(
     private val onPackedLcd: (ByteArray) -> Boolean,
     private val onDynamicRefresh: (KeypadSnapshot) -> Unit,
     private val isPerformanceSnapshotEnabled: () -> Boolean = { true },
+    private val getPerformanceWindowMillis: () -> Long = { NativeDisplayRefreshLoop.DEFAULT_PERFORMANCE_WINDOW_MILLIS },
     private val onPerformanceSnapshot: (DeveloperPerformanceSnapshot) -> Unit = {},
     private val displayRefreshLoop: DisplayRefreshLoop = NativeDisplayRefreshLoop(
         isAppRunning = { isAppRunningShared },
         isNativeInitialized = { isNativeInitializedShared },
         isPerformanceSnapshotEnabled = isPerformanceSnapshotEnabled,
+        getPerformanceWindowMillis = getPerformanceWindowMillis,
         getPackedDisplayGeneration = getPackedDisplayGeneration,
         getPackedDisplayBuffer = getPackedDisplayBuffer,
         getKeypadSnapshotGeneration = getKeypadSnapshotGeneration,

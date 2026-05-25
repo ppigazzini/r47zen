@@ -62,7 +62,8 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_force_close_on_exit_summary" translatable="false">Make f-shift EXIT close R47 Zen and remove it from Recents.</string>
     <string name="settings_developer_tools_category_title" translatable="false">Developer Tools</string>
     <string name="settings_show_performance_stats_title" translatable="false">HUD Telemetry</string>
-    <string name="settings_show_performance_stats_summary" translatable="false">App fps, LCD updates per second, LCD buffer copy ms, and Dirty Rows %.</string>
+    <string name="settings_show_performance_stats_summary" formatted="false" translatable="false">UI Hz, LCD Hz, Dirty-Row %, and Copy ms.</string>
+    <string name="settings_show_performance_window_title" translatable="false">HUD Sample Window (ms)</string>
     <string name="settings_show_touch_zones_title" translatable="false">Show Touch Zones</string>
     <string name="settings_cancel_action" translatable="false">Cancel</string>
     <string name="settings_factory_reset_title" translatable="false">Reset to Factory Defaults</string>

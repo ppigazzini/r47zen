@@ -451,6 +451,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             onPackedLcd = replicaOverlay::updatePackedLcd,
             onDynamicRefresh = replicaOverlayController::refreshDynamicKeys,
             isPerformanceSnapshotEnabled = { preferenceController.showDeveloperPerformanceHud },
+            getPerformanceWindowMillis = { preferenceController.developerPerformanceHudWindowMillis.toLong() },
             onPerformanceSnapshot = replicaOverlay::updateDeveloperPerformanceSnapshot,
         )
     }

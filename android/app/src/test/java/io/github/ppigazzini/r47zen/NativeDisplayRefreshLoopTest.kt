@@ -55,9 +55,85 @@ class NativeDisplayRefreshLoopTest {
         assertEquals(0.4f, performanceSnapshot.averageLcdUpdateMillis)
         assertEquals(3, performanceSnapshot.lcdUpdateSamples)
         assertEquals(
-            "App 6.0 fps | LCD 6.0 ups | Copy 0.4 ms | DR 0%",
+            "UI 6.0 Hz | LCD 6.0 Hz | DR 0% | Copy 0.4 ms",
             performanceSnapshot.overlayLabel(),
         )
+    }
+
+    @Test
+    fun refreshFrame_usesConfiguredPerformanceWindowMillis() {
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
+        val performanceSnapshots = mutableListOf<DeveloperPerformanceSnapshot>()
+        var nextDisplayGeneration = 1
+        val loop = NativeDisplayRefreshLoop(
+            isAppRunning = { true },
+            isNativeInitialized = { true },
+            getPerformanceWindowMillis = { 1_000L },
+            getPackedDisplayGeneration = { nextDisplayGeneration++ },
+            getPackedDisplayBuffer = { true },
+            getKeypadSnapshotGeneration = { 3 },
+            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(
+                    observedGeneration = 3,
+                    snapshot = snapshot,
+                    isUpToDate = true,
+                )
+            },
+            onPackedLcd = { true },
+            onDynamicRefresh = {},
+            onPerformanceSnapshot = { performanceSnapshots += it },
+        )
+
+        loop.refreshFrame(nowMillis = 1_000L)
+        loop.refreshFrame(nowMillis = 1_500L)
+
+        assertEquals(0, performanceSnapshots.size)
+
+        loop.refreshFrame(nowMillis = 2_000L)
+
+        assertEquals(1, performanceSnapshots.size)
+        assertEquals(3.0f, performanceSnapshots.single().uiFramesPerSecond)
+    }
+
+    @Test
+    fun refreshFrame_resetsPerformanceWindowWhenConfiguredWindowChanges() {
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
+        val performanceSnapshots = mutableListOf<DeveloperPerformanceSnapshot>()
+        var nextDisplayGeneration = 1
+        var performanceWindowMillis = 1_000L
+        val loop = NativeDisplayRefreshLoop(
+            isAppRunning = { true },
+            isNativeInitialized = { true },
+            getPerformanceWindowMillis = { performanceWindowMillis },
+            getPackedDisplayGeneration = { nextDisplayGeneration++ },
+            getPackedDisplayBuffer = { true },
+            getKeypadSnapshotGeneration = { 3 },
+            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(
+                    observedGeneration = 3,
+                    snapshot = snapshot,
+                    isUpToDate = true,
+                )
+            },
+            onPackedLcd = { true },
+            onDynamicRefresh = {},
+            onPerformanceSnapshot = { performanceSnapshots += it },
+        )
+
+        loop.refreshFrame(nowMillis = 1_000L)
+        loop.refreshFrame(nowMillis = 1_500L)
+
+        performanceWindowMillis = 250L
+        loop.refreshFrame(nowMillis = 1_600L)
+
+        assertEquals(0, performanceSnapshots.size)
+
+        loop.refreshFrame(nowMillis = 1_850L)
+
+        assertEquals(1, performanceSnapshots.size)
+        assertEquals(8.0f, performanceSnapshots.single().uiFramesPerSecond)
     }
 
     @Test
@@ -96,7 +172,8 @@ class NativeDisplayRefreshLoopTest {
         assertEquals(1, performanceSnapshots.size)
         val performanceSnapshot = performanceSnapshots.single()
         assertEquals(2f * 100f / 240f, performanceSnapshot.averageDirtyRowsPercent, 0.001f)
-        assertEquals("DR 1%", performanceSnapshot.overlayLabel().takeLast(5))
+        assertEquals("Copy --", DeveloperPerformanceSnapshot.EMPTY.overlayLabel().takeLast(7))
+        assertEquals("DR 1%", performanceSnapshot.overlayLabel().split(" | ")[2])
     }
 
     @Test

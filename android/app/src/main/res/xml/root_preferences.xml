@@ -118,6 +118,15 @@
             app:title="@string/settings_show_performance_stats_title"
             app:summary="@string/settings_show_performance_stats_summary"
             app:defaultValue="false" />
+        <SeekBarPreference
+            app:key="developer_performance_hud_window_millis"
+            app:title="@string/settings_show_performance_window_title"
+            app:min="100"
+            android:max="1000"
+            app:defaultValue="500"
+            app:dependency="show_developer_performance_hud"
+            app:seekBarIncrement="100"
+            app:showSeekBarValue="true" />
         <io.github.ppigazzini.r47zen.SettingsSwitchPreference
             app:key="show_touch_zones"
             app:title="@string/settings_show_touch_zones_title"
