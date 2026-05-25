@@ -16,7 +16,12 @@ static int currentPressedKeyCode = 0;
 static const float r47_graph_pan_gain = 1.00f;
 static const float r47_graph_zoom_gain = 1.00f;
 static const float r47_graph_scale_epsilon = 0.0001f;
+static const float r47_graph_pan_input_limit = 1.0f;
+static const float r47_graph_scale_factor_min = 0.4f;
+static const float r47_graph_scale_factor_max = 2.5f;
 static const float r47_graph_bounds_limit = 1.0e38f;
+static const float r47_graph_default_min = -10.0f;
+static const float r47_graph_default_max = 10.0f;
 
 extern void fnEqSolvGraph(uint16_t func);
 extern int8_t PLOT_ZMY;
@@ -60,11 +65,51 @@ static void r47_sync_graph_bounds_reserved_vars_locked(void) {
   copySourceRegisterToDestRegister(TEMP_REGISTER_1, REGISTER_X);
 }
 
+static void r47_reset_graph_bounds_defaults_locked(void) {
+  x_min = r47_graph_default_min;
+  x_max = r47_graph_default_max;
+  y_min = r47_graph_default_min;
+  y_max = r47_graph_default_max;
+}
+
+bool r47_sanitize_graph_bounds_locked(void) {
+  bool changed = false;
+
+  if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
+      !isfinite(y_max) || fabsf(x_max - x_min) < 1.0e-6f ||
+      fabsf(y_max - y_min) < 1.0e-6f ||
+      x_min <= -r47_graph_bounds_limit || x_min >= r47_graph_bounds_limit ||
+      x_max <= -r47_graph_bounds_limit || x_max >= r47_graph_bounds_limit ||
+      y_min <= -r47_graph_bounds_limit || y_min >= r47_graph_bounds_limit ||
+      y_max <= -r47_graph_bounds_limit || y_max >= r47_graph_bounds_limit) {
+    r47_reset_graph_bounds_defaults_locked();
+    changed = true;
+  } else {
+    if (x_min > x_max) {
+      const float swapped = x_min;
+      x_min = x_max;
+      x_max = swapped;
+      changed = true;
+    }
+    if (y_min > y_max) {
+      const float swapped = y_min;
+      y_min = y_max;
+      y_max = swapped;
+      changed = true;
+    }
+  }
+
+  r47_sync_graph_bounds_reserved_vars_locked();
+  return changed;
+}
+
 static bool r47_apply_graph_pan_locked(float dxNorm, float dyNorm) {
   if (!r47_graph_touch_supported_locked()) {
     return false;
   }
-  if (!isfinite(dxNorm) || !isfinite(dyNorm)) {
+  if (!isfinite(dxNorm) || !isfinite(dyNorm) ||
+      fabsf(dxNorm) > r47_graph_pan_input_limit ||
+      fabsf(dyNorm) > r47_graph_pan_input_limit) {
     return false;
   }
 
@@ -110,7 +155,9 @@ static bool r47_apply_graph_pinch_zoom_locked(float scaleFactor) {
   if (!r47_graph_touch_supported_locked()) {
     return false;
   }
-  if (!isfinite(scaleFactor) || scaleFactor <= 0.0f) {
+  if (!isfinite(scaleFactor) || scaleFactor <= 0.0f ||
+      scaleFactor < r47_graph_scale_factor_min ||
+      scaleFactor > r47_graph_scale_factor_max) {
     return false;
   }
 
@@ -177,10 +224,7 @@ bool r47_graph_touch_no_nan_stress_locked(int iterations) {
   if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
       !isfinite(y_max) || fabsf(x_max - x_min) < 1.0e-6f ||
       fabsf(y_max - y_min) < 1.0e-6f) {
-    x_min = -10.0f;
-    x_max = 10.0f;
-    y_min = -10.0f;
-    y_max = 10.0f;
+    r47_reset_graph_bounds_defaults_locked();
   }
 
   extern void showSoftmenu(int16_t id);
@@ -191,9 +235,19 @@ bool r47_graph_touch_no_nan_stress_locked(int iterations) {
   for (int i = 0; i < iterations; i++) {
     const float extremePan = (i & 1) == 0 ? 1.0e20f : -1.0e20f;
     const float extremeScale = (i & 1) == 0 ? 1.0e20f : 1.0e-20f;
+    const float beforeXMin = x_min;
+    const float beforeXMax = x_max;
+    const float beforeYMin = y_min;
+    const float beforeYMax = y_max;
 
-    (void)r47_apply_graph_pan_locked(extremePan, -extremePan);
-    (void)r47_apply_graph_pinch_zoom_locked(extremeScale);
+    bool panApplied = r47_apply_graph_pan_locked(extremePan, -extremePan);
+    bool pinchApplied = r47_apply_graph_pinch_zoom_locked(extremeScale);
+
+    if (panApplied || pinchApplied || x_min != beforeXMin || x_max != beforeXMax ||
+        y_min != beforeYMin || y_max != beforeYMax) {
+      ok = false;
+      break;
+    }
 
     if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
         !isfinite(y_max) || x_min <= -r47_graph_bounds_limit ||

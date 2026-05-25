@@ -121,6 +121,9 @@ void r47_init_runtime(int slotId) {
   doFnReset(CONFIRMED, false);
   extern void restoreCalc(void);
   restoreCalc();
+  if (r47_sanitize_graph_bounds_locked()) {
+    LOGI("r47_init_runtime: sanitized restored graph bounds");
+  }
   fnRefreshState();
   nextScreenRefresh = sys_current_ms();
   nextTimerRefresh = sys_current_ms();
@@ -216,6 +219,9 @@ Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env,
   pthread_mutex_lock(&screenMutex);
   extern void restoreCalc(void);
   restoreCalc();
+  if (r47_sanitize_graph_bounds_locked()) {
+    LOGI("loadStateNative: sanitized restored graph bounds");
+  }
   extern void scanLabelsAndPrograms(void);
   extern void defineCurrentProgramFromGlobalStepNumber(int16_t globalStepNumber);
   extern void defineCurrentStep(void);

@@ -2,6 +2,7 @@ package io.github.ppigazzini.r47zen
 
 import android.content.Context
 import android.graphics.*
+import android.os.Build
 import android.os.SystemClock
 import android.text.Layout
 import android.text.StaticLayout
@@ -76,6 +77,8 @@ internal object TouchZoneDebugVisualPolicy {
 internal object GraphTouchVisualPolicy {
     const val PAN_GAIN = 1.0f
     const val PINCH_EPSILON = 0.0001f
+    const val PAN_CONTINUATION_SLOP_FRACTION = 0.25f
+    const val PAN_CONTINUATION_MIN_SLOP_PX = 1f
 }
 
 class ReplicaOverlay @JvmOverloads constructor(
@@ -178,13 +181,16 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     private val gestureDetector: GestureDetector
     private val scaleGestureDetector: ScaleGestureDetector
-    private val panTouchSlopPx: Float = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
+    private val viewConfiguration: ViewConfiguration = ViewConfiguration.get(context)
+    private val panTouchSlopPx: Float = viewConfiguration.scaledTouchSlop.toFloat()
     private var lcdGestureActive = false
     private var lcdPanStarted = false
     private var lcdScalingActive = false
     private var activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
     private var lcdLastTouchX = 0f
     private var lcdLastTouchY = 0f
+    private var lcdLastPanDispatchX = 0f
+    private var lcdLastPanDispatchY = 0f
     private var lcdPanStartX = 0f
     private var lcdPanStartY = 0f
 
@@ -265,9 +271,39 @@ class ReplicaOverlay @JvmOverloads constructor(
         activeLcdPointerId = pointerId
         lcdLastTouchX = x
         lcdLastTouchY = y
+        lcdLastPanDispatchX = x
+        lcdLastPanDispatchY = y
         lcdPanStartX = x
         lcdPanStartY = y
         lcdPanStarted = false
+    }
+
+    private fun effectivePanStartSlopPx(event: MotionEvent): Float {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return panTouchSlopPx
+        }
+
+        val ambiguousMultiplier = if (
+            event.classification == MotionEvent.CLASSIFICATION_AMBIGUOUS_GESTURE
+        ) {
+            viewConfiguration.scaledAmbiguousGestureMultiplier
+        } else {
+            1f
+        }
+        return panTouchSlopPx * ambiguousMultiplier
+    }
+
+    private fun effectivePanContinuationSlopPx(event: MotionEvent): Float {
+        return max(
+            GraphTouchVisualPolicy.PAN_CONTINUATION_MIN_SLOP_PX,
+            effectivePanStartSlopPx(event) * GraphTouchVisualPolicy.PAN_CONTINUATION_SLOP_FRACTION,
+        )
+    }
+
+    private fun movementExceedsSlop(dxPixels: Float, dyPixels: Float, slopPx: Float): Boolean {
+        val movementSquared = dxPixels * dxPixels + dyPixels * dyPixels
+        val slopSquared = slopPx * slopPx
+        return movementSquared >= slopSquared
     }
 
     fun setPiPMode(enabled: Boolean) {
@@ -620,14 +656,14 @@ class ReplicaOverlay @JvmOverloads constructor(
 
                     val currentX = event.getX(pointerIndex)
                     val currentY = event.getY(pointerIndex)
-                    val dxPixels = currentX - lcdLastTouchX
-                    val dyPixels = currentY - lcdLastTouchY
 
                     if (!lcdPanStarted) {
                         val totalDxPixels = currentX - lcdPanStartX
                         val totalDyPixels = currentY - lcdPanStartY
-                        if (abs(totalDxPixels) >= panTouchSlopPx || abs(totalDyPixels) >= panTouchSlopPx) {
+                        if (movementExceedsSlop(totalDxPixels, totalDyPixels, effectivePanStartSlopPx(event))) {
                             lcdPanStarted = true
+                            lcdLastPanDispatchX = lcdLastTouchX
+                            lcdLastPanDispatchY = lcdLastTouchY
                         }
                     }
 
@@ -635,10 +671,25 @@ class ReplicaOverlay @JvmOverloads constructor(
                     lcdLastTouchY = currentY
 
                     if (lcdPanStarted) {
+                        // Keep a separate dispatch anchor so stationary finger jitter
+                        // accumulates and cancels naturally instead of nudging the graph
+                        // on every noisy ACTION_MOVE sample.
+                        val dxPixels = currentX - lcdLastPanDispatchX
+                        val dyPixels = currentY - lcdLastPanDispatchY
                         val lcdWidth = lcdDestRect.width()
                         val lcdHeight = lcdDestRect.height()
-                        if (lcdWidth > 0f && lcdHeight > 0f) {
+                        if (
+                            lcdWidth > 0f &&
+                            lcdHeight > 0f &&
+                            movementExceedsSlop(
+                                dxPixels,
+                                dyPixels,
+                                effectivePanContinuationSlopPx(event),
+                            )
+                        ) {
                             onLcdPanListener?.invoke(dxPixels / lcdWidth, dyPixels / lcdHeight)
+                            lcdLastPanDispatchX = currentX
+                            lcdLastPanDispatchY = currentY
                         }
                     }
                 }

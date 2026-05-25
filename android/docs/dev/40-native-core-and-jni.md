@@ -96,12 +96,21 @@ The registered native surface includes:
   graph-active path (`CM_GRAPH` with menus `-MNU_PLOT_FUNC` and
   `-MNU_GRAPHS`) and defined as a no-op outside supported graph screens
 - native-owned graph-touch sensitivity calibration for pan and pinch, with
-  Kotlin forwarding raw normalized deltas and scale factors, plus one
-  coalescing safety clamp for queued pinch factors (`0.4f..2.5f`) before
-  native apply
+  Kotlin forwarding normalized deltas and scale factors through the
+  `MainActivity` queue, where `GraphGestureAccumulator` splits queued pan into
+  bounded `<= 1.0f` normalized steps after capping queued pan backlog to a
+  `+/-4.0f` recent range per axis, and clamps queued pinch factors to
+  `0.4f..2.5f` before native apply
+- native graph-touch admission checks that reject non-finite or oversized
+  per-apply inputs before candidate bound math (`|dx|, |dy| <= 1.0f`,
+  `scaleFactor` in `0.4f..2.5f`)
 - transactional graph-bounds commit checks for pan and pinch so candidate
   bounds must remain finite and inside the shared-core-compatible
   `+/-1.0e38f` domain before state is written
+- restore-time graph-bounds sanitization after `restoreCalc()` on startup and
+  explicit state load so a bad saved graph window cannot poison the first
+  refresh of the next launch or slot switch; repaired bounds are resynced into
+  `LX`, `UX`, `LY`, and `UY` before refresh
 - state save, load, and force refresh
 - packed LCD generation reads and packed LCD transfer
 - keypad snapshot generation reads and whole-snapshot copy, plus the legacy
@@ -135,8 +144,8 @@ Development rule:
   duplicating attach, detach, and exception logic at each call site.
 - Keep graph-touch sensitivity in one layer. If touch feel must change,
   update native calibration constants in `jni_input.c`; keep Kotlin gesture
-  forwarding linear except for the coalescing safety clamp used by
-  `MainActivity` queue flush.
+  forwarding linear except for the bounded queue accumulator and pinch clamp
+  used by `MainActivity` queue flush.
 
 That alignment rule is the main Android-owned seam. The upstream core remains
 the source of calculator behavior, while the bridge owns registration,
@@ -217,9 +226,11 @@ supports that model by keeping shared synchronization in native code:
   packed-LCD snapshot hash, the synthetic `00` key path used to resume staged
   `SPIRALk` runs, the direct-stop publisher plus explicit refresh helper
   reused by the per-fixture `ProgramFixtureInstrumentedTest` methods and
-  `DisplayLifecycleInstrumentedTest`, and an extreme graph-touch stress helper
-  that repeatedly applies very large pan and pinch deltas while asserting no
-  non-finite or out-of-range graph bounds are ever committed.
+  `DisplayLifecycleInstrumentedTest`, an extreme graph-touch stress helper
+  that repeatedly submits very large pan and pinch deltas while asserting the
+  bridge rejects those out-of-family inputs without mutating the current graph
+  bounds, and a restore-path helper that injects invalid graph bounds and
+  proves the Android-owned restore sanitizer repairs them before refresh.
 - The lifecycle snapshot helper hashes only visible packed LCD bytes. It does
   not hash the row-dirty transport flag that `getPackedDisplayBuffer(...)`
   clears after each successful UI poll.
@@ -287,6 +298,9 @@ share the same contract.
 - `forceRefreshNative()` routes to `r47_force_refresh()`, which is the explicit
   native redraw path for real state-change owners such as runtime init,
   `loadStateNative()`, and test-owned refresh seams.
+- runtime init and `loadStateNative()` now sanitize restored graph bounds
+  before that first redraw so a corrupted auto-save cannot carry non-finite,
+  collapsed, or out-of-range windows into the first graph refresh.
 - The direct-stop pending refresh seam is a third owner in this area.
   `requestStopProgramNative()` publishes only the request; `tick()` and
   `yieldToAndroidWithMs()` later consume it under `screenMutex`, so first-stop

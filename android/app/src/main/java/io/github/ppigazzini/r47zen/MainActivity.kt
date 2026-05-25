@@ -44,14 +44,21 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private val graphGestureLock = Any()
     private var graphGestureFlushQueued = false
-    private var pendingGraphPanDxNorm = 0f
-    private var pendingGraphPanDyNorm = 0f
-    private var pendingGraphScaleFactor = 1f
+    private val graphGestureAccumulator = GraphGestureAccumulator(
+        panFlushEpsilon = GRAPH_PAN_FLUSH_EPSILON,
+        panApplyLimit = GRAPH_PAN_APPLY_LIMIT,
+        panPendingLimit = GRAPH_PAN_PENDING_LIMIT,
+        scaleFlushEpsilon = GRAPH_SCALE_FLUSH_EPSILON,
+        scaleFactorMin = GRAPH_SCALE_FACTOR_MIN,
+        scaleFactorMax = GRAPH_SCALE_FACTOR_MAX,
+    )
     private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
         private const val GRAPH_PAN_FLUSH_EPSILON = 0.0005f
+        private const val GRAPH_PAN_APPLY_LIMIT = 1f
+        private const val GRAPH_PAN_PENDING_LIMIT = GRAPH_PAN_APPLY_LIMIT * 4f
         private const val GRAPH_SCALE_FLUSH_EPSILON = 0.0001f
         private const val GRAPH_SCALE_FACTOR_MIN = 0.4f
         private const val GRAPH_SCALE_FACTOR_MAX = 2.5f
@@ -114,25 +121,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun queueGraphPan(dxNorm: Float, dyNorm: Float) {
-        if (dxNorm == 0f && dyNorm == 0f) {
-            return
-        }
-
         synchronized(graphGestureLock) {
-            pendingGraphPanDxNorm += dxNorm
-            pendingGraphPanDyNorm += dyNorm
+            graphGestureAccumulator.addPan(dxNorm, dyNorm)
         }
         scheduleGraphGestureFlush()
     }
 
     private fun queueGraphPinch(scaleFactor: Float) {
-        if (!scaleFactor.isFinite() || scaleFactor <= 0f) {
-            return
-        }
-
         synchronized(graphGestureLock) {
-            pendingGraphScaleFactor = (pendingGraphScaleFactor * scaleFactor)
-                .coerceIn(GRAPH_SCALE_FACTOR_MIN, GRAPH_SCALE_FACTOR_MAX)
+            graphGestureAccumulator.addScale(scaleFactor)
         }
         scheduleGraphGestureFlush()
     }
@@ -156,26 +153,22 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun flushGraphGesturesOnCoreThread() {
         while (true) {
-            val (dxNorm, dyNorm, scaleFactor) = synchronized(graphGestureLock) {
-                val values = Triple(pendingGraphPanDxNorm, pendingGraphPanDyNorm, pendingGraphScaleFactor)
-                pendingGraphPanDxNorm = 0f
-                pendingGraphPanDyNorm = 0f
-                pendingGraphScaleFactor = 1f
-                values
-            }
+            val batch = synchronized(graphGestureLock) { graphGestureAccumulator.drainBatch() }
 
-            if (abs(dxNorm) > GRAPH_PAN_FLUSH_EPSILON || abs(dyNorm) > GRAPH_PAN_FLUSH_EPSILON) {
-                applyGraphPanNative(dxNorm, dyNorm)
-            }
-            if (abs(scaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON) {
-                applyGraphPinchZoomNative(scaleFactor)
+            if (batch != null) {
+                if (
+                    abs(batch.panDxNorm) > GRAPH_PAN_FLUSH_EPSILON ||
+                    abs(batch.panDyNorm) > GRAPH_PAN_FLUSH_EPSILON
+                ) {
+                    applyGraphPanNative(batch.panDxNorm, batch.panDyNorm)
+                }
+                if (abs(batch.scaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON) {
+                    applyGraphPinchZoomNative(batch.scaleFactor)
+                }
             }
 
             val shouldContinue = synchronized(graphGestureLock) {
-                val hasPending =
-                    abs(pendingGraphPanDxNorm) > GRAPH_PAN_FLUSH_EPSILON ||
-                        abs(pendingGraphPanDyNorm) > GRAPH_PAN_FLUSH_EPSILON ||
-                        abs(pendingGraphScaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON
+                val hasPending = graphGestureAccumulator.hasPending()
                 if (!hasPending) {
                     graphGestureFlushQueued = false
                 }

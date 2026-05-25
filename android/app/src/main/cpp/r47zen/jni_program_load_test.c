@@ -1,5 +1,6 @@
 #include "jni_bridge.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -267,6 +268,42 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_runExtremeGraphTouchStres
 
   pthread_mutex_lock(&screenMutex);
   bool ok = r47_graph_touch_no_nan_stress_locked(loops);
+  pthread_mutex_unlock(&screenMutex);
+  return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_restoreSanitizesInvalidGraphBoundsNative(
+    JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  if (!ram) {
+    return JNI_FALSE;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+
+  const float savedXMin = x_min;
+  const float savedXMax = x_max;
+  const float savedYMin = y_min;
+  const float savedYMax = y_max;
+
+  x_min = NAN;
+  x_max = INFINITY;
+  y_min = 4.0f;
+  y_max = 4.0f;
+
+  bool changed = r47_sanitize_graph_bounds_locked();
+  bool ok = changed && isfinite(x_min) && isfinite(x_max) && isfinite(y_min) &&
+            isfinite(y_max) && x_min < x_max && y_min < y_max;
+
+  x_min = savedXMin;
+  x_max = savedXMax;
+  y_min = savedYMin;
+  y_max = savedYMax;
+  r47_sanitize_graph_bounds_locked();
+
   pthread_mutex_unlock(&screenMutex);
   return ok ? JNI_TRUE : JNI_FALSE;
 }

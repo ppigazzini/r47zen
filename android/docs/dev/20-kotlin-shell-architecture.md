@@ -98,7 +98,13 @@ Main flow:
 2. Native work enters `NativeCoreRuntime` through `offerCoreTask(...)` or the
   small direct bridge methods exposed by `MainActivity`. The live touch and
   PiP stop seam first applies `LiveProgramStopKeyPolicy` so `R/S` and `EXIT`
-  can call `requestStopProgramNative()` before queue fallback.
+  can call `requestStopProgramNative()` before queue fallback. LCD graph-touch
+  queueing also stays here: `ReplicaOverlay` starts pan only after
+  `ViewConfiguration` touch slop, keeps a smaller continuation deadband so
+  stationary finger jitter does not turn into endless micro-pan updates, and
+    `GraphGestureAccumulator` caps queued pan backlog to a small recent range,
+    slices the retained backlog into bounded per-apply chunks, and clamps queued
+    pinch scale before JNI apply.
 3. `NativeCoreRuntime` serializes calculator execution on one shared core
    thread.
 4. `NativeDisplayRefreshLoop` is the single UI-side poller for LCD and keypad

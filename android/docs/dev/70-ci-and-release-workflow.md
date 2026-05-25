@@ -194,14 +194,16 @@ contracts:
   synthetic `00` resumes while paused and a `90 s` hosted-emulator budget for
   that heavier probe
 - `GraphTouchStressInstrumentedTest` for the native graph-touch hardening seam,
-  proving that repeated extreme pan and pinch inputs never commit non-finite or
-  out-of-range graph bounds through the instrumentation bridge
+  proving that repeated extreme pan and pinch inputs are rejected without
+  mutating the current graph bounds through the instrumentation bridge
 
 The JVM segment of this lane also keeps graph-touch gating regression coverage
-in the same run through `ReplicaOverlayGoldenTest` and
-`MainActivityPreferenceControllerTest`, including settings-gate behavior,
-multi-touch pointer continuity, graph-touch preference dispatch, and the
-widened queue-clamp zoom configuration shipped by `MainActivity`.
+in the same run through `GraphGestureAccumulatorTest`,
+`ReplicaOverlayGoldenTest`, and `MainActivityPreferenceControllerTest`,
+including bounded queued-pan backlog capping, bounded per-apply pan
+splitting, settings-gate behavior, multi-touch pointer continuity, graph-touch
+preference dispatch, and the widened queue-clamp zoom configuration shipped by
+`MainActivity`.
 
 Use this lane when the task touches SAF, lifecycle, activity behavior,
 instrumentation fixtures, or Android-only test seams.

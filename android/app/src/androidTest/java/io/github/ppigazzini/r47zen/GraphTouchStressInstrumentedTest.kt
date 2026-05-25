@@ -24,6 +24,21 @@ class GraphTouchStressInstrumentedTest {
         }
     }
 
+    @Test
+    fun restorePathSanitizesInvalidGraphBoundsBeforeRefresh() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            assertTrue(
+                "Native runtime did not become ready for restore sanitization coverage",
+                waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
+            )
+
+            assertTrue(
+                "Restore-time graph-bound sanitization failed to recover invalid bounds",
+                ProgramLoadTestBridge.restoreSanitizesInvalidGraphBounds(),
+            )
+        }
+    }
+
     private fun waitUntil(timeoutMs: Long, condition: () -> Boolean): Boolean {
         val deadline = SystemClock.elapsedRealtime() + timeoutMs
         while (SystemClock.elapsedRealtime() < deadline) {

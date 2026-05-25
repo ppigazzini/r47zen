@@ -372,6 +372,77 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
+    fun postStartMicroPanNoiseIsIgnoredUntilMovementReaccumulates() {
+        val overlay = configuredOverlay()
+        renderHash(overlay)
+
+        val lcdCenter = lcdWindowCenter(overlay)
+        val panSlop = readPrivateField<Float>(overlay, "panTouchSlopPx")
+        val continuationSlop = maxOf(
+            GraphTouchVisualPolicy.PAN_CONTINUATION_MIN_SLOP_PX,
+            panSlop * GraphTouchVisualPolicy.PAN_CONTINUATION_SLOP_FRACTION,
+        )
+        val capturedDeltas = mutableListOf<Float>()
+        overlay.onLcdPanListener = { dxNorm, _ ->
+            capturedDeltas += dxNorm
+        }
+
+        val startX = lcdCenter.first
+        val y = lcdCenter.second
+
+        val down = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, startX, y, 0)
+        val startMove = MotionEvent.obtain(0L, 16L, MotionEvent.ACTION_MOVE, startX + panSlop, y, 0)
+        val jitter1 = MotionEvent.obtain(
+            0L,
+            32L,
+            MotionEvent.ACTION_MOVE,
+            startX + panSlop + continuationSlop * 0.4f,
+            y,
+            0,
+        )
+        val jitter2 = MotionEvent.obtain(
+            0L,
+            48L,
+            MotionEvent.ACTION_MOVE,
+            startX + panSlop + continuationSlop * 0.8f,
+            y,
+            0,
+        )
+        val accumulatedMove = MotionEvent.obtain(
+            0L,
+            64L,
+            MotionEvent.ACTION_MOVE,
+            startX + panSlop + continuationSlop * 1.2f,
+            y,
+            0,
+        )
+
+        try {
+            assertTrue(overlay.onInterceptTouchEvent(down))
+            assertTrue(overlay.onTouchEvent(down))
+            assertTrue(overlay.onTouchEvent(startMove))
+            assertEquals(1, capturedDeltas.size)
+
+            assertTrue(overlay.onTouchEvent(jitter1))
+            assertEquals(1, capturedDeltas.size)
+
+            assertTrue(overlay.onTouchEvent(jitter2))
+            assertEquals(1, capturedDeltas.size)
+
+            assertTrue(overlay.onTouchEvent(accumulatedMove))
+            assertEquals(2, capturedDeltas.size)
+        } finally {
+            down.recycle()
+            startMove.recycle()
+            jitter1.recycle()
+            jitter2.recycle()
+            accumulatedMove.recycle()
+        }
+
+        assertTrue(abs(capturedDeltas.last()) > 0f)
+    }
+
+    @Test
     fun pinchPointerLiftResetsPanAnchorAndAvoidsSpuriousTranslation() {
         val overlay = configuredOverlay()
         renderHash(overlay)

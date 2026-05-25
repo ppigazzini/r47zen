@@ -46,7 +46,7 @@ flowchart TD
 | physical keyboard mapping | `PhysicalKeyboardMapper`, `PhysicalKeyboardInputController` | `PhysicalKeyboardInputParityTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | core thread, display loop, and runtime gate behavior | `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_lifecycle.c`, `jni_display.c`, `android_runtime.c` | `NativeCoreRuntimeTest.kt`, `NativeDisplayRefreshLoopTest.kt`, `GraphRedrawInstrumentedTest.kt`, `run_workload_regressions.sh` | focused JVM tests first, then the host workload lane when the compatibility path moved |
 | developer performance HUD preference, configurable sample-window slider, snapshot transport, and shell visibility | `DeveloperPerformanceSnapshot.kt`, `NativeDisplayRefreshLoop.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml` | `NativeDisplayRefreshLoopTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `ReplicaOverlayGoldenTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.NativeDisplayRefreshLoopTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest` |
-| graph LCD touch gate (proven `CM_GRAPH` path with `-MNU_PLOT_FUNC` and `-MNU_GRAPHS`), multi-touch pointer continuity, widened pinch queue clamp (`0.4f..2.5f`), transactional finite graph-bounds commit checks (`+/-1.0e38f`), and LCD graph-touch settings copy | `ReplicaOverlay.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/cpp/r47zen/jni_input.c`, `android/app/src/main/res/values/strings.xml` | `ReplicaOverlayGoldenTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `GraphTouchStressInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest && ./gradlew :app:assembleDebugAndroidTest :app:connectedDebugAndroidTest --tests io.github.ppigazzini.r47zen.GraphTouchStressInstrumentedTest` |
+| graph LCD touch gate (proven `CM_GRAPH` path with `-MNU_PLOT_FUNC` and `-MNU_GRAPHS`), multi-touch pointer continuity, post-start continuation deadband for stationary-finger jitter, bounded queued-pan backlog capping (`<= 4.0f` normalized backlog per axis), bounded per-apply pan splitting (`<= 1.0f` normalized per native apply), widened pinch queue clamp (`0.4f..2.5f`), native oversized-input rejection, transactional finite graph-bounds commit checks (`+/-1.0e38f`), restore-time graph-bounds sanitization after `restoreCalc()`, and LCD graph-touch settings copy | `ReplicaOverlay.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `GraphGestureAccumulator.kt`, `android/app/src/main/cpp/r47zen/jni_input.c`, `android/app/src/main/cpp/r47zen/jni_lifecycle.c`, `android/app/src/main/cpp/r47zen/jni_program_load_test.c`, `android/app/src/main/res/values/strings.xml` | `GraphGestureAccumulatorTest.kt`, `ReplicaOverlayGoldenTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `GraphTouchStressInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.GraphGestureAccumulatorTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest && ./gradlew :app:assembleDebugAndroidTest :app:connectedDebugAndroidTest --tests io.github.ppigazzini.r47zen.GraphTouchStressInstrumentedTest` |
 | stop delivery and first-stop LCD cleanup during long-running program execution | `MainActivity.kt`, `LiveProgramStopKeyPolicy.kt`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, `ReplicaOverlayController.kt`, `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `NativeCoreRuntime.kt`, `jni_display.c`, `jni_input.c`, `jni_lifecycle.c`, `android_runtime.c` | `LiveProgramStopKeyPolicyTest.kt`, `NativeDisplayRefreshLoopTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt`, `ProgramFixtureInstrumentedTest.kt`, `DisplayLifecycleInstrumentedTest.kt`, `scripts/workload-regressions/run_workload_regressions.sh`, and focused JVM stop-routing checks | rerun `LiveProgramStopKeyPolicyTest` first, then the host workload lane, then `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest` when the Android-owned stop or first-stop refresh seam moved |
 | settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
 | settings behavior copy, main-shell menu copy, follow-up copy-popup parity, developer performance HUD copy, fixed dark shell and popup theme invariants, the explicit checked settings-switch orange-track and blue-thumb tint mapping, adaptive settings host layout, and dependent keypress haptic default-toggle plus custom-duration copy | `SettingsActivity.kt`, `SettingsSwitchPreference.kt`, `MainActivity.kt`, `DisplayActionController.kt`, `android/app/src/main/cpp/r47zen/jni_display.c`, `android/app/src/main/cpp/r47zen/android_helpers.c`, `android/app/src/main/res/layout/settings_activity.xml`, `android/app/src/main/res/layout-w600dp/settings_activity.xml`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `SettingsActivityThemeTest.kt`, `SettingsPreferenceSummaryTest.kt`, `MainShellThemeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.SettingsActivityThemeTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest` |
@@ -174,8 +174,9 @@ Important contract files include:
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable
   through golden hashes, locks the removal of the old full-width top-bezel
   interception, covers developer-performance HUD visibility when the setting
-  is enabled, and verifies LCD graph-touch setting gating plus multi-touch
-  pointer replacement continuity after primary-pointer release
+  is enabled, and verifies LCD graph-touch setting gating, accumulated-slop pan
+  start, post-start jitter deadband, plus multi-touch pointer replacement
+  continuity after primary-pointer release
 - `MainShellThemeTest.kt`: locks the `WindowModeController` PiP request to the
   native LCD `400 x 240` aspect ratio and keeps the visible-system-bar theme
   contract covered in the same focused JVM lane while also locking the fixed
@@ -224,6 +225,10 @@ Important contract files include:
   `lcd_luminance` clamp to the XML-declared `20..120` range, `lcd_negative`
   dispatch, `show_developer_performance_hud` dispatch, and deferred overlay
   apply and preference-change dispatch
+- `GraphGestureAccumulatorTest.kt`: locks the Android-owned graph-touch queue
+  accumulator so non-finite pan input is dropped, queued pinch scale stays
+  clamped to `0.4f..2.5f`, and oversized queued pan is split into bounded
+  per-apply chunks before JNI apply
 - `LcdThemePolicyTest.kt`: locks unknown theme fallback to the default display
   theme and keeps every shipped normal and inverse LCD palette above its
   declared contrast floor across the supported luminance range
@@ -243,8 +248,10 @@ Important files include:
   runtime readiness, async function execution, redraw flags, seeding helpers,
   direct-stop publication, and state snapshots, including a visible-LCD
   snapshot hash that ignores transport dirty flags, plus an extreme graph-touch
-  stress hook used to prove no non-finite or out-of-range graph bounds commit
-  under repeated pan and pinch extremes
+  stress hook used to prove oversized pan and pinch inputs are rejected without
+  mutating graph bounds under repeated extremes, plus a restore-sanitization
+  hook that injects invalid graph bounds and verifies the restore path repairs
+  them before refresh
 - `ProgramFixtureInstrumentedTest.kt`: stages canonical `PROGRAMS` fixtures and
   exposes one Android test method per required fixture so the hosted emulator
   lane can run `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
@@ -256,9 +263,11 @@ Important files include:
   non-`MANSLV2` selections instead of wedging the whole Android step when one
   hangs
 - `GraphTouchStressInstrumentedTest.kt`: launches `MainActivity`, waits for
-  runtime readiness, and runs extreme native graph-touch stress iterations
-  through `ProgramLoadTestBridge.runExtremeGraphTouchStress(...)` to prove
-  graph-bounds safety under repeated very large pan and pinch deltas
+  runtime readiness, runs extreme native graph-touch stress iterations through
+  `ProgramLoadTestBridge.runExtremeGraphTouchStress(...)` to prove
+  graph-bounds stability under repeated very large pan and pinch deltas, and
+  separately verifies the restore path sanitizes injected invalid graph bounds
+  before refresh
 - The connected-device lane now includes a required `MANSLV2.p47`
   bounded-stop regression inside that shared per-fixture wrapper: after
   observed post-load activity it requests a direct stop through
