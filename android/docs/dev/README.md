@@ -136,7 +136,9 @@ Two rules govern most Android work in this repository:
   implementation.
 - `scripts/r47_contracts/` owns the checked-in physical and Android UI
   contract sources plus the Python derivation and validation tools that lock
-  Kotlin geometry and layout owners to those sources.
+  Kotlin geometry and layout owners to those sources, including the shared
+  keyboard-layout contract JSON consumed by JVM parity tests. The grouped
+  maintained entry point is `bash ./scripts/r47_contracts/run_contract_suite.sh`.
 - `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
   `scripts/workload-regressions/` own the fixture export, notice generation,
   and host workload lanes.

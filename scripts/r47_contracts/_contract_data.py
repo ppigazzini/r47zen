@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from r47_contracts._repo_paths import (
     R47_ANDROID_UI_CONTRACT_PATH,
     R47_KEY_FONT_POLICY_CONTRACT_PATH,
+    R47_KEYBOARD_LAYOUT_CONTRACT_PATH,
     R47_PHYSICAL_GEOMETRY_DATA_PATH,
 )
 
@@ -93,4 +94,11 @@ def load_key_font_policy_contract(
     path: Path = R47_KEY_FONT_POLICY_CONTRACT_PATH,
 ) -> dict[str, object]:
     """Load the keypad font-policy coverage and fallback document."""
+    return load_contract_document(path)
+
+
+def load_keyboard_layout_contract(
+    path: Path = R47_KEYBOARD_LAYOUT_CONTRACT_PATH,
+) -> dict[str, object]:
+    """Load the assign-and-items-backed keyboard layout contract document."""
     return load_contract_document(path)

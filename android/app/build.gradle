@@ -393,6 +393,9 @@ android {
             assets.srcDir generatedComplianceAssetsDir
             assets.srcDir generatedRuntimeAssetsDir
         }
+        test {
+            resources.srcDir "${repositoryRootDir}/scripts/r47_contracts/data"
+        }
     }
 
     testOptions {

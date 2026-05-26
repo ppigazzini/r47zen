@@ -264,12 +264,60 @@ jobs:
             NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
             test
 
+  python-contracts:
+    name: Run maintained Python contract suite
+    if: needs.upstream-release-gate.outputs.should_run == 'true'
+    needs:
+      - resolve-upstream-core
+      - upstream-release-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Sync authoritative upstream core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
+            --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.14'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+
+      - name: Run Python contract suite
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          bash ./scripts/r47_contracts/run_contract_suite.sh
+
   android-build-test-package:
     name: Build, test, and package Android signed dev prerelease APK
     if: needs.upstream-release-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
       - upstream-release-gate
+      - python-contracts
     runs-on: ubuntu-latest
     timeout-minutes: 75
     outputs:
@@ -716,6 +764,7 @@ jobs:
     needs:
       - resolve-upstream-core
       - upstream-release-gate
+      - python-contracts
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:

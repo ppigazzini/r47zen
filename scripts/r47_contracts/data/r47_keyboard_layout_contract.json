@@ -1,0 +1,272 @@
+{
+  "android_fixture_expectations": {
+    "default-keypad": {
+      "11": {
+        "aux_label": "",
+        "f_label": "HOME",
+        "g_label": "",
+        "letter_label": "",
+        "primary_label": "f"
+      },
+      "12": {
+        "aux_label": "",
+        "f_label": "CUST",
+        "g_label": "",
+        "letter_label": "",
+        "primary_label": "g"
+      },
+      "35": {
+        "aux_label": "",
+        "f_label": "SHOW",
+        "g_label": "a b/c",
+        "letter_label": ",",
+        "primary_label": "."
+      },
+      "36": {
+        "aux_label": "",
+        "f_label": "PRGM",
+        "g_label": "P.FN",
+        "letter_label": "?",
+        "primary_label": "R/S"
+      },
+      "37": {
+        "aux_label": "",
+        "f_label": "CAT",
+        "g_label": "CNST",
+        "letter_label": "_",
+        "primary_label": "+"
+      }
+    },
+    "shift-f-preview": {
+      "11": {
+        "aux_label": "",
+        "f_label": "HOME",
+        "g_label": "",
+        "letter_label": "",
+        "primary_label": "f"
+      },
+      "12": {
+        "aux_label": "",
+        "f_label": "CUST",
+        "g_label": "",
+        "letter_label": "",
+        "primary_label": "g"
+      },
+      "35": {
+        "aux_label": "",
+        "f_label": "SHOW",
+        "g_label": "a b/c",
+        "letter_label": ",",
+        "primary_label": "SHOW"
+      },
+      "36": {
+        "aux_label": "",
+        "f_label": "PRGM",
+        "g_label": "P.FN",
+        "letter_label": "?",
+        "primary_label": "PRGM"
+      },
+      "37": {
+        "aux_label": "",
+        "f_label": "CAT",
+        "g_label": "CNST",
+        "letter_label": "_",
+        "primary_label": "CAT"
+      }
+    },
+    "shift-g-preview": {
+      "11": {
+        "aux_label": "",
+        "f_label": "HOME",
+        "g_label": "",
+        "letter_label": "",
+        "primary_label": "f"
+      },
+      "12": {
+        "aux_label": "",
+        "f_label": "CUST",
+        "g_label": "",
+        "letter_label": "",
+        "primary_label": "g"
+      },
+      "35": {
+        "aux_label": "",
+        "f_label": "SHOW",
+        "g_label": "a b/c",
+        "letter_label": ",",
+        "primary_label": "a b/c"
+      },
+      "36": {
+        "aux_label": "",
+        "f_label": "PRGM",
+        "g_label": "P.FN",
+        "letter_label": "?",
+        "primary_label": "P.FN"
+      },
+      "37": {
+        "aux_label": "",
+        "f_label": "CAT",
+        "g_label": "CNST",
+        "letter_label": "_",
+        "primary_label": "CNST"
+      }
+    },
+    "static-single-scene": {
+      "11": {
+        "aux_label": "",
+        "f_label": "HOME",
+        "g_label": "",
+        "letter_label": "",
+        "primary_label": "f"
+      },
+      "12": {
+        "aux_label": "",
+        "f_label": "CUST",
+        "g_label": "",
+        "letter_label": "",
+        "primary_label": "g"
+      },
+      "35": {
+        "aux_label": "",
+        "f_label": "SHOW",
+        "g_label": "a b/c",
+        "letter_label": ",",
+        "primary_label": "."
+      },
+      "36": {
+        "aux_label": "",
+        "f_label": "PRGM",
+        "g_label": "P.FN",
+        "letter_label": "?",
+        "primary_label": "R/S"
+      },
+      "37": {
+        "aux_label": "",
+        "f_label": "CAT",
+        "g_label": "CNST",
+        "letter_label": "_",
+        "primary_label": "+"
+      }
+    }
+  },
+  "android_formatter_assists": {
+    "linpol_to_lin": true,
+    "mode_hash_to_hash": true,
+    "slash_to_divide_glyph_in_tam": true,
+    "space_placeholder": true
+  },
+  "android_static_overrides": {
+    "11": {
+      "KEYPAD_LABEL_F": "HOME",
+      "KEYPAD_LABEL_G": ""
+    },
+    "12": {
+      "KEYPAD_LABEL_F": "CUST",
+      "KEYPAD_LABEL_G": ""
+    },
+    "37": {
+      "KEYPAD_LABEL_LETTER": "_"
+    }
+  },
+  "assign_shift_rows": {
+    "R47": {
+      "35": "ITM_SHIFTf",
+      "36": "ITM_SHIFTg"
+    },
+    "R47bkfg": {
+      "35": "ITM_NULL",
+      "36": "KEY_fg"
+    },
+    "R47fg_g": {
+      "35": "KEY_fg",
+      "36": "ITM_SHIFTg"
+    },
+    "R47fgbk": {
+      "35": "KEY_fg",
+      "36": "ITM_NULL"
+    }
+  },
+  "canonical_source": {
+    "assign_path": "src/c47/assign.c",
+    "items_path": "src/c47/items.c",
+    "jni_display_path": "android/app/src/main/cpp/r47zen/jni_display.c"
+  },
+  "core_display_names": {
+    "ITM_7": "7",
+    "ITM_ADD": "+",
+    "ITM_EXIT1": "EXIT",
+    "ITM_GTO": "GTO",
+    "ITM_OFF": "OFF",
+    "ITM_PR": "PRGM",
+    "ITM_RS": "R/S",
+    "ITM_SHIFTf": "f",
+    "ITM_SHIFTg": "g",
+    "ITM_SHOW": "SHOW",
+    "ITM_SNAP": "SNAP",
+    "ITM_XEQ": "XEQ",
+    "ITM_arcsin": "ASIN",
+    "ITM_sin": "SIN",
+    "KEY_fg": "f/g",
+    "MNU_CATALOG": "CAT",
+    "MNU_CONST": "CNST",
+    "MNU_HOME": "HOME",
+    "MNU_MyMenu": "MyM",
+    "MNU_PFN": "P.FN"
+  },
+  "representative_assign_rows": {
+    "51": {
+      "f_shifted": "ITM_AIM",
+      "g_shifted": "ITM_GTO",
+      "primary": "ITM_XEQ"
+    },
+    "52": {
+      "f_shifted": "ITM_sin",
+      "g_shifted": "ITM_arcsin",
+      "primary": "ITM_7"
+    },
+    "61": {
+      "f_shifted": "ITM_BST",
+      "g_shifted": "ITM_RBR",
+      "primary": "ITM_UP1"
+    },
+    "81": {
+      "f_shifted": "ITM_OFF",
+      "g_shifted": "-MNU_INFO",
+      "primary": "ITM_EXIT1"
+    },
+    "84": {
+      "f_shifted": "ITM_PR",
+      "g_shifted": "-MNU_PFN",
+      "primary": "ITM_RS"
+    },
+    "85": {
+      "f_shifted": "-MNU_CATALOG",
+      "g_shifted": "-MNU_CONST",
+      "primary": "ITM_ADD"
+    }
+  },
+  "shift_legends": {
+    "R47": {
+      "35": "f",
+      "36": "g"
+    },
+    "R47bkfg": {
+      "35": "",
+      "36": "f/g"
+    },
+    "R47fg_g": {
+      "35": "f/g",
+      "36": "g"
+    },
+    "R47fgbk": {
+      "35": "f/g",
+      "36": ""
+    }
+  },
+  "variant_key_counts": {
+    "R47": 37,
+    "R47bkfg": 37,
+    "R47fg_g": 37,
+    "R47fgbk": 37
+  }
+}

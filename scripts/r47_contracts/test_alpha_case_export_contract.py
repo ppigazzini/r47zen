@@ -4,18 +4,38 @@ from __future__ import annotations
 
 import re
 import unittest
+from typing import TYPE_CHECKING
 
 from r47_contracts._repo_paths import (
     ANDROID_CPP_ROOT,
     KOTLIN_R47ZEN_ROOT,
     STAGED_NATIVE_C47_ROOT,
+    UPSTREAM_R47_ASSIGN_PATH,
+    UPSTREAM_R47_ITEMS_PATH,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 JNI_DISPLAY_PATH = ANDROID_CPP_ROOT / "jni_display.c"
-ASSIGN_PATH = STAGED_NATIVE_C47_ROOT / "assign.c"
-ITEMS_PATH = STAGED_NATIVE_C47_ROOT / "items.c"
 KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
 KEYPAD_LAYOUT_PATH = KOTLIN_R47ZEN_ROOT / "ReplicaKeypadLayout.kt"
+
+
+def _prefer_existing_path(primary_path: Path, fallback_path: Path) -> Path:
+    if primary_path.exists():
+        return primary_path
+    return fallback_path
+
+
+ASSIGN_PATH = _prefer_existing_path(
+    STAGED_NATIVE_C47_ROOT / "assign.c",
+    UPSTREAM_R47_ASSIGN_PATH,
+)
+ITEMS_PATH = _prefer_existing_path(
+    STAGED_NATIVE_C47_ROOT / "items.c",
+    UPSTREAM_R47_ITEMS_PATH,
+)
 
 
 def _assert_true(condition: object) -> None:
@@ -35,13 +55,13 @@ class AlphaCaseExportContractTest(unittest.TestCase):
         cls.key_view = KEY_VIEW_PATH.read_text(encoding="utf-8")
         cls.keypad_layout = KEYPAD_LAYOUT_PATH.read_text(encoding="utf-8")
 
-    def test_staged_alpha_arrows_still_map_to_case_items(self) -> None:
-        """Staged alpha arrows still map to case items."""
+    def test_alpha_arrows_still_map_to_case_items(self) -> None:
+        """Alpha arrows still map to case items."""
         _assert_true(re.search(r"CHR_caseUP\s*,\s*ITM_UP_ARROW", self.assign))
         _assert_true(re.search(r"CHR_caseDN\s*,\s*ITM_DOWN_ARROW", self.assign))
 
-    def test_staged_items_define_full_case_labels(self) -> None:
-        """Staged items define full case labels."""
+    def test_items_define_full_case_labels(self) -> None:
+        """Items define full case labels."""
         _assert_true('"CASE UP"' in self.items)
         _assert_true('"CASE DN"' in self.items)
 

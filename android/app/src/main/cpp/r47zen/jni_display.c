@@ -1012,9 +1012,44 @@ static keypadMainLabel_t resolveAimLongpressLabel(const calcKey_t *key) {
   return makeMainLabel(indexOfItems[item].itemSoftmenuName, item, false);
 }
 
+static bool_t resolveExplicitAndroidMainLabelOverride(
+    jint keyCode, jint type,
+    const keypadMainLabelPresentation_t *presentation,
+    keypadMainLabel_t *label) {
+  if (presentation->showAlphaLabels || presentation->showTamLabels) {
+    return false;
+  }
+
+  if (keyCode == 37 && type == KEYPAD_LABEL_LETTER) {
+    *label = makeMainLabel("_", 0, false);
+    return true;
+  }
+
+  if (keyCode == 11 && type == KEYPAD_LABEL_F) {
+    *label = makeMainLabel("HOME", 0, false);
+    return true;
+  }
+  if (keyCode == 11 && type == KEYPAD_LABEL_G) {
+    *label = makeMainLabel("", 0, false);
+    return true;
+  }
+  if (keyCode == 12 && type == KEYPAD_LABEL_F) {
+    *label = makeMainLabel("CUST", 0, false);
+    return true;
+  }
+  if (keyCode == 12 && type == KEYPAD_LABEL_G) {
+    *label = makeMainLabel("", 0, false);
+    return true;
+  }
+
+  return false;
+}
+
 static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
                                                  jint keyCode, jint type,
                                                  const keypadMainLabelPresentation_t *presentation) {
+  keypadMainLabel_t explicitOverride = makeMainLabel("", 0, false);
+
   if (presentation->showAlphaLabels && type == KEYPAD_LABEL_PRIMARY) {
     if (key->keyLblAim == ITM_SHIFTf || key->keyLblAim == ITM_SHIFTg ||
         key->keyLblAim == KEY_fg) {
@@ -1031,24 +1066,12 @@ static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
     }
   }
 
-  if (!presentation->showAlphaLabels && !presentation->showTamLabels &&
-      keyCode == 37 && type == KEYPAD_LABEL_LETTER) {
-    return makeMainLabel("_", 0, false);
-  }
-
-  if (!presentation->showAlphaLabels && !presentation->showTamLabels) {
-    if (keyCode == 11 && type == KEYPAD_LABEL_F) {
-      return makeMainLabel("HOME", 0, false);
-    }
-    if (keyCode == 11 && type == KEYPAD_LABEL_G) {
-      return makeMainLabel("", 0, false);
-    }
-    if (keyCode == 12 && type == KEYPAD_LABEL_F) {
-      return makeMainLabel("CUST", 0, false);
-    }
-    if (keyCode == 12 && type == KEYPAD_LABEL_G) {
-      return makeMainLabel("", 0, false);
-    }
+  if (resolveExplicitAndroidMainLabelOverride(
+          keyCode,
+          type,
+          presentation,
+          &explicitOverride)) {
+    return explicitOverride;
   }
 
   int16_t item = resolveMainKeyItem(key, type, presentation);

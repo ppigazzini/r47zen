@@ -91,7 +91,8 @@ flowchart TD
 
 - [Guide to app architecture](https://developer.android.com/topic/architecture):
   separation of concerns, state ownership, lifecycle boundaries, and
-  single-source-of-truth guidance.
+  single-source-of-truth guidance. The current page was last updated
+  2026-04-14.
 - [Threads and threading performance](https://developer.android.com/topic/performance/threads):
   main-thread budget, worker-thread ownership, and queue-based background-work
   guidance used for the deadline-driven core-thread design and the rule that the
@@ -114,7 +115,8 @@ flowchart TD
 - [Test your app's accessibility](https://developer.android.com/guide/topics/ui/accessibility/testing):
   official Android guidance for TalkBack, Switch Access, Accessibility
   Scanner, pre-launch accessibility reports, and other verification surfaces to
-  use when a UI change claims accessibility improvement.
+  use when a UI change claims accessibility improvement. The current page was
+  last updated 2026-04-16.
 - [Get a result from an activity](https://developer.android.com/training/basics/intents/result):
   Activity Result API registration and lifecycle contract for SAF launchers.
 - [ActivityResultCaller](https://developer.android.com/reference/androidx/activity/result/ActivityResultCaller):
@@ -122,6 +124,10 @@ flowchart TD
   registration rules.
 - [Develop Android apps with Kotlin](https://developer.android.com/kotlin):
   Android-specific Kotlin guidance and tooling entry point.
+- [Adopt Kotlin for large teams](https://developer.android.com/kotlin/adopt-for-large-teams):
+  official Android guidance for migration sequencing, shared conventions,
+  review policy, and tooling expectations in larger Android codebases. The
+  current page was last updated 2026-03-06.
 - [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html):
   official file naming, formatting, immutability, and test-naming guidance for
   Kotlin maintainability.
@@ -256,6 +262,10 @@ Current repository icon surfaces:
 - [Building and testing Java with Gradle](https://docs.github.com/en/actions/tutorials/build-and-test-code/java-with-gradle):
   GitHub Actions guidance for Gradle cache setup, Java toolchain setup, and
   Gradle-oriented workflow structure.
+- [Security hardening for GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions):
+  GitHub Actions guidance for least-privilege `GITHUB_TOKEN` policy, action
+  pinning, trusted-code boundaries, and secret-exposure minimization in
+  workflow design.
 - [Using secrets in GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions):
   GitHub guidance for repository and environment secrets, shell-safe secret
   handling, and the Base64 binary-blob pattern used for small upload keystores.
