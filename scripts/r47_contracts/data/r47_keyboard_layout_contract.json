@@ -10,7 +10,7 @@
       },
       "12": {
         "aux_label": "",
-        "f_label": "CUST",
+        "f_label": "MyM",
         "g_label": "",
         "letter_label": "",
         "primary_label": "g"
@@ -47,7 +47,7 @@
       },
       "12": {
         "aux_label": "",
-        "f_label": "CUST",
+        "f_label": "MyM",
         "g_label": "",
         "letter_label": "",
         "primary_label": "g"
@@ -84,7 +84,7 @@
       },
       "12": {
         "aux_label": "",
-        "f_label": "CUST",
+        "f_label": "MyM",
         "g_label": "",
         "letter_label": "",
         "primary_label": "g"
@@ -121,7 +121,7 @@
       },
       "12": {
         "aux_label": "",
-        "f_label": "CUST",
+        "f_label": "MyM",
         "g_label": "",
         "letter_label": "",
         "primary_label": "g"
@@ -156,14 +156,6 @@
     "space_placeholder": true
   },
   "android_static_overrides": {
-    "11": {
-      "KEYPAD_LABEL_F": "HOME",
-      "KEYPAD_LABEL_G": ""
-    },
-    "12": {
-      "KEYPAD_LABEL_F": "CUST",
-      "KEYPAD_LABEL_G": ""
-    },
     "37": {
       "KEYPAD_LABEL_LETTER": "_"
     }

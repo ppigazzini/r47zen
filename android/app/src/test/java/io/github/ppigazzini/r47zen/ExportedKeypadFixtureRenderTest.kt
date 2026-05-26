@@ -1,6 +1,7 @@
 package io.github.ppigazzini.r47zen
 
 import android.app.Activity
+import android.graphics.Color
 import android.os.Looper
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
@@ -65,6 +66,25 @@ class ExportedKeypadFixtureRenderTest {
         val alphaView = createMainKeyView(activity, alphaKeyCode)
         alphaView.updateLabels(alphaSnapshot)
         assertEquals(View.INVISIBLE, alphaView.letterLabel.visibility)
+    }
+
+    @Test
+    fun staticSingleShiftPairUsesTheSameCUSTBadgeGray() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
+
+        val homeView = createMainKeyView(activity, 11)
+        val myMenuView = createMainKeyView(activity, 12)
+        homeView.updateLabels(snapshot)
+        myMenuView.updateLabels(snapshot)
+
+        assertEquals("HOME", homeView.fLabel.text.toString())
+        assertEquals(Color.parseColor("#A5A5A5"), homeView.fLabel.currentTextColor)
+        assertEquals(View.GONE, homeView.gLabel.visibility)
+
+        assertEquals("MyM", myMenuView.fLabel.text.toString())
+        assertEquals(Color.parseColor("#A5A5A5"), myMenuView.fLabel.currentTextColor)
+        assertEquals(View.GONE, myMenuView.gLabel.visibility)
     }
 
     private fun createMainKeyView(activity: Activity, code: Int): CalculatorKeyView {

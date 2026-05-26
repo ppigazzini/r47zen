@@ -1,23 +1,5 @@
 {
   "contract_domain": "android_app",
-  "rendering_policy": {
-    "label_renderers": {
-      "main_key": {
-        "owner": "CalculatorKeyView",
-        "surface": "custom_paint"
-      },
-      "softkey": {
-        "owner": "CalculatorSoftkeyPainter",
-        "surface": "custom_paint"
-      }
-    },
-    "shared_text_paint_policy": {
-      "anti_alias": true,
-      "linear_text": false,
-      "owner": "C47TextRenderer",
-      "subpixel_text": true
-    }
-  },
   "fixture_corpus": {
     "labels_per_key": 5,
     "main_key_code_range": [
@@ -1426,7 +1408,6 @@
         "COMPLEX",
         "CONV",
         "COS",
-        "CUST",
         "DISP",
         "EQN",
         "FLAG",
@@ -1434,6 +1415,7 @@
         "INTS",
         "LASTx",
         "MATX",
+        "MyM",
         "OFF",
         "PFX",
         "PREF",
@@ -1856,6 +1838,24 @@
         }
       },
       "label_slot": 0
+    }
+  },
+  "rendering_policy": {
+    "label_renderers": {
+      "main_key": {
+        "owner": "CalculatorKeyView",
+        "surface": "custom_paint"
+      },
+      "softkey": {
+        "owner": "CalculatorSoftkeyPainter",
+        "surface": "custom_paint"
+      }
+    },
+    "shared_text_paint_policy": {
+      "anti_alias": true,
+      "linear_text": false,
+      "owner": "C47TextRenderer",
+      "subpixel_text": true
     }
   },
   "style_numeric_primary_expectations": {

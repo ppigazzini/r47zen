@@ -138,9 +138,9 @@ The grouped Python lane currently covers:
   handling in `CalculatorKeyView.kt` and `ReplicaKeypadLayout.kt`
 - `test_keyboard_layout_contract.py`: `assign.c` layout-truth rules, `items.c`
   shift and display vocabulary for the audited slice, representative generated
-  `assign.c` semantics, the explicit Android-local `HOME`, `CUST`, blank, `_`,
-  and formatter assists, and drift between the live payload and the checked-in
-  `r47_keyboard_layout_contract.json` document
+  `assign.c` semantics, the Android single-badge `HOME` or `MyM`, blank-G,
+  `_`, and formatter assists, and drift between the live payload and the
+  checked-in `r47_keyboard_layout_contract.json` document
 
 These Python tests are the first contract surface to inspect when a geometry or
 label rule change begins in the checked-in calculators-specific payloads rather

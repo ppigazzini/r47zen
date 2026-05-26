@@ -187,19 +187,15 @@ class KeyboardLayoutContractTest(unittest.TestCase):
             },
         )
 
-    def test_android_static_overrides_remain_explicit_renderer_policy(self) -> None:
-        """Android static HOME and CUST labels stay explicit local overrides."""
+    def test_android_static_overrides_stay_limited_to_renderer_specific_exceptions(
+        self,
+    ) -> None:
+        """Shift-pair badges derive from upstream hints, not static slot literals."""
         _assert_equal(self.core_display_names["MNU_HOME"], "HOME")
         _assert_equal(self.core_display_names["MNU_MyMenu"], "MyM")
-        _assert_equal(self.android_static_overrides["11"]["KEYPAD_LABEL_F"], "HOME")
-        _assert_equal(self.android_static_overrides["11"]["KEYPAD_LABEL_G"], "")
-        _assert_equal(self.android_static_overrides["12"]["KEYPAD_LABEL_F"], "CUST")
-        _assert_equal(self.android_static_overrides["12"]["KEYPAD_LABEL_G"], "")
+        _assert_true("11" not in self.android_static_overrides)
+        _assert_true("12" not in self.android_static_overrides)
         _assert_equal(self.android_static_overrides["37"]["KEYPAD_LABEL_LETTER"], "_")
-        _assert_true(
-            self.android_static_overrides["12"]["KEYPAD_LABEL_F"]
-            != self.core_display_names["MNU_MyMenu"],
-        )
 
     def test_android_formatter_assists_stay_explicit(self) -> None:
         """Android label compaction and glyph assists remain explicit code policy."""
@@ -234,7 +230,7 @@ class KeyboardLayoutContractTest(unittest.TestCase):
             self.android_fixture_expectations["default-keypad"]["12"],
             {
                 "primary_label": "g",
-                "f_label": "CUST",
+                "f_label": "MyM",
                 "g_label": "",
                 "letter_label": "",
                 "aux_label": "",
@@ -243,6 +239,10 @@ class KeyboardLayoutContractTest(unittest.TestCase):
         _assert_equal(
             self.android_fixture_expectations["default-keypad"]["12"]["primary_label"],
             self.core_display_names["ITM_SHIFTg"],
+        )
+        _assert_equal(
+            self.android_fixture_expectations["default-keypad"]["12"]["f_label"],
+            self.core_display_names["MNU_MyMenu"],
         )
         _assert_equal(
             self.android_fixture_expectations["shift-f-preview"]["35"]["primary_label"],
@@ -256,6 +256,9 @@ class KeyboardLayoutContractTest(unittest.TestCase):
             self.android_fixture_expectations["default-keypad"]["37"]["letter_label"],
             "_",
         )
+        for scene_expectations in self.android_fixture_expectations.values():
+            for key_expectation in scene_expectations.values():
+                _assert_true(key_expectation["f_label"] != "CUST")
 
 
 if __name__ == "__main__":

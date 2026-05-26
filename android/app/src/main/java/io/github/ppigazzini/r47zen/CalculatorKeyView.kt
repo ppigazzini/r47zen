@@ -537,7 +537,12 @@ class CalculatorKeyView @JvmOverloads constructor(
         )
     }
 
-    private fun applyLabelRole(labelView: TextView, role: Int, defaultColor: Int) {
+    private fun applyLabelRole(
+        labelView: TextView,
+        role: Int,
+        defaultColor: Int,
+        forcedColor: Int? = null,
+    ) {
         var paintFlags = labelView.paintFlags and Paint.UNDERLINE_TEXT_FLAG.inv()
         if (
             role == KeypadSceneContract.TEXT_ROLE_F_UNDERLINE ||
@@ -555,20 +560,33 @@ class CalculatorKeyView @JvmOverloads constructor(
             else -> fontSet.standard
         }
         labelView.setTextColor(
-            when (role) {
+            forcedColor ?: when (role) {
                 KeypadSceneContract.TEXT_ROLE_LONGPRESS -> longPressColor
                 else -> defaultColor
-            }
+            },
         )
+    }
+
+    private fun usesStaticSingleShiftBadgeColorOverride(keyState: KeypadKeySnapshot): Boolean {
+        return keyState.layoutClass == KeypadSceneContract.LAYOUT_CLASS_STATIC_SINGLE &&
+            keyCode in 11..12 &&
+            keyState.fLabel.isNotBlank() &&
+            keyState.gLabel.isBlank()
     }
 
     private fun applySceneStyling(keyState: KeypadKeySnapshot) {
         primaryLabel.setTextColor(mainKeyStyleSpec(keyState.styleRole).primaryTextColor)
         primaryLabel.typeface = primaryTypefaceFor()
+        val forcedStaticSingleShiftBadgeColor = if (usesStaticSingleShiftBadgeColorOverride(keyState)) {
+            letterColor
+        } else {
+            null
+        }
         applyLabelRole(
             fLabel,
             keyState.labelRole(KeypadSceneContract.LABEL_F),
             if (keyState.layoutClass == KeypadSceneContract.LAYOUT_CLASS_STATIC_SINGLE) letterColor else fAccentColor,
+            forcedStaticSingleShiftBadgeColor,
         )
         applyLabelRole(
             gLabel,

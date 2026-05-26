@@ -1012,8 +1012,34 @@ static keypadMainLabel_t resolveAimLongpressLabel(const calcKey_t *key) {
   return makeMainLabel(indexOfItems[item].itemSoftmenuName, item, false);
 }
 
+static keypadMainLabel_t resolveR47StaticSingleHintLabel(const calcKey_t *key) {
+  int16_t item = 0;
+
+  if (key == NULL) {
+    return makeMainLabel("", 0, false);
+  }
+
+  if (key->primary == ITM_SHIFTf) {
+    item = MNU_HOME;
+  } else if (key->primary == ITM_SHIFTg) {
+    item = MNU_MyMenu;
+  } else if (key->primary == KEY_fg) {
+    if (isSystemFlagSet(FLAG_HOME_TRIPLE)) {
+      item = MNU_HOME;
+    } else if (isSystemFlagSet(FLAG_MYM_TRIPLE)) {
+      item = MNU_MyMenu;
+    }
+  }
+
+  if (item == 0) {
+    return makeMainLabel("", 0, false);
+  }
+
+  return makeMainLabel(indexOfItems[item].itemSoftmenuName, item, false);
+}
+
 static bool_t resolveExplicitAndroidMainLabelOverride(
-    jint keyCode, jint type,
+    const calcKey_t *key, jint keyCode, jint type,
     const keypadMainLabelPresentation_t *presentation,
     keypadMainLabel_t *label) {
   if (presentation->showAlphaLabels || presentation->showTamLabels) {
@@ -1025,19 +1051,12 @@ static bool_t resolveExplicitAndroidMainLabelOverride(
     return true;
   }
 
-  if (keyCode == 11 && type == KEYPAD_LABEL_F) {
-    *label = makeMainLabel("HOME", 0, false);
+  if ((keyCode == 11 || keyCode == 12) && type == KEYPAD_LABEL_F) {
+    *label = resolveR47StaticSingleHintLabel(key);
     return true;
   }
-  if (keyCode == 11 && type == KEYPAD_LABEL_G) {
-    *label = makeMainLabel("", 0, false);
-    return true;
-  }
-  if (keyCode == 12 && type == KEYPAD_LABEL_F) {
-    *label = makeMainLabel("CUST", 0, false);
-    return true;
-  }
-  if (keyCode == 12 && type == KEYPAD_LABEL_G) {
+
+  if ((keyCode == 11 || keyCode == 12) && type == KEYPAD_LABEL_G) {
     *label = makeMainLabel("", 0, false);
     return true;
   }
@@ -1067,6 +1086,7 @@ static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
   }
 
   if (resolveExplicitAndroidMainLabelOverride(
+      key,
           keyCode,
           type,
           presentation,
