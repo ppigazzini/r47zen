@@ -267,8 +267,10 @@ This workflow:
 - accepts Android SDK licenses non-interactively and restores the hosted test
   emulator image so the protected release lane can rerun the same Android test
   categories the old debug lane covered
-- decodes the protected `R47_RELEASE_*` signing inputs before verification so
-  the release-path test install matches the release lane's signing identity
+- decodes the protected release keystore once, then passes the complete
+  release-signing tuple only to the wrapper-owned release-PGO validation,
+  release verification, connected release tests, and final signed bundle build
+  so the release-path test install matches the release lane's signing identity
 - runs Android lint, `:app:assembleRelease`,
   `:app:assembleReleaseAndroidTest`, and `:app:testReleaseUnitTest` with
   `r47.testBuildType=release` and CI-only
@@ -278,8 +280,9 @@ This workflow:
   the old debug lane's full non-fixture and `ProgramFixtureInstrumentedTest`
   coverage on the release path before the final signed bundle build
 - resolves `version_code` and `version_name` from manual workflow inputs
-- reads `R47_RELEASE_STORE_PASSWORD`, `R47_RELEASE_KEY_ALIAS`, and
-  `R47_RELEASE_KEY_PASSWORD` only from the protected environment
+- reads `R47_RELEASE_STORE_FILE_BASE64`, `R47_RELEASE_STORE_PASSWORD`,
+  `R47_RELEASE_KEY_ALIAS`, and `R47_RELEASE_KEY_PASSWORD` only from the
+  protected environment
 - builds `:app:assembleRelease :app:bundleRelease
   -Pr47.pgoProfilePath=...` so the signed release APK and AAB consume the same
   collected host-core profile that the wrapper already validated
