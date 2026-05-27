@@ -5,9 +5,11 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Bundle
+import android.os.Looper
 import android.text.TextPaint
 import android.util.TypedValue
 import android.view.MotionEvent
+import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.test.core.app.ApplicationProvider
 import kotlin.math.max
@@ -20,6 +22,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -130,6 +133,20 @@ class ReplicaOverlayVisualPolicyTest {
             0.01f,
         )
         assertEquals(TouchZoneDebugVisualPolicy.STROKE_ALPHA, zonePaint.alpha)
+    }
+
+    @Test
+    fun shellOverlay_claimsFocusAndBlocksDescendantFocusNavigation() {
+        val activity = buildThemedActivity()
+        val overlay = ReplicaOverlay(activity)
+
+        activity.setContentView(overlay)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertTrue(overlay.isFocusable)
+        assertTrue(overlay.isFocusableInTouchMode)
+        assertEquals(ViewGroup.FOCUS_BLOCK_DESCENDANTS, overlay.descendantFocusability)
+        assertTrue(overlay.hasFocus())
     }
 
     @Test

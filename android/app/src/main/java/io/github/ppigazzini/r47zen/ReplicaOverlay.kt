@@ -196,6 +196,12 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     init {
         setBackgroundColor(Color.BLACK)
+        // Hardware keys are routed by the shell, so descendant focus must not
+        // consume the first directional key press on large-screen keyboards.
+        isFocusable = true
+        isFocusableInTouchMode = true
+        descendantFocusability = FOCUS_BLOCK_DESCENDANTS
+        setTouchscreenBlocksFocus(false)
         // Allow drawing outside individual key boundaries
         clipChildren = false
         clipToPadding = false
@@ -243,6 +249,17 @@ class ReplicaOverlay @JvmOverloads constructor(
                 }
             },
         )
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (!hasFocus()) {
+            post {
+                if (isAttachedToWindow && !hasFocus()) {
+                    requestFocus()
+                }
+            }
+        }
     }
 
     private fun dp(value: Float): Float {

@@ -195,6 +195,12 @@ The Kotlin shell currently accepts input from five paths:
 
 Each path ultimately resolves to core-thread work or a small Android-side action.
 
+`ReplicaOverlay` also owns the shell-level focus policy for the physical-
+keyboard path. It stays focusable in touch mode, blocks descendant focus
+navigation, and keeps touchscreen focus from suppressing the shell, so the
+first DPAD event reaches `MainActivity` and the physical-keyboard controller
+instead of Android focus search on keypad descendants.
+
 The live on-screen and PiP stop path is narrower than the general queue path:
 
 - `ReplicaOverlayController` routes touch and PiP taps through
