@@ -74,6 +74,74 @@ read_property_value() {
     sed -n "s/^${key}=//p" "$path" | tail -n1
 }
 
+normalize_abi_filter_csv() {
+    local raw_csv="$1"
+    local normalized_csv=""
+    local abi=""
+    local -a raw_abis=()
+
+    IFS=',' read -r -a raw_abis <<< "$raw_csv"
+
+    for abi in "${raw_abis[@]}"; do
+        abi=$(printf '%s' "$abi" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        [ -n "$abi" ] || continue
+
+        if [ -n "$normalized_csv" ]; then
+            normalized_csv+=",$abi"
+        else
+            normalized_csv="$abi"
+        fi
+    done
+
+    printf '%s\n' "$normalized_csv"
+}
+
+resolve_gradle_abi_filters_override() {
+    local gradle_arg=""
+    local -a parsed_gradle_args=()
+
+    if [ -n "${R47_ABI_FILTERS-}" ]; then
+        printf '%s\n' "${R47_ABI_FILTERS}"
+        return 0
+    fi
+
+    if [ -z "${R47_GRADLE_ARGS-}" ]; then
+        return 1
+    fi
+
+    read -r -a parsed_gradle_args <<< "${R47_GRADLE_ARGS}"
+
+    for gradle_arg in "${parsed_gradle_args[@]}"; do
+        case "$gradle_arg" in
+            -Pr47.abiFilters=*)
+                printf '%s\n' "${gradle_arg#-Pr47.abiFilters=}"
+                return 0
+                ;;
+        esac
+    done
+
+    return 1
+}
+
+resolve_packaging_expected_abis() {
+    local resolved_abis=""
+
+    if [ -n "${R47_VERIFY_PACKAGING_ABIS-}" ]; then
+        resolved_abis=$(normalize_abi_filter_csv "${R47_VERIFY_PACKAGING_ABIS}")
+    elif resolved_abis=$(resolve_gradle_abi_filters_override); then
+        resolved_abis=$(normalize_abi_filter_csv "$resolved_abis")
+    else
+        resolved_abis=$(read_property_value "$DEFAULTS_FILE" R47_DEFAULT_ANDROID_ABI_FILTERS || true)
+        resolved_abis=$(normalize_abi_filter_csv "$resolved_abis")
+    fi
+
+    if [ -z "$resolved_abis" ]; then
+        resolved_abis="arm64-v8a"
+    fi
+
+    printf '%s\n' "$resolved_abis"
+}
+
 load_android_defaults() {
     [ -f "$DEFAULTS_FILE" ] || fail "Missing Android defaults file at $DEFAULTS_FILE"
 
@@ -864,7 +932,7 @@ fi
 
 if [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; then
     PACKAGING_OUTPUT_DIR=${VERIFY_PACKAGING_DIR:-${R47_VERIFY_PACKAGING_DIR:-$ANDROID_PROJECT_DIR/build/outputs/packaging/$PACKAGING_VARIANT}}
-    PACKAGING_EXPECTED_ABIS=${R47_VERIFY_PACKAGING_ABIS:-arm64-v8a}
+    PACKAGING_EXPECTED_ABIS=$(resolve_packaging_expected_abis)
     bash "$ANDROID_SCRIPTS_DIR/collect_packaging_evidence.sh" \
         --variant "$PACKAGING_VARIANT" \
         --apk "$ANDROID_PROJECT_DIR/$APK_PATH" \

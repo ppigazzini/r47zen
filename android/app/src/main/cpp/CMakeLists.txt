@@ -13,6 +13,15 @@ set(R47_STAGED_GENERATED_DIR "${R47_STAGED_CPP_DIR}/generated")
 set(R47_STAGED_GMP_DIR "${R47_STAGED_CPP_DIR}/gmp")
 set(R47_PGO_PROFILE_PATH "" CACHE FILEPATH "Indexed LLVM PGO profile used for Android release-native builds")
 set(R47_RESOLVED_PGO_PROFILE_PATH "")
+set(R47_ANDROID_BITNESS_DEFINE "")
+
+if(ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
+    set(R47_ANDROID_BITNESS_DEFINE -DOS64BIT)
+elseif(ANDROID_ABI STREQUAL "armeabi-v7a" OR ANDROID_ABI STREQUAL "x86")
+    set(R47_ANDROID_BITNESS_DEFINE -DOS32BIT)
+else()
+    message(FATAL_ERROR "Unsupported Android ABI for R47 shared-core bitness selection: ${ANDROID_ABI}")
+endif()
 
 if(NOT "${R47_PGO_PROFILE_PATH}" STREQUAL "")
     get_filename_component(R47_RESOLVED_PGO_PROFILE_PATH "${R47_PGO_PROFILE_PATH}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -27,7 +36,7 @@ add_definitions(
     -DANDROID_BUILD
     -DPC_BUILD          # Reusing PC logic where applicable (sim)
     -DLINUX             # closest platform match
-    -DOS64BIT           # Android is 64-bit
+    ${R47_ANDROID_BITNESS_DEFINE}
     -DCALCMODEL=USER_R47
 )
 

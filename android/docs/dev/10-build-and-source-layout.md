@@ -462,17 +462,20 @@ Build-safety rule:
 4. `android/app/build.gradle` invokes CMake at
    `android/app/src/main/cpp/CMakeLists.txt` and passes
    `-DR47_STAGED_CPP_DIR=<repo>/android/.staged-native/cpp`.
-5. CMake regenerates the staged metadata when needed and builds the
-  `r47zen` shared library from the build-only staged core, explicit
-  decNumberICU sources, generated files, Android bridge files, and mini-gmp
-  without using recursive globs.
+5. CMake regenerates the staged metadata when needed, selects `-DOS32BIT` or
+  `-DOS64BIT` from `ANDROID_ABI`, and builds the `r47zen` shared library from
+  the build-only staged core, explicit decNumberICU sources, generated files,
+  Android bridge files, and mini-gmp without using recursive globs.
 6. Gradle packages the debug APK as
   `android/app/build/outputs/apk/debug/app-debug.apk`.
 7. When the caller requests packaging verification, the repo-owned helper
   `scripts/android/collect_packaging_evidence.sh` copies that APK to the
   published Android debug artifact name
   `r47zen-<upstream short>-<android short>-debug.apk` and writes ABI,
-  zipalign, ELF `LOAD` segment, SHA256, and provenance evidence beside it.
+  zipalign, ELF `LOAD` segment, SHA256, and provenance evidence beside it. The
+  expected ABI list comes from `R47_VERIFY_PACKAGING_ABIS` when set, else the
+  active `-Pr47.abiFilters=...` override forwarded through `R47_GRADLE_ARGS`,
+  else `R47_DEFAULT_ANDROID_ABI_FILTERS`.
 
 ## Local Start-To-End Pipeline
 
@@ -551,8 +554,10 @@ ownership model as the local build:
   Android and NDK path, collect the host-core profile, and validate
   release-native profile consumption, verifies that build-only staged metadata
   exists under `android/.staged-native/cpp` while the retired app-module
-  snapshot paths stay absent, and records packaging evidence for the default
-  `arm64-v8a` signed dev-prerelease release APK through
+  snapshot paths stay absent, and records packaging evidence against the
+  active wrapper ABI contract, which is currently the defaults-file public
+  `arm64-v8a` list unless the caller overrides `r47.abiFilters` or
+  `R47_VERIFY_PACKAGING_ABIS`, through
   `scripts/android/collect_packaging_evidence.sh`.
 - That host-core collector now builds instrumented upstream
   `src/testSuite/testSuite` with the pinned NDK `clang` plus ThinLTO, runs the
