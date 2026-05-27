@@ -33,7 +33,7 @@
         "aux_label": "",
         "f_label": "CAT",
         "g_label": "CNST",
-        "letter_label": "_",
+        "letter_label": "\u00b7_\u00b7",
         "primary_label": "+"
       }
     },
@@ -70,7 +70,7 @@
         "aux_label": "",
         "f_label": "CAT",
         "g_label": "CNST",
-        "letter_label": "_",
+        "letter_label": "\u00b7_\u00b7",
         "primary_label": "CAT"
       }
     },
@@ -107,7 +107,7 @@
         "aux_label": "",
         "f_label": "CAT",
         "g_label": "CNST",
-        "letter_label": "_",
+        "letter_label": "\u00b7_\u00b7",
         "primary_label": "CNST"
       }
     },
@@ -144,7 +144,7 @@
         "aux_label": "",
         "f_label": "CAT",
         "g_label": "CNST",
-        "letter_label": "_",
+        "letter_label": "\u00b7_\u00b7",
         "primary_label": "+"
       }
     }
@@ -155,11 +155,7 @@
     "slash_to_divide_glyph_in_tam": true,
     "space_placeholder": true
   },
-  "android_static_overrides": {
-    "37": {
-      "KEYPAD_LABEL_LETTER": "_"
-    }
-  },
+  "android_static_overrides": {},
   "assign_shift_rows": {
     "R47": {
       "35": "ITM_SHIFTf",

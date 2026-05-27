@@ -501,6 +501,12 @@ hardcoding one text style for all keys. In practice that means:
 - label-role changes should come from native scene metadata, not from ad hoc
   Android string inspection
 
+Main-label projection keeps a small set of explicit renderer assists shared
+with the GTK-style presentation layer instead of restating source vocabulary in
+Kotlin. Raw plain-space legends render as the visible-space placeholder `·_·`
+rather than as a blank lane, and key `37` now follows that shared formatter
+path instead of carrying an Android-only underscore literal.
+
 The current keypad rule is standard-first rather than coverage-gated. It does
 not reinterpret native label-role metadata or change geometry ownership.
 `CalculatorKeyViewFontSelectionTest.kt` locks the main-key owner policy, while

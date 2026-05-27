@@ -1591,8 +1591,8 @@
       "label_slot": 2
     },
     "letter": {
-      "distinct_codepoint_count": 32,
-      "distinct_label_count": 34,
+      "distinct_codepoint_count": 33,
+      "distinct_label_count": 35,
       "distinct_labels": [
         ",",
         "?",
@@ -1625,6 +1625,7 @@
         "Y",
         "Z",
         "_",
+        "\u00b7_\u00b7",
         "\u2190",
         "\u2191",
         "\u2193"
@@ -1632,18 +1633,18 @@
       "font_coverage": {
         "numeric": {
           "missing_labels": [],
-          "supported_codepoint_count": 32,
-          "supported_label_count": 34
+          "supported_codepoint_count": 33,
+          "supported_label_count": 35
         },
         "standard": {
           "missing_labels": [],
-          "supported_codepoint_count": 32,
-          "supported_label_count": 34
+          "supported_codepoint_count": 33,
+          "supported_label_count": 35
         },
         "tiny": {
           "missing_labels": [],
-          "supported_codepoint_count": 32,
-          "supported_label_count": 34
+          "supported_codepoint_count": 33,
+          "supported_label_count": 35
         }
       },
       "label_slot": 3

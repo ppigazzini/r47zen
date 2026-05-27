@@ -190,12 +190,12 @@ class KeyboardLayoutContractTest(unittest.TestCase):
     def test_android_static_overrides_stay_limited_to_renderer_specific_exceptions(
         self,
     ) -> None:
-        """Shift-pair badges derive from upstream hints, not static slot literals."""
+        """Key 37 follows the shared visible-space formatter, not a slot literal."""
         _assert_equal(self.core_display_names["MNU_HOME"], "HOME")
         _assert_equal(self.core_display_names["MNU_MyMenu"], "MyM")
         _assert_true("11" not in self.android_static_overrides)
         _assert_true("12" not in self.android_static_overrides)
-        _assert_equal(self.android_static_overrides["37"]["KEYPAD_LABEL_LETTER"], "_")
+        _assert_true("37" not in self.android_static_overrides)
 
     def test_android_formatter_assists_stay_explicit(self) -> None:
         """Android label compaction and glyph assists remain explicit code policy."""
@@ -254,7 +254,7 @@ class KeyboardLayoutContractTest(unittest.TestCase):
         )
         _assert_equal(
             self.android_fixture_expectations["default-keypad"]["37"]["letter_label"],
-            "_",
+            "·_·",
         )
         for scene_expectations in self.android_fixture_expectations.values():
             for key_expectation in scene_expectations.values():

@@ -1046,11 +1046,6 @@ static bool_t resolveExplicitAndroidMainLabelOverride(
     return false;
   }
 
-  if (keyCode == 37 && type == KEYPAD_LABEL_LETTER) {
-    *label = makeMainLabel("_", 0, false);
-    return true;
-  }
-
   if ((keyCode == 11 || keyCode == 12) && type == KEYPAD_LABEL_F) {
     *label = resolveR47StaticSingleHintLabel(key);
     return true;
