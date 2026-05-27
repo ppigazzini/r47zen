@@ -262,24 +262,38 @@ This workflow:
   `libclang-rt-<major>-dev` packages before collecting host profiles
 - reruns `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
   so the protected release lane uses the same wrapper-owned host-core
-  optimization flow as the debug CI lane and writes
+  optimization flow as the Android CI release-path lane and writes
   `ci-artifacts/pgo/r47-host-core.profdata`
 - accepts Android SDK licenses non-interactively and restores the hosted test
   emulator image so the protected release lane can rerun the same Android test
-  categories the old debug lane covered
-- decodes the protected `R47_RELEASE_*` signing inputs before verification so
-  the release-path test install matches the release lane's signing identity
+  categories the Android CI release-path lane covers
+- decodes the protected release keystore once, then passes the complete
+  release-signing tuple only to the wrapper-owned release-PGO validation,
+  release verification, connected release tests, and final signed bundle build
+  so the release-path test install matches the release lane's signing identity
 - runs Android lint, `:app:assembleRelease`,
   `:app:assembleReleaseAndroidTest`, and `:app:testReleaseUnitTest` with
   `r47.testBuildType=release` and CI-only
   `r47.releaseMinify=false` / `r47.releaseShrinkResources=false`
 - reruns grouped `connectedReleaseAndroidTest` selections on the hosted
   emulator through `scripts/android/run_connected_android_tests.sh`, keeping
-  the old debug lane's full non-fixture and `ProgramFixtureInstrumentedTest`
-  coverage on the release path before the final signed bundle build
+  the Android CI release-path full non-fixture and
+  `ProgramFixtureInstrumentedTest` coverage on the release path before the
+  final signed bundle build
 - resolves `version_code` and `version_name` from manual workflow inputs
-- reads `R47_RELEASE_STORE_PASSWORD`, `R47_RELEASE_KEY_ALIAS`, and
-  `R47_RELEASE_KEY_PASSWORD` only from the protected environment
+- uses a monotonic positive-integer `version_code` for Play uploads; the
+  maintainer pattern is `YYYYMMDDVV`
+- uses `version_name` as the user-facing release label and the derived GitHub
+  tag basis; keep it semver-shaped with a signed date suffix:
+  `major.minor.patch-signed.YYYYMMDD`
+- follows the current guidance behind that pattern: Android requires each
+  release to use a higher integer `versionCode`, treats `versionName` as the
+  user-visible string, and points to Semantic Versioning as a common basis;
+  keeping the underlying release version semver-shaped also makes the derived
+  prefixed GitHub tag easier to read and maintain
+- reads `R47_RELEASE_STORE_FILE_BASE64`, `R47_RELEASE_STORE_PASSWORD`,
+  `R47_RELEASE_KEY_ALIAS`, and `R47_RELEASE_KEY_PASSWORD` only from the
+  protected environment
 - builds `:app:assembleRelease :app:bundleRelease
   -Pr47.pgoProfilePath=...` so the signed release APK and AAB consume the same
   collected host-core profile that the wrapper already validated
@@ -304,6 +318,8 @@ This workflow job:
   reports
 - creates or updates the GitHub release tag
   `r47zen-v<sanitized version_name>` titled `R47 Zen <version_name>`
+- keeps the derived tag predictable when `version_name` stays ASCII and follows
+  the maintained semver-shaped signed-release pattern
 - attaches the signed installable APK, the signed Play upload AAB, and both
   packaging-evidence archives to that GitHub release
 - keeps Play Console upload manual after review; this workflow does not push to

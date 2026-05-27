@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version_code:
-        description: Monotonic Android versionCode for the Play upload
+        description: Monotonic Android versionCode for the Play upload (YYYYMMDDVV)
         required: true
         type: string
       version_name:
-        description: Android versionName for the signed release bundle
+        description: Android versionName and derived GitHub tag basis (major.minor.patch-signed.YYYYMMDD)
         required: true
         type: string
 
@@ -267,6 +267,7 @@ jobs:
             "system-images;android-${{ steps.defaults.outputs.android_test_api_level }};default;x86_64"
 
       - name: Materialize release keystore
+        id: release-keystore
         shell: bash
         env:
           R47_RELEASE_STORE_FILE_BASE64: ${{ secrets.R47_RELEASE_STORE_FILE_BASE64 }}
@@ -291,7 +292,7 @@ jobs:
           keystore_path="${RUNNER_TEMP}/r47-release-upload-key.jks"
           printf '%s' "$R47_RELEASE_STORE_FILE_BASE64" | base64 --decode > "$keystore_path"
           chmod 600 "$keystore_path"
-          echo "R47_RELEASE_STORE_FILE=$keystore_path" >> "$GITHUB_ENV"
+          echo "keystore_path=$keystore_path" >> "$GITHUB_OUTPUT"
 
       - name: Install matching host LLVM profiling runtime
         shell: bash
@@ -411,6 +412,10 @@ jobs:
       - name: Prepare staged native inputs and simulator parity
         shell: bash
         env:
+          R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
+          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
+          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
+          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
@@ -437,6 +442,7 @@ jobs:
         env:
           R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+          R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
           R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
           R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
           R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
@@ -514,6 +520,7 @@ jobs:
           R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT: 3m
           R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER: 20s
           R47_CONNECTED_ANDROID_USE_DAEMON: 'true'
+          R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
           R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
           R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
           R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
@@ -540,6 +547,7 @@ jobs:
       - name: Build signed release APK and bundle
         shell: bash
         env:
+          R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
           R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
           R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
           R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
