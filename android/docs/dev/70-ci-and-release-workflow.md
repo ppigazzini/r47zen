@@ -44,6 +44,9 @@ flowchart TD
 - make the protected release workflow rerun the same wrapper-owned host-core
   optimization flow before it signs the store bundle
 - run Android lint explicitly instead of assuming Gradle builds cover it
+- keep external `uses:` pins on full-length commit SHAs and keep the reviewed
+  tag comment on the same line so the workflow stays auditable and
+  Dependabot-readable
 - publish logs and packaging evidence as first-class artifacts
 - publish the main snapshot only after all required lanes pass
 - keep production signing and user-facing release publication in a separate

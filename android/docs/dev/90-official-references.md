@@ -265,7 +265,12 @@ Current repository icon surfaces:
 - [Security hardening for GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions):
   GitHub Actions guidance for least-privilege `GITHUB_TOKEN` policy, action
   pinning, trusted-code boundaries, and secret-exposure minimization in
-  workflow design.
+  workflow design. The same guidance also states that a full-length commit SHA
+  is the only immutable action release reference.
+- [Keeping the actions in your workflows secure and up to date](https://docs.github.com/en/actions/reference/security/secure-use#keeping-the-actions-in-your-workflows-secure-and-up-to-date):
+  GitHub guidance for reviewing and refreshing SHA-pinned actions; same-line
+  version comments are part of the supported Dependabot update surface when the
+  pinned commit maps to a tagged release.
 - [Using secrets in GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions):
   GitHub guidance for repository and environment secrets, shell-safe secret
   handling, and the Base64 binary-blob pattern used for small upload keystores.

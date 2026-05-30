@@ -33,7 +33,7 @@ jobs:
       release_mode: ${{ steps.resolve.outputs.release_mode }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -80,7 +80,7 @@ jobs:
       upstream_commit: ${{ steps.resolve.outputs.upstream_commit }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -120,7 +120,7 @@ jobs:
           git config --global advice.defaultBranchName false
 
       - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -172,7 +172,7 @@ jobs:
             zip
 
       - name: Set up Java 17
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: temurin
           java-version: '17'
@@ -193,7 +193,7 @@ jobs:
           echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
 
       - name: Accept Android SDK licenses non-interactively
         shell: bash
@@ -239,7 +239,7 @@ jobs:
 
       - name: Restore Android SDK packages cache
         id: android-sdk-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ${{ steps.android-sdk.outputs.sdk_root }}/licenses
@@ -326,7 +326,7 @@ jobs:
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ steps.defaults.outputs.xlsxio_prefix }}
           key: ${{ runner.os }}-xlsxio-${{ steps.defaults.outputs.xlsxio_commit }}-static-tools-v1
@@ -475,7 +475,7 @@ jobs:
 
       - name: Restore Android emulator AVD cache
         id: avd-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.android/avd/*
@@ -673,7 +673,7 @@ jobs:
 
       - name: Upload release build logs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.meta.outputs.artifact_name }}-logs
           path: |
@@ -687,7 +687,7 @@ jobs:
 
       - name: Upload host-core PGO artifact
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.meta.outputs.artifact_name }}-host-core-pgo
           path: |
@@ -697,7 +697,7 @@ jobs:
           retention-days: 30
 
       - name: Upload signed release AAB artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
           path: ci-artifacts/release-aab/
@@ -705,7 +705,7 @@ jobs:
           retention-days: 30
 
       - name: Upload signed release APK artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.meta.outputs.apk_artifact_name }}
           path: ci-artifacts/release-apk/
@@ -723,13 +723,13 @@ jobs:
       contents: write
     steps:
       - name: Download release AAB artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
           path: release-aab
 
       - name: Download release APK artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
           path: release-apk

@@ -30,7 +30,7 @@ jobs:
       upstream_short: ${{ steps.resolve.outputs.upstream_short }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -63,7 +63,7 @@ jobs:
           git config --global advice.defaultBranchName false
 
       - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -111,7 +111,7 @@ jobs:
             zip
 
       - name: Restore compiler cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ runner.temp }}/ccache-linux
           key: ${{ runner.os }}-linux-ccache-${{ github.ref_name }}-${{ github.sha }}
@@ -138,7 +138,7 @@ jobs:
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ steps.defaults.outputs.xlsxio_prefix }}
           key: ${{ runner.os }}-xlsxio-${{ steps.defaults.outputs.xlsxio_commit }}-static-tools-v1
@@ -237,7 +237,7 @@ jobs:
 
       - name: Upload Linux build log
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.meta.outputs.artifact_name }}-build-log
           path: ci-artifacts/logs/build-linux.log
@@ -323,7 +323,7 @@ jobs:
           EOF
 
       - name: Upload Linux simulator artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
           path: ci-artifacts/release/
