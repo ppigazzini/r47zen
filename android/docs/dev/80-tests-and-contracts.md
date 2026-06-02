@@ -56,8 +56,9 @@ flowchart TD
 | LCD display theme normalization, inverse polarity, and palette contrast | `LcdThemePolicy.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
 | main shell visible bars, fixed shell-menu copy, orange-blue touch-target placement, copy-popup shape, first-touch discovery-hint dismissal, and any retained discovery-hint surfaces | `MainActivity.kt`, `DisplayActionController.kt`, `WindowModeController.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/strings.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `MainShellThemeTest.kt`, `ReplicaOverlayVisualPolicyTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest` |
 | SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
-| program load and run through Android READP | `android/app/build.gradle` `requestedProgramFixtureNames`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest` |
+| program load and run through Android READP | `android/app/build.gradle` `requestedProgramFixtureNames`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
 | pause, wait, and progress compatibility in `PC_BUILD` mode | `android_runtime.c`, staged core, workload harness | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` | host workload regression, then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
+| Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved | rerun the narrow native Gradle build first, then the latest-upstream Android build lane when new upstream HAL symbols appear |
 | upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
 
 `Theme.R47` and `Theme.R47.PopupMenu` are intentional fixed-dark contracts.
@@ -284,14 +285,15 @@ Important files include:
   them before refresh
 - `ProgramFixtureInstrumentedTest.kt`: stages canonical `PROGRAMS` fixtures and
   exposes one Android test method per required fixture so the hosted emulator
-  lane can run `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47` as isolated filtered `connectedDebugAndroidTest` selections
+  lane can batch `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`,
+  and `SPIRALk.p47` inside the grouped `ProgramFixtureInstrumentation`
+  selection while still reporting fixture-local progress through the
+  instrumentation stream
 - `scripts/android/run_connected_android_tests.sh`: owns the hosted emulator
   wrapper that runs the five non-fixture instrumentation classes as one
-  grouped class-filter selection and executes each canonical `PROGRAMS`
-  fixture under GNU `timeout --kill-after`, logging degraded coverage for the
-  non-`MANSLV2` selections instead of wedging the whole Android step when one
-  hangs
+  grouped class-filter selection and executes the complete
+  `ProgramFixtureInstrumentedTest` class under one bounded outer timeout,
+  failing the lane if that grouped PROGRAMS selection hangs
 - `GraphTouchStressInstrumentedTest.kt`: launches `MainActivity`, waits for
   runtime readiness, runs extreme native graph-touch stress iterations through
   `ProgramLoadTestBridge.runExtremeGraphTouchStress(...)` to prove
@@ -305,11 +307,22 @@ Important files include:
   `fnStopProgram(0)` publisher as live `R/S` and `EXIT`. The Android fixture
   now resets every staged run to the upstream `doFnReset(CONFIRMED, false)`
   baseline before load and skips blocked state snapshots instead of stalling
-  the test thread behind `screenMutex`, so the harness can keep publishing the
+  the test thread behind `screenMutex`, including the terminal load-timeout
+  path after a `READP` worker exceeds its budget. Blocking `snapshotState()` is
+  only safe after the worker is idle; when the worker still owns
+  `screenMutex`, the harness must fall back to `trySnapshotState()` and report
+  failure without waiting on the mutex. The direct-stop publisher itself must
+  also stay lock-free, because `MANSLV2` can still be running inside the
+  asynchronous `R/S` worker while that worker owns `screenMutex`. That keeps
+  the harness publishing the
   bounded stop request while the shared core is busy. That proves the required
   Android bounded-stop delivery path through the owned seam, and the hosted
   wrapper now fails the lane if `MANSLV2` times out instead of downgrading it
-  to degraded coverage. The remaining gap is narrower: there is still no
+  to degraded coverage. The grouped PROGRAMS harness now also waits for actual
+  calculator `programRunStop` quiescence rather than the short-lived `R/S`
+  key-dispatch worker and performs bounded stop-plus-reset cleanup before the
+  activity closes, which prevents one hung fixture from leaking runtime state
+  into the next CI case. The remaining gap is narrower: there is still no
   focused device lane proving that a
   forced-busy keypad snapshot path stays responsive under every non-yielding
   shared-core loop.

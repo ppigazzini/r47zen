@@ -37,6 +37,8 @@ SIM_REQUIRED_ROOT_FILES=(
 RESOLVED_UPSTREAM_URL=""
 RESOLVED_UPSTREAM_COMMIT=""
 RESOLVED_UPSTREAM_SHORT_COMMIT=""
+UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE="${R47_UPSTREAM_SOURCE_REPOSITORY_URL:-}"
+UPSTREAM_SOURCE_COMMIT_OVERRIDE="${R47_UPSTREAM_SOURCE_COMMIT:-}"
 
 usage() {
     cat <<'EOF'
@@ -120,6 +122,15 @@ font_source_dir_has_required_fonts() {
 
 resolve_upstream_state() {
     local resolved_env=""
+
+    if [[ -n "$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE" || -n "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" ]]; then
+        [[ -n "$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE" ]] || fail "R47_UPSTREAM_SOURCE_REPOSITORY_URL is required when R47_UPSTREAM_SOURCE_COMMIT is provided"
+        [[ -n "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" ]] || fail "R47_UPSTREAM_SOURCE_COMMIT is required when R47_UPSTREAM_SOURCE_REPOSITORY_URL is provided"
+        RESOLVED_UPSTREAM_URL="$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE"
+        RESOLVED_UPSTREAM_COMMIT="$UPSTREAM_SOURCE_COMMIT_OVERRIDE"
+        RESOLVED_UPSTREAM_SHORT_COMMIT=$(printf '%.8s\n' "$RESOLVED_UPSTREAM_COMMIT")
+        return
+    fi
 
     resolved_env=$(bash "$PROJECT_ROOT/scripts/upstream-sync/upstream.sh" resolve --auto --write-lock)
     eval "$resolved_env"

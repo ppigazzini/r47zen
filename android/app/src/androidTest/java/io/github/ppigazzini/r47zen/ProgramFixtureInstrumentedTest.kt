@@ -54,7 +54,11 @@ class ProgramFixtureInstrumentedTest {
                     waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
                 )
                 reportStatus("Native runtime ready; loading and running ${fixture.displayName}\n")
-                failure = exerciseFixture(fixture, targetProgramFile)
+                try {
+                    failure = exerciseFixture(fixture, targetProgramFile)
+                } finally {
+                    cleanupFixtureRuntime(fixture)
+                }
             }
         } finally {
             ProgramLoadTestBridge.clearLoadProgramFdOverride()
@@ -149,19 +153,22 @@ class ProgramFixtureInstrumentedTest {
                         state.numberOfPrograms > resetState.numberOfPrograms ||
                         state.temporaryInformation == TI_PROGRAM_LOADED
                 }
-                if (ProgramLoadTestBridge.isSimFunctionRunning()) {
+                val workerStillRunning = ProgramLoadTestBridge.isSimFunctionRunning()
+                loadState = if (workerStillRunning) {
+                    ProgramLoadTestBridge.trySnapshotState() ?: resetState
+                } else {
+                    ProgramLoadTestBridge.snapshotState()
+                }
+                val currentLoadState = loadState
+                val programLoaded = currentLoadState.temporaryInformation == TI_PROGRAM_LOADED
+                if (workerStillRunning) {
                     loadFailure = buildFailure(
                         fixture = fixture,
                         phase = "load",
-                        state = null,
+                        state = currentLoadState,
                         details = "READP did not return within ${LOAD_TIMEOUT_MS} ms",
                     )
-                }
-
-                loadState = ProgramLoadTestBridge.snapshotState()
-                val currentLoadState = loadState
-                val programLoaded = currentLoadState.temporaryInformation == TI_PROGRAM_LOADED
-                if (!loaded || currentLoadState.lastErrorCode != ERROR_NONE ||
+                } else if (!loaded || currentLoadState.lastErrorCode != ERROR_NONE ||
                     (!programLoaded && currentLoadState.numberOfPrograms <= resetState.numberOfPrograms)
                 ) {
                     loadFailure = buildFailure(
@@ -378,6 +385,45 @@ class ProgramFixtureInstrumentedTest {
         return null
     }
 
+    private fun cleanupFixtureRuntime(fixture: ProgramFixture) {
+        val cleaned = waitUntil(FIXTURE_CLEANUP_TIMEOUT_MS) {
+            val state = ProgramLoadTestBridge.trySnapshotState()
+            val workerRunning = ProgramLoadTestBridge.isSimFunctionRunning()
+            val programActive = state?.let(::isProgramActive) == true
+
+            if (!workerRunning && !programActive) {
+                return@waitUntil true
+            }
+
+            if (programActive) {
+                ProgramLoadTestBridge.requestStopProgram()
+                ProgramLoadTestBridge.forceRefresh()
+            }
+
+            false
+        }
+
+        if (cleaned) {
+            ProgramLoadTestBridge.resetRuntime()
+            return
+        }
+
+        val state = ProgramLoadTestBridge.trySnapshotState()
+        val details = if (state == null) {
+            "state=unavailable"
+        } else {
+            "runStop=${state.programRunStop}, localStep=${state.currentLocalStepNumber}, tempInfo=${state.temporaryInformation}, error=${state.lastErrorCode}"
+        }
+        reportStatus("Cleanup warning for ${fixture.displayName}: $details\n")
+    }
+
+    private fun isProgramActive(state: ProgramLoadState): Boolean {
+        return state.programRunStop == PGM_RUNNING ||
+            state.programRunStop == PGM_WAITING ||
+            state.programRunStop == PGM_PAUSED ||
+            state.programRunStop == PGM_RESUMING
+    }
+
     private fun yesNo(value: Boolean): String = if (value) "yes" else "no"
 
     private fun writeFixtureToProgramFile(
@@ -490,6 +536,7 @@ class ProgramFixtureInstrumentedTest {
         private const val PGM_RUNNING = 1
         private const val PGM_WAITING = 2
         private const val PGM_PAUSED = 3
+        private const val PGM_RESUMING = 5
         private const val RUNTIME_READY_TIMEOUT_MS = 15_000L
         private const val LOAD_TIMEOUT_MS = 10_000L
         private const val RUN_TIMEOUT_MS = 20_000L
@@ -497,6 +544,7 @@ class ProgramFixtureInstrumentedTest {
         private const val POLL_INTERVAL_MS = 25L
         private const val PAUSE_RESUME_SETTLE_MS = 50L
         private const val PAUSE_RESUME_RETRY_MS = 1_000L
+        private const val FIXTURE_CLEANUP_TIMEOUT_MS = 5_000L
         private val REQUIRED_FIXTURE_SCENARIOS = listOf(
             ProgramFixtureScenario(
                 fileName = "BinetV3.p47",

@@ -155,6 +155,14 @@ host-core optimization sequence:
 This lane is the canonical reference for the full Android dev-prerelease build
 contract.
 
+Because this lane syncs the authoritative upstream core before staging and
+native build, it is also the first owner of Android HAL drift against new
+upstream `PC_BUILD` helper symbols. A recent concrete failure was the latest-
+upstream addition of `create_dir`, `_ioFileNameOverride`, and
+`lcd_buffer_pixel_on`; the Android lane failed at `:app:buildCMakeRelWithDebInfo`
+ until the Android HAL exported all three. Treat that class of failure as a
+ repo-owned Android HAL compatibility defect, not as an upstream-core bug.
+
 ### `android-tests`
 
 This job covers the Android-owned JVM and instrumentation suites.
@@ -195,7 +203,13 @@ The hosted instrumentation lane currently relies on:
   still includes the `MANSLV2` bounded-stop regression: it resets to the
   upstream `doFnReset(CONFIRMED, false)` baseline before load, reuses the same
   native `fnStopProgram(0)` publisher as live `R/S` and `EXIT`, and fails the
-  Android lane if the grouped fixture selection hits the outer timeout
+  Android lane if the grouped fixture selection hits the outer timeout. The
+  fixture harness itself must not call blocking `snapshotState()` after a
+  timed-out `READP` worker, because that worker can still own `screenMutex`.
+  The grouped harness now falls back to non-blocking state reads until the
+  worker quiesces and still performs bounded stop-and-reset cleanup before the
+  activity closes so one long-running fixture cannot strand the next grouped
+  case on CI
 - the grouped non-fixture release-path selection containing
   `FactorsInstrumentedTest`, `DisplayLifecycleInstrumentedTest`,
   `GraphRedrawInstrumentedTest`, and
@@ -444,8 +458,8 @@ the full build script over isolated Gradle invocations.
   unless staged-native prep becomes incrementally cheap enough to justify
   splitting it again.
 - Keep full Android fixture coverage in `ProgramFixtureInstrumentedTest`; if
-  runtime regresses, reduce repeated Gradle startup or release-lane overhead
-  before cutting fixture coverage.
+  runtime regresses, inspect bounded READP timeout handling and reduce repeated
+  Gradle startup or release-lane overhead before cutting fixture coverage.
 - Keep the protected release workflow on the same wrapper-owned host-core
   optimization flow as `android-build-test-package`, and keep the signed bundle
   on the collected `r47-host-core.profdata` path instead of silently falling

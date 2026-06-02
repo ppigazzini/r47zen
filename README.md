@@ -8,10 +8,20 @@ This repository builds the APK, stages the shared native calculator core for
 Android, and owns the Android-specific Kotlin, JNI, packaging, and CI code that
 run the calculator on Android devices.
 
+The Android-native bridge also carries the repo-owned `PC_BUILD`
+compatibility layer required by the staged upstream core. When upstream syncs
+introduce new HAL helper exports used by the desktop-shaped core, the Android
+HAL under `android/app/src/main/cpp/r47zen/hal/` must be updated in the same
+iteration so the latest-upstream Android CI link stays green.
+
 The authoritative upstream source repository is
 `https://gitlab.com/rpncalculators/c43.git`. The GitLab path still uses the
 historical `c43` repository name, but the upstream project identifies itself as
 C47.
+
+Android CI pins staged native inputs and staged `PROGRAMS` fixtures to that
+same workflow-selected upstream commit so the grouped release-path fixture lane
+never mixes different core revisions in one run.
 
 ## Repo Layout
 

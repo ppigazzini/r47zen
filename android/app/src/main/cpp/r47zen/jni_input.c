@@ -427,7 +427,7 @@ Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
 
   onUIActivity();
   if (programRunStop != PGM_RUNNING && programRunStop != PGM_WAITING &&
-      programRunStop != PGM_PAUSED) {
+      programRunStop != PGM_PAUSED && programRunStop != PGM_RESUMING) {
     return JNI_FALSE;
   }
 
