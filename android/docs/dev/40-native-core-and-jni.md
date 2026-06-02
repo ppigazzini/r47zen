@@ -63,6 +63,15 @@ The Android native module currently compiles the staged upstream core in
 GLib and GTK compatibility behavior used by upstream pause, wait, and progress
 paths instead of treating those entry points as no-op stubs.
 
+That `PC_BUILD` choice also makes the Android HAL responsible for any desktop-
+side helper symbols that upstream starts exporting through `src/c47/hal/*.h`.
+The current concrete examples are `create_dir(char *dir)` and
+`_ioFileNameOverride[]` from `hal/io.h`, plus
+`lcd_buffer_pixel_on(uint32_t x, uint32_t y)` from `hal/lcd.h`. When an
+upstream sync advances those HAL contracts, update the Android HAL in
+`android/app/src/main/cpp/r47zen/hal/` in the same change instead of assuming
+the staged core will keep linking against older Android-owned exports.
+
 `android/app/src/main/cpp/CMakeLists.txt` passes and consumes
 `R47_STAGED_CPP_DIR` so the live Android native build reads shared-native inputs
 from the build-only staging root rather than any retired app-module snapshots.
@@ -231,6 +240,11 @@ supports that model by keeping shared synchronization in native code:
   bridge rejects those out-of-family inputs without mutating the current graph
   bounds, and a restore-path helper that injects invalid graph bounds and
   proves the Android-owned restore sanitizer repairs them before refresh.
+- `snapshotStateNative()` in that bridge is a blocking `screenMutex` reader.
+  Use it only after the READP or key worker has quiesced. If a test worker has
+  already timed out and may still own `screenMutex`, callers must use the
+  non-blocking `snapshotStateIfAvailableNative()` or Kotlin
+  `trySnapshotState()` path instead of waiting on the mutex.
 - The lifecycle snapshot helper hashes only visible packed LCD bytes. It does
   not hash the row-dirty transport flag that `getPackedDisplayBuffer(...)`
   clears after each successful UI poll.
@@ -250,6 +264,10 @@ supports that model by keeping shared synchronization in native code:
   publishes stop intent through the existing upstream `fnStopProgram()` path
   without taking `screenMutex` or queueing onto `NativeCoreRuntime`, and it
   also marks a pending stop-refresh request.
+- That lock-free property is required, not optional. The grouped Android
+  `MANSLV2` fixture can still be executing inside the asynchronous `R/S`
+  worker while that worker owns `screenMutex`; a blocking or try-lock stop
+  publisher will miss the stop window and can strand the bounded-stop test.
 - `tick()` in `jni_lifecycle.c` and `yieldToAndroidWithMs()` in
   `android_runtime.c` are the two core-owned consumption points for that
   pending stop-refresh request. They re-arm `SCRUPD_AUTO`, set

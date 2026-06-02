@@ -167,18 +167,34 @@ class DisplayLifecycleInstrumentedTest {
                 waitForRunActivity(loadStep),
             )
 
-            assertTrue(
-                "direct stop request was not accepted while SPIRALk was running",
-                ProgramLoadTestBridge.requestStopProgram(),
-            )
-            assertTrue(
-                "direct stop did not settle SPIRALk in time",
-                waitUntil(DIRECT_STOP_TIMEOUT_MS) {
+            var stopAccepted = false
+            var stopAttempts = 0
+            var lastStopAttemptAtMs = 0L
+            val stopSettled = waitUntil(DIRECT_STOP_TIMEOUT_MS) {
+                    val now = SystemClock.elapsedRealtime()
+                    if (!stopAccepted &&
+                        (lastStopAttemptAtMs == 0L || now - lastStopAttemptAtMs >= DIRECT_STOP_RETRY_MS)
+                    ) {
+                        if (ProgramLoadTestBridge.requestStopProgram()) {
+                            stopAccepted = true
+                            stopAttempts += 1
+                        }
+                        lastStopAttemptAtMs = now
+                    }
+
+                    if (!stopAccepted) {
+                        return@waitUntil false
+                    }
+
                     val state = ProgramLoadTestBridge.snapshotState()
                     !ProgramLoadTestBridge.isSimFunctionRunning() &&
                         state.programRunStop != PGM_RUNNING &&
                         state.programRunStop != PGM_PAUSED
-                },
+                }
+
+            assertTrue(
+                "direct stop did not settle SPIRALk in time (accepted=$stopAccepted, attempts=$stopAttempts)",
+                stopSettled,
             )
 
             val firstStopHash = ProgramLoadTestBridge.captureDisplayHash()
@@ -339,6 +355,7 @@ class DisplayLifecycleInstrumentedTest {
         private const val RUN_TIMEOUT_MS = 90_000L
         private const val RUN_ACTIVITY_TIMEOUT_MS = 15_000L
         private const val DIRECT_STOP_TIMEOUT_MS = 15_000L
+        private const val DIRECT_STOP_RETRY_MS = 100L
         private const val POLL_INTERVAL_MS = 25L
         private const val PAUSE_RESUME_SETTLE_MS = 50L
         private const val PAUSE_RESUME_RETRY_MS = 1_000L

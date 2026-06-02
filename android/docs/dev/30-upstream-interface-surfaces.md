@@ -100,6 +100,10 @@ flowchart LR
   request; `tick()` or `yieldToAndroidWithMs()` later consume that request
   under `screenMutex` so the first post-stop LCD matches an explicit refresh
   without moving redraw work onto the UI thread.
+- Keep that publisher lock-free. The `MANSLV2` Android fixture can still be
+  executing inside the asynchronous `R/S` key worker while that worker owns
+  `screenMutex`; if `requestStopProgramNative()` waits on the mutex, the
+  bounded-stop regression turns back into an unbounded hang.
 - That queue-bound control path is not the whole Android ANR story. Touch
   dispatch itself stays lightweight; the stronger current suspect is the
   main-thread snapshot export path in `NativeDisplayRefreshLoop`.

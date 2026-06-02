@@ -452,11 +452,15 @@ resolve_upstream_state() {
 
 ensure_upstream_core_hydrated() {
     if upstream_sim_inputs_are_hydrated; then
+        bash "$SCRIPTS_DIR/upstream-sync/hydrate_submodules.sh" \
+            "$RESOLVED_UPSTREAM_COMMIT" "$RESOLVED_UPSTREAM_URL"
         return 0
     fi
 
     echo "--- Hydrating resolved upstream core, shared root build inputs, and canonical calculator fonts ---"
     bash "$SCRIPTS_DIR/upstream-sync/upstream.sh" sync --auto --write-lock --if-missing
+    bash "$SCRIPTS_DIR/upstream-sync/hydrate_submodules.sh" \
+        "$RESOLVED_UPSTREAM_COMMIT" "$RESOLVED_UPSTREAM_URL"
 
     upstream_sim_inputs_are_hydrated || \
         fail "Incomplete upstream core or shared root build inputs after sync. Run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock in a clean worktree before running ./scripts/android/build_android.sh."

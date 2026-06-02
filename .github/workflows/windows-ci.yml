@@ -166,6 +166,9 @@ jobs:
           bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          bash ./scripts/upstream-sync/hydrate_submodules.sh \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
 
           [ -f tools/onARaspberry ] || {
             echo "Missing hydrated upstream helper at tools/onARaspberry after sync." >&2

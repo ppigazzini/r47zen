@@ -448,6 +448,10 @@ def prepareStagedNativeInputs = tasks.register('prepareStagedNativeInputs', Exec
         environment 'PATH', pathEntries.join(File.pathSeparator)
         environment 'R47_BUILD_JOBS', configuredBuildJobs
         environment 'R47_ANDROID_STAGED_CPP_DIR', stagedNativeCppDir
+        if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
+            environment 'R47_UPSTREAM_SOURCE_REPOSITORY_URL', upstreamSourceRepositoryUrl
+            environment 'R47_UPSTREAM_SOURCE_COMMIT', upstreamSourceCommit
+        }
         commandLine 'bash', nativePrepScript
     }
 }
@@ -491,11 +495,27 @@ tasks.register('generateProgramFixtureAssets', Exec) {
     inputs.file(rootProject.file('../upstream.source'))
     inputs.file(rootProject.file('../scripts/upstream-sync/upstream.sh'))
     inputs.file(rootProject.file('../scripts/android/stage_program_fixture_assets.sh'))
+    inputs.property('upstreamSourceRepositoryUrl', upstreamSourceRepositoryUrl ?: '')
+    inputs.property('upstreamSourceCommit', upstreamSourceCommit ?: '')
     outputs.dir("${generatedRuntimeAssetsDir}/program-fixtures")
     outputs.upToDateWhen { false }
 
     workingDir rootProject.file('..')
-    commandLine 'bash', programFixtureStagingScript, '--output-dir', "${generatedRuntimeAssetsDir}/program-fixtures"
+    def fixtureCommand = [
+        'bash',
+        programFixtureStagingScript,
+        '--output-dir',
+        "${generatedRuntimeAssetsDir}/program-fixtures"
+    ]
+    if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
+        fixtureCommand += [
+            '--upstream-source-repository-url',
+            upstreamSourceRepositoryUrl,
+            '--upstream-source-commit',
+            upstreamSourceCommit,
+        ]
+    }
+    commandLine fixtureCommand
 }
 
 tasks.register('generateRepoNoticeAssets') {
