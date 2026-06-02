@@ -255,6 +255,9 @@ jobs:
           bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          bash ./scripts/upstream-sync/hydrate_submodules.sh \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
 
       - name: Run upstream simulator sanity suite
         shell: bash
@@ -293,6 +296,9 @@ jobs:
           bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          bash ./scripts/upstream-sync/hydrate_submodules.sh \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
 
       - name: Set up Python 3.14
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
@@ -556,6 +562,9 @@ jobs:
           bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          bash ./scripts/upstream-sync/hydrate_submodules.sh \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
 
@@ -1022,6 +1031,9 @@ jobs:
           bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          bash ./scripts/upstream-sync/hydrate_submodules.sh \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
 

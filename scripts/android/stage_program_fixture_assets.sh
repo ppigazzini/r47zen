@@ -7,11 +7,13 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 UPSTREAM_REMOTE_NAME="r47-c43-upstream"
 OUTPUT_DIR=""
 TEMP_DIR=""
+UPSTREAM_SOURCE_REPOSITORY_URL=""
+UPSTREAM_SOURCE_COMMIT=""
 
 usage() {
     cat <<'EOF'
 Usage:
-    scripts/android/stage_program_fixture_assets.sh --output-dir <directory>
+    scripts/android/stage_program_fixture_assets.sh --output-dir <directory> [--upstream-source-repository-url <url> --upstream-source-commit <commit>]
 EOF
 }
 
@@ -41,6 +43,14 @@ ensure_remote() {
 resolve_upstream_state() {
     local resolved_env=""
 
+    if [[ -n "$UPSTREAM_SOURCE_REPOSITORY_URL" || -n "$UPSTREAM_SOURCE_COMMIT" ]]; then
+        [[ -n "$UPSTREAM_SOURCE_REPOSITORY_URL" ]] || fail "--upstream-source-repository-url is required when --upstream-source-commit is provided"
+        [[ -n "$UPSTREAM_SOURCE_COMMIT" ]] || fail "--upstream-source-commit is required when --upstream-source-repository-url is provided"
+        R47_RESOLVED_UPSTREAM_URL="$UPSTREAM_SOURCE_REPOSITORY_URL"
+        R47_RESOLVED_UPSTREAM_COMMIT="$UPSTREAM_SOURCE_COMMIT"
+        return
+    fi
+
     resolved_env="$(bash "$PROJECT_ROOT/scripts/upstream-sync/upstream.sh" resolve --auto --write-lock)"
     eval "$resolved_env"
 }
@@ -66,6 +76,16 @@ main() {
             --output-dir)
                 [[ "$#" -ge 2 ]] || fail "Missing value for --output-dir"
                 OUTPUT_DIR="$2"
+                shift 2
+                ;;
+            --upstream-source-repository-url)
+                [[ "$#" -ge 2 ]] || fail "Missing value for --upstream-source-repository-url"
+                UPSTREAM_SOURCE_REPOSITORY_URL="$2"
+                shift 2
+                ;;
+            --upstream-source-commit)
+                [[ "$#" -ge 2 ]] || fail "Missing value for --upstream-source-commit"
+                UPSTREAM_SOURCE_COMMIT="$2"
                 shift 2
                 ;;
             -h|--help)

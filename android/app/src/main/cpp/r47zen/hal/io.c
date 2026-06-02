@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <android/log.h>
 
@@ -10,6 +11,31 @@
 #define LOG_TAG "R47Io"
 #endif
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+
+// Android HAL definition of the upstream PC_BUILD filename-override slot.
+// fnScreenDump (gated by PC_BUILD) checks this array first; if non-empty it
+// uses the value as the BMP output filename instead of the timestamp default.
+// Screen dumps are not meaningful on Android, so this is always left empty.
+// Use PATH_MAX from <limits.h> to match the upstream C47_PATH_MAX mapping on
+// POSIX hosts (C47_PATH_MAX resolves to PATH_MAX when PATH_MAX is defined).
+#include <limits.h>
+char _ioFileNameOverride[PATH_MAX] = {0};
+
+int create_dir(char *dir) {
+    int ret;
+
+#if defined(WIN32)
+    ret = mkdir(dir);
+#else
+    ret = mkdir(dir, 0775);
+#endif
+
+    if (ret != 0 && errno != EEXIST) {
+        return -1;
+    }
+
+    return 0;
+}
 
 static char android_base_path[512] = "";
 static int android_base_path_ready = 0;

@@ -224,3 +224,18 @@ void _lcdRefresh(void) { lcd_refresh(); }
 void _lcdBandRefresh(uint32_t y, uint32_t dy) { (void)y; (void)dy; lcd_refresh(); }
 void _lcdSBRefresh(void) { lcd_refresh(); }
 void refresh_gui(void) {}
+
+// Android HAL implementation of the upstream PC_BUILD pixel-read helper.
+// Called by fnMenuDump and fnScreenDump (both gated by PC_BUILD, which the
+// Android build enables to reuse shared PC logic). Reads directly from the
+// packed lcd_buffer using the same bit layout as the GTK HAL reference.
+bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y) {
+  if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT || !lcd_buffer) {
+    return false;
+  }
+  const uint8_t *line_buf = lcd_buffer + LCD_ROW_SIZE_BYTES * y;
+  const uint32_t bitIndex = SCREEN_WIDTH - 1 - x;
+  const uint32_t byte_i = bitIndex >> 3;
+  const uint32_t bit_j = bitIndex & 7u;
+  return (line_buf[2 + byte_i] >> bit_j) & 1u;
+}
