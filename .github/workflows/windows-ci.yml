@@ -18,29 +18,9 @@ concurrency:
 jobs:
   resolve-upstream-core:
     name: Resolve authoritative upstream core revision
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      upstream_url: ${{ steps.resolve.outputs.upstream_url }}
-      upstream_commit: ${{ steps.resolve.outputs.upstream_commit }}
-      upstream_short: ${{ steps.resolve.outputs.upstream_short }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Resolve latest upstream core
-        id: resolve
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --latest)"
-
-          echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
-          echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "upstream_short=$R47_RESOLVED_UPSTREAM_SHORT_COMMIT" >> "$GITHUB_OUTPUT"
+    uses: ./.github/workflows/resolve-upstream-core.yml
+    with:
+      mode: latest
 
   windows-simulator:
     name: Build Windows simulator (${{ matrix.label }})

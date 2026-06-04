@@ -1,0 +1,64 @@
+name: Resolve upstream core
+
+# Reusable workflow that resolves one authoritative upstream core revision and
+# exposes it as outputs. Called by the Android, Linux, and Windows CI workflows
+# and by the protected release workflow so the resolution job is defined once.
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: 'Resolution mode passed to upstream.sh resolve: latest or locked.'
+        type: string
+        required: false
+        default: latest
+    outputs:
+      upstream_url:
+        description: 'Resolved upstream repository URL.'
+        value: ${{ jobs.resolve.outputs.upstream_url }}
+      upstream_commit:
+        description: 'Resolved upstream commit SHA.'
+        value: ${{ jobs.resolve.outputs.upstream_commit }}
+      upstream_short:
+        description: 'Short form of the resolved upstream commit SHA.'
+        value: ${{ jobs.resolve.outputs.upstream_short }}
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve authoritative upstream core revision
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      upstream_url: ${{ steps.resolve.outputs.upstream_url }}
+      upstream_commit: ${{ steps.resolve.outputs.upstream_commit }}
+      upstream_short: ${{ steps.resolve.outputs.upstream_short }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Resolve upstream core (${{ inputs.mode }})
+        id: resolve
+        shell: bash
+        env:
+          RESOLVE_MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+
+          case "$RESOLVE_MODE" in
+            latest|locked) ;;
+            *)
+              echo "Invalid resolve mode: $RESOLVE_MODE (expected latest or locked)" >&2
+              exit 1
+              ;;
+          esac
+
+          eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --"$RESOLVE_MODE")"
+
+          echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "upstream_short=$R47_RESOLVED_UPSTREAM_SHORT_COMMIT" >> "$GITHUB_OUTPUT"
