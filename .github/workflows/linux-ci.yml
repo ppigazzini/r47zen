@@ -319,11 +319,24 @@ jobs:
           platform_notice_summary_file=repo-notices/linux/NOTICE-SUMMARY.txt
           gpl_notice_file=repo-notices/linux/gpl/COPYING.txt
           decnumbericu_notice_file=repo-notices/linux/decnumbericu/ICU-license.html
+          mini_gmp_notice_file=repo-notices/linux/mini-gmp/NOTICE.txt
           xlsxio_notice_file=repo-notices/linux/xlsxio/LICENSE.txt
           linux_runtime_library_inventory_file=repo-notices/linux/LINUX-RUNTIME-LIBRARIES.txt
           linux_runtime_notice_summary_file=repo-notices/linux/LINUX-LIBRARY-NOTICES.txt
           linux_runtime_notice_dir=repo-notices/linux/licenses
           EOF
+
+          if [[ -f "$package_dir/repo-notices/linux/jimtcl/LICENSE.txt" ]]; then
+            jimtcl_url=$(sed -n 's/^jimtcl_url=//p' "$package_dir/SOURCE")
+            jimtcl_commit=$(sed -n 's/^jimtcl_commit=//p' "$package_dir/SOURCE")
+            if [[ -n "$jimtcl_url" ]]; then
+              echo "jimtcl_url=$jimtcl_url" >> "$release_dir/BUILD-METADATA.txt"
+            fi
+            if [[ -n "$jimtcl_commit" ]]; then
+              echo "jimtcl_commit=$jimtcl_commit" >> "$release_dir/BUILD-METADATA.txt"
+            fi
+            echo "jimtcl_notice_file=repo-notices/linux/jimtcl/LICENSE.txt" >> "$release_dir/BUILD-METADATA.txt"
+          fi
 
       - name: Upload Linux simulator artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

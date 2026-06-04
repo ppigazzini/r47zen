@@ -88,14 +88,27 @@ fi
 
 copying_source="$repo_root/COPYING"
 decnumbericu_source="$repo_root/dep/decNumberICU/ICU-license.html"
+mini_gmp_license_source="$repo_root/android/compliance/repo-notices/source-texts/mini-gmp-dual-license-notice.txt"
+jimtcl_license_source="$repo_root/dep/jimtcl/LICENSE"
 xlsxio_license_source="$repo_root/android/compliance/repo-notices/source-texts/xlsxio-mit.txt"
+jimtcl_source_repository_url=""
+jimtcl_source_commit=""
+has_jimtcl_notice=false
 
-for required_path in "$copying_source" "$decnumbericu_source" "$xlsxio_license_source"; do
+for required_path in "$copying_source" "$decnumbericu_source" "$mini_gmp_license_source" "$xlsxio_license_source"; do
     if [[ ! -f "$required_path" ]]; then
         echo "Required notice source file not found: $required_path" >&2
         exit 1
     fi
 done
+
+if [[ -f "$jimtcl_license_source" ]]; then
+    has_jimtcl_notice=true
+    if git -C "$repo_root/dep/jimtcl" rev-parse HEAD >/dev/null 2>&1; then
+        jimtcl_source_commit="$(git -C "$repo_root/dep/jimtcl" rev-parse HEAD)"
+        jimtcl_source_repository_url="$(git -C "$repo_root/dep/jimtcl" config --get remote.origin.url || true)"
+    fi
+fi
 
 notice_root="$package_dir/repo-notices/$platform"
 licenses_dir="$notice_root/licenses"
@@ -198,11 +211,24 @@ append_package() {
 }
 
 write_common_notice_files() {
-    mkdir -p "$notice_root/gpl" "$notice_root/decnumbericu" "$notice_root/xlsxio" "$licenses_dir"
+    mkdir -p \
+        "$notice_root/gpl" \
+        "$notice_root/decnumbericu" \
+        "$notice_root/mini-gmp" \
+        "$notice_root/xlsxio" \
+        "$licenses_dir"
+
+    if [[ "$has_jimtcl_notice" == true ]]; then
+        mkdir -p "$notice_root/jimtcl"
+    fi
 
     cp "$copying_source" "$package_dir/COPYING"
     cp "$copying_source" "$notice_root/gpl/COPYING.txt"
     cp "$decnumbericu_source" "$notice_root/decnumbericu/ICU-license.html"
+    cp "$mini_gmp_license_source" "$notice_root/mini-gmp/NOTICE.txt"
+    if [[ "$has_jimtcl_notice" == true ]]; then
+        cp "$jimtcl_license_source" "$notice_root/jimtcl/LICENSE.txt"
+    fi
     cp "$xlsxio_license_source" "$package_dir/LICENSE.txt"
     cp "$xlsxio_license_source" "$notice_root/xlsxio/LICENSE.txt"
 
@@ -215,6 +241,14 @@ xlsxio_commit=${xlsxio_source_commit:-}
 xlsxio_license_file=LICENSE.txt
 notice_root=repo-notices/$platform
 EOF
+
+    if [[ "$has_jimtcl_notice" == true ]]; then
+        {
+            printf 'jimtcl_url=%s\n' "$jimtcl_source_repository_url"
+            printf 'jimtcl_commit=%s\n' "$jimtcl_source_commit"
+            printf 'jimtcl_license_file=repo-notices/%s/jimtcl/LICENSE.txt\n' "$platform"
+        } >> "$source_manifest_file"
+    fi
 }
 
 append_common_packages() {
@@ -253,6 +287,32 @@ append_common_packages() {
         "Version and source URL come from the shared Android defaults or explicit workflow inputs." \
         "" \
         ""
+
+    append_package \
+        "$(spdx_id 'mini-gmp-fallback')" \
+        "mini-gmp fallback" \
+        "https://gmplib.org/" \
+        "LGPL-3.0-or-later OR GPL-2.0-or-later" \
+        "" \
+        "Fallback big integer implementation shipped from android/compat/mini-gmp-fallback." \
+        "Notice copied to repo-notices/$platform/mini-gmp/NOTICE.txt." \
+        "Notice source is the repo-owned dual-license record under android/compliance/repo-notices/source-texts/." \
+        "" \
+        ""
+
+    if [[ "$has_jimtcl_notice" == true ]]; then
+        append_package \
+            "$(spdx_id 'jimtcl')" \
+            "Jim Tcl" \
+            "${jimtcl_source_repository_url:-NOASSERTION}" \
+            "BSD-2-Clause" \
+            "${jimtcl_source_commit:-unknown}" \
+            "Hydrated upstream submodule used by the maintained Meson T47 DSL path when present." \
+            "Notice copied to repo-notices/$platform/jimtcl/LICENSE.txt." \
+            "Notice source is dep/jimtcl/LICENSE from the hydrated upstream submodule checkout." \
+            "" \
+            ""
+    fi
 }
 
 linux_package_field() {
@@ -623,7 +683,15 @@ Included notice files:
 - LICENSE.txt
 - repo-notices/$platform/gpl/COPYING.txt
 - repo-notices/$platform/decnumbericu/ICU-license.html
+- repo-notices/$platform/mini-gmp/NOTICE.txt
 - repo-notices/$platform/xlsxio/LICENSE.txt
+EOF
+
+    if [[ "$has_jimtcl_notice" == true ]]; then
+        printf '%s\n' "- repo-notices/$platform/jimtcl/LICENSE.txt" >> "$notice_root/NOTICE-SUMMARY.txt"
+    fi
+
+    cat >> "$notice_root/NOTICE-SUMMARY.txt" <<EOF
 - ${runtime_inventory_file#"$package_dir/"}
 - ${runtime_summary_file#"$package_dir/"}
 

@@ -166,7 +166,11 @@ hydrated on demand, or only exercised in CI before updating the docs.
 Top-level repo-owned overlay paths:
 
 - `android/` owns the Android shell, compat inputs, compliance assets, and
-  maintainer docs.
+  maintainer docs. That includes the repo-owned notice inventory used for
+  Android packaging and the shared `mini-gmp` notice text consumed by
+  simulator CI artifacts. It also owns the policy for copying notice text from
+  hydrated upstream submodules such as `dep/jimtcl` when those modules become
+  part of maintained CI package evidence.
 - `scripts/` owns repo-only automation, including the stable maintainer
   entrypoints `scripts/android/build_android.sh` and
   `scripts/upstream-sync/upstream.sh`, plus grouped implementations under
