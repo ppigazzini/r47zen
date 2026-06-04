@@ -74,7 +74,10 @@ internal class FactoryResetController(
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val triggerAtMillis = System.currentTimeMillis() + FACTORY_RESET_RESTART_DELAY_MS
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC, triggerAtMillis, restartIntent)
+        // Inexact alarm: the restart is user-triggered with the device active, so
+        // exactness is unnecessary, and the exact variants would require the
+        // restricted SCHEDULE_EXACT_ALARM permission this app must not request.
+        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC, triggerAtMillis, restartIntent)
     }
 
     private fun clearInternalAppData() {
