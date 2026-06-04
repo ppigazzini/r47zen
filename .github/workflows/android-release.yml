@@ -701,6 +701,7 @@ jobs:
     name: Publish production GitHub release
     if: github.ref == 'refs/heads/main'
     needs:
+      - resolve-release-inputs
       - build-production-release-bundle
     runs-on: ubuntu-latest
     timeout-minutes: 15
