@@ -84,13 +84,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve latest upstream core
+      - name: Resolve pinned upstream core
         id: resolve
         shell: bash
         run: |
           set -euo pipefail
 
-          eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --latest)"
+          eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --locked)"
 
           echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"

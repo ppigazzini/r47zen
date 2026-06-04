@@ -57,6 +57,7 @@ google-services.json
 !/.gitignore
 !/pyproject.toml
 !/.pre-commit-config.yaml
+!/uv.lock
 !/COPYING
 !/README.md
 !/android/

@@ -60,9 +60,9 @@ Commands:
     verify-restore-boundary  Fail when the restore allowlist would re-own upstream root surfaces.
 
 Resolution modes:
-  --auto    Use --commit first, then upstream.lock upstream_commit, else latest upstream_ref. (default)
-  --locked  Require an explicit --commit or upstream.lock upstream_commit.
-  --latest  Ignore upstream.lock upstream_commit and resolve the latest commit from upstream_ref.
+  --auto    Use --commit first, then the pinned upstream_commit (upstream.lock over upstream.source), else latest upstream_ref. (default)
+  --locked  Require an explicit --commit or a pinned upstream_commit in upstream.source or upstream.lock.
+  --latest  Ignore the pinned upstream_commit and resolve the latest commit from upstream_ref.
 
 Options:
   --write-lock  Refresh upstream.lock with the resolved URL/ref/commit.
@@ -74,8 +74,9 @@ Options:
   --format      Output format for resolve. shell emits shell-safe assignments, none is silent.
 
 Configuration:
-  upstream.source is Git-tracked and defines upstream_url/upstream_ref defaults.
-  upstream.lock is Git-ignored and may optionally pin upstream_commit for local repeatability.
+  upstream.source is Git-tracked and defines upstream_url/upstream_ref defaults and the
+    authoritative upstream_commit pin used for reproducible builds.
+  upstream.lock is Git-ignored and may optionally override upstream_commit for local repeatability.
 EOF
 }
 
@@ -286,7 +287,7 @@ resolve_upstream() {
     local upstream_url=""
     local upstream_ref=""
     local upstream_commit=""
-    local lock_commit=""
+    local pinned_commit=""
 
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -340,13 +341,13 @@ resolve_upstream() {
     [ -n "$upstream_ref" ] || upstream_ref="$DEFAULT_UPSTREAM_REF"
 
     if [ -z "$upstream_commit" ]; then
-        lock_commit="$(read_lock_value upstream_commit 2>/dev/null || true)"
+        pinned_commit="$(read_config_value upstream_commit 2>/dev/null || true)"
     fi
 
     case "$resolution_mode" in
         locked)
-            [ -n "$upstream_commit" ] || upstream_commit="$lock_commit"
-            [ -n "$upstream_commit" ] || fail "Locked mode requires upstream_commit in ${LOCKFILE_PATH} or --commit."
+            [ -n "$upstream_commit" ] || upstream_commit="$pinned_commit"
+            [ -n "$upstream_commit" ] || fail "Locked mode requires upstream_commit in ${SOURCE_CONFIG_PATH} or ${LOCKFILE_PATH}, or --commit."
             RESOLVED_UPSTREAM_MODE="locked"
             ;;
         latest)
@@ -356,8 +357,8 @@ resolve_upstream() {
         auto)
             if [ -n "$upstream_commit" ]; then
                 RESOLVED_UPSTREAM_MODE="locked"
-            elif [ -n "$lock_commit" ]; then
-                upstream_commit="$lock_commit"
+            elif [ -n "$pinned_commit" ]; then
+                upstream_commit="$pinned_commit"
                 RESOLVED_UPSTREAM_MODE="locked"
             else
                 upstream_commit="$(resolve_latest_commit "$upstream_url" "$upstream_ref")"

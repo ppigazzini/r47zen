@@ -1,4 +1,8 @@
 # Git-tracked upstream source defaults for the authoritative C43 import.
-# upstream.lock is generated locally and may optionally pin a specific commit.
+# upstream_commit is the authoritative pin used for reproducible builds.
+# upstream.lock is generated locally and may optionally override upstream_commit.
+# Refresh the pin with: scripts/upstream-sync/upstream.sh resolve --latest, then
+# record the resolved commit on the upstream_commit line below.
 upstream_url=https://gitlab.com/rpncalculators/c43.git
 upstream_ref=HEAD
+upstream_commit=0a67613005de0a8b72b1beb422ad206efc903f47

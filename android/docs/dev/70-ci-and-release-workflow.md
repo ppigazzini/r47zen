@@ -273,7 +273,12 @@ flowchart TD
 
 This workflow:
 
-- resolves and syncs the authoritative upstream tree
+- resolves the upstream commit through
+  `scripts/upstream-sync/upstream.sh resolve --locked`, building the
+  authoritative `upstream_commit` pin recorded in `upstream.source` so release
+  artifacts are reproducible from the repository instead of tracking the latest
+  upstream revision
+- syncs the resolved authoritative upstream tree
 - derives the Linux host LLVM major from the pinned NDK `clang`, then installs
   the matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
   `libclang-rt-<major>-dev` packages before collecting host profiles
