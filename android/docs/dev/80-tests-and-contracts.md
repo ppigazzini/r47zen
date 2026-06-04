@@ -320,19 +320,33 @@ Important files include:
   wrapper now fails the lane if `MANSLV2` times out instead of downgrading it
   to degraded coverage. The grouped PROGRAMS harness now also waits for actual
   calculator `programRunStop` quiescence rather than the short-lived `R/S`
-  key-dispatch worker and performs bounded stop-plus-reset cleanup before the
-  activity closes, which prevents one hung fixture from leaking runtime state
-  into the next CI case. The remaining gap is narrower: there is still no
+  key-dispatch worker and performs cleanup before the activity closes: it
+  drains only genuinely-busy `PGM_RUNNING`/`PGM_PAUSED` fixtures through the
+  out-of-band stop and lets the forceful `resetRuntime()` (`doFnReset`) clear
+  any program parked in the interactive `PGM_WAITING`/`PGM_RESUMING` states,
+  which prevents one hung fixture from leaking runtime state into the next CI
+  case without spinning on a stop the parked program is entitled to decline. The remaining gap is narrower: there is still no
   focused device lane proving that a
   forced-busy keypad snapshot path stays responsive under every non-yielding
   shared-core loop.
 - `DisplayLifecycleInstrumentedTest.kt`: locks the lifecycle LCD contract so a
   background save, a Settings-style pause or resume, and full
   `ActivityScenario.recreate()` preserve the visible packed LCD snapshot on
-  both a clean display and a staged `SPIRALk` graph, and it also proves that
-  the first direct stop on staged `SPIRALk` already matches an explicit
-  `forceRefresh()` snapshot, using retrying synthetic `00` resumes while paused
-  and a `90 s` hosted-emulator budget for the staged graph run
+  both a clean display and a staged `SPIRALk` graph. Its
+  `directStopGateDeclinesInteractiveWaitStates` case is the REPORT-23
+  runtime-regression guard: it probes the pure `r47_direct_stop_allowed`
+  predicate (via `ProgramLoadTestBridge.directStopAllowedForRunState`) across
+  every run state and asserts the out-of-band direct stop is **declined** for
+  the interactive `PGM_WAITING`/`PGM_RESUMING` waits (so the live keypad cannot
+  swallow `R/S`/`EXIT` mid-program) and accepted only for busy
+  `PGM_RUNNING`/`PGM_PAUSED`. `busySpiralkAcceptsLiveDirectStop` then drives
+  staged `SPIRALk` into its busy `PGM_PAUSED` `PSE` hold and asserts the live
+  `requestStopProgram()` accepts the stop, tying the predicate to the real
+  seam. (The earlier `directStopMatchesForcedRefreshSpiralkSnapshot` case
+  direct-stopped a *waiting* program and codified the bug; its first
+  replacement asserted the right contract but depended on `SPIRALk` reaching a
+  transient `PGM_WAITING` the emulator never stably hit — see §30/§31 of the
+  regression annex.)
 - `FactorsInstrumentedTest.kt`: asserts that the `FACTORS` runtime path runs to
   completion and leaves X in the expected result type
 - `GraphRedrawInstrumentedTest.kt`: locks the redraw-gate contract behind

@@ -139,14 +139,73 @@ class DisplayLifecycleInstrumentedTest {
     }
 
     @Test
-    fun directStopMatchesForcedRefreshSpiralkSnapshot() {
+    fun directStopGateDeclinesInteractiveWaitStates() {
+        // REGRESSION GUARD (REPORT-23 §30):
+        //
+        // The out-of-band direct stop must fire ONLY for the genuinely-busy run
+        // states PGM_RUNNING (executing) and PGM_PAUSED (inside a timed PSE
+        // loop) -- the states that cannot drain the queued sendKey in time. The
+        // interactive parked states PGM_WAITING and PGM_RESUMING (a graphing
+        // program holding its plot, a program between PSE/VIEW steps, an open
+        // f/g/I/O menu) must DECLINE it, so MainActivity.dispatchLiveKey forwards
+        // R/S(36)/EXIT(33) to the core instead of swallowing them: the second
+        // R/S replots and EXIT leaves the menu.
+        //
+        // Commit 643b20a widened the native gate to accept PGM_WAITING (and
+        // af617e6 PGM_RESUMING) to make an over-eager direct-stop snapshot test
+        // pass; that codified the bug. This asserts the gate decision
+        // deterministically across every run state -- it does not depend on a
+        // real program reaching a specific (timing-dependent) state -- so the
+        // regression cannot return through a green CI run. It would have failed
+        // on 643b20a.
+        ActivityScenario.launch(MainActivity::class.java).use {
+            assertTrue(
+                "Native runtime did not become ready for direct-stop gate coverage",
+                waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
+            )
+
+            assertTrue(
+                "PGM_RUNNING is busy and must accept the out-of-band direct stop",
+                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_RUNNING),
+            )
+            assertTrue(
+                "PGM_PAUSED (timed PSE loop) must accept the out-of-band direct stop",
+                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_PAUSED),
+            )
+            assertEquals(
+                "PGM_WAITING is an interactive wait and must DECLINE the out-of-band direct stop",
+                false,
+                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_WAITING),
+            )
+            assertEquals(
+                "PGM_RESUMING is an interactive wait and must DECLINE the out-of-band direct stop",
+                false,
+                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_RESUMING),
+            )
+            assertEquals(
+                "PGM_STOPPED has no running program and must DECLINE the out-of-band direct stop",
+                false,
+                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_STOPPED),
+            )
+        }
+    }
+
+    @Test
+    fun busySpiralkAcceptsLiveDirectStop() {
+        // Ties the run-state gate to the real live seam: a genuinely-busy program
+        // (staged SPIRALk reliably parks in PGM_PAUSED inside its PSE loop) must
+        // accept the out-of-band stop that MainActivity.dispatchLiveKey publishes
+        // for a live R/S/EXIT, proving requestStopProgramNative honors the gate
+        // against the real programRunStop rather than a hard-coded path. The
+        // companion decline path is covered deterministically by
+        // directStopGateDeclinesInteractiveWaitStates above.
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
         val spiralkFixture = targetContext.assets.open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
 
         ActivityScenario.launch(MainActivity::class.java).use {
             assertTrue(
-                "Native runtime did not become ready for SPIRALk direct-stop coverage",
+                "Native runtime did not become ready for SPIRALk busy-stop coverage",
                 waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
             )
 
@@ -159,52 +218,26 @@ class DisplayLifecycleInstrumentedTest {
 
             val loadStep = loadState.currentLocalStepNumber
             assertTrue(
-                "failed to start the asynchronous MainActivity R/S key worker for SPIRALk direct-stop coverage",
+                "failed to start the asynchronous MainActivity R/S key worker for SPIRALk busy-stop coverage",
                 ProgramLoadTestBridge.beginMainActivityKeySequence(RS_KEY_CODE),
             )
             assertTrue(
-                "SPIRALk did not show any run-side display activity before direct stop",
+                "SPIRALk did not show any run-side display activity before the busy stop",
                 waitForRunActivity(loadStep),
             )
 
-            var stopAccepted = false
-            var stopAttempts = 0
-            var lastStopAttemptAtMs = 0L
-            val stopSettled = waitUntil(DIRECT_STOP_TIMEOUT_MS) {
-                    val now = SystemClock.elapsedRealtime()
-                    if (!stopAccepted &&
-                        (lastStopAttemptAtMs == 0L || now - lastStopAttemptAtMs >= DIRECT_STOP_RETRY_MS)
-                    ) {
-                        if (ProgramLoadTestBridge.requestStopProgram()) {
-                            stopAccepted = true
-                            stopAttempts += 1
-                        }
-                        lastStopAttemptAtMs = now
-                    }
-
-                    if (!stopAccepted) {
-                        return@waitUntil false
-                    }
-
-                    val state = ProgramLoadTestBridge.snapshotState()
-                    !ProgramLoadTestBridge.isSimFunctionRunning() &&
-                        state.programRunStop != PGM_RUNNING &&
-                        state.programRunStop != PGM_PAUSED
-                }
-
+            // Whenever SPIRALk is in a busy run state, the live out-of-band stop
+            // must be accepted. Retrying across polls keeps this robust against
+            // transient state changes; the short-circuit means requestStopProgram
+            // is only probed while the program is genuinely busy.
+            val accepted = waitUntil(RUN_TIMEOUT_MS) {
+                val runStop = ProgramLoadTestBridge.snapshotState().programRunStop
+                (runStop == PGM_RUNNING || runStop == PGM_PAUSED) &&
+                    ProgramLoadTestBridge.requestStopProgram()
+            }
             assertTrue(
-                "direct stop did not settle SPIRALk in time (accepted=$stopAccepted, attempts=$stopAttempts)",
-                stopSettled,
-            )
-
-            val firstStopHash = ProgramLoadTestBridge.captureDisplayHash()
-            ProgramLoadTestBridge.forceRefresh()
-            val forcedRefreshHash = ProgramLoadTestBridge.captureDisplayHash()
-
-            assertEquals(
-                "The first direct stop should already produce the same packed LCD snapshot as a forced refresh",
-                forcedRefreshHash,
-                firstStopHash,
+                "a busy SPIRALk must accept the live out-of-band direct stop (final state=${ProgramLoadTestBridge.snapshotState().programRunStop})",
+                accepted,
             )
         }
     }
@@ -347,15 +380,15 @@ class DisplayLifecycleInstrumentedTest {
         private const val ERROR_NONE = 0
         private const val TI_VIEW_REGISTER = 15
         private const val TI_PROGRAM_LOADED = 86
+        private const val PGM_STOPPED = 0
         private const val PGM_RUNNING = 1
         private const val PGM_WAITING = 2
         private const val PGM_PAUSED = 3
+        private const val PGM_RESUMING = 5
         private const val RUNTIME_READY_TIMEOUT_MS = 15_000L
         private const val LOAD_TIMEOUT_MS = 10_000L
         private const val RUN_TIMEOUT_MS = 90_000L
         private const val RUN_ACTIVITY_TIMEOUT_MS = 15_000L
-        private const val DIRECT_STOP_TIMEOUT_MS = 15_000L
-        private const val DIRECT_STOP_RETRY_MS = 100L
         private const val POLL_INTERVAL_MS = 25L
         private const val PAUSE_RESUME_SETTLE_MS = 50L
         private const val PAUSE_RESUME_RETRY_MS = 1_000L

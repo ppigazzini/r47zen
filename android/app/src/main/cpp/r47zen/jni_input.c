@@ -416,6 +416,21 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
   currentPressedKeyStr[0] = 0;
 }
 
+// Only the genuinely-busy run states justify the out-of-band direct stop: a
+// program that is RUNNING (executing) or PAUSED (inside a timed PSE loop) cannot
+// drain the queued sendKey in time, so the keypad's stop must be delivered out
+// of band. PGM_WAITING and PGM_RESUMING are interactive states where the core is
+// parked waiting for the *next* keystroke (a graphing program holding its plot,
+// a program between PSE/VIEW steps, an open f/g/I/O menu). In those states the
+// queued sendKey IS processed, and R/S must resume / EXIT must navigate the
+// menus -- short-circuiting them here swallows the keystroke and strands the
+// user (see REPORT-23 regression annex). Keep aligned with
+// src/c47/programming/input.c, which only treats R/S(36)/EXIT(33) as a stop
+// request while *prevStop == PGM_RUNNING.
+bool r47_direct_stop_allowed(uint16_t runState) {
+  return runState == PGM_RUNNING || runState == PGM_PAUSED;
+}
+
 JNIEXPORT jboolean JNICALL
 Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
                                                            jobject thiz) {
@@ -426,8 +441,7 @@ Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
   }
 
   onUIActivity();
-  if (programRunStop != PGM_RUNNING && programRunStop != PGM_WAITING &&
-      programRunStop != PGM_PAUSED && programRunStop != PGM_RESUMING) {
+  if (!r47_direct_stop_allowed(programRunStop)) {
     return JNI_FALSE;
   }
 

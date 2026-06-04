@@ -264,6 +264,25 @@ supports that model by keeping shared synchronization in native code:
   publishes stop intent through the existing upstream `fnStopProgram()` path
   without taking `screenMutex` or queueing onto `NativeCoreRuntime`, and it
   also marks a pending stop-refresh request.
+- `requestStopProgramNative()` is gated on `programRunStop` through the pure
+  `r47_direct_stop_allowed(runState)` predicate and fires the out-of-band stop
+  **only** for the genuinely-busy run states `PGM_RUNNING` (executing) and
+  `PGM_PAUSED` (inside a timed `PSE` loop) — the states that cannot drain the
+  queued `sendKey` in time. For the interactive parked states `PGM_WAITING` and
+  `PGM_RESUMING` (a graphing program holding its plot, a program between
+  `PSE`/`VIEW` steps, an open `f`/`g`/`I/O` menu) it returns `JNI_FALSE`, so
+  `dispatchLiveKey(...)` falls through to `sendKey` and the core receives the
+  keystroke: `R/S` resumes/replots and `EXIT` leaves the menu. This mirrors
+  `src/c47/programming/input.c`, which only treats `R/S`(36)/`EXIT`(33) as a
+  stop request while `*prevStop == PGM_RUNNING`. Widening the gate to accept
+  `PGM_WAITING`/`PGM_RESUMING` swallows those live keystrokes and strands the
+  user (REPORT-23 runtime-regression annex). The shared predicate is probed
+  side-effect-free through the instrumentation bridge
+  (`ProgramLoadTestBridge.directStopAllowedForRunState(...)`), so
+  `DisplayLifecycleInstrumentedTest.directStopGateDeclinesInteractiveWaitStates`
+  asserts the decline contract deterministically across every run state, and
+  `busySpiralkAcceptsLiveDirectStop` proves the live seam still accepts a stop
+  for a genuinely-busy program.
 - That lock-free property is required, not optional. The grouped Android
   `MANSLV2` fixture can still be executing inside the asynchronous `R/S`
   worker while that worker owns `screenMutex`; a blocking or try-lock stop

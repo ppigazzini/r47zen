@@ -443,6 +443,18 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_requestStopProgramNative(
   return Java_com_example_r47_MainActivity_requestStopProgramNative(env, NULL);
 }
 
+// Pure, side-effect-free probe of the out-of-band direct-stop run-state gate, so
+// the run-state contract can be asserted deterministically without driving a
+// real program into a specific (timing-dependent) run state. Mirrors the gate
+// consulted by MainActivity.dispatchLiveKey before it swallows R/S/EXIT.
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_directStopAllowedForRunStateNative(
+    JNIEnv *env, jobject thiz, jint runState) {
+  (void)env;
+  (void)thiz;
+  return r47_direct_stop_allowed((uint16_t)runState) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setNextLoadProgramFdNative(
     JNIEnv *env, jobject thiz, jint fd) {

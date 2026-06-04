@@ -386,16 +386,23 @@ class ProgramFixtureInstrumentedTest {
     }
 
     private fun cleanupFixtureRuntime(fixture: ProgramFixture) {
+        // Only a genuinely-busy program (PGM_RUNNING / PGM_PAUSED) can be drained
+        // with the out-of-band direct stop; that is exactly the gate contract in
+        // jni_input.c. A program parked in an interactive wait (PGM_WAITING /
+        // PGM_RESUMING) deliberately declines the direct stop -- on the live
+        // keypad those states must keep receiving R/S/EXIT -- so we never spin on
+        // them here. The forceful resetRuntime() (doFnReset) below clears any
+        // parked program regardless of run state, so cleanup only needs to wait
+        // for the async worker thread to return.
         val cleaned = waitUntil(FIXTURE_CLEANUP_TIMEOUT_MS) {
-            val state = ProgramLoadTestBridge.trySnapshotState()
-            val workerRunning = ProgramLoadTestBridge.isSimFunctionRunning()
-            val programActive = state?.let(::isProgramActive) == true
-
-            if (!workerRunning && !programActive) {
+            if (!ProgramLoadTestBridge.isSimFunctionRunning()) {
                 return@waitUntil true
             }
 
-            if (programActive) {
+            val state = ProgramLoadTestBridge.trySnapshotState()
+            val busy = state != null &&
+                (state.programRunStop == PGM_RUNNING || state.programRunStop == PGM_PAUSED)
+            if (busy) {
                 ProgramLoadTestBridge.requestStopProgram()
                 ProgramLoadTestBridge.forceRefresh()
             }
@@ -415,13 +422,6 @@ class ProgramFixtureInstrumentedTest {
             "runStop=${state.programRunStop}, localStep=${state.currentLocalStepNumber}, tempInfo=${state.temporaryInformation}, error=${state.lastErrorCode}"
         }
         reportStatus("Cleanup warning for ${fixture.displayName}: $details\n")
-    }
-
-    private fun isProgramActive(state: ProgramLoadState): Boolean {
-        return state.programRunStop == PGM_RUNNING ||
-            state.programRunStop == PGM_WAITING ||
-            state.programRunStop == PGM_PAUSED ||
-            state.programRunStop == PGM_RESUMING
     }
 
     private fun yesNo(value: Boolean): String = if (value) "yes" else "no"

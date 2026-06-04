@@ -184,6 +184,12 @@ gint64 g_get_real_time(void);
 uint32_t sys_current_ms(void);
 void processCoreTasksNative(void);
 void r47_request_stop_refresh(void);
+// True only for the genuinely-busy run states that justify the out-of-band
+// direct stop (PGM_RUNNING, PGM_PAUSED). Pure decision function with no side
+// effects, shared by the live-key gate and the instrumentation bridge so the
+// run-state contract can be asserted deterministically. Keep aligned with
+// src/c47/programming/input.c (R/S/EXIT are a stop request only while RUNNING).
+bool r47_direct_stop_allowed(uint16_t runState);
 bool r47_apply_pending_stop_refresh_locked(void);
 bool r47_graph_touch_no_nan_stress_locked(int iterations);
 bool r47_sanitize_graph_bounds_locked(void);
