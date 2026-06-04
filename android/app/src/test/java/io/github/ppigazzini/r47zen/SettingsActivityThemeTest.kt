@@ -45,7 +45,7 @@ class SettingsActivityThemeTest {
         )
         val primary = MaterialColors.getColor(
             activity,
-            com.google.android.material.R.attr.colorPrimary,
+            androidx.appcompat.R.attr.colorPrimary,
             Color.MAGENTA,
         )
 

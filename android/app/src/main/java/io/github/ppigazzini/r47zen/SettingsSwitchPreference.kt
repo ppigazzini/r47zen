@@ -27,7 +27,7 @@ internal class SettingsSwitchPreference @JvmOverloads constructor(
     private fun buildTrackTintList(context: Context): ColorStateList {
         val checkedTrack = MaterialColors.getColor(
             context,
-            com.google.android.material.R.attr.colorPrimary,
+            androidx.appcompat.R.attr.colorPrimary,
             Color.parseColor("#FFC36F"),
         )
         val uncheckedTrack = ColorUtils.setAlphaComponent(

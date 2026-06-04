@@ -322,7 +322,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             private val menuGlyphGeometry = SettingsMenuGlyph.MAIN_MENU_GEOMETRY
             private val orangeColor = MaterialColors.getColor(
                 this,
-                com.google.android.material.R.attr.colorPrimary,
+                androidx.appcompat.R.attr.colorPrimary,
             )
             private val blueColor = MaterialColors.getColor(
                 this,

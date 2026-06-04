@@ -18,7 +18,7 @@ internal fun MaterialToolbar.configureScreenToolbar(
         context,
         androidx.appcompat.R.drawable.abc_ic_ab_back_material,
     )?.mutate()
-    navigationIcon?.setTint(MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary))
+    navigationIcon?.setTint(MaterialColors.getColor(this, androidx.appcompat.R.attr.colorPrimary))
     setNavigationOnClickListener { onNavigateUp() }
 
     menu.clear()

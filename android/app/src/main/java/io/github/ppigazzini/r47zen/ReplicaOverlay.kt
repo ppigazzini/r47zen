@@ -133,7 +133,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
     private val settingsHintMenuOrangePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = resolveThemeColor(
-            com.google.android.material.R.attr.colorPrimary,
+            androidx.appcompat.R.attr.colorPrimary,
             SettingsDiscoveryHintVisualPolicy.MENU_ORANGE_FALLBACK_COLOR_ARGB,
         )
         style = Paint.Style.FILL
