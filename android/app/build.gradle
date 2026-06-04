@@ -486,13 +486,13 @@ tasks.register('generateRuntimeFontAssets') {
     }
     outputs.dir(generatedRuntimeAssetsDir)
 
+    def generatedAssetsDir = file(generatedRuntimeAssetsDir)
     doLast {
-        def generatedAssetsDir = file(generatedRuntimeAssetsDir)
         def fontsDir = new File(generatedAssetsDir, 'fonts')
         if (runtimeFontSourceDir.canonicalFile == fontsDir.canonicalFile) {
             return
         }
-        delete(fontsDir)
+        fontsDir.deleteDir()
         fontsDir.mkdirs()
 
         runtimeFontAssetNames.each { fontName ->
@@ -538,10 +538,10 @@ tasks.register('generateRepoNoticeAssets') {
     }
     outputs.dir("${generatedComplianceAssetsDir}/repo-notices")
 
+    def generatedAssetsDir = file(generatedComplianceAssetsDir)
     doLast {
-        def generatedAssetsDir = file(generatedComplianceAssetsDir)
         def repoAssetsDir = new File(generatedAssetsDir, 'repo-notices')
-        delete(repoAssetsDir)
+        repoAssetsDir.deleteDir()
         repoAssetsDir.mkdirs()
 
         def indexEntries = []
@@ -586,94 +586,79 @@ tasks.register('generateXlsxioLicense') {
     inputs.property('xlsxioSourceCommit', xlsxioSourceCommit ?: '')
     outputs.file("${generatedComplianceAssetsDir}/LICENSE.txt")
 
+    def generatedAssetsDir = file(generatedComplianceAssetsDir)
     doLast {
-        def generatedAssetsDir = file(generatedComplianceAssetsDir)
         generatedAssetsDir.mkdirs()
-        file("${generatedAssetsDir}/LICENSE.txt").bytes = xlsxioLicenseSourceFile.bytes
+        new File(generatedAssetsDir, 'LICENSE.txt').bytes = xlsxioLicenseSourceFile.bytes
     }
 }
 
-tasks.register('generateThirdPartySpdx') {
-    inputs.file(repoNoticeInventoryFile)
-    repoNoticeInventory.components.each { component ->
-        inputs.file(resolveRepoNoticeSourceFile(component as Map))
+def spdxRuntimePackages = []
+def spdxRuntimeDocumentDescribes = []
+
+// Resolve the third-party SPDX package inventory at configuration time so the
+// task action never touches `configurations`, `dependencies`, or `file` at
+// execution time (configuration-cache compatibility). The captured lists hold
+// only plain serializable strings/maps.
+afterEvaluate {
+    def addSpdxPackage = { Map values ->
+        def entry = createSpdxPackage(values)
+        spdxRuntimePackages << entry
+        spdxRuntimeDocumentDescribes << entry.SPDXID
     }
-    inputs.property('androidSourceRepositoryUrl', androidSourceRepositoryUrl ?: '')
-    inputs.property('androidSourceCommit', androidSourceCommit ?: '')
-    inputs.property('upstreamSourceRepositoryUrl', upstreamSourceRepositoryUrl ?: '')
-    inputs.property('upstreamSourceCommit', upstreamSourceCommit ?: '')
-    inputs.property('xlsxioSourceRepositoryUrl', xlsxioSourceRepositoryUrl ?: '')
-    inputs.property('xlsxioSourceCommit', xlsxioSourceCommit ?: '')
-    outputs.file("${generatedComplianceAssetsDir}/THIRD-PARTY.spdx.json")
 
-    doLast {
-        def generatedAssetsDir = file(generatedComplianceAssetsDir)
-        generatedAssetsDir.mkdirs()
+    addSpdxPackage([
+        SPDXID          : toSpdxRef('r47zen-source'),
+        name            : 'r47zen',
+        downloadLocation: androidSourceRepositoryUrl ?: 'NOASSERTION',
+        licenseDeclared : 'GPL-3.0-only',
+        versionInfo     : androidSourceCommit ?: 'unknown',
+        summary         : 'Android fork source repository for the packaged R47 application.',
+        sourceInfo      : 'Recorded from the local Git checkout used for this build.'
+    ])
 
-        def packages = []
-        def documentDescribes = []
-
-        def addPackage = { Map values ->
-            def packageEntry = createSpdxPackage(values)
-            packages << packageEntry
-            documentDescribes << packageEntry.SPDXID
-        }
-
-        addPackage([
-            SPDXID          : toSpdxRef('r47zen-source'),
-            name            : 'r47zen',
-            downloadLocation: androidSourceRepositoryUrl ?: 'NOASSERTION',
+    if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
+        addSpdxPackage([
+            SPDXID          : toSpdxRef('r47-upstream-core'),
+            name            : 'r47-upstream-core',
+            downloadLocation: upstreamSourceRepositoryUrl,
             licenseDeclared : 'GPL-3.0-only',
-            versionInfo     : androidSourceCommit ?: 'unknown',
-            summary         : 'Android fork source repository for the packaged R47 application.',
-            sourceInfo      : 'Recorded from the local Git checkout used for this build.'
+            versionInfo     : upstreamSourceCommit,
+            summary         : 'Authoritative upstream core revision synchronized into the Android build.',
+            sourceInfo      : 'Recorded from the synchronized upstream core metadata for this build.'
         ])
+    }
 
-        if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
-            addPackage([
-                SPDXID          : toSpdxRef('r47-upstream-core'),
-                name            : 'r47-upstream-core',
-                downloadLocation: upstreamSourceRepositoryUrl,
-                licenseDeclared : 'GPL-3.0-only',
-                versionInfo     : upstreamSourceCommit,
-                summary         : 'Authoritative upstream core revision synchronized into the Android build.',
-                sourceInfo      : 'Recorded from the synchronized upstream core metadata for this build.'
-            ])
-        }
+    addSpdxPackage([
+        SPDXID          : toSpdxRef('xlsxio'),
+        name            : 'xlsxio',
+        downloadLocation: xlsxioSourceRepositoryUrl ?: 'NOASSERTION',
+        licenseDeclared : 'MIT',
+        versionInfo     : xlsxioSourceCommit ?: 'unknown',
+        summary         : 'Vendored spreadsheet I/O dependency packaged with the Android build.',
+        sourceInfo      : 'Version and source URL come from the shared Android defaults or explicit build properties.'
+    ])
 
-        addPackage([
-            SPDXID          : toSpdxRef('xlsxio'),
-            name            : 'xlsxio',
-            downloadLocation: xlsxioSourceRepositoryUrl ?: 'NOASSERTION',
-            licenseDeclared : 'MIT',
-            versionInfo     : xlsxioSourceCommit ?: 'unknown',
-            summary         : 'Vendored spreadsheet I/O dependency packaged with the Android build.',
-            sourceInfo      : 'Version and source URL come from the shared Android defaults or explicit build properties.'
-        ])
+    addSpdxPackage([
+        SPDXID          : toSpdxRef('decnumbericu'),
+        name            : 'decNumberICU',
+        downloadLocation: 'NOASSERTION',
+        licenseDeclared : 'ICU',
+        summary         : 'Vendored decimal arithmetic sources under dep/decNumberICU.',
+        sourceInfo      : 'Notice source is hydrated from upstream at dep/decNumberICU/ICU-license.html during the build.'
+    ])
 
-        addPackage([
-            SPDXID          : toSpdxRef('decnumbericu'),
-            name            : 'decNumberICU',
-            downloadLocation: 'NOASSERTION',
-            licenseDeclared : 'ICU',
-            summary         : 'Vendored decimal arithmetic sources under dep/decNumberICU.',
-            sourceInfo      : 'Notice source is hydrated from upstream at dep/decNumberICU/ICU-license.html during the build.'
-        ])
+    addSpdxPackage([
+        SPDXID          : toSpdxRef('mini-gmp-fallback'),
+        name            : 'mini-gmp fallback',
+        downloadLocation: 'https://gmplib.org/',
+        licenseDeclared : 'LGPL-3.0-or-later OR GPL-2.0-or-later',
+        summary         : 'Fallback big integer implementation under android/compat/mini-gmp-fallback.',
+        sourceInfo      : 'Notice text is recorded in the repo-owned notice inventory.'
+    ])
 
-        addPackage([
-            SPDXID          : toSpdxRef('mini-gmp-fallback'),
-            name            : 'mini-gmp fallback',
-            downloadLocation: 'https://gmplib.org/',
-            licenseDeclared : 'LGPL-3.0-or-later OR GPL-2.0-or-later',
-            summary         : 'Fallback big integer implementation under android/compat/mini-gmp-fallback.',
-            sourceInfo      : 'Notice text is recorded in the repo-owned notice inventory.'
-        ])
-
-        def runtimeConfiguration = configurations.findByName('releaseRuntimeClasspath') ?: configurations.findByName('debugRuntimeClasspath')
-        if (runtimeConfiguration == null) {
-            throw new GradleException('Unable to resolve an Android runtime classpath for SPDX inventory generation.')
-        }
-
+    def runtimeConfiguration = configurations.findByName('releaseRuntimeClasspath') ?: configurations.findByName('debugRuntimeClasspath')
+    if (runtimeConfiguration != null) {
         def runtimeModules = runtimeConfiguration.incoming.resolutionResult.allComponents
             .collect { it.id }
             .findAll { it instanceof ModuleComponentIdentifier }
@@ -712,39 +697,64 @@ tasks.register('generateThirdPartySpdx') {
                 [license.name, license.url].findAll { it }.join(' - ')
             }.findAll { it }.join('; ')
 
-            addPackage([
-                SPDXID          : toSpdxRef("maven-${moduleId.group}-${moduleId.module}-${moduleId.version}"),
-                name            : "${moduleId.group}:${moduleId.module}",
-                downloadLocation: "https://repo1.maven.org/maven2/${moduleId.group.replace('.', '/')}/${moduleId.module}/${moduleId.version}",
+            addSpdxPackage([
+                SPDXID          : toSpdxRef("maven-${moduleId.group}-${moduleId.module}-${moduleId.version}".toString()),
+                name            : "${moduleId.group}:${moduleId.module}".toString(),
+                downloadLocation: "https://repo1.maven.org/maven2/${moduleId.group.replace('.', '/')}/${moduleId.module}/${moduleId.version}".toString(),
                 licenseDeclared : knownSpdxLicenses.size() == 1 ? knownSpdxLicenses[0] : 'NOASSERTION',
-                versionInfo     : moduleId.version,
+                versionInfo     : moduleId.version.toString(),
                 homepage        : pomUrl ?: null,
-                summary         : "Android runtime dependency ${moduleId.group}:${moduleId.module}:${moduleId.version}.",
+                summary         : "Android runtime dependency ${moduleId.group}:${moduleId.module}:${moduleId.version}.".toString(),
                 licenseComments : rawLicenseSummary ?: 'License metadata was not available in the resolved POM.',
                 sourceInfo      : 'Collected from the resolved runtime classpath and each dependency POM.',
                 externalRefs    : [[
                     referenceCategory: 'PACKAGE-MANAGER',
                     referenceType    : 'purl',
-                    referenceLocator : "pkg:maven/${moduleId.group}/${moduleId.module}@${moduleId.version}"
+                    referenceLocator : "pkg:maven/${moduleId.group}/${moduleId.module}@${moduleId.version}".toString()
                 ]]
             ])
         }
+    }
+}
+
+tasks.register('generateThirdPartySpdx') {
+    inputs.file(repoNoticeInventoryFile)
+    repoNoticeInventory.components.each { component ->
+        inputs.file(resolveRepoNoticeSourceFile(component as Map))
+    }
+    inputs.property('androidSourceRepositoryUrl', androidSourceRepositoryUrl ?: '')
+    inputs.property('androidSourceCommit', androidSourceCommit ?: '')
+    inputs.property('upstreamSourceRepositoryUrl', upstreamSourceRepositoryUrl ?: '')
+    inputs.property('upstreamSourceCommit', upstreamSourceCommit ?: '')
+    inputs.property('xlsxioSourceRepositoryUrl', xlsxioSourceRepositoryUrl ?: '')
+    inputs.property('xlsxioSourceCommit', xlsxioSourceCommit ?: '')
+
+    def spdxAssetsDir = file(generatedComplianceAssetsDir)
+    def spdxOutputFile = new File(spdxAssetsDir, 'THIRD-PARTY.spdx.json')
+    outputs.file(spdxOutputFile)
+
+    def documentSourceCommit = androidSourceCommit
+    def documentPackages = spdxRuntimePackages
+    def documentDescribes = spdxRuntimeDocumentDescribes
+
+    doLast {
+        spdxAssetsDir.mkdirs()
 
         def spdxDocument = [
             spdxVersion      : 'SPDX-2.3',
             dataLicense      : 'CC0-1.0',
             SPDXID           : 'SPDXRef-DOCUMENT',
             name             : 'R47 Android third-party inventory',
-            documentNamespace: "https://r47.invalid/spdx/android/${androidSourceCommit ?: 'unknown'}",
+            documentNamespace: "https://r47.invalid/spdx/android/${documentSourceCommit ?: 'unknown'}".toString(),
             creationInfo     : [
                 created : new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC')),
                 creators: ['Tool: Gradle generateThirdPartySpdx task']
             ],
             documentDescribes: documentDescribes,
-            packages         : packages
+            packages         : documentPackages
         ]
 
-        file("${generatedAssetsDir}/THIRD-PARTY.spdx.json").text = JsonOutput.prettyPrint(JsonOutput.toJson(spdxDocument)) + '\n'
+        spdxOutputFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(spdxDocument)) + '\n'
     }
 }
 
@@ -757,8 +767,8 @@ tasks.register('generateSourceManifest') {
     inputs.property('xlsxioSourceCommit', xlsxioSourceCommit ?: '')
     outputs.file("${generatedComplianceAssetsDir}/SOURCE")
 
+    def generatedAssetsDir = file(generatedComplianceAssetsDir)
     doLast {
-        def generatedAssetsDir = file(generatedComplianceAssetsDir)
         generatedAssetsDir.mkdirs()
         def sourceLines = []
 
@@ -772,7 +782,7 @@ tasks.register('generateSourceManifest') {
         sourceLines << "xlsxio_url=${xlsxioSourceRepositoryUrl}"
         sourceLines << "xlsxio_commit=${xlsxioSourceCommit}"
 
-        file("${generatedAssetsDir}/SOURCE").text = sourceLines.join('\n') + '\n'
+        new File(generatedAssetsDir, 'SOURCE').text = sourceLines.join('\n') + '\n'
     }
 }
 
