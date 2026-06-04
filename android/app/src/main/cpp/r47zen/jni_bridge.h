@@ -245,9 +245,6 @@ Java_com_example_r47_MainActivity_forceRefreshNative(JNIEnv *env,
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_setSlotNative(
     JNIEnv *env, jobject thiz, jint slot);
 JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getXRegisterNative(JNIEnv *env,
-                                                            jobject thiz);
-JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getClipboardXRegisterNative(JNIEnv *env,
                                                                      jobject thiz);
 JNIEXPORT jstring JNICALL
@@ -270,27 +267,6 @@ JNIEXPORT jboolean JNICALL
 Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
     JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
     jobjectArray labelsBuffer);
-JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
-                                                              jobject thiz,
-                                                              jint keyCode,
-                                                              jint type,
-                                                              jboolean isDynamic);
-JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getSoftkeyLabelNative(JNIEnv *env,
-                                                               jobject thiz,
-                                                               jint fnKeyIndex);
-JNIEXPORT jintArray JNICALL
-Java_com_example_r47_MainActivity_getKeyboardStateNative(JNIEnv *env,
-                                                                jobject thiz);
-JNIEXPORT jintArray JNICALL
-Java_com_example_r47_MainActivity_getKeypadMetaNative(JNIEnv *env,
-                                                             jobject thiz,
-                                                                                                                         jint mainKeyDynamicMode);
-JNIEXPORT jobjectArray JNICALL
-Java_com_example_r47_MainActivity_getKeypadLabelsNative(JNIEnv *env,
-                                                               jobject thiz,
-                                                                                                                             jint mainKeyDynamicMode);
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_onFileSelectedNative(JNIEnv *env,
                                                               jobject thiz,

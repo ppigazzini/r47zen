@@ -406,6 +406,14 @@ android {
         checkDependencies = true
     }
 
+    packaging {
+        jniLibs {
+            // Uncompressed, extract-on-install disabled. Declared explicitly so an
+            // AGP default change cannot silently alter the native packaging contract.
+            useLegacyPackaging = false
+        }
+    }
+
 }
 
 dependencies {

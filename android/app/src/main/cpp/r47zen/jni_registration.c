@@ -41,6 +41,12 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 }
 
 int register_main_activity_natives(JNIEnv *env) {
+  /*
+   * The native implementations keep the historical Java_com_example_r47_*
+   * symbol prefix. RegisterNatives binds the Java method names in this table
+   * to the function pointers directly, so the prefix is cosmetic and does not
+   * need to match the io.github.ppigazzini.r47zen package.
+   */
   static const JNINativeMethod methods[] = {
       {"updateNativeActivityRef", "()V",
         (void *)Java_com_example_r47_MainActivity_updateNativeActivityRef},
@@ -72,8 +78,6 @@ int register_main_activity_natives(JNIEnv *env) {
         (void *)Java_com_example_r47_MainActivity_forceRefreshNative},
       {"setSlotNative", "(I)V",
         (void *)Java_com_example_r47_MainActivity_setSlotNative},
-      {"getXRegisterNative", "()Ljava/lang/String;",
-        (void *)Java_com_example_r47_MainActivity_getXRegisterNative},
       {"getClipboardXRegisterNative", "()Ljava/lang/String;",
         (void *)Java_com_example_r47_MainActivity_getClipboardXRegisterNative},
       {"getClipboardStackRegistersNative", "()Ljava/lang/String;",
@@ -90,16 +94,6 @@ int register_main_activity_natives(JNIEnv *env) {
         (void *)Java_com_example_r47_MainActivity_copyKeypadSnapshotNative},
       {"setLcdColors", "(II)V",
         (void *)Java_com_example_r47_MainActivity_setLcdColors},
-      {"getButtonLabelNative", "(IIZ)Ljava/lang/String;",
-        (void *)Java_com_example_r47_MainActivity_getButtonLabelNative},
-      {"getSoftkeyLabelNative", "(I)Ljava/lang/String;",
-        (void *)Java_com_example_r47_MainActivity_getSoftkeyLabelNative},
-      {"getKeyboardStateNative", "()[I",
-        (void *)Java_com_example_r47_MainActivity_getKeyboardStateNative},
-      {"getKeypadMetaNative", "(I)[I",
-        (void *)Java_com_example_r47_MainActivity_getKeypadMetaNative},
-      {"getKeypadLabelsNative", "(I)[Ljava/lang/String;",
-        (void *)Java_com_example_r47_MainActivity_getKeypadLabelsNative},
       {"onFileSelectedNative", "(I)V",
         (void *)Java_com_example_r47_MainActivity_onFileSelectedNative},
       {"onFileCancelledNative", "()V",

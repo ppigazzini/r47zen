@@ -564,7 +564,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun loadStateNative()
     private external fun forceRefreshNative()
     private external fun setSlotNative(slot: Int)
-    private external fun getXRegisterNative(): String
     private external fun getClipboardXRegisterNative(): String
     private external fun getClipboardStackRegistersNative(): String
     private external fun getClipboardAllRegistersNative(): String
@@ -578,15 +577,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     ): Boolean
     private external fun requestStopProgramNative(): Boolean
     private external fun setLcdColors(text: Int, bg: Int)
-
-    // Legacy keypad getters kept for bridge compatibility.
-    private external fun getButtonLabelNative(keyCode: Int, type: Int, isDynamic: Boolean): String
-    private external fun getSoftkeyLabelNative(fnKeyIndex: Int): String
-    private external fun getKeyboardStateNative(): IntArray // returns [shiftF, shiftG, calcMode, userMode, alphaFlag]
-
-    // Snapshot keypad APIs used by the default Android-native keypad.
-    private external fun getKeypadMetaNative(mainKeyDynamicMode: Int): IntArray
-    private external fun getKeypadLabelsNative(mainKeyDynamicMode: Int): Array<String>
 
     @Keep fun onFileSelected(fd: Int) { onFileSelectedNative(fd) }
     @Keep fun onFileCancelled() { onFileCancelledNative() }

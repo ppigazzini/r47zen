@@ -1163,16 +1163,6 @@ static void fillStaticSoftkeyMenuLabel(int16_t item, char *label,
   snprintf(label, labelSize, "%s", labelName ? labelName : "");
 }
 
-static void resolveSoftkeyLabel(int16_t fnKeyIndex, char *label,
-                                size_t labelSize, bool_t *enabled) {
-  keypadSoftkeyScene_t scene;
-  resolveSoftkeyScene(fnKeyIndex, &scene);
-  snprintf(label, labelSize, "%s", scene.primaryLabel);
-  *enabled = scene.enabled;
-}
-
-static void fillKeyboardState(jint *fill);
-
 static void fillKeypadMetaForPresentation(
     jint *fill, const keypadMainLabelPresentation_t *presentation) {
   memset(fill, 0, sizeof(jint) * KEYPAD_META_LENGTH);
@@ -1259,47 +1249,6 @@ static void fillKeypadMeta(jint *fill, jboolean isDynamic) {
   keypadMainLabelPresentation_t presentation = buildLegacyMainLabelPresentation(
       isDynamic != 0, alphaOn, userKeyboardEnabled);
   fillKeypadMetaForPresentation(fill, &presentation);
-}
-
-static bool setKeypadLabelElement(JNIEnv *env, jobjectArray labels, int keyCode,
-                                  int labelType, const char *name) {
-  char utf8[128];
-  encodeUtf8Label(name, utf8, sizeof(utf8));
-  jstring value =
-      jni_new_string_utf(env, utf8, "", "setKeypadLabelElement NewStringUTF");
-  if (value == NULL) {
-    return false;
-  }
-
-  int index = (keyCode - 1) * KEYPAD_LABELS_PER_KEY + labelType;
-  (*env)->SetObjectArrayElement(env, labels, index, value);
-  bool success =
-      !jni_check_and_clear_exception(env,
-                                     "setKeypadLabelElement SetObjectArrayElement");
-  (*env)->DeleteLocalRef(env, value);
-  return success;
-}
-
-static bool setMainKeypadLabelElement(JNIEnv *env, jobjectArray labels,
-                                      int keyCode, int labelType,
-                                      const calcKey_t *key,
-                                      const keypadMainLabel_t *label,
-                                      const keypadMainLabelPresentation_t *presentation) {
-  char utf8[128];
-  encodeMainKeypadLabel(key, labelType, label, presentation, utf8,
-                        sizeof(utf8));
-  jstring value = jni_new_string_utf(env, utf8, "",
-                                     "setMainKeypadLabelElement NewStringUTF");
-  if (value == NULL) {
-    return false;
-  }
-
-  int index = (keyCode - 1) * KEYPAD_LABELS_PER_KEY + labelType;
-  (*env)->SetObjectArrayElement(env, labels, index, value);
-  bool success = !jni_check_and_clear_exception(
-      env, "setMainKeypadLabelElement SetObjectArrayElement");
-  (*env)->DeleteLocalRef(env, value);
-  return success;
 }
 
 static void setExportedKeypadLabel(
@@ -1526,24 +1475,6 @@ void r47_get_keypad_labels(
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getXRegisterNative(
-    JNIEnv *env, jobject thiz) {
-  (void)thiz;
-  if (!ram || isCoreBlockingForIo) {
-    return jni_new_string_utf(env, "0", NULL,
-                              "getXRegisterNative default NewStringUTF");
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  extern char *getXRegisterString(void);
-  char *registerText = getXRegisterString();
-  jstring result = jni_new_string_utf(env, registerText ? registerText : "0",
-                                      "0", "getXRegisterNative NewStringUTF");
-  pthread_mutex_unlock(&screenMutex);
-  return result;
-}
-
-JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getClipboardXRegisterNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
@@ -1597,121 +1528,6 @@ Java_com_example_r47_MainActivity_getClipboardAllRegistersNative(
   return result;
 }
 
-JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
-                                                              jobject thiz,
-                                                              jint keyCode,
-                                                              jint type,
-                                                              jboolean isDynamic) {
-  (void)thiz;
-  if (!ram) {
-    return jni_new_string_utf(env, "", NULL,
-                              "getButtonLabelNative empty NewStringUTF");
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  if (keyCode < 1 || keyCode > 37) {
-    pthread_mutex_unlock(&screenMutex);
-    return jni_new_string_utf(env, "", NULL,
-                              "getButtonLabelNative invalid NewStringUTF");
-  }
-
-  bool_t alphaOn = isAlphaKeyboardActive();
-    bool_t userKeyboardEnabled = isUserKeyboardEnabled();
-    keypadMainLabelPresentation_t presentation = buildLegacyMainLabelPresentation(
-      isDynamic != 0, alphaOn, userKeyboardEnabled);
-    const calcKey_t *keys = getVisibleKeyTable(&presentation);
-  const calcKey_t *key = &keys[keyCode - 1];
-    keypadMainLabel_t label = resolveMainKeyLabelInfo(key, keyCode, type,
-                            &presentation);
-  char utf8[128];
-    encodeMainKeypadLabel(key, type, &label, &presentation, utf8,
-              sizeof(utf8));
-  pthread_mutex_unlock(&screenMutex);
-  return jni_new_string_utf(env, utf8, "",
-                            "getButtonLabelNative result NewStringUTF");
-}
-
-JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getSoftkeyLabelNative(JNIEnv *env,
-                                                               jobject thiz,
-                                                               jint fnKeyIndex) {
-  (void)thiz;
-  if (!ram || fnKeyIndex < 1 || fnKeyIndex > 6) {
-    return jni_new_string_utf(env, "", NULL,
-                              "getSoftkeyLabelNative empty NewStringUTF");
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  char label[64] = {0};
-  bool_t enabled = false;
-  resolveSoftkeyLabel(fnKeyIndex, label, sizeof(label), &enabled);
-  char utf8[128];
-  encodeUtf8Label(label, utf8, sizeof(utf8));
-  pthread_mutex_unlock(&screenMutex);
-  return jni_new_string_utf(env, utf8, "",
-                            "getSoftkeyLabelNative result NewStringUTF");
-}
-
-JNIEXPORT jintArray JNICALL
-Java_com_example_r47_MainActivity_getKeyboardStateNative(JNIEnv *env,
-                                                                jobject thiz) {
-  (void)thiz;
-  if (!ram) {
-    return NULL;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  jintArray result = (*env)->NewIntArray(env, 5);
-  if (!jni_result_ok(env, result, "NewIntArray(getKeyboardStateNative)")) {
-    pthread_mutex_unlock(&screenMutex);
-    return NULL;
-  }
-
-  jint fill[5];
-  r47_fill_keyboard_state(fill);
-  (*env)->SetIntArrayRegion(env, result, 0, 5, fill);
-  if (jni_check_and_clear_exception(env,
-                                    "SetIntArrayRegion(getKeyboardStateNative)")) {
-    pthread_mutex_unlock(&screenMutex);
-    (*env)->DeleteLocalRef(env, result);
-    return NULL;
-  }
-  pthread_mutex_unlock(&screenMutex);
-  return result;
-}
-
-JNIEXPORT jintArray JNICALL
-Java_com_example_r47_MainActivity_getKeypadMetaNative(JNIEnv *env,
-                                                             jobject thiz,
-                                                             jint mainKeyDynamicMode) {
-  (void)thiz;
-  jintArray result = (*env)->NewIntArray(env, KEYPAD_META_LENGTH);
-  if (!jni_result_ok(env, result, "NewIntArray(getKeypadMetaNative)")) {
-    return NULL;
-  }
-
-  jint fill[KEYPAD_META_LENGTH];
-  memset(fill, 0, sizeof(fill));
-  if (ram) {
-    pthread_mutex_lock(&screenMutex);
-    bool_t alphaOn = isAlphaKeyboardActive();
-    bool_t userKeyboardEnabled = isUserKeyboardEnabled();
-    keypadMainLabelPresentation_t presentation = buildAppMainLabelPresentation(
-        mainKeyDynamicMode, alphaOn, userKeyboardEnabled);
-    fillKeypadMetaForPresentation(fill, &presentation);
-    pthread_mutex_unlock(&screenMutex);
-  }
-
-  (*env)->SetIntArrayRegion(env, result, 0, KEYPAD_META_LENGTH, fill);
-  if (jni_check_and_clear_exception(env,
-                                    "SetIntArrayRegion(getKeypadMetaNative)")) {
-    (*env)->DeleteLocalRef(env, result);
-    return NULL;
-  }
-  return result;
-}
-
 JNIEXPORT jint JNICALL
 Java_com_example_r47_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
                                                               jobject thiz) {
@@ -1756,79 +1572,6 @@ Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
   return writeExportedKeypadLabelsToArray(env, labelsBuffer, labels)
              ? JNI_TRUE
              : JNI_FALSE;
-}
-
-JNIEXPORT jobjectArray JNICALL
-Java_com_example_r47_MainActivity_getKeypadLabelsNative(JNIEnv *env,
-                                                               jobject thiz,
-                                                               jint mainKeyDynamicMode) {
-  (void)thiz;
-
-  jclass stringClass = (*env)->FindClass(env, "java/lang/String");
-  if (!jni_result_ok(env, stringClass, "FindClass(java/lang/String)")) {
-    return NULL;
-  }
-
-  jstring empty = jni_new_string_utf(env, "", NULL,
-                                     "getKeypadLabelsNative empty NewStringUTF");
-  if (empty == NULL) {
-    (*env)->DeleteLocalRef(env, stringClass);
-    return NULL;
-  }
-
-  jobjectArray result = (*env)->NewObjectArray(
-      env, KEYPAD_KEY_COUNT * KEYPAD_LABELS_PER_KEY, stringClass, empty);
-  (*env)->DeleteLocalRef(env, stringClass);
-  if (!jni_result_ok(env, result, "NewObjectArray(getKeypadLabelsNative)")) {
-    (*env)->DeleteLocalRef(env, empty);
-    return NULL;
-  }
-
-  if (!ram) {
-    (*env)->DeleteLocalRef(env, empty);
-    return result;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  bool_t alphaOn = isAlphaKeyboardActive();
-  bool_t userKeyboardEnabled = isUserKeyboardEnabled();
-  keypadMainLabelPresentation_t presentation = buildAppMainLabelPresentation(
-      mainKeyDynamicMode, alphaOn, userKeyboardEnabled);
-  const calcKey_t *keys = getVisibleKeyTable(&presentation);
-  bool success = true;
-
-  for (int keyCode = 1; keyCode <= 37; keyCode++) {
-    const calcKey_t *key = &keys[keyCode - 1];
-    for (int labelType = 0; labelType < KEYPAD_LABELS_PER_KEY; labelType++) {
-      keypadMainLabel_t label =
-          resolveMainKeyLabelInfo(key, keyCode, labelType, &presentation);
-      if (!setMainKeypadLabelElement(env, result, keyCode, labelType, key,
-                                     &label, &presentation)) {
-        success = false;
-        break;
-      }
-    }
-    if (!success) {
-      break;
-    }
-  }
-
-  if (success) {
-    for (int fnKeyIndex = 1; fnKeyIndex <= 6; fnKeyIndex++) {
-      keypadSoftkeyScene_t scene;
-      resolveSoftkeyScene(fnKeyIndex, &scene);
-      if (!setKeypadLabelElement(env, result, 37 + fnKeyIndex,
-                                 KEYPAD_LABEL_PRIMARY, scene.primaryLabel) ||
-          !setKeypadLabelElement(env, result, 37 + fnKeyIndex,
-                                 KEYPAD_LABEL_AUX, scene.auxLabel)) {
-        break;
-      }
-    }
-  }
-
-  pthread_mutex_unlock(&screenMutex);
-  (*env)->DeleteLocalRef(env, empty);
-  return result;
 }
 
 JNIEXPORT jint JNICALL
