@@ -344,6 +344,7 @@ prepare_resource_dir_shim() {
     printf '%s\n' "$shim_dir"
 }
 
+# shellcheck disable=SC2034  # workload_*_ref are nameref out-params; writes update the caller's variables
 resolve_training_workload_descriptor() {
     local raw_workload="$1"
     local -n workload_id_ref="$2"
@@ -545,6 +546,7 @@ should_collect_program_fixture_overlay() {
     [[ "$TRAINING_WORKLOAD_ID" == "broad-ci" ]]
 }
 
+# shellcheck disable=SC2034  # out_*_ref are nameref out-params; writes update the caller's variables
 resolve_program_fixture_overlay_root() {
     local -n out_root_ref="$1"
     local -n out_source_ref="$2"

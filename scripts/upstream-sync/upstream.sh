@@ -257,7 +257,8 @@ restore_repo_owned_paths() {
     done
 
     if [ "${#tracked_restore_paths[@]}" -gt 0 ]; then
-        git -C "$PROJECT_ROOT" checkout HEAD -- "${tracked_restore_paths[@]}" 2>/dev/null || true
+        git -C "$PROJECT_ROOT" checkout HEAD -- "${tracked_restore_paths[@]}" || \
+            fail "Failed to restore repo-owned paths after the upstream overlay: ${tracked_restore_paths[*]}. The worktree may now hold upstream copies of repo-owned files; resolve the checkout error and rerun before building."
     fi
 }
 
