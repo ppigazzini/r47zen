@@ -484,10 +484,16 @@ ensure_xlsxio_toolchain() {
 }
 
 ensure_local_minizip_prefix() {
-    local minizip_prefix="${R47_MINIZIP_PREFIX:-$HOME/.cache/r47/minizip/dev}"
-    local deb_dir="${TMPDIR:-/tmp}/r47-minizip-deb"
-    local extract_dir="$deb_dir/extract"
-    local deb_file=""
+    local version="${R47_DEFAULT_MINIZIP_VERSION-}"
+    local version_token="${version//[:+~]/_}"
+    local minizip_prefix="${R47_MINIZIP_PREFIX:-$HOME/.cache/r47/minizip/${version_token:-pinned}}"
+    local work_dir="${TMPDIR:-/tmp}/r47-minizip-deb"
+    local extract_dir="$work_dir/extract"
+    local deb_file="$work_dir/libminizip-dev.deb"
+    local deb_url=""
+    local deb_sha256=""
+    local host_arch=""
+    local actual_sha256=""
     local lib_file=""
 
     if [ -f "$minizip_prefix/include/minizip/unzip.h" ] && [ -f "$minizip_prefix/lib/libminizip.a" ]; then
@@ -495,32 +501,65 @@ ensure_local_minizip_prefix() {
         return 0
     fi
 
-    if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then
-        echo "ERROR: Automatic minizip bootstrap requires apt-get and dpkg-deb. Install a static minizip development package manually and set R47_MINIZIP_PREFIX to a prefix containing include/minizip/unzip.h and lib/libminizip.a." >&2
+    host_arch=$(uname -m)
+    case "$host_arch" in
+        x86_64|amd64)
+            deb_url="${R47_DEFAULT_MINIZIP_AMD64_URL-}"
+            deb_sha256="${R47_DEFAULT_MINIZIP_AMD64_SHA256-}"
+            ;;
+        aarch64|arm64)
+            deb_url="${R47_DEFAULT_MINIZIP_ARM64_URL-}"
+            deb_sha256="${R47_DEFAULT_MINIZIP_ARM64_SHA256-}"
+            ;;
+        *)
+            echo "ERROR: No pinned minizip package for host architecture '$host_arch'. Install a static minizip development package and set R47_MINIZIP_PREFIX to a prefix containing include/minizip/unzip.h and lib/libminizip.a." >&2
+            return 1
+            ;;
+    esac
+
+    if [ -z "$deb_url" ] || [ -z "$deb_sha256" ]; then
+        echo "ERROR: Pinned minizip package metadata is missing from $DEFAULTS_FILE. Set R47_MINIZIP_PREFIX to a prefix containing include/minizip/unzip.h and lib/libminizip.a." >&2
         return 1
     fi
 
-    rm -rf "$deb_dir"
-    mkdir -p "$deb_dir"
-
-    if ! (
-        cd "$deb_dir"
-        apt-get download libminizip-dev >/dev/null
-    ); then
-        echo "ERROR: Failed to download libminizip-dev for the pinned xlsxio bootstrap. Install minizip development files manually or set R47_MINIZIP_PREFIX." >&2
+    if ! command -v dpkg-deb >/dev/null 2>&1; then
+        echo "ERROR: The pinned minizip bootstrap requires dpkg-deb. Install a static minizip development package and set R47_MINIZIP_PREFIX." >&2
         return 1
     fi
 
-    deb_file=$(find "$deb_dir" -maxdepth 1 -name 'libminizip-dev_*.deb' | head -n1)
-    if [ -z "$deb_file" ]; then
-        echo "ERROR: libminizip-dev download completed without producing a .deb payload. Install minizip development files manually or set R47_MINIZIP_PREFIX." >&2
+    echo "--- Bootstrapping pinned minizip ($version, $host_arch) ---" >&2
+    rm -rf "$work_dir"
+    mkdir -p "$work_dir"
+
+    if command -v curl >/dev/null 2>&1; then
+        curl --fail --silent --show-error --location "$deb_url" --output "$deb_file"
+    elif command -v wget >/dev/null 2>&1; then
+        wget --quiet --output-document "$deb_file" "$deb_url"
+    else
+        echo "ERROR: The pinned minizip bootstrap requires curl or wget. Set R47_MINIZIP_PREFIX." >&2
+        return 1
+    fi
+
+    if [ ! -s "$deb_file" ]; then
+        echo "ERROR: Failed to download the pinned minizip package from $deb_url. Set R47_MINIZIP_PREFIX to a prefix containing include/minizip/unzip.h and lib/libminizip.a." >&2
+        return 1
+    fi
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual_sha256=$(sha256sum "$deb_file" | awk '{print $1}')
+    else
+        actual_sha256=$(shasum -a 256 "$deb_file" | awk '{print $1}')
+    fi
+
+    if [ "$actual_sha256" != "$deb_sha256" ]; then
+        echo "ERROR: Pinned minizip package SHA-256 mismatch for $deb_url (expected $deb_sha256, got $actual_sha256)." >&2
         return 1
     fi
 
     dpkg-deb -x "$deb_file" "$extract_dir"
     lib_file=$(find "$extract_dir" -path '*/libminizip.a' | head -n1)
     if [ -z "$lib_file" ]; then
-        echo "ERROR: Extracted libminizip-dev payload did not contain libminizip.a. Install a compatible static minizip package manually or set R47_MINIZIP_PREFIX." >&2
+        echo "ERROR: Pinned minizip package did not contain libminizip.a. Set R47_MINIZIP_PREFIX." >&2
         return 1
     fi
 
