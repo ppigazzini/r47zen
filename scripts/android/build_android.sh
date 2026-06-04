@@ -4,6 +4,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=../lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
 SCRIPTS_DIR="$PROJECT_ROOT/scripts"
 ANDROID_SCRIPTS_DIR="$SCRIPTS_DIR/android"
@@ -330,35 +332,6 @@ if [ -n "${JAVA_HOME-}" ]; then
 else
     echo "WARNING: No local Java installation detected. Gradle build requires JDK 17+."
 fi
-
-normalize_job_count() {
-    case "$1" in
-        ''|*[!0-9]*|0)
-            return 1
-            ;;
-        *)
-            printf '%s\n' "$1"
-            ;;
-    esac
-}
-
-detect_job_count() {
-    local detected_jobs=""
-
-    if command -v nproc >/dev/null 2>&1; then
-        detected_jobs=$(nproc 2>/dev/null || true)
-    fi
-
-    if [ -z "$detected_jobs" ] && command -v getconf >/dev/null 2>&1; then
-        detected_jobs=$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)
-    fi
-
-    if ! detected_jobs=$(normalize_job_count "$detected_jobs"); then
-        detected_jobs=1
-    fi
-
-    printf '%s\n' "$detected_jobs"
-}
 
 R47_GRADLE_RUNNER_NOTICE_EMITTED=false
 
