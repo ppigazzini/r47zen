@@ -1,0 +1,69 @@
+name: Set up xlsxio toolchain
+description: Restore or build the pinned static xlsxio toolchain and expose its tools on PATH.
+
+inputs:
+  url:
+    description: xlsxio source repository URL.
+    required: true
+  commit:
+    description: xlsxio source commit to build.
+    required: true
+  prefix:
+    description: Install prefix used as the toolchain cache path.
+    required: true
+  jobs:
+    description: Parallel build job count.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Restore xlsxio toolchain cache
+      id: xlsxio-cache
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ inputs.prefix }}
+        key: ${{ runner.os }}-xlsxio-${{ inputs.commit }}-static-tools-v1
+
+    - name: Build upstream xlsxio toolchain
+      if: steps.xlsxio-cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        XLSXIO_URL: ${{ inputs.url }}
+        XLSXIO_COMMIT: ${{ inputs.commit }}
+        XLSXIO_PREFIX: ${{ inputs.prefix }}
+        XLSXIO_JOBS: ${{ inputs.jobs }}
+      run: |
+        set -euo pipefail
+
+        xlsxio_dir="${RUNNER_TEMP}/xlsxio"
+        rm -rf "$xlsxio_dir"
+        git init "$xlsxio_dir"
+        git -C "$xlsxio_dir" remote add origin "$XLSXIO_URL"
+        git -C "$xlsxio_dir" fetch --depth 1 origin "$XLSXIO_COMMIT"
+        git -C "$xlsxio_dir" checkout --detach FETCH_HEAD
+
+        mkdir -p "$XLSXIO_PREFIX"
+
+        cmake -S "$xlsxio_dir" -B "$xlsxio_dir/build" \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -DBUILD_STATIC=ON \
+          -DBUILD_SHARED=OFF \
+          -DBUILD_DOCUMENTATION=FALSE \
+          -DBUILD_EXAMPLES=FALSE \
+          -DBUILD_TOOLS=ON \
+          -DWITH_LIBZIP=OFF
+
+        cmake --build "$xlsxio_dir/build" --parallel "$XLSXIO_JOBS"
+        cmake --install "$xlsxio_dir/build" --prefix "$XLSXIO_PREFIX"
+
+    - name: Expose xlsxio toolchain
+      shell: bash
+      env:
+        XLSXIO_PREFIX: ${{ inputs.prefix }}
+      run: |
+        set -euo pipefail
+
+        echo "${XLSXIO_PREFIX}/bin" >> "$GITHUB_PATH"
+        export PATH="${XLSXIO_PREFIX}/bin:$PATH"
+        xlsxio_xlsx2csv -h > /dev/null
