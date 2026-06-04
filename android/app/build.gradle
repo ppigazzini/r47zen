@@ -404,6 +404,11 @@ android {
 
     lint {
         checkDependencies = true
+        // Gate new lint findings: warnings fail the build, with a baseline that
+        // grandfathers the current backlog. Refresh it with
+        // `./gradlew :app:updateLintBaseline`.
+        warningsAsErrors = true
+        baseline = file('lint-baseline.xml')
     }
 
     packaging {
