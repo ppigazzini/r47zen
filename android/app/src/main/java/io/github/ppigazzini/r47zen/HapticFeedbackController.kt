@@ -8,6 +8,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import android.view.View
+import androidx.core.content.edit
 
 internal class HapticFeedbackController(
     private val context: Context,
@@ -43,14 +44,14 @@ internal class HapticFeedbackController(
             }
 
             if (storedDuration != normalizedDuration || !hasUseAndroidDefault) {
-                preferences.edit().apply {
+                preferences.edit {
                     if (storedDuration != normalizedDuration) {
                         putInt(KEY_HAPTIC_KEYPRESS_DURATION_MS, normalizedDuration)
                     }
                     if (!hasUseAndroidDefault) {
                         putBoolean(KEY_HAPTIC_USE_ANDROID_DEFAULT, useAndroidDefault)
                     }
-                }.apply()
+                }
             }
         }
     }

@@ -2,6 +2,7 @@ package io.github.ppigazzini.r47zen
 
 import android.graphics.Color
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.toColorInt
 import kotlin.math.abs
 
 internal const val DEFAULT_LCD_THEME_STORAGE_VALUE = "high_contrast"
@@ -22,7 +23,7 @@ internal enum class LcdTheme(
         storageValue = DEFAULT_LCD_THEME_STORAGE_VALUE,
         minimumContrast = 5.0,
         lightTextBase = Color.BLACK,
-        lightBackgroundBase = Color.parseColor("#E0E0E0"),
+        lightBackgroundBase = "#E0E0E0".toColorInt(),
     ),
     VINTAGE(
         storageValue = LCD_THEME_VINTAGE_STORAGE_VALUE,
@@ -33,14 +34,14 @@ internal enum class LcdTheme(
     AMBER(
         storageValue = LCD_THEME_AMBER_STORAGE_VALUE,
         minimumContrast = 4.5,
-        lightTextBase = Color.parseColor("#4A2C00"),
-        lightBackgroundBase = Color.parseColor("#F4DEB0"),
+        lightTextBase = "#4A2C00".toColorInt(),
+        lightBackgroundBase = "#F4DEB0".toColorInt(),
     ),
     BLUE(
         storageValue = LCD_THEME_BLUE_STORAGE_VALUE,
         minimumContrast = 4.5,
-        lightTextBase = Color.parseColor("#102A43"),
-        lightBackgroundBase = Color.parseColor("#DCEEFF"),
+        lightTextBase = "#102A43".toColorInt(),
+        lightBackgroundBase = "#DCEEFF".toColorInt(),
     );
 
     fun lightPalette(): LcdPalette {

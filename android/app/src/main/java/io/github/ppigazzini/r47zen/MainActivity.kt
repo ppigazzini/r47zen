@@ -12,6 +12,7 @@ import android.view.*
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.TooltipCompat
+import androidx.core.content.edit
 import io.github.ppigazzini.r47zen.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
@@ -507,7 +508,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun markSettingsDiscoveryComplete() {
-        appPreferences.edit().putBoolean(PREF_SETTINGS_DISCOVERY_PENDING, false).apply()
+        appPreferences.edit { putBoolean(PREF_SETTINGS_DISCOVERY_PENDING, false) }
     }
 
     override fun onPause() {

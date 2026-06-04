@@ -11,6 +11,8 @@ import android.util.TypedValue
 import android.view.View
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.graphics.toColorInt
+import androidx.core.view.isVisible
 import kotlin.math.max
 
 internal data class KeypadFontSet(
@@ -78,17 +80,17 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val gPressedColor = Color.rgb(193, 235, 254)
         private val fgAccentColor = fAccentColor
         private val fgPressedColor = fPressedColor
-        private val alphaAccentColor = Color.parseColor("#E36C50")
-        private val letterColor = Color.parseColor("#A5A5A5")
+        private val alphaAccentColor = "#E36C50".toColorInt()
+        private val letterColor = "#A5A5A5".toColorInt()
         private val fourthLabelColor = Color.rgb(223, 223, 223)
-        private val longPressColor = Color.parseColor("#D4D8DD")
+        private val longPressColor = "#D4D8DD".toColorInt()
         private val mainKeyFillColor = Color.rgb(64, 64, 64)
-        private val mainKeyPressedColor = Color.parseColor("#744A2E")
+        private val mainKeyPressedColor = "#744A2E".toColorInt()
         private val softkeyEmptyColor = Color.rgb(32, 32, 32)
         private val softkeyReverseColor = Color.rgb(96, 96, 96)
         private val softkeyReversePressedColor = mainKeyPressedColor
-        private val softkeyLightTextColor = Color.parseColor("#F4F7F9")
-        private val softkeyMetaLightColor = Color.parseColor("#C9D0D6")
+        private val softkeyLightTextColor = "#F4F7F9".toColorInt()
+        private val softkeyMetaLightColor = "#C9D0D6".toColorInt()
         private val softkeyValueLightColor = Color.rgb(240, 191, 122)
         private val softkeyPreviewColor = Color.rgb(229, 171, 90)
     }
@@ -680,8 +682,8 @@ class CalculatorKeyView @JvmOverloads constructor(
             return null
         }
 
-        val hasFLabel = fLabel.visibility == View.VISIBLE && fLabel.text.isNotBlank()
-        val hasGLabel = hasFLabel && gLabel.visibility == View.VISIBLE && gLabel.text.isNotBlank()
+        val hasFLabel = fLabel.isVisible && fLabel.text.isNotBlank()
+        val hasGLabel = hasFLabel && gLabel.isVisible && gLabel.text.isNotBlank()
         if (!hasFLabel) {
             return null
         }
@@ -859,13 +861,13 @@ class CalculatorKeyView @JvmOverloads constructor(
             textScaleX = primaryLabel.textScaleX,
             underline = primaryLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
             strikeThrough = primaryLabel.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
-            visible = primaryLabel.visibility == View.VISIBLE,
+            visible = primaryLabel.isVisible,
         )
         primarySpec?.let(labels::add)
 
         val topFgLabelHorizontalGap = R47LabelLayoutPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
-        val hasFLabel = fLabel.visibility == View.VISIBLE && fLabel.text.isNotBlank()
-        val hasGLabel = hasFLabel && gLabel.visibility == View.VISIBLE && gLabel.text.isNotBlank()
+        val hasFLabel = fLabel.isVisible && fLabel.text.isNotBlank()
+        val hasGLabel = hasFLabel && gLabel.isVisible && gLabel.text.isNotBlank()
         val fWidth = if (hasFLabel) measureTextWidth(fLabel) else 0f
         val gWidth = if (hasGLabel) measureTextWidth(gLabel) else 0f
         val groupWidth = when {
@@ -972,7 +974,7 @@ class CalculatorKeyView @JvmOverloads constructor(
             else -> null
         }
 
-        val fourthLabelAnchor = if (letterLabel.visibility == View.VISIBLE && letterLabel.text.isNotBlank()) {
+        val fourthLabelAnchor = if (letterLabel.isVisible && letterLabel.text.isNotBlank()) {
             PointSpec(
                 x = bodyBounds.right +
                     R47LabelLayoutPolicy.FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT * referenceCellToViewWidthScale,

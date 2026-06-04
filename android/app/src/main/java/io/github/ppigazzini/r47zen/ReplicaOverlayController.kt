@@ -2,6 +2,7 @@ package io.github.ppigazzini.r47zen
 
 import android.content.Context
 import android.view.View
+import androidx.core.view.isEmpty
 
 internal object KeypadRefreshPolicy {
     const val ENABLE_UNCHANGED_SNAPSHOT_SKIP = true
@@ -91,7 +92,7 @@ internal class ReplicaOverlayController(
         this.softkeyDynamicMode = softkeyDynamicMode
         refreshGate.reset()
 
-        if (!isRuntimeReady() || overlay.childCount == 0) {
+        if (!isRuntimeReady() || overlay.isEmpty()) {
             return
         }
 

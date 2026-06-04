@@ -3,6 +3,7 @@ package io.github.ppigazzini.r47zen
 import android.content.SharedPreferences
 import android.view.Window
 import android.view.WindowManager
+import androidx.core.content.edit
 
 internal class MainActivityPreferenceController(
     private val preferences: SharedPreferences,
@@ -185,7 +186,7 @@ internal class MainActivityPreferenceController(
         val storedVolume = preferences.getInt(key, DEFAULT_BEEPER_VOLUME)
         val normalizedVolume = storedVolume.coerceIn(MIN_BEEPER_VOLUME, MAX_BEEPER_VOLUME)
         if (storedVolume != normalizedVolume) {
-            preferences.edit().putInt(key, normalizedVolume).apply()
+            preferences.edit { putInt(key, normalizedVolume) }
         }
         return normalizedVolume
     }
@@ -194,7 +195,7 @@ internal class MainActivityPreferenceController(
         val storedLuminance = preferences.getInt(KEY_LCD_LUMINANCE, DEFAULT_LCD_LUMINANCE)
         val normalizedLuminance = storedLuminance.coerceIn(MIN_LCD_LUMINANCE, MAX_LCD_LUMINANCE)
         if (storedLuminance != normalizedLuminance) {
-            preferences.edit().putInt(KEY_LCD_LUMINANCE, normalizedLuminance).apply()
+            preferences.edit { putInt(KEY_LCD_LUMINANCE, normalizedLuminance) }
         }
         return normalizedLuminance
     }
@@ -209,9 +210,9 @@ internal class MainActivityPreferenceController(
             MAX_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
         )
         if (storedWindowMillis != normalizedWindowMillis) {
-            preferences.edit()
-                .putInt(KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS, normalizedWindowMillis)
-                .apply()
+            preferences.edit {
+                putInt(KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS, normalizedWindowMillis)
+            }
         }
         return normalizedWindowMillis
     }
@@ -226,10 +227,10 @@ internal class MainActivityPreferenceController(
         val normalizedTheme = LcdThemePolicy.normalizeStorageValue(storedTheme)
         val needsWriteBack = !hasCurrentKey || storedTheme != normalizedTheme || preferences.contains(LEGACY_KEY_LCD_MODE)
         if (needsWriteBack) {
-            preferences.edit()
-                .putString(KEY_LCD_THEME, normalizedTheme)
-                .remove(LEGACY_KEY_LCD_MODE)
-                .apply()
+            preferences.edit {
+                putString(KEY_LCD_THEME, normalizedTheme)
+                remove(LEGACY_KEY_LCD_MODE)
+            }
         }
         return normalizedTheme
     }
@@ -241,7 +242,7 @@ internal class MainActivityPreferenceController(
         )
         val normalizedMode = MainKeyDynamicMode.fromStorageValue(storedMode)
         if (storedMode != normalizedMode.storageValue) {
-            preferences.edit().putString(KEY_MAIN_KEY_DYNAMIC_MODE, normalizedMode.storageValue).apply()
+            preferences.edit { putString(KEY_MAIN_KEY_DYNAMIC_MODE, normalizedMode.storageValue) }
         }
         return normalizedMode
     }
@@ -253,7 +254,7 @@ internal class MainActivityPreferenceController(
         )
         val normalizedMode = SoftkeyDynamicMode.fromStorageValue(storedMode)
         if (storedMode != normalizedMode.storageValue) {
-            preferences.edit().putString(KEY_SOFTKEY_DYNAMIC_MODE, normalizedMode.storageValue).apply()
+            preferences.edit { putString(KEY_SOFTKEY_DYNAMIC_MODE, normalizedMode.storageValue) }
         }
         return normalizedMode
     }

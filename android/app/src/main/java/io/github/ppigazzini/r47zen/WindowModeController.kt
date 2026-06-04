@@ -70,11 +70,6 @@ internal class WindowModeController(
     }
 
     fun isEnteringPictureInPicture(): Boolean {
-        return isMovingToPiP ||
-            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                activity.isInPictureInPictureMode
-            } else {
-                false
-            })
+        return isMovingToPiP || activity.isInPictureInPictureMode
     }
 }

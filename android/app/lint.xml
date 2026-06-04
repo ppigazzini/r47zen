@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+        Intentional, justified lint suppressions for the R47 Zen calculator app.
+        Everything else is gated by warningsAsErrors + lint-baseline.xml.
+    -->
+
+    <!-- The app is a fixed-orientation hardware-calculator replica; portrait is a
+         deliberate product contract, not an oversight. -->
+    <issue id="LockedOrientationActivity" severity="ignore" />
+    <issue id="DiscouragedApi" severity="ignore" />
+
+    <!-- Picture-in-picture entry is explicit via the display action, not auto-enter;
+         a full-screen replica does not benefit from setSourceRectHint. -->
+    <issue id="PictureInPictureIssue" severity="ignore" />
+
+    <!-- Full-screen, custom-drawn replica: opaque root backgrounds are intentional. -->
+    <issue id="Overdraw" severity="ignore" />
+
+    <!-- VibrationEffect constants are referenced only inside Build.VERSION.SDK_INT
+         guards in HapticFeedbackController. -->
+    <issue id="InlinedApi" severity="ignore" />
+
+    <!-- Settings-owned screens force English on purpose; the app ships no per-app
+         language splits and does not use Play Core locale delivery. -->
+    <issue id="AppBundleLocaleChanges" severity="ignore" />
+
+    <!-- The replica views route input through gesture detectors and the native core,
+         not standard click semantics; performClick is not the interaction model. -->
+    <issue id="ClickableViewAccessibility" severity="ignore" />
+
+    <!-- AGP and Gradle are pinned deliberately and bumped as an explicit toolchain
+         decision, not on every available patch. -->
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+</lint>

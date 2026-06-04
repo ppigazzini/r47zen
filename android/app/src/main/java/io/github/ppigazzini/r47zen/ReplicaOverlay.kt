@@ -16,6 +16,8 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.util.Log
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withTranslation
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -102,7 +104,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     private var showTouchZones = false
     private val chromeLayout = ReplicaChromeLayout(resources)
 
-    private val lcdBitmap = Bitmap.createBitmap(
+    private val lcdBitmap = createBitmap(
         R47LcdContract.PIXEL_WIDTH,
         R47LcdContract.PIXEL_HEIGHT,
         Bitmap.Config.ARGB_8888,
@@ -1018,13 +1020,12 @@ class ReplicaOverlay @JvmOverloads constructor(
                 orangePaint = settingsHintMenuOrangePaint,
                 bluePaint = settingsHintMenuBluePaint,
             )
-            canvas.save()
-            canvas.translate(
+            canvas.withTranslation(
                 hintLayoutCache.infoCardRect.left + hintLayoutCache.infoPaddingHorizontal,
                 hintLayoutCache.infoTextTop,
-            )
-            hintLayoutCache.infoLayout.draw(canvas)
-            canvas.restore()
+            ) {
+                hintLayoutCache.infoLayout.draw(this)
+            }
 
             postInvalidateOnAnimation()
         }

@@ -16,7 +16,7 @@ internal fun MaterialToolbar.configureScreenToolbar(
 
     navigationIcon = AppCompatResources.getDrawable(
         context,
-        androidx.appcompat.R.drawable.abc_ic_ab_back_material,
+        R.drawable.ic_toolbar_back,
     )?.mutate()
     navigationIcon?.setTint(MaterialColors.getColor(this, androidx.appcompat.R.attr.colorPrimary))
     setNavigationOnClickListener { onNavigateUp() }
@@ -24,7 +24,7 @@ internal fun MaterialToolbar.configureScreenToolbar(
     menu.clear()
     if (actionLabel != null && onAction != null) {
         menu.add(actionLabel).apply {
-            setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS or MenuItem.SHOW_AS_ACTION_WITH_TEXT)
+            setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM or MenuItem.SHOW_AS_ACTION_WITH_TEXT)
         }
         setOnMenuItemClickListener {
             onAction()

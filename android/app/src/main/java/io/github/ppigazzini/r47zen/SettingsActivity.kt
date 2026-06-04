@@ -11,6 +11,7 @@ import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.net.toUri
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
@@ -59,7 +60,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     )
 
     private fun openUrl(url: String) {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
     }
 
     private val treeLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -267,7 +268,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             treeUriString == null -> getString(R.string.settings_work_directory_summary_unset)
             WorkDirectory.isAccessible(context.contentResolver, treeUriString) -> {
                 val displayPath = try {
-                    WorkDirectory.formatDisplayPath(Uri.parse(treeUriString).path)
+                    WorkDirectory.formatDisplayPath(treeUriString.toUri().path)
                 } catch (_: Exception) {
                     getString(R.string.settings_work_directory_summary_unknown_folder)
                 }

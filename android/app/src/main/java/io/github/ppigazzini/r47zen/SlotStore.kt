@@ -1,6 +1,7 @@
 package io.github.ppigazzini.r47zen
 
 import android.content.Context
+import androidx.core.content.edit
 
 data class CalculatorSlot(val id: Int, var name: String, var uri: String?)
 
@@ -30,14 +31,14 @@ class SlotStore(private val context: Context) {
     }
 
     fun saveSlots(slots: List<CalculatorSlot>) {
-        val editor = slotPrefs().edit()
-        editor.clear()
-        editor.putInt(KEY_SLOT_COUNT, slots.size)
-        for (slot in slots) {
-            editor.putString("slot_${slot.id}_name", slot.name)
-            editor.putString("slot_${slot.id}_uri", slot.uri)
+        slotPrefs().edit {
+            clear()
+            putInt(KEY_SLOT_COUNT, slots.size)
+            for (slot in slots) {
+                putString("slot_${slot.id}_name", slot.name)
+                putString("slot_${slot.id}_uri", slot.uri)
+            }
         }
-        editor.apply()
     }
 
     fun readCurrentSlotId(): Int {
@@ -45,7 +46,7 @@ class SlotStore(private val context: Context) {
     }
 
     fun writeCurrentSlotId(slotId: Int) {
-        appPrefs().edit().putInt(KEY_CURRENT_SLOT, slotId).apply()
+        appPrefs().edit { putInt(KEY_CURRENT_SLOT, slotId) }
     }
 
     private fun appPrefs() = context.getSharedPreferences(APP_PREFS_NAME, Context.MODE_PRIVATE)

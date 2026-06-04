@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.util.AttributeSet
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.toColorInt
 import androidx.preference.PreferenceViewHolder
 import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.color.MaterialColors
@@ -28,13 +29,13 @@ internal class SettingsSwitchPreference @JvmOverloads constructor(
         val checkedTrack = MaterialColors.getColor(
             context,
             androidx.appcompat.R.attr.colorPrimary,
-            Color.parseColor("#FFC36F"),
+            "#FFC36F".toColorInt(),
         )
         val uncheckedTrack = ColorUtils.setAlphaComponent(
             MaterialColors.getColor(
                 context,
                 com.google.android.material.R.attr.colorOnSurface,
-                Color.parseColor("#F7F3EA"),
+                "#F7F3EA".toColorInt(),
             ),
             92,
         )
@@ -59,12 +60,12 @@ internal class SettingsSwitchPreference @JvmOverloads constructor(
         val checkedThumb = MaterialColors.getColor(
             context,
             com.google.android.material.R.attr.colorSecondary,
-            Color.parseColor("#8EDAFE"),
+            "#8EDAFE".toColorInt(),
         )
         val uncheckedThumb = MaterialColors.getColor(
             context,
             com.google.android.material.R.attr.colorOnSurface,
-            Color.parseColor("#F7F3EA"),
+            "#F7F3EA".toColorInt(),
         )
 
         return ColorStateList(

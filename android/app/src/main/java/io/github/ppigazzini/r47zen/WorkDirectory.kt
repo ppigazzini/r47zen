@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Log
+import androidx.core.content.edit
+import androidx.core.net.toUri
 
 internal data class WorkDirectoryDocumentEntry(
     val displayName: String,
@@ -24,7 +26,7 @@ internal interface WorkDirectoryDocumentAccess {
 private object AndroidWorkDirectoryDocumentAccess : WorkDirectoryDocumentAccess {
     override fun parseTreeUri(treeUriString: String): Uri? {
         return try {
-            Uri.parse(treeUriString)
+            treeUriString.toUri()
         } catch (_: Exception) {
             null
         }
@@ -115,8 +117,8 @@ internal object WorkDirectory {
 
     private fun migrateLegacyTreeUriIfNeeded(context: Context): String? {
         val migratedValue = legacyPrefs(context).getString(KEY_TREE_URI, null) ?: return null
-        prefs(context).edit().putString(KEY_TREE_URI, migratedValue).commit()
-        legacyPrefs(context).edit().remove(KEY_TREE_URI).apply()
+        prefs(context).edit { putString(KEY_TREE_URI, migratedValue) }
+        legacyPrefs(context).edit { remove(KEY_TREE_URI) }
         return migratedValue
     }
 
@@ -126,8 +128,8 @@ internal object WorkDirectory {
     }
 
     fun writeTreeUriString(context: Context, uri: Uri) {
-        prefs(context).edit().putString(KEY_TREE_URI, uri.toString()).apply()
-        legacyPrefs(context).edit().remove(KEY_TREE_URI).apply()
+        prefs(context).edit { putString(KEY_TREE_URI, uri.toString()) }
+        legacyPrefs(context).edit { remove(KEY_TREE_URI) }
     }
 
     fun clearTreeUriString(context: Context) {
@@ -145,8 +147,8 @@ internal object WorkDirectory {
             }
         }
 
-        prefs(context).edit().remove(KEY_TREE_URI).apply()
-        legacyPrefs(context).edit().remove(KEY_TREE_URI).apply()
+        prefs(context).edit { remove(KEY_TREE_URI) }
+        legacyPrefs(context).edit { remove(KEY_TREE_URI) }
     }
 
     fun persistSelectedTreeUri(context: Context, uri: Uri): String {
