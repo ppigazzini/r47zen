@@ -7,6 +7,8 @@ Repository: https://github.com/ppigazzini/r47zen
 
 Privacy contact mechanism: https://github.com/ppigazzini/r47zen/issues
 
+Last updated: 2026-06-04
+
 ## What This App Does
 
 R47 Zen RPN Calculator is a local calculator shell for Android. It runs the
@@ -72,7 +74,18 @@ This app keeps its session and preference data in Android app-private storage
 unless you explicitly choose an external Work Directory through the system
 document picker.
 
+## Google Play Data Safety
+
+This policy aligns with the app's Google Play Data safety declaration: the app
+collects no data and shares no data. It requests no Android Internet permission,
+so no data leaves the device for app operation. The only off-device storage is
+the optional Work Directory that you choose through the system document picker,
+where files are stored because you explicitly asked the app to use that
+location.
+
 ## Policy Updates
 
 When the app's data behavior changes, this policy should be updated in the
-source repository and in the app build that ships those changes.
+source repository and in the app build that ships those changes. Update the
+Last updated date above and keep the Google Play Data safety declaration in the
+Play Console aligned with this policy in the same change.

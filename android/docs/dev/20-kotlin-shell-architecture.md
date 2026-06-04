@@ -1,5 +1,10 @@
 # Kotlin Shell Architecture
 
+This page maps the Kotlin shell: the single-activity coordinator, helper
+ownership, lifecycle, storage, settings, slot flow, input flow, and direct
+live-stop routing. Read `00-project-and-upstream.md` and
+`10-build-and-source-layout.md` first.
+
 ## Top-level model
 
 The Android app is a single-activity, view-based shell around a long-lived

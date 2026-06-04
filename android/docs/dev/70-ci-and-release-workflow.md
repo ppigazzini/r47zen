@@ -21,22 +21,26 @@ flowchart TD
   B[resolve-upstream-core]
   C[upstream-release-gate]
   D[upstream-simulator-sanity]
-  E[android-build-test-package]
-  F[android-tests]
-  G[publish-signed-dev-prerelease<br/>main branch]
+  E[python-contracts]
+  F[android-build-test-package]
+  G[android-tests]
+  H[publish-main-snapshot<br/>main branch]
 
   A --> B --> C
   C --> D
   C --> E
-  C --> F
-  D --> G
+  E --> F
   E --> G
-  F --> G
+  D --> H
+  F --> H
+  G --> H
 ```
 
 ## CI At A Glance
 
 - resolve one authoritative upstream commit per workflow run
+- run the maintained Python contract suite as its own lane that gates the
+  Android build and test lanes
 - keep upstream simulator correctness separate from Android packaging and tests
 - keep the Android build lane as the normal-CI owner of the collector-driven
   host-core PGO artifact and release-native consumer check without making that
@@ -97,6 +101,22 @@ It:
 
 Use this lane as the first reference when a change looks like shared core,
 Meson, or upstream test drift rather than Android overlay drift.
+
+### `python-contracts`
+
+This job runs the maintained Python contract suite that locks Kotlin geometry,
+layout, and font owners to their checked-in contract sources.
+
+It:
+
+- checks out the repo
+- syncs the authoritative upstream tree
+- provisions Python 3.14 and `uv`
+- runs `bash ./scripts/r47_contracts/run_contract_suite.sh`
+
+It gates `android-build-test-package` and `android-tests`, so a contract drift
+fails fast before the Android build and instrumentation lanes run. See
+`80-tests-and-contracts.md` for the contract-to-suite map.
 
 ### `android-build-test-package`
 

@@ -88,3 +88,5 @@ Key maintainer pages:
   artifacts, and publication flow.
 - `android/docs/dev/80-tests-and-contracts.md`: the maintainer map of test
   surfaces, contract owners, and rerun lanes.
+- `android/docs/dev/90-official-references.md`: official Android, NDK, Gradle,
+  Kotlin, GitHub Actions, and upstream reference surfaces.
