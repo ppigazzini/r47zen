@@ -12,7 +12,7 @@ METADATA_SCRIPT="$SCRIPT_DIR/generate_staged_native_metadata.sh"
 INPUTS_SCRIPT="$SCRIPT_DIR/compute_staged_native_inputs.sh"
 
 usage() {
-        cat <<'EOF'
+    cat <<'EOF'
 Usage:
     scripts/android/stage_native_sources.sh [--cpp-dir <dir>]
 EOF
@@ -59,7 +59,7 @@ while [ "$#" -gt 0 ]; do
             }
             CPP_DIR="$1"
             ;;
-        -h|--help)
+        -h | --help)
             usage
             exit 0
             ;;
@@ -100,7 +100,7 @@ for generated_file in "${generated_files[@]}"; do
     cp -v "$generated_file" "$GENERATED_DEST/"
 done
 
-cat > "$GENERATED_DEST/vcs.h" <<EOF
+cat >"$GENERATED_DEST/vcs.h" <<EOF
 #if !defined(VCS_H)
   #define VCS_H
   #define VCS_COMMIT_ID  "$CORE_HASH-mod"

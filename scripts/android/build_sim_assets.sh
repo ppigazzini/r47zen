@@ -95,7 +95,7 @@ main() {
             --run-tests)
                 RUN_TESTS=true
                 ;;
-            -h|--help)
+            -h | --help)
                 usage
                 exit 0
                 ;;

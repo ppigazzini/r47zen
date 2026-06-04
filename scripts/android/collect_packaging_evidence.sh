@@ -167,7 +167,7 @@ while [[ $# -gt 0 ]]; do
             native_symbols_file="$2"
             shift 2
             ;;
-        --help|-h)
+        --help | -h)
             usage
             exit 0
             ;;
@@ -262,7 +262,7 @@ extract_packaged_compliance_assets() {
     fi
 
     if [[ "$copied_any" -eq 1 ]]; then
-        find "$compliance_dir" -type f | sed "s#^$destination_dir/##" | sort > "$destination_dir/PACKAGED-COMPLIANCE-ASSETS.txt"
+        find "$compliance_dir" -type f | sed "s#^$destination_dir/##" | sort >"$destination_dir/PACKAGED-COMPLIANCE-ASSETS.txt"
         return 0
     else
         rm -rf "$compliance_dir"
@@ -275,13 +275,13 @@ write_metadata_line() {
     local value="$2"
     local target_file="$3"
     if [[ -n "$value" ]]; then
-        printf '%s=%s\n' "$key" "$value" >> "$target_file"
+        printf '%s=%s\n' "$key" "$value" >>"$target_file"
     fi
 }
 
 write_xlsxio_license() {
     local target_file="$1"
-    cat > "$target_file" <<'EOF'
+    cat >"$target_file" <<'EOF'
 Copyright (C) 2016 Brecht Sanders All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
@@ -307,7 +307,7 @@ EOF
 
 write_source_manifest() {
     local target_file="$1"
-    : > "$target_file"
+    : >"$target_file"
     write_metadata_line "upstream_url" "$upstream_source_repository_url" "$target_file"
     write_metadata_line "upstream_commit" "$upstream_source_commit" "$target_file"
     write_metadata_line "android_source_repository_url" "$android_source_repository_url" "$target_file"
@@ -392,7 +392,7 @@ if [[ "$artifact_type" == "apk" ]]; then
     if [[ -n "$expected_abis" ]]; then
         expected_file="$tmp_dir/expected-abis.txt"
         actual_file="$output_dir/abis.txt"
-        tr ',' '\n' <<< "$expected_abis" | sed '/^$/d' | sort > "$expected_file"
+        tr ',' '\n' <<<"$expected_abis" | sed '/^$/d' | sort >"$expected_file"
         find "$unpack_dir/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tee "$actual_file"
         diff -u "$expected_file" "$actual_file"
     fi
@@ -414,13 +414,13 @@ if [[ "$artifact_type" == "apk" ]]; then
 
     elf_report="$output_dir/elf-load-segments.txt"
     below_16k_report="$tmp_dir/elf-load-segments-below-16k.txt"
-    : > "$elf_report"
+    : >"$elf_report"
     while IFS= read -r -d '' so_file; do
         {
             echo "== ${so_file#$unpack_dir/} =="
             "$llvm_objdump" -p "$so_file" | grep 'LOAD'
             echo
-        } >> "$elf_report"
+        } >>"$elf_report"
     done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)
 
     awk '
@@ -444,7 +444,7 @@ if [[ "$artifact_type" == "apk" ]]; then
                 }
             }
         }
-    ' "$elf_report" > "$below_16k_report"
+    ' "$elf_report" >"$below_16k_report"
 
     if [[ -s "$below_16k_report" ]]; then
         cat "$below_16k_report" >&2
@@ -473,16 +473,16 @@ if [[ -n "$native_symbols_file" ]]; then
 fi
 
 if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$release_artifact" > "$output_dir/SHA256SUMS.txt"
+    sha256sum "$release_artifact" >"$output_dir/SHA256SUMS.txt"
 elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$release_artifact" > "$output_dir/SHA256SUMS.txt"
+    shasum -a 256 "$release_artifact" >"$output_dir/SHA256SUMS.txt"
 else
     echo "Neither sha256sum nor shasum is available." >&2
     exit 1
 fi
 
 build_metadata_file="$output_dir/BUILD-METADATA.txt"
-: > "$build_metadata_file"
+: >"$build_metadata_file"
 write_metadata_line "ref" "$git_ref" "$build_metadata_file"
 write_metadata_line "sha" "$git_sha" "$build_metadata_file"
 write_metadata_line "run_id" "$run_id" "$build_metadata_file"

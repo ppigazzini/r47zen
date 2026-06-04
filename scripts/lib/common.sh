@@ -11,7 +11,7 @@
 # Echo a positive integer job count, or fail (return 1) for empty/non-numeric/0.
 normalize_job_count() {
     case "$1" in
-        ''|*[!0-9]*|0)
+        '' | *[!0-9]* | 0)
             return 1
             ;;
         *)

@@ -65,7 +65,7 @@ normalize_job_count() {
     local value="$1"
 
     case "$value" in
-        ''|*[!0-9]*)
+        '' | *[!0-9]*)
             return 1
             ;;
         0)
@@ -244,7 +244,7 @@ main() {
 
     while [ "$#" -gt 0 ]; do
         case "$1" in
-            -h|--help)
+            -h | --help)
                 usage
                 exit 0
                 ;;

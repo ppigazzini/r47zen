@@ -53,13 +53,13 @@ EOF
 }
 
 fail() {
-        echo "ERROR: $*" >&2
-        exit 1
+    echo "ERROR: $*" >&2
+    exit 1
 }
 
 is_truthy() {
     case "${1:-}" in
-        1|true|TRUE|yes|YES|on|ON)
+        1 | true | TRUE | yes | YES | on | ON)
             return 0
             ;;
         *)
@@ -82,7 +82,7 @@ normalize_abi_filter_csv() {
     local abi=""
     local -a raw_abis=()
 
-    IFS=',' read -r -a raw_abis <<< "$raw_csv"
+    IFS=',' read -r -a raw_abis <<<"$raw_csv"
 
     for abi in "${raw_abis[@]}"; do
         abi=$(printf '%s' "$abi" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -111,7 +111,7 @@ resolve_gradle_abi_filters_override() {
         return 1
     fi
 
-    read -r -a parsed_gradle_args <<< "${R47_GRADLE_ARGS}"
+    read -r -a parsed_gradle_args <<<"${R47_GRADLE_ARGS}"
 
     for gradle_arg in "${parsed_gradle_args[@]}"; do
         case "$gradle_arg" in
@@ -248,7 +248,7 @@ while [ "$#" -gt 0 ]; do
             VERIFY_PACKAGING_DIR="$2"
             shift 2
             ;;
-        --help|-h)
+        --help | -h)
             usage
             exit 0
             ;;
@@ -336,7 +336,7 @@ fi
 R47_GRADLE_RUNNER_NOTICE_EMITTED=false
 
 ensure_repo_gradle_wrapper() {
-    [ -x "$ANDROID_PROJECT_DIR/gradlew" ] || \
+    [ -x "$ANDROID_PROJECT_DIR/gradlew" ] ||
         fail "Missing repo Gradle wrapper launcher at $ANDROID_PROJECT_DIR/gradlew. Restore the tracked wrapper files for Gradle $R47_DEFAULT_ANDROID_GRADLE_VERSION instead of using a host gradle command."
 }
 
@@ -368,7 +368,7 @@ run_host_pgo_collector() {
         bash "$SCRIPTS_DIR/workload-regressions/collect_host_pgo_profile.sh" "${collector_args[@]}"
     )
 
-    [ -f "$COLLECTED_HOST_PGO_PROFILE_PATH" ] || \
+    [ -f "$COLLECTED_HOST_PGO_PROFILE_PATH" ] ||
         fail "Host-core PGO collection did not produce $COLLECTED_HOST_PGO_PROFILE_PATH"
 }
 
@@ -435,7 +435,7 @@ ensure_upstream_core_hydrated() {
     bash "$SCRIPTS_DIR/upstream-sync/hydrate_submodules.sh" \
         "$RESOLVED_UPSTREAM_COMMIT" "$RESOLVED_UPSTREAM_URL"
 
-    upstream_sim_inputs_are_hydrated || \
+    upstream_sim_inputs_are_hydrated ||
         fail "Incomplete upstream core or shared root build inputs after sync. Run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock in a clean worktree before running ./scripts/android/build_android.sh."
 }
 
@@ -503,11 +503,11 @@ ensure_local_minizip_prefix() {
 
     host_arch=$(uname -m)
     case "$host_arch" in
-        x86_64|amd64)
+        x86_64 | amd64)
             deb_url="${R47_DEFAULT_MINIZIP_AMD64_URL-}"
             deb_sha256="${R47_DEFAULT_MINIZIP_AMD64_SHA256-}"
             ;;
-        aarch64|arm64)
+        aarch64 | arm64)
             deb_url="${R47_DEFAULT_MINIZIP_ARM64_URL-}"
             deb_sha256="${R47_DEFAULT_MINIZIP_ARM64_SHA256-}"
             ;;
@@ -599,7 +599,7 @@ ensure_canonical_font_assets_available() {
 }
 
 write_local_properties() {
-    echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ANDROID_PROJECT_DIR/local.properties"
+    echo "sdk.dir=$ANDROID_SDK_ROOT" >"$ANDROID_PROJECT_DIR/local.properties"
 }
 
 compute_current_staged_inputs() {
@@ -823,13 +823,13 @@ fi
 
 echo "======================================================="
 echo "R47 Android Builder"
-echo "Mode: $( [ "$ANDROID_ONLY" = true ] && printf 'android-only' || printf 'full' )"
+echo "Mode: $([ "$ANDROID_ONLY" = true ] && printf 'android-only' || printf 'full')"
 echo "SDK: $ANDROID_SDK_ROOT"
 echo "NDK: $ANDROID_NDK_ROOT"
 echo "Jobs: $R47_BUILD_JOBS"
-echo "Simulator tests: $( [ "$RUN_SIM_TESTS" = true ] && printf 'enabled' || printf 'disabled' )"
-echo "Host-core PGO collection: $( [ "$COLLECT_HOST_PGO" = true ] && printf 'enabled' || printf 'disabled' )"
-echo "Release-native PGO validation: $( [ "$VALIDATE_RELEASE_PGO" = true ] && printf 'enabled' || printf 'disabled' )"
+echo "Simulator tests: $([ "$RUN_SIM_TESTS" = true ] && printf 'enabled' || printf 'disabled')"
+echo "Host-core PGO collection: $([ "$COLLECT_HOST_PGO" = true ] && printf 'enabled' || printf 'disabled')"
+echo "Release-native PGO validation: $([ "$VALIDATE_RELEASE_PGO" = true ] && printf 'enabled' || printf 'disabled')"
 if [ "$COLLECT_HOST_PGO" = true ] || [ "$VALIDATE_RELEASE_PGO" = true ]; then
     echo "Host-core PGO output dir: ${HOST_PGO_OUTPUT_DIR:-$DEFAULT_HOST_PGO_OUTPUT_DIR}"
 fi

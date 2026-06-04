@@ -16,9 +16,12 @@ concurrency:
 
 jobs:
   shellcheck:
-    name: ShellCheck repo-owned shell scripts
+    name: Lint and format-check repo-owned shell scripts
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      SHFMT_VERSION: v3.13.1
+      SHFMT_SHA256: fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1
     steps:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -33,6 +36,17 @@ jobs:
           sudo apt-get install --yes --no-install-recommends shellcheck
           shellcheck --version
 
+      - name: Install shfmt
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" \
+            --output /usr/local/bin/shfmt
+          echo "${SHFMT_SHA256}  /usr/local/bin/shfmt" | sha256sum --check --status
+          chmod +x /usr/local/bin/shfmt
+          shfmt --version
+
       - name: Lint repo-owned shell scripts
         shell: bash
         run: |
@@ -40,3 +54,11 @@ jobs:
           mapfile -t shell_scripts < <(find scripts -name '*.sh' | LC_ALL=C sort)
           printf 'Linting %d repo-owned shell scripts at --severity=warning\n' "${#shell_scripts[@]}"
           shellcheck --severity=warning "${shell_scripts[@]}"
+
+      - name: Format-check repo-owned shell scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t shell_scripts < <(find scripts -name '*.sh' | LC_ALL=C sort)
+          printf 'Format-checking %d repo-owned shell scripts with shfmt -i 4 -ci\n' "${#shell_scripts[@]}"
+          shfmt -i 4 -ci -d "${shell_scripts[@]}"

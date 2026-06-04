@@ -111,7 +111,7 @@ join_with_delimiter() {
 
 validate_positive_integer() {
     case "$1" in
-        ''|*[!0-9]*|0)
+        '' | *[!0-9]* | 0)
             fail "$2 must be a positive integer."
             ;;
     esac
@@ -216,18 +216,18 @@ resolve_ndk_llvm_major_version() {
     local version_text=""
 
     version_text="$($CLANG_BIN --version | head -n1)"
-    sed -nE 's/.*clang version ([0-9]+).*/\1/p' <<< "$version_text"
+    sed -nE 's/.*clang version ([0-9]+).*/\1/p' <<<"$version_text"
 }
 
 resolve_host_profile_runtime_suffix() {
     case "$(uname -m)" in
-        x86_64|amd64)
+        x86_64 | amd64)
             printf '%s\n' "x86_64"
             ;;
-        aarch64|arm64)
+        aarch64 | arm64)
             printf '%s\n' "aarch64"
             ;;
-        i386|i686)
+        i386 | i686)
             printf '%s\n' "i386"
             ;;
         *)
@@ -443,7 +443,7 @@ prepare_training_input() {
             ;;
     esac
 
-    printf '%s\n' "${TRAINING_WORKLOAD_ENTRIES[@]}" > "$WORKLOAD_LIST_PATH"
+    printf '%s\n' "${TRAINING_WORKLOAD_ENTRIES[@]}" >"$WORKLOAD_LIST_PATH"
     TRAINING_WORKLOAD_ENTRIES_CSV=$(join_with_delimiter ',' "${TRAINING_WORKLOAD_ENTRIES[@]}")
     TRAINING_GENERATED_INPUTS_CSV=$(join_with_delimiter ',' "${GENERATED_TRAINING_INPUTS[@]}")
 }
@@ -503,10 +503,10 @@ should_collect_program_fixture_overlay() {
 
     if [[ -n "$requested_state" ]]; then
         case "$requested_state" in
-            1|true|TRUE|yes|YES|on|ON)
+            1 | true | TRUE | yes | YES | on | ON)
                 return 0
                 ;;
-            0|false|FALSE|no|NO|off|OFF)
+            0 | false | FALSE | no | NO | off | OFF)
                 return 1
                 ;;
             *)
@@ -545,7 +545,7 @@ resolve_program_fixture_overlay_root() {
     warn "Program fixture root is not already staged; collecting canonical PROGRAMS fixtures into $staged_root"
     bash "$PROGRAM_FIXTURE_STAGING_SCRIPT" --output-dir "$staged_root" >&2
 
-    [[ -d "$staged_root/PROGRAMS" ]] || \
+    [[ -d "$staged_root/PROGRAMS" ]] ||
         fail "Program fixture staging did not produce $staged_root/PROGRAMS"
 
     out_root_ref="$staged_root/PROGRAMS"
@@ -658,9 +658,9 @@ configure_instrumented_build() {
         CFLAGS="$INSTRUMENT_CFLAGS" \
         LDFLAGS="$INSTRUMENT_LDFLAGS" \
         meson setup "$HOST_BUILD_DIR" \
-            --buildtype="$MESON_BUILD_TYPE" \
-            -DRASPBERRY=false \
-            -DDECNUMBER_FASTMUL=true
+        --buildtype="$MESON_BUILD_TYPE" \
+        -DRASPBERRY=false \
+        -DDECNUMBER_FASTMUL=true
 
     validate_effective_cflags "$HOST_BUILD_DIR" "-flto=thin -fprofile-generate=$RAW_PROFILE_DIR"
 
@@ -723,7 +723,7 @@ while [[ "$#" -gt 0 ]]; do
             [[ "$#" -gt 0 ]] || fail "Missing value for --training-workload"
             TRAINING_WORKLOAD_RAW="$1"
             ;;
-        -h|--help)
+        -h | --help)
             usage
             exit 0
             ;;
@@ -807,14 +807,14 @@ if should_collect_program_fixture_overlay; then
         PROGRAM_FIXTURE_OVERLAY_PROGRAM_ROOT \
         PROGRAM_FIXTURE_OVERLAY_PROGRAM_ROOT_SOURCE
     PROGRAM_FIXTURE_OVERLAY_RUNTIME_CWD=$(resolve_program_fixture_runtime_cwd)
-    PROGRAM_FIXTURE_OVERLAY_ELAPSED_SECONDS=$( \
+    PROGRAM_FIXTURE_OVERLAY_ELAPSED_SECONDS=$(
         CC="$CLANG_BIN" \
-        CFLAGS="$PROGRAM_FIXTURE_CFLAGS" \
-        LDFLAGS="$PROGRAM_FIXTURE_LDFLAGS" \
-        HOST_WORKLOAD_BUILD_DIR="$PROGRAM_FIXTURE_BUILD_DIR" \
-        HOST_WORKLOAD_OUTPUT_NAME="$PROGRAM_FIXTURE_OUTPUT_NAME" \
-        PROGRAM_ROOT="$PROGRAM_FIXTURE_OVERLAY_PROGRAM_ROOT" \
-        run_program_fixture_profile_overlay "$PROGRAM_FIXTURE_OVERLAY_RUNTIME_CWD" \
+            CFLAGS="$PROGRAM_FIXTURE_CFLAGS" \
+            LDFLAGS="$PROGRAM_FIXTURE_LDFLAGS" \
+            HOST_WORKLOAD_BUILD_DIR="$PROGRAM_FIXTURE_BUILD_DIR" \
+            HOST_WORKLOAD_OUTPUT_NAME="$PROGRAM_FIXTURE_OUTPUT_NAME" \
+            PROGRAM_ROOT="$PROGRAM_FIXTURE_OVERLAY_PROGRAM_ROOT" \
+            run_program_fixture_profile_overlay "$PROGRAM_FIXTURE_OVERLAY_RUNTIME_CWD"
     )
 fi
 
@@ -828,7 +828,7 @@ fi
     --output="$PROFILE_PATH" \
     "${RAW_PROFILES[@]}"
 
-cat > "$METADATA_PATH" <<EOF
+cat >"$METADATA_PATH" <<EOF
 collector=host-testsuite-pgo
 profile_path=$PROFILE_PATH
 training_workload=$TRAINING_WORKLOAD_ID

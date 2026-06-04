@@ -136,7 +136,7 @@ digest_tree() {
     while IFS= read -r absolute_path; do
         relative_path="${absolute_path#$source_dir/}"
         digest=$("${SHA256_CMD[@]}" "$absolute_path" | awk '{print $1}')
-        printf '%s  %s\n' "$digest" "$relative_path" >> "$temp_manifest"
+        printf '%s  %s\n' "$digest" "$relative_path" >>"$temp_manifest"
     done < <(find "$source_dir" -type f | LC_ALL=C sort)
 
     digest=$("${SHA256_CMD[@]}" "$temp_manifest" | awk '{print $1}')
@@ -155,7 +155,7 @@ digest_explicit_files() {
     for file_path in "$@"; do
         require_file "$file_path" "fingerprint source file"
         digest=$("${SHA256_CMD[@]}" "$file_path" | awk '{print $1}')
-        printf '%s  %s\n' "$digest" "$(relative_to_project_root "$file_path")" >> "$temp_manifest"
+        printf '%s  %s\n' "$digest" "$(relative_to_project_root "$file_path")" >>"$temp_manifest"
     done
 
     digest=$("${SHA256_CMD[@]}" "$temp_manifest" | awk '{print $1}')
@@ -178,7 +178,7 @@ emit_output() {
 
     temp_output=$(mktemp)
 
-    cat > "$temp_output" <<EOF
+    cat >"$temp_output" <<EOF
 R47_STAGED_CORE_VERSION=$STAGED_CORE_VERSION
 R47_STAGED_FONT_SOURCE=$(relative_to_project_root "$font_source_dir")
 R47_STAGED_GMP_SOURCE=$(relative_to_project_root "$gmp_source_dir")
@@ -216,7 +216,7 @@ main() {
                 [ "$#" -gt 0 ] || fail "Missing value for --output"
                 OUTPUT_PATH="$1"
                 ;;
-            -h|--help)
+            -h | --help)
                 usage
                 exit 0
                 ;;
@@ -243,11 +243,11 @@ main() {
     gmp_fingerprint=$(digest_tree "$gmp_source_dir")
 
     temp_manifest=$(mktemp)
-    printf 'c47=%s\n' "$c47_fingerprint" >> "$temp_manifest"
-    printf 'decNumberICU=%s\n' "$decnumber_fingerprint" >> "$temp_manifest"
-    printf 'generated=%s\n' "$generated_fingerprint" >> "$temp_manifest"
-    printf 'fonts=%s\n' "$fonts_fingerprint" >> "$temp_manifest"
-    printf 'gmp=%s\n' "$gmp_fingerprint" >> "$temp_manifest"
+    printf 'c47=%s\n' "$c47_fingerprint" >>"$temp_manifest"
+    printf 'decNumberICU=%s\n' "$decnumber_fingerprint" >>"$temp_manifest"
+    printf 'generated=%s\n' "$generated_fingerprint" >>"$temp_manifest"
+    printf 'fonts=%s\n' "$fonts_fingerprint" >>"$temp_manifest"
+    printf 'gmp=%s\n' "$gmp_fingerprint" >>"$temp_manifest"
     combined_fingerprint=$("${SHA256_CMD[@]}" "$temp_manifest" | awk '{print $1}')
     rm -f "$temp_manifest"
 

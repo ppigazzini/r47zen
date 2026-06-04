@@ -63,7 +63,7 @@ emit_fixture_timeout_warning() {
     fi
 
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-        printf '%s\n' "- Warning: $message" >> "$GITHUB_STEP_SUMMARY"
+        printf '%s\n' "- Warning: $message" >>"$GITHUB_STEP_SUMMARY"
     fi
 }
 
@@ -96,7 +96,7 @@ run_host_workload_fixture() {
             emit_fixture_timeout_warning "$fixture" "the bounded workload deadline expired inside the host harness"
             return 0
             ;;
-        124|137)
+        124 | 137)
             emit_fixture_timeout_warning "$fixture" "the outer timeout had to kill the hung workload process"
             return 0
             ;;
@@ -137,7 +137,7 @@ if ! command -v "$TIMEOUT_BIN" >/dev/null 2>&1; then
 fi
 
 for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
-    IFS='|' read -r fixture _ _ <<< "$fixture_spec"
+    IFS='|' read -r fixture _ _ <<<"$fixture_spec"
     if [[ ! -f "$PROGRAM_ROOT/$fixture" ]]; then
         fail "Program root $PROGRAM_ROOT is missing $fixture."
     fi
@@ -193,15 +193,15 @@ EXTRA_CFLAGS=()
 EXTRA_LDFLAGS=()
 
 if [[ -n "${CPPFLAGS:-}" ]]; then
-    read -r -a EXTRA_CPPFLAGS <<< "${CPPFLAGS}"
+    read -r -a EXTRA_CPPFLAGS <<<"${CPPFLAGS}"
 fi
 
 if [[ -n "${CFLAGS:-}" ]]; then
-    read -r -a EXTRA_CFLAGS <<< "${CFLAGS}"
+    read -r -a EXTRA_CFLAGS <<<"${CFLAGS}"
 fi
 
 if [[ -n "${LDFLAGS:-}" ]]; then
-    read -r -a EXTRA_LDFLAGS <<< "${LDFLAGS}"
+    read -r -a EXTRA_LDFLAGS <<<"${LDFLAGS}"
 fi
 
 "$CC_BIN" -std=c99 -O0 -g -pthread \
@@ -240,6 +240,6 @@ fi
     -o "$BUILD_DIR/$HOST_WORKLOAD_OUTPUT_NAME"
 
 for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
-    IFS='|' read -r fixture timeout_duration kill_after <<< "$fixture_spec"
+    IFS='|' read -r fixture timeout_duration kill_after <<<"$fixture_spec"
     run_host_workload_fixture "$fixture" "$TIMEOUT_BIN" "$timeout_duration" "$kill_after"
 done

@@ -26,3 +26,10 @@ repos:
         # is Gradle-generated and not maintained here.
         files: ^scripts/.*\.sh$
         args: [--severity=warning]
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.1-1
+    hooks:
+      - id: shfmt
+        # Format repo-owned shell scripts: 4-space indent, indented case bodies.
+        files: ^scripts/.*\.sh$
+        args: [-w, -i, '4', -ci]

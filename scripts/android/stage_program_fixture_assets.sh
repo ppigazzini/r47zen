@@ -62,7 +62,7 @@ stage_program_fixtures() {
     git -C "$PROJECT_ROOT" fetch --depth 1 "$UPSTREAM_REMOTE_NAME" "$R47_RESOLVED_UPSTREAM_COMMIT"
     git -C "$PROJECT_ROOT" archive --format=tar "$R47_RESOLVED_UPSTREAM_COMMIT" res/PROGRAMS | tar -C "$TEMP_DIR" -xf -
 
-    [[ -d "$TEMP_DIR/res/PROGRAMS" ]] || \
+    [[ -d "$TEMP_DIR/res/PROGRAMS" ]] ||
         fail "Resolved upstream ${R47_RESOLVED_UPSTREAM_COMMIT} does not contain res/PROGRAMS"
 
     rm -rf "$OUTPUT_DIR"
@@ -88,7 +88,7 @@ main() {
                 UPSTREAM_SOURCE_COMMIT="$2"
                 shift 2
                 ;;
-            -h|--help)
+            -h | --help)
                 usage
                 exit 0
                 ;;

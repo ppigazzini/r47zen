@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
             xlsxio_source_commit="$2"
             shift 2
             ;;
-        --help|-h)
+        --help | -h)
             usage
             exit 0
             ;;
@@ -151,9 +151,9 @@ append_described() {
     local id="$1"
 
     if [[ -s "$tmp_dir/describes.json" ]]; then
-        printf ',\n' >> "$tmp_dir/describes.json"
+        printf ',\n' >>"$tmp_dir/describes.json"
     fi
-    printf '    "%s"' "$(json_escape "$id")" >> "$tmp_dir/describes.json"
+    printf '    "%s"' "$(json_escape "$id")" >>"$tmp_dir/describes.json"
 }
 
 append_package() {
@@ -169,44 +169,44 @@ append_package() {
     local external_ref="${10}"
 
     if [[ -s "$tmp_dir/packages.json" ]]; then
-        printf ',\n' >> "$tmp_dir/packages.json"
+        printf ',\n' >>"$tmp_dir/packages.json"
     fi
 
-    printf '    {\n' >> "$tmp_dir/packages.json"
-    printf '      "SPDXID": "%s",\n' "$(json_escape "$id")" >> "$tmp_dir/packages.json"
-    printf '      "name": "%s",\n' "$(json_escape "$name")" >> "$tmp_dir/packages.json"
-    printf '      "downloadLocation": "%s",\n' "$(json_escape "${download_location:-NOASSERTION}")" >> "$tmp_dir/packages.json"
-    printf '      "filesAnalyzed": false,\n' >> "$tmp_dir/packages.json"
-    printf '      "licenseConcluded": "NOASSERTION",\n' >> "$tmp_dir/packages.json"
-    printf '      "licenseDeclared": "%s",\n' "$(json_escape "${license_declared:-NOASSERTION}")" >> "$tmp_dir/packages.json"
-    printf '      "copyrightText": "NOASSERTION"' >> "$tmp_dir/packages.json"
+    printf '    {\n' >>"$tmp_dir/packages.json"
+    printf '      "SPDXID": "%s",\n' "$(json_escape "$id")" >>"$tmp_dir/packages.json"
+    printf '      "name": "%s",\n' "$(json_escape "$name")" >>"$tmp_dir/packages.json"
+    printf '      "downloadLocation": "%s",\n' "$(json_escape "${download_location:-NOASSERTION}")" >>"$tmp_dir/packages.json"
+    printf '      "filesAnalyzed": false,\n' >>"$tmp_dir/packages.json"
+    printf '      "licenseConcluded": "NOASSERTION",\n' >>"$tmp_dir/packages.json"
+    printf '      "licenseDeclared": "%s",\n' "$(json_escape "${license_declared:-NOASSERTION}")" >>"$tmp_dir/packages.json"
+    printf '      "copyrightText": "NOASSERTION"' >>"$tmp_dir/packages.json"
 
     if [[ -n "$version_info" ]]; then
-        printf ',\n      "versionInfo": "%s"' "$(json_escape "$version_info")" >> "$tmp_dir/packages.json"
+        printf ',\n      "versionInfo": "%s"' "$(json_escape "$version_info")" >>"$tmp_dir/packages.json"
     fi
     if [[ -n "$summary" ]]; then
-        printf ',\n      "summary": "%s"' "$(json_escape "$summary")" >> "$tmp_dir/packages.json"
+        printf ',\n      "summary": "%s"' "$(json_escape "$summary")" >>"$tmp_dir/packages.json"
     fi
     if [[ -n "$homepage" ]]; then
-        printf ',\n      "homepage": "%s"' "$(json_escape "$homepage")" >> "$tmp_dir/packages.json"
+        printf ',\n      "homepage": "%s"' "$(json_escape "$homepage")" >>"$tmp_dir/packages.json"
     fi
     if [[ -n "$license_comments" ]]; then
-        printf ',\n      "licenseComments": "%s"' "$(json_escape "$license_comments")" >> "$tmp_dir/packages.json"
+        printf ',\n      "licenseComments": "%s"' "$(json_escape "$license_comments")" >>"$tmp_dir/packages.json"
     fi
     if [[ -n "$source_info" ]]; then
-        printf ',\n      "sourceInfo": "%s"' "$(json_escape "$source_info")" >> "$tmp_dir/packages.json"
+        printf ',\n      "sourceInfo": "%s"' "$(json_escape "$source_info")" >>"$tmp_dir/packages.json"
     fi
     if [[ -n "$external_ref" ]]; then
-        printf ',\n      "externalRefs": [\n' >> "$tmp_dir/packages.json"
-        printf '        {\n' >> "$tmp_dir/packages.json"
-        printf '          "referenceCategory": "PACKAGE-MANAGER",\n' >> "$tmp_dir/packages.json"
-        printf '          "referenceType": "purl",\n' >> "$tmp_dir/packages.json"
-        printf '          "referenceLocator": "%s"\n' "$(json_escape "$external_ref")" >> "$tmp_dir/packages.json"
-        printf '        }\n' >> "$tmp_dir/packages.json"
-        printf '      ]' >> "$tmp_dir/packages.json"
+        printf ',\n      "externalRefs": [\n' >>"$tmp_dir/packages.json"
+        printf '        {\n' >>"$tmp_dir/packages.json"
+        printf '          "referenceCategory": "PACKAGE-MANAGER",\n' >>"$tmp_dir/packages.json"
+        printf '          "referenceType": "purl",\n' >>"$tmp_dir/packages.json"
+        printf '          "referenceLocator": "%s"\n' "$(json_escape "$external_ref")" >>"$tmp_dir/packages.json"
+        printf '        }\n' >>"$tmp_dir/packages.json"
+        printf '      ]' >>"$tmp_dir/packages.json"
     fi
 
-    printf '\n    }' >> "$tmp_dir/packages.json"
+    printf '\n    }' >>"$tmp_dir/packages.json"
     append_described "$id"
 }
 
@@ -232,7 +232,7 @@ write_common_notice_files() {
     cp "$xlsxio_license_source" "$package_dir/LICENSE.txt"
     cp "$xlsxio_license_source" "$notice_root/xlsxio/LICENSE.txt"
 
-    cat > "$source_manifest_file" <<EOF
+    cat >"$source_manifest_file" <<EOF
 upstream_url=$upstream_source_repository_url
 upstream_commit=$upstream_source_commit
 upstream_license_file=COPYING
@@ -247,7 +247,7 @@ EOF
             printf 'jimtcl_url=%s\n' "$jimtcl_source_repository_url"
             printf 'jimtcl_commit=%s\n' "$jimtcl_source_commit"
             printf 'jimtcl_license_file=repo-notices/%s/jimtcl/LICENSE.txt\n' "$platform"
-        } >> "$source_manifest_file"
+        } >>"$source_manifest_file"
     fi
 }
 
@@ -360,7 +360,7 @@ collect_linux_runtime_notices() {
     local resolved_library_pattern='=>[[:space:]](/[^[:space:]]+)'
     local direct_library_pattern='^[[:space:]]*(/[^[:space:]]+)'
 
-    printf 'binary\tlibrary\tpackage\tpackage_version\tlicense_file\thomepage\n' > "$runtime_inventory_file"
+    printf 'binary\tlibrary\tpackage\tpackage_version\tlicense_file\thomepage\n' >"$runtime_inventory_file"
 
     for elf_path in "${elf_paths[@]}"; do
         while IFS= read -r line; do
@@ -412,7 +412,7 @@ collect_linux_runtime_notices() {
                 "${package_versions[$runtime_package_name]:-}" \
                 "${package_license_files[$runtime_package_name]:-}" \
                 "${package_urls[$runtime_package_name]:-}" \
-                >> "$runtime_inventory_file"
+                >>"$runtime_inventory_file"
         done < <(ldd "$elf_path" 2>/dev/null || true)
     done
 
@@ -434,7 +434,7 @@ collect_linux_runtime_notices() {
             fi
             echo
         done < <(printf '%s\n' "${!package_versions[@]}" | sort)
-    } > "$runtime_summary_file"
+    } >"$runtime_summary_file"
 
     while IFS= read -r runtime_package; do
         [[ -n "$runtime_package" ]] || continue
@@ -566,13 +566,13 @@ collect_windows_runtime_notices() {
         find "$package_dir" \
             \( -path "$package_dir/repo-notices" -o -path "$package_dir/repo-notices/*" \) -prune -o \
             -type f -print0 |
-        while IFS= read -r -d '' packaged_path; do
-            source_path="$(resolve_windows_source_path "$packaged_path" || true)"
-            [[ -n "$source_path" ]] || continue
-            printf '%s\0' "$source_path"
-        done |
-        xargs -0 -r pacman -Qqo 2>/dev/null |
-        sort -u
+            while IFS= read -r -d '' packaged_path; do
+                source_path="$(resolve_windows_source_path "$packaged_path" || true)"
+                [[ -n "$source_path" ]] || continue
+                printf '%s\0' "$source_path"
+            done |
+            xargs -0 -r pacman -Qqo 2>/dev/null |
+            sort -u
     )
 
     while IFS= read -r runtime_package; do
@@ -583,7 +583,7 @@ collect_windows_runtime_notices() {
         fi
     done < <(printf '%s\n' "${runtime_packages[@]}")
 
-    printf 'dll\tpackage\tpackage_version\tlicenses\tlicense_dir\n' > "$runtime_inventory_file"
+    printf 'dll\tpackage\tpackage_version\tlicenses\tlicense_dir\n' >"$runtime_inventory_file"
 
     for dll_path in "${dll_paths[@]}"; do
         dll_name="$(basename "$dll_path")"
@@ -612,7 +612,7 @@ collect_windows_runtime_notices() {
             "$package_version" \
             "${package_licenses[$runtime_package_name]:-}" \
             "${package_license_dirs[$runtime_package_name]:-}" \
-            >> "$runtime_inventory_file"
+            >>"$runtime_inventory_file"
     done
 
     {
@@ -635,7 +635,7 @@ collect_windows_runtime_notices() {
             fi
             echo
         done < <(printf '%s\n' "${!package_versions[@]}" | sort)
-    } > "$runtime_summary_file"
+    } >"$runtime_summary_file"
 
     while IFS= read -r runtime_package; do
         [[ -n "$runtime_package" ]] || continue
@@ -669,7 +669,7 @@ collect_windows_runtime_notices() {
 }
 
 write_notice_summary() {
-    cat > "$notice_root/NOTICE-SUMMARY.txt" <<EOF
+    cat >"$notice_root/NOTICE-SUMMARY.txt" <<EOF
 Simulator notice bundle for the $platform GitHub CI artifact.
 
 Package source provenance:
@@ -688,10 +688,10 @@ Included notice files:
 EOF
 
     if [[ "$has_jimtcl_notice" == true ]]; then
-        printf '%s\n' "- repo-notices/$platform/jimtcl/LICENSE.txt" >> "$notice_root/NOTICE-SUMMARY.txt"
+        printf '%s\n' "- repo-notices/$platform/jimtcl/LICENSE.txt" >>"$notice_root/NOTICE-SUMMARY.txt"
     fi
 
-    cat >> "$notice_root/NOTICE-SUMMARY.txt" <<EOF
+    cat >>"$notice_root/NOTICE-SUMMARY.txt" <<EOF
 - ${runtime_inventory_file#"$package_dir/"}
 - ${runtime_summary_file#"$package_dir/"}
 
@@ -700,8 +700,8 @@ Runtime package notice directory:
 EOF
 }
 
-: > "$tmp_dir/describes.json"
-: > "$tmp_dir/packages.json"
+: >"$tmp_dir/describes.json"
+: >"$tmp_dir/packages.json"
 
 write_common_notice_files
 append_common_packages
@@ -739,4 +739,4 @@ write_notice_summary
     echo
     echo '  ]'
     echo '}'
-} > "$spdx_file"
+} >"$spdx_file"

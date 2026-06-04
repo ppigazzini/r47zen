@@ -35,7 +35,7 @@ uv run --group dev ty check scripts/r47_contracts
 uv run --group dev python -m r47_contracts.validate_geometry_dataset
 
 for module in "${DERIVE_MODULES[@]}"; do
-    uv run --group dev python -m "$module" > /dev/null
+    uv run --group dev python -m "$module" >/dev/null
 done
 
 uv run --group dev python -m unittest "${TEST_MODULES[@]}"

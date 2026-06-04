@@ -49,7 +49,7 @@ resolve_serial() {
     local requested_serial="$1"
 
     if [[ -n "$requested_serial" ]]; then
-        adb -s "$requested_serial" get-state >/dev/null 2>&1 || \
+        adb -s "$requested_serial" get-state >/dev/null 2>&1 ||
             fail "adb target $requested_serial is not available."
         printf '%s\n' "$requested_serial"
         return 0
@@ -79,7 +79,7 @@ read_page_size_bytes() {
         page_size="$(adb -s "$serial" shell getconf PAGESIZE 2>/dev/null | tr -d '\r' | tail -n1)"
     fi
 
-    [[ -n "$page_size" ]] || \
+    [[ -n "$page_size" ]] ||
         fail "Unable to read page size from $serial. Expected getconf PAGE_SIZE or PAGESIZE on the target shell."
 
     printf '%s\n' "$page_size"
@@ -109,7 +109,7 @@ main() {
                 [[ "$#" -gt 0 ]] || fail "Missing value for --test-class"
                 test_class="$1"
                 ;;
-            -h|--help)
+            -h | --help)
                 usage
                 exit 0
                 ;;
@@ -126,7 +126,7 @@ main() {
 
     serial="$(resolve_serial "$requested_serial")"
     page_size="$(read_page_size_bytes "$serial")"
-    [[ "$page_size" == "16384" ]] || \
+    [[ "$page_size" == "16384" ]] ||
         fail "Connected target $serial reports page size $page_size bytes. This smoke lane requires 16384-byte pages."
 
     if [[ -z "$abi_filters" ]]; then

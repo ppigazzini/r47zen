@@ -28,7 +28,7 @@ fail() {
 
 is_truthy() {
     case "${1:-}" in
-        1|true|TRUE|yes|YES|on|ON)
+        1 | true | TRUE | yes | YES | on | ON)
             return 0
             ;;
         *)
@@ -104,7 +104,7 @@ emit_fixture_timeout_warning() {
     fi
 
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-        printf '%s\n' "- Warning: $message" >> "$GITHUB_STEP_SUMMARY"
+        printf '%s\n' "- Warning: $message" >>"$GITHUB_STEP_SUMMARY"
     fi
 }
 
@@ -121,7 +121,7 @@ emit_required_fixture_timeout_error() {
     fi
 
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-        printf '%s\n' "- Error: $message" >> "$GITHUB_STEP_SUMMARY"
+        printf '%s\n' "- Error: $message" >>"$GITHUB_STEP_SUMMARY"
     fi
 }
 
@@ -232,26 +232,29 @@ fi
 R47_ANDROID_APPLICATION_ID="$(read_default_property R47_DEFAULT_ANDROID_APPLICATION_ID)"
 
 case "$R47_CONNECTED_ANDROID_TEST_BUILD_TYPE" in
-debug)
-    R47_CONNECTED_ANDROID_TASK=":app:connectedDebugAndroidTest"
-    R47_CONNECTED_ANDROID_APPLICATION_ID="${R47_ANDROID_APPLICATION_ID}.debug"
-    ;;
-release)
-    R47_CONNECTED_ANDROID_TASK=":app:connectedReleaseAndroidTest"
-    if [[ "$R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL" == "dev" ]]; then
-        R47_CONNECTED_ANDROID_APPLICATION_ID="${R47_ANDROID_APPLICATION_ID}.dev"
-    else
-        R47_CONNECTED_ANDROID_APPLICATION_ID="$R47_ANDROID_APPLICATION_ID"
-    fi
-    ;;
-*)
-    fail "Unsupported R47_CONNECTED_ANDROID_TEST_BUILD_TYPE value: $R47_CONNECTED_ANDROID_TEST_BUILD_TYPE"
-    ;;
+    debug)
+        R47_CONNECTED_ANDROID_TASK=":app:connectedDebugAndroidTest"
+        R47_CONNECTED_ANDROID_APPLICATION_ID="${R47_ANDROID_APPLICATION_ID}.debug"
+        ;;
+    release)
+        R47_CONNECTED_ANDROID_TASK=":app:connectedReleaseAndroidTest"
+        if [[ "$R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL" == "dev" ]]; then
+            R47_CONNECTED_ANDROID_APPLICATION_ID="${R47_ANDROID_APPLICATION_ID}.dev"
+        else
+            R47_CONNECTED_ANDROID_APPLICATION_ID="$R47_ANDROID_APPLICATION_ID"
+        fi
+        ;;
+    *)
+        fail "Unsupported R47_CONNECTED_ANDROID_TEST_BUILD_TYPE value: $R47_CONNECTED_ANDROID_TEST_BUILD_TYPE"
+        ;;
 esac
 
 R47_CONNECTED_ANDROID_TEST_APPLICATION_ID="${R47_CONNECTED_ANDROID_APPLICATION_ID}.test"
 
-NON_FIXTURE_TEST_FILTER="$(IFS=,; printf '%s' "${NON_FIXTURE_TEST_CLASSES[*]}")"
+NON_FIXTURE_TEST_FILTER="$(
+    IFS=,
+    printf '%s' "${NON_FIXTURE_TEST_CLASSES[*]}"
+)"
 
 TEST_SELECTION_SPECS=(
     "NonFixtureInstrumentation|$NON_FIXTURE_TEST_FILTER||"
@@ -261,7 +264,7 @@ TEST_SELECTION_SPECS=(
 cd "$ANDROID_DIR"
 
 for selection_spec in "${TEST_SELECTION_SPECS[@]}"; do
-    IFS='|' read -r selection_name selection_filter timeout_duration kill_after <<< "$selection_spec"
+    IFS='|' read -r selection_name selection_filter timeout_duration kill_after <<<"$selection_spec"
     log_file="$LOG_DIR/android-connected-$(sanitize_label "$selection_name").log"
 
     if run_connected_selection "$selection_name" "$selection_filter" "$log_file" "$timeout_duration" "$kill_after"; then
@@ -271,7 +274,7 @@ for selection_spec in "${TEST_SELECTION_SPECS[@]}"; do
     fi
 
     case "$status" in
-        124|137)
+        124 | 137)
             cleanup_connected_test_processes
             if selection_requires_timeout_failure "$selection_name"; then
                 emit_required_fixture_timeout_error "$selection_name" "the outer timeout had to stop the hung connected-test selection" "$log_file"
