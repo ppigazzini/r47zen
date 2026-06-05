@@ -63,6 +63,12 @@ typedef struct {
   bool (*seed_runtime)(void);
   stop_policy_t stop_policy;
   uint64_t stop_after_activity_ms;
+  // Numeric oracle (REPORT-24 Milestone 3 / W7): the expected X-register value
+  // string produced by read_x_register_value_string after the program runs to
+  // completion, or NULL to stay liveness-only. Only set this for fixtures whose
+  // result is independently verifiable and that finish (not interrupted) and
+  // leave a scalar in X.
+  const char *expected_x_register;
 } program_fixture_scenario_t;
 
 typedef enum {
@@ -281,6 +287,50 @@ static bool seed_spiralk_runtime_registers(void) {
   return true;
 }
 
+// NQueens.p47 reads the board size N from X and, with no input, only parks at
+// its prompt (the unseeded run yields a default, not a result). Seeding N = 8
+// drives a full 8-queens search that runs to completion and leaves the solution
+// in X as a string, giving a controlled-input numeric oracle (REPORT-24
+// Milestone 3): the expected result below is an independently verified valid
+// 8-queens solution (a permutation with no shared row, column, or diagonal).
+static bool seed_nqueens_n8_input(void) {
+  reallocateRegister(REGISTER_X, dtReal34, 0, amNone);
+  stringToReal34("8", REGISTER_REAL34_DATA(REGISTER_X));
+  return true;
+}
+
+// Render the X register into a stable, type-tagged comparison string so a
+// fixture's numeric result can be asserted, not just its liveness. Mirrors the
+// upstream testSuite printRegisterToString for the two result types these
+// fixtures produce (long integer counts, real34 values); other types fall back
+// to their type name so a result-type change is still visible.
+static void read_x_register_value_string(char *out, size_t out_len) {
+  uint32_t data_type = getRegisterDataType(REGISTER_X);
+
+  if (data_type == dtLongInteger) {
+    longInteger_t lgInt;
+    char digits[3000];
+
+    convertLongIntegerRegisterToLongInteger(REGISTER_X, lgInt);
+    longIntegerToAllocatedString(lgInt, digits, (int32_t)sizeof(digits));
+    longIntegerFree(lgInt);
+    snprintf(out, out_len, "longint:%s", digits);
+  } else if (data_type == dtReal34) {
+    char str[1000];
+
+    real34ToString(REGISTER_REAL34_DATA(REGISTER_X), str);
+    snprintf(out, out_len, "real34:%s", str);
+  } else if (data_type == dtString) {
+    char str[2000];
+
+    stringToUtf8(REGISTER_STRING_DATA(REGISTER_X), (uint8_t *)str);
+    snprintf(out, out_len, "string:%s", str);
+  } else {
+    snprintf(out, out_len, "type:%s",
+             getRegisterDataTypeName(REGISTER_X, false, false));
+  }
+}
+
 static workload_result_t run_program_fixture_workload(
   const char *runtime_dir, const char *program_root,
   const program_fixture_scenario_t *scenario) {
@@ -468,14 +518,25 @@ static workload_result_t run_program_fixture_workload(
             gmp_mem_delta);
   }
 
+  char x_value[3200];
+  read_x_register_value_string(x_value, sizeof(x_value));
+  fprintf(stderr, "INFO: %s X register = %s\n", scenario->program_name, x_value);
+  if (scenario->expected_x_register != NULL &&
+      strcmp(x_value, scenario->expected_x_register) != 0) {
+    fprintf(stderr,
+            "ERROR: %s workload produced the wrong result: X=%s, expected X=%s\n",
+            scenario->program_name, x_value, scenario->expected_x_register);
+    return WORKLOAD_RESULT_FAIL;
+  }
+
   fprintf(stderr,
-          "PASS: %s workload loaded and ran (load_step=%u, max_step=%u, pause=%s, waiting=%s, view=%s, lcdRefreshes=%llu, directStop=%s, directStopRequests=%llu)\n",
+          "PASS: %s workload loaded and ran (load_step=%u, max_step=%u, pause=%s, waiting=%s, view=%s, lcdRefreshes=%llu, directStop=%s, directStopRequests=%llu, x=%s)\n",
           scenario->program_name, (unsigned int)load_step,
           (unsigned int)max_step, saw_pause ? "yes" : "no",
           saw_waiting ? "yes" : "no", saw_view ? "yes" : "no",
           (unsigned long long)r47_get_host_lcd_refresh_count(),
           requested_direct_stop ? "yes" : "no",
-          (unsigned long long)direct_stop_requests);
+          (unsigned long long)direct_stop_requests, x_value);
   return WORKLOAD_RESULT_PASS;
 }
 
@@ -504,10 +565,12 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
     {.program_name = "NQueens.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
-     .resume_pause_with_zero_key = false,
-     .seed_runtime = NULL,
+     .resume_pause_with_zero_key = true,
+     .seed_runtime = seed_nqueens_n8_input,
      .stop_policy = STOP_POLICY_NONE,
-     .stop_after_activity_ms = 0u},
+     .stop_after_activity_ms = 0u,
+     // Independently verified valid 8-queens solution (see seed_nqueens_n8_input).
+     .expected_x_register = "string:\xe2\x86\x92" " 8., 4., 1., 3., 6., 2., 7., 5."},
     {.program_name = "SPIRALk.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,

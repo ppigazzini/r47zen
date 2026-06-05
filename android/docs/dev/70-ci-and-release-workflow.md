@@ -161,7 +161,11 @@ host-core optimization sequence:
   the focused Android bridge compatibility harness exposed by
   `scripts/workload-regressions/run_workload_regressions.sh`, not the CI PGO
   corpus. The broad `broad-ci` base already covers `prime` and `factorial`
-  through upstream `testSuite` inputs
+  through upstream `testSuite` inputs. That harness also runs as the dedicated
+  `host-workload-regressions` lane in `linux-ci.yml` on every pull request (no
+  emulator), where it both proves fixture liveness and asserts the seeded
+  `NQueens.p47` (`N = 8`) numeric result against the independently verified
+  8-queens solution; a wrong result fails that lane
 - the collector still resolves `clang` and `llvm-profdata` from that same
   pinned NDK, while the Linux lane installs the matching host
   `libclang_rt.profile` runtime for the derived LLVM major through the explicit

@@ -58,7 +58,7 @@ flowchart TD
 | main shell visible bars, fixed shell-menu copy, orange-blue touch-target placement, copy-popup shape, first-touch discovery-hint dismissal, and any retained discovery-hint surfaces | `MainActivity.kt`, `DisplayActionController.kt`, `WindowModeController.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/strings.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `MainShellThemeTest.kt`, `ReplicaOverlayVisualPolicyTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest` |
 | SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `requestedProgramFixtureNames`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
-| pause, wait, and progress compatibility in `PC_BUILD` mode | `android_runtime.c`, staged core, workload harness | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` | host workload regression, then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
+| pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
 | Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved | rerun the narrow native Gradle build first, then the latest-upstream Android build lane when new upstream HAL symbols appear |
 | upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
 
@@ -374,13 +374,26 @@ Android compatibility layer.
   `NQueens.p47`, and `SPIRALk.p47`. Every imported fixture now runs in its own
   host process under the same outer timeout-and-kill safety net, while
   `MANSLV2` remains the bounded direct-stop-after-activity probe inside that
-  framework. This is the focused host compatibility rerun surface, not the
-  normal pull-request owner of the collector-driven host-core PGO contract
+  framework. It runs as the dedicated `host-workload-regressions` lane in
+  `linux-ci.yml` on every pull request (no emulator), in addition to remaining
+  the focused host compatibility rerun surface
+- `host_workload_regression.c` now reads the X register after each fixture and
+  logs it (`INFO: <fixture> X register = <type>:<value>`), so a changed result
+  is visible. `NQueens.p47` is a per-fixture numeric oracle: seeded with `N = 8`
+  it runs a full 8-queens search to completion and its X-register result is
+  asserted against the independently verified valid solution
+  `→ 8., 4., 1., 3., 6., 2., 7., 5.`. A wrong result fails the lane (the harness
+  exits non-zero, which `run_workload_regressions.sh` propagates -- only bounded
+  timeouts are downgraded to degraded coverage). The other fixtures stay
+  liveness-only because their single-`R/S` parked state is degenerate
+  (`BinetV3`/`GudrmPL`), interrupted (`MANSLV2`), or non-deterministic
+  (`SPIRALk` graph); a full multi-step result oracle for those is a follow-up
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
   contract. It does prove that the shared compatibility path can start the five
-  imported fixtures and accept a bounded direct stop for `MANSLV2`, or record
-  degraded coverage for any individual hung workload without hanging the lane,
-  before Android-shell responsiveness enters the picture.
+  imported fixtures, compute the verified 8-queens result, and accept a bounded
+  direct stop for `MANSLV2`, or record degraded coverage for any individual hung
+  workload without hanging the lane, before Android-shell responsiveness enters
+  the picture.
 - That host-only compatibility path does not widen the Android emulator
   `PROGRAMS` fixture matrix.
 - The maintained PGO collector now uses a separate merged profile surface: the

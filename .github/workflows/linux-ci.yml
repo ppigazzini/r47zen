@@ -286,3 +286,101 @@ jobs:
           path: ci-artifacts/release/
           if-no-files-found: error
           retention-days: 14
+
+  host-workload-regressions:
+    name: Run host workload runtime regressions
+    needs:
+      - resolve-upstream-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Load shared Android defaults
+        id: defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          . ./android/r47-defaults.properties
+
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Detect runner build concurrency
+        id: jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          jobs=$(nproc)
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            cmake \
+            libexpat1-dev \
+            libgmp-dev \
+            libgtk-3-dev \
+            libminizip-dev \
+            libpulse-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            unzip \
+            zip
+
+      - name: Set up xlsxio toolchain
+        uses: ./.github/actions/setup-xlsxio-toolchain
+        with:
+          url: ${{ steps.defaults.outputs.xlsxio_url }}
+          commit: ${{ steps.defaults.outputs.xlsxio_commit }}
+          prefix: ${{ steps.defaults.outputs.xlsxio_prefix }}
+          jobs: ${{ steps.jobs.outputs.jobs }}
+
+      - name: Sync authoritative upstream core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
+            --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          bash ./scripts/upstream-sync/hydrate_submodules.sh \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
+
+      - name: Run host workload runtime regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p ci-artifacts/logs
+          bash ./scripts/workload-regressions/run_workload_regressions.sh 2>&1 \
+            | tee ci-artifacts/logs/host-workload-regressions.log
+
+      - name: Upload host workload regression log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: r47-host-workload-regressions-${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          path: ci-artifacts/logs/host-workload-regressions.log
+          if-no-files-found: warn
+          retention-days: 14
