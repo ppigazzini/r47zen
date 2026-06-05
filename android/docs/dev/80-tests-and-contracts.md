@@ -212,12 +212,19 @@ Important contract files include:
 - `SoftkeyOverlayPainterTest.kt`: locks the extracted overlay-painter stage for
   the menu-badge label and underline path without routing through the larger
   softkey renderer owner
-- `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable
-  through golden hashes, locks the removal of the old full-width top-bezel
-  interception, covers developer-performance HUD visibility when the setting
-  is enabled, and verifies LCD graph-touch setting gating, accumulated-slop pan
-  start, post-start jitter deadband, plus multi-touch pointer replacement
-  continuity after primary-pointer release
+- `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable. The
+  LCD raster is locked pixel-for-pixel against an independently decoded reference
+  (`packedLcd_matchesArgbRendering`) and by a structural colour oracle
+  (`nativeChrome_compositesLcdRasterColours`); the overall chrome is locked by
+  `nativeChrome_matchesTextGolden`, a **code-only** ASCII-luminance downsample of
+  the render held in `CHROME_TEXT_GOLDEN` (REPORT-24 Milestone 5 Slice B). The
+  text golden replaces the former re-blessable SHA hash: its `assertEquals` diff
+  shows the visual change as a grid diff a reviewer can confirm, and it adds no
+  binary reference image to the repository. It also locks the removal of the old
+  full-width top-bezel interception, covers developer-performance HUD visibility
+  when the setting is enabled, and verifies LCD graph-touch setting gating,
+  accumulated-slop pan start, post-start jitter deadband, plus multi-touch
+  pointer replacement continuity after primary-pointer release
 - `MainShellThemeTest.kt`: locks the `WindowModeController` PiP request to the
   native LCD `400 x 240` aspect ratio and keeps the visible-system-bar theme
   contract covered in the same focused JVM lane while also locking the fixed

@@ -201,23 +201,25 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
-    fun nativeChrome_matchesGoldenHash() {
-        // Change tripwire only -- NOT a correctness oracle. The semantic oracle is
-        // nativeChrome_rendersLcdContentInsideWindowOverOpaqueChrome above. The
-        // failure message deliberately does NOT print the new hash: an intended
-        // visual change must be re-blessed after a deliberate visual review, not
-        // copy-pasted from a red test.
+    fun nativeChrome_matchesTextGolden() {
+        // Code-only golden render oracle (REPORT-24 Milestone 5 Slice B): assert the
+        // render against an ASCII-luminance fingerprint held in code -- no binary
+        // reference image (the Roborazzi alternative the maintainer ruled out) and
+        // no opaque SHA. assertEquals on the two multi-line grids yields a
+        // *reviewable* diff: an intended visual change shows up as a visible shape
+        // change in the grid, which a reviewer confirms before updating
+        // CHROME_TEXT_GOLDEN. The exact LCD colours are separately locked by
+        // nativeChrome_compositesLcdRasterColours and packedLcd_matchesArgbRendering.
         val overlay = configuredOverlay()
         overlay.updateLcd(sampleLcdPixels())
 
-        val actualHash = renderHash(overlay)
-
         assertEquals(
-            "ReplicaOverlay chrome render changed. If this is an intended visual " +
-                "update, regenerate the golden hash after a visual review; do not " +
-                "copy a value from a failing run.",
-            "189c4672a1f2f7976f68d9627b5299f50678d71ddd4e6e5d535d31aa8d47b453",
-            actualHash,
+            "ReplicaOverlay chrome golden changed. Compare the grids in this diff; " +
+                "if the visual change is intended, regenerate CHROME_TEXT_GOLDEN " +
+                "after a review. This is a code-only ASCII fingerprint -- there is " +
+                "no binary reference image to commit.",
+            CHROME_TEXT_GOLDEN,
+            renderTextGolden(overlay),
         )
     }
 
@@ -636,6 +638,46 @@ class ReplicaOverlayGoldenTest {
 
     private fun renderHash(overlay: ReplicaOverlay): String = pngSha256(renderToBitmap(overlay))
 
+    // Code-only golden (REPORT-24 Milestone 5 Slice B): downsample the render to a
+    // small ASCII-luminance grid. Unlike a SHA hash it is a *reviewable* fingerprint
+    // -- an intended change shows up as a visible shape diff -- and unlike a
+    // Roborazzi reference it is plain text, so it adds no binary image to the repo.
+    private fun renderTextGolden(overlay: ReplicaOverlay): String {
+        val width = 1080
+        val height = 2160
+        val pixels = IntArray(width * height)
+        renderToBitmap(overlay).getPixels(pixels, 0, width, 0, 0, width, height)
+        return (0 until GOLDEN_ROWS).joinToString("\n") { row ->
+            val yStart = row * height / GOLDEN_ROWS
+            val yEnd = (row + 1) * height / GOLDEN_ROWS
+            buildString {
+                for (col in 0 until GOLDEN_COLS) {
+                    val xStart = col * width / GOLDEN_COLS
+                    val xEnd = (col + 1) * width / GOLDEN_COLS
+                    var sum = 0L
+                    var count = 0
+                    var y = yStart
+                    while (y < yEnd) {
+                        var x = xStart
+                        while (x < xEnd) {
+                            val pixel = pixels[y * width + x]
+                            sum += (299 * Color.red(pixel) + 587 * Color.green(pixel) +
+                                114 * Color.blue(pixel)) / 1000
+                            count += 1
+                            x += GOLDEN_SUBSAMPLE
+                        }
+                        y += GOLDEN_SUBSAMPLE
+                    }
+                    val luminance = if (count == 0) 0 else (sum / count).toInt()
+                    val index = (luminance * (GOLDEN_RAMP.length - 1) / 255)
+                        .coerceIn(0, GOLDEN_RAMP.length - 1)
+                    append(GOLDEN_RAMP[index])
+                }
+            }
+        }
+    }
+
+
     private fun sampledColors(bitmap: Bitmap): List<Int> {
         val step = 12
         val colors = ArrayList<Int>()
@@ -736,5 +778,58 @@ class ReplicaOverlayGoldenTest {
         // the projected window; the sampled centre sits inside a uniform colour
         // block, so a small per-channel sum tolerance is enough.
         private const val LCD_COLOUR_TOLERANCE = 24
+
+        // ASCII-luminance golden grid: dimensions, subsample stride within a cell,
+        // and the dark-to-light ramp.
+        private const val GOLDEN_COLS = 20
+        private const val GOLDEN_ROWS = 40
+        private const val GOLDEN_SUBSAMPLE = 6
+        private const val GOLDEN_RAMP = " .:-=+*#%@"
+
+        // Reviewable code-only golden for the rendered replica chrome + LCD: the
+        // calculator's LCD window (rows 3-14) over the dark body. Regenerate by
+        // re-running the capture path and reviewing the visible shape diff.
+        private val CHROME_TEXT_GOLDEN = listOf(
+            "                    ",
+            "                    ",
+            "                    ",
+            " ...................",
+            "....................",
+            "....................",
+            "....................",
+            "-++++++==+=*-*=++=*:",
+            "-++++++++=*:#-*==*-+",
+            "-+++++*==*-%.#-++-#.",
+            "-++++++*+=*:%:*==*:+",
+            "-++++++==+=*-*=++=*:",
+            "-++++++++=+=*=+==+==",
+            "-+++++++++++=++++++-",
+            ":------:-=:+.+:--:+ ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+            "                    ",
+        ).joinToString("\n")
     }
 }
