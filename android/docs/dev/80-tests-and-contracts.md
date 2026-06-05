@@ -409,6 +409,13 @@ Android compatibility layer.
   the picture.
 - That host-only compatibility path does not widen the Android emulator
   `PROGRAMS` fixture matrix.
+- `scripts/android/mutation_spot_check.sh` measures assertion strength on the
+  live program-stop routing seam: it applies known compile-clean semantic
+  mutations to `LiveProgramStopKeyPolicy.kt` and `LiveKeyRouter.kt` and asserts
+  each is killed by `LiveProgramStopKeyPolicyTest`/`LiveKeyRouterTest`. A
+  surviving mutant marks an assertion gap. It recompiles per mutation, so it is a
+  manual maintainer tool, not a CI gate; run it after changing the routing seam
+  or its tests. All four current mutants are killed.
 - The maintained PGO collector now uses a separate merged profile surface: the
   `broad-ci` `testSuite` base of `programs`, `tvm`, `jacobi_audit`,
   `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the generated
