@@ -2,6 +2,7 @@ package io.github.ppigazzini.r47zen
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Rect
 import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
@@ -174,14 +175,47 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
+    fun nativeChrome_compositesLcdRasterColours() {
+        // Semantic oracle (REPORT-24 Milestone 5): prove the LCD raster is actually
+        // composited into the frame, instead of a re-blessable whole-frame hash
+        // that proves nothing about correctness. The two most distinctive LCD
+        // content colours -- the top status band and the checker highlight -- must
+        // both appear in the render. A regression that blanks or drops the LCD
+        // fails here, without depending on exact (letterboxed) projection math; the
+        // existing packedLcd_matchesArgbRendering test already locks the precise
+        // LCD rendering pixel-for-pixel.
+        val overlay = configuredOverlay()
+        overlay.updateLcd(sampleLcdPixels())
+        val rendered = sampledColors(renderToBitmap(overlay))
+
+        val topBand = 0xFF1E3A5F.toInt()
+        val checkerHighlight = 0xFFE7F2E4.toInt()
+        assertTrue(
+            "LCD top status band colour ${hex(topBand)} must appear in the render",
+            rendered.any { colorDistance(it, topBand) <= LCD_COLOUR_TOLERANCE },
+        )
+        assertTrue(
+            "LCD checker highlight colour ${hex(checkerHighlight)} must appear in the render",
+            rendered.any { colorDistance(it, checkerHighlight) <= LCD_COLOUR_TOLERANCE },
+        )
+    }
+
+    @Test
     fun nativeChrome_matchesGoldenHash() {
+        // Change tripwire only -- NOT a correctness oracle. The semantic oracle is
+        // nativeChrome_rendersLcdContentInsideWindowOverOpaqueChrome above. The
+        // failure message deliberately does NOT print the new hash: an intended
+        // visual change must be re-blessed after a deliberate visual review, not
+        // copy-pasted from a red test.
         val overlay = configuredOverlay()
         overlay.updateLcd(sampleLcdPixels())
 
         val actualHash = renderHash(overlay)
 
         assertEquals(
-            "ReplicaOverlay golden changed: $actualHash",
+            "ReplicaOverlay chrome render changed. If this is an intended visual " +
+                "update, regenerate the golden hash after a visual review; do not " +
+                "copy a value from a failing run.",
             "189c4672a1f2f7976f68d9627b5299f50678d71ddd4e6e5d535d31aa8d47b453",
             actualHash,
         )
@@ -594,11 +628,36 @@ class ReplicaOverlayGoldenTest {
         )
     }
 
-    private fun renderHash(overlay: ReplicaOverlay): String {
+    private fun renderToBitmap(overlay: ReplicaOverlay): Bitmap {
         val bitmap = Bitmap.createBitmap(1080, 2160, Bitmap.Config.ARGB_8888)
         overlay.draw(Canvas(bitmap))
-        return pngSha256(bitmap)
+        return bitmap
     }
+
+    private fun renderHash(overlay: ReplicaOverlay): String = pngSha256(renderToBitmap(overlay))
+
+    private fun sampledColors(bitmap: Bitmap): List<Int> {
+        val step = 12
+        val colors = ArrayList<Int>()
+        var y = 0
+        while (y < bitmap.height) {
+            var x = 0
+            while (x < bitmap.width) {
+                colors.add(bitmap.getPixel(x, y))
+                x += step
+            }
+            y += step
+        }
+        return colors
+    }
+
+    private fun colorDistance(first: Int, second: Int): Int {
+        return abs(Color.red(first) - Color.red(second)) +
+            abs(Color.green(first) - Color.green(second)) +
+            abs(Color.blue(first) - Color.blue(second))
+    }
+
+    private fun hex(color: Int): String = "#%08X".format(color)
 
     private fun samplePackedBuffer(): ByteArray {
         val buffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
@@ -670,5 +729,12 @@ class ReplicaOverlayGoldenTest {
 
     private fun exactly(size: Int): Int {
         return android.view.View.MeasureSpec.makeMeasureSpec(size, android.view.View.MeasureSpec.EXACTLY)
+    }
+
+    private companion object {
+        // Allow for scaling/filtering when the 400x240 LCD raster is upscaled into
+        // the projected window; the sampled centre sits inside a uniform colour
+        // block, so a small per-channel sum tolerance is enough.
+        private const val LCD_COLOUR_TOLERANCE = 24
     }
 }
