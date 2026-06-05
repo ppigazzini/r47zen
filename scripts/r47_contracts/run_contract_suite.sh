@@ -13,6 +13,7 @@ DERIVE_MODULES=(
     r47_contracts.derive_key_font_policy
     r47_contracts.derive_top_label_lane_layout
     r47_contracts.derive_keyboard_layout_contract
+    r47_contracts.derive_live_stop_key_policy
 )
 
 TEST_MODULES=(
@@ -23,6 +24,7 @@ TEST_MODULES=(
     r47_contracts.test_top_label_lane_layout_contract
     r47_contracts.test_keyboard_layout_contract
     r47_contracts.test_alpha_case_export_contract
+    r47_contracts.test_live_stop_key_policy_contract
 )
 
 cd "$PROJECT_ROOT"

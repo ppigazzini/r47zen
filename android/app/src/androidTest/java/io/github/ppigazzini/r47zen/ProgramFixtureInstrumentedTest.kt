@@ -245,8 +245,9 @@ class ProgramFixtureInstrumentedTest {
         val runStartedAtMs = SystemClock.elapsedRealtime()
         var lastObservedState = loadState
         var sawAcceptedDirectStop = false
+        var directStopAcceptedWhileNotBusy = false
 
-        fun maybeRequestDirectStop(now: Long) {
+        fun maybeRequestDirectStop(now: Long, observedRunStop: Int?) {
             if (fixture.scenario.stopPolicy != StopPolicy.DIRECT_STOP_AFTER_ACTIVITY) {
                 return
             }
@@ -266,6 +267,20 @@ class ProgramFixtureInstrumentedTest {
                 requestedDirectStop = true
                 sawAcceptedDirectStop = true
                 directStopRequests += 1
+                // REPORT-24 W2 guard: the out-of-band direct stop must only be
+                // accepted while the program is genuinely busy (PGM_RUNNING /
+                // PGM_PAUSED). If it is ever accepted while an OBSERVED interactive
+                // wait holds, the native gate has regressed exactly as in the
+                // swallowed-key bug -- it would steal live R/S/EXIT. Record that as
+                // a failure signal instead of letting the acceptance masquerade as
+                // run activity (the original liveness-OR conflation). Only observed
+                // states are classified, so a null snapshot never false-fails.
+                if (observedRunStop != null &&
+                    observedRunStop != PGM_RUNNING &&
+                    observedRunStop != PGM_PAUSED
+                ) {
+                    directStopAcceptedWhileNotBusy = true
+                }
                 if (activityStartedAtMs == 0L) {
                     activityStartedAtMs = now
                 }
@@ -279,7 +294,7 @@ class ProgramFixtureInstrumentedTest {
             if (state == null) {
                 snapshotMisses += 1
 
-                maybeRequestDirectStop(now)
+                maybeRequestDirectStop(now, observedRunStop = null)
 
                 return@waitUntil !ProgramLoadTestBridge.isSimFunctionRunning()
             }
@@ -313,7 +328,7 @@ class ProgramFixtureInstrumentedTest {
                 lastResumeAttemptAtMs = SystemClock.elapsedRealtime()
             }
 
-            maybeRequestDirectStop(now)
+            maybeRequestDirectStop(now, observedRunStop = state.programRunStop)
 
             wasPaused = isPaused
 
@@ -368,6 +383,14 @@ class ProgramFixtureInstrumentedTest {
                 phase = "run",
                 state = finalState,
                 details = "workload finished before the maintained direct-stop probe ran",
+            )
+        }
+        if (directStopAcceptedWhileNotBusy) {
+            return buildFailure(
+                fixture = fixture,
+                phase = "run",
+                state = finalState,
+                details = "out-of-band direct stop was accepted while the program was parked in an interactive wait (not PGM_RUNNING/PGM_PAUSED); the native run-state gate has regressed and would swallow live R/S/EXIT",
             )
         }
         if (finalState.programRunStop == PGM_RUNNING || finalState.programRunStop == PGM_PAUSED) {

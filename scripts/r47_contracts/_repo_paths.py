@@ -20,6 +20,7 @@ KOTLIN_R47ZEN_ROOT = (
 STAGED_NATIVE_C47_ROOT = REPO_ROOT / "android" / ".staged-native" / "cpp" / "c47"
 UPSTREAM_R47_ASSIGN_PATH = REPO_ROOT / "src" / "c47" / "assign.c"
 UPSTREAM_R47_ITEMS_PATH = REPO_ROOT / "src" / "c47" / "items.c"
+UPSTREAM_R47_INPUT_PATH = REPO_ROOT / "src" / "c47" / "programming" / "input.c"
 R47_PHYSICAL_GEOMETRY_DATA_PATH = DATA_ROOT / "r47_physical_geometry.json"
 R47_ANDROID_UI_CONTRACT_PATH = DATA_ROOT / "r47zen_ui_contract.json"
 R47_KEY_FONT_POLICY_CONTRACT_PATH = DATA_ROOT / "r47_key_font_policy_contract.json"

@@ -15,9 +15,18 @@ NON_FIXTURE_TEST_CLASSES=(
     "io.github.ppigazzini.r47zen.FactorsInstrumentedTest"
     "io.github.ppigazzini.r47zen.DisplayLifecycleInstrumentedTest"
     "io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest"
+    "io.github.ppigazzini.r47zen.GraphTouchStressInstrumentedTest"
     "io.github.ppigazzini.r47zen.StorageAccessCoordinatorInstrumentedTest"
 )
+# Both connected selections are required: a timeout in either one must fail the
+# Android lane, never downgrade to a warning. The NonFixture selection runs with
+# no per-selection timeout today, so the soft-warning path is unreachable for it;
+# marking it required keeps the regression guard in DisplayLifecycleInstrumentedTest
+# from silently fail-soft if a future timeout is ever added to this selection
+# (REPORT-24 W5). emit_fixture_timeout_warning is intentionally retained for any
+# future non-required, timed selection.
 REQUIRED_CONNECTED_ANDROID_SELECTIONS=(
+    "NonFixtureInstrumentation"
     "ProgramFixtureInstrumentation"
 )
 
