@@ -220,6 +220,25 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_captureDisplayHashNative(
   return (jlong)hash;
 }
 
+// Writes a deterministic, non-trivial pattern into the hashed bytes of the
+// packed display framebuffer so a lifecycle event's effect on the framebuffer
+// can be checked without running a graphing program (REPORT-24 Milestone 4b).
+// The caller must already hold screenMutex.
+static void r47_fill_test_display_pattern_locked(void) {
+  extern uint8_t *packedDisplayBuffer;
+  extern pthread_mutex_t packedDisplayMutex;
+
+  pthread_mutex_lock(&packedDisplayMutex);
+  for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
+    uint8_t *snapshot_line = packedDisplayBuffer + row * 52u;
+    for (size_t byte_index = 2; byte_index < 52u; byte_index++) {
+      snapshot_line[byte_index] =
+          (uint8_t)((row * 31u + byte_index * 7u) & 0xFFu);
+    }
+  }
+  pthread_mutex_unlock(&packedDisplayMutex);
+}
+
 // Deterministic proof that a background save does not corrupt the visible
 // framebuffer (REPORT-24 Milestone 4b Slice B). r47_save_background_state_locked
 // only calls saveCalc(), which serializes calculator state and never touches
@@ -239,7 +258,6 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_backgroundSaveKeepsInject
   }
 
   extern uint8_t *packedDisplayBuffer;
-  extern pthread_mutex_t packedDisplayMutex;
   extern void r47_save_background_state_locked(void);
 
   if (!packedDisplayBuffer) {
@@ -247,24 +265,45 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_backgroundSaveKeepsInject
   }
 
   pthread_mutex_lock(&screenMutex);
-
-  pthread_mutex_lock(&packedDisplayMutex);
-  for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
-    uint8_t *snapshot_line = packedDisplayBuffer + row * 52u;
-    for (size_t byte_index = 2; byte_index < 52u; byte_index++) {
-      snapshot_line[byte_index] =
-          (uint8_t)((row * 31u + byte_index * 7u) & 0xFFu);
-    }
-  }
-  pthread_mutex_unlock(&packedDisplayMutex);
-
+  r47_fill_test_display_pattern_locked();
   uint64_t before_save = r47_capture_display_hash_locked();
   r47_save_background_state_locked();
   uint64_t after_save = r47_capture_display_hash_locked();
-
   pthread_mutex_unlock(&screenMutex);
 
   return (before_save == after_save && before_save != 0u) ? JNI_TRUE : JNI_FALSE;
+}
+
+// Injects the deterministic non-trivial framebuffer pattern and returns its hash,
+// atomically under screenMutex (REPORT-24 Milestone 4b Slice C). The pause/resume
+// and recreation lifecycle transitions are display-passive -- the native runtime
+// and packedDisplayBuffer persist across them and are not re-rendered (the core
+// thread and native-init flags are process-shared, so a recreated Activity
+// re-attaches without re-init) -- so the test injects this pattern, drives the
+// Android lifecycle event, and re-hashes via captureDisplayHash, expecting the
+// returned hash to be preserved. Returns 0 if the framebuffer is unavailable.
+JNIEXPORT jlong JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_injectDeterministicDisplayBufferForTestNative(
+    JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  if (!ram) {
+    return 0;
+  }
+
+  extern uint8_t *packedDisplayBuffer;
+
+  if (!packedDisplayBuffer) {
+    return 0;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  r47_fill_test_display_pattern_locked();
+  uint64_t hash = r47_capture_display_hash_locked();
+  pthread_mutex_unlock(&screenMutex);
+
+  return (jlong)hash;
 }
 
 JNIEXPORT void JNICALL

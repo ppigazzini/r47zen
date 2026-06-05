@@ -319,10 +319,15 @@ Final app shutdown uses `releaseNativeRuntime()` to delete the global
 continues to use `updateNativeActivityRef()` without tearing down the native
 core. That reattach helper refreshes JNI references and cached method IDs only;
 it must stay display-passive and must not synthesize a redraw.
-`DisplayLifecycleInstrumentedTest.kt` now exercises that contract through full
-`ActivityScenario.recreate()` coverage on a staged `SPIRALk` graph, and the
-local 16 KB runtime smoke script reuses the same probe on a connected 16 KB
-target.
+`DisplayLifecycleInstrumentedTest.kt` exercises that contract through full
+`ActivityScenario.recreate()` coverage
+(`activityRecreationPreservesInjectedDisplaySnapshot`): because the reattach is
+display-passive and `NativeCoreRuntime`'s `isCoreThreadStarted` /
+`isNativeInitializedShared` are process-shared, a deterministic non-trivial
+framebuffer injected through `injectDeterministicDisplayBuffer` must survive
+recreation unchanged -- no `SPIRALk` run is needed (REPORT-24 Milestone 4b
+Slice C). The local 16 KB runtime smoke script reuses the same recreation probe
+on a connected 16 KB target.
 
 ## Lifecycle Save And Explicit Refresh Contract
 
@@ -439,7 +444,7 @@ Local runtime proof for the same contract now lives in
 `scripts/android/run_16kb_runtime_smoke.sh`. That script checks the connected
 device or emulator page size through `adb shell getconf`, requires
 `16384`-byte pages, and then runs only
-`DisplayLifecycleInstrumentedTest#activityRecreationPreservesSpiralkGraphSnapshot`.
+`DisplayLifecycleInstrumentedTest#activityRecreationPreservesInjectedDisplaySnapshot`.
 
 That artifact verification is the reason packaging changes should be documented
 alongside the workflow and Gradle files, not only in the CMake layer.

@@ -343,24 +343,28 @@ Important files include:
   focused device lane proving that a
   forced-busy keypad snapshot path stays responsive under every non-yielding
   shared-core loop.
-- `DisplayLifecycleInstrumentedTest.kt`: locks the lifecycle LCD contract so a
-  background save, a Settings-style pause or resume, and full
-  `ActivityScenario.recreate()` preserve the visible packed LCD snapshot on
-  both a clean display and a staged `SPIRALk` graph. Its
+- `DisplayLifecycleInstrumentedTest.kt`: this class is now **fully
+  deterministic** -- it runs no program and has no timed waits (REPORT-24
+  Milestone 4b). It locks the lifecycle LCD contract so a background save, a
+  Settings-style pause or resume, and full `ActivityScenario.recreate()` preserve
+  the visible packed LCD snapshot: all three lifecycle transitions are
+  display-passive (the native runtime and `packedDisplayBuffer` persist), so the
+  tests inject a deterministic non-trivial framebuffer via
+  `ProgramLoadTestBridge.injectDeterministicDisplayBuffer` /
+  `backgroundSaveKeepsInjectedDisplayBuffer` and assert the lifecycle event leaves
+  it unchanged -- with no emergent `SPIRALk` run. Its
   `directStopGateDeclinesInteractiveWaitStates` case is the REPORT-23
   runtime-regression guard: it probes the pure `r47_direct_stop_allowed`
   predicate (via `ProgramLoadTestBridge.directStopAllowedForRunState`) across
   every run state and asserts the out-of-band direct stop is **declined** for
   the interactive `PGM_WAITING`/`PGM_RESUMING` waits (so the live keypad cannot
   swallow `R/S`/`EXIT` mid-program) and accepted only for busy
-  `PGM_RUNNING`/`PGM_PAUSED`. `busySpiralkAcceptsLiveDirectStop` then drives
-  staged `SPIRALk` into its busy `PGM_PAUSED` `PSE` hold and asserts the live
-  `requestStopProgram()` accepts the stop, tying the predicate to the real
-  seam. (The earlier `directStopMatchesForcedRefreshSpiralkSnapshot` case
-  direct-stopped a *waiting* program and codified the bug; its first
-  replacement asserted the right contract but depended on `SPIRALk` reaching a
-  transient `PGM_WAITING` the emulator never stably hit — see §30/§31 of the
-  regression annex.)
+  `PGM_RUNNING`/`PGM_PAUSED`. `requestStopProgramHonorsRunStateGateEndToEnd` then
+  injects each run state via `setProgramRunStop` and asserts the real
+  `requestStopProgram()` accepts the busy states and declines the rest end to
+  end, tying the predicate to the real seam without a program run. (Earlier
+  emergent SPIRALk-based forms of these tests codified or destabilised the
+  contract -- see §30/§31 and §18/§20/§21 of the regression annex.)
 - `FactorsInstrumentedTest.kt`: asserts that the `FACTORS` runtime path runs to
   completion and leaves X in the expected result type
 - `GraphRedrawInstrumentedTest.kt`: locks the redraw-gate contract behind

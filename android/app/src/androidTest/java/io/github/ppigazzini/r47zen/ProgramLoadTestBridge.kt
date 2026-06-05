@@ -76,6 +76,8 @@ object ProgramLoadTestBridge {
     fun backgroundSaveKeepsInjectedDisplayBuffer(): Boolean =
         backgroundSaveKeepsInjectedDisplayBufferForTestNative()
 
+    fun injectDeterministicDisplayBuffer(): Long = injectDeterministicDisplayBufferForTestNative()
+
     fun trySnapshotState(): ProgramLoadState? {
         val raw = snapshotStateIfAvailableNative() ?: return null
         return decodeState(raw)
@@ -131,6 +133,7 @@ object ProgramLoadTestBridge {
     private external fun directStopAllowedForRunStateNative(runState: Int): Boolean
     private external fun setProgramRunStopForTestNative(runState: Int)
     private external fun backgroundSaveKeepsInjectedDisplayBufferForTestNative(): Boolean
+    private external fun injectDeterministicDisplayBufferForTestNative(): Long
     private external fun setNextLoadProgramFdNative(fd: Int)
     private external fun clearLoadProgramFdOverrideNative()
     private external fun isSimFunctionRunningNative(): Boolean
