@@ -183,10 +183,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun dispatchLiveKey(keyCode: Int) {
-        if (LiveProgramStopKeyPolicy.shouldPublishDirectStop(keyCode) && requestStopProgramNative()) {
-            return
-        }
-        offerCoreTask(Runnable { sendKey(keyCode) })
+        LiveKeyRouter.route(
+            keyCode,
+            queryDirectStopGate = { requestStopProgramNative() },
+            forwardToCore = { code -> offerCoreTask(Runnable { sendKey(code) }) },
+        )
     }
 
     private fun configureActivityShell() {

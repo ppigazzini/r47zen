@@ -212,9 +212,13 @@ The live on-screen and PiP stop path is narrower than the general queue path:
   `MainActivity.dispatchLiveKey(...)`
 - `LiveProgramStopKeyPolicy` marks only key codes `36` (`R/S`) and `33`
   (`EXIT`) as direct live-stop candidates
-- `MainActivity` calls `requestStopProgramNative()` first for those keys, and
-  only falls back to queued `sendKey(...)` when native state reports that no
-  program is currently running or paused
+- `dispatchLiveKey(...)` delegates the forward-vs-swallow decision to the pure
+  `LiveKeyRouter.route(...)`: it consults the side-effecting
+  `requestStopProgramNative()` gate only for those stop-candidate keys, and only
+  falls back to queued `sendKey(...)` when the gate declines (no program running
+  or paused). The split keeps the routing consequence unit-testable
+  (`LiveKeyRouterTest`) without an emulator, separately from the native gate
+  predicate
 
 That rule keeps normal `EXIT` semantics outside long-running program execution
 while matching the desktop simulator's stop-key parity during an active run.
