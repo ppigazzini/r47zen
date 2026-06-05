@@ -191,9 +191,13 @@ It:
 
 - provisions the same toolchains and upstream sync inputs as the build lane
 - runs one focused Gradle invocation for `:app:assembleRelease`,
-  `:app:assembleReleaseAndroidTest`, and `:app:testReleaseUnitTest` with
-  `r47.releaseChannel=dev`, `r47.testBuildType=release`, and temporary
-  `r47.releaseMinify=false` plus `r47.releaseShrinkResources=false`
+  `:app:assembleReleaseAndroidTest`, `:app:testReleaseUnitTest`, and the Kover
+  coverage reports (`:app:koverXmlReportRelease`, `:app:koverHtmlReportRelease`,
+  `:app:koverLogRelease`) with `r47.releaseChannel=dev`,
+  `r47.testBuildType=release`, and temporary `r47.releaseMinify=false` plus
+  `r47.releaseShrinkResources=false`. The Kover step is reporting-only (no
+  `verify` gate); it publishes a per-class JVM unit-test coverage report so the
+  JNI-facing Kotlin coverage is visible
 - uses that single task graph to refresh staged native inputs, build the
   dev-release APK, assemble the instrumentation APKs, and run the JVM suite without a
   second full `build_android.sh` pass
@@ -207,7 +211,8 @@ It:
   `ProgramFixtureInstrumentedTest` class with the temporary ABI override from
   `r47.abiFilters`, the same prerelease signing inputs, and configuration cache
   enabled
-- uploads logs plus JVM and instrumentation reports in the Android test artifact
+- uploads logs plus JVM, instrumentation, and Kover coverage
+  (`android/app/build/reports/kover`) reports in the Android test artifact
   bundle `r47zen-tests-<upstream short>-<android short>`
 
 The hosted instrumentation lane currently relies on:

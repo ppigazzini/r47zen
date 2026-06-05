@@ -7,6 +7,7 @@ import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlinx.kover)
     id 'com.google.android.gms.oss-licenses-plugin'
 }
 
@@ -437,6 +438,30 @@ dependencies {
     androidTestImplementation libs.androidx.test.core
     androidTestImplementation libs.androidx.test.ext.junit
     androidTestImplementation libs.androidx.test.runner
+}
+
+// Coverage visibility (REPORT-24 Milestone 2). Kover instruments the JVM unit
+// tests and produces a per-class report; it is reporting-only on purpose, with
+// no `verify` gate, so it surfaces what the JNI-facing Kotlin (for example
+// MainActivity.dispatchLiveKey, LiveKeyRouter) actually exercises without yet
+// failing a build on a threshold. The report tasks run only when invoked
+// (koverXmlReportRelease / koverHtmlReportRelease in the android-tests CI lane),
+// so the packaging and assembly lanes are unaffected.
+kover {
+    reports {
+        filters {
+            excludes {
+                // Generated and framework-shaped classes carry no meaningful
+                // unit-test signal; excluding them keeps the percentage honest.
+                androidGeneratedClasses()
+                classes(
+                    '*.BuildConfig',
+                    '*.databinding.*',
+                    '*.*Binding',
+                )
+            }
+        }
+    }
 }
 
 def prepareStagedNativeInputs = tasks.register('prepareStagedNativeInputs', Exec) {

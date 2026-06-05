@@ -940,6 +940,9 @@ jobs:
             :app:assembleRelease \
             :app:assembleReleaseAndroidTest \
             :app:testReleaseUnitTest \
+            :app:koverXmlReportRelease \
+            :app:koverHtmlReportRelease \
+            :app:koverLogRelease \
             ${{ env.R47_CI_GRADLE_ARGS }} \
             -Pr47.releaseMinify=false \
             -Pr47.releaseShrinkResources=false \
@@ -1037,6 +1040,7 @@ jobs:
             android/app/build/test-results
             android/app/build/reports/androidTests
             android/app/build/outputs/androidTest-results
+            android/app/build/reports/kover
           if-no-files-found: warn
           retention-days: 14
 
