@@ -38,33 +38,30 @@ class DisplayLifecycleInstrumentedTest {
     }
 
     @Test
-    fun backgroundSavePreservesSpiralkGraphSnapshot() {
-        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
-        val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
-        val spiralkFixture = targetContext.assets.open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
-
+    fun backgroundSavePreservesInjectedDisplaySnapshot() {
+        // DE-FLAKE (REPORT-24 Milestone 4b Slice B): the former
+        // backgroundSavePreservesSpiralkGraphSnapshot ran SPIRALk emergently (the
+        // 90 s polling scenario) only to obtain a non-trivial framebuffer before
+        // asserting that the background save does not corrupt it. But
+        // r47_save_background_state_locked merely calls saveCalc(), which
+        // serializes calculator state and never touches packedDisplayBuffer
+        // (jni_lifecycle.c), so the contract holds for ANY framebuffer. The bridge
+        // now injects a deterministic non-trivial pattern, hashes the framebuffer,
+        // runs the background save, and re-hashes -- all under screenMutex so no
+        // async redraw can interleave -- with no program run and no timeout. The
+        // pause/resume and recreation snapshot tests keep SPIRALk because they
+        // re-render from calculator state, which an injected buffer cannot stand
+        // in for.
         ActivityScenario.launch(MainActivity::class.java).use {
             assertTrue(
-                "Native runtime did not become ready for SPIRALk save coverage",
+                "Native runtime did not become ready for background-save coverage",
                 waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
             )
-
             ProgramLoadTestBridge.resetRuntime()
-            val loadState = loadProgramFixture(targetProgramFile, spiralkFixture)
+
             assertTrue(
-                "failed to seed SPIRALk register J with 2",
-                ProgramLoadTestBridge.seedSpiralkInput(),
-            )
-            runSpiralkScenario(loadState)
-
-            val beforeHash = ProgramLoadTestBridge.captureDisplayHash()
-            ProgramLoadTestBridge.saveBackgroundStateForTest()
-            val afterHash = ProgramLoadTestBridge.captureDisplayHash()
-
-            assertEquals(
-                "Background save should preserve the SPIRALk graph snapshot",
-                beforeHash,
-                afterHash,
+                "a background save must not corrupt a non-trivial display framebuffer",
+                ProgramLoadTestBridge.backgroundSaveKeepsInjectedDisplayBuffer(),
             )
         }
     }

@@ -220,6 +220,53 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_captureDisplayHashNative(
   return (jlong)hash;
 }
 
+// Deterministic proof that a background save does not corrupt the visible
+// framebuffer (REPORT-24 Milestone 4b Slice B). r47_save_background_state_locked
+// only calls saveCalc(), which serializes calculator state and never touches
+// packedDisplayBuffer, so the contract holds for ANY framebuffer -- there is no
+// need to run a graphing program emergently to produce one. A deterministic
+// non-trivial pattern is injected, the framebuffer is hashed, the background save
+// runs, and it is re-hashed, all while screenMutex is held so no async redraw can
+// interleave. Returns true when the save preserved the (non-trivial) framebuffer.
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_backgroundSaveKeepsInjectedDisplayBufferForTestNative(
+    JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+
+  if (!ram) {
+    return JNI_FALSE;
+  }
+
+  extern uint8_t *packedDisplayBuffer;
+  extern pthread_mutex_t packedDisplayMutex;
+  extern void r47_save_background_state_locked(void);
+
+  if (!packedDisplayBuffer) {
+    return JNI_FALSE;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+
+  pthread_mutex_lock(&packedDisplayMutex);
+  for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
+    uint8_t *snapshot_line = packedDisplayBuffer + row * 52u;
+    for (size_t byte_index = 2; byte_index < 52u; byte_index++) {
+      snapshot_line[byte_index] =
+          (uint8_t)((row * 31u + byte_index * 7u) & 0xFFu);
+    }
+  }
+  pthread_mutex_unlock(&packedDisplayMutex);
+
+  uint64_t before_save = r47_capture_display_hash_locked();
+  r47_save_background_state_locked();
+  uint64_t after_save = r47_capture_display_hash_locked();
+
+  pthread_mutex_unlock(&screenMutex);
+
+  return (before_save == after_save && before_save != 0u) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setRedrawFlagForTestNative(
     JNIEnv *env, jobject thiz, jboolean enabled) {

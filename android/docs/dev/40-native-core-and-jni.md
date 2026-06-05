@@ -332,6 +332,13 @@ share the same contract.
 - `saveStateNative()` routes pause-side and background persistence through
   `r47_save_background_state_locked()`. That path must stay display-passive for
   Settings entry, normal background save, and other lifecycle-only transitions.
+  `r47_save_background_state_locked()` only calls `saveCalc()` and never touches
+  `packedDisplayBuffer`, so
+  `DisplayLifecycleInstrumentedTest.backgroundSavePreservesInjectedDisplaySnapshot`
+  proves the display-passive contract deterministically: it injects a non-trivial
+  framebuffer pattern, hashes it, runs the background save, and re-hashes, all
+  under `screenMutex` (via the `backgroundSaveKeepsInjectedDisplayBuffer` bridge),
+  with no program run -- replacing the former emergent `SPIRALk` graph save test.
 - `forceRefreshNative()` routes to `r47_force_refresh()`, which is the explicit
   native redraw path for real state-change owners such as runtime init,
   `loadStateNative()`, and test-owned refresh seams.
