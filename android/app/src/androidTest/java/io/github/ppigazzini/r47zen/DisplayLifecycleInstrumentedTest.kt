@@ -191,54 +191,47 @@ class DisplayLifecycleInstrumentedTest {
     }
 
     @Test
-    fun busySpiralkAcceptsLiveDirectStop() {
-        // Ties the run-state gate to the real live seam: a genuinely-busy program
-        // (staged SPIRALk reliably parks in PGM_PAUSED inside its PSE loop) must
-        // accept the out-of-band stop that MainActivity.dispatchLiveKey publishes
-        // for a live R/S/EXIT, proving requestStopProgramNative honors the gate
-        // against the real programRunStop rather than a hard-coded path. The
-        // companion decline path is covered deterministically by
-        // directStopGateDeclinesInteractiveWaitStates above.
-        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
-        val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
-        val spiralkFixture = targetContext.assets.open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
-
+    fun requestStopProgramHonorsRunStateGateEndToEnd() {
+        // DE-FLAKE (REPORT-24 Milestone 4b): this replaces the former
+        // busySpiralkAcceptsLiveDirectStop, which waited up to 90 s for a graphing
+        // program to emergently reach a busy state just to prove that the REAL
+        // requestStopProgramNative honours the gate. That emergent dependency is
+        // the §31 trap (a test gated on a program reaching a timing-dependent
+        // state). It is replaced by deterministic run-state injection: the live
+        // gate is exercised end to end (onUIActivity + r47_direct_stop_allowed +
+        // fnStopProgram) for EVERY run state, with no program run and no timeout.
+        // Injection is side-effect-safe because fnStopProgram only sets
+        // programRunStop = PGM_WAITING. The pure predicate is still covered by
+        // directStopGateDeclinesInteractiveWaitStates; this proves the full JNI
+        // function, not just the predicate.
         ActivityScenario.launch(MainActivity::class.java).use {
             assertTrue(
-                "Native runtime did not become ready for SPIRALk busy-stop coverage",
+                "Native runtime did not become ready for run-state gate coverage",
                 waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
             )
+            ProgramLoadTestBridge.resetRuntime()
+
+            // Genuinely-busy states accept the out-of-band stop end to end.
+            for (busyState in listOf(PGM_RUNNING, PGM_PAUSED)) {
+                ProgramLoadTestBridge.setProgramRunStop(busyState)
+                assertTrue(
+                    "requestStopProgram must accept the live direct stop for busy run state $busyState",
+                    ProgramLoadTestBridge.requestStopProgram(),
+                )
+            }
+
+            // Interactive waits and the idle state decline, so dispatchLiveKey
+            // forwards R/S/EXIT to the core instead of swallowing them.
+            for (nonBusyState in listOf(PGM_WAITING, PGM_RESUMING, PGM_STOPPED)) {
+                ProgramLoadTestBridge.setProgramRunStop(nonBusyState)
+                assertEquals(
+                    "requestStopProgram must decline the live direct stop for run state $nonBusyState",
+                    false,
+                    ProgramLoadTestBridge.requestStopProgram(),
+                )
+            }
 
             ProgramLoadTestBridge.resetRuntime()
-            val loadState = loadProgramFixture(targetProgramFile, spiralkFixture)
-            assertTrue(
-                "failed to seed SPIRALk register J with 2",
-                ProgramLoadTestBridge.seedSpiralkInput(),
-            )
-
-            val loadStep = loadState.currentLocalStepNumber
-            assertTrue(
-                "failed to start the asynchronous MainActivity R/S key worker for SPIRALk busy-stop coverage",
-                ProgramLoadTestBridge.beginMainActivityKeySequence(RS_KEY_CODE),
-            )
-            assertTrue(
-                "SPIRALk did not show any run-side display activity before the busy stop",
-                waitForRunActivity(loadStep),
-            )
-
-            // Whenever SPIRALk is in a busy run state, the live out-of-band stop
-            // must be accepted. Retrying across polls keeps this robust against
-            // transient state changes; the short-circuit means requestStopProgram
-            // is only probed while the program is genuinely busy.
-            val accepted = waitUntil(RUN_TIMEOUT_MS) {
-                val runStop = ProgramLoadTestBridge.snapshotState().programRunStop
-                (runStop == PGM_RUNNING || runStop == PGM_PAUSED) &&
-                    ProgramLoadTestBridge.requestStopProgram()
-            }
-            assertTrue(
-                "a busy SPIRALk must accept the live out-of-band direct stop (final state=${ProgramLoadTestBridge.snapshotState().programRunStop})",
-                accepted,
-            )
         }
     }
 
@@ -353,26 +346,6 @@ class DisplayLifecycleInstrumentedTest {
         return condition()
     }
 
-    private fun waitForRunActivity(loadStep: Int): Boolean {
-        var maxStep = loadStep
-        var sawPause = false
-        var sawWaiting = false
-        var sawView = false
-        var sawLcdRefresh = false
-
-        return waitUntil(RUN_ACTIVITY_TIMEOUT_MS) {
-            val state = ProgramLoadTestBridge.snapshotState()
-            if (state.currentLocalStepNumber > maxStep) {
-                maxStep = state.currentLocalStepNumber
-            }
-            sawPause = sawPause || state.programRunStop == PGM_PAUSED
-            sawWaiting = sawWaiting || state.programRunStop == PGM_WAITING
-            sawView = sawView || state.temporaryInformation == TI_VIEW_REGISTER
-            sawLcdRefresh = sawLcdRefresh || state.lcdRefreshCount > 0
-            maxStep > loadStep || sawPause || sawWaiting || sawView || sawLcdRefresh
-        }
-    }
-
     private companion object {
         private const val SPIRALK_ASSET_PATH = "program-fixtures/PROGRAMS/SPIRALk.p47"
         private const val ITM_READP = 1567
@@ -388,7 +361,6 @@ class DisplayLifecycleInstrumentedTest {
         private const val RUNTIME_READY_TIMEOUT_MS = 15_000L
         private const val LOAD_TIMEOUT_MS = 10_000L
         private const val RUN_TIMEOUT_MS = 90_000L
-        private const val RUN_ACTIVITY_TIMEOUT_MS = 15_000L
         private const val POLL_INTERVAL_MS = 25L
         private const val PAUSE_RESUME_SETTLE_MS = 50L
         private const val PAUSE_RESUME_RETRY_MS = 1_000L

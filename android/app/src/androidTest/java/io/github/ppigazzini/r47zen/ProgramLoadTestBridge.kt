@@ -69,6 +69,10 @@ object ProgramLoadTestBridge {
 
     fun directStopAllowedForRunState(runState: Int): Boolean = directStopAllowedForRunStateNative(runState)
 
+    fun setProgramRunStop(runState: Int) {
+        setProgramRunStopForTestNative(runState)
+    }
+
     fun trySnapshotState(): ProgramLoadState? {
         val raw = snapshotStateIfAvailableNative() ?: return null
         return decodeState(raw)
@@ -122,6 +126,7 @@ object ProgramLoadTestBridge {
     private external fun beginMainActivityKeySequenceNative(keyCode: Int): Boolean
     private external fun requestStopProgramNative(): Boolean
     private external fun directStopAllowedForRunStateNative(runState: Int): Boolean
+    private external fun setProgramRunStopForTestNative(runState: Int)
     private external fun setNextLoadProgramFdNative(fd: Int)
     private external fun clearLoadProgramFdOverrideNative()
     private external fun isSimFunctionRunningNative(): Boolean

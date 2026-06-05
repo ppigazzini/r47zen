@@ -455,6 +455,20 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_directStopAllowedForRunSt
   return r47_direct_stop_allowed((uint16_t)runState) ? JNI_TRUE : JNI_FALSE;
 }
 
+// Inject a run state directly so the REAL requestStopProgramNative gate can be
+// asserted end to end across every run state deterministically, instead of
+// waiting for a graphing program to emergently reach a busy state (the flaky
+// 90 s SPIRALk wait this replaces). Safe because fnStopProgram() only sets
+// programRunStop = PGM_WAITING and clears a screen flag; it dereferences no
+// program state. Tests must resetRuntime() afterwards to restore isolation.
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setProgramRunStopForTestNative(
+    JNIEnv *env, jobject thiz, jint runState) {
+  (void)env;
+  (void)thiz;
+  programRunStop = (uint8_t)runState;
+}
+
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setNextLoadProgramFdNative(
     JNIEnv *env, jobject thiz, jint fd) {
