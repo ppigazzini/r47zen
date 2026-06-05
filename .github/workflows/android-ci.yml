@@ -960,6 +960,13 @@ jobs:
             -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
             2>&1 | tee ../ci-artifacts/logs/android-dev-release-build-and-unit.log
 
+      - name: Enforce JVM unit-test coverage gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/android/coverage_gate.sh \
+            2>&1 | tee ci-artifacts/logs/android-coverage-gate.log
+
       - name: Restore Android emulator AVD cache
         id: avd-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5

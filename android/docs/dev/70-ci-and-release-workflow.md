@@ -199,9 +199,13 @@ It:
   coverage reports (`:app:koverXmlReportRelease`, `:app:koverHtmlReportRelease`,
   `:app:koverLogRelease`) with `r47.releaseChannel=dev`,
   `r47.testBuildType=release`, and temporary `r47.releaseMinify=false` plus
-  `r47.releaseShrinkResources=false`. The Kover step is reporting-only (no
-  `verify` gate); it publishes a per-class JVM unit-test coverage report so the
-  JNI-facing Kotlin coverage is visible
+  `r47.releaseShrinkResources=false`. The Kover step publishes a per-class JVM
+  unit-test coverage report so the JNI-facing Kotlin coverage is visible
+- then runs `scripts/android/coverage_gate.sh`, which parses that Kover release
+  report and fails the lane if overall line coverage drops below the floor
+  (default 80 %, below the current measurement so it ratchets against
+  regressions) or if the live program-stop routing seam loses full line coverage
+  (REPORT-24 Milestone 5)
 - uses that single task graph to refresh staged native inputs, build the
   dev-release APK, assemble the instrumentation APKs, and run the JVM suite without a
   second full `build_android.sh` pass
