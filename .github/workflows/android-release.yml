@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       version_name:
-        description: Android versionName and derived GitHub tag basis (major.minor.patch-signed.YYYYMMDD)
+        description: Android versionName and derived GitHub tag basis (major.minor.patch-signed.YYYYMMDDVV)
         required: true
         type: string
 

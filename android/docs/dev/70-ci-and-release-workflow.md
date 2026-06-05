@@ -340,7 +340,7 @@ This workflow:
   maintainer pattern is `YYYYMMDDVV`
 - uses `version_name` as the user-facing release label and the derived GitHub
   tag basis; keep it semver-shaped with a signed date suffix:
-  `major.minor.patch-signed.YYYYMMDD`
+  `major.minor.patch-signed.YYYYMMDDVV`
 - follows the current guidance behind that pattern: Android requires each
   release to use a higher integer `versionCode`, treats `versionName` as the
   user-visible string, and points to Semantic Versioning as a common basis;
