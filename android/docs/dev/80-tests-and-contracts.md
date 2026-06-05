@@ -100,6 +100,19 @@ When a historical external GIMP export needs checking, pass its JSON path direct
 `validate_geometry_dataset.py`; no checked-in GIMP dataset exists in this
 repository.
 
+A checked-in contract JSON is verified at two layers so it is not a
+self-blessing snapshot. A `*_payload_matches_contract_json` test is only a
+**freshness** guard: it proves the committed JSON is a faithful re-derivation,
+but on its own it is circular because re-running the deriver re-blesses any
+change. Each such snapshot must therefore also have a **correctness** oracle --
+tests that root in facts outside the snapshot (the real upstream `assign.c` /
+`items.c` rows, the real font files on disk, documented keypad constants, or the
+Kotlin constants) so a re-blessed wrong value fails even when the freshness
+guard passes. `test_keyboard_layout_contract.py` (per-key value assertions) and
+`test_key_font_policy_contract.py` (font files, fallback validity, and keypad
+constants) follow this pairing; a new snapshot contract must add its correctness
+oracle before it is trusted (REPORT-24 Milestone 4).
+
 The grouped Python lane currently covers:
 
 - `validate_geometry_dataset.py`: structural and spacing checks for the
