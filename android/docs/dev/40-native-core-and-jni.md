@@ -321,13 +321,20 @@ core. That reattach helper refreshes JNI references and cached method IDs only;
 it must stay display-passive and must not synthesize a redraw.
 `DisplayLifecycleInstrumentedTest.kt` exercises that contract through full
 `ActivityScenario.recreate()` coverage
-(`activityRecreationPreservesInjectedDisplaySnapshot`): because the reattach is
-display-passive and `NativeCoreRuntime`'s `isCoreThreadStarted` /
-`isNativeInitializedShared` are process-shared, a deterministic non-trivial
-framebuffer injected through `injectDeterministicDisplayBuffer` must survive
-recreation unchanged -- no `SPIRALk` run is needed (REPORT-24 Milestone 4b
-Slice C). The local 16 KB runtime smoke script reuses the same recreation probe
-on a connected 16 KB target.
+(`activityRecreationPreservesSpiralkGraphSnapshot`). The native runtime persists
+across recreation (`NativeCoreRuntime`'s `isCoreThreadStarted` /
+`isNativeInitializedShared` are process-shared, so the recreated Activity
+re-attaches rather than re-initialising), but recreation **does re-render
+`packedDisplayBuffer` from calculator state** -- REPORT-24 Milestone 4b Slice C
+tried to assert recreation preserves a raw injected framebuffer and CI proved
+otherwise (the injected pattern was replaced by the state render). So the
+recreation snapshot test keeps a real `SPIRALk` graph: a graph display is
+cursor-free and byte-stable, so re-rendering it from the persisted graph state
+reproduces the same framebuffer. The *Settings-style pause/resume* transition,
+by contrast, is display-passive -- it does not re-render -- so
+`pauseResumePreservesInjectedDisplaySnapshot` uses a deterministic injected
+framebuffer (`injectDeterministicDisplayBuffer`) and passes. The local 16 KB
+runtime smoke script reuses the recreation probe on a connected 16 KB target.
 
 ## Lifecycle Save And Explicit Refresh Contract
 
@@ -444,7 +451,7 @@ Local runtime proof for the same contract now lives in
 `scripts/android/run_16kb_runtime_smoke.sh`. That script checks the connected
 device or emulator page size through `adb shell getconf`, requires
 `16384`-byte pages, and then runs only
-`DisplayLifecycleInstrumentedTest#activityRecreationPreservesInjectedDisplaySnapshot`.
+`DisplayLifecycleInstrumentedTest#activityRecreationPreservesSpiralkGraphSnapshot`.
 
 That artifact verification is the reason packaging changes should be documented
 alongside the workflow and Gradle files, not only in the CMake layer.

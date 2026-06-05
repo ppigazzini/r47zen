@@ -343,16 +343,20 @@ Important files include:
   focused device lane proving that a
   forced-busy keypad snapshot path stays responsive under every non-yielding
   shared-core loop.
-- `DisplayLifecycleInstrumentedTest.kt`: this class is now **fully
-  deterministic** -- it runs no program and has no timed waits (REPORT-24
-  Milestone 4b). It locks the lifecycle LCD contract so a background save, a
-  Settings-style pause or resume, and full `ActivityScenario.recreate()` preserve
-  the visible packed LCD snapshot: all three lifecycle transitions are
-  display-passive (the native runtime and `packedDisplayBuffer` persist), so the
-  tests inject a deterministic non-trivial framebuffer via
-  `ProgramLoadTestBridge.injectDeterministicDisplayBuffer` /
-  `backgroundSaveKeepsInjectedDisplayBuffer` and assert the lifecycle event leaves
-  it unchanged -- with no emergent `SPIRALk` run. Its
+- `DisplayLifecycleInstrumentedTest.kt`: locks the lifecycle LCD contract so a
+  background save, a Settings-style pause or resume, and full
+  `ActivityScenario.recreate()` preserve the visible packed LCD snapshot.
+  Background save and pause/resume are **display-passive** (they do not re-render
+  `packedDisplayBuffer`), so those two tests are deterministic: they inject a
+  non-trivial framebuffer via
+  `ProgramLoadTestBridge.backgroundSaveKeepsInjectedDisplayBuffer` /
+  `injectDeterministicDisplayBuffer` and assert the lifecycle event leaves it
+  unchanged, with no program run (REPORT-24 Milestone 4b Slices B/C). Recreation,
+  however, **re-renders `packedDisplayBuffer` from calculator state** (CI proved a
+  raw injected framebuffer is not preserved), so
+  `activityRecreationPreservesSpiralkGraphSnapshot` still drives a real `SPIRALk`
+  graph -- a cursor-free, byte-stable display whose re-render from the persisted
+  graph state reproduces the same framebuffer (REPORT-24 §22). Its
   `directStopGateDeclinesInteractiveWaitStates` case is the REPORT-23
   runtime-regression guard: it probes the pure `r47_direct_stop_allowed`
   predicate (via `ProgramLoadTestBridge.directStopAllowedForRunState`) across
