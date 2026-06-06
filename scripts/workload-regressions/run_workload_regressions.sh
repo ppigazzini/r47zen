@@ -17,6 +17,13 @@ HOST_WORKLOAD_STOP_TIMEOUT_EXIT_CODE="${HOST_WORKLOAD_STOP_TIMEOUT_EXIT_CODE:-3}
 HOST_WORKLOAD_FIXTURE_TIMEOUT="${HOST_WORKLOAD_FIXTURE_TIMEOUT:-25s}"
 HOST_WORKLOAD_FIXTURE_KILL_AFTER="${HOST_WORKLOAD_FIXTURE_KILL_AFTER:-5s}"
 HOST_WORKLOAD_FIXTURE_TIMEOUT_SIGNAL="${HOST_WORKLOAD_FIXTURE_TIMEOUT_SIGNAL:-TERM}"
+# When true, a fixture that runs but exits non-zero (e.g. a value-oracle
+# mismatch or a crash) is recorded as degraded coverage instead of failing the
+# run. The PGO training overlay sets this so a fixture whose output drifts under
+# a new upstream cannot break the Android build; the dedicated correctness lane
+# leaves it false so the oracle still gates. Compile and setup failures stay
+# fatal regardless -- this only affects a fixture's own runtime exit.
+HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE="${HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE:-false}"
 REQUIRED_PROGRAM_FIXTURE_SPECS=(
     "BinetV3.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
     "GudrmPL.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
@@ -67,6 +74,22 @@ emit_fixture_timeout_warning() {
     fi
 }
 
+emit_fixture_failure_warning() {
+    local fixture="$1"
+    local status="$2"
+    local message="$fixture exited with status ${status} (a value-oracle mismatch or a crash); tolerated as degraded PGO training coverage. The dedicated host-workload-regressions lane gates this as a correctness failure."
+
+    echo "WARNING: $message" >&2
+
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+        echo "::warning title=Host workload fixture failure tolerated::$message"
+    fi
+
+    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+        printf '%s\n' "- Warning: $message" >>"$GITHUB_STEP_SUMMARY"
+    fi
+}
+
 run_host_workload_fixture() {
     local fixture="$1"
     local timeout_bin="$2"
@@ -101,6 +124,10 @@ run_host_workload_fixture() {
             return 0
             ;;
         *)
+            if [[ "$HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE" == "true" ]]; then
+                emit_fixture_failure_warning "$fixture" "$status"
+                return 0
+            fi
             return "$status"
             ;;
     esac

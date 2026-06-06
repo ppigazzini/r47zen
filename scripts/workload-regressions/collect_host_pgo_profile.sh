@@ -562,7 +562,14 @@ run_program_fixture_profile_overlay() {
 
     mkdir -p "$(dirname "$PROGRAM_FIXTURE_LOG_PATH")"
 
-    python3 - "$PROGRAM_FIXTURE_LOG_PATH" "$runtime_cwd" "$SCRIPT_DIR/run_workload_regressions.sh" <<'PY'
+    # PGO training only needs the fixtures to execute so their profiles can be
+    # collected; correctness is gated by the dedicated host-workload-regressions
+    # lane, not here. Tolerate a fixture's own runtime failure (e.g. a value
+    # oracle that drifted under a new upstream) as degraded coverage so it cannot
+    # break the Android build. Compile and setup failures still propagate. The
+    # toggle is scoped to this overlay subprocess only.
+    HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE=true \
+        python3 - "$PROGRAM_FIXTURE_LOG_PATH" "$runtime_cwd" "$SCRIPT_DIR/run_workload_regressions.sh" <<'PY'
 import os
 import subprocess
 import sys
