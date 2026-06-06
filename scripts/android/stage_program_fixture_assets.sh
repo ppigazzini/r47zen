@@ -59,7 +59,17 @@ stage_program_fixtures() {
     TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/r47-program-fixtures.XXXXXX")"
 
     ensure_remote "$R47_RESOLVED_UPSTREAM_URL"
-    git -C "$PROJECT_ROOT" fetch --depth 1 "$UPSTREAM_REMOTE_NAME" "$R47_RESOLVED_UPSTREAM_COMMIT"
+
+    # Reuse the commit if it is already local (the normal CI case: every lane
+    # runs upstream.sh sync before building, which fetches it). Re-fetching the
+    # upstream on every asset generation doubled the upstream requests and, once
+    # the release lane began running its build and verify jobs in parallel,
+    # tripped the upstream host's rate limit (HTTP 429). Fetch only when the
+    # commit is not already present.
+    if ! git -C "$PROJECT_ROOT" cat-file -e "${R47_RESOLVED_UPSTREAM_COMMIT}^{commit}" 2>/dev/null; then
+        git -C "$PROJECT_ROOT" fetch --depth 1 "$UPSTREAM_REMOTE_NAME" "$R47_RESOLVED_UPSTREAM_COMMIT"
+    fi
+
     git -C "$PROJECT_ROOT" archive --format=tar "$R47_RESOLVED_UPSTREAM_COMMIT" res/PROGRAMS | tar -C "$TEMP_DIR" -xf -
 
     [[ -d "$TEMP_DIR/res/PROGRAMS" ]] ||

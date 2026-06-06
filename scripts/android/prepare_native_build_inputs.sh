@@ -193,7 +193,15 @@ hydrate_missing_upstream_paths() {
 
     echo "--- Hydrating missing upstream paths for direct Gradle build ---"
     ensure_remote
-    git -C "$PROJECT_ROOT" fetch --depth 1 "$UPSTREAM_REMOTE_NAME" "$RESOLVED_UPSTREAM_COMMIT"
+
+    # Reuse the commit if it is already local (every CI lane runs upstream.sh
+    # sync first, which fetches it). Re-fetching here on every build multiplied
+    # upstream requests and contributed to the rate limiting (HTTP 429) that the
+    # parallel release jobs hit. Fetch only when the commit is not already local.
+    if ! git -C "$PROJECT_ROOT" cat-file -e "${RESOLVED_UPSTREAM_COMMIT}^{commit}" 2>/dev/null; then
+        git -C "$PROJECT_ROOT" fetch --depth 1 "$UPSTREAM_REMOTE_NAME" "$RESOLVED_UPSTREAM_COMMIT"
+    fi
+
     git -C "$PROJECT_ROOT" archive --format=tar "$RESOLVED_UPSTREAM_COMMIT" "${archive_paths[@]}" | tar -C "$PROJECT_ROOT" -xf -
 
     for sim_subdir in "${SIM_REQUIRED_SUBDIRS[@]}"; do
