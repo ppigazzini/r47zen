@@ -74,7 +74,15 @@ upstream commit and applies a release gate:
 
 - `resolve-upstream-core` resolves the upstream URL and commit through
   `scripts/upstream-sync/upstream.sh resolve --latest`, so the lane always
-  tracks the newest upstream HEAD rather than a frozen revision
+  tracks the newest upstream HEAD rather than a frozen revision. Unless an
+  explicit `upstream_commit` pin is supplied, the resolver **refuses** any mode
+  other than `latest` and fails loudly, so a stale or locked configuration can
+  never silently ship a non-HEAD core. It also logs the resolved commit
+  (`Resolved upstream commit: <sha> (mode latest)`) so the shipped revision is
+  visible in the resolve job before the heavy build runs. Because GitHub builds
+  the workflow file at the ref a run is dispatched from, this latest-by-default
+  behaviour only applies once the change is present on that ref; a release
+  dispatched from an older ref runs that ref's older resolution logic
 - `upstream-release-gate` computes the downstream Android prerelease tag from
   the resolved upstream commit plus the current Android repository commit, then
   decides whether the heavy lanes run:

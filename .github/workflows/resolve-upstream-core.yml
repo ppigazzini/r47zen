@@ -70,8 +70,7 @@ jobs:
           esac
 
           # An explicit upstream_commit is a deliberate roadblock pin: resolve
-          # locked to exactly that commit regardless of mode. Otherwise follow
-          # the configured mode (latest in normal operation).
+          # locked to exactly that commit regardless of mode.
           if [[ -n "$PIN_COMMIT" ]]; then
             if [[ ! "$PIN_COMMIT" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
               echo "upstream_commit must be a hex commit SHA (7-40 chars). Got: $PIN_COMMIT" >&2
@@ -80,8 +79,19 @@ jobs:
             echo "Roadblock pin: locking upstream resolution to $PIN_COMMIT" >&2
             eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --locked --commit "$PIN_COMMIT")"
           else
-            eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --"$RESOLVE_MODE")"
+            # No explicit pin: the build MUST follow the latest upstream HEAD.
+            # Refuse any other mode so a stale or locked configuration can never
+            # silently ship a non-HEAD core (REPORT-24 §33). To hold a revision,
+            # pass the upstream_commit input deliberately instead.
+            if [[ "$RESOLVE_MODE" != "latest" ]]; then
+              echo "Refusing to resolve in '$RESOLVE_MODE' mode without an explicit upstream_commit pin." >&2
+              echo "An unpinned build must resolve the latest upstream HEAD. Set mode: latest, or pass upstream_commit to pin deliberately." >&2
+              exit 1
+            fi
+            eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --latest)"
           fi
+
+          echo "Resolved upstream commit: $R47_RESOLVED_UPSTREAM_COMMIT (mode $R47_RESOLVED_UPSTREAM_MODE)" >&2
 
           echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
