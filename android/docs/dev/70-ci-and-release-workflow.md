@@ -73,10 +73,20 @@ Before any heavy job runs, the workflow resolves the current authoritative
 upstream commit and applies a release gate:
 
 - `resolve-upstream-core` resolves the upstream URL and commit through
-  `scripts/upstream-sync/upstream.sh resolve --latest`
+  `scripts/upstream-sync/upstream.sh resolve --latest`, so the lane always
+  tracks the newest upstream HEAD rather than a frozen revision
 - `upstream-release-gate` computes the downstream Android prerelease tag from
-  the resolved upstream commit plus the current Android repository commit and
-  enables the downstream CI lanes for the current trigger set
+  the resolved upstream commit plus the current Android repository commit, then
+  decides whether the heavy lanes run:
+  - a `push` moves the Android commit and a `workflow_dispatch` is an explicit
+    rebuild request, so both always proceed
+  - a `schedule` run proceeds only when no GitHub release exists yet for the
+    computed `release_tag`. Because the tag is keyed on the resolved upstream
+    short commit and the Android overlay short commit, an unchanged upstream and
+    overlay means the prerelease already exists, so the nightly run skips the
+    build, test, and publish lanes (`should_run=false`). A new upstream commit
+    yields a new tag, which has no release yet, so the nightly run builds and
+    tests the new artifact and surfaces any upstream regression
 
 Production signing does not run in `.github/workflows/android-ci.yml`.
 The separate protected workflow `.github/workflows/android-release.yml` owns
@@ -307,10 +317,12 @@ flowchart TD
 This workflow:
 
 - resolves the upstream commit through
-  `scripts/upstream-sync/upstream.sh resolve --locked`, building the
-  authoritative `upstream_commit` pin recorded in `upstream.source` so release
-  artifacts are reproducible from the repository instead of tracking the latest
-  upstream revision
+  `scripts/upstream-sync/upstream.sh resolve --latest`, so a production release
+  ships the same newest upstream HEAD that CI builds and tests, never a frozen
+  older revision; the resolved commit is recorded in the release tag and
+  `BUILD-METADATA.txt` so the artifact stays traceable after the fact. Holding
+  an older revision is a roadblock-only action performed through a local,
+  Git-ignored `upstream.lock`, never by pinning the Git-tracked `upstream.source`
 - syncs the resolved authoritative upstream tree
 - derives the Linux host LLVM major from the pinned NDK `clang`, then installs
   the matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and

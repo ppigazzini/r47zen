@@ -60,9 +60,9 @@ Commands:
     verify-restore-boundary  Fail when the restore allowlist would re-own upstream root surfaces.
 
 Resolution modes:
-  --auto    Use --commit first, then the pinned upstream_commit (upstream.lock over upstream.source), else latest upstream_ref. (default)
-  --locked  Require an explicit --commit or a pinned upstream_commit in upstream.source or upstream.lock.
-  --latest  Ignore the pinned upstream_commit and resolve the latest commit from upstream_ref.
+  --auto    Use --commit first, then an optional pinned upstream_commit (upstream.lock over upstream.source), else the latest upstream_ref. Latest is the normal path. (default)
+  --locked  Require an explicit --commit or an optional pinned upstream_commit in upstream.lock (or upstream.source). For roadblock reproduction only.
+  --latest  Ignore any pinned upstream_commit and resolve the latest commit from upstream_ref.
 
 Options:
   --write-lock  Refresh upstream.lock with the resolved URL/ref/commit.
@@ -74,9 +74,10 @@ Options:
   --format      Output format for resolve. shell emits shell-safe assignments, none is silent.
 
 Configuration:
-  upstream.source is Git-tracked and defines upstream_url/upstream_ref defaults and the
-    authoritative upstream_commit pin used for reproducible builds.
-  upstream.lock is Git-ignored and may optionally override upstream_commit for local repeatability.
+  upstream.source is Git-tracked and defines the upstream_url/upstream_ref defaults.
+    It does not pin a commit: the project tracks the latest upstream HEAD.
+  upstream.lock is Git-ignored and may OPTIONALLY pin upstream_commit to hold a
+    specific revision for a roadblock (regression bisect, reproducing an old build).
 EOF
 }
 

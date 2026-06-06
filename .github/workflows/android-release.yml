@@ -75,7 +75,11 @@ jobs:
     name: Resolve authoritative upstream core revision
     uses: ./.github/workflows/resolve-upstream-core.yml
     with:
-      mode: locked
+      # Release the latest upstream HEAD, same as CI. The resolved commit is
+      # recorded in the release tag and BUILD-METADATA for traceability. Holding
+      # an older revision is a roadblock-only action done via a local
+      # upstream.lock, never by pinning the Git-tracked upstream.source.
+      mode: latest
 
   build-production-release-bundle:
     name: Build signed production release assets

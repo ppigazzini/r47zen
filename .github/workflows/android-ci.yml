@@ -64,6 +64,7 @@ jobs:
           ANDROID_COMMIT: ${{ github.sha }}
           DEV_VERSION_CODE_INPUT: ${{ github.event.inputs.dev_version_code }}
           DEV_VERSION_NAME_INPUT: ${{ github.event.inputs.dev_version_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -111,7 +112,27 @@ jobs:
           echo "dev_version_name=$dev_version_name" >> "$GITHUB_OUTPUT"
           echo "dev_build_token=$dev_build_token" >> "$GITHUB_OUTPUT"
 
-          echo "should_run=true" >> "$GITHUB_OUTPUT"
+          # release_tag is keyed on the resolved upstream short commit and the
+          # Android overlay short commit. When neither has changed since the last
+          # publish the prerelease already exists, so a scheduled run has nothing
+          # new to build or test and we skip the heavy lanes. A push or a manual
+          # dispatch always proceeds: a push moves ANDROID_COMMIT (new tag), and a
+          # maintainer dispatch is an explicit rebuild request.
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "Manual dispatch: building regardless of existing $release_tag." >&2
+            should_run=true
+          elif gh release view "$release_tag" \
+            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $release_tag already exists: no new upstream or overlay" >&2
+            echo "commit since the last publish. Skipping the build/test/publish" >&2
+            echo "lanes." >&2
+            should_run=false
+          else
+            echo "No release $release_tag yet: building a new artifact." >&2
+            should_run=true
+          fi
+
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
 
   upstream-simulator-sanity:
     name: Sanity-check authoritative upstream simulator core

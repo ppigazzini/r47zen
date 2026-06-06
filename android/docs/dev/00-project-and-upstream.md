@@ -129,6 +129,11 @@ Current checked-in defaults:
 - upstream URL: `https://gitlab.com/rpncalculators/c43.git`
 - upstream ref: `HEAD`
 
+`upstream.source` pins no commit on purpose: CI and the release lane resolve the
+latest commit on the ref every run, so the project always ships the current
+upstream core. Pinning an older commit is a roadblock-only action recorded in
+the Git-ignored `upstream.lock`, never in `upstream.source`.
+
 That GitLab path still uses the historical `c43` repository name, but the
 upstream project identifies itself as C47.
 
