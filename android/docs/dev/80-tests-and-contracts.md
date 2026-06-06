@@ -352,18 +352,20 @@ Important files include:
   shared-core loop.
 - `DisplayLifecycleInstrumentedTest.kt`: locks the lifecycle LCD contract so a
   background save, a Settings-style pause or resume, and full
-  `ActivityScenario.recreate()` preserve the visible packed LCD snapshot.
-  Background save and pause/resume are **display-passive** (they do not re-render
-  `packedDisplayBuffer`), so those two tests are deterministic: they inject a
-  non-trivial framebuffer via
-  `ProgramLoadTestBridge.backgroundSaveKeepsInjectedDisplayBuffer` /
-  `injectDeterministicDisplayBuffer` and assert the lifecycle event leaves it
-  unchanged, with no program run (REPORT-24 Milestone 4b Slices B/C). Recreation,
-  however, **re-renders `packedDisplayBuffer` from calculator state** (CI proved a
-  raw injected framebuffer is not preserved), so
-  `activityRecreationPreservesSpiralkGraphSnapshot` still drives a real `SPIRALk`
+  `ActivityScenario.recreate()` preserve the visible packed LCD snapshot. The
+  background save is **display-passive** (`saveCalc()` never touches
+  `packedDisplayBuffer`), so `backgroundSavePreservesInjectedDisplaySnapshot`
+  injects a non-trivial framebuffer via
+  `ProgramLoadTestBridge.backgroundSaveKeepsInjectedDisplayBuffer` and asserts the
+  save leaves it unchanged, with no program run (REPORT-24 Milestone 4b Slice B).
+  Pause/resume and recreation both **re-render `packedDisplayBuffer` from
+  calculator state** against the current upstream HEAD (CI proved a raw injected
+  framebuffer is not preserved across either; for pause/resume this changed when
+  CI advanced to the latest upstream, REPORT-24 §25/§32), so
+  `pauseResumePreservesSpiralkGraphSnapshot` and
+  `activityRecreationPreservesSpiralkGraphSnapshot` both drive a real `SPIRALk`
   graph -- a cursor-free, byte-stable display whose re-render from the persisted
-  graph state reproduces the same framebuffer (REPORT-24 §22). Its
+  graph state reproduces the same framebuffer (REPORT-24 §22/§32). Its
   `directStopGateDeclinesInteractiveWaitStates` case is the REPORT-23
   runtime-regression guard: it probes the pure `r47_direct_stop_allowed`
   predicate (via `ProgramLoadTestBridge.directStopAllowedForRunState`) across

@@ -67,31 +67,53 @@ class DisplayLifecycleInstrumentedTest {
     }
 
     @Test
-    fun pauseResumePreservesInjectedDisplaySnapshot() {
-        // DE-FLAKE (REPORT-24 Milestone 4b Slice C): a Settings-style pause/resume
-        // is display-passive -- the core thread keeps running and
-        // packedDisplayBuffer is not re-rendered (onResume re-attaches without
-        // re-init) -- so the contract holds for ANY framebuffer. A deterministic
-        // non-trivial pattern is injected (its hash captured atomically), the
-        // lifecycle event runs, and the framebuffer is re-hashed, with no program
-        // run and no timeout. (CI confirms pause/resume preserves the injected
-        // buffer; recreation does NOT -- it re-renders from calculator state -- so
-        // activityRecreation below keeps SPIRALk. See REPORT-24 §21/§22.)
+    fun pauseResumePreservesSpiralkGraphSnapshot() {
+        // REGRESSION FIX (REPORT-24 §32): a Settings-style pause/resume used to be
+        // display-passive against the previously pinned upstream, so an injected
+        // framebuffer survived it byte-for-byte. After CI advanced to the latest
+        // upstream HEAD (REPORT-24 §25), onResume re-renders packedDisplayBuffer
+        // from calculator state, so an injected arbitrary buffer is overwritten by
+        // the state-derived render -- the same display-active behaviour the
+        // recreation test already accounts for (§22). Drive this from SPIRALk
+        // state instead: pause/resume must preserve the calculator state, so a
+        // force-refresh render of that state is byte-identical before and after,
+        // whether or not onResume itself re-renders. forceRefresh on both sides
+        // routes both captures through the same synchronous, screenMutex-guarded
+        // render so the comparison cannot race an async redraw.
+        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
+        val spiralkFixture = targetContext.assets.open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
+
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             assertTrue(
                 "Native runtime did not become ready for pause/resume coverage",
                 waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
             )
-            ProgramLoadTestBridge.resetRuntime()
 
-            val beforeHash = ProgramLoadTestBridge.injectDeterministicDisplayBuffer()
-            assertTrue("the injected display snapshot must be non-trivial", beforeHash != 0L)
+            ProgramLoadTestBridge.resetRuntime()
+            val loadState = loadProgramFixture(targetProgramFile, spiralkFixture)
+            assertTrue(
+                "failed to seed SPIRALk register J with 2",
+                ProgramLoadTestBridge.seedSpiralkInput(),
+            )
+            runSpiralkScenario(loadState)
+
+            ProgramLoadTestBridge.forceRefresh()
+            val beforeHash = ProgramLoadTestBridge.captureDisplayHash()
+            assertTrue("the SPIRALk display snapshot must be non-trivial", beforeHash != 0L)
+
             scenario.moveToState(Lifecycle.State.STARTED)
             scenario.moveToState(Lifecycle.State.RESUMED)
+            assertTrue(
+                "Native runtime did not stay ready across pause/resume",
+                waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
+            )
+
+            ProgramLoadTestBridge.forceRefresh()
             val afterHash = ProgramLoadTestBridge.captureDisplayHash()
 
             assertEquals(
-                "Settings-style pause/resume should preserve the display snapshot",
+                "Settings-style pause/resume should preserve the SPIRALk graph snapshot",
                 beforeHash,
                 afterHash,
             )

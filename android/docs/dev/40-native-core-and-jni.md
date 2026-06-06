@@ -330,11 +330,15 @@ tried to assert recreation preserves a raw injected framebuffer and CI proved
 otherwise (the injected pattern was replaced by the state render). So the
 recreation snapshot test keeps a real `SPIRALk` graph: a graph display is
 cursor-free and byte-stable, so re-rendering it from the persisted graph state
-reproduces the same framebuffer. The *Settings-style pause/resume* transition,
-by contrast, is display-passive -- it does not re-render -- so
-`pauseResumePreservesInjectedDisplaySnapshot` uses a deterministic injected
-framebuffer (`injectDeterministicDisplayBuffer`) and passes. The local 16 KB
-runtime smoke script reuses the recreation probe on a connected 16 KB target.
+reproduces the same framebuffer. The *Settings-style pause/resume* transition
+re-renders the same way against the current upstream HEAD (an earlier pin made
+it display-passive, which no longer holds), so
+`pauseResumePreservesSpiralkGraphSnapshot` drives the same `SPIRALk` graph and
+compares a `forceRefresh` render of the persisted state before and after the
+transition: pause/resume must preserve the calculator state, so the state-derived
+render is byte-identical whether or not `onResume` itself redraws. The local
+16 KB runtime smoke script reuses the recreation probe on a connected 16 KB
+target.
 
 ## Lifecycle Save And Explicit Refresh Contract
 
