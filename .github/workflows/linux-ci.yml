@@ -26,6 +26,22 @@ jobs:
     with:
       mode: latest
 
+  upstream-resolver-policy:
+    name: Verify upstream resolver policy contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Run resolver-policy test harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/upstream-sync/test_resolver_policy.sh
+
   linux-simulator:
     name: Build Linux simulator package
     needs:

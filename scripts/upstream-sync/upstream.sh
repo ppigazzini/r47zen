@@ -4,8 +4,12 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-SOURCE_CONFIG_PATH="$PROJECT_ROOT/upstream.source"
-LOCKFILE_PATH="$PROJECT_ROOT/upstream.lock"
+# The config paths default to the repo root but may be redirected for the
+# resolver-policy test harness (scripts/upstream-sync/test_resolver_policy.sh),
+# which needs to drive synthetic upstream.source/upstream.lock files without
+# touching the real tracked ones. Production callers leave these unset.
+SOURCE_CONFIG_PATH="${R47_UPSTREAM_SOURCE_FILE:-$PROJECT_ROOT/upstream.source}"
+LOCKFILE_PATH="${R47_UPSTREAM_LOCK_FILE:-$PROJECT_ROOT/upstream.lock}"
 DEFAULT_UPSTREAM_URL="https://gitlab.com/rpncalculators/c43.git"
 DEFAULT_UPSTREAM_REF="HEAD"
 UPSTREAM_REMOTE_NAME="r47-c43-upstream"
