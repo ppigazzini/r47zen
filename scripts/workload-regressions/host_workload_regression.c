@@ -63,12 +63,16 @@ typedef struct {
   bool (*seed_runtime)(void);
   stop_policy_t stop_policy;
   uint64_t stop_after_activity_ms;
-  // Numeric oracle (REPORT-24 Milestone 3 / W7): the expected X-register value
-  // string produced by read_x_register_value_string after the program runs to
-  // completion, or NULL to stay liveness-only. Only set this for fixtures whose
-  // result is independently verifiable and that finish (not interrupted) and
-  // leave a scalar in X.
-  const char *expected_x_register;
+  // Numeric oracle (REPORT-24 Milestone 3 / W7, hardened in §37): the expected
+  // sequence of non-negative integers the X register must contain after the
+  // program runs to completion. The comparison ignores display chrome (the
+  // vector arrow, decimal points, commas, and whitespace), so an upstream
+  // change to how a result is formatted does not break a correct result -- only
+  // a changed result does. NULL stays liveness-only. Only set this for fixtures
+  // whose result is independently verifiable and that finish (not interrupted)
+  // leaving that integer vector in X.
+  const int *expected_x_sequence;
+  size_t expected_x_sequence_len;
 } program_fixture_scenario_t;
 
 typedef enum {
@@ -299,6 +303,30 @@ static bool seed_nqueens_n8_input(void) {
   return true;
 }
 
+// Extract the sequence of non-negative integers embedded in a value string,
+// ignoring every non-digit character (display chrome such as the type tag, the
+// vector arrow, decimal points, commas, and whitespace). Returns the count
+// written to out, capped at max.
+static size_t extract_int_sequence(const char *s, long *out, size_t max) {
+  size_t count = 0;
+  const char *p = s;
+
+  while (*p != '\0' && count < max) {
+    if (*p >= '0' && *p <= '9') {
+      long value = 0;
+      while (*p >= '0' && *p <= '9') {
+        value = value * 10 + (long)(*p - '0');
+        p++;
+      }
+      out[count++] = value;
+    } else {
+      p++;
+    }
+  }
+
+  return count;
+}
+
 // Render the X register into a stable, type-tagged comparison string so a
 // fixture's numeric result can be asserted, not just its liveness. Mirrors the
 // upstream testSuite printRegisterToString for the two result types these
@@ -521,12 +549,27 @@ static workload_result_t run_program_fixture_workload(
   char x_value[3200];
   read_x_register_value_string(x_value, sizeof(x_value));
   fprintf(stderr, "INFO: %s X register = %s\n", scenario->program_name, x_value);
-  if (scenario->expected_x_register != NULL &&
-      strcmp(x_value, scenario->expected_x_register) != 0) {
-    fprintf(stderr,
-            "ERROR: %s workload produced the wrong result: X=%s, expected X=%s\n",
-            scenario->program_name, x_value, scenario->expected_x_register);
-    return WORKLOAD_RESULT_FAIL;
+  if (scenario->expected_x_sequence != NULL) {
+    long actual_sequence[64];
+    size_t actual_len = extract_int_sequence(
+        x_value, actual_sequence,
+        sizeof(actual_sequence) / sizeof(actual_sequence[0]));
+
+    bool sequence_matches = actual_len == scenario->expected_x_sequence_len;
+    for (size_t i = 0; sequence_matches && i < actual_len; ++i) {
+      if (actual_sequence[i] != (long)scenario->expected_x_sequence[i]) {
+        sequence_matches = false;
+      }
+    }
+
+    if (!sequence_matches) {
+      fprintf(stderr,
+              "ERROR: %s workload produced the wrong result: X=%s (parsed %zu "
+              "integers; the verified solution has %zu)\n",
+              scenario->program_name, x_value, actual_len,
+              scenario->expected_x_sequence_len);
+      return WORKLOAD_RESULT_FAIL;
+    }
   }
 
   fprintf(stderr,
@@ -570,7 +613,11 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
      // Independently verified valid 8-queens solution (see seed_nqueens_n8_input).
-     .expected_x_register = "string:\xe2\x86\x92" " 8., 4., 1., 3., 6., 2., 7., 5."},
+     // Asserted as an integer sequence so an upstream change to the vector's
+     // display format (e.g. the whitespace tightening in 5b925867) does not
+     // break a still-correct result.
+     .expected_x_sequence = (const int[]){8, 4, 1, 3, 6, 2, 7, 5},
+     .expected_x_sequence_len = 8},
     {.program_name = "SPIRALk.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
