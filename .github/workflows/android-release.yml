@@ -374,7 +374,7 @@ jobs:
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
-          R47_GRADLE_ARGS: '--no-daemon --stacktrace --console=plain'
+          R47_GRADLE_ARGS: '--daemon --stacktrace --console=plain'
           R47_PGO_OUTPUT_DIR: ${{ github.workspace }}/ci-artifacts/pgo
           R47_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_SOURCE_COMMIT: ${{ github.sha }}
@@ -412,7 +412,7 @@ jobs:
             :app:assembleRelease \
             :app:assembleReleaseAndroidTest \
             :app:testReleaseUnitTest \
-            --no-daemon --stacktrace --console=plain --warning-mode all \
+            --daemon --stacktrace --console=plain --warning-mode all \
             -Pr47.releaseMinify=false \
             -Pr47.releaseShrinkResources=false \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
@@ -518,7 +518,7 @@ jobs:
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:assembleRelease \
             :app:bundleRelease \
-            --no-daemon --stacktrace --console=plain --warning-mode all \
+            --daemon --stacktrace --console=plain --warning-mode all \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
             -Pr47.pgoProfilePath="$R47_RELEASE_HOST_PGO_PROFILE" \
             -Pr47.versionCode="$R47_VERSION_CODE_INPUT" \
