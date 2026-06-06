@@ -53,11 +53,13 @@ Usage:
     scripts/upstream-sync/upstream.sh resolve [--auto|--locked|--latest] [--write-lock] [--format shell|none] [--url <url>] [--ref <ref>] [--commit <sha>]
     scripts/upstream-sync/upstream.sh sync [--auto|--locked|--latest] [--write-lock] [--if-missing] [--force] [--url <url>] [--ref <ref>] [--commit <sha>]
         scripts/upstream-sync/upstream.sh verify-restore-boundary
+        scripts/upstream-sync/upstream.sh verify-source-policy
 
 Commands:
   resolve   Resolve the authoritative upstream URL/ref/commit through the shared policy.
   sync      Overlay the resolved upstream C43 tree and restore repo-owned paths.
     verify-restore-boundary  Fail when the restore allowlist would re-own upstream root surfaces.
+    verify-source-policy     Fail when upstream.source pins an upstream_commit (it must track the latest HEAD).
 
 Resolution modes:
   --auto    Use --commit first, then an optional pinned upstream_commit (upstream.lock over upstream.source), else the latest upstream_ref. Latest is the normal path. (default)
@@ -233,6 +235,14 @@ restore_path_reowns_upstream_root_surface() {
             return 1
             ;;
     esac
+}
+
+verify_source_policy() {
+    if has_file_key "$SOURCE_CONFIG_PATH" "upstream_commit"; then
+        local pinned=""
+        pinned="$(read_file_value "$SOURCE_CONFIG_PATH" "upstream_commit" 2>/dev/null || true)"
+        fail "Policy violation: ${SOURCE_CONFIG_PATH} defines upstream_commit=${pinned}. The Git-tracked upstream.source must not pin a commit; the project tracks the latest upstream HEAD. Remove the upstream_commit line from upstream.source. Record a roadblock pin only in the Git-ignored upstream.lock via: scripts/upstream-sync/upstream.sh resolve --latest --write-lock"
+    fi
 }
 
 verify_restore_boundary() {
@@ -462,6 +472,10 @@ main() {
         verify-restore-boundary)
             verify_restore_boundary
             echo "Restore boundary OK: repo-owned restore paths stay off upstream root surfaces."
+            ;;
+        verify-source-policy)
+            verify_source_policy
+            echo "Source policy OK: upstream.source pins no commit; the project tracks the latest upstream HEAD."
             ;;
         -h | --help | '')
             usage

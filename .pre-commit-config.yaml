@@ -33,3 +33,14 @@ repos:
         # Format repo-owned shell scripts: 4-space indent, indented case bodies.
         files: ^scripts/.*\.sh$
         args: [-w, -i, '4', -ci]
+  - repo: local
+    hooks:
+      - id: upstream-source-no-pin
+        # Fail if the Git-tracked upstream.source regains an upstream_commit pin.
+        # The project tracks the latest upstream HEAD; a roadblock pin belongs in
+        # the Git-ignored upstream.lock, never in upstream.source.
+        name: upstream.source pins no commit
+        entry: scripts/upstream-sync/upstream.sh verify-source-policy
+        language: script
+        files: ^upstream\.source$
+        pass_filenames: false

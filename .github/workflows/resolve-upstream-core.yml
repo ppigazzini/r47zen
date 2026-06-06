@@ -41,6 +41,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify upstream.source pins no commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/upstream-sync/upstream.sh verify-source-policy
+
       - name: Resolve upstream core (${{ inputs.mode }})
         id: resolve
         shell: bash
