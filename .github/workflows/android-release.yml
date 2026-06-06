@@ -704,8 +704,13 @@ jobs:
             exit 1
           fi
 
-          aab_evidence_archive_name="${aab_name%.aab}-packaging-evidence.zip"
-          apk_evidence_archive_name="${apk_name%.apk}-packaging-evidence.zip"
+          # Disambiguate by artifact type: stripping only the extension would
+          # collapse both to the same "<stem>-release-packaging-evidence.zip"
+          # name (the APK and AAB share the "<stem>-release" prefix), which
+          # silently overwrote one archive on upload and listed the same file
+          # twice in the release notes.
+          aab_evidence_archive_name="${aab_name%.aab}-aab-packaging-evidence.zip"
+          apk_evidence_archive_name="${apk_name%.apk}-apk-packaging-evidence.zip"
 
           rm -f "release-aab/${aab_evidence_archive_name}" "release-apk/${apk_evidence_archive_name}"
           (
