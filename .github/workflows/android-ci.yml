@@ -134,6 +134,21 @@ jobs:
 
           echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
 
+          # Surface a newly detected upstream commit so a scheduled build is a
+          # visible drift event, not a silent rebuild. The skip gate above means
+          # a scheduled run only reaches should_run=true when a new upstream (or
+          # overlay) commit produced a fresh release_tag.
+          if [[ "$should_run" == "true" && "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            {
+              echo "### Nightly upstream drift detected"
+              echo ""
+              echo "A new upstream core commit produced a fresh release tag, so the nightly lane is building and testing it."
+              echo ""
+              echo "- upstream commit: \`$UPSTREAM_COMMIT\`"
+              echo "- release tag: \`$release_tag\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   upstream-simulator-sanity:
     name: Sanity-check authoritative upstream simulator core
     if: needs.upstream-release-gate.outputs.should_run == 'true'
