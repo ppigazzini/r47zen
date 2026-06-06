@@ -11,6 +11,10 @@ on:
         description: Android versionName and derived GitHub tag basis (major.minor.patch-signed.YYYYMMDDVV)
         required: true
         type: string
+      upstream_commit:
+        description: Optional upstream commit SHA to pin for a roadblock re-release (blank = latest HEAD)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -76,10 +80,11 @@ jobs:
     uses: ./.github/workflows/resolve-upstream-core.yml
     with:
       # Release the latest upstream HEAD, same as CI. The resolved commit is
-      # recorded in the release tag and BUILD-METADATA for traceability. Holding
-      # an older revision is a roadblock-only action done via a local
-      # upstream.lock, never by pinning the Git-tracked upstream.source.
+      # recorded in the release tag and BUILD-METADATA for traceability. To hold
+      # or reproduce an older revision (a roadblock re-release), supply the
+      # upstream_commit dispatch input; resolution then locks to that commit.
       mode: latest
+      upstream_commit: ${{ inputs.upstream_commit }}
 
   build-production-release-bundle:
     name: Build signed production release assets

@@ -320,9 +320,14 @@ This workflow:
   `scripts/upstream-sync/upstream.sh resolve --latest`, so a production release
   ships the same newest upstream HEAD that CI builds and tests, never a frozen
   older revision; the resolved commit is recorded in the release tag and
-  `BUILD-METADATA.txt` so the artifact stays traceable after the fact. Holding
-  an older revision is a roadblock-only action performed through a local,
-  Git-ignored `upstream.lock`, never by pinning the Git-tracked `upstream.source`
+  `BUILD-METADATA.txt` so the artifact stays traceable after the fact
+- accepts an optional `upstream_commit` dispatch input as a CI-reachable
+  roadblock pin: when set to a commit SHA, `resolve-upstream-core` resolves
+  `--locked --commit <sha>` and the release is built from exactly that revision.
+  This is the supported way to reproduce or re-release a past
+  `BUILD-METADATA.txt` commit. Leaving it blank ships the latest HEAD. Holding a
+  revision locally instead is done through the Git-ignored `upstream.lock`, never
+  by pinning the Git-tracked `upstream.source`
 - syncs the resolved authoritative upstream tree
 - derives the Linux host LLVM major from the pinned NDK `clang`, then installs
   the matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and

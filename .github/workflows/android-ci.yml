@@ -11,6 +11,10 @@ on:
         description: Android versionName base for the signed dev prerelease lane
         required: false
         type: string
+      upstream_commit:
+        description: Optional upstream commit SHA to pin for this run (roadblock; blank = latest HEAD)
+        required: false
+        type: string
   push:
     branches:
       - github_ci
@@ -36,7 +40,10 @@ jobs:
     name: Resolve authoritative upstream core revision
     uses: ./.github/workflows/resolve-upstream-core.yml
     with:
+      # Normal runs follow the latest upstream HEAD. A manual dispatch may pin an
+      # explicit commit (roadblock); push/schedule leave the input blank.
       mode: latest
+      upstream_commit: ${{ inputs.upstream_commit }}
 
   upstream-release-gate:
     name: Decide whether the release lane should run

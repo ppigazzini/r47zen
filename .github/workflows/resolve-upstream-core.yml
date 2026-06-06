@@ -12,6 +12,11 @@ on:
         type: string
         required: false
         default: latest
+      upstream_commit:
+        description: 'Optional explicit upstream commit SHA (roadblock pin). When set, resolution locks to this commit and mode is ignored.'
+        type: string
+        required: false
+        default: ''
     outputs:
       upstream_url:
         description: 'Resolved upstream repository URL.'
@@ -52,6 +57,7 @@ jobs:
         shell: bash
         env:
           RESOLVE_MODE: ${{ inputs.mode }}
+          PIN_COMMIT: ${{ inputs.upstream_commit }}
         run: |
           set -euo pipefail
 
@@ -63,7 +69,19 @@ jobs:
               ;;
           esac
 
-          eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --"$RESOLVE_MODE")"
+          # An explicit upstream_commit is a deliberate roadblock pin: resolve
+          # locked to exactly that commit regardless of mode. Otherwise follow
+          # the configured mode (latest in normal operation).
+          if [[ -n "$PIN_COMMIT" ]]; then
+            if [[ ! "$PIN_COMMIT" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+              echo "upstream_commit must be a hex commit SHA (7-40 chars). Got: $PIN_COMMIT" >&2
+              exit 1
+            fi
+            echo "Roadblock pin: locking upstream resolution to $PIN_COMMIT" >&2
+            eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --locked --commit "$PIN_COMMIT")"
+          else
+            eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --"$RESOLVE_MODE")"
+          fi
 
           echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
