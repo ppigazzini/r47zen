@@ -74,7 +74,7 @@ class NativeCoreRuntimeTest {
         assertTrue(initLatch.await(2, TimeUnit.SECONDS))
         waitUntil("native init", 2_000) { NativeCoreRuntime.isNativeInitializedForTest() }
 
-        runtime.saveStateOnPause(autoSaveEnabled = true, timeoutSeconds = 1)
+        runtime.saveStateOnPause(autoSaveEnabled = true, timeoutMillis = 1_000)
         assertEquals(1, saveCalls.get())
 
         runtime.dispose(stopApp = true)

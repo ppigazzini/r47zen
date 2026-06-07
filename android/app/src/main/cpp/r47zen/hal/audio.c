@@ -1,8 +1,6 @@
 #include "c47.h"
 #include "jni_bridge.h"
 
-#include <unistd.h>
-
 void beep(uint16_t freq, uint16_t duration) {}
 void beep_tone(uint16_t freq, uint16_t duration) {}
 void stop_beep(void) {}
@@ -26,7 +24,8 @@ void _Buzz(uint32_t frequency, uint32_t ms_delay) {
 		jni_release_env(&scope, "_Buzz");
 	}
 
-	usleep((ms_delay + 10) * 1000);
+	// Playback is asynchronous on the Kotlin AudioEngine queue; the core thread
+	// must not block for the tone duration.
 }
 
 void audioTone(uint32_t frequency) { _Buzz(frequency, 200); }

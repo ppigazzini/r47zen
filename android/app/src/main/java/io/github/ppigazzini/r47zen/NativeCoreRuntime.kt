@@ -53,6 +53,12 @@ internal class NativeCoreRuntime(
     companion object {
         private const val TAG = "R47CoreRuntime"
 
+        // Upper bound on how long onPause blocks the main thread waiting for the
+        // background state save to finish on the core thread. The save still
+        // completes on the core thread past this fence; the bound only caps
+        // main-thread jank during backgrounding.
+        private const val SAVE_ON_PAUSE_FENCE_MILLIS = 750L
+
         private val coreTasks = LinkedBlockingQueue<Runnable>()
 
         @Volatile
@@ -113,7 +119,7 @@ internal class NativeCoreRuntime(
         }
     }
 
-    fun saveStateOnPause(autoSaveEnabled: Boolean, timeoutSeconds: Long = 2) {
+    fun saveStateOnPause(autoSaveEnabled: Boolean, timeoutMillis: Long = SAVE_ON_PAUSE_FENCE_MILLIS) {
         if (!autoSaveEnabled || !isNativeInitializedShared) {
             return
         }
@@ -130,7 +136,7 @@ internal class NativeCoreRuntime(
         )
 
         try {
-            if (!latch.await(timeoutSeconds, TimeUnit.SECONDS)) {
+            if (!latch.await(timeoutMillis, TimeUnit.MILLISECONDS)) {
                 Log.w(TAG, "Timed out waiting for state save on pause")
             }
         } catch (error: InterruptedException) {
