@@ -322,6 +322,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Run NDK resolution contract test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Asserts that a pinned NDK (R47_NDK_VERSION, which CI and the release
+          # lane always set) is fatal when absent instead of silently building
+          # against a different toolchain. Pure host test, no SDK needed.
+          bash ./scripts/android/run_ndk_resolution_contract.sh
+
       - name: Load shared Android defaults
         id: defaults
         shell: bash

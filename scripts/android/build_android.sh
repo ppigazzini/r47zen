@@ -767,22 +767,14 @@ fi
 R47_CMAKE_VERSION=${R47_CMAKE_VERSION:-$R47_DEFAULT_ANDROID_CMAKE_VERSION}
 
 # --- NDK Version Selection ---
-IF_NDK_VERSION=${R47_NDK_VERSION:-$R47_DEFAULT_ANDROID_NDK_VERSION}
-
-if [ -n "$IF_NDK_VERSION" ] && [ -d "$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION" ]; then
-    echo "Using detected NDK version: $IF_NDK_VERSION"
-    export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION"
-else
-    # Fallback to latest available NDK
-    LATEST_NDK=$(ls -1 "$ANDROID_SDK_ROOT/ndk" 2>/dev/null | sort -V | tail -n1 || true)
-    if [ -n "$LATEST_NDK" ]; then
-        echo "NDK $IF_NDK_VERSION not found. Falling back to latest: $LATEST_NDK"
-        export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$LATEST_NDK"
-    else
-        echo "ERROR: No NDK found in $ANDROID_SDK_ROOT/ndk"
-        exit 1
-    fi
-fi
+# A pinned NDK (R47_NDK_VERSION, always set by CI and the release lane) must be
+# present: resolve_android_ndk_version.sh fails rather than silently falling back
+# to a different installed toolchain, which would build a release against an
+# unpinned NDK. Unpinned local builds may still fall back to the newest NDK.
+IF_NDK_VERSION="$(bash "$ANDROID_SCRIPTS_DIR/resolve_android_ndk_version.sh")" ||
+    fail "Unable to resolve a usable Android NDK (see the message above)."
+echo "Using NDK version: $IF_NDK_VERSION"
+export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION"
 
 export ANDROID_HOME="$ANDROID_SDK_ROOT"
 export ANDROID_NDK_HOME="$ANDROID_NDK_ROOT"
