@@ -40,13 +40,40 @@ require_file() {
     fi
 }
 
+# Copy a single file only when its content differs from the destination, so an
+# unchanged input keeps its old mtime and a preserved app/.cxx can skip the
+# matching native recompile. Changed or new files get a current mtime, which
+# forces ninja to rebuild exactly those translation units.
+copy_file_if_changed() {
+    local src="$1"
+    local dst="$2"
+
+    if [ ! -f "$dst" ] || ! cmp -s "$src" "$dst"; then
+        mkdir -p "$(dirname "$dst")"
+        cp "$src" "$dst"
+    fi
+}
+
+# Mirror a source tree into the staged tree without rewriting unchanged files,
+# preserving their mtimes for incremental native builds. Files removed upstream
+# are pruned so the staged set still matches the source exactly, matching the
+# previous wipe-and-copy semantics for the staged input fingerprint.
 stage_tree() {
     local source_dir="$1"
     local dest_dir="$2"
+    local src dst rel
 
-    rm -rf "$dest_dir"
     mkdir -p "$dest_dir"
-    cp -R "$source_dir"/. "$dest_dir"/
+
+    while IFS= read -r -d '' src; do
+        rel="${src#"$source_dir"/}"
+        copy_file_if_changed "$src" "$dest_dir/$rel"
+    done < <(find "$source_dir" -type f -print0)
+
+    while IFS= read -r -d '' dst; do
+        rel="${dst#"$dest_dir"/}"
+        [ -f "$source_dir/$rel" ] || rm -f "$dst"
+    done < <(find "$dest_dir" -type f -print0)
 }
 
 while [ "$#" -gt 0 ]; do
@@ -83,7 +110,6 @@ stage_tree "$PROJECT_ROOT/src/c47" "$CPP_DIR/c47"
 stage_tree "$PROJECT_ROOT/dep/decNumberICU" "$CPP_DIR/decNumberICU"
 
 echo "--- Staging generated native files ---"
-rm -rf "$GENERATED_DEST"
 mkdir -p "$GENERATED_DEST"
 
 generated_files=(
@@ -97,15 +123,18 @@ generated_files=(
 
 for generated_file in "${generated_files[@]}"; do
     require_file "$generated_file" "generated native artifact"
-    cp -v "$generated_file" "$GENERATED_DEST/"
+    copy_file_if_changed "$generated_file" "$GENERATED_DEST/$(basename "$generated_file")"
 done
 
-cat >"$GENERATED_DEST/vcs.h" <<EOF
+generated_vcs="$(mktemp)"
+cat >"$generated_vcs" <<EOF
 #if !defined(VCS_H)
   #define VCS_H
   #define VCS_COMMIT_ID  "$CORE_HASH-mod"
 #endif
 EOF
+copy_file_if_changed "$generated_vcs" "$GENERATED_DEST/vcs.h"
+rm -f "$generated_vcs"
 
 echo "--- Staging mini-gmp ---"
 GMP_SOURCE_DIR="$MINI_GMP_FALLBACK_DIR"
@@ -115,18 +144,17 @@ if [ ! -f "$GMP_SOURCE_DIR/mini-gmp.c" ] || { [ ! -f "$GMP_SOURCE_DIR/mini-gmp.h
     exit 1
 fi
 
-rm -rf "$CPP_DIR/gmp"
 mkdir -p "$CPP_DIR/gmp"
 
 echo "Using Android mini-gmp fallback sources from $GMP_SOURCE_DIR"
-cp -v "$GMP_SOURCE_DIR/mini-gmp.c" "$CPP_DIR/gmp/"
+copy_file_if_changed "$GMP_SOURCE_DIR/mini-gmp.c" "$CPP_DIR/gmp/mini-gmp.c"
 
 if [ -f "$GMP_SOURCE_DIR/mini-gmp.h" ]; then
-    cp -v "$GMP_SOURCE_DIR/mini-gmp.h" "$CPP_DIR/gmp/mini-gmp.h"
-    cp -v "$GMP_SOURCE_DIR/mini-gmp.h" "$CPP_DIR/gmp/gmp.h"
+    copy_file_if_changed "$GMP_SOURCE_DIR/mini-gmp.h" "$CPP_DIR/gmp/mini-gmp.h"
+    copy_file_if_changed "$GMP_SOURCE_DIR/mini-gmp.h" "$CPP_DIR/gmp/gmp.h"
 else
-    cp -v "$GMP_SOURCE_DIR/gmp.h" "$CPP_DIR/gmp/gmp.h"
-    cp -v "$GMP_SOURCE_DIR/gmp.h" "$CPP_DIR/gmp/mini-gmp.h"
+    copy_file_if_changed "$GMP_SOURCE_DIR/gmp.h" "$CPP_DIR/gmp/gmp.h"
+    copy_file_if_changed "$GMP_SOURCE_DIR/gmp.h" "$CPP_DIR/gmp/mini-gmp.h"
 fi
 
 echo "--- Writing staged native source metadata ---"
