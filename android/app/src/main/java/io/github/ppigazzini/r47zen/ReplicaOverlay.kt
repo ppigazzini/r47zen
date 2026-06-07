@@ -81,6 +81,13 @@ internal object GraphTouchVisualPolicy {
     const val PINCH_EPSILON = 0.0001f
     const val PAN_CONTINUATION_SLOP_FRACTION = 0.25f
     const val PAN_CONTINUATION_MIN_SLOP_PX = 1f
+
+    // A pinch scale factor only drives the LCD zoom when it is finite and
+    // differs from 1 by at least PINCH_EPSILON; tiny or non-finite factors are
+    // no-ops that must not dispatch a zoom.
+    fun isSignificantPinch(scaleFactor: Float): Boolean {
+        return scaleFactor.isFinite() && abs(scaleFactor - 1f) >= PINCH_EPSILON
+    }
 }
 
 class ReplicaOverlay @JvmOverloads constructor(
@@ -238,7 +245,7 @@ class ReplicaOverlay @JvmOverloads constructor(
                     }
 
                     val scaleFactor = detector.scaleFactor
-                    if (!scaleFactor.isFinite() || abs(scaleFactor - 1f) < GraphTouchVisualPolicy.PINCH_EPSILON) {
+                    if (!GraphTouchVisualPolicy.isSignificantPinch(scaleFactor)) {
                         return false
                     }
 
