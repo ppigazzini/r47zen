@@ -8,9 +8,12 @@
 
 extern uint8_t *lcd_buffer;
 
-// Upstream PC_BUILD helpers compiled into Android still expect a valid
-// framebuffer symbol for screenshot and menu-export code paths, so keep this
-// compatibility surface updated even though JNI no longer exports it.
+// screenData is a blank compatibility framebuffer kept only so the compiled
+// PC_BUILD GTK screenshot/clipboard helpers (drawScreen, copyScreenToClipboard,
+// copyMenuToClipboard) keep a valid symbol. None of those helpers are reachable
+// on Android; the live screen/menu dump reads lcd_buffer via lcd_buffer_pixel_on.
+// The buffer is therefore left blank and is no longer populated on the per-row
+// LCD write path, keeping LCD_write_line off the hot-path framebuffer expansion.
 uint32_t *screenData = NULL;
 
 // Android consumes a packed LCD snapshot. Keep it separate from the live
@@ -23,26 +26,6 @@ volatile uint32_t packedDisplayGeneration = 0;
 volatile uint32_t keypadSnapshotGeneration = 0;
 
 static uint64_t hostLcdRefreshCount = 0;
-
-static void writeCompatScreenRow(const uint8_t *line_buf) {
-  if (!screenData || !line_buf) {
-    return;
-  }
-
-  const uint8_t row_id = line_buf[1];
-  if (row_id >= SCREEN_HEIGHT) {
-    return;
-  }
-
-  uint32_t *line_start = screenData + (SCREEN_HEIGHT - row_id) * screenStride - 1;
-  for (int byte_index = 0; byte_index < 50; byte_index++) {
-    const uint8_t packed = line_buf[byte_index + 2];
-    for (int bit = 0; bit < 8; bit++) {
-      *(line_start - byte_index * 8 - bit) =
-          ((packed >> bit) & 1u) ? ON_PIXEL : OFF_PIXEL;
-    }
-  }
-}
 
 uint64_t r47_get_host_lcd_refresh_count(void) {
   return hostLcdRefreshCount;
@@ -125,8 +108,6 @@ void LCD_write_line(uint8_t *line_buf) {
   if (row_id >= SCREEN_HEIGHT) {
     return;
   }
-
-  writeCompatScreenRow(line_buf);
 
   const size_t buffer_row = (size_t)(SCREEN_HEIGHT - row_id - 1u);
   pthread_mutex_lock(&packedDisplayMutex);
