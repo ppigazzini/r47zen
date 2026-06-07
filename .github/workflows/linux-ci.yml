@@ -392,6 +392,18 @@ jobs:
           bash ./scripts/workload-regressions/run_workload_regressions.sh 2>&1 \
             | tee ci-artifacts/logs/host-workload-regressions.log
 
+      - name: Run keypad-snapshot generation contract test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Asserts that a screen refresh bumps keypadSnapshotGeneration, the
+          # signal the Android display loop uses to re-read dynamic softkeys such
+          # as the EQN editor. Reuses the staged native inputs the workload
+          # regressions step just produced. No emulator required.
+          bash ./scripts/android/run_keypad_generation_contract.sh 2>&1 \
+            | tee ci-artifacts/logs/keypad-generation-contract.log
+
       - name: Upload host workload regression log
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

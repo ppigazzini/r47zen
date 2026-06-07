@@ -117,6 +117,13 @@ void LCD_write_line(uint8_t *line_buf) {
   line_buf[0] = 0u;
   lcdBufferDirty = true;
   packedDisplayGeneration++;
+  // The keypad snapshot generation MUST bump on every screen refresh, not only
+  // on input. Dynamic softmenus (notably the EQN editor, MNU_EQN) rebuild their
+  // softkey labels on the refresh path (refreshScreen -> LCD_write_line), with
+  // no key event at the moment the labels change. Bumping only on input left the
+  // EQN softkeys stale (wrong buttons) until the display loop's 500 ms fallback.
+  // Keep this coupled to the refresh so the consumer re-reads the keypad whenever
+  // the screen -- and therefore possibly the softkeys -- changes.
   keypadSnapshotGeneration++;
   pthread_mutex_unlock(&packedDisplayMutex);
 }
