@@ -914,6 +914,60 @@ jobs:
           script: >-
             bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh
 
+  verify-published-artifacts:
+    name: Verify published release artifacts
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - resolve-release-inputs
+      - build-production-release-bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Make scripts executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x scripts/android/verify_published_release_artifacts.sh
+
+      - name: Download published release APK artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
+          path: release-apk
+
+      - name: Download published release AAB artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
+          path: release-aab
+
+      - name: Verify published artifacts match recorded evidence
+        shell: bash
+        env:
+          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
+        run: |
+          set -euo pipefail
+
+          # The published release APK is arm64-v8a only, matching the
+          # --expected-abis arm64-v8a contract enforced when the bundle job
+          # collected packaging evidence. The x86_64-capable instrumentation
+          # build in verify-production-release is a separate emulator vehicle,
+          # not the published artifact, so the published bytes are verified
+          # here directly against their recorded evidence.
+          bash ./scripts/android/verify_published_release_artifacts.sh \
+            --apk-evidence-dir release-apk \
+            --aab-evidence-dir release-aab \
+            --expected-version-code "$R47_VERSION_CODE_INPUT" \
+            --expected-version-name "$R47_VERSION_NAME_INPUT" \
+            --expected-apk-abis arm64-v8a \
+            --expected-signing-mode release
+
   publish-production-release:
     name: Publish production GitHub release
     if: github.ref == 'refs/heads/main'
@@ -921,6 +975,7 @@ jobs:
       - resolve-release-inputs
       - build-production-release-bundle
       - verify-production-release
+      - verify-published-artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
