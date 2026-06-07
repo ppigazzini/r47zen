@@ -8,12 +8,13 @@
 
 extern uint8_t *lcd_buffer;
 
-// screenData is a blank compatibility framebuffer kept only so the compiled
-// PC_BUILD GTK screenshot/clipboard helpers (drawScreen, copyScreenToClipboard,
-// copyMenuToClipboard) keep a valid symbol. None of those helpers are reachable
-// on Android; the live screen/menu dump reads lcd_buffer via lcd_buffer_pixel_on.
-// The buffer is therefore left blank and is no longer populated on the per-row
-// LCD write path, keeping LCD_write_line off the hot-path framebuffer expansion.
+// screenData is a NULL compatibility symbol kept only so the compiled PC_BUILD
+// GTK screenshot/clipboard helpers (drawScreen, copyScreenToClipboard,
+// copyMenuToClipboard) link. None of those helpers are reachable on Android, and
+// the live screen/menu dump reads lcd_buffer via lcd_buffer_pixel_on, so the
+// 384 KB framebuffer is never allocated: it is neither written (the per-row
+// fan-out was removed) nor read on Android. Leaving it NULL keeps the symbol
+// valid for linking without holding dead resident memory.
 uint32_t *screenData = NULL;
 
 // Android consumes a packed LCD snapshot. Keep it separate from the live
@@ -59,10 +60,6 @@ Java_com_example_r47_MainActivity_setLcdColors(JNIEnv *env,
 }
 
 void init_lcd_buffers() {
-  if (!screenData) {
-    screenData = (uint32_t *)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
-  }
-
   if (!packedDisplayBuffer) {
     packedDisplayBuffer = (uint8_t *)malloc(SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
     memset(packedDisplayBuffer, 0, SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
@@ -79,12 +76,6 @@ void init_lcd_buffers() {
     for (int row = 0; row < SCREEN_HEIGHT; row++) {
       lcd_buffer[row * LCD_ROW_SIZE_BYTES] = 1u;
       lcd_buffer[row * LCD_ROW_SIZE_BYTES + 1] = SCREEN_HEIGHT - row - 1;
-    }
-  }
-
-  if (screenData) {
-    for (int pixel = 0; pixel < SCREEN_WIDTH * SCREEN_HEIGHT; pixel++) {
-      screenData[pixel] = OFF_PIXEL;
     }
   }
 

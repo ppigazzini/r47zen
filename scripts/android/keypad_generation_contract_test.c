@@ -15,6 +15,7 @@
 #include <stdio.h>
 
 extern volatile uint32_t keypadSnapshotGeneration;
+extern uint32_t *screenData;
 extern void init_lcd_buffers(void);
 extern void LCD_write_line(uint8_t *line_buf);
 
@@ -29,6 +30,19 @@ int main(void) {
     fprintf(stderr, "FAIL: init_lcd_buffers did not allocate lcd_buffer\n");
     return 1;
   }
+
+  // screenData is a NULL compatibility symbol referenced only by the compiled,
+  // never-invoked PC_BUILD GTK screenshot helpers. It must not be allocated:
+  // nothing on Android reads it, so a 384 KB framebuffer here would be dead
+  // resident memory (REPORT-25 D2.3).
+  if (screenData != NULL) {
+    fprintf(stderr,
+            "FAIL: init_lcd_buffers allocated screenData (%p); the unused "
+            "compatibility framebuffer must stay NULL.\n",
+            (void *)screenData);
+    return 1;
+  }
+  printf("OK: screenData left unallocated (no dead framebuffer)\n");
 
   const uint32_t before = keypadSnapshotGeneration;
 
