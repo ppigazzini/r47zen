@@ -109,10 +109,22 @@ set(ANDROID_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_display.c
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_input.c
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_lifecycle.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_program_load_test.c
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_registration.c
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_storage.c
 )
+
+# The program-load test bridge backs androidTest's ProgramLoadTestBridge, which
+# loads this app library and binds these symbols on the release build type, so
+# it must stay in any build an instrumentation lane consumes. The published
+# release artifacts pass -DR47_INCLUDE_PROGRAM_LOAD_TEST_BRIDGE=OFF so the
+# reset/inject test entry points never ship to users.
+if(NOT DEFINED R47_INCLUDE_PROGRAM_LOAD_TEST_BRIDGE)
+    set(R47_INCLUDE_PROGRAM_LOAD_TEST_BRIDGE ON)
+endif()
+if(R47_INCLUDE_PROGRAM_LOAD_TEST_BRIDGE)
+    list(APPEND ANDROID_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_program_load_test.c)
+endif()
 
 # Shared library
 add_library(r47zen SHARED

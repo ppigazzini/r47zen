@@ -941,6 +941,9 @@ if [ "$RELEASE_CHANNEL_OVERRIDE" = "dev" ]; then
     PACKAGED_APK_NAME="$R47_ANDROID_DEV_APK_NAME"
     PACKAGING_VARIANT="release"
     PACKAGING_SIGNING_MODE="prerelease"
+    # The published dev-prerelease APK is not an instrumentation target, so keep
+    # the androidTest program-load bridge out of the shipped library.
+    GRADLE_PROPS="$GRADLE_PROPS -Pr47.includeProgramLoadTestBridge=false"
 fi
 
 if [ "$ANDROID_ONLY" = false ]; then

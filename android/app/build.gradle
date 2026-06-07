@@ -140,6 +140,10 @@ def repoNoticeInventory = new JsonSlurper().parse(repoNoticeInventoryFile)
 def releaseMinifyEnabled = readBooleanProperty('r47.releaseMinify', true)
 def releaseShrinkResourcesEnabled = readBooleanProperty('r47.releaseShrinkResources', releaseMinifyEnabled)
 def releaseNativeDebugSymbolLevel = (readOptionalProperty('r47.releaseNativeDebugSymbolLevel', 'R47_RELEASE_NATIVE_DEBUG_SYMBOL_LEVEL') ?: 'FULL').toUpperCase()
+// Keep the androidTest program-load bridge in instrumentation builds (default
+// true) but let the published release artifacts exclude it so its reset/inject
+// test entry points do not ship to users.
+def includeProgramLoadTestBridge = readBooleanProperty('r47.includeProgramLoadTestBridge', true)
 def releaseChannel = (readOptionalProperty('r47.releaseChannel', 'R47_RELEASE_CHANNEL') ?: 'prod').toLowerCase(Locale.ROOT)
 def configuredTestBuildType = (readOptionalProperty('r47.testBuildType', 'R47_TEST_BUILD_TYPE') ?: (releaseChannel == 'dev' ? 'release' : 'debug')).toLowerCase(Locale.ROOT)
 def releaseChannelBuildToken = readOptionalProperty('r47.releaseChannelBuildToken', 'R47_RELEASE_CHANNEL_BUILD_TOKEN')
@@ -173,6 +177,8 @@ def externalNativeBuildArguments = [
 if (pgoProfilePath) {
     externalNativeBuildArguments += "-DR47_PGO_PROFILE_PATH=${pgoProfilePath}"
 }
+
+externalNativeBuildArguments += "-DR47_INCLUDE_PROGRAM_LOAD_TEST_BRIDGE=${includeProgramLoadTestBridge ? 'ON' : 'OFF'}"
 
 if (!prereleaseSigningValues.isEmpty() && !isPrereleaseSigningConfigured) {
     throw new GradleException('Prerelease signing requires r47.prereleaseStoreFile, r47.prereleaseStorePassword, r47.prereleaseKeyAlias, and r47.prereleaseKeyPassword together.')

@@ -413,6 +413,7 @@ jobs:
             :app:bundleRelease \
             --daemon --stacktrace --console=plain --warning-mode all \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+            -Pr47.includeProgramLoadTestBridge=false \
             -Pr47.pgoProfilePath="$R47_RELEASE_HOST_PGO_PROFILE" \
             -Pr47.versionCode="$R47_VERSION_CODE_INPUT" \
             -Pr47.versionName="$R47_VERSION_NAME_INPUT" \
