@@ -332,6 +332,16 @@ jobs:
           # against a different toolchain. Pure host test, no SDK needed.
           bash ./scripts/android/run_ndk_resolution_contract.sh
 
+      - name: Run release ABI single-source contract test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Asserts the workflows source the verification ABI from
+          # R47_DEFAULT_ANDROID_ABI_FILTERS rather than hardcoding it, so the
+          # verified ABI cannot drift from the built ABI. Pure host test.
+          bash ./scripts/android/run_release_abi_single_source_contract.sh
+
       - name: Load shared Android defaults
         id: defaults
         shell: bash

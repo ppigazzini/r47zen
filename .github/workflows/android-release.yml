@@ -129,6 +129,7 @@ jobs:
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "android_test_api_level=$R47_DEFAULT_ANDROID_TEST_API_LEVEL" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
           echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
@@ -471,7 +472,7 @@ jobs:
             --bundle "$bundle_path" \
             --output-dir "$bundle_output_dir" \
             --artifact-name "${{ steps.meta.outputs.release_bundle_name }}" \
-            --expected-abis arm64-v8a \
+            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
             --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
             --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
             --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
@@ -498,7 +499,7 @@ jobs:
             --apk "$release_apk_path" \
             --output-dir "$apk_output_dir" \
             --artifact-name "${{ steps.meta.outputs.release_apk_name }}" \
-            --expected-abis arm64-v8a \
+            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
             --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
             --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
             --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
@@ -597,6 +598,7 @@ jobs:
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "android_test_api_level=$R47_DEFAULT_ANDROID_TEST_API_LEVEL" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
           echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
@@ -955,18 +957,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The published release APK is arm64-v8a only, matching the
-          # --expected-abis arm64-v8a contract enforced when the bundle job
-          # collected packaging evidence. The x86_64-capable instrumentation
-          # build in verify-production-release is a separate emulator vehicle,
-          # not the published artifact, so the published bytes are verified
-          # here directly against their recorded evidence.
+          # Single source of truth for the published ABI: the same default the
+          # app library is built with. The published release APK carries only
+          # this ABI; the x86_64-capable instrumentation build in
+          # verify-production-release is a separate emulator vehicle, not the
+          # published artifact, so the published bytes are verified here directly
+          # against their recorded evidence.
+          . ./android/r47-defaults.properties
+
           bash ./scripts/android/verify_published_release_artifacts.sh \
             --apk-evidence-dir release-apk \
             --aab-evidence-dir release-aab \
             --expected-version-code "$R47_VERSION_CODE_INPUT" \
             --expected-version-name "$R47_VERSION_NAME_INPUT" \
-            --expected-apk-abis arm64-v8a \
+            --expected-apk-abis "$R47_DEFAULT_ANDROID_ABI_FILTERS" \
             --expected-signing-mode release
 
   publish-production-release:

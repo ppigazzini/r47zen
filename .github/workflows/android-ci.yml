@@ -341,6 +341,7 @@ jobs:
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
           echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
@@ -676,7 +677,7 @@ jobs:
             --apk android/app/build/outputs/apk/release/app-release.apk \
             --output-dir ci-artifacts/release \
             --artifact-name "${{ steps.meta.outputs.dev_apk_name }}" \
-            --expected-abis arm64-v8a \
+            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
             --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
             --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
             --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
@@ -748,6 +749,7 @@ jobs:
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
           echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
