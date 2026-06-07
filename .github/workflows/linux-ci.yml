@@ -342,6 +342,16 @@ jobs:
           # verified ABI cannot drift from the built ABI. Pure host test.
           bash ./scripts/android/run_release_abi_single_source_contract.sh
 
+      - name: Run published-artifacts verifier contract test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Asserts verify_published_release_artifacts.sh accepts a valid signed
+          # release and rejects tampered bytes, wrong version/ABI/signing mode,
+          # and an APK with no v2+ APK Signing Block. Pure host test, no SDK.
+          bash ./scripts/android/run_published_artifacts_verifier_contract.sh
+
       - name: Load shared Android defaults
         id: defaults
         shell: bash

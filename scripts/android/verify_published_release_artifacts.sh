@@ -178,6 +178,16 @@ verify_evidence_dir() {
         expected_abi_list="$(tr ',' '\n' <<<"$expected_apk_abis" | sed '/^$/d' | sort | paste -sd ',' -)"
         actual_abi_list="$(sed '/^$/d' "$abis_file" | sort | paste -sd ',' -)"
         assert_equal "apk packaged ABIs" "$expected_abi_list" "$actual_abi_list"
+
+        # The published APK must carry a v2+ APK Signing Block: the literal magic
+        # "APK Sig Block 42" sits between the last entry and the central directory
+        # of a signed APK. This catches an unsigned or signing-stripped release
+        # without needing the Android SDK (apksigner).
+        if ! LC_ALL=C grep -qa "APK Sig Block 42" "$artifact_path"; then
+            echo "FAIL: apk v2+ signing block: published APK ${artifact_name} has no APK Signing Block (unsigned?)." >&2
+            exit 1
+        fi
+        echo "OK: apk v2+ signing block present"
     fi
 
     echo "Published ${expected_type} verified: ${artifact_name}"
