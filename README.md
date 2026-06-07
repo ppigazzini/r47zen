@@ -49,15 +49,9 @@ Build the debug APK:
 
 The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-For a production-signed installable APK and the matching Play upload AAB, use
-the protected `.github/workflows/android-release.yml` workflow described in
-`android/docs/dev/70-ci-and-release-workflow.md`. That lane publishes a GitHub
-Release with the signed APK and AAB, reruns the release-path lint, JVM, and
-connected instrumentation envelope before publication, and is manual-only. The
-normal signed prerelease publication runs from `.github/workflows/android-ci.yml` on
-main-branch push, schedule, and manual-dispatch runs as a separate
-release-variant dev-prerelease lane that uses dedicated prerelease signing
-inputs and never reuses production key material.
+Signed prerelease and production release publication run from the CI and
+release workflows. See `android/docs/dev/70-ci-and-release-workflow.md` for the
+lane split, signing-key policy, and published artifacts.
 
 ## Documentation
 
