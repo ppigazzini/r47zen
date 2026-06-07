@@ -352,6 +352,16 @@ jobs:
           # and an APK with no v2+ APK Signing Block. Pure host test, no SDK.
           bash ./scripts/android/run_published_artifacts_verifier_contract.sh
 
+      - name: Run production signing scope contract test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Asserts the production release signing secrets are referenced only by
+          # build-production-release-bundle, so the emulator verification lane
+          # signs with a throwaway key, never the production release key.
+          bash ./scripts/android/run_production_signing_scope_contract.sh
+
       - name: Load shared Android defaults
         id: defaults
         shell: bash

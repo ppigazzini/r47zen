@@ -727,31 +727,23 @@ jobs:
             "emulator" \
             "system-images;android-${{ steps.defaults.outputs.android_test_api_level }};default;x86_64"
 
-      - name: Materialize release keystore
+      - name: Generate throwaway verification keystore
         id: release-keystore
         shell: bash
-        env:
-          R47_RELEASE_STORE_FILE_BASE64: ${{ secrets.R47_RELEASE_STORE_FILE_BASE64 }}
-          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
-          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
-          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
-          for secret_name in \
-            R47_RELEASE_STORE_FILE_BASE64 \
-            R47_RELEASE_STORE_PASSWORD \
-            R47_RELEASE_KEY_ALIAS \
-            R47_RELEASE_KEY_PASSWORD
-          do
-            if [[ -z "${!secret_name:-}" ]]; then
-              echo "Missing required production-release environment secret: ${secret_name}" >&2
-              exit 1
-            fi
-          done
-
-          keystore_path="${RUNNER_TEMP}/r47-release-upload-key.jks"
-          printf '%s' "$R47_RELEASE_STORE_FILE_BASE64" | base64 --decode > "$keystore_path"
+          # The emulator verification lane only needs the release-variant test
+          # build to be installable; it signs with a throwaway key generated
+          # here, never the production release key. This keeps the production
+          # signing material materialized in exactly one place
+          # (build-production-release-bundle).
+          keystore_path="${RUNNER_TEMP}/r47-verify-throwaway-key.jks"
+          keytool -genkeypair -noprompt \
+            -keystore "$keystore_path" \
+            -storepass throwaway -keypass throwaway \
+            -alias verify -keyalg RSA -keysize 2048 -validity 36500 \
+            -dname "CN=R47 Verify, O=R47, C=US"
           chmod 600 "$keystore_path"
           echo "keystore_path=$keystore_path" >> "$GITHUB_OUTPUT"
 
@@ -816,9 +808,9 @@ jobs:
           R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
           R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
-          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
-          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
-          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+          R47_RELEASE_STORE_PASSWORD: throwaway
+          R47_RELEASE_KEY_ALIAS: verify
+          R47_RELEASE_KEY_PASSWORD: throwaway
           GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
         run: |
           set -euo pipefail
@@ -894,9 +886,9 @@ jobs:
           R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER: 20s
           R47_CONNECTED_ANDROID_USE_DAEMON: 'true'
           R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
-          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
-          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
-          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+          R47_RELEASE_STORE_PASSWORD: throwaway
+          R47_RELEASE_KEY_ALIAS: verify
+          R47_RELEASE_KEY_PASSWORD: throwaway
           R47_CONNECTED_ANDROID_TEST_CORE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_COMMIT: ${{ github.sha }}
