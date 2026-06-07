@@ -537,98 +537,16 @@ Practical note:
 ## CI lane
 
 The GitHub Actions workflow at `.github/workflows/android-ci.yml` keeps the same
-ownership model as the local build:
+ownership model as the local build. `70-ci-and-release-workflow.md` owns the full
+lane split, per-job descriptions, artifact names, and release gating; this
+section records only the build-layout details that live here.
 
-- it runs on `pull_request`, pushes to `github_ci` and `main`, scheduled
-  nightly runs, and manual `workflow_dispatch`
-- `resolve-upstream-core` resolves the latest upstream commit once per workflow
-  run through `scripts/upstream-sync/upstream.sh resolve --latest`.
-- each consuming job recreates its own `Load shared Android defaults` step.
-  Step outputs stay local to the current job unless they are promoted through
+- Each consuming job recreates its own `Load shared Android defaults` step. Step
+  outputs stay local to the current job unless they are promoted through
   `jobs.<job_id>.outputs` and consumed via `needs.<job_id>.outputs.*`.
-- `upstream-simulator-sanity` syncs that resolved revision into the workspace
-  through `scripts/upstream-sync/upstream.sh sync --auto --write-lock --commit ...`
-  and runs `make test` to prove the authoritative upstream simulator core is
-  sane before Android-specific work begins. The sync step also fails if the
-  restore allowlist drifts back onto authoritative upstream root surfaces.
-- `android-build-test-package` installs the pinned SDK, CMake, and NDK
-  versions, runs
-  `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
-  to build Android-owned inputs, rerun the simulator-native suite from the
-  Android and NDK path, collect the host-core profile, and validate
-  release-native profile consumption, verifies that build-only staged metadata
-  exists under `android/.staged-native/cpp` while the retired app-module
-  snapshot paths stay absent, and records packaging evidence against the
-  active wrapper ABI contract, which is currently the defaults-file public
-  `arm64-v8a` list unless the caller overrides `r47.abiFilters` or
-  `R47_VERIFY_PACKAGING_ABIS`, through
-  `scripts/android/collect_packaging_evidence.sh`.
-- That host-core collector now builds instrumented upstream
-  `src/testSuite/testSuite` with the pinned NDK `clang` plus ThinLTO, runs the
-  maintained `broad-ci` corpus of `programs`, `tvm`, `jacobi_audit`,
-  `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the generated
-  `matrix_prefix_85` slice from `src/testSuite/tests/matrix.txt`, stages
-  `res/testPgms/testPgms.bin` into a runtime root for the `programs.txt`
-  cases, then runs the imported `.p47` fixture overlay through the host
-  compatibility path so graph or LCD-style workloads also contribute raw
-  profiles, and merges the combined raw profiles into the uploaded
-  `.profdata` artifact.
-- The canonical host workload set of the imported `.p47` fixtures
-  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47` remains the focused Android bridge compatibility harness
-  exercised by `scripts/workload-regressions/run_workload_regressions.sh`, not
-  the normal CI PGO corpus. The broad `broad-ci` base already covers `prime`
-  and `factorial` through upstream `testSuite` inputs.
-- `android-tests` uses the same resolved upstream commit and staged-native
-  build path, validates and decodes the dedicated prerelease keystore for the
-  hosted test lane, applies the defaults-file `android_test_abi_filters`
-  override only there, and runs one focused Gradle invocation for
-  `:app:assembleRelease`, `:app:assembleReleaseAndroidTest`, and
-  `:app:testReleaseUnitTest` with `r47.releaseChannel=dev`,
-  `r47.testBuildType=release`, and temporary
-  `r47.releaseMinify=false` plus `r47.releaseShrinkResources=false` before it
-  enables KVM and runs the repo-owned
-  `scripts/android/run_connected_android_tests.sh` wrapper on the defaults-file
-  hosted emulator API. That emulator lane stages canonical upstream
-  `PROGRAMS` fixtures into generated assets and keeps full Android
-  instrumentation coverage while reducing repeated Gradle startup: one grouped
-  selection covers `FactorsInstrumentedTest`,
-  `DisplayLifecycleInstrumentedTest`, `GraphRedrawInstrumentedTest`, and
-  `StorageAccessCoordinatorInstrumentedTest`, and one second bounded selection
-  runs the complete `ProgramFixtureInstrumentedTest` class for
-  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47`. That grouped PROGRAMS selection still contains the bounded-stop
-  `MANSLV2` regression and fails the Android lane if its outer timeout is hit.
-  Hosted CI still proves 16 KB packaging readiness rather than 16 KB runtime
-  execution; the connected 16 KB runtime smoke stays a local lane through
-  `scripts/android/run_16kb_runtime_smoke.sh`.
-- the upstream simulator sanity, Android build/test/package, and Android test
-  jobs consume the same resolved upstream commit for a given workflow run.
-- Android build logs, Android test logs, and test reports are uploaded with
-  `if: always()` where later steps can fail. The emulator-backed Gradle step
-  streams output live with `tee` into the uploaded connected-test log so hangs
-  or stalls stay observable before the job exits.
-- the Windows lane keeps any bootstrap step that runs before
+- The Windows simulator lane keeps any bootstrap step that runs before
   `msys2/setup-msys2` on an explicit host shell, then uses the job-level
   `msys2 {0}` default only after MSYS2 is installed.
-- `publish-main-snapshot` waits for `upstream-simulator-sanity`,
-  `android-build-test-package`, and `android-tests` before publishing a
-  main-branch prerelease.
-- the uploaded Android build artifact uses the stem
-  `r47zen-<upstream short>-<android short>` and contains the packaged
-  signed dev-prerelease APK `r47zen-<upstream short>-<android short>-dev.apk` plus
-  `SHA256SUMS.txt`, `abis.txt`, `zipalign.txt`, `elf-load-segments.txt`, and
-  `BUILD-METADATA.txt`.
-- the uploaded Android test artifact uses the stem
-  `r47zen-tests-<upstream short>-<android short>`.
-- pushes to `main` and scheduled CI runs publish a signed dev-prerelease tagged
-  and titled `r47zen-<upstream short>-<android short>-dev` and package
-  `r47zen-<upstream short>-<android short>-dev.apk` from the release build
-  path with `r47.releaseChannel=dev`.
-- the dev-prerelease lane uses dedicated `R47_PRERELEASE_*` signing inputs and
-  never reuses the production `R47_RELEASE_*` signing key material.
-- Linux and Windows simulator package workflows keep their upstream-only
-  artifact identity because they do not depend on the Android overlay commit.
 
 The CI lane verifies packaged ABIs and 16 KB alignment. Runtime execution on a
 real 16 KB target stays a local maintainer lane through
@@ -637,9 +555,14 @@ real 16 KB target stays a local maintainer lane through
 Store-release signing lives in the separate protected workflow
 `.github/workflows/android-release.yml`. That workflow is manual-dispatch only,
 is bound to the `production-release` environment, and expects protected
-production signing secrets there.
+production signing secrets there. See `70-ci-and-release-workflow.md`.
 
 ## Release and packaging policy
+
+This section keeps the build-configuration policy that lives with the build
+layout. See `70-ci-and-release-workflow.md` for the CI lane split, the signed
+dev-prerelease publication, the protected production release workflow, artifact
+names, and release gating.
 
 - The Android app keeps the default checked-in lane debug-first. Release work is
   opt-in and remains a maintainer lane.
@@ -647,47 +570,15 @@ production signing secrets there.
   `r47.releaseStoreFile`, `r47.releaseStorePassword`, `r47.releaseKeyAlias`,
   and `r47.releaseKeyPassword`. Supplying only some of those values is a hard
   configuration error.
-- `.github/workflows/android-release.yml` is the maintained CI path for
-  signed production assets. It resolves `version_code` and `version_name`
-  only from manual workflow inputs, reruns the same wrapper-owned host-core
-  optimization flow as `android-build-test-package`, decodes
-  `R47_RELEASE_STORE_FILE_BASE64` into `RUNNER_TEMP`, and feeds the existing
-  `R47_RELEASE_*` environment hooks to Gradle only inside the protected
-  `production-release` environment. Before publication it reruns Android lint,
-  `:app:assembleRelease`, `:app:assembleReleaseAndroidTest`,
-  `:app:testReleaseUnitTest`, and grouped `connectedReleaseAndroidTest`
-  selections on the hosted emulator with CI-only
-  `r47.releaseMinify=false` and `r47.releaseShrinkResources=false`. The
-  workflow then passes the collected `ci-artifacts/pgo/r47-host-core.profdata`
-  back into `:app:assembleRelease` and `:app:bundleRelease` through
-  `r47.pgoProfilePath`, uploads separate APK and AAB artifact bundles, and
-  publishes the versioned GitHub release tag `r47zen-v<sanitized version_name>`.
-- The signed dev-prerelease publication now lives in
-  `.github/workflows/android-ci.yml` and runs on main-branch push, schedule,
-  and manual-dispatch CI runs after the required verification lanes pass.
-  The protected production-release workflow remains separate and manual-only.
 - Release builds default `minifyEnabled` and `shrinkResources` to `true` and
   request `ndk.debugSymbolLevel "FULL"`.
 - `bundleRelease` is the canonical AAB command. `assembleRelease` remains
-  available when an APK is required for local inspection or GitHub
-  distribution.
-- `scripts/android/collect_packaging_evidence.sh` is the canonical provenance collector
-  for both CI and local packaging checks. For debug it verifies ABI contents,
-  zip alignment, and ELF `LOAD` segment alignment. For release it also accepts a
-  bundle, mapping file, and native-symbol archive so provenance can travel with
-  the output.
-- The signed dev-prerelease lane publishes the artifact stem
-  `r47zen-<upstream short>-<android short>-dev`, packages the APK as
-  `r47zen-<upstream short>-<android short>-dev.apk`, and keeps that public
-  prerelease identity separate from the local debug build output at
-  `android/app/build/outputs/apk/debug/app-debug.apk`.
-- For the protected release workflow, the uploaded artifact bundle uses the stem
-  `r47zen-<upstream short>-<android short>-release`, the uploaded APK artifact
-  bundle uses the stem `r47zen-<upstream short>-<android short>-release-apk`,
-  the signed AAB inside that bundle is named
-  `r47zen-<upstream short>-<android short>-release.aab`, the signed APK is
-  `r47zen-<upstream short>-<android short>-release.apk`, and the published
-  GitHub release tag is `r47zen-v<sanitized version_name>`.
+  available when an APK is required for local inspection or GitHub distribution.
+- `scripts/android/collect_packaging_evidence.sh` is the canonical provenance
+  collector for both CI and local packaging checks. For debug it verifies ABI
+  contents, zip alignment, and ELF `LOAD` segment alignment. For release it also
+  accepts a bundle, mapping file, and native-symbol archive so provenance can
+  travel with the output.
 
 ## Verification by change type
 
