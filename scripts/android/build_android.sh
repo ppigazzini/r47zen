@@ -835,6 +835,11 @@ if [ "$COLLECT_HOST_PGO" = true ] || [ "$VALIDATE_RELEASE_PGO" = true ]; then
 fi
 echo "======================================================="
 
+# Track the staged native input fingerprint across the staging step so a full
+# rebuild whose inputs are unchanged can preserve incremental build state.
+PREVIOUS_STAGED_FINGERPRINT=""
+CURRENT_STAGED_FINGERPRINT=""
+
 if [ "$ANDROID_ONLY" = true ]; then
     ensure_staged_inputs_current
     COMMIT_HASH=${R47_CORE_VERSION:-$(read_property_value "$STAGED_INPUTS_FILE" R47_STAGED_CORE_VERSION || true)}
@@ -846,6 +851,9 @@ else
     COMMIT_HASH="$RESOLVED_UPSTREAM_SHORT_COMMIT"
     echo "--- SwissMicros Core Version (resolved): $COMMIT_HASH ---"
 
+    # Read the fingerprint left by the previous build before staging rewrites it.
+    PREVIOUS_STAGED_FINGERPRINT=$(read_property_value "$STAGED_INPUTS_FILE" R47_STAGED_INPUTS_COMBINED_FINGERPRINT 2>/dev/null || true)
+
     sim_asset_args=(--build-dir "$PROJECT_ROOT/build.sim" --jobs "$R47_BUILD_JOBS")
     if [ "$RUN_SIM_TESTS" = true ]; then
         sim_asset_args+=(--run-tests)
@@ -856,6 +864,8 @@ else
         echo "ERROR: Android native staging failed."
         exit 1
     fi
+
+    CURRENT_STAGED_FINGERPRINT=$(read_property_value "$STAGED_INPUTS_FILE" R47_STAGED_INPUTS_COMBINED_FINGERPRINT 2>/dev/null || true)
 fi
 
 ensure_canonical_font_assets_available
@@ -934,8 +944,20 @@ if [ "$RELEASE_CHANNEL_OVERRIDE" = "dev" ]; then
 fi
 
 if [ "$ANDROID_ONLY" = false ]; then
-    rm -rf app/.cxx
-    run_gradle clean $GRADLE_EXTRA_ARGS
+    # A full build re-stages the native tree and normally cleans to force a CMake
+    # reconfigure and discard stale outputs. When the staged input fingerprint is
+    # unchanged from the previous build and a prior native build dir exists, the
+    # source list and contents are identical, so skip the clean to preserve
+    # incremental build state. Fresh checkouts (CI, release) have no prior
+    # fingerprint or app/.cxx and always take the clean path.
+    if [ -n "$PREVIOUS_STAGED_FINGERPRINT" ] &&
+        [ "$PREVIOUS_STAGED_FINGERPRINT" = "$CURRENT_STAGED_FINGERPRINT" ] &&
+        [ -d app/.cxx ]; then
+        echo "--- Staged native inputs unchanged; preserving incremental build state ---"
+    else
+        rm -rf app/.cxx
+        run_gradle clean $GRADLE_EXTRA_ARGS
+    fi
 fi
 run_gradle --max-workers "$R47_BUILD_JOBS" "$ASSEMBLE_TASK" $GRADLE_EXTRA_ARGS $GRADLE_PROPS
 ensure_retired_legacy_cpp_paths_absent
