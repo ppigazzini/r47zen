@@ -300,8 +300,24 @@ jobs:
             exit 1
           fi
 
-          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" ./llvm.sh "$llvm_major"
+          # Add the apt.llvm.org repository directly and install the matching
+          # toolchain, instead of piping the upstream llvm.sh installer into a
+          # root shell. These are the Ubuntu steps llvm.sh performs (GitHub
+          # runners are always Ubuntu), inlined so CI runs only reviewed commands
+          # and does not break when the upstream script is rewritten. Source:
+          # https://apt.llvm.org/llvm.sh
+          # https://github.com/opencollab/llvm-jenkins.debian.net/blob/master/llvm.sh
+          codename="$(lsb_release -cs)"
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key |
+            sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          echo "deb http://apt.llvm.org/${codename}/ llvm-toolchain-${codename}-${llvm_major} main" |
+            sudo tee "/etc/apt/sources.list.d/apt-llvm-org-${llvm_major}.list" >/dev/null
+          sudo apt-get update
+          # llvm-${major} provides llvm-config-${major} (used just below to find
+          # the bindir) and llvm-profdata-${major} (used to merge the host PGO
+          # profile); --no-install-recommends otherwise drops both.
           sudo apt-get install --yes --no-install-recommends \
+            "llvm-${llvm_major}" \
             "clang-${llvm_major}" \
             "clang-tools-${llvm_major}" \
             "lld-${llvm_major}" \

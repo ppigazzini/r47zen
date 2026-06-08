@@ -372,6 +372,26 @@ jobs:
           # actions/attest-build-provenance step). Pure host test.
           bash ./scripts/android/run_release_provenance_contract.sh
 
+      - name: Run privileged remote-script contract test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Asserts no workflow pipes a network-fetched script into a shell
+          # (e.g. the apt.llvm.org repo is added with inlined, reviewed commands
+          # instead of piping llvm.sh into a root shell). Pure host test.
+          bash ./scripts/android/run_privileged_remote_script_contract.sh
+
+      - name: Run LLVM toolchain install contract test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Asserts any workflow that resolves the toolchain via llvm-config-<major>
+          # also installs the llvm-<major> package (which ships llvm-config and
+          # llvm-profdata); the minimal clang/lld set does not. Pure host test.
+          bash ./scripts/android/run_llvm_toolchain_install_contract.sh
+
       - name: Load shared Android defaults
         id: defaults
         shell: bash
