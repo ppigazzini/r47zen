@@ -1004,6 +1004,21 @@ jobs:
             release-apk/*.apk
             release-aab/*.aab
 
+      - name: Verify build provenance attestation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Re-verify the attestation just produced for each shipped artifact, so
+          # a broken, unsigned, or missing provenance fails the release in the
+          # same run instead of being discovered after publication.
+          for artifact in release-apk/*.apk release-aab/*.aab; do
+            echo "Verifying build provenance for ${artifact}"
+            gh attestation verify "${artifact}" --repo "${GITHUB_REPOSITORY}"
+          done
+
       - name: Pack release evidence archives
         id: evidence
         shell: bash
