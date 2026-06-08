@@ -10,8 +10,8 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WORKFLOWS_DIR="$PROJECT_ROOT/.github/workflows"
+# shellcheck source=scripts/lib/ci_contract.sh
+source "$SCRIPT_DIR/../lib/ci_contract.sh"
 
 violations="$(
     awk '
@@ -25,13 +25,13 @@ violations="$(
                 printf "%s:%d: job=%s: %s\n", short, FNR, job, $0
             }
         }
-    ' "$WORKFLOWS_DIR"/android-release.yml "$WORKFLOWS_DIR"/android-ci.yml 2>/dev/null
+    ' "$WORKFLOW_DIR"/android-release.yml "$WORKFLOW_DIR"/android-ci.yml 2>/dev/null
 )"
 
 if [ -n "$violations" ]; then
-    echo "FAIL: production release signing secrets referenced outside build-production-release-bundle:" >&2
-    printf '%s\n' "$violations" >&2
-    exit 1
+    contract_fail \
+        "production release signing secrets referenced outside build-production-release-bundle:" \
+        "$violations"
 fi
 
-echo "OK: production release signing secrets are confined to build-production-release-bundle."
+contract_pass "production release signing secrets are confined to build-production-release-bundle."

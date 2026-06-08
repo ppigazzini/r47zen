@@ -304,85 +304,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Run NDK resolution contract test
+      - name: Run host CI contracts
         shell: bash
         run: |
           set -euo pipefail
 
-          # Asserts that a pinned NDK (R47_NDK_VERSION, which CI and the release
-          # lane always set) is fatal when absent instead of silently building
-          # against a different toolchain. Pure host test, no SDK needed.
-          bash ./scripts/android/run_ndk_resolution_contract.sh
-
-      - name: Run release ABI single-source contract test
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Asserts the workflows source the verification ABI from
-          # R47_DEFAULT_ANDROID_ABI_FILTERS rather than hardcoding it, so the
-          # verified ABI cannot drift from the built ABI. Pure host test.
-          bash ./scripts/android/run_release_abi_single_source_contract.sh
-
-      - name: Run published-artifacts verifier contract test
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Asserts verify_published_release_artifacts.sh accepts a valid signed
-          # release and rejects tampered bytes, wrong version/ABI/signing mode,
-          # and an APK with no v2+ APK Signing Block. Pure host test, no SDK.
-          bash ./scripts/android/run_published_artifacts_verifier_contract.sh
-
-      - name: Run production signing scope contract test
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Asserts the production release signing secrets are referenced only by
-          # build-production-release-bundle, so the emulator verification lane
-          # signs with a throwaway key, never the production release key.
-          bash ./scripts/android/run_production_signing_scope_contract.sh
-
-      - name: Run release provenance contract test
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Asserts publish-production-release attests SLSA build provenance for
-          # the published APK and AAB (id-token/attestations permissions plus the
-          # actions/attest-build-provenance step). Pure host test.
-          bash ./scripts/android/run_release_provenance_contract.sh
-
-      - name: Run privileged remote-script contract test
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Asserts no workflow pipes a network-fetched script into a shell
-          # (e.g. the apt.llvm.org repo is added with inlined, reviewed commands
-          # instead of piping llvm.sh into a root shell). Pure host test.
-          bash ./scripts/android/run_privileged_remote_script_contract.sh
-
-      - name: Run LLVM toolchain install contract test
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Asserts any workflow that resolves the toolchain via llvm-config-<major>
-          # also installs the llvm-<major> package (which ships llvm-config and
-          # llvm-profdata); the minimal clang/lld set does not. Pure host test.
-          bash ./scripts/android/run_llvm_toolchain_install_contract.sh
-
-      - name: Run build-deps single-source contract test
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Asserts no workflow inlines the Linux build-dependency apt list; every
-          # job installs them through scripts/android/install_linux_build_deps.sh
-          # so the list cannot drift between jobs. Pure host test.
-          bash ./scripts/android/run_build_deps_single_source_contract.sh
+          # Runs every pure-host workflow contract (NDK resolution, ABI single
+          # -source, published-artifact verifier, production-signing scope,
+          # release provenance, privileged-remote-script, LLVM toolchain install,
+          # build-deps single-source) plus the ci_contract.sh meta-test, each in
+          # its own log group. The lcd HAL contract stays a separate step below.
+          bash ./scripts/android/run_workflow_contracts.sh
 
       - name: Load shared Android defaults
         id: defaults

@@ -12,23 +12,19 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WORKFLOWS_DIR="$PROJECT_ROOT/.github/workflows"
+# shellcheck source=scripts/lib/ci_contract.sh
+source "$SCRIPT_DIR/../lib/ci_contract.sh"
 
 # Lines passing an --expected-abis / --expected-apk-abis flag whose value begins
 # with an alphanumeric character are hardcoded literals (a ${{ ... }} reference
-# or a "$var" begins with '$', a quoted "$var" with '"'). Comment lines (the
-# flag appears after a leading '#') are excluded.
-violations="$(
-    grep -rnE -- '--expected(-apk)?-abis[[:space:]]+[A-Za-z0-9]' "$WORKFLOWS_DIR" 2>/dev/null |
-        grep -vE ':[0-9]+:[[:space:]]*#' ||
-        true
-)"
+# or a "$var" begins with '$', a quoted "$var" with '"'). workflow_grep excludes
+# comment lines.
+violations="$(workflow_grep '--expected(-apk)?-abis[[:space:]]+[A-Za-z0-9]' || true)"
 
 if [ -n "$violations" ]; then
-    echo "FAIL: hardcoded ABI literals found; source them from R47_DEFAULT_ANDROID_ABI_FILTERS:" >&2
-    printf '%s\n' "$violations" >&2
-    exit 1
+    contract_fail \
+        "hardcoded ABI literals found; source them from R47_DEFAULT_ANDROID_ABI_FILTERS:" \
+        "$violations"
 fi
 
-echo "OK: no workflow hardcodes an --expected-abis / --expected-apk-abis literal."
+contract_pass "no workflow hardcodes an --expected-abis / --expected-apk-abis literal."

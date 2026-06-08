@@ -15,26 +15,21 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WORKFLOW_DIR="$PROJECT_ROOT/.github/workflows"
+# shellcheck source=scripts/lib/ci_contract.sh
+source "$SCRIPT_DIR/../lib/ci_contract.sh"
 
 # A remote fetch (wget/curl) whose output is executed by a shell, either piped
 # (`... | bash`, `... | sudo sh`) or substituted into one
 # (`bash -c "$(wget ...)"`). Matches with or without sudo; the strict rule is
-# "never run un-verified fetched scripts", root or not.
+# "never run un-verified fetched scripts", root or not. workflow_grep drops
+# comment lines so a documented example does not trip the guard.
 pattern='(wget|curl)[^|]*\|[[:space:]]*(sudo[[:space:]]+)?(bash|sh)\b|(sudo[[:space:]]+)?(bash|sh)[[:space:]]+-c[[:space:]]+"\$\((wget|curl)'
-
-# Grep all workflows, then drop YAML comment lines (so a documented example
-# does not trip the guard).
-offenders="$(
-    grep -rnE "$pattern" "$WORKFLOW_DIR" 2>/dev/null |
-        grep -vE ':[0-9]+:[[:space:]]*#' || true
-)"
+offenders="$(workflow_grep "$pattern" || true)"
 
 if [ -n "$offenders" ]; then
-    echo "FAIL: workflow pipes a fetched script into a shell (download + verify a pinned checksum instead):" >&2
-    echo "$offenders" >&2
-    exit 1
+    contract_fail \
+        "workflow pipes a fetched script into a shell (inline reviewed commands or pin + verify a vendored copy instead):" \
+        "$offenders"
 fi
 
-echo "OK: no workflow feeds a network-fetched script directly into a shell."
+contract_pass "no workflow feeds a network-fetched script directly into a shell."
