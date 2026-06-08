@@ -200,24 +200,7 @@ jobs:
 
       - name: Install Linux build dependencies
         shell: bash
-        run: |
-          set -euo pipefail
-
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            build-essential \
-            cmake \
-            libexpat1-dev \
-            libgmp-dev \
-            libgtk-3-dev \
-            libminizip-dev \
-            libpulse-dev \
-            meson \
-            ninja-build \
-            pkg-config \
-            unzip \
-            wget \
-            zip
+        run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up Java 17
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
@@ -359,23 +342,7 @@ jobs:
 
       - name: Install Linux build dependencies
         shell: bash
-        run: |
-          set -euo pipefail
-
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            build-essential \
-            cmake \
-            libexpat1-dev \
-            libgmp-dev \
-            libgtk-3-dev \
-            libminizip-dev \
-            libpulse-dev \
-            meson \
-            ninja-build \
-            pkg-config \
-            unzip \
-            zip
+        run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up Java 17
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
@@ -783,23 +750,7 @@ jobs:
 
       - name: Install Linux build dependencies
         shell: bash
-        run: |
-          set -euo pipefail
-
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            build-essential \
-            cmake \
-            libexpat1-dev \
-            libgmp-dev \
-            libgtk-3-dev \
-            libminizip-dev \
-            libpulse-dev \
-            meson \
-            ninja-build \
-            pkg-config \
-            unzip \
-            zip
+        run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up Java 17
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
