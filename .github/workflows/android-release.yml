@@ -977,6 +977,10 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      # SLSA build-provenance attestation needs an OIDC token to sign and write
+      # access to the attestations store.
+      id-token: write
+      attestations: write
     steps:
       - name: Download release AAB artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -989,6 +993,16 @@ jobs:
         with:
           name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
           path: release-apk
+
+      - name: Attest build provenance for the published artifacts
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          # Attest the exact signed bytes that ship on the GitHub release, so a
+          # consumer can verify they were produced by this workflow run
+          # (gh attestation verify <file> --repo ${{ github.repository }}).
+          subject-path: |
+            release-apk/*.apk
+            release-aab/*.aab
 
       - name: Pack release evidence archives
         id: evidence
