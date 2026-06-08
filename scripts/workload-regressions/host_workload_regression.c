@@ -33,6 +33,23 @@ extern calcRegister_t findNamedLabel(const char *labelName);
 extern void reallocateRegister(calcRegister_t regist, uint32_t dataType,
                                uint16_t dataSizeWithoutDataLenBlocks,
                                uint32_t tag);
+extern bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y);
+
+// FNV-1a hash of the final LCD bitmap, read pixel-by-pixel through the same
+// lcd_buffer_pixel_on path the screen dump uses (so it ignores the packed
+// buffer's row-header bytes). Plotting fixtures leave a deterministic image
+// rather than a scalar in the X register, so this gives them a result oracle the
+// X-register check cannot express.
+static uint64_t compute_display_hash(void) {
+  uint64_t hash = 1469598103934665603ull;  // FNV-1a 64-bit offset basis
+  for (uint32_t y = 0; y < SCREEN_HEIGHT; ++y) {
+    for (uint32_t x = 0; x < SCREEN_WIDTH; ++x) {
+      hash ^= (uint64_t)(lcd_buffer_pixel_on(x, y) ? 1u : 0u);
+      hash *= 1099511628211ull;  // FNV-1a 64-bit prime
+    }
+  }
+  return hash;
+}
 
 typedef struct {
   int16_t func_id;
@@ -73,6 +90,13 @@ typedef struct {
   // leaving that integer vector in X.
   const int *expected_x_sequence;
   size_t expected_x_sequence_len;
+  // Display-hash oracle for plotting fixtures: the FNV-1a hash of the final LCD
+  // bitmap (compute_display_hash). Plotting workloads (BinetV3, GudrmPL) leave a
+  // deterministic image, not a scalar in X, so this pins their result where the
+  // X-register oracle cannot. 0 stays liveness-only. Only set for fixtures that
+  // finish (not interrupted) and whose final image is run-to-run deterministic,
+  // verified by repeated runs -- see REPORT-25 Annex A.10.
+  uint64_t expected_display_hash;
 } program_fixture_scenario_t;
 
 typedef enum {
@@ -572,6 +596,19 @@ static workload_result_t run_program_fixture_workload(
     }
   }
 
+  const uint64_t display_hash = compute_display_hash();
+  fprintf(stderr, "INFO: %s display hash = 0x%016llx\n",
+          scenario->program_name, (unsigned long long)display_hash);
+  if (scenario->expected_display_hash != 0u &&
+      display_hash != scenario->expected_display_hash) {
+    fprintf(stderr,
+            "ERROR: %s produced the wrong final display: hash=0x%016llx "
+            "(expected 0x%016llx)\n",
+            scenario->program_name, (unsigned long long)display_hash,
+            (unsigned long long)scenario->expected_display_hash);
+    return WORKLOAD_RESULT_FAIL;
+  }
+
   fprintf(stderr,
           "PASS: %s workload loaded and ran (load_step=%u, max_step=%u, pause=%s, waiting=%s, view=%s, lcdRefreshes=%llu, directStop=%s, directStopRequests=%llu, x=%s)\n",
           scenario->program_name, (unsigned int)load_step,
@@ -590,14 +627,20 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .resume_pause_with_zero_key = false,
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
-     .stop_after_activity_ms = 0u},
+     .stop_after_activity_ms = 0u,
+     // Verified run-to-run deterministic over repeated host runs (Annex A.10);
+     // BinetV3 parks at its plot prompt leaving a stable final image.
+     .expected_display_hash = 0x1ddff07951d1afb6ull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = false,
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
-     .stop_after_activity_ms = 0u},
+     .stop_after_activity_ms = 0u,
+     // Verified run-to-run deterministic over repeated host runs (Annex A.10);
+     // GudrmPL runs the Gudermannian plot to natural completion.
+     .expected_display_hash = 0xf90d96489eaf1bfaull},
     {.program_name = "MANSLV2.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 15000u,
@@ -623,8 +666,17 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = true,
      .seed_runtime = seed_spiralk_runtime_registers,
-     .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
-  .stop_after_activity_ms = 0u},
+     .stop_policy = STOP_POLICY_NONE,
+     .stop_after_activity_ms = 0u,
+     // Run to completion. The seeded spiral terminates on the host and leaves a
+     // deterministic graph (verified identical over 7 host runs; see Annex
+     // A.10). Its earlier per-run variance came from STOP_POLICY_DIRECT_AFTER_
+     // ACTIVITY racing completion -- on the host SPIRALk finishes so fast the
+     // direct stop sampled the image at different points (or not at all). Run to
+     // completion the image is stable, so it is pinned; the reliable fast-stop /
+     // interrupt path is exercised by MANSLV2, which runs long enough to always
+     // be interrupted.
+     .expected_display_hash = 0x8cfc1f2910613f3cull},
 };
 
 static const program_fixture_scenario_t *find_program_fixture_scenario(
