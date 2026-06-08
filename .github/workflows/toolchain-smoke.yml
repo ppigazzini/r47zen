@@ -1,0 +1,48 @@
+name: Toolchain install smoke
+
+# Dedicated, path-filtered smoke for the host build-toolchain installers. The
+# static contracts assert these scripts are wired correctly; this job actually
+# runs the apt + apt.llvm.org installs on a clean runner and checks the tools
+# resolve -- the class of failure (missing package, broken repo, unavailable LLVM
+# major) that twice reached a protected workflow. It is intentionally a separate
+# workflow so it is not a required check by default (non-blocking), and runs only
+# when the installers change.
+
+on:
+  push:
+    branches:
+      - github_ci
+      - main
+    paths:
+      - scripts/android/install_linux_build_deps.sh
+      - scripts/android/install_host_llvm_toolchain.sh
+      - scripts/android/smoke_host_toolchain.sh
+      - .github/workflows/toolchain-smoke.yml
+  pull_request:
+    paths:
+      - scripts/android/install_linux_build_deps.sh
+      - scripts/android/install_host_llvm_toolchain.sh
+      - scripts/android/smoke_host_toolchain.sh
+      - .github/workflows/toolchain-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  toolchain-smoke:
+    name: Host toolchain install smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Run host toolchain install smoke
+        shell: bash
+        run: bash ./scripts/android/smoke_host_toolchain.sh
