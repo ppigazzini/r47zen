@@ -668,15 +668,14 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = seed_spiralk_runtime_registers,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
-     // Run to completion. The seeded spiral terminates on the host and leaves a
-     // deterministic graph (verified identical over 7 host runs; see Annex
-     // A.10). Its earlier per-run variance came from STOP_POLICY_DIRECT_AFTER_
-     // ACTIVITY racing completion -- on the host SPIRALk finishes so fast the
-     // direct stop sampled the image at different points (or not at all). Run to
-     // completion the image is stable, so it is pinned; the reliable fast-stop /
-     // interrupt path is exercised by MANSLV2, which runs long enough to always
-     // be interrupted.
-     .expected_display_hash = 0x8cfc1f2910613f3cull},
+     // Run to completion (no direct-stop race), but liveness-only: its final
+     // image is stable on a single host yet NOT reproducible across machines. It
+     // pauses and is resumed by key, and the number of points plotted before it
+     // finishes depends on the pause/resume interleaving, which differs between
+     // the dev host and the CI runner. A pinned hash (0x8cfc1f2910613f3c locally)
+     // failed CI with 0xeae799e2c2ad6d93. Unlike BinetV3/GudrmPL, whose completed
+     // image matches across environments, SPIRALk cannot carry a display oracle.
+     .expected_display_hash = 0u},
 };
 
 static const program_fixture_scenario_t *find_program_fixture_scenario(
