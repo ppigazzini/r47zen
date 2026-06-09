@@ -242,8 +242,14 @@ class ReplicaOverlay @JvmOverloads constructor(
             context,
             object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                 override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-                    val shouldScale =
-                        lcdGraphTouchEnabled && lcdGestureActive && isPointInLcd(detector.focusX, detector.focusY)
+                    // Do not require the pinch focal point to be inside the LCD.
+                    // lcdGestureActive already proves the first finger landed in
+                    // the LCD (set on ACTION_DOWN in onInterceptTouchEvent), so
+                    // the second finger may go anywhere, including off the LCD
+                    // onto the keyboard. This makes a wide pinch valid from the
+                    // start, so zoom-out can begin spread apart just like zoom-in
+                    // can spread out mid-gesture (super-zoom in both directions).
+                    val shouldScale = lcdGraphTouchEnabled && lcdGestureActive
                     lcdScalingActive = shouldScale
                     if (shouldScale) {
                         lcdPanStarted = false
