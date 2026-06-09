@@ -161,14 +161,18 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             val batch = synchronized(graphGestureLock) { graphGestureAccumulator.drainBatch() }
 
             if (batch != null) {
-                if (
+                val hasPan =
                     abs(batch.panDxNorm) > GRAPH_PAN_FLUSH_EPSILON ||
-                    abs(batch.panDyNorm) > GRAPH_PAN_FLUSH_EPSILON
-                ) {
-                    applyGraphPanNative(batch.panDxNorm, batch.panDyNorm)
-                }
-                if (abs(batch.scaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON) {
-                    applyGraphPinchZoomNative(batch.scaleFactor)
+                        abs(batch.panDyNorm) > GRAPH_PAN_FLUSH_EPSILON
+                val hasScale = abs(batch.scaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON
+                // Apply a combined drag+pinch in one native call so the heavy
+                // graph re-solve runs once per batch instead of twice during
+                // fast play. Fall back to the single-axis bridges otherwise.
+                when {
+                    hasPan && hasScale ->
+                        applyGraphPanZoomNative(batch.panDxNorm, batch.panDyNorm, batch.scaleFactor)
+                    hasPan -> applyGraphPanNative(batch.panDxNorm, batch.panDyNorm)
+                    hasScale -> applyGraphPinchZoomNative(batch.scaleFactor)
                 }
             }
 
@@ -567,6 +571,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun sendSimFuncNative(funcId: Int)
     private external fun applyGraphPanNative(dxNorm: Float, dyNorm: Float): Boolean
     private external fun applyGraphPinchZoomNative(scaleFactor: Float): Boolean
+    private external fun applyGraphPanZoomNative(dxNorm: Float, dyNorm: Float, scaleFactor: Float): Boolean
     private external fun resetGraphNative(): Boolean
     private external fun saveStateNative()
     private external fun loadStateNative()

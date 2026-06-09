@@ -124,10 +124,22 @@ bool r47_sanitize_graph_bounds_locked(void) {
   return changed;
 }
 
-static bool r47_apply_graph_pan_locked(float dxNorm, float dyNorm) {
-  if (!r47_graph_touch_supported_locked()) {
-    return false;
-  }
+// Returns true if a finite, in-range window [nextXMin..nextYMax] should be
+// committed (none NaN/inf, none beyond +/- r47_graph_bounds_limit).
+static bool r47_graph_bounds_in_range(float nextXMin, float nextXMax,
+                                      float nextYMin, float nextYMax) {
+  return isfinite(nextXMin) && isfinite(nextXMax) && isfinite(nextYMin) &&
+         isfinite(nextYMax) && nextXMin > -r47_graph_bounds_limit &&
+         nextXMin < r47_graph_bounds_limit && nextXMax > -r47_graph_bounds_limit &&
+         nextXMax < r47_graph_bounds_limit && nextYMin > -r47_graph_bounds_limit &&
+         nextYMin < r47_graph_bounds_limit && nextYMax > -r47_graph_bounds_limit &&
+         nextYMax < r47_graph_bounds_limit;
+}
+
+// Apply a pan to the graph window in place. Pure bounds math: no gate (the
+// caller gates) and no redraw (the caller redraws once). Returns true if the
+// window changed.
+static bool r47_pan_update_bounds_locked(float dxNorm, float dyNorm) {
   if (!isfinite(dxNorm) || !isfinite(dyNorm) ||
       fabsf(dxNorm) > r47_graph_pan_input_limit ||
       fabsf(dyNorm) > r47_graph_pan_input_limit) {
@@ -152,13 +164,7 @@ static bool r47_apply_graph_pan_locked(float dxNorm, float dyNorm) {
   const float nextXMax = x_max + shiftX;
   const float nextYMin = y_min + shiftY;
   const float nextYMax = y_max + shiftY;
-
-  if (!isfinite(nextXMin) || !isfinite(nextXMax) || !isfinite(nextYMin) ||
-      !isfinite(nextYMax) || nextXMin <= -r47_graph_bounds_limit ||
-      nextXMin >= r47_graph_bounds_limit || nextXMax <= -r47_graph_bounds_limit ||
-      nextXMax >= r47_graph_bounds_limit || nextYMin <= -r47_graph_bounds_limit ||
-      nextYMin >= r47_graph_bounds_limit || nextYMax <= -r47_graph_bounds_limit ||
-      nextYMax >= r47_graph_bounds_limit) {
+  if (!r47_graph_bounds_in_range(nextXMin, nextXMax, nextYMin, nextYMax)) {
     return false;
   }
 
@@ -166,16 +172,12 @@ static bool r47_apply_graph_pan_locked(float dxNorm, float dyNorm) {
   x_max = nextXMax;
   y_min = nextYMin;
   y_max = nextYMax;
-
-  r47_sync_graph_bounds_reserved_vars_locked();
-  r47_draw_graph_from_lu_locked();
   return true;
 }
 
-static bool r47_apply_graph_pinch_zoom_locked(float scaleFactor) {
-  if (!r47_graph_touch_supported_locked()) {
-    return false;
-  }
+// Apply a center-preserving pinch zoom to the graph window in place. Pure
+// bounds math: no gate and no redraw. Returns true if the window changed.
+static bool r47_zoom_update_bounds_locked(float scaleFactor) {
   if (!isfinite(scaleFactor) || scaleFactor <= 0.0f ||
       scaleFactor < r47_graph_scale_factor_min ||
       scaleFactor > r47_graph_scale_factor_max) {
@@ -210,13 +212,7 @@ static bool r47_apply_graph_pinch_zoom_locked(float scaleFactor) {
   const float nextXMax = centerX + 0.5f * newSpanX;
   const float nextYMin = centerY - 0.5f * newSpanY;
   const float nextYMax = centerY + 0.5f * newSpanY;
-
-  if (!isfinite(nextXMin) || !isfinite(nextXMax) || !isfinite(nextYMin) ||
-      !isfinite(nextYMax) || nextXMin <= -r47_graph_bounds_limit ||
-      nextXMin >= r47_graph_bounds_limit || nextXMax <= -r47_graph_bounds_limit ||
-      nextXMax >= r47_graph_bounds_limit || nextYMin <= -r47_graph_bounds_limit ||
-      nextYMin >= r47_graph_bounds_limit || nextYMax <= -r47_graph_bounds_limit ||
-      nextYMax >= r47_graph_bounds_limit) {
+  if (!r47_graph_bounds_in_range(nextXMin, nextXMax, nextYMin, nextYMax)) {
     return false;
   }
 
@@ -224,6 +220,51 @@ static bool r47_apply_graph_pinch_zoom_locked(float scaleFactor) {
   x_max = nextXMax;
   y_min = nextYMin;
   y_max = nextYMax;
+  return true;
+}
+
+static bool r47_apply_graph_pan_locked(float dxNorm, float dyNorm) {
+  if (!r47_graph_touch_supported_locked() ||
+      !r47_pan_update_bounds_locked(dxNorm, dyNorm)) {
+    return false;
+  }
+  r47_sync_graph_bounds_reserved_vars_locked();
+  r47_draw_graph_from_lu_locked();
+  return true;
+}
+
+static bool r47_apply_graph_pinch_zoom_locked(float scaleFactor) {
+  if (!r47_graph_touch_supported_locked() ||
+      !r47_zoom_update_bounds_locked(scaleFactor)) {
+    return false;
+  }
+  r47_sync_graph_bounds_reserved_vars_locked();
+  r47_draw_graph_from_lu_locked();
+  return true;
+}
+
+// Combined pan + zoom in one gate, one bounds commit, and one re-solve. The
+// gesture flush coalesces a drag and a pinch into a single batch, so applying
+// them together halves the heavy fnEqSolvGraph re-solve during fast combined
+// play. Pan is applied first, then a center-preserving zoom around the panned
+// center, matching the prior sequential apply minus the discarded intermediate
+// draw.
+static bool r47_apply_graph_pan_zoom_locked(float dxNorm, float dyNorm,
+                                            float scaleFactor) {
+  if (!r47_graph_touch_supported_locked()) {
+    return false;
+  }
+
+  bool changed = false;
+  if (r47_pan_update_bounds_locked(dxNorm, dyNorm)) {
+    changed = true;
+  }
+  if (r47_zoom_update_bounds_locked(scaleFactor)) {
+    changed = true;
+  }
+  if (!changed) {
+    return false;
+  }
 
   r47_sync_graph_bounds_reserved_vars_locked();
   r47_draw_graph_from_lu_locked();
@@ -364,6 +405,21 @@ Java_com_example_r47_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
   bool applied = r47_apply_graph_pinch_zoom_locked((float)scaleFactor);
+  pthread_mutex_unlock(&screenMutex);
+  return applied ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_applyGraphPanZoomNative(JNIEnv *env,
+                                                          jobject thiz,
+                                                          jfloat dxNorm,
+                                                          jfloat dyNorm,
+                                                          jfloat scaleFactor) {
+  (void)env;
+  (void)thiz;
+  pthread_mutex_lock(&screenMutex);
+  bool applied = r47_apply_graph_pan_zoom_locked((float)dxNorm, (float)dyNorm,
+                                                 (float)scaleFactor);
   pthread_mutex_unlock(&screenMutex);
   return applied ? JNI_TRUE : JNI_FALSE;
 }
