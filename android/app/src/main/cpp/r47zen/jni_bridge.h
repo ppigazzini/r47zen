@@ -226,6 +226,12 @@ Java_com_example_r47_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
                                                             jobject thiz,
                                                             jfloat scaleFactor);
 JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_applyGraphPanZoomNative(JNIEnv *env,
+                                                          jobject thiz,
+                                                          jfloat dxNorm,
+                                                          jfloat dyNorm,
+                                                          jfloat scaleFactor);
+JNIEXPORT jboolean JNICALL
 Java_com_example_r47_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz);
 JNIEXPORT jboolean JNICALL
 Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
