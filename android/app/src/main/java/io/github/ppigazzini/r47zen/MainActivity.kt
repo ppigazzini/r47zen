@@ -135,6 +135,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         scheduleGraphGestureFlush()
     }
 
+    private fun queueGraphReset() {
+        offerCoreTask(Runnable { resetGraphNative() })
+    }
+
     private fun scheduleGraphGestureFlush() {
         val shouldEnqueue = synchronized(graphGestureLock) {
             if (graphGestureFlushQueued) {
@@ -304,6 +308,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         replicaOverlay.onSettingsDiscoveryCompleted = ::markSettingsDiscoveryComplete
         replicaOverlay.onLcdPanListener = ::queueGraphPan
         replicaOverlay.onLcdPinchListener = ::queueGraphPinch
+        replicaOverlay.onLcdResetListener = ::queueGraphReset
         keypadSnapshotStore = createKeypadSnapshotStore()
         replicaOverlayController = createReplicaOverlayController()
         replicaOverlayController.bindOverlay()
@@ -562,6 +567,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun sendSimFuncNative(funcId: Int)
     private external fun applyGraphPanNative(dxNorm: Float, dyNorm: Float): Boolean
     private external fun applyGraphPinchZoomNative(scaleFactor: Float): Boolean
+    private external fun resetGraphNative(): Boolean
     private external fun saveStateNative()
     private external fun loadStateNative()
     private external fun forceRefreshNative()

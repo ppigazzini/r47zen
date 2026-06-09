@@ -24,6 +24,7 @@ static const float r47_graph_default_min = -10.0f;
 static const float r47_graph_default_max = 10.0f;
 
 extern void fnEqSolvGraph(uint16_t func);
+extern void graph_reset(void);
 extern int8_t PLOT_ZMY;
 
 static bool r47_graph_touch_supported_locked(void) {
@@ -45,6 +46,26 @@ static void r47_draw_graph_from_lu_locked(void) {
   // transport here to avoid competing refresh reason paths.
   refreshLcd(NULL);
   lcd_refresh();
+}
+
+// Double-tap graph reset for function (EQN) plots only. It is a gesture
+// shortcut for the PLTRST menu key on the same surface as pinch/pan
+// (r47_graph_touch_supported_locked): graph_reset() restores auto Y-scaling and
+// clears the zoom override and plot decorations - the LX/UX X domain is
+// preserved, matching PLTRST - then the standard Draw-LU solve re-renders.
+// Statistical and program-drawn (.p47) plots are deliberately excluded: their
+// stat redraw does not transport to the Android display from this JNI context
+// (see REPORT-26 Annex E failure log), so reset there stays on the softkey.
+static bool r47_reset_graph_locked(void) {
+  if (!r47_graph_touch_supported_locked()) {
+    return false;
+  }
+
+  graph_reset();
+  fnEqSolvGraph(EQ_PLOT_LU);
+  refreshLcd(NULL);
+  lcd_refresh();
+  return true;
 }
 
 static void r47_sync_graph_bounds_reserved_vars_locked(void) {
@@ -343,6 +364,16 @@ Java_com_example_r47_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
   bool applied = r47_apply_graph_pinch_zoom_locked((float)scaleFactor);
+  pthread_mutex_unlock(&screenMutex);
+  return applied ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+  pthread_mutex_lock(&screenMutex);
+  bool applied = r47_reset_graph_locked();
   pthread_mutex_unlock(&screenMutex);
   return applied ? JNI_TRUE : JNI_FALSE;
 }

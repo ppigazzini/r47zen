@@ -70,6 +70,8 @@ int register_main_activity_natives(JNIEnv *env) {
         (void *)Java_com_example_r47_MainActivity_applyGraphPanNative},
       {"applyGraphPinchZoomNative", "(F)Z",
         (void *)Java_com_example_r47_MainActivity_applyGraphPinchZoomNative},
+      {"resetGraphNative", "()Z",
+        (void *)Java_com_example_r47_MainActivity_resetGraphNative},
       {"saveStateNative", "()V",
         (void *)Java_com_example_r47_MainActivity_saveStateNative},
       {"loadStateNative", "()V",

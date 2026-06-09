@@ -184,6 +184,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     var onLongPressListener: ((Float, Float) -> Unit)? = null
     var onLcdPanListener: ((Float, Float) -> Unit)? = null
     var onLcdPinchListener: ((Float) -> Unit)? = null
+    var onLcdResetListener: (() -> Unit)? = null
     var onSettingsTapListener: (() -> Unit)? = null
     var onSettingsDiscoveryCompleted: (() -> Unit)? = null
     var onGeometryLaidOut: (() -> Unit)? = null
@@ -192,9 +193,20 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val scaleGestureDetector: ScaleGestureDetector
     private val viewConfiguration: ViewConfiguration = ViewConfiguration.get(context)
     private val panTouchSlopPx: Float = viewConfiguration.scaledTouchSlop.toFloat()
+    private val doubleTapTimeoutMs: Long = ViewConfiguration.getDoubleTapTimeout().toLong()
+    private val doubleTapSlopPx: Float = viewConfiguration.scaledDoubleTapSlop.toFloat()
     private var lcdGestureActive = false
     private var lcdPanStarted = false
     private var lcdScalingActive = false
+    // Manual double-tap detection for the graph reset. GestureDetector's
+    // onDoubleTap misreads the down/up transitions of pinch gestures as taps, so
+    // a tap episode here is disqualified the moment a second pointer touches down
+    // or the finger moves. Only two clean single-finger taps trigger a reset.
+    private var lcdTapEpisodeInLcd = false
+    private var lcdTapEpisodeDisqualified = false
+    private var lcdLastTapUpTimeMs = 0L
+    private var lcdLastTapX = 0f
+    private var lcdLastTapY = 0f
     private var activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
     private var lcdLastTouchX = 0f
     private var lcdLastTouchY = 0f
@@ -627,6 +639,8 @@ class ReplicaOverlay @JvmOverloads constructor(
                 lcdGestureActive = isPointInLcd(ev.x, ev.y)
                 lcdPanStarted = false
                 lcdScalingActive = false
+                lcdTapEpisodeInLcd = lcdGestureActive
+                lcdTapEpisodeDisqualified = false
                 resetPanAnchor(ev.getPointerId(0), ev.x, ev.y)
             }
 
@@ -688,6 +702,7 @@ class ReplicaOverlay @JvmOverloads constructor(
                         val totalDyPixels = currentY - lcdPanStartY
                         if (movementExceedsSlop(totalDxPixels, totalDyPixels, effectivePanStartSlopPx(event))) {
                             lcdPanStarted = true
+                            lcdTapEpisodeDisqualified = true
                             lcdLastPanDispatchX = lcdLastTouchX
                             lcdLastPanDispatchY = lcdLastTouchY
                         }
@@ -723,6 +738,10 @@ class ReplicaOverlay @JvmOverloads constructor(
 
             MotionEvent.ACTION_POINTER_DOWN,
             MotionEvent.ACTION_POINTER_UP -> {
+                if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
+                    // A second finger means this is a pinch, never a tap.
+                    lcdTapEpisodeDisqualified = true
+                }
                 if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
                     val actionIndex = event.actionIndex
                     // Transitioning from pinch to one-finger drag needs a fresh pan anchor
@@ -766,8 +785,16 @@ class ReplicaOverlay @JvmOverloads constructor(
                 }
             }
 
-            MotionEvent.ACTION_CANCEL,
             MotionEvent.ACTION_UP -> {
+                evaluateLcdDoubleTap(event)
+                lcdGestureActive = false
+                lcdPanStarted = false
+                lcdScalingActive = false
+                activeLcdPointerId = MotionEvent.INVALID_POINTER_ID
+            }
+
+            MotionEvent.ACTION_CANCEL -> {
+                lcdLastTapUpTimeMs = 0L
                 lcdGestureActive = false
                 lcdPanStarted = false
                 lcdScalingActive = false
@@ -776,6 +803,34 @@ class ReplicaOverlay @JvmOverloads constructor(
         }
 
         return true
+    }
+
+    // Manual double-tap: only two clean, single-finger, near-stationary taps
+    // inside the LCD within the platform double-tap window fire a graph reset.
+    // Any second pointer or pan during the episode disqualifies it, so a pinch
+    // can never be mistaken for a tap.
+    private fun evaluateLcdDoubleTap(event: MotionEvent) {
+        val cleanTap = lcdGraphTouchEnabled &&
+            lcdTapEpisodeInLcd &&
+            !lcdTapEpisodeDisqualified &&
+            (event.eventTime - event.downTime) <= doubleTapTimeoutMs
+        if (!cleanTap) {
+            lcdLastTapUpTimeMs = 0L
+            return
+        }
+
+        val x = event.x
+        val y = event.y
+        val withinTime = (event.downTime - lcdLastTapUpTimeMs) <= doubleTapTimeoutMs
+        val withinSlop = abs(x - lcdLastTapX) <= doubleTapSlopPx && abs(y - lcdLastTapY) <= doubleTapSlopPx
+        if (lcdLastTapUpTimeMs != 0L && withinTime && withinSlop) {
+            onLcdResetListener?.invoke()
+            lcdLastTapUpTimeMs = 0L
+        } else {
+            lcdLastTapUpTimeMs = event.eventTime
+            lcdLastTapX = x
+            lcdLastTapY = y
+        }
     }
 
     class LayoutParams(
