@@ -368,6 +368,14 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          # Override the action default (`tools platform-tools`): the legacy
+          # `tools` package is deprecated, unused here, drags in the emulator
+          # as a dependency on every run, and its unpinned download is a flake
+          # source. Each job installs its pinned packages in the "Install
+          # Android SDK packages" step; only adb (platform-tools) comes from
+          # the action.
+          packages: platform-tools
 
       - name: Accept Android SDK licenses non-interactively
         shell: bash
@@ -752,6 +760,14 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          # Override the action default (`tools platform-tools`): the legacy
+          # `tools` package is deprecated, unused here, drags in the emulator
+          # as a dependency on every run, and its unpinned download is a flake
+          # source. Each job installs its pinned packages in the "Install
+          # Android SDK packages" step; only adb (platform-tools) comes from
+          # the action.
+          packages: platform-tools
 
       - name: Accept Android SDK licenses non-interactively
         shell: bash
