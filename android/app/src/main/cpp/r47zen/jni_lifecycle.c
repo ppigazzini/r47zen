@@ -22,7 +22,6 @@ void releaseNativeActivityReferences(JNIEnv *env) {
 
   g_requestFileId = NULL;
   g_playToneId = NULL;
-  g_stopToneId = NULL;
   g_processCoreTasksId = NULL;
 }
 
@@ -56,14 +55,6 @@ Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
   g_playToneId = (*env)->GetMethodID(env, clazz, "playTone", "(II)V");
   if (!jni_result_ok(env, (const void *)g_playToneId,
                      "GetMethodID(playTone)")) {
-    (*env)->DeleteLocalRef(env, clazz);
-    releaseNativeActivityReferences(env);
-    return;
-  }
-
-  g_stopToneId = (*env)->GetMethodID(env, clazz, "stopTone", "()V");
-  if (!jni_result_ok(env, (const void *)g_stopToneId,
-                     "GetMethodID(stopTone)")) {
     (*env)->DeleteLocalRef(env, clazz);
     releaseNativeActivityReferences(env);
     return;
