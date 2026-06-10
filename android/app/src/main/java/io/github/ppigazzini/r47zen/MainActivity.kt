@@ -45,6 +45,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private val graphGestureLock = Any()
     private var graphGestureFlushQueued = false
+
+    @Volatile
+    private var lastGraphGestureFlushUptimeMs = 0L
     private val graphGestureAccumulator = GraphGestureAccumulator(
         panFlushEpsilon = GRAPH_PAN_FLUSH_EPSILON,
         panApplyLimit = GRAPH_PAN_APPLY_LIMIT,
@@ -63,6 +66,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         private const val GRAPH_SCALE_FLUSH_EPSILON = 0.0001f
         private const val GRAPH_SCALE_FACTOR_MIN = 0.4f
         private const val GRAPH_SCALE_FACTOR_MAX = 2.5f
+
+        // Minimum spacing between gesture flushes. Each flush re-solves the
+        // graph (fnEqSolvGraph), so an unthrottled fast drag/pinch can drive the
+        // heavy upstream solver far faster than the display can show, piling up
+        // re-solves (and DrwMX rebuilds) on the core thread. Coalescing to about
+        // one re-solve per display frame caps that load with no visible cost.
+        private const val GRAPH_GESTURE_MIN_FLUSH_INTERVAL_MS = 16L
 
         init {
             System.loadLibrary("r47zen")
@@ -153,6 +163,24 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             return
         }
 
+        // Rate-limit the re-solve. While a flush is pending (graphGestureFlush
+        // Queued stays true until it drains), further gesture deltas coalesce in
+        // the accumulator instead of queuing more re-solves, so a fast drag
+        // applies at most one re-solve per interval and the net motion is never
+        // lost.
+        val sinceLast = SystemClock.uptimeMillis() - lastGraphGestureFlushUptimeMs
+        if (sinceLast >= GRAPH_GESTURE_MIN_FLUSH_INTERVAL_MS) {
+            offerGraphGestureFlush()
+        } else {
+            mainHandler.postDelayed(
+                ::offerGraphGestureFlush,
+                GRAPH_GESTURE_MIN_FLUSH_INTERVAL_MS - sinceLast,
+            )
+        }
+    }
+
+    private fun offerGraphGestureFlush() {
+        lastGraphGestureFlushUptimeMs = SystemClock.uptimeMillis()
         offerCoreTask(Runnable { flushGraphGesturesOnCoreThread() })
     }
 
