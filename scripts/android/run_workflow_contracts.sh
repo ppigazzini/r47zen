@@ -23,6 +23,7 @@ CONTRACTS=(
     run_privileged_remote_script_contract.sh
     run_llvm_toolchain_install_contract.sh
     run_build_deps_single_source_contract.sh
+    run_toolchain_pin_coherence_contract.sh
 )
 
 failed=()
