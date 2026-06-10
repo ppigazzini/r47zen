@@ -1,4 +1,5 @@
 #include "jni_bridge.h"
+#include "r47_time.h"
 
 #include <unistd.h>
 
@@ -41,7 +42,8 @@ static uint32_t g_android_mock_next_gtk_iteration_ms = 0;
 static gboolean androidMockTimeoutReady(void) {
   return g_android_mock_timeout.active &&
          g_android_mock_timeout.callback != NULL &&
-         sys_current_ms() >= g_android_mock_timeout.next_fire_ms;
+         r47_ms_deadline_reached(sys_current_ms(),
+                                 g_android_mock_timeout.next_fire_ms);
 }
 
 static gboolean pumpAndroidMockTimeout(void) {
@@ -50,7 +52,7 @@ static gboolean pumpAndroidMockTimeout(void) {
   }
 
   uint32_t now = sys_current_ms();
-  if (now < g_android_mock_timeout.next_fire_ms) {
+  if (!r47_ms_deadline_reached(now, g_android_mock_timeout.next_fire_ms)) {
     return FALSE;
   }
 
@@ -65,7 +67,7 @@ static gboolean pumpAndroidMockTimeout(void) {
 
   uint32_t next_fire =
       g_android_mock_timeout.next_fire_ms + g_android_mock_timeout.interval_ms;
-  if (next_fire <= now) {
+  if (r47_ms_deadline_reached(now, next_fire)) {
     next_fire = now + g_android_mock_timeout.interval_ms;
   }
   g_android_mock_timeout.next_fire_ms = next_fire;
@@ -79,9 +81,10 @@ static void driveAndroidMockEventLoop(gboolean may_block) {
 
   uint32_t wait_ms = may_block ? 1u : 0u;
   if (may_block && g_android_mock_timeout.active) {
-    uint32_t now = sys_current_ms();
-    if (g_android_mock_timeout.next_fire_ms > now) {
-      wait_ms = g_android_mock_timeout.next_fire_ms - now;
+    uint32_t until_fire = r47_ms_until_deadline(
+        sys_current_ms(), g_android_mock_timeout.next_fire_ms);
+    if (until_fire > 0u) {
+      wait_ms = until_fire;
     }
     if (wait_ms > 16u) {
       wait_ms = 16u;
@@ -135,7 +138,7 @@ void yieldToAndroidWithMs(int ms) {
   }
 
   uint32_t now = sys_current_ms();
-  if (nextTimerRefresh <= now) {
+  if (r47_ms_deadline_reached(now, nextTimerRefresh)) {
     // Long-running native work can yield in 1 ms bursts, so advance timers
     // here instead of relying only on the separate core-thread tick loop.
     refreshTimer(NULL);
@@ -171,7 +174,8 @@ void yieldToAndroid(void) { yieldToAndroidWithMs(1); }
 
 gboolean gtk_events_pending(void) {
   return androidMockTimeoutReady() ||
-         sys_current_ms() >= g_android_mock_next_gtk_iteration_ms;
+         r47_ms_deadline_reached(sys_current_ms(),
+                                 g_android_mock_next_gtk_iteration_ms);
 }
 
 gboolean gtk_main_iteration(void) {

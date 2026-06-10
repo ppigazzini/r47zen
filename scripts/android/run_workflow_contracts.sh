@@ -6,8 +6,9 @@
 # run even after a failure, so a single CI run reports all of them; the script
 # exits non-zero if any failed.
 #
-# The lcd HAL contract is intentionally not listed here -- it builds a C harness
-# and tees its own log, so it stays a separate step. Pure host, no SDK needed.
+# The lcd HAL contract is intentionally not listed here -- it needs the staged
+# native tree and tees its own log, so it stays a separate step. Pure host, no
+# SDK needed.
 
 set -Eeuo pipefail
 
@@ -24,6 +25,7 @@ CONTRACTS=(
     run_llvm_toolchain_install_contract.sh
     run_build_deps_single_source_contract.sh
     run_toolchain_pin_coherence_contract.sh
+    run_wrap_safe_time_contract.sh
 )
 
 failed=()

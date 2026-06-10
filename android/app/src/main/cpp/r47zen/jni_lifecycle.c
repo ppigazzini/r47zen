@@ -1,4 +1,5 @@
 #include "jni_bridge.h"
+#include "r47_time.h"
 
 #include "saveRestoreCalcState.h"
 
@@ -152,15 +153,11 @@ static jint r47_next_tick_delay_ms(uint32_t now) {
   uint32_t next_due = nextTimerRefresh;
 
   if (next_due == 0 ||
-      (nextScreenRefresh != 0 && nextScreenRefresh < next_due)) {
+      (nextScreenRefresh != 0 && r47_ms_before(nextScreenRefresh, next_due))) {
     next_due = nextScreenRefresh;
   }
 
-  if (next_due == 0 || next_due <= now) {
-    return 0;
-  }
-
-  return (jint)(next_due - now);
+  return (jint)r47_ms_until_deadline(now, next_due);
 }
 
 JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
@@ -172,13 +169,13 @@ JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
     return 1;
   }
 
-  if (nextTimerRefresh <= now) {
+  if (r47_ms_deadline_reached(now, nextTimerRefresh)) {
     refreshTimer(NULL);
     nextTimerRefresh = now + 5;
   }
   if (r47_apply_pending_stop_refresh_locked()) {
     now = sys_current_ms();
-  } else if (nextScreenRefresh <= now) {
+  } else if (r47_ms_deadline_reached(now, nextScreenRefresh)) {
     refreshLcd(NULL);
     lcd_refresh();
     nextScreenRefresh = now + 100;
