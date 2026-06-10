@@ -966,7 +966,7 @@ jobs:
 
       - name: Verify build provenance attestation
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
