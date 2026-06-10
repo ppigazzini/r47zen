@@ -472,9 +472,14 @@ Java_com_example_r47_MainActivity_sendSimKeyNative(
   }
 
   const char *nativeKeyId = (*env)->GetStringUTFChars(env, keyId, 0);
-  if (!nativeKeyId ||
-      jni_check_and_clear_exception(env,
-                                    "sendSimKeyNative GetStringUTFChars")) {
+  if (jni_check_and_clear_exception(env,
+                                    "sendSimKeyNative GetStringUTFChars") ||
+      !nativeKeyId) {
+    // Release before bailing: GetStringUTFChars can return a valid copy even
+    // when an exception is pending, and an early return must not leak it.
+    if (nativeKeyId) {
+      (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
+    }
     return;
   }
 
