@@ -36,7 +36,25 @@ static bool r47_graph_touch_supported_locked(void) {
   return menuId == -MNU_PLOT_FUNC || menuId == -MNU_GRAPHS;
 }
 
+// Each upstream graph solve rebuilds the DrwMX point matrix and permanently
+// leaks free-memory-list regions (~0.25 per solve, measured; see REPORT-26
+// Annex H). When numberOfFreeMemoryRegions reaches MAX_FREE_REGIONS the upstream
+// allocator (src/c47/core/freeList.c) calls exit() on non-DMCP builds, which
+// terminates the Android app with no state save. Stop driving gesture re-solves
+// a small margin before that limit so a sustained fast pan/zoom degrades to a
+// frozen graph instead of crashing; a calculator reset reclaims the RAM. The
+// underlying solver leak is upstream and tracked separately.
+extern int32_t numberOfFreeMemoryRegions;
+
+static bool r47_graph_resolve_would_risk_ram_exhaustion(void) {
+  return numberOfFreeMemoryRegions >= MAX_FREE_REGIONS - 16;
+}
+
 static void r47_draw_graph_from_lu_locked(void) {
+  if (r47_graph_resolve_would_risk_ram_exhaustion()) {
+    return;
+  }
+
   // Upstream graph rendering only honors LY/UY when ZOOM is in override mode.
   // Keep touch-driven Y bounds on that path before Draw-LU solve.
   PLOT_ZMY = zoomOverride;
@@ -62,9 +80,11 @@ static bool r47_reset_graph_locked(void) {
   }
 
   graph_reset();
-  fnEqSolvGraph(EQ_PLOT_LU);
-  refreshLcd(NULL);
-  lcd_refresh();
+  if (!r47_graph_resolve_would_risk_ram_exhaustion()) {
+    fnEqSolvGraph(EQ_PLOT_LU);
+    refreshLcd(NULL);
+    lcd_refresh();
+  }
   return true;
 }
 
