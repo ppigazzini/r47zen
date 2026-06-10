@@ -92,9 +92,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         AudioEngine.playTone(milliHz, durationMs)
     }
 
-    @Keep
-    fun stopTone() {}
-
     private fun applyLcdTheme(theme: String, luminancePercent: Int, isNegative: Boolean) {
         val palette = LcdThemePolicy.resolve(theme, luminancePercent, isNegative)
         replicaOverlay.setLcdColors(palette.text, palette.background)

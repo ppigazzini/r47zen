@@ -22,7 +22,7 @@ verification surfaces.
 | direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `setLcdColors()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()`, `getKeypadMetaNative()`, `getKeypadLabelsNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, compatibility `screenData`, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work, `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early when the lock is busy, and the legacy split keypad getters remain compatibility surfaces rather than the hot UI path |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
-| native to activity callbacks | `requestFile()`, `playTone()`, `stopTone()`, `processCoreTasks()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned, and reattach must not redraw the LCD |
+| native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned, and reattach must not redraw the LCD |
 | storage and yield boundary | `StorageAccessCoordinator` returns detached file descriptors through `onFileSelectedNative()` or `onFileCancelledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
 
 ## Bridge Flow
@@ -184,8 +184,8 @@ flowchart LR
 ## Native Callbacks Into The Activity
 
 - `updateNativeActivityRef()` stores a global reference to `MainActivity` and
-  caches the method IDs for `requestFile(...)`, `playTone(...)`, `stopTone()`,
-  and `processCoreTasks()`. It does not redraw the LCD on reattach.
+  caches the method IDs for `requestFile(...)`, `playTone(...)`, and
+  `processCoreTasks()`. It does not redraw the LCD on reattach.
 - `processCoreTasksNative()` is the re-entry hook used by
   `yieldToAndroidWithMs(...)`. It calls back into `MainActivity.processCoreTasks()`
   so queued Android-side work can run while the native core is yielding.

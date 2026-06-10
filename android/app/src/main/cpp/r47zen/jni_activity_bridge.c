@@ -4,7 +4,6 @@ JavaVM *g_jvm = NULL;
 jobject g_mainActivityObj = NULL;
 jmethodID g_requestFileId = NULL;
 jmethodID g_playToneId = NULL;
-jmethodID g_stopToneId = NULL;
 jmethodID g_processCoreTasksId = NULL;
 
 void processCoreTasksNative(void) {
