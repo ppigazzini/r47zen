@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Mutation spot-check for the live program-stop routing seam (REPORT-24
-# Milestone 5). It applies a small set of compile-clean semantic mutations to the
-# hardened seam and asserts each one is KILLED by the JVM unit tests. This is an
+# Mutation spot-check for the hardened pure seams (REPORT-24 Milestone 5; widened
+# in REPORT-28 Milestone C to the keypad decoder, LCD theme, and graph-gesture
+# accumulator). It applies a small set of compile-clean semantic mutations to
+# those seams and asserts each one is KILLED by the JVM unit tests. This is an
 # empirical measure of assertion strength -- do the tests actually fail when the
 # production logic is broken? -- not a CI gate: it recompiles per mutation and is
 # meant for manual maintainer runs.
@@ -20,8 +21,14 @@ KOTLIN_ROOT="$ANDROID_DIR/app/src/main/java/io/github/ppigazzini/r47zen"
 
 POLICY_FILE="$KOTLIN_ROOT/LiveProgramStopKeyPolicy.kt"
 ROUTER_FILE="$KOTLIN_ROOT/LiveKeyRouter.kt"
+DECODER_FILE="$KOTLIN_ROOT/KeypadSnapshot.kt"
+THEME_FILE="$KOTLIN_ROOT/LcdThemePolicy.kt"
+GESTURE_FILE="$KOTLIN_ROOT/GraphGestureAccumulator.kt"
 POLICY_TEST="io.github.ppigazzini.r47zen.LiveProgramStopKeyPolicyTest"
 ROUTER_TEST="io.github.ppigazzini.r47zen.LiveKeyRouterTest"
+DECODER_TEST="io.github.ppigazzini.r47zen.KeypadSnapshotDecoderTest"
+THEME_TEST="io.github.ppigazzini.r47zen.LcdThemePolicyTest"
+GESTURE_TEST="io.github.ppigazzini.r47zen.GraphGestureAccumulatorTest"
 
 # Parallel mutation records: file, exact unique old text, mutated text, the test
 # class that must catch it, and a human description.
@@ -30,30 +37,60 @@ MUT_FILES=(
     "$POLICY_FILE"
     "$ROUTER_FILE"
     "$ROUTER_FILE"
+    "$DECODER_FILE"
+    "$DECODER_FILE"
+    "$THEME_FILE"
+    "$THEME_FILE"
+    "$GESTURE_FILE"
+    "$GESTURE_FILE"
 )
 MUT_OLD=(
     "const val EXIT_KEY_CODE = 33"
     "return keyCode == RUN_STOP_KEY_CODE || keyCode == EXIT_KEY_CODE"
     "LiveProgramStopKeyPolicy.shouldPublishDirectStop(keyCode) && queryDirectStopGate()"
     "if (!consumedAsDirectStop) {"
+    "private fun keyMetaAt(offset: Int, index: Int): Int = meta[offset + index]"
+    "return labels.getOrElse(index * LABELS_PER_KEY + slot) { \"\" }"
+    "return entries.firstOrNull { it.storageValue == value } ?: DEFAULT"
+    "return minimumLuminance + ((maximumLuminance - minimumLuminance) * fraction)"
+    "return sign(value) * panApplyLimit"
+    "return value.coerceIn(-panPendingLimit, panPendingLimit)"
 )
 MUT_NEW=(
     "const val EXIT_KEY_CODE = 34"
     "return keyCode == RUN_STOP_KEY_CODE"
     "LiveProgramStopKeyPolicy.shouldPublishDirectStop(keyCode) || queryDirectStopGate()"
     "if (consumedAsDirectStop) {"
+    "private fun keyMetaAt(offset: Int, index: Int): Int = meta[offset]"
+    "return labels.getOrElse(index * LABELS_PER_KEY) { \"\" }"
+    "return entries.firstOrNull { it.storageValue == value } ?: AMBER"
+    "return minimumLuminance"
+    "return value"
+    "return value"
 )
 MUT_TESTS=(
     "$POLICY_TEST"
     "$POLICY_TEST"
     "$ROUTER_TEST"
     "$ROUTER_TEST"
+    "$DECODER_TEST"
+    "$DECODER_TEST"
+    "$THEME_TEST"
+    "$THEME_TEST"
+    "$GESTURE_TEST"
+    "$GESTURE_TEST"
 )
 MUT_DESC=(
     "LiveProgramStopKeyPolicy: EXIT key code 33 -> 34"
     "LiveProgramStopKeyPolicy: drop EXIT from the direct-stop key set"
     "LiveKeyRouter: AND -> OR (query the gate for non-stop keys)"
     "LiveKeyRouter: invert the forward-vs-swallow decision"
+    "KeypadSnapshot: drop the per-key index from the meta-lane read"
+    "KeypadSnapshot: drop the label slot from the label-lane read"
+    "LcdThemePolicy: unknown theme falls back to AMBER instead of DEFAULT"
+    "LcdThemePolicy: collapse the luminance interpolation to its minimum"
+    "GraphGestureAccumulator: drop the per-apply pan-step clamp"
+    "GraphGestureAccumulator: drop the pending-backlog cap"
 )
 
 fail() {
@@ -89,7 +126,9 @@ PY
 trap restore_backups EXIT
 
 command -v python3 >/dev/null 2>&1 || fail "python3 is required"
-[[ -f "$POLICY_FILE" && -f "$ROUTER_FILE" ]] || fail "routing-seam sources not found under $KOTLIN_ROOT"
+for seam_file in "$POLICY_FILE" "$ROUTER_FILE" "$DECODER_FILE" "$THEME_FILE" "$GESTURE_FILE"; do
+    [[ -f "$seam_file" ]] || fail "seam source not found: $seam_file"
+done
 
 killed=0
 survived=0
@@ -121,6 +160,6 @@ done
 echo
 echo "Mutation spot-check: $killed/$total mutants killed."
 if [[ "$survived" -gt 0 ]]; then
-    fail "$survived mutant(s) survived -- the routing-seam tests have an assertion gap"
+    fail "$survived mutant(s) survived -- the seam tests have an assertion gap"
 fi
-echo "All routing-seam mutants were caught."
+echo "All seam mutants were caught."
