@@ -158,97 +158,16 @@ jobs:
         with:
           cache-provider: basic
 
-      - name: Select writable Android SDK root
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdk_root="$HOME/.android/sdk"
-          mkdir -p "$sdk_root"
-          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
-
       - name: Set up Android SDK
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
-        with:
-          # Override the action default (`tools platform-tools`): the legacy
-          # `tools` package is deprecated, unused here, drags in the emulator
-          # as a dependency on every run, and its unpinned download is a flake
-          # source. Each job installs its pinned packages in the "Install
-          # Android SDK packages" step; only adb (platform-tools) comes from
-          # the action.
-          packages: platform-tools
-
-      - name: Accept Android SDK licenses non-interactively
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdkmanager_bin="$(command -v sdkmanager || true)"
-          if [[ -z "$sdkmanager_bin" ]]; then
-            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
-            for candidate in \
-              "$sdk_root/cmdline-tools/latest/bin/sdkmanager" \
-              "$sdk_root/cmdline-tools/20.0/bin/sdkmanager" \
-              "$sdk_root/cmdline-tools/19.0/bin/sdkmanager"; do
-              if [[ -x "$candidate" ]]; then
-                sdkmanager_bin="$candidate"
-                break
-              fi
-            done
-          fi
-
-          if [[ -z "$sdkmanager_bin" ]]; then
-            echo "Unable to locate sdkmanager after setup-android." >&2
-            exit 1
-          fi
-
-          set +o pipefail
-          yes | "$sdkmanager_bin" --licenses > /dev/null
-          set -o pipefail
-
-      - name: Resolve Android SDK cache paths
         id: android-sdk
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
-          if [[ -z "$sdk_root" ]]; then
-            echo "Failed to resolve Android SDK root." >&2
-            exit 1
-          fi
-
-          echo "sdk_root=$sdk_root" >> "$GITHUB_OUTPUT"
-
-      - name: Restore Android SDK packages cache
-        id: android-sdk-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: ./.github/actions/setup-android-sdk
         with:
-          path: |
-            ${{ steps.android-sdk.outputs.sdk_root }}/licenses
-            ${{ steps.android-sdk.outputs.sdk_root }}/platform-tools
-            ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ steps.defaults.outputs.compile_sdk }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.defaults.outputs.build_tools_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.defaults.outputs.cmake_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/emulator
-            ${{ steps.android-sdk.outputs.sdk_root }}/system-images/android-${{ steps.defaults.outputs.android_test_api_level }}/default/x86_64
-          key: ${{ runner.os }}-android-sdk-${{ steps.defaults.outputs.compile_sdk }}-${{ steps.defaults.outputs.build_tools_version }}-${{ steps.defaults.outputs.cmake_version }}-${{ steps.defaults.outputs.ndk_version }}-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-v1
-
-      - name: Install Android SDK packages
-        if: steps.android-sdk-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdkmanager \
-            "platforms;android-${{ steps.defaults.outputs.compile_sdk }}" \
-            "build-tools;${{ steps.defaults.outputs.build_tools_version }}" \
-            "cmake;${{ steps.defaults.outputs.cmake_version }}" \
-            "ndk;${{ steps.defaults.outputs.ndk_version }}" \
-            "emulator" \
-            "system-images;android-${{ steps.defaults.outputs.android_test_api_level }};default;x86_64"
+          compile-sdk: ${{ steps.defaults.outputs.compile_sdk }}
+          build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
+          cmake-version: ${{ steps.defaults.outputs.cmake_version }}
+          ndk-version: ${{ steps.defaults.outputs.ndk_version }}
+          include-emulator: 'true'
+          android-test-api-level: ${{ steps.defaults.outputs.android_test_api_level }}
 
       - name: Materialize release keystore
         id: release-keystore
@@ -611,97 +530,16 @@ jobs:
         with:
           cache-provider: basic
 
-      - name: Select writable Android SDK root
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdk_root="$HOME/.android/sdk"
-          mkdir -p "$sdk_root"
-          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
-
       - name: Set up Android SDK
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
-        with:
-          # Override the action default (`tools platform-tools`): the legacy
-          # `tools` package is deprecated, unused here, drags in the emulator
-          # as a dependency on every run, and its unpinned download is a flake
-          # source. Each job installs its pinned packages in the "Install
-          # Android SDK packages" step; only adb (platform-tools) comes from
-          # the action.
-          packages: platform-tools
-
-      - name: Accept Android SDK licenses non-interactively
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdkmanager_bin="$(command -v sdkmanager || true)"
-          if [[ -z "$sdkmanager_bin" ]]; then
-            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
-            for candidate in \
-              "$sdk_root/cmdline-tools/latest/bin/sdkmanager" \
-              "$sdk_root/cmdline-tools/20.0/bin/sdkmanager" \
-              "$sdk_root/cmdline-tools/19.0/bin/sdkmanager"; do
-              if [[ -x "$candidate" ]]; then
-                sdkmanager_bin="$candidate"
-                break
-              fi
-            done
-          fi
-
-          if [[ -z "$sdkmanager_bin" ]]; then
-            echo "Unable to locate sdkmanager after setup-android." >&2
-            exit 1
-          fi
-
-          set +o pipefail
-          yes | "$sdkmanager_bin" --licenses > /dev/null
-          set -o pipefail
-
-      - name: Resolve Android SDK cache paths
         id: android-sdk
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
-          if [[ -z "$sdk_root" ]]; then
-            echo "Failed to resolve Android SDK root." >&2
-            exit 1
-          fi
-
-          echo "sdk_root=$sdk_root" >> "$GITHUB_OUTPUT"
-
-      - name: Restore Android SDK packages cache
-        id: android-sdk-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: ./.github/actions/setup-android-sdk
         with:
-          path: |
-            ${{ steps.android-sdk.outputs.sdk_root }}/licenses
-            ${{ steps.android-sdk.outputs.sdk_root }}/platform-tools
-            ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ steps.defaults.outputs.compile_sdk }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.defaults.outputs.build_tools_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.defaults.outputs.cmake_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/emulator
-            ${{ steps.android-sdk.outputs.sdk_root }}/system-images/android-${{ steps.defaults.outputs.android_test_api_level }}/default/x86_64
-          key: ${{ runner.os }}-android-sdk-${{ steps.defaults.outputs.compile_sdk }}-${{ steps.defaults.outputs.build_tools_version }}-${{ steps.defaults.outputs.cmake_version }}-${{ steps.defaults.outputs.ndk_version }}-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-v1
-
-      - name: Install Android SDK packages
-        if: steps.android-sdk-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdkmanager \
-            "platforms;android-${{ steps.defaults.outputs.compile_sdk }}" \
-            "build-tools;${{ steps.defaults.outputs.build_tools_version }}" \
-            "cmake;${{ steps.defaults.outputs.cmake_version }}" \
-            "ndk;${{ steps.defaults.outputs.ndk_version }}" \
-            "emulator" \
-            "system-images;android-${{ steps.defaults.outputs.android_test_api_level }};default;x86_64"
+          compile-sdk: ${{ steps.defaults.outputs.compile_sdk }}
+          build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
+          cmake-version: ${{ steps.defaults.outputs.cmake_version }}
+          ndk-version: ${{ steps.defaults.outputs.ndk_version }}
+          include-emulator: 'true'
+          android-test-api-level: ${{ steps.defaults.outputs.android_test_api_level }}
 
       - name: Generate throwaway verification keystore
         id: release-keystore

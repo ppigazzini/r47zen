@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Contract: every android-actions/setup-android use in the workflows must pass
-# an explicit `packages:` input, and that input must not request the legacy
-# `tools` package.
+# Contract: every android-actions/setup-android use in the workflows and in the
+# composite actions must pass an explicit `packages:` input, and that input must
+# not request the legacy `tools` package. The use now lives in the
+# setup-android-sdk composite action, so the scan covers both surfaces.
 #
 # The action's default is `packages: tools platform-tools`. The legacy `tools`
 # package (SDK Tools, deprecated since the cmdline-tools split) is unpinned,
@@ -24,7 +25,12 @@ source "$SCRIPT_DIR/../lib/ci_contract.sh"
 
 violations=""
 
-for workflow in "$WORKFLOW_DIR"/*.yml; do
+scan_files=("$WORKFLOW_DIR"/*.yml)
+for action_file in "$PROJECT_ROOT"/.github/actions/*/action.yml; do
+    [ -e "$action_file" ] && scan_files+=("$action_file")
+done
+
+for workflow in "${scan_files[@]}"; do
     result="$(awk -v file="$workflow" '
         /^[[:space:]]*#/ { next }
         /uses:[[:space:]]*android-actions\/setup-android/ {

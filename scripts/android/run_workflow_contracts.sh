@@ -27,6 +27,7 @@ CONTRACTS=(
     run_toolchain_pin_coherence_contract.sh
     run_wrap_safe_time_contract.sh
     run_setup_android_packages_contract.sh
+    run_setup_android_composite_contract.sh
 )
 
 failed=()
