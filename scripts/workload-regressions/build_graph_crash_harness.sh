@@ -1,5 +1,6 @@
 #!/bin/bash
-# Build and run the graph-crash reproduction harness under AddressSanitizer.
+# Build and run the graph-crash reproduction harness under AddressSanitizer
+# and UndefinedBehaviorSanitizer.
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -45,8 +46,19 @@ ANDROID_BRIDGE_SOURCES=(
     "$TRACKED_CPP_DIR/r47zen/jni_storage.c"
 )
 
+# AddressSanitizer is the hard gate: any memory error aborts the run (ASan halts
+# by default and ASAN_OPTIONS below makes it explicit), so a use-after-free,
+# overflow, or bad free fails the harness. UndefinedBehaviorSanitizer runs
+# alongside in recoverable report mode (no -fno-sanitize-recover; halt_on_error=0
+# below): the upstream-owned C47 core trips portable-but-UB constructs that this
+# repo cannot fix in src/ (negative left shifts in screen.c, byte-offset casts to
+# aligned structs in manage.c), so UBSan surfaces every finding for triage
+# without turning the lane red on un-ownable upstream UB. The alignment check is
+# dropped outright because the core's single RAM blob casts unaligned offsets to
+# programList_t on every program scan, which is pure host-layout noise.
 "$CC_BIN" -std=gnu11 -O1 -g -pthread \
-    -fsanitize=address -fno-omit-frame-pointer \
+    -fsanitize=address,undefined -fno-sanitize=alignment \
+    -fno-omit-frame-pointer \
     -D_GNU_SOURCE -D_DEFAULT_SOURCE \
     -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47 \
     -Dmpz_div_2exp=mpz_tdiv_q_2exp -Dmpz_fits_uint_p=mpz_fits_ulong_p \
@@ -81,5 +93,5 @@ ANDROID_BRIDGE_SOURCES=(
 echo "Built: $BUILD_DIR/graph-crash-harness"
 echo "Running under ASan/UBSan..."
 ASAN_OPTIONS="abort_on_error=1:halt_on_error=1" \
-    UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1" \
+    UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=0" \
     "$BUILD_DIR/graph-crash-harness"

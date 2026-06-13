@@ -370,6 +370,22 @@ jobs:
           bash ./scripts/workload-regressions/run_workload_regressions.sh 2>&1 \
             | tee ci-artifacts/logs/host-workload-regressions.log
 
+      - name: Run sanitized host workload runtime regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Reruns the same workload corpus over the staged core and Android
+          # bridge built under AddressSanitizer (the hard gate: a memory error
+          # fails the lane) and UndefinedBehaviorSanitizer (recoverable report
+          # mode: upstream-owned core UB surfaces for triage without failing the
+          # lane). No emulator. Slower than the plain lane because the sanitized
+          # core builds without optimization, so it carries a wider per-fixture
+          # budget. Reuses the staged native inputs the plain step produced.
+          mkdir -p ci-artifacts/logs
+          bash ./scripts/workload-regressions/run_workload_regressions_sanitized.sh 2>&1 \
+            | tee ci-artifacts/logs/host-workload-regressions-sanitized.log
+
       - name: Run lcd HAL contract test
         shell: bash
         run: |
@@ -389,6 +405,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: r47-host-workload-regressions-${{ needs.resolve-upstream-core.outputs.upstream_commit }}
-          path: ci-artifacts/logs/host-workload-regressions.log
+          path: |
+            ci-artifacts/logs/host-workload-regressions.log
+            ci-artifacts/logs/host-workload-regressions-sanitized.log
           if-no-files-found: warn
           retention-days: 14
