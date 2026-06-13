@@ -440,6 +440,9 @@ dependencies {
     testImplementation libs.junit4
     testImplementation libs.androidx.test.core
     testImplementation libs.robolectric
+    // Property-based testing for the pure clamp/decode seams (REPORT-28
+    // Milestone B): used only by the seeded *PropertyTest JVM classes.
+    testImplementation libs.kotest.property
 
     androidTestImplementation libs.androidx.test.core
     androidTestImplementation libs.androidx.test.ext.junit
