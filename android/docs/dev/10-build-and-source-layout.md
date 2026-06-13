@@ -118,8 +118,8 @@ hydrated on demand, or only exercised in CI before updating the docs.
 
 - machine-readable Android tool defaults live in
   `android/r47-defaults.properties`; the checked-in values currently cover
-  Java `17`, `compileSdk 36`, `targetSdk 36`, `minSdk 24`, build tools
-  `36.0.0`, `ndkVersion 29.0.14206865`, CMake `3.22.1`, default ABI filter
+  Java `17`, `compileSdk 37`, `targetSdk 37`, `minSdk 24`, build tools
+  `37.0.0`, `ndkVersion 29.0.14206865`, CMake `3.22.1`, default ABI filter
   `arm64-v8a`, hosted Android test API `34`, hosted Android test ABI filters
   `arm64-v8a,x86_64`, and the pinned xlsxio URL plus commit.
 - settings-owned repositories via `android/settings.gradle`

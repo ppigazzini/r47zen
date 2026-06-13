@@ -101,7 +101,7 @@ runs:
         path: |
           ${{ steps.android-sdk.outputs.sdk_root }}/licenses
           ${{ steps.android-sdk.outputs.sdk_root }}/platform-tools
-          ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ inputs.compile-sdk }}
+          ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ inputs.compile-sdk }}*
           ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ inputs.build-tools-version }}
           ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ inputs.cmake-version }}
           ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ inputs.ndk-version }}
@@ -115,7 +115,7 @@ runs:
         path: |
           ${{ steps.android-sdk.outputs.sdk_root }}/licenses
           ${{ steps.android-sdk.outputs.sdk_root }}/platform-tools
-          ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ inputs.compile-sdk }}
+          ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ inputs.compile-sdk }}*
           ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ inputs.build-tools-version }}
           ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ inputs.cmake-version }}
           ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ inputs.ndk-version }}
@@ -134,8 +134,18 @@ runs:
       run: |
         set -euo pipefail
 
+        sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+        # Some api levels ship under the bare platform id (android-36) and newer
+        # ones under the minor-version id (android-37.0). Resolve whichever this
+        # api uses so compile-sdk stays the plain integer Gradle expects.
+        platform_pkg="platforms;android-${COMPILE_SDK}"
+        if [ ! -d "${sdk_root}/platforms/android-${COMPILE_SDK}" ] &&
+          sdkmanager --list 2>/dev/null | grep -Fq "platforms;android-${COMPILE_SDK}.0"; then
+          platform_pkg="platforms;android-${COMPILE_SDK}.0"
+        fi
+
         sdkmanager \
-          "platforms;android-${COMPILE_SDK}" \
+          "${platform_pkg}" \
           "build-tools;${BUILD_TOOLS_VERSION}" \
           "cmake;${CMAKE_VERSION}" \
           "ndk;${NDK_VERSION}"
@@ -152,8 +162,18 @@ runs:
       run: |
         set -euo pipefail
 
+        sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+        # Some api levels ship under the bare platform id (android-36) and newer
+        # ones under the minor-version id (android-37.0). Resolve whichever this
+        # api uses so compile-sdk stays the plain integer Gradle expects.
+        platform_pkg="platforms;android-${COMPILE_SDK}"
+        if [ ! -d "${sdk_root}/platforms/android-${COMPILE_SDK}" ] &&
+          sdkmanager --list 2>/dev/null | grep -Fq "platforms;android-${COMPILE_SDK}.0"; then
+          platform_pkg="platforms;android-${COMPILE_SDK}.0"
+        fi
+
         sdkmanager \
-          "platforms;android-${COMPILE_SDK}" \
+          "${platform_pkg}" \
           "build-tools;${BUILD_TOOLS_VERSION}" \
           "cmake;${CMAKE_VERSION}" \
           "ndk;${NDK_VERSION}" \
