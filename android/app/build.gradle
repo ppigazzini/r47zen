@@ -411,11 +411,10 @@ android {
 
     lint {
         checkDependencies = true
-        // Gate new lint findings: warnings fail the build, with a baseline that
-        // grandfathers the current backlog. Refresh it with
-        // `./gradlew :app:updateLintBaseline`.
+        // Gate new lint findings: warnings fail the build. No baseline -- the
+        // grandfathered backlog (a stale core-ktx dependency pin) is cleared, so
+        // lint must stay clean rather than grandfather findings.
         warningsAsErrors = true
-        baseline = file('lint-baseline.xml')
     }
 
     packaging {
