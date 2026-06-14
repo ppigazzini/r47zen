@@ -175,6 +175,10 @@ Important contract files include:
   metadata length, key count, and labels-per-key
 - `KeypadSnapshotDecoderTest.kt`: asserts the fixed metadata-lane decode and
   label fallback behavior of `KeypadSnapshot.fromNative(...)`
+- `KeypadSnapshotDecoderPropertyTest.kt`: a seeded Kotest property test that
+  proves `KeypadSnapshot.fromNative(...)` stays total for an arbitrary, possibly
+  malformed, `meta`/`labels` pair -- never throws, falls back to `EMPTY` on
+  short `meta`, and never indexes out of bounds for any key code
 - `DynamicKeypadParityFixtureTest.kt`: locks unchanged-snapshot skip behavior,
   alpha-layout behavior, layout-class-sensitive keypad rendering,
   render-spec stability for rejected snapshots, and controller-owned
@@ -281,6 +285,9 @@ Important contract files include:
   accumulator so non-finite pan input is dropped, queued pinch scale stays
   clamped to `0.4f..2.5f`, and oversized queued pan is split into bounded
   per-apply chunks before JNI apply
+- `GraphGestureAccumulatorPropertyTest.kt`: a seeded Kotest property test that
+  proves the same clamp, split, drop, and bounded-drain invariants hold across a
+  randomized finite and non-finite input space, not just the example endpoints
 - `LcdThemePolicyTest.kt`: locks unknown theme fallback to the default display
   theme and keeps every shipped normal and inverse LCD palette above its
   declared contrast floor across the supported luminance range
@@ -426,6 +433,22 @@ Android compatibility layer.
   the picture.
 - That host-only compatibility path does not widen the Android emulator
   `PROGRAMS` fixture matrix.
+- `scripts/workload-regressions/run_workload_regressions_sanitized.sh` reruns
+  the same corpus with the staged core and Android bridge built under
+  AddressSanitizer and UndefinedBehaviorSanitizer, so the most-executed
+  shared-core paths run against a memory and undefined-behavior adversary.
+  AddressSanitizer is the hard gate: a use-after-free, overflow, or bad free
+  fails the lane. UndefinedBehaviorSanitizer runs in recoverable report mode
+  (the alignment check off, leak detection off) because the upstream-owned core
+  trips portable-but-undefined constructs this repo cannot fix in `src/`; those
+  surface for triage without failing. `SPIRALk` is pathologically slow under
+  ASan, so it is bounded by the outer timeout and degraded to coverage while the
+  other four fixtures must complete. It runs in the `host-workload-regressions`
+  lane beside the plain run.
+- `scripts/workload-regressions/build_graph_crash_harness.sh` builds the same
+  tree under AddressSanitizer and UndefinedBehaviorSanitizer to reproduce the
+  upstream graph RAM free-list overflow; it is a manual maintainer tool, not a
+  CI lane.
 - `scripts/android/mutation_spot_check.sh` measures assertion strength on the
   hardened pure seams: it applies known compile-clean semantic mutations to
   `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `KeypadSnapshot.kt`,

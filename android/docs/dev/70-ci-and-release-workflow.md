@@ -142,7 +142,12 @@ This is the main Android build, packaging, and artifact lane.
 
 It:
 
-- provisions Java, Gradle cache, Android SDK packages, NDK, CMake, and xlsxio
+- provisions Java, the Gradle cache, the Android SDK, NDK, CMake, and xlsxio.
+  The Android SDK provisioning (writable SDK root, setup-android for adb,
+  license acceptance, pinned-package install, and SDK cache) is centralized in
+  the `./.github/actions/setup-android-sdk` composite action shared by every
+  Android job; an `include-emulator` input adds the emulator and system image
+  for the test and release jobs and leaves them out of this build lane
 - derives the Linux host LLVM major from the pinned NDK `clang`, then installs
   matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
   `libclang-rt-<major>-dev` packages so the host PGO runtime shim does not
@@ -184,6 +189,14 @@ host-core optimization sequence:
   emulator), where it both proves fixture liveness and asserts the seeded
   `NQueens.p47` (`N = 8`) numeric result against the independently verified
   8-queens solution; a wrong result fails that lane
+- the same `host-workload-regressions` lane then reruns the corpus through
+  `scripts/workload-regressions/run_workload_regressions_sanitized.sh`, which
+  rebuilds the staged core and Android bridge under AddressSanitizer (the hard
+  gate -- a memory error fails the lane) and UndefinedBehaviorSanitizer
+  (recoverable report mode, so upstream-owned core UB surfaces for triage
+  without failing). The dense, non-deterministic `SPIRALk` plot is bounded by
+  the outer timeout and degraded to coverage; the other four fixtures must
+  complete. No emulator
 - the collector still resolves `clang` and `llvm-profdata` from that same
   pinned NDK, while the Linux lane installs the matching host
   `libclang_rt.profile` runtime for the derived LLVM major through the explicit

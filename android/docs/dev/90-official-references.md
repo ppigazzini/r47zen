@@ -50,9 +50,9 @@ flowchart TD
 ## Spring 2026 toolchain references
 
 - [Android Gradle plugin 9.2.0 release notes](https://developer.android.com/build/releases/agp-9-2-0-release-notes):
-  official Android build release notes for the AGP line used by this repo;
-  the current compatibility table lists JDK `17`, SDK Build Tools `36.0.0`,
-  and API `36.1` support for the checked-in AGP line.
+  official Android build release notes for the AGP line used by this repo. On
+  this AGP line the repo builds against the checked-in JDK `17`, SDK Build Tools
+  `37.0.0`, and `compileSdk`/`targetSdk` `37` (Android 17 / API 37).
 - [Kotlin release process](https://kotlinlang.org/docs/releases.html):
   official JetBrains release page documenting the language, tooling, and bug-fix
   cadence; the current page shows Kotlin `2.3.21` as the latest stable line in
@@ -78,8 +78,8 @@ flowchart TD
 - [Version catalogs](https://docs.gradle.org/current/userguide/version_catalogs.html):
   Gradle guidance for centralizing dependency coordinates in
   `gradle/libs.versions.toml` and consuming them through `libs` accessors.
-- [Android 16](https://developer.android.com/about/versions/16): official
-  platform overview for API `36`, the checked-in compile and target SDK level.
+- [Android 17](https://developer.android.com/about/versions/17): official
+  platform overview for API `37`, the checked-in compile and target SDK level.
 - [CMake release notes index](https://cmake.org/cmake/help/latest/release/index.html):
   official release-note index for tracking when it is worth leaving the current
   checked-in CMake line.
