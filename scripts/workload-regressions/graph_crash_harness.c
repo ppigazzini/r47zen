@@ -1,8 +1,12 @@
-// Host reproduction harness for the reported fast-pan graph crash.
+// Host regression guard for the (now fixed) fast-pan graph crash.
 // Replicates: EQN -> exp(x) -> graph/draw -> zoom in (no curve in view) ->
 // pan the x-window left/right very fast (re-solving every batch) for a long
 // run, the way the Android gesture flush drives fnEqSolvGraph(EQ_PLOT_LU).
-// Built with AddressSanitizer so any native fault prints a stack trace.
+// The upstream solver leak that drove numberOfFreeMemoryRegions toward
+// MAX_FREE_REGIONS is fixed; this harness now confirms the region count stays
+// flat across a sustained re-solve run and would catch a re-regression after an
+// upstream sync. Built with AddressSanitizer so any native fault prints a stack
+// trace. Set R47_GRAPH_HARNESS_ITERS to bound the run for a quick check.
 
 #include "keypad_fixture_bridge.h"
 #include "screen.h"
@@ -83,7 +87,16 @@ int main(void) {
   const double span = 0.002;     // zoomed-in x-span
   double center = 0.0;
   double drift = 0.0008;         // sweeps center across the run
-  const long iterations = 3000000;
+  // Default to a long run; R47_GRAPH_HARNESS_ITERS bounds it for a fast
+  // post-sync regression check that numberOfFreeMemoryRegions stays flat.
+  long iterations = 3000000;
+  const char *iters_env = getenv("R47_GRAPH_HARNESS_ITERS");
+  if (iters_env != NULL) {
+    long parsed = strtol(iters_env, NULL, 10);
+    if (parsed > 0) {
+      iterations = parsed;
+    }
+  }
   for (long i = 0; i < iterations; i++) {
     double dir = (i & 1) ? -1.0 : 1.0;          // left/right/left/right
     center += dir * 0.45 * span + drift;        // oscillate + sweep right

@@ -446,9 +446,12 @@ Android compatibility layer.
   other four fixtures must complete. It runs in the `host-workload-regressions`
   lane beside the plain run.
 - `scripts/workload-regressions/build_graph_crash_harness.sh` builds the same
-  tree under AddressSanitizer and UndefinedBehaviorSanitizer to reproduce the
-  upstream graph RAM free-list overflow; it is a manual maintainer tool, not a
-  CI lane.
+  tree under AddressSanitizer and UndefinedBehaviorSanitizer and hammers the
+  graph re-solve path the way a fast pan/zoom does. The upstream solver leak that
+  once overflowed the RAM free-memory-region list is fixed, so it now confirms
+  the fix holds (`numberOfFreeMemoryRegions` stays flat) and would catch a
+  re-regression after an upstream sync; `R47_GRAPH_HARNESS_ITERS` bounds the run.
+  It is a manual maintainer tool, not a CI lane.
 - `scripts/android/mutation_spot_check.sh` measures assertion strength on the
   hardened pure seams: it applies known compile-clean semantic mutations to
   `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `KeypadSnapshot.kt`,
