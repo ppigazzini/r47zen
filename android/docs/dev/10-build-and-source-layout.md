@@ -154,10 +154,15 @@ hydrated on demand, or only exercised in CI before updating the docs.
   API level, and keep local plus hosted test lanes on explicit API images.
 - Review NDK and CMake pins when Android's AGP/NDK guidance or CMake release
   notes move, and rerun packaging checks before landing the update.
-- Review Kotlin's current stable line on the JetBrains release page during
-  quarterly maintenance or when build-tool work is already in flight, even
-  though this repo currently uses AGP's built-in Kotlin integration instead of
-  a standalone Kotlin plugin.
+- Kotlin is intentionally unpinned in `android/gradle/libs.versions.toml`: the
+  build rides the Kotlin compiler bundled with the pinned AGP line (AGP `9.2.0`)
+  rather than a standalone Kotlin plugin, so there is no `kotlin` catalog entry
+  to drift against AGP. This avoids AGP/compiler skew, where an explicit Kotlin
+  pin newer or older than the one AGP expects can break the build. Add a
+  `kotlin` catalog entry and the Kotlin Gradle plugin only when a concrete task
+  needs a compiler newer than the AGP line bundles; until then, reviewing
+  Kotlin's current stable line on the JetBrains release page during quarterly
+  maintenance is informational, not a pin to bump.
 - Review the xlsxio pin only when upstream font-generation behavior, security
   fixes, or CI breakage require it.
 

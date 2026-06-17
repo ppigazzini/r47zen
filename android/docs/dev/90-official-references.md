@@ -57,7 +57,7 @@ flowchart TD
   official JetBrains release page documenting the language, tooling, and bug-fix
   cadence; the current page shows Kotlin `2.3.21` as the latest stable line in
   Spring 2026.
-- [Gradle 9.5.0 release notes](https://docs.gradle.org/9.5.0/release-notes.html):
+- [Gradle 9.5.1 release notes](https://docs.gradle.org/9.5.1/release-notes.html):
   official Gradle release notes for the wrapper version now checked in.
 - [Improve the Performance of Gradle Builds](https://docs.gradle.org/current/userguide/performance.html):
   official Gradle guidance for establishing a baseline, preferring
