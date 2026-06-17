@@ -452,6 +452,25 @@ Android compatibility layer.
   the fix holds (`numberOfFreeMemoryRegions` stays flat) and would catch a
   re-regression after an upstream sync; `R47_GRAPH_HARNESS_ITERS` bounds the run.
   It is a manual maintainer tool, not a CI lane.
+- `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds the staged
+  core and Android bridge under ThreadSanitizer and races the live input and
+  refresh producer path against the UI read path, the one concurrency surface
+  the single-threaded ASan/UBSan lanes never exercise: a dedicated producer
+  thread drives `sendKey` plus `r47_force_refresh` while a consumer thread
+  samples the generation counters and runs the `pthread_mutex_trylock` read path
+  the way `getPackedDisplayBuffer` and `r47_get_keypad_meta` do. A data race or
+  lock-order inversion in the Android-owned bridge is the hard gate and aborts
+  the run; `bridge_tsan_suppressions.txt` is the upstream-core-only escape hatch
+  (currently empty -- the bridge's `screenMutex`/`packedDisplayMutex` fully
+  serialize the core, so no upstream race surfaces), matching how the sanitized
+  workload lane defers un-ownable upstream undefined behavior. The harness is
+  what proves the `hal/lcd.c` display-change signals (`lcdBufferDirty`,
+  `packedDisplayGeneration`, `keypadSnapshotGeneration`) are race-free under
+  their lock-free read path; those are C11 relaxed atomics, not plain `volatile`,
+  because plain `volatile` leaves the concurrent access a data race the harness
+  flags. It runs in the `host-workload-regressions` lane beside the ASan/UBSan
+  run (`setarch -R` disables ASLR so ThreadSanitizer can map its shadow);
+  `R47_TSAN_HARNESS_ITERS` bounds the run.
 - `scripts/android/mutation_spot_check.sh` measures assertion strength on the
   hardened pure seams: it applies known compile-clean semantic mutations to
   `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `KeypadSnapshot.kt`,

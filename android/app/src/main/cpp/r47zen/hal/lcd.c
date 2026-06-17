@@ -1,6 +1,7 @@
 #include "c47.h"
 #include <jni.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -22,9 +23,20 @@ uint32_t *screenData = NULL;
 uint8_t *packedDisplayBuffer = NULL;
 pthread_mutex_t packedDisplayMutex = PTHREAD_MUTEX_INITIALIZER;
 
-bool lcdBufferDirty = false;
-volatile uint32_t packedDisplayGeneration = 0;
-volatile uint32_t keypadSnapshotGeneration = 0;
+// Lock-free display-change signals. The core thread writes them under
+// packedDisplayMutex (LCD_write_line) while the Android UI thread samples them
+// with no display mutex held (getPackedDisplayBuffer, getPackedDisplayGeneration
+// and getKeypadSnapshotGeneration in jni_display.c). The mutex carries the
+// happens-before for the packed buffer payload itself; these three are only the
+// "something changed" hints the reader polls, so a stale sample at most skips or
+// repeats one copy and self-corrects. Plain volatile leaves that concurrent
+// access a data race under the C memory model (ThreadSanitizer flags it via
+// build_bridge_tsan_harness.sh); C11 relaxed atomics make every access
+// well-defined at identical arm64 codegen without imposing any ordering the
+// mutex does not already provide.
+_Atomic bool lcdBufferDirty = false;
+_Atomic uint32_t packedDisplayGeneration = 0;
+_Atomic uint32_t keypadSnapshotGeneration = 0;
 
 static uint64_t hostLcdRefreshCount = 0;
 
@@ -79,9 +91,9 @@ void init_lcd_buffers() {
     }
   }
 
-  lcdBufferDirty = true;
-  packedDisplayGeneration++;
-  keypadSnapshotGeneration++;
+  atomic_store_explicit(&lcdBufferDirty, true, memory_order_relaxed);
+  atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
+  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u, memory_order_relaxed);
 }
 
 uint8_t *lcd_line_addr(int row) {
@@ -106,8 +118,8 @@ void LCD_write_line(uint8_t *line_buf) {
   memcpy(snapshot_line, line_buf, LCD_ROW_SIZE_BYTES);
   snapshot_line[0] = 1u;
   line_buf[0] = 0u;
-  lcdBufferDirty = true;
-  packedDisplayGeneration++;
+  atomic_store_explicit(&lcdBufferDirty, true, memory_order_relaxed);
+  atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
   // The keypad snapshot generation MUST bump on every screen refresh, not only
   // on input. Dynamic softmenus (notably the EQN editor, MNU_EQN) rebuild their
   // softkey labels on the refresh path (refreshScreen -> LCD_write_line), with
@@ -115,7 +127,7 @@ void LCD_write_line(uint8_t *line_buf) {
   // EQN softkeys stale (wrong buttons) until the display loop's 500 ms fallback.
   // Keep this coupled to the refresh so the consumer re-reads the keypad whenever
   // the screen -- and therefore possibly the softkeys -- changes.
-  keypadSnapshotGeneration++;
+  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u, memory_order_relaxed);
   pthread_mutex_unlock(&packedDisplayMutex);
 }
 

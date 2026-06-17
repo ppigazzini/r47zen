@@ -1,0 +1,20 @@
+# ThreadSanitizer suppressions for build_bridge_tsan_harness.sh.
+#
+# Scope: upstream-owned core only. This is the recoverable escape hatch for data
+# races inside the synced C47 core that this repo cannot fix in src/ -- the same
+# discipline the AddressSanitizer/UndefinedBehaviorSanitizer workload lane uses
+# for un-ownable upstream undefined behavior. It must never suppress a race in
+# the Android-owned bridge (android/app/src/main/cpp/r47zen): those are the hard
+# gate and are fixed at the source.
+#
+# This file is intentionally empty of active entries. The harness drives the
+# core only under the bridge's screenMutex and packedDisplayMutex, which fully
+# serialize core state against the UI reader, so no upstream-core race surfaces
+# today. Add a `race:<staged-core-path-or-symbol>` line here ONLY if a future
+# upstream sync introduces a genuine core race that cannot be fixed in src/;
+# record why in the phase annex when you do.
+#
+# Example of the only allowed shape (kept commented; not active):
+# race:android/.staged-native/cpp/c47/
+# race:android/.staged-native/cpp/decNumberICU/
+# race:android/.staged-native/cpp/gmp/

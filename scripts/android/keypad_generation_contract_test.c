@@ -11,10 +11,13 @@
 // Built and run on the Linux host by run_keypad_generation_contract.sh; no
 // emulator or device is required. See REPORT-25 Annex A.2.
 
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 
-extern volatile uint32_t keypadSnapshotGeneration;
+// hal/lcd.c defines this as a C11 relaxed atomic (the lock-free display-change
+// signal); match the type so the bare reads below are valid atomic loads.
+extern _Atomic uint32_t keypadSnapshotGeneration;
 extern uint32_t *screenData;
 extern void init_lcd_buffers(void);
 extern void LCD_write_line(uint8_t *line_buf);

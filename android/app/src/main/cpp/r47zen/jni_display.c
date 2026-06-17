@@ -2,6 +2,7 @@
 
 #include "keyboard.h"
 
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1533,9 +1534,10 @@ Java_com_example_r47_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
                                                               jobject thiz) {
   (void)env;
   (void)thiz;
-  extern volatile uint32_t keypadSnapshotGeneration;
+  extern _Atomic uint32_t keypadSnapshotGeneration;
 
-  return (jint)keypadSnapshotGeneration;
+  return (jint)atomic_load_explicit(&keypadSnapshotGeneration,
+                                    memory_order_relaxed);
 }
 
 JNIEXPORT jboolean JNICALL
@@ -1579,9 +1581,10 @@ Java_com_example_r47_MainActivity_getPackedDisplayGeneration(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-  extern volatile uint32_t packedDisplayGeneration;
+  extern _Atomic uint32_t packedDisplayGeneration;
 
-  return (jint)packedDisplayGeneration;
+  return (jint)atomic_load_explicit(&packedDisplayGeneration,
+                                    memory_order_relaxed);
 }
 
 JNIEXPORT jboolean JNICALL
@@ -1594,8 +1597,8 @@ Java_com_example_r47_MainActivity_getPackedDisplayBuffer(
     return JNI_FALSE;
   }
 
-  extern bool lcdBufferDirty;
-  if (!lcdBufferDirty) {
+  extern _Atomic bool lcdBufferDirty;
+  if (!atomic_load_explicit(&lcdBufferDirty, memory_order_relaxed)) {
     return JNI_FALSE;
   }
 
@@ -1615,7 +1618,7 @@ Java_com_example_r47_MainActivity_getPackedDisplayBuffer(
     for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
       packedDisplayBuffer[52 * row] = 0u;
     }
-    lcdBufferDirty = false;
+    atomic_store_explicit(&lcdBufferDirty, false, memory_order_relaxed);
     copied = JNI_TRUE;
   }
   pthread_mutex_unlock(&packedDisplayMutex);

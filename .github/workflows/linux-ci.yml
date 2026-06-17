@@ -386,6 +386,24 @@ jobs:
           bash ./scripts/workload-regressions/run_workload_regressions_sanitized.sh 2>&1 \
             | tee ci-artifacts/logs/host-workload-regressions-sanitized.log
 
+      - name: Run bridge ThreadSanitizer harness
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Races the live input/refresh producer path against the UI read path
+          # with the staged core and Android bridge built under ThreadSanitizer,
+          # the one concurrency surface the single-threaded ASan/UBSan lanes do
+          # not exercise. A data race or lock-order inversion in the
+          # Android-owned bridge is the hard gate and aborts the run; upstream
+          # -core races (none today) are deferred to the scoped suppression file.
+          # No emulator. Reuses the staged native inputs the workload step
+          # produced. Slower than the plain lane because the core is rebuilt
+          # under the sanitizer.
+          mkdir -p ci-artifacts/logs
+          bash ./scripts/workload-regressions/build_bridge_tsan_harness.sh 2>&1 \
+            | tee ci-artifacts/logs/bridge-tsan-harness.log
+
       - name: Run lcd HAL contract test
         shell: bash
         run: |
@@ -408,5 +426,6 @@ jobs:
           path: |
             ci-artifacts/logs/host-workload-regressions.log
             ci-artifacts/logs/host-workload-regressions-sanitized.log
+            ci-artifacts/logs/bridge-tsan-harness.log
           if-no-files-found: warn
           retention-days: 14

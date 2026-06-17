@@ -197,6 +197,14 @@ host-core optimization sequence:
   without failing). The dense, non-deterministic `SPIRALk` plot is bounded by
   the outer timeout and degraded to coverage; the other four fixtures must
   complete. No emulator
+- the same `host-workload-regressions` lane then runs
+  `scripts/workload-regressions/build_bridge_tsan_harness.sh`, which rebuilds the
+  staged core and Android bridge under ThreadSanitizer and races the live input
+  and refresh producer path against the UI read path -- the concurrency surface
+  the single-threaded ASan/UBSan run never exercises. A data race or lock-order
+  inversion in the Android-owned bridge fails the lane; upstream-core races are
+  deferred to the empty, upstream-scoped `bridge_tsan_suppressions.txt`. No
+  emulator
 - the collector still resolves `clang` and `llvm-profdata` from that same
   pinned NDK, while the Linux lane installs the matching host
   `libclang_rt.profile` runtime for the derived LLVM major through the explicit

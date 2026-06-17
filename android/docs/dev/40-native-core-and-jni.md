@@ -191,6 +191,15 @@ supports that model by keeping shared synchronization in native code:
 - `ReplicaOverlayController` now consumes that same cached whole-snapshot store
   for overlay replay and dynamic-key refresh, so the UI thread no longer builds
   one logical keypad scene through multiple blocking JNI calls
+- the three lock-free display-change signals the UI thread polls without a
+  display mutex held -- `packedDisplayGeneration`, `keypadSnapshotGeneration`,
+  and `lcdBufferDirty` in `hal/lcd.c` -- are C11 relaxed atomics, not plain
+  `volatile`. The core thread writes them under `packedDisplayMutex` and the
+  reader samples them with no lock; `packedDisplayMutex` carries the
+  happens-before for the packed buffer payload, so these stay relaxed hints with
+  identical arm64 codegen to the old `volatile`. Plain `volatile` left that
+  concurrent access a data race under the C memory model, which
+  `build_bridge_tsan_harness.sh` flags and the atomics resolve
 - `android_runtime.c` also supplies Android-backed `PC_BUILD` event-loop shims
   for `g_main_context_iteration()`, `g_timeout_add()`,
   `gtk_events_pending()`, and `gtk_main_iteration()` so staged upstream pause

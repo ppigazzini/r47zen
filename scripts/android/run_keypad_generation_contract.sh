@@ -28,7 +28,7 @@ jdk_home="$(cd "$(dirname "$javac_path")/.." && pwd)"
 mkdir -p "$BUILD_DIR"
 output="$BUILD_DIR/keypad-generation-contract"
 
-"$CC_BIN" -std=c99 -O0 -g -pthread \
+"$CC_BIN" -std=c11 -O0 -g -pthread \
     -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47 \
     -Dmpz_div_2exp=mpz_tdiv_q_2exp -Dmpz_fits_uint_p=mpz_fits_ulong_p \
     -I"$jdk_home/include" \
