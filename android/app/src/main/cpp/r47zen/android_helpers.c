@@ -93,13 +93,32 @@ static void angularUnitToClipboardString(angularMode_t angularMode, char *string
     }
 }
 
-static void copyRegisterToClipboardUtf8String(calcRegister_t regist, char *clipboardString) {
+// Worst-case UTF8 expansion of a NUL-terminated internal string of at most
+// ANDROID_CLIPSTR bytes: each internal glyph (>= 1 byte) maps to at most 4 UTF8
+// bytes, so 4 * ANDROID_CLIPSTR + 1 is a safe upper bound. The clipboard path is
+// single-threaded (driven from the core thread), so a file-static scratch buffer
+// is reused rather than placing 120 KB on the stack.
+#define ANDROID_CLIPSTR_UTF8 (ANDROID_CLIPSTR * 4 + 1)
+
+// Append element slack: the largest single matrix element rendering (a complex
+// pair plus " +/- x", a radix dot, and the NUL) stays well under this, so the
+// matrix loops stop before they could overrun the internal ANDROID_CLIPSTR
+// builder buffer.
+#define CLIP_ELEMENT_SLACK 160
+
+static void copyRegisterToClipboardUtf8String(calcRegister_t regist, char *clipboardString, size_t clipboardSize) {
     longInteger_t lgInt;
     int16_t base;
     int16_t sign;
     int16_t n;
     uint64_t shortInt;
     char string[ANDROID_CLIPSTR];
+
+    if (clipboardSize == 0) {
+        return;
+    }
+    clipboardString[0] = '\0';
+    string[0] = '\0';
 
     switch (getRegisterDataType(regist)) {
         case dtLongInteger:
@@ -132,6 +151,9 @@ static void copyRegisterToClipboardUtf8String(calcRegister_t regist, char *clipb
             for (uint32_t i = 0; i < rows * columns; i++) {
                 uint32_t len;
 
+                if (strlen(string) + CLIP_ELEMENT_SLACK >= ANDROID_CLIPSTR) {
+                    break;
+                }
                 strcat(string, LINEBREAK);
                 len = (uint32_t)strlen(string);
                 real34Reduce(real34++, &reduced);
@@ -156,6 +178,9 @@ static void copyRegisterToClipboardUtf8String(calcRegister_t regist, char *clipb
             for (uint32_t i = 0; i < rows * columns; i++, complex34++) {
                 uint32_t len;
 
+                if (strlen(string) + CLIP_ELEMENT_SLACK >= ANDROID_CLIPSTR) {
+                    break;
+                }
                 strcat(string, LINEBREAK);
                 len = (uint32_t)strlen(string);
 
@@ -184,28 +209,33 @@ static void copyRegisterToClipboardUtf8String(calcRegister_t regist, char *clipb
             break;
         }
 
-        case dtShortInteger:
+        case dtShortInteger: {
+            // Local scratch instead of the global errorMessage: the descending
+            // write starts at ERROR_MESSAGE_LENGTH - 100, leaving 412 bytes of
+            // headroom which exceeds the worst case (64 base-2 digits + sign).
+            char shortBuf[ERROR_MESSAGE_LENGTH];
             convertShortIntegerRegisterToUInt64(regist, &sign, &shortInt);
             base = getRegisterShortIntegerBase(regist);
 
             n = ERROR_MESSAGE_LENGTH - 100;
-            sprintf(errorMessage + n--, "#%d (word size = %u)", base, shortIntegerWordSize);
+            sprintf(shortBuf + n--, "#%d (word size = %u)", base, shortIntegerWordSize);
 
             if (shortInt == 0) {
-                errorMessage[n--] = '0';
+                shortBuf[n--] = '0';
             } else {
                 while (shortInt != 0) {
-                    errorMessage[n--] = baseDigits[shortInt % base];
+                    shortBuf[n--] = baseDigits[shortInt % base];
                     shortInt /= base;
                 }
                 if (sign) {
-                    errorMessage[n--] = '-';
+                    shortBuf[n--] = '-';
                 }
             }
             n++;
 
-            strcpy(string, errorMessage + n);
+            strcpy(string, shortBuf + n);
             break;
+        }
 
         case dtReal34: {
             real34_t reduced;
@@ -253,26 +283,45 @@ static void copyRegisterToClipboardUtf8String(calcRegister_t regist, char *clipb
             break;
 
         default:
-            sprintf(
-                string,
+            snprintf(
+                string, sizeof(string),
                 "In function copyRegisterXToClipboard, the data type %" PRIu32 " is unknown! Please try to reproduce and submit a bug.",
                 getRegisterDataType(regist));
             break;
     }
 
-    stringToUtf8(string, (uint8_t *)clipboardString);
+    // `string` is NUL-terminated within ANDROID_CLIPSTR (the matrix loops above
+    // stop before overrunning it), so its UTF8 expansion fits the scratch buffer.
+    // Copy the expansion into the caller's destination bounded by clipboardSize so
+    // a long register can never write past the end of the clipboard buffer.
+    static char utf8Scratch[ANDROID_CLIPSTR_UTF8];
+    stringToUtf8(string, (uint8_t *)utf8Scratch);
+    snprintf(clipboardString, clipboardSize, "%s", utf8Scratch);
 }
 
 static void copyStackRegistersToClipboardUtf8String(
     char *clipboardString,
+    size_t clipboardSize,
     calcRegister_t lastRegist
 ) {
+    if (clipboardSize == 0) {
+        return;
+    }
     char *ptr = clipboardString;
+    char *const end = clipboardString + clipboardSize; // one past the last byte
     const char *sep = "";
 
     for (calcRegister_t regist = lastRegist; regist >= REGISTER_X; regist--) {
-        ptr += sprintf(ptr, "%s%c = ", sep, letteredRegisterName(regist));
-        copyRegisterToClipboardUtf8String(regist, ptr);
+        size_t remaining = (size_t)(end - ptr);
+        if (remaining <= 1) {
+            break;
+        }
+        int w = snprintf(ptr, remaining, "%s%c = ", sep, letteredRegisterName(regist));
+        if (w < 0 || (size_t)w >= remaining) {
+            break; // out of room; ptr stays NUL-terminated
+        }
+        ptr += w;
+        copyRegisterToClipboardUtf8String(regist, ptr, (size_t)(end - ptr));
         ptr = strchr(ptr, '\0');
         sep = LINEBREAK;
     }
@@ -333,7 +382,7 @@ char* getClipboardXRegisterString() {
         return result;
     }
 
-    copyRegisterToClipboardUtf8String(REGISTER_X, result);
+    copyRegisterToClipboardUtf8String(REGISTER_X, result, sizeof(result));
     return result;
 }
 
@@ -345,33 +394,46 @@ char* getClipboardStackRegistersString() {
         return result;
     }
 
-    copyStackRegistersToClipboardUtf8String(result, REGISTER_K);
+    copyStackRegistersToClipboardUtf8String(result, sizeof(result), REGISTER_K);
     return result;
 }
 
 char* getClipboardAllRegistersString() {
     static char result[ANDROID_CLIPSTR];
     char *ptr = result;
+    char *const end = result + sizeof(result); // one past the last byte
 
     result[0] = '\0';
     if (!ram) {
         return result;
     }
 
-    copyStackRegistersToClipboardUtf8String(ptr, LAST_SPARE_REGISTER);
+    copyStackRegistersToClipboardUtf8String(ptr, sizeof(result), LAST_SPARE_REGISTER);
 
     for (int32_t regist = 99; regist >= 0; --regist) {
         ptr += strlen(ptr);
-        sprintf(ptr, LINEBREAK "R%02d = ", regist);
-        ptr += strlen(ptr);
-        copyRegisterToClipboardUtf8String(regist, ptr);
+        if ((size_t)(end - ptr) <= 1) {
+            return result;
+        }
+        int w = snprintf(ptr, (size_t)(end - ptr), LINEBREAK "R%02d = ", regist);
+        if (w < 0 || (size_t)w >= (size_t)(end - ptr)) {
+            return result;
+        }
+        ptr += w;
+        copyRegisterToClipboardUtf8String(regist, ptr, (size_t)(end - ptr));
     }
 
     for (int32_t regist = currentNumberOfLocalRegisters - 1; regist >= 0; --regist) {
         ptr += strlen(ptr);
-        sprintf(ptr, LINEBREAK "R.%02d = ", regist);
-        ptr += strlen(ptr);
-        copyRegisterToClipboardUtf8String(FIRST_LOCAL_REGISTER + regist, ptr);
+        if ((size_t)(end - ptr) <= 1) {
+            return result;
+        }
+        int w = snprintf(ptr, (size_t)(end - ptr), LINEBREAK "R.%02d = ", regist);
+        if (w < 0 || (size_t)w >= (size_t)(end - ptr)) {
+            return result;
+        }
+        ptr += w;
+        copyRegisterToClipboardUtf8String(FIRST_LOCAL_REGISTER + regist, ptr, (size_t)(end - ptr));
     }
 
     if (statisticalSumsPointer != NULL) {
@@ -407,21 +469,24 @@ char* getClipboardAllRegistersString() {
         char sumName[40];
         char statValue[256];
 
+        char sumNameUtf8[160];
         for (int32_t sum = 0; sum < NUMBER_OF_STATISTICAL_SUMS; sum++) {
             ptr += strlen(ptr);
+            // One stat row is the label (<= 40 internal bytes, <= 160 UTF8), a
+            // short prefix, " = ", and a value (<= 256). Stop before the worst
+            // case can exceed the remaining capacity of the result buffer.
+            if ((size_t)(end - ptr) < sizeof(sumNameUtf8) + sizeof(statValue) + 32) {
+                break;
+            }
             strcpy(sumName, statSumNames[sum]);
+            stringToUtf8(sumName, (uint8_t *)sumNameUtf8);
 
-            sprintf(ptr, LINEBREAK "SR%02d = ", sum);
-            ptr += strlen(ptr);
-            stringToUtf8(sumName, (uint8_t *)ptr);
-            ptr += strlen(ptr);
-            strcpy(ptr, " = ");
-            ptr += strlen(ptr);
             realToString(statisticalSumsPointer + sum, statValue);
             if (strchr(statValue, '.') == NULL && strchr(statValue, 'E') == NULL) {
                 strcat(statValue, ".");
             }
-            strcpy(ptr, statValue);
+            ptr += snprintf(ptr, (size_t)(end - ptr), LINEBREAK "SR%02d = %s = %s",
+                            sum, sumNameUtf8, statValue);
         }
     }
 

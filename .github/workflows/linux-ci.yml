@@ -404,6 +404,21 @@ jobs:
           bash ./scripts/workload-regressions/build_bridge_tsan_harness.sh 2>&1 \
             | tee ci-artifacts/logs/bridge-tsan-harness.log
 
+      - name: Run clipboard register-dump overflow harness
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Builds the Android-owned clipboard register-dump path under
+          # AddressSanitizer and fills the register file with a huge long integer
+          # so the concatenated dump far exceeds the fixed ANDROID_CLIPSTR buffer.
+          # An overrun in getClipboardAllRegistersString and friends aborts the
+          # run; the bounded path truncates at the cap. Reuses the staged native
+          # inputs. No emulator.
+          mkdir -p ci-artifacts/logs
+          bash ./scripts/workload-regressions/build_clipboard_overflow_harness.sh 2>&1 \
+            | tee ci-artifacts/logs/clipboard-overflow-harness.log
+
       - name: Run lcd HAL contract test
         shell: bash
         run: |
@@ -427,5 +442,6 @@ jobs:
             ci-artifacts/logs/host-workload-regressions.log
             ci-artifacts/logs/host-workload-regressions-sanitized.log
             ci-artifacts/logs/bridge-tsan-harness.log
+            ci-artifacts/logs/clipboard-overflow-harness.log
           if-no-files-found: warn
           retention-days: 14
