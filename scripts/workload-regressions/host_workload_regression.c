@@ -24,7 +24,6 @@ extern uint8_t temporaryInformation;
 extern uint16_t currentLocalStepNumber;
 extern uint16_t currentProgramNumber;
 extern uint16_t numberOfPrograms;
-extern size_t gmpMemInBytes;
 
 extern void runFunction(int16_t func);
 extern void reallyRunFunction(int16_t func, uint16_t param);
@@ -388,8 +387,6 @@ static workload_result_t run_program_fixture_workload(
   const program_fixture_scenario_t *scenario) {
   function_worker_t worker;
   pthread_t worker_thread;
-  size_t gmp_mem_after_load = 0u;
-  size_t gmp_mem_after_run = 0u;
   uint64_t activity_started_at = 0;
   bool saw_pause = false;
   bool saw_waiting = false;
@@ -446,7 +443,6 @@ static workload_result_t run_program_fixture_workload(
 
   load_step = currentLocalStepNumber;
   max_step = currentLocalStepNumber;
-  gmp_mem_after_load = gmpMemInBytes;
   r47_reset_host_lcd_refresh_count();
   if (!start_worker(&worker, run_function_id, run_parameter, uses_param,
                     &worker_thread)) {
@@ -528,7 +524,6 @@ static workload_result_t run_program_fixture_workload(
             scenario->program_name);
     return WORKLOAD_RESULT_FAIL;
   }
-  gmp_mem_after_run = gmpMemInBytes;
 
   saw_pause = saw_pause || programRunStop == PGM_PAUSED;
   saw_waiting = saw_waiting || programRunStop == PGM_WAITING;
@@ -554,21 +549,14 @@ static workload_result_t run_program_fixture_workload(
             (unsigned int)programRunStop);
     return WORKLOAD_RESULT_FAIL;
   }
-  if (gmp_mem_after_run != gmp_mem_after_load) {
-    long long gmp_mem_delta = 0;
-
-    if (gmp_mem_after_run >= gmp_mem_after_load) {
-      gmp_mem_delta = (long long)(gmp_mem_after_run - gmp_mem_after_load);
-    } else {
-      gmp_mem_delta = -(long long)(gmp_mem_after_load - gmp_mem_after_run);
-    }
-
-    fprintf(stderr,
-            "WARN: %s workload changed gmpMemInBytes across execution "
-            "(start=%zu, end=%zu, delta=%lld)\n",
-            scenario->program_name, gmp_mem_after_load, gmp_mem_after_run,
-            gmp_mem_delta);
-  }
+  // No gmpMemInBytes leak check: this host build links the Android mini-gmp
+  // fallback (android/compat/mini-gmp-fallback), whose gmp_free / gmp_xrealloc_
+  // limbs pass size 0 to the core's freeGmp / reallocGmp accounting hooks. The
+  // core's gmpMemInBytes counter therefore only ever increments and is monotonic
+  // under mini-gmp, so a positive delta is an accounting artifact, not a leak
+  // (the memory is freed correctly). Real allocation leaks are caught by the
+  // ASan/UBSan sanitized workload lane, not by this counter. See
+  // __DEV/issues/ISSUE-3-BINET.md Annex B.
 
   char x_value[3200];
   read_x_register_value_string(x_value, sizeof(x_value));
