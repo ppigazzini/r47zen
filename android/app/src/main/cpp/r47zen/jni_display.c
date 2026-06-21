@@ -90,9 +90,17 @@ enum {
     KEYPAD_SCENE_FLAG_DOTTED_ROW = 1 << 11,
 };
 
-extern void changeSoftKey(int16_t menuNr, int16_t itemNr, char *itemName,
-                          videoMode_t *vm, int8_t *showCb,
-                          int16_t *showValue, char *showText);
+// Upstream's softkey-label resolver changeSoftKey() became a file-local static at
+// upstream 485b6709 (and shed its always-unused menuNr parameter), so the Android
+// keypad overlay can no longer link it. resolveSoftkeyMeta() below reproduces the
+// parts the softkey scene needs from the public item API: the reverse-video menu
+// flag, the callback and show-value badges, and the plain item label. The upstream
+// inline formatting that depends on other now-static helpers (placeSubscript
+// subscripts, changeDotAndIJ glyph rewrites, catalog-name substitution) is not
+// reproduced; those softkeys render the plain item label without inline text.
+extern bool_t isFunctionItemAMenu(int16_t item);
+extern int8_t fnCbIsSet(int16_t item);
+extern int16_t fnItemShowValue(int16_t item);
 extern char *figlabel(const char *label, const char *showText,
                       int16_t showValue);
 extern bool_t itemNotAvail(int16_t itemNr);
@@ -722,6 +730,37 @@ static bool_t composeSoftkeyInlineLabel(keypadSoftkeyScene_t *scene,
   return true;
 }
 
+// Repo-owned replacement for the now-static upstream changeSoftKey(). Resolves a
+// softkey function item's display label, video mode, and badges using only the
+// public item API. itemNr follows the upstream convention: negative for a menu
+// item, positive for a function item, with the low four decimal digits selecting
+// the entry in indexOfItems.
+static void resolveSoftkeyMeta(int16_t itemNr, char *itemName,
+                               size_t itemNameSize, videoMode_t *vm,
+                               int8_t *showCb, int16_t *showValue,
+                               char *showText) {
+  int16_t functionItem = (int16_t)(abs(itemNr) % 10000);
+
+  *vm = (itemNr < 0) || isFunctionItemAMenu((int16_t)(itemNr % 10000)) ? vmReverse
+                                                                       : vmNormal;
+  *showCb = NOVAL;
+  *showValue = NOVAL;
+  showText[0] = 0;
+
+  if (itemNr == 0) {
+    itemName[0] = 0;
+    return;
+  }
+
+  if (itemNr > 0) {
+    *showCb = fnCbIsSet(functionItem);
+    *showValue = fnItemShowValue(functionItem);
+  }
+
+  snprintf(itemName, itemNameSize, "%s",
+           indexOfItems[functionItem].itemSoftmenuName);
+}
+
 static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene) {
   clearSoftkeyScene(scene);
 
@@ -774,8 +813,8 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
         scene->sceneFlags |= KEYPAD_SCENE_FLAG_REVERSE_VIDEO |
                              KEYPAD_SCENE_FLAG_MENU;
       } else if (userMenuItems[visibleIndex].argumentName[0] == 0) {
-        changeSoftKey(softmenu[softmenuId].menuItem, sceneItem, itemName, &videoMode,
-                      &showCb, &showValue, showText);
+        resolveSoftkeyMeta(sceneItem, itemName, sizeof(itemName), &videoMode,
+                         &showCb, &showValue, showText);
         if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem,
                                       showText,
                                       showValue) &&
@@ -801,8 +840,8 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
                              KEYPAD_SCENE_FLAG_MENU;
       } else if (userMenus[currentUserMenu].menuItem[visibleIndex].argumentName[0] ==
                  0) {
-        changeSoftKey(softmenu[softmenuId].menuItem, sceneItem, itemName, &videoMode,
-                      &showCb, &showValue, showText);
+        resolveSoftkeyMeta(sceneItem, itemName, sizeof(itemName), &videoMode,
+                         &showCb, &showValue, showText);
         if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem,
                                       showText,
                                       showValue) &&
@@ -856,8 +895,8 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
       char showText[16] = {0};
       char itemName[32] = {0};
 
-      changeSoftKey(softmenu[softmenuId].menuItem, item, itemName, &videoMode,
-                    &showCb, &showValue, showText);
+      resolveSoftkeyMeta(item, itemName, sizeof(itemName), &videoMode, &showCb,
+                       &showValue, showText);
       if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem,
                                     showText,
                                     showValue) &&

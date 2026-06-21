@@ -629,8 +629,11 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
      // Verified run-to-run deterministic over repeated host runs (Annex A.10);
-     // BinetV3 parks at its plot prompt leaving a stable final image.
-     .expected_display_hash = 0x1ddff07951d1afb6ull},
+     // BinetV3 parks at its plot prompt leaving a stable final image. Re-pinned
+     // for the upstream plot-rendering change: the numeric oracles (NQueens,
+     // SPIRALk, MANSLV2) and the other plotting fixture (GudrmPL) are unchanged,
+     // so only this plot image moved; the value tracks the current upstream HEAD.
+     .expected_display_hash = 0x6a6fc9b69e4628aeull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
