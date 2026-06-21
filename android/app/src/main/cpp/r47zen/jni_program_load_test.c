@@ -433,6 +433,12 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_sendSimKeyNative(
   if (!nativeKeyId ||
       jni_check_and_clear_exception(
           env, "ProgramLoadTestBridge.sendSimKey GetStringUTFChars")) {
+    // Release before bailing: GetStringUTFChars can return a valid copy even
+    // when an exception is pending, and an early return must not leak it
+    // (mirrors the production sendSimKeyNative path in jni_input.c).
+    if (nativeKeyId) {
+      (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
+    }
     return;
   }
 

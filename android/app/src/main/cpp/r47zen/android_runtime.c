@@ -1,6 +1,7 @@
 #include "jni_bridge.h"
 #include "r47_time.h"
 
+#include <stdatomic.h>
 #include <unistd.h>
 
 pthread_mutex_t fileMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -24,7 +25,14 @@ uint32_t nextScreenRefresh = 0;
 GdkEvent pressEvent;
 GdkEvent releaseEvent;
 
-static volatile bool g_r47_stop_refresh_pending = false;
+// Lock-free cross-thread refresh signal. A JNI/keypad-thread writer requests a
+// stop-refresh with no lock held (r47_request_stop_refresh) while the core thread
+// reads-and-clears it under screenMutex (r47_apply_pending_stop_refresh_locked).
+// This is the same shape as the lock-free display signals in hal/lcd.c: plain
+// volatile leaves the concurrent access a data race under the C memory model, so
+// it is a C11 relaxed atomic at identical codegen. A stale sample at most delays
+// or repeats one stop-refresh and self-corrects.
+static _Atomic bool g_r47_stop_refresh_pending = false;
 
 typedef struct {
   guint id;
@@ -115,14 +123,19 @@ uint32_t sys_current_ms(void) {
   return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
-void r47_request_stop_refresh(void) { g_r47_stop_refresh_pending = true; }
+void r47_request_stop_refresh(void) {
+  atomic_store_explicit(&g_r47_stop_refresh_pending, true, memory_order_relaxed);
+}
 
 bool r47_apply_pending_stop_refresh_locked(void) {
-  if (!g_r47_stop_refresh_pending || !ram) {
+  if (!ram) {
+    return false;
+  }
+  if (!atomic_exchange_explicit(&g_r47_stop_refresh_pending, false,
+                                memory_order_relaxed)) {
     return false;
   }
 
-  g_r47_stop_refresh_pending = false;
   screenUpdatingMode = SCRUPD_AUTO;
   reDraw = true;
   refreshScreen(190);

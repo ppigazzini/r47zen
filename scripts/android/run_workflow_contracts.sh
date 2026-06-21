@@ -29,6 +29,7 @@ CONTRACTS=(
     run_setup_android_packages_contract.sh
     run_setup_android_composite_contract.sh
     run_bridge_tsan_lane_contract.sh
+    run_lock_free_signal_atomicity_contract.sh
 )
 
 failed=()
