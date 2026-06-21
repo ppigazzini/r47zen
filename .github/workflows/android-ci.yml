@@ -811,6 +811,20 @@ jobs:
           bash ./scripts/android/coverage_gate.sh \
             2>&1 | tee ci-artifacts/logs/android-coverage-gate.log
 
+      - name: Run mutation spot-check (scheduled only)
+        # The mutation spot-check is the strongest assertion-strength probe but it
+        # recompiles per mutant, so it runs on the nightly schedule rather than on
+        # every PR. It fails the scheduled run if a seam mutant survives (an
+        # assertion gap), which the maintainer sees on the nightly build without
+        # it ever slowing a pull request. Reuses the SDK and staged native inputs
+        # this job already set up.
+        if: github.event_name == 'schedule'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/android/mutation_spot_check.sh \
+            2>&1 | tee ci-artifacts/logs/android-mutation-spot-check.log
+
       - name: Restore Android emulator AVD cache
         id: avd-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5

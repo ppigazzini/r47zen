@@ -637,6 +637,12 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .timeout_ms = 15000u,
      .resume_pause_with_zero_key = false,
      .seed_runtime = NULL,
+     // Liveness-only, by design: STOP_POLICY_DIRECT_AFTER_ACTIVITY interrupts the
+     // run after sustained activity, so there is no completed state to assert --
+     // neither an X-register sequence nor a final-image hash. This fixture proves
+     // the bounded-interrupt path stays responsive (it stops on request without
+     // hanging), not that it computes a particular result. NQueens and SPIRALk
+     // carry the value coverage; this one is a known result-coverage gap.
      .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
      .stop_after_activity_ms = 3000u},
     {.program_name = "NQueens.p47",

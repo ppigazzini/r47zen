@@ -79,10 +79,18 @@ class KeyboardLayoutContractTest(unittest.TestCase):
         )
 
     def test_keyboard_layout_payload_matches_contract_json(self) -> None:
-        """Keep the canonical keyboard-layout JSON aligned with the live payload."""
+        """Freshness guard only: the committed JSON equals the live deriver output.
+
+        This compares the deriver against its own committed snapshot, so it cannot
+        catch a correct-looking-but-wrong payload -- on drift the documented fix is
+        to re-run the deriver, which re-blesses whatever new output appears. The
+        real oracles are the structural tests below that assert literal labels
+        parsed from assign.c/items.c and the JNI bridge against fixed expectations;
+        this one only flags an un-regenerated snapshot.
+        """
         actual = build_keyboard_layout_contract_payload()
         if actual != self.expected_contract:
-            message = "Keyboard-layout contract drifted from the live payload"
+            message = "Keyboard-layout contract JSON is stale; re-run the deriver"
             raise AssertionError(message)
 
     def test_canonical_source_points_at_assign_items_and_android_bridge(self) -> None:
