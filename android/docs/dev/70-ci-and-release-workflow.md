@@ -284,10 +284,11 @@ The hosted instrumentation lane currently relies on:
   case on CI
 - the grouped non-fixture release-path selection containing
   `FactorsInstrumentedTest`, `DisplayLifecycleInstrumentedTest`,
-  `GraphRedrawInstrumentedTest`, and
+  `GraphRedrawInstrumentedTest`, `GraphTouchStressInstrumentedTest`, and
   `StorageAccessCoordinatorInstrumentedTest` for Android math, passive
-  lifecycle LCD preservation, redraw-path sanity, and SAF coordination on the
-  same signed release test install path
+  lifecycle LCD preservation, redraw-path sanity, extreme graph-touch
+  restore-bounds stress, and SAF coordination on the same signed release test
+  install path
 
 The JVM segment of this lane also keeps graph-touch gating regression coverage
 in the same run through `GraphGestureAccumulatorTest`,

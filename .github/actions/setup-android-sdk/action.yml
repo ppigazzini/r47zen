@@ -77,7 +77,12 @@ runs:
 
         set +o pipefail
         yes | "$sdkmanager_bin" --licenses > /dev/null
+        license_status=${PIPESTATUS[1]}
         set -o pipefail
+        if [ "$license_status" -ne 0 ]; then
+          echo "Android SDK license acceptance failed (status $license_status)." >&2
+          exit "$license_status"
+        fi
 
     - name: Resolve Android SDK cache paths
       id: android-sdk

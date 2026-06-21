@@ -124,6 +124,7 @@ jobs:
           . ./android/r47-defaults.properties
 
           echo "application_id=$R47_DEFAULT_ANDROID_APPLICATION_ID" >> "$GITHUB_OUTPUT"
+          echo "android_test_abi_filters=$R47_DEFAULT_ANDROID_TEST_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
@@ -496,6 +497,7 @@ jobs:
           . ./android/r47-defaults.properties
 
           echo "application_id=$R47_DEFAULT_ANDROID_APPLICATION_ID" >> "$GITHUB_OUTPUT"
+          echo "android_test_abi_filters=$R47_DEFAULT_ANDROID_TEST_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
@@ -690,7 +692,7 @@ jobs:
         env:
           R47_CONNECTED_ANDROID_TEST_JOBS: ${{ steps.jobs.outputs.jobs }}
           R47_CONNECTED_ANDROID_TEST_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
-          R47_CONNECTED_ANDROID_TEST_ABI_FILTERS: arm64-v8a,x86_64
+          R47_CONNECTED_ANDROID_TEST_ABI_FILTERS: ${{ steps.defaults.outputs.android_test_abi_filters }}
           R47_CONNECTED_ANDROID_TEST_RELEASE_CHANNEL: prod
           R47_CONNECTED_ANDROID_TEST_BUILD_TYPE: release
           R47_CONNECTED_ANDROID_TEST_RELEASE_MINIFY: 'false'

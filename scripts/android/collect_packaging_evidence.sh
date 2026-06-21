@@ -418,7 +418,7 @@ if [[ "$artifact_type" == "apk" ]]; then
     while IFS= read -r -d '' so_file; do
         {
             echo "== ${so_file#$unpack_dir/} =="
-            "$llvm_objdump" -p "$so_file" | grep 'LOAD'
+            { "$llvm_objdump" -p "$so_file" | grep 'LOAD' || true; }
             echo
         } >>"$elf_report"
     done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)

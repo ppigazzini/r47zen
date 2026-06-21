@@ -63,6 +63,18 @@ The Android native module currently compiles the staged upstream core in
 GLib and GTK compatibility behavior used by upstream pause, wait, and progress
 paths instead of treating those entry points as no-op stubs.
 
+`PC_BUILD` is defined for every config in `android/app/src/main/cpp/CMakeLists
+.txt`, including the shipped `Release` native build -- it is load-bearing (the
+desktop code paths the port reuses), not a sim-only debug affordance, so the
+`PC_BUILD`-gated upstream diagnostics ride into production. The one that mattered
+was the `items.c` `gmpMemInBytes` self-check, which prints to stderr on the
+per-operation hot path: the Android core links the vendored mini-gmp fallback,
+which historically passed size 0 to the c47 `freeGmp`/`reallocGmp` accounting
+hooks, so the counter never returned to zero and the self-check fired every op.
+`android/compat/mini-gmp-fallback/mini-gmp.c` now carries a size-prefix header so
+the hooks receive the real block size and the counter balances; the
+`run_mini_gmp_accounting_contract.sh` host contract guards it against a re-vendor.
+
 That `PC_BUILD` choice also makes the Android HAL responsible for any desktop-
 side helper symbols that upstream starts exporting through `src/c47/hal/*.h`.
 The current concrete examples are `create_dir(char *dir)` and
@@ -276,7 +288,7 @@ supports that model by keeping shared synchronization in native code:
 - `requestStopProgramNative()` is gated on `programRunStop` through the pure
   `r47_direct_stop_allowed(runState)` predicate and fires the out-of-band stop
   **only** for the genuinely-busy run states `PGM_RUNNING` (executing) and
-  `PGM_PAUSED` (inside a timed `PSE` loop) — the states that cannot drain the
+  `PGM_PAUSED` (inside a timed `PSE` loop) -- the states that cannot drain the
   queued `sendKey` in time. For the interactive parked states `PGM_WAITING` and
   `PGM_RESUMING` (a graphing program holding its plot, a program between
   `PSE`/`VIEW` steps, an open `f`/`g`/`I/O` menu) it returns `JNI_FALSE`, so

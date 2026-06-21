@@ -368,12 +368,12 @@ Important files include:
   Pause/resume and recreation both **re-render `packedDisplayBuffer` from
   calculator state** against the current upstream HEAD (CI proved a raw injected
   framebuffer is not preserved across either; for pause/resume this changed when
-  CI advanced to the latest upstream, REPORT-24 §25/§32), so
+  CI advanced to the latest upstream), so
   `pauseResumePreservesSpiralkGraphSnapshot` and
   `activityRecreationPreservesSpiralkGraphSnapshot` both drive a real `SPIRALk`
   graph -- a cursor-free, byte-stable display whose re-render from the persisted
-  graph state reproduces the same framebuffer (REPORT-24 §22/§32). Its
-  `directStopGateDeclinesInteractiveWaitStates` case is the REPORT-23
+  graph state reproduces the same framebuffer. Its
+  `directStopGateDeclinesInteractiveWaitStates` case is the
   runtime-regression guard: it probes the pure `r47_direct_stop_allowed`
   predicate (via `ProgramLoadTestBridge.directStopAllowedForRunState`) across
   every run state and asserts the out-of-band direct stop is **declined** for
@@ -382,9 +382,7 @@ Important files include:
   `PGM_RUNNING`/`PGM_PAUSED`. `requestStopProgramHonorsRunStateGateEndToEnd` then
   injects each run state via `setProgramRunStop` and asserts the real
   `requestStopProgram()` accepts the busy states and declines the rest end to
-  end, tying the predicate to the real seam without a program run. (Earlier
-  emergent SPIRALk-based forms of these tests codified or destabilised the
-  contract -- see §30/§31 and §18/§20/§21 of the regression annex.)
+  end, tying the predicate to the real seam without a program run.
 - `FactorsInstrumentedTest.kt`: asserts that the `FACTORS` runtime path runs to
   completion and leaves X in the expected result type
 - `GraphRedrawInstrumentedTest.kt`: locks the redraw-gate contract behind
@@ -419,7 +417,7 @@ Android compatibility layer.
   is visible. `NQueens.p47` is a per-fixture numeric oracle: seeded with `N = 8`
   it runs a full 8-queens search to completion and its X-register result is
   asserted against the independently verified valid solution
-  `→ 8., 4., 1., 3., 6., 2., 7., 5.`. A wrong result fails the lane (the harness
+  `-> 8., 4., 1., 3., 6., 2., 7., 5.`. A wrong result fails the lane (the harness
   exits non-zero, which `run_workload_regressions.sh` propagates -- only bounded
   timeouts are downgraded to degraded coverage). The other fixtures stay
   liveness-only because their single-`R/S` parked state is degenerate

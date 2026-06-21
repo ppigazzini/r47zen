@@ -107,7 +107,7 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "${DEV_VERSION_NAME_INPUT:-}" ]]; then
             dev_version_name="$DEV_VERSION_NAME_INPUT"
           else
-            dev_version_name="0.1.0"
+            dev_version_name="$(grep -E '^R47_DEFAULT_ANDROID_VERSION_NAME=' ./android/r47-defaults.properties | cut -d= -f2)"
           fi
 
           if [[ -z "$dev_version_name" ]]; then
