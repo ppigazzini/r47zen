@@ -165,6 +165,7 @@ void bitblt24(uint32_t x, uint32_t dx, uint32_t y, uint32_t val, int blt_op, int
   if (!lcd_buffer) return;
   if (dx < 1 || dx > 24) return;
   if (x >= SCREEN_WIDTH || x + dx > SCREEN_WIDTH) return;
+  if (y >= SCREEN_HEIGHT) return; // guard the row like the column above
   x = SCREEN_WIDTH - dx - x;
   const uint32_t byte_i = x >> 3;
   const uint32_t bit_off = x & 7u;

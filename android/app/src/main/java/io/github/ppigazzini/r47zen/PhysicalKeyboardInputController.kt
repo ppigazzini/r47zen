@@ -41,7 +41,7 @@ internal class PhysicalKeyboardInputController(
             interceptedWhileHeld = true
         }
 
-        if (event?.repeatCount ?: 0 > 0) {
+        if ((event?.repeatCount ?: 0) > 0) {
             return true
         }
 

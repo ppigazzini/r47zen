@@ -239,6 +239,13 @@ int ioEof(void) {
 }
 
 int ioFileRemove(ioFilePath_t path, uint32_t *errorNumber) {
+    // SAF-backed storage manages file lifetime on the Android side; removal is a
+    // no-op success here. Cast the unused parameters like the other HAL stubs and
+    // clear errorNumber so a caller does not read uninitialized memory on it.
+    (void)path;
+    if (errorNumber != NULL) {
+        *errorNumber = 0u;
+    }
     return FILE_OK;
 }
 

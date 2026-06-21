@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.preference.ListPreference
 import androidx.preference.SeekBarPreference
@@ -65,14 +66,25 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     private val treeLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
-            val displayPath = WorkDirectory.persistSelectedTreeUri(requireContext(), uri)
-            updateStoragePreferences()
+            // takePersistableUriPermission can throw SecurityException if the grant
+            // flags are absent; the storage coordinator guards the identical call,
+            // so guard it here too rather than crash the Settings screen.
+            val displayPath = try {
+                WorkDirectory.persistSelectedTreeUri(requireContext(), uri)
+            } catch (error: SecurityException) {
+                Log.e("R47Settings", "Failed to persist selected work directory", error)
+                null
+            }
 
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.settings_work_directory_set_title)
-                .setMessage(getString(R.string.settings_work_directory_set_message, displayPath))
-                .setPositiveButton(R.string.gpl_license_dialog_close, null)
-                .show()
+            if (displayPath != null) {
+                updateStoragePreferences()
+
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.settings_work_directory_set_title)
+                    .setMessage(getString(R.string.settings_work_directory_set_message, displayPath))
+                    .setPositiveButton(R.string.gpl_license_dialog_close, null)
+                    .show()
+            }
         }
     }
 

@@ -504,11 +504,23 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun updateNativeActivityRef()
 
     override fun onDestroy() {
-        Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=${factoryResetController.isResetInProgress}")
-        val shouldStopApp = isFinishing || factoryResetController.isResetInProgress
-        coreRuntime.dispose(stopApp = shouldStopApp)
+        // Drop any delayed callbacks (e.g. the graph-gesture flush) so they cannot
+        // fire against a destroyed activity.
+        mainHandler.removeCallbacksAndMessages(null)
+        // Guard the lateinit controllers: if onCreate threw before startCoreRuntime
+        // assigned them, onDestroy still runs, and an unguarded access would mask
+        // the original crash with an UninitializedPropertyAccessException.
+        val resetInProgress =
+            ::factoryResetController.isInitialized && factoryResetController.isResetInProgress
+        Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=$resetInProgress")
+        val shouldStopApp = isFinishing || resetInProgress
+        if (::coreRuntime.isInitialized) {
+            coreRuntime.dispose(stopApp = shouldStopApp)
+        }
         appPreferences.unregisterOnSharedPreferenceChangeListener(this)
-        factoryResetController.handleDestroy(shouldStopApp)
+        if (::factoryResetController.isInitialized) {
+            factoryResetController.handleDestroy(shouldStopApp)
+        }
         super.onDestroy()
     }
 

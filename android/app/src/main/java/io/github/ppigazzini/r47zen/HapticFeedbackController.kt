@@ -79,19 +79,7 @@ internal class HapticFeedbackController(
                 isEnabled = preferences.getBoolean(key, true)
                 return true
             }
-            KEY_HAPTIC_USE_ANDROID_DEFAULT -> {
-                normalizePreferences(preferences)
-                useAndroidDefault = preferences.getBoolean(
-                    KEY_HAPTIC_USE_ANDROID_DEFAULT,
-                    DEFAULT_HAPTIC_USE_ANDROID_DEFAULT,
-                )
-                customKeypressDurationMs = preferences.getInt(
-                    KEY_HAPTIC_KEYPRESS_DURATION_MS,
-                    DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
-                )
-                return true
-            }
-            KEY_HAPTIC_KEYPRESS_DURATION_MS -> {
+            KEY_HAPTIC_USE_ANDROID_DEFAULT, KEY_HAPTIC_KEYPRESS_DURATION_MS -> {
                 normalizePreferences(preferences)
                 useAndroidDefault = preferences.getBoolean(
                     KEY_HAPTIC_USE_ANDROID_DEFAULT,
