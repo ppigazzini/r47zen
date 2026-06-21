@@ -351,8 +351,37 @@ mp_set_memory_functions (void *(*alloc_func) (size_t),
   gmp_free_func = free_func;
 }
 
-#define gmp_xalloc(size) ((*gmp_allocate_func)((size)))
-#define gmp_free(p) ((*gmp_free_func) ((p), 0))
+/* r47zen: size-prefixed allocation so the c47 GMP accounting hooks
+   (freeGmp / reallocGmp) receive the real block size. Upstream mini-gmp passes
+   size 0 to the free/realloc hooks because it does not track block sizes; the
+   c47 hooks decrement gmpMemInBytes by that size, so a 0 leaves the counter
+   monotonically increasing. On the Android build that defines PC_BUILD, the
+   upstream items.c "gmpMemInBytes should be 0" self-check then fires on every
+   operation (sprintf + fprintf + fflush on the hot path). A header carrying the
+   requested total restores exact accounting: alloc charges round(total) and the
+   matching free/realloc credit round(total). The malloc/realloc/free are
+   unchanged; only the size handed to the accounting hooks is corrected. The
+   header is sized to keep the returned payload aligned for mp_limb_t. */
+#define R47_GMP_HDR (sizeof (mp_limb_t) >= sizeof (size_t) ? sizeof (mp_limb_t) : sizeof (size_t))
+
+static void *
+gmp_xalloc (size_t size)
+{
+  size_t total = size + R47_GMP_HDR;
+  char *base = (char *) (*gmp_allocate_func) (total);
+  *(size_t *) base = total;
+  return base + R47_GMP_HDR;
+}
+
+static void
+gmp_free (void *p)
+{
+  if (p == NULL)
+    return;
+  char *base = (char *) p - R47_GMP_HDR;
+  size_t total = *(size_t *) base;
+  (*gmp_free_func) (base, total);
+}
 
 static mp_ptr
 gmp_xalloc_limbs (mp_size_t size)
@@ -364,7 +393,12 @@ static mp_ptr
 gmp_xrealloc_limbs (mp_ptr old, mp_size_t size)
 {
   assert (size > 0);
-  return (mp_ptr) (*gmp_reallocate_func) (old, 0, size * sizeof (mp_limb_t));
+  char *base = (char *) old - R47_GMP_HDR;
+  size_t old_total = *(size_t *) base;
+  size_t new_total = size * sizeof (mp_limb_t) + R47_GMP_HDR;
+  char *nb = (char *) (*gmp_reallocate_func) (base, old_total, new_total);
+  *(size_t *) nb = new_total;
+  return (mp_ptr) (nb + R47_GMP_HDR);
 }
 
 
