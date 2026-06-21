@@ -1021,3 +1021,65 @@ jobs:
           prerelease: true
           draft: false
           make_latest: false
+
+  ci-required:
+    name: CI required checks
+    # Always runs, even when the heavy test lane is skipped by the release gate.
+    # This is the single job to mark as the required status check: GitHub treats a
+    # skipped required job as passing, so gating directly on the skippable test
+    # jobs (python-contracts, android-build-test-package, android-tests) could
+    # report green having run nothing on a re-run of an already-released state.
+    # This job fails unless every test job genuinely succeeded whenever the gate
+    # asked them to run.
+    if: always()
+    needs:
+      - upstream-release-gate
+      - upstream-simulator-sanity
+      - python-contracts
+      - android-build-test-package
+      - android-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify the required test jobs succeeded
+        shell: bash
+        env:
+          SHOULD_RUN: ${{ needs.upstream-release-gate.outputs.should_run }}
+          GATE_RESULT: ${{ needs.upstream-release-gate.result }}
+          SIM_RESULT: ${{ needs.upstream-simulator-sanity.result }}
+          PY_RESULT: ${{ needs.python-contracts.result }}
+          BUILD_RESULT: ${{ needs.android-build-test-package.result }}
+          TESTS_RESULT: ${{ needs.android-tests.result }}
+        run: |
+          set -euo pipefail
+
+          if [ "$GATE_RESULT" != 'success' ]; then
+            echo "Upstream release gate did not succeed (result=$GATE_RESULT)." >&2
+            exit 1
+          fi
+
+          if [ "$SHOULD_RUN" != 'true' ]; then
+            echo "Release gate skipped the test lane (should_run=$SHOULD_RUN): the"
+            echo "resolved release already exists, so there is nothing new to test."
+            echo "Required check passes."
+            exit 0
+          fi
+
+          status=0
+          for pair in "upstream-simulator-sanity=$SIM_RESULT" \
+                      "python-contracts=$PY_RESULT" \
+                      "android-build-test-package=$BUILD_RESULT" \
+                      "android-tests=$TESTS_RESULT"; do
+            name="${pair%%=*}"
+            result="${pair#*=}"
+            if [ "$result" != 'success' ]; then
+              echo "Required test job '$name' did not succeed (result=$result)." >&2
+              status=1
+            fi
+          done
+
+          if [ "$status" -ne 0 ]; then
+            echo "One or more required test jobs failed or were skipped." >&2
+            exit 1
+          fi
+          echo "All required test jobs succeeded."
