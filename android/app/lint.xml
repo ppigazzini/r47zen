@@ -2,7 +2,8 @@
 <lint>
     <!--
         Intentional, justified lint suppressions for the R47 Zen calculator app.
-        Everything else is gated by warningsAsErrors + lint-baseline.xml.
+        Everything else is gated by warningsAsErrors with no baseline, so lint
+        must stay clean rather than grandfather findings (see app/build.gradle).
     -->
 
     <!-- The app is a fixed-orientation hardware-calculator replica; portrait is a
