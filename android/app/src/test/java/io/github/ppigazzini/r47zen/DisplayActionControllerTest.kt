@@ -124,6 +124,29 @@ class DisplayActionControllerTest {
         assertTrue(enteredPiP)
     }
 
+    @Test
+    fun handleMainMenuSelection_pasteToleratesEmptyPrimaryClip() {
+        val controller = createController()
+
+        // ClipboardManager.getPrimaryClip() can return a non-null ClipData with
+        // zero items on some devices/clipboard managers (a known
+        // IndexOutOfBoundsException crash class at ClipData.getItemAt). A 0-item
+        // clip is not constructible through the public API, so empty mItems on a
+        // normally-built clip to reproduce the state.
+        val emptyClip = ClipData.newPlainText("paste", "ignored")
+        val itemsField = ClipData::class.java.getDeclaredField("mItems")
+        itemsField.isAccessible = true
+        (itemsField.get(emptyClip) as MutableList<*>).clear()
+        clipboard.setPrimaryClip(emptyClip)
+        assertEquals(0, clipboard.primaryClip?.itemCount)
+
+        // Before the guard this threw IndexOutOfBoundsException from getItemAt(0).
+        assertTrue(
+            controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {},
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+    }
+
     private fun createController(
         xText: String = "1.234",
         stackText: String = "K = 9.\nJ = 8.\nX = 1.234",

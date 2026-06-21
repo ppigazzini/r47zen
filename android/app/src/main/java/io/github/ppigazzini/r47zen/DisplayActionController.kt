@@ -192,8 +192,15 @@ internal class DisplayActionController(
 
     private fun pasteFromClipboard() {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val item = clipboard.primaryClip?.getItemAt(0)
-        val text = item?.text?.toString() ?: return
+        // getPrimaryClip() can return a non-null ClipData with zero items on some
+        // devices; guard the index so getItemAt(0) never throws
+        // IndexOutOfBoundsException on the main thread (the copy path is likewise
+        // defensive).
+        val clip = clipboard.primaryClip ?: return
+        if (clip.itemCount == 0) {
+            return
+        }
+        val text = clip.getItemAt(0)?.text?.toString() ?: return
 
         offerCoreTask(
             Runnable {
