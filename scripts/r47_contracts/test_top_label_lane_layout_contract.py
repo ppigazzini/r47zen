@@ -40,6 +40,25 @@ def _assert_almost_equal(actual: float, expected: float, *, places: int = 6) -> 
     _assert_true(abs(actual - expected) <= tolerance)
 
 
+def _assert_unstaggered(placement: LaneGroupPlacement) -> None:
+    """Guard the un-staggered baseline of a no-conflict placement.
+
+    `stagger_level` is currently a structural constant in the lane solver: the
+    solver never lifts a label, so the field is always 0. This guard makes that
+    fact explicit at the call site -- a bare `placement.stagger_level == 0`
+    assertion reads like a live check but can never fail today, which is a false
+    signal. If a future stagger implementation regresses the no-conflict path to
+    a non-zero level, this fails loudly with the actual value.
+    """
+    level = placement.stagger_level
+    if level != 0:
+        message = (
+            f"no-conflict placement must stay un-staggered, "
+            f"saw stagger_level={level}"
+        )
+        raise AssertionError(message)
+
+
 def _require_mapping(value: object, *, label: str) -> dict[str, object]:
     if not isinstance(value, dict):
         message = f"Expected {label} to be a mapping, got {value!r}"
@@ -396,7 +415,7 @@ class TopLabelLaneLayoutTest(unittest.TestCase):
 
             for placement in placements:
                 _assert_almost_equal(placement.center_shift, 0.0, places=6)
-                _assert_true(placement.stagger_level == 0)
+                _assert_unstaggered(placement)
                 _assert_almost_equal(placement.f_scale, 1.0, places=6)
                 _assert_almost_equal(placement.g_scale, 1.0, places=6)
 
@@ -417,7 +436,7 @@ class TopLabelLaneLayoutTest(unittest.TestCase):
         placements = solve_lane(lane_groups, self.policy)
         for placement in placements:
             _assert_almost_equal(placement.center_shift, 0.0, places=6)
-            _assert_true(placement.stagger_level == 0)
+            _assert_unstaggered(placement)
             _assert_almost_equal(placement.f_scale, 1.0, places=6)
             _assert_almost_equal(placement.g_scale, 1.0, places=6)
 

@@ -426,17 +426,20 @@ class ShellGeometryContractTest(unittest.TestCase):
             native_bottom_edge,
             self.kotlin["SOFTKEY_TOUCH_ROW_TOP"],
         )
-        _assert_float_equal(
-            native_bottom_edge - 1.0,
-            self.kotlin["SOFTKEY_TOUCH_ROW_TOP"] - 1.0,
+        # The native LCD window must land on whole pixels: a fractional width or
+        # height would mean a non-integer frame-buffer mapping. Assert integrality
+        # against the value itself so a fractional dimension actually fails here.
+        # (The prior checks compared the payload to round() of the same payload,
+        # which an already-rounded value can never violate, and re-asserted the
+        # touch-row identity above with a +/-1.0 offset on both sides, which is
+        # algebraically the same equality -- neither could ever fail.)
+        _assert_true(
+            condition=native_width == float(round(native_width)),
+            message=f"native LCD width must be a whole pixel, saw {native_width}",
         )
-        _assert_float_equal(
-            _number_member(native_lcd_window, "width", label="native_lcd_window"),
-            round(native_width),
-        )
-        _assert_float_equal(
-            _number_member(native_lcd_window, "height", label="native_lcd_window"),
-            round(native_height),
+        _assert_true(
+            condition=native_height == float(round(native_height)),
+            message=f"native LCD height must be a whole pixel, saw {native_height}",
         )
 
     def test_main_menu_button_stays_top_right_aligned_to_the_lcd(self) -> None:
