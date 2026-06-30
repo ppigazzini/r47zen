@@ -437,7 +437,7 @@
     "standard": {
       "asset_name": "C47__StandardFont.ttf",
       "font_path": "res/fonts/C47__StandardFont.ttf",
-      "unicode_codepoint_count": 697,
+      "unicode_codepoint_count": 712,
       "unicode_range_pairs": [
         [
           8,
@@ -580,6 +580,18 @@
           563
         ],
         [
+          655,
+          655
+        ],
+        [
+          665,
+          665
+        ],
+        [
+          671,
+          671
+        ],
+        [
           688,
           688
         ],
@@ -637,7 +649,19 @@
         ],
         [
           1104,
-          1112
+          1114
+        ],
+        [
+          7428,
+          7429
+        ],
+        [
+          7451,
+          7451
+        ],
+        [
+          7458,
+          7458
         ],
         [
           7488,
@@ -904,6 +928,18 @@
           9211
         ],
         [
+          9220,
+          9220
+        ],
+        [
+          9226,
+          9226
+        ],
+        [
+          9243,
+          9243
+        ],
+        [
           9249,
           9251
         ],
@@ -930,6 +966,14 @@
         [
           9638,
           9638
+        ],
+        [
+          9642,
+          9642
+        ],
+        [
+          9654,
+          9655
         ],
         [
           9671,
@@ -992,7 +1036,7 @@
     "tiny": {
       "asset_name": "C47__TinyFont.ttf",
       "font_path": "res/fonts/C47__TinyFont.ttf",
-      "unicode_codepoint_count": 669,
+      "unicode_codepoint_count": 668,
       "unicode_range_pairs": [
         [
           0,
@@ -1207,7 +1251,7 @@
           8681
         ],
         [
-          8704,
+          8705,
           8713
         ],
         [

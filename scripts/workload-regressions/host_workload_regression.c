@@ -620,8 +620,10 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // BinetV3 parks at its plot prompt leaving a stable final image. Re-pinned
      // for the upstream plot-rendering change: the numeric oracles (NQueens,
      // SPIRALk, MANSLV2) and the other plotting fixture (GudrmPL) are unchanged,
-     // so only this plot image moved; the value tracks the current upstream HEAD.
-     .expected_display_hash = 0x6a6fc9b69e4628aeull},
+     // so only this plot image moved; the value tracks the current upstream HEAD
+     // (upstream reverted the 485b6709 render, so this hash returns to its
+     // pre-485b6709 value).
+     .expected_display_hash = 0x1ddff07951d1afb6ull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
