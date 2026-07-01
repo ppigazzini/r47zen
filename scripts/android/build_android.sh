@@ -662,8 +662,17 @@ print_doctor_report() {
         doctor_failed=true
     fi
 
-    if [ -d "$ANDROID_SDK_ROOT/platforms/android-$R47_DEFAULT_ANDROID_COMPILE_SDK" ]; then
-        print_doctor_line "compile sdk" "android-$R47_DEFAULT_ANDROID_COMPILE_SDK present"
+    compile_sdk_dir=""
+    for platform_dir in \
+        "$ANDROID_SDK_ROOT/platforms/android-$R47_DEFAULT_ANDROID_COMPILE_SDK" \
+        "$ANDROID_SDK_ROOT/platforms/android-$R47_DEFAULT_ANDROID_COMPILE_SDK".*; do
+        if [ -d "$platform_dir" ]; then
+            compile_sdk_dir="$platform_dir"
+            break
+        fi
+    done
+    if [ -n "$compile_sdk_dir" ]; then
+        print_doctor_line "compile sdk" "$(basename "$compile_sdk_dir") present"
     else
         print_doctor_line "compile sdk" "android-$R47_DEFAULT_ANDROID_COMPILE_SDK missing"
         doctor_failed=true
