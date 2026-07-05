@@ -35,6 +35,15 @@ never mixes different core revisions in one run.
 
 ## Quick Start
 
+Prerequisites: JDK 17, the Android SDK and NDK, CMake, Meson/Ninja, and `uv`
+for the Python contract lane. Rather than list exact versions here (they live in
+`android/r47-defaults.properties`), probe your machine and let the build report
+what is missing:
+
+```sh
+./scripts/android/build_android.sh --doctor
+```
+
 Hydrate the upstream core inputs:
 
 ```sh
@@ -48,6 +57,9 @@ Build the debug APK:
 ```
 
 The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
+The root `Makefile` and `BUILD.md` are upstream-owned and describe the upstream
+simulator build, not the Android lane; see `android/docs/dev/` for this repo's
+build. Full local pipeline: `android/docs/dev/10-build-and-source-layout.md`.
 
 Signed prerelease and production release publication run from the CI and
 release workflows. See `android/docs/dev/70-ci-and-release-workflow.md` for the

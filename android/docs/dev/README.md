@@ -64,6 +64,9 @@ flowchart TD
   rerun lanes.
 - [90-official-references.md](90-official-references.md): official Android,
   NDK, Gradle, Kotlin, GitHub Actions, and upstream reference surfaces.
+- [backlog.md](backlog.md): durable in-tree list of known-deferred work.
+- [release-history.md](release-history.md): the upstream-commit-per-release
+  traceability log.
 
 ## By Task
 
