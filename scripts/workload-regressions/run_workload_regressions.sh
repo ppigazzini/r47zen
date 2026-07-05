@@ -201,7 +201,6 @@ STAGED_DEC_SOURCES=(
 ANDROID_BRIDGE_SOURCES=(
     "$TRACKED_CPP_DIR/r47zen/android_runtime.c"
     "$TRACKED_CPP_DIR/r47zen/android_helpers.c"
-    "$TRACKED_CPP_DIR/r47zen/clipboard_utils.c"
     "$TRACKED_CPP_DIR/r47zen/hal/audio.c"
     "$TRACKED_CPP_DIR/r47zen/hal/gui.c"
     "$TRACKED_CPP_DIR/r47zen/hal/io.c"

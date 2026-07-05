@@ -140,10 +140,13 @@ def repoNoticeInventory = new JsonSlurper().parse(repoNoticeInventoryFile)
 def releaseMinifyEnabled = readBooleanProperty('r47.releaseMinify', true)
 def releaseShrinkResourcesEnabled = readBooleanProperty('r47.releaseShrinkResources', releaseMinifyEnabled)
 def releaseNativeDebugSymbolLevel = (readOptionalProperty('r47.releaseNativeDebugSymbolLevel', 'R47_RELEASE_NATIVE_DEBUG_SYMBOL_LEVEL') ?: 'FULL').toUpperCase()
-// Keep the androidTest program-load bridge in instrumentation builds (default
-// true) but let the published release artifacts exclude it so its reset/inject
-// test entry points do not ship to users.
-def includeProgramLoadTestBridge = readBooleanProperty('r47.includeProgramLoadTestBridge', true)
+// The androidTest program-load bridge exports reset/inject/fd-override native
+// entry points that must never ship to users, so it is excluded by default and
+// the instrumentation lanes opt in with -Pr47.includeProgramLoadTestBridge=true
+// (run_connected_android_tests.sh and the android-ci androidTest build). A plain
+// assembleRelease or assembleDebug therefore never compiles it; the JVM unit
+// tests do not need it. run_workflow_contracts.sh guards this default.
+def includeProgramLoadTestBridge = readBooleanProperty('r47.includeProgramLoadTestBridge', false)
 def releaseChannel = (readOptionalProperty('r47.releaseChannel', 'R47_RELEASE_CHANNEL') ?: 'prod').toLowerCase(Locale.ROOT)
 def configuredTestBuildType = (readOptionalProperty('r47.testBuildType', 'R47_TEST_BUILD_TYPE') ?: (releaseChannel == 'dev' ? 'release' : 'debug')).toLowerCase(Locale.ROOT)
 def releaseChannelBuildToken = readOptionalProperty('r47.releaseChannelBuildToken', 'R47_RELEASE_CHANNEL_BUILD_TOKEN')

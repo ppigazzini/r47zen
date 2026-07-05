@@ -67,7 +67,6 @@ set(DEC_SOURCES
 set(ANDROID_BRIDGE_SOURCES
     ${R47_TRACKED_CPP_DIR}/r47zen/android_runtime.c
     ${R47_TRACKED_CPP_DIR}/r47zen/android_helpers.c
-    ${R47_TRACKED_CPP_DIR}/r47zen/clipboard_utils.c
     ${R47_TRACKED_CPP_DIR}/r47zen/hal/audio.c
     ${R47_TRACKED_CPP_DIR}/r47zen/hal/gui.c
     ${R47_TRACKED_CPP_DIR}/r47zen/hal/io.c

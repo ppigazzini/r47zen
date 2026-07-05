@@ -33,6 +33,13 @@ internal class DisplayActionController(
         const val MENU_COPY_ALL_REGISTERS = 5
         const val MENU_PASTE_NUMBER = 6
         const val MENU_PICTURE_IN_PICTURE = 7
+
+        // Paste replays each character onto the single core thread with a ~50 ms
+        // sleep, so it cannot process an unbounded clip without stalling display
+        // refresh and key handling for minutes. Only numeric-entry glyphs are
+        // meaningful, so a few hundred characters is far more than any real
+        // pasted number; anything longer is truncated.
+        private const val MAX_PASTE_CHARS = 256
     }
 
     internal fun popupMenuThemeContext(): Context {
@@ -202,9 +209,11 @@ internal class DisplayActionController(
         }
         val text = clip.getItemAt(0)?.text?.toString() ?: return
 
+        val cappedText = text.take(MAX_PASTE_CHARS)
+
         offerCoreTask(
             Runnable {
-                for (char in text) {
+                for (char in cappedText) {
                     if (char == 'i' || char == 'j') {
                         sendSimFuncNative(if (char == 'i') 1159 else 1160)
                         Thread.sleep(50)

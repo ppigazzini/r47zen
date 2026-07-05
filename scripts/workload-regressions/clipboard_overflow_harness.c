@@ -26,6 +26,7 @@ extern void r47_init_runtime(int slotId);
 extern char *getClipboardAllRegistersString(void);
 extern char *getClipboardStackRegistersString(void);
 extern char *getClipboardXRegisterString(void);
+extern char *getXRegisterString(void);
 extern void convertLongIntegerToLongIntegerRegister(const longInteger_t lgInt,
                                                     calcRegister_t regist);
 
@@ -58,6 +59,30 @@ int main(void) {
 
   char *x = getClipboardXRegisterString();
   fprintf(stderr, "x dump length = %zu\n", strlen(x));
+
+  // ascii_clean glyph-expansion overflow guard. getXRegisterString strncpy's a
+  // dtString register's text into a 1024-byte coreBuf and runs ascii_clean on
+  // it. ascii_clean expands STD_op_i (0xA1 0x48) to three output bytes but its
+  // pre-fix loop guard checked only the cursor at the START of each iteration,
+  // so an op_i processed at cursor 1022 wrote one byte past the 1024-byte tmp[]
+  // scratch (plus the terminator two past). Build a register whose text is 722
+  // single-byte chars followed by op_i glyphs: the glyph output cursor lands on
+  // 1022 exactly at the 101st glyph, tripping the overrun under AddressSanitizer
+  // before the fix and truncating cleanly at the cap after.
+  static char strdata[1200];
+  size_t p = 0;
+  for (; p < 722; p++) {
+    strdata[p] = 'A';
+  }
+  while (p < 1022) {
+    strdata[p++] = (char)0xA1;
+    strdata[p++] = 0x48;
+  }
+  strdata[p] = '\0';
+  reallocateRegister(REGISTER_X, dtString, TO_BLOCKS(p + 1), amNone);
+  memcpy(REGISTER_STRING_DATA(REGISTER_X), strdata, p + 1);
+  char *xreg = getXRegisterString();
+  fprintf(stderr, "getXRegisterString length = %zu\n", strlen(xreg));
 
   fprintf(stderr, "DONE: clipboard register dumps produced no memory fault\n");
   return 0;

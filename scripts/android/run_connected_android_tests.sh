@@ -184,6 +184,10 @@ run_connected_selection() {
         "-Pr47.upstreamSourceCommit=$R47_CONNECTED_ANDROID_TEST_UPSTREAM_SOURCE_COMMIT"
         "-Pr47.xlsxioSourceRepositoryUrl=$R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_REPOSITORY_URL"
         "-Pr47.xlsxioSourceCommit=$R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_COMMIT"
+        # Instrumentation opt-in: the program-load bridge is excluded by default
+        # (it must not ship to users); the connected suite needs its native entry
+        # points, so the androidTest build here re-enables it.
+        "-Pr47.includeProgramLoadTestBridge=true"
         "-Pandroid.testInstrumentationRunnerArguments.class=$selection_filter"
     )
 

@@ -99,7 +99,6 @@ set(DEC_SOURCES
 set(ANDROID_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_helpers.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/clipboard_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/audio.c
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/gui.c
     ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/io.c

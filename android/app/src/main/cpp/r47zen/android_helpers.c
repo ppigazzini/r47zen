@@ -19,7 +19,9 @@ static void ascii_clean(char *str, size_t str_size) {
     char tmp[1024];
     char *s = str;
     char *d = tmp;
-    while (*s && (d - tmp) < 1023) {
+    // Leave room for the widest expansion body (3 bytes: op_i / op_j) plus the
+    // trailing NUL, so a glyph processed near the end cannot write past tmp[].
+    while (*s && (size_t)(d - tmp) < sizeof(tmp) - 3) {
         uint8_t c1 = (uint8_t)s[0];
         uint8_t c2 = (uint8_t)s[1];
 
