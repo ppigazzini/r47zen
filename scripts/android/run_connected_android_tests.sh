@@ -4,9 +4,12 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 ANDROID_DIR="$PROJECT_ROOT/android"
 DEFAULTS_PATH="$ANDROID_DIR/r47-defaults.properties"
 LOG_DIR="$PROJECT_ROOT/ci-artifacts/logs"
+CONNECTED_RESULTS_DIR="$ANDROID_DIR/app/build/outputs/androidTest-results/connected"
 PROGRAM_FIXTURE_TEST_CLASS="io.github.ppigazzini.r47zen.ProgramFixtureInstrumentedTest"
 R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT="${R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT:-6m}"
 R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER="${R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER:-30s}"
@@ -281,6 +284,14 @@ for selection_spec in "${TEST_SELECTION_SPECS[@]}"; do
     log_file="$LOG_DIR/android-connected-$(sanitize_label "$selection_name").log"
 
     if run_connected_selection "$selection_name" "$selection_filter" "$log_file" "$timeout_duration" "$kill_after"; then
+        # A passing selection must have executed at least one test. A hardcoded
+        # -e class filter whose class was renamed or removed can otherwise report
+        # success having run nothing, silently shrinking the suite.
+        executed="$(count_androidtest_cases "$CONNECTED_RESULTS_DIR")"
+        if [[ "$executed" -eq 0 ]]; then
+            fail "Connected Android test selection $selection_name reported success but executed 0 tests (check the class filter in NON_FIXTURE_TEST_CLASSES / PROGRAM_FIXTURE_TEST_CLASS). See $log_file."
+        fi
+        echo "INFO: connected selection $selection_name executed $executed test case(s)" >&2
         continue
     else
         status=$?

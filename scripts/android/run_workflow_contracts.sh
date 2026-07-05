@@ -32,6 +32,7 @@ CONTRACTS=(
     run_lock_free_signal_atomicity_contract.sh
     run_mini_gmp_accounting_contract.sh
     run_program_load_bridge_default_contract.sh
+    run_test_integrity_contract.sh
 )
 
 failed=()

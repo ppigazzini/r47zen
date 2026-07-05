@@ -144,6 +144,14 @@ for index in "${!MUT_FILES[@]}"; do
     fi
 
     echo "--- mutant: $description"
+    # A mutant that does not compile would make testReleaseUnitTest exit non-zero
+    # for the wrong reason and be miscounted as killed. Require the mutated main
+    # source to compile first: a non-compiling mutant is a bad mutation spec (fix
+    # it), not evidence the tests caught the change.
+    if ! (cd "$ANDROID_DIR" && ./gradlew :app:compileReleaseKotlin \
+        --console=plain -Pr47.testBuildType=release >/dev/null 2>&1); then
+        fail "mutant did not compile: $description (fix the mutation spec; a non-compiling mutant is a false kill)"
+    fi
     if (cd "$ANDROID_DIR" && ./gradlew :app:testReleaseUnitTest \
         --tests "${MUT_TESTS[$index]}" \
         --console=plain -Pr47.testBuildType=release >/dev/null 2>&1); then
