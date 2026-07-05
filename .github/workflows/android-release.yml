@@ -945,6 +945,23 @@ jobs:
           https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
           EOF
 
+          # Release history row: the durable upstream-commit mapping for this
+          # release. The repo tracks the latest upstream HEAD (no source pin), so
+          # this row is the in-tree traceability record. Emitted to the job
+          # summary; append it to android/docs/dev/release-history.md when cutting
+          # the release.
+          release_date="$(date -u +%Y-%m-%d)"
+          history_row="| ${{ needs.build-production-release-bundle.outputs.release_tag }} | ${version_name} (${version_code}) | ${release_date} | ${upstream_commit} | ${android_commit} |"
+          {
+            echo "### Release history row"
+            echo ""
+            echo "Append to \`android/docs/dev/release-history.md\`:"
+            echo ""
+            echo '```'
+            echo "$history_row"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Create and publish production release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:

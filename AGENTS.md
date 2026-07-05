@@ -88,8 +88,15 @@ Keep the sync contract intact.
   builds.
 - If you move or add local-only files that must survive the upstream overlay,
   update `scripts/upstream-sync/upstream.sh` or document the risk explicitly.
-- `upstream.source` carries the authoritative `upstream_commit` pin used for
-  reproducible builds; `upstream.lock` may override it locally.
+- `upstream.source` pins only `upstream_url` and `upstream_ref` (currently
+  `HEAD`); by policy no tracked file pins a specific `upstream_commit`. CI and
+  the release lane resolve the newest commit on every run, so builds track the
+  latest upstream HEAD, not a fixed core. A pin is optional and local only:
+  record it in the git-ignored `upstream.lock` (delete it to resume following
+  HEAD). Two builds of the same repo commit on different days can therefore
+  compile different cores; the upstream commit a release shipped is recorded
+  after the fact in the release tag, the published `BUILD-METADATA`, and the
+  tracked `android/docs/dev/release-history.md`, not in a source pin.
 
 Choose the right surface for the change.
 
