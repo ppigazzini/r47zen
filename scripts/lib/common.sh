@@ -38,3 +38,22 @@ detect_job_count() {
 
     printf '%s\n' "$detected_jobs"
 }
+
+# Sum the JUnit "tests" counts across every result XML under a directory tree.
+# Echoes the total (0 when the directory is missing or holds no results). Used
+# to guard an instrumentation selection against silently executing nothing --
+# e.g. a hardcoded -e class filter whose class was renamed or removed, which
+# some AndroidJUnitRunner versions report as zero tests with a success exit.
+count_androidtest_cases() {
+    local results_dir="$1"
+    local total=0 n
+    [ -d "$results_dir" ] || { printf '0\n'; return 0; }
+    while IFS= read -r n; do
+        [ -n "$n" ] && total=$((total + n))
+    done < <(
+        find "$results_dir" -type f -name '*.xml' -print0 2>/dev/null \
+            | xargs -0 -r grep -hoE '<testsuite[^>]* tests="[0-9]+"' 2>/dev/null \
+            | grep -oE '[0-9]+'
+    )
+    printf '%s\n' "$total"
+}

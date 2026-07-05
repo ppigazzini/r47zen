@@ -7,18 +7,25 @@
 # This parses the report Kover already publishes rather than using Kover's
 # `verify` DSL: under AGP 9.2 the per-Android-variant `verify` bounds did not
 # enforce here (a 100 % floor still passed), so a self-contained, testable gate
-# over the same deterministic XML is used instead. The floor sits below the
-# current measurement so it ratchets against regressions without freezing the
-# instrumented-only gaps (for example MainActivity), and the seam rule locks the
-# routing-policy classes that REPORT-24 hardened.
+# over the same deterministic XML is used instead.
+#
+# The total-line threshold is a maintainer-ratcheted FLOOR, not an auto-ratchet:
+# it is sourced from R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT in
+# android/r47-defaults.properties, set just below the current measurement so a
+# regression fails the gate without freezing the instrumented-only gaps (for
+# example MainActivity). Bump the default up when coverage rises durably. The
+# seam rule separately locks the routing-policy classes REPORT-24 hardened at
+# 100 %.
 
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ANDROID_DIR="$PROJECT_ROOT/android"
+DEFAULTS_PATH="$ANDROID_DIR/r47-defaults.properties"
 REPORT_XML="${R47_COVERAGE_REPORT_XML:-$ANDROID_DIR/app/build/reports/kover/reportRelease.xml}"
-MIN_TOTAL_LINE_PERCENT="${R47_COVERAGE_MIN_TOTAL_LINE_PERCENT:-80}"
+DEFAULT_MIN_TOTAL_LINE_PERCENT="$(sed -n 's/^R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT=//p' "$DEFAULTS_PATH" 2>/dev/null | head -1)"
+MIN_TOTAL_LINE_PERCENT="${R47_COVERAGE_MIN_TOTAL_LINE_PERCENT:-${DEFAULT_MIN_TOTAL_LINE_PERCENT:-80}}"
 SEAM_CLASSES=(
     "io/github/ppigazzini/r47zen/LiveKeyRouter"
     "io/github/ppigazzini/r47zen/LiveProgramStopKeyPolicy"

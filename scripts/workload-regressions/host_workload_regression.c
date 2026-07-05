@@ -643,8 +643,10 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // run after sustained activity, so there is no completed state to assert --
      // neither an X-register sequence nor a final-image hash. This fixture proves
      // the bounded-interrupt path stays responsive (it stops on request without
-     // hanging), not that it computes a particular result. NQueens and SPIRALk
-     // carry the value coverage; this one is a known result-coverage gap.
+     // hanging), not that it computes a particular result. Only NQueens carries
+     // a numeric value oracle; SPIRALk runs to completion but is liveness-only
+     // too (its final image is not reproducible across machines, see below), so
+     // MANSLV2 and SPIRALk are both known result-coverage gaps.
      .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
      .stop_after_activity_ms = 3000u},
     {.program_name = "NQueens.p47",

@@ -121,7 +121,17 @@ run_host_workload_fixture() {
             ;;
         124 | 137)
             emit_fixture_timeout_warning "$fixture" "the outer timeout had to kill the hung workload process"
-            return 0
+            # Exit 3 (WORKLOAD_RESULT_STOP_TIMEOUT) above is the harness cleanly
+            # reporting a stop-policy fixture's bounded interrupt and stays
+            # tolerated. 124/137 is different: the OUTER timeout had to kill a
+            # process that hung past the harness's own deadline (e.g. in
+            # r47_init_runtime / fnLoadProgram before the deadline loop). The PGO
+            # training lane tolerates that as degraded coverage; the correctness
+            # lane must fail on it, so honor the tolerate flag here too.
+            if [[ "$HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE" == "true" ]]; then
+                return 0
+            fi
+            return "$status"
             ;;
         *)
             if [[ "$HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE" == "true" ]]; then
