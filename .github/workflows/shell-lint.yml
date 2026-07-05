@@ -62,3 +62,26 @@ jobs:
           mapfile -t shell_scripts < <(find scripts -name '*.sh' | LC_ALL=C sort)
           printf 'Format-checking %d repo-owned shell scripts with shfmt -i 4 -ci\n' "${#shell_scripts[@]}"
           shfmt -i 4 -ci -d "${shell_scripts[@]}"
+
+  workflow-lint:
+    name: Lint GitHub Actions workflows with zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v7.1.1
+
+      - name: Run zizmor
+        shell: bash
+        # Offline audits at medium+ severity; the three reviewed github-env writes
+        # in the composite actions carry inline zizmor:ignore rationale. Online
+        # audits (known-vulnerable-action lookups) are a follow-up.
+        run: |
+          set -euo pipefail
+          uvx zizmor@1.5.2 --no-online-audits --min-severity=medium \
+            .github/workflows .github/actions

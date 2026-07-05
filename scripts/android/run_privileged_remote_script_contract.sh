@@ -24,12 +24,19 @@ source "$SCRIPT_DIR/../lib/ci_contract.sh"
 # "never run un-verified fetched scripts", root or not. workflow_grep drops
 # comment lines so a documented example does not trip the guard.
 pattern='(wget|curl)[^|]*\|[[:space:]]*(sudo[[:space:]]+)?(bash|sh)\b|(sudo[[:space:]]+)?(bash|sh)[[:space:]]+-c[[:space:]]+"\$\((wget|curl)'
-offenders="$(workflow_grep "$pattern" || true)"
+# Scan both the workflows and the scripts they invoke. This guard file itself
+# embeds the pattern as a string literal, so exclude it from the scripts scan.
+offenders="$(
+    {
+        workflow_grep "$pattern"
+        scripts_grep "$pattern" "$(basename "${BASH_SOURCE[0]}")"
+    } || true
+)"
 
 if [ -n "$offenders" ]; then
     contract_fail \
-        "workflow pipes a fetched script into a shell (inline reviewed commands or pin + verify a vendored copy instead):" \
+        "a workflow or script pipes a fetched script into a shell (inline reviewed commands or pin + verify a vendored copy instead):" \
         "$offenders"
 fi
 
-contract_pass "no workflow feeds a network-fetched script directly into a shell."
+contract_pass "no workflow or script feeds a network-fetched script directly into a shell."

@@ -471,6 +471,12 @@ that do not live in the Gradle workflow itself:
 Configure the `production-release` environment with the branch restrictions,
 required reviewers, and the four release-signing secrets the workflow expects.
 
+Enable the repository's **Immutable Releases** setting (Settings -> General ->
+Releases). It locks a published release's tag and assets against
+post-publication rewrite, closing the tag-rewrite attack class (the 2025
+tj-actions and 2026 trivy-action incidents) against this repo's own releases.
+It is a one-time repository setting, not a workflow change.
+
 ### `verify-production-release`
 
 Runs on `main` under the `production-release` environment, in parallel with the

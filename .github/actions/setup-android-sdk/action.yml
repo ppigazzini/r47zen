@@ -33,7 +33,7 @@ runs:
   steps:
     - name: Select writable Android SDK root
       shell: bash
-      run: |
+      run: | # zizmor: ignore[github-env] writes only the action-computed SDK root, not attacker input
         set -euo pipefail
 
         sdk_root="$HOME/.android/sdk"
