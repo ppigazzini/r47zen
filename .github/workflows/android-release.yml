@@ -153,7 +153,7 @@ jobs:
         run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up Java 17
-        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         with:
           distribution: temurin
           java-version: '17'
@@ -526,7 +526,7 @@ jobs:
         run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up Java 17
-        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         with:
           distribution: temurin
           java-version: '17'
@@ -660,7 +660,7 @@ jobs:
 
       - name: Restore Android emulator AVD cache
         id: avd-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.android/avd/*
@@ -678,7 +678,7 @@ jobs:
 
       - name: Create Android emulator snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: ReactiveCircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: ${{ steps.defaults.outputs.android_test_api_level }}
           target: default
@@ -692,7 +692,7 @@ jobs:
           script: echo "Generated Android emulator snapshot."
 
       - name: Run Android release instrumentation tests on emulator
-        uses: ReactiveCircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         env:
           R47_CONNECTED_ANDROID_TEST_JOBS: ${{ steps.jobs.outputs.jobs }}
           R47_CONNECTED_ANDROID_TEST_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
@@ -815,7 +815,7 @@ jobs:
           path: release-apk
 
       - name: Attest build provenance for the published artifacts
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           # Attest the exact signed bytes that ship on the GitHub release, so a
           # consumer can verify they were produced by this workflow run
