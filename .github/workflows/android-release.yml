@@ -66,8 +66,12 @@ jobs:
             exit 1
           fi
 
-          if [[ -z "$version_name" ]]; then
-            echo "version_name must be non-empty." >&2
+          # Strict format: major.minor.patch-signed.YYYYMMDD[VV], matching every
+          # published signed tag. This rejects the typo class that already
+          # shipped a malformed tag (r47zen-version-0.1.6-signed.2026061101, from
+          # a "version-0.1.6" input) before it can pollute the tag namespace.
+          if [[ ! "$version_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+-signed\.[0-9]{8,10}$ ]]; then
+            echo "version_name '$version_name' is malformed; expected major.minor.patch-signed.YYYYMMDD[VV] (e.g. 0.1.6-signed.2026061101)." >&2
             exit 1
           fi
 
