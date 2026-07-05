@@ -49,7 +49,7 @@ repo root
 |- meson_options.txt
 |- src/                                       # hydrated upstream core
 |- dep/decNumberICU                           # hydrated upstream dependency
-|- res/fonts/                                 # tracked Android build input
+|- res/fonts/                                 # hydrated upstream build input
 |- build.sim/                                 # generated Meson outputs
 |- scripts/
 |  |- android/

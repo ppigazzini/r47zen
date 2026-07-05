@@ -25,6 +25,7 @@ flowchart TD
   F[android-build-test-package]
   G[android-tests]
   H[publish-main-snapshot<br/>main branch]
+  R[ci-required<br/>required status check]
 
   A --> B --> C
   C --> D
@@ -34,6 +35,11 @@ flowchart TD
   D --> H
   F --> H
   G --> H
+  C --> R
+  D --> R
+  E --> R
+  F --> R
+  G --> R
 ```
 
 ## CI At A Glance
@@ -317,6 +323,23 @@ This prerelease is intentionally separate from the manual production release
 channel. The APK uses a dedicated prerelease signing key path and never reuses
 the production release key.
 
+### `ci-required`
+
+This is the single job to mark as the required status check in branch
+protection, not the individual test jobs. It runs with `if: always()` and
+`needs` the release gate plus every test lane
+(`upstream-simulator-sanity`, `python-contracts`,
+`android-build-test-package`, `android-tests`).
+
+GitHub reports a skipped required job as passing, so gating branch protection
+directly on the test jobs could report green when the release gate skipped them
+(a re-run of an already-released upstream and overlay state). `ci-required`
+closes that: it passes when the gate legitimately skipped the lane
+(`should_run != true`), and otherwise fails unless every test job genuinely
+succeeded, so a skipped, cancelled, or failed test job cannot report green
+through branch protection. `publish-main-snapshot` is intentionally not one of
+its dependencies because it is a publish lane, not a verification lane.
+
 ## Production release workflow
 
 The protected production workflow is `.github/workflows/android-release.yml`.
@@ -333,6 +356,8 @@ flowchart TD
   H[upload workflow artifacts]
   I[publish-production-release]
   J[versioned GitHub release]
+  V[verify-production-release<br/>emulator, main]
+  W[verify-published-artifacts<br/>main]
 
   A --> B --> E
   A --> C --> E
@@ -340,6 +365,10 @@ flowchart TD
   E --> F
   E --> G
   G --> H --> I --> J
+  B --> V
+  C --> V
+  E --> W
+  I --> W
 ```
 
 ### `build-production-release-bundle`
@@ -441,6 +470,24 @@ that do not live in the Gradle workflow itself:
 
 Configure the `production-release` environment with the branch restrictions,
 required reviewers, and the four release-signing secrets the workflow expects.
+
+### `verify-production-release`
+
+Runs on `main` under the `production-release` environment, in parallel with the
+build job (it needs only `resolve-release-inputs` and `resolve-upstream-core`).
+It rebuilds the release build type, signs it with a throwaway verification
+keystore generated in-job (never the production key), and exercises the release
+on an emulator, so a release-only regression is caught before the store handoff
+rather than after publication.
+
+### `verify-published-artifacts`
+
+Runs on `main` after `build-production-release-bundle`. It downloads the
+published release APK and AAB and verifies they match the recorded packaging
+evidence (signing mode, ABIs, version, checksums) via
+`scripts/android/verify_published_release_artifacts.sh`, so a mismatch between
+what was built and what was attached to the release fails the lane. This is the
+post-publish integrity gate that complements the SLSA provenance attestation.
 
 ## Reproducing or re-releasing a past build
 
