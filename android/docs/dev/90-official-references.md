@@ -55,8 +55,7 @@ flowchart TD
   `37.0.0`, and `compileSdk`/`targetSdk` `37` (Android 17 / API 37).
 - [Kotlin release process](https://kotlinlang.org/docs/releases.html):
   official JetBrains release page documenting the language, tooling, and bug-fix
-  cadence; the current page shows Kotlin `2.3.21` as the latest stable line in
-  Spring 2026.
+  cadence.
 - [Gradle 9.5.1 release notes](https://docs.gradle.org/9.5.1/release-notes.html):
   official Gradle release notes for the wrapper version now checked in.
 - [Improve the Performance of Gradle Builds](https://docs.gradle.org/current/userguide/performance.html):
@@ -91,13 +90,11 @@ flowchart TD
 
 - [Guide to app architecture](https://developer.android.com/topic/architecture):
   separation of concerns, state ownership, lifecycle boundaries, and
-  single-source-of-truth guidance. The current page was last updated
-  2026-04-14.
+  single-source-of-truth guidance.
 - [Threads and threading performance](https://developer.android.com/topic/performance/threads):
   main-thread budget, worker-thread ownership, and queue-based background-work
   guidance used for the deadline-driven core-thread design and the rule that the
-  keypad refresh path must keep long or numerous work off the main thread. The
-  current page was last updated 2024-01-03.
+  keypad refresh path must keep long or numerous work off the main thread.
 - [Choreographer.FrameCallback](https://developer.android.com/reference/android/view/Choreographer.FrameCallback):
   official frame-callback contract for `doFrame(...)`. The callback runs on the
   `Looper` thread attached to the `Choreographer` when a new display frame is
@@ -106,8 +103,7 @@ flowchart TD
 - [ANRs](https://developer.android.com/topic/performance/vitals/anr):
   official foreground input-dispatch timeout, main-thread lock-contention, and
   ANR trace guidance used when Android-specific hangs look like UI-thread
-  stalls rather than pure core-thread starvation. The current page was last
-  updated 2026-03-05.
+  stalls rather than pure core-thread starvation.
 - [Fundamentals of testing Android apps](https://developer.android.com/training/testing/fundamentals):
   official Android guidance for local versus instrumented tests, test scope,
   and dependency decoupling; use this when deciding whether a repo contract
@@ -115,8 +111,7 @@ flowchart TD
 - [Test your app's accessibility](https://developer.android.com/guide/topics/ui/accessibility/testing):
   official Android guidance for TalkBack, Switch Access, Accessibility
   Scanner, pre-launch accessibility reports, and other verification surfaces to
-  use when a UI change claims accessibility improvement. The current page was
-  last updated 2026-04-16.
+  use when a UI change claims accessibility improvement.
 - [Get a result from an activity](https://developer.android.com/training/basics/intents/result):
   Activity Result API registration and lifecycle contract for SAF launchers.
 - [ActivityResultCaller](https://developer.android.com/reference/androidx/activity/result/ActivityResultCaller):
@@ -126,8 +121,7 @@ flowchart TD
   Android-specific Kotlin guidance and tooling entry point.
 - [Adopt Kotlin for large teams](https://developer.android.com/kotlin/adopt-for-large-teams):
   official Android guidance for migration sequencing, shared conventions,
-  review policy, and tooling expectations in larger Android codebases. The
-  current page was last updated 2026-03-06.
+  review policy, and tooling expectations in larger Android codebases.
 - [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html):
   official file naming, formatting, immutability, and test-naming guidance for
   Kotlin maintainability.
@@ -184,7 +178,7 @@ Current repository icon surfaces:
   added, treat it as a separate experiment rather than as a replacement for
   host-core training or app benchmarking.
 - [Benchmark your app](https://developer.android.com/topic/performance/benchmarking/benchmarking-overview):
-  official Android benchmark map, updated 2026-05-19. Use Macrobenchmark for
+  official Android benchmark map. Use Macrobenchmark for
   out-of-process end-user flows such as startup, scrolling, and animations, and
   use Microbenchmark only for isolated hot functions or UI subroutines after a
   profiler or trace has already identified the bottleneck.
@@ -198,13 +192,13 @@ Current repository icon surfaces:
   analysis once a benchmark or workload points at a regression; it complements
   native-core PGO and Android benchmarking rather than replacing either one.
 - [Slow rendering](https://developer.android.com/topic/performance/vitals/render):
-  official Android jank and render-time guidance, updated 2026-05-19. Treat
+  official Android jank and render-time guidance. Treat
   16.67 ms as the 60 fps frame budget, validate jank on release-like builds,
   use Perfetto or Systrace for frame-level diagnosis, and keep field reporting
   separate for slow and frozen frames.
 - [Inspect GPU rendering](https://developer.android.com/topic/performance/rendering/inspect-gpu-rendering):
   official developer-option guidance for mapping on-screen frame bars to the
-  rendering pipeline, updated 2026-05-19. Use it as a fast local visualizer for
+  rendering pipeline. Use it as a fast local visualizer for
   input, layout, draw, upload, and GPU-wait pressure before deeper tracing.
 - [Configure the NDK for the Android Gradle plugin](https://developer.android.com/studio/projects/configure-agp-ndk):
   `ndkVersion` guidance for AGP-based projects, including the command-line
@@ -212,8 +206,7 @@ Current repository icon surfaces:
 - [JNI tips](https://developer.android.com/ndk/guides/jni-tips): explicit
   registration, thread attachment, reference management, exception rules, and
   the guidance to minimize marshalling and prefer region-style copy calls when
-  a simple copy contract is enough. The current page was last updated
-  2026-03-06.
+  a simple copy contract is enough.
 - [JNI performance article alias](https://developer.android.com/training/articles/perf-jni):
   stable alias that currently resolves to the maintained JNI guidance page;
   useful when historical Android notes still reference the older URL.
