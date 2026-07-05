@@ -47,13 +47,16 @@ detect_job_count() {
 count_androidtest_cases() {
     local results_dir="$1"
     local total=0 n
-    [ -d "$results_dir" ] || { printf '0\n'; return 0; }
+    [ -d "$results_dir" ] || {
+        printf '0\n'
+        return 0
+    }
     while IFS= read -r n; do
         [ -n "$n" ] && total=$((total + n))
     done < <(
-        find "$results_dir" -type f -name '*.xml' -print0 2>/dev/null \
-            | xargs -0 -r grep -hoE '<testsuite[^>]* tests="[0-9]+"' 2>/dev/null \
-            | grep -oE '[0-9]+'
+        find "$results_dir" -type f -name '*.xml' -print0 2>/dev/null |
+            xargs -0 -r grep -hoE '<testsuite[^>]* tests="[0-9]+"' 2>/dev/null |
+            grep -oE '[0-9]+'
     )
     printf '%s\n' "$total"
 }
