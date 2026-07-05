@@ -61,7 +61,7 @@ runs:
       shell: bash
       env:
         XLSXIO_PREFIX: ${{ inputs.prefix }}
-      run: |
+      run: | # zizmor: ignore[github-env] writes only the action-computed xlsxio prefix, not attacker input
         set -euo pipefail
 
         echo "${XLSXIO_PREFIX}/bin" >> "$GITHUB_PATH"

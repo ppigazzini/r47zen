@@ -14,7 +14,8 @@
 CI_CONTRACT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$CI_CONTRACT_LIB_DIR/../.." && pwd)"
 WORKFLOW_DIR="$PROJECT_ROOT/.github/workflows"
-export PROJECT_ROOT WORKFLOW_DIR
+SCRIPTS_DIR="$PROJECT_ROOT/scripts"
+export PROJECT_ROOT WORKFLOW_DIR SCRIPTS_DIR
 
 # grep -rnE across the workflow tree, dropping YAML comment lines so a directive
 # that only appears in a "# ..." comment never satisfies or violates a contract.
@@ -23,6 +24,23 @@ export PROJECT_ROOT WORKFLOW_DIR
 # returns grep's status (0 = at least one real match).
 workflow_grep() {
     grep -rnE -- "$1" "$WORKFLOW_DIR" 2>/dev/null |
+        grep -vE ':[0-9]+:[[:space:]]*#'
+}
+
+# grep -rnE across repo-owned shell scripts, dropping shell comment lines the
+# same comment-safe way as workflow_grep. The workflows invoke these scripts, so
+# a security guard that only scans workflow YAML misses an anti-pattern moved
+# into a script. EXCLUDE names lets a caller drop files that legitimately embed
+# the pattern (e.g. the guard that defines it). Prints "file:line:match".
+scripts_grep() {
+    local pattern="$1"
+    shift || true
+    local exclude_args=()
+    local name
+    for name in "$@"; do
+        exclude_args+=(--exclude="$name")
+    done
+    grep -rnE --include='*.sh' "${exclude_args[@]}" -- "$pattern" "$SCRIPTS_DIR" 2>/dev/null |
         grep -vE ':[0-9]+:[[:space:]]*#'
 }
 
