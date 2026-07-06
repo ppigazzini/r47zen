@@ -42,6 +42,12 @@ jobs:
           set -euo pipefail
           bash ./scripts/upstream-sync/test_resolver_policy.sh
 
+      - name: Run upstream fetch-retry test harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/upstream-sync/test_fetch_retry.sh
+
   linux-simulator:
     name: Build Linux simulator package
     needs:

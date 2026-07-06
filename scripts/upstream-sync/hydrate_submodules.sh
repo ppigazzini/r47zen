@@ -4,6 +4,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 
 fail() {
     echo "ERROR: $*" >&2
@@ -25,7 +27,8 @@ if ! git -C "$PROJECT_ROOT" cat-file -e "$upstream_commit^{commit}" 2>/dev/null;
         git -C "$PROJECT_ROOT" remote add "$hydrate_remote_name" "$upstream_url"
     fi
 
-    git -C "$PROJECT_ROOT" fetch --depth 1 "$hydrate_remote_name" "$upstream_commit"
+    retry_with_backoff "Fetch upstream core ${upstream_commit}" \
+        git -C "$PROJECT_ROOT" fetch --depth 1 "$hydrate_remote_name" "$upstream_commit"
     git -C "$PROJECT_ROOT" cat-file -e "$upstream_commit^{commit}" ||
         fail "Commit $upstream_commit could not be fetched from $upstream_url"
 fi
@@ -67,8 +70,10 @@ while IFS=$'\t' read -r submodule_commit submodule_path; do
 
     git -C "$target_path" init -q
     git -C "$target_path" remote add origin "$module_url"
-    if ! git -C "$target_path" fetch --depth 1 origin "$submodule_commit"; then
-        git -C "$target_path" fetch origin "$submodule_commit"
+    if ! retry_with_backoff "Fetch submodule ${module_name} (shallow)" \
+        git -C "$target_path" fetch --depth 1 origin "$submodule_commit"; then
+        retry_with_backoff "Fetch submodule ${module_name} (full)" \
+            git -C "$target_path" fetch origin "$submodule_commit"
     fi
     git -C "$target_path" checkout --detach "$submodule_commit" >/dev/null
 done <<<"$gitlinks"

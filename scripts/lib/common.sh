@@ -60,3 +60,62 @@ count_androidtest_cases() {
     )
     printf '%s\n' "$total"
 }
+
+# Run a command, retrying with backoff when it exits non-zero. Intended for
+# flaky upstream network operations (git ls-remote / git fetch) that fail
+# transiently mid-transfer -- e.g. "early EOF" / "fetch-pack: invalid index-pack
+# output" -- and otherwise abort a whole CI lane on a single dropped packet.
+#
+# Any non-zero exit is retried; git does not cleanly separate a transient
+# transport error from a genuinely missing ref, so a real failure simply costs
+# the full retry budget before surfacing the original error.
+#
+# Only the winning (or final) attempt's stdout is emitted -- a failed attempt's
+# partial stdout is discarded so a capturing caller (remote_line=$(...)) never
+# parses truncated ls-remote output. The command's stderr streams live for
+# progress; retry diagnostics also go to stderr.
+#
+# Configuration via environment (all optional):
+#   R47_NET_RETRY_ATTEMPTS  total attempts, default 3
+#   R47_NET_RETRY_DELAY     seconds slept before the first retry, default 3;
+#                           each subsequent retry doubles the delay
+#
+# Usage: retry_with_backoff <label> <command> [args...]
+retry_with_backoff() {
+    local label="$1"
+    shift
+
+    local attempts delay
+    if ! attempts=$(normalize_job_count "${R47_NET_RETRY_ATTEMPTS:-3}"); then
+        attempts=3
+    fi
+    case "${R47_NET_RETRY_DELAY:-3}" in
+        '' | *[!0-9]*) delay=3 ;;
+        *) delay="${R47_NET_RETRY_DELAY:-3}" ;;
+    esac
+
+    local attempt=1
+    local status=0
+    local out=""
+    while true; do
+        if out="$("$@")"; then
+            [ -n "$out" ] && printf '%s\n' "$out"
+            return 0
+        else
+            status=$?
+        fi
+
+        if [ "$attempt" -ge "$attempts" ]; then
+            [ -n "$out" ] && printf '%s\n' "$out"
+            printf '%s failed after %d attempt(s) (exit %d).\n' \
+                "$label" "$attempt" "$status" >&2
+            return "$status"
+        fi
+
+        printf '%s failed (exit %d); retrying in %ds (attempt %d/%d).\n' \
+            "$label" "$status" "$delay" "$((attempt + 1))" "$attempts" >&2
+        sleep "$delay"
+        attempt=$((attempt + 1))
+        delay=$((delay * 2))
+    done
+}

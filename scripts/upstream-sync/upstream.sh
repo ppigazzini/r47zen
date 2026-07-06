@@ -4,6 +4,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 # The config paths default to the repo root but may be redirected for the
 # resolver-policy test harness (scripts/upstream-sync/test_resolver_policy.sh),
 # which needs to drive synthetic upstream.source/upstream.lock files without
@@ -195,7 +197,8 @@ resolve_latest_commit() {
     local remote_line=""
     local upstream_commit=""
 
-    remote_line=$(git ls-remote "$upstream_url" "$upstream_ref" | head -n1)
+    remote_line=$(retry_with_backoff "Resolve ${upstream_ref} from ${upstream_url}" \
+        git ls-remote "$upstream_url" "$upstream_ref" | head -n1)
     [ -n "$remote_line" ] || fail "Failed to resolve ${upstream_ref} from ${upstream_url}"
 
     upstream_commit=$(printf '%s\n' "$remote_line" | awk '{print $1}')
@@ -447,7 +450,8 @@ sync_upstream() {
     ensure_remote "$RESOLVED_UPSTREAM_URL"
 
     echo "--- Fetching authoritative upstream core (${RESOLVED_UPSTREAM_MODE} @ ${RESOLVED_UPSTREAM_COMMIT}) ---"
-    git -C "$PROJECT_ROOT" fetch --depth 1 "$UPSTREAM_REMOTE_NAME" "$RESOLVED_UPSTREAM_COMMIT"
+    retry_with_backoff "Fetch upstream core ${RESOLVED_UPSTREAM_COMMIT}" \
+        git -C "$PROJECT_ROOT" fetch --depth 1 "$UPSTREAM_REMOTE_NAME" "$RESOLVED_UPSTREAM_COMMIT"
     git -C "$PROJECT_ROOT" cat-file -e "$RESOLVED_UPSTREAM_COMMIT^{commit}"
 
     echo "--- Overlaying upstream core from $RESOLVED_UPSTREAM_COMMIT ---"
