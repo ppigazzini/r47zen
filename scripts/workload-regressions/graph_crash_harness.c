@@ -31,9 +31,11 @@ extern void fnEqSolvGraph(uint16_t func);
 extern void convertDoubleToReal34Register(double value, calcRegister_t regist);
 
 // currentFormula, currentSolverVariable, graphVariabl1, currentSolverStatus,
-// calcMode, lastErrorCode, aimBuffer, tmpString, getNthString and
-// findOrAllocateNamedVariable are declared by the included core headers.
-extern float x_min, x_max, y_min, y_max;
+// calcMode, lastErrorCode, aimBuffer, tmpString, getNthString,
+// findOrAllocateNamedVariable and the graph window bounds x_min/x_max/y_min/
+// y_max (real_t *const decNumber pointers) are declared by the included core
+// headers. r47_graph_bound_from_float writes a float into such a bound.
+extern void r47_graph_bound_from_float(float value, real_t *dst);
 extern int8_t PLOT_ZMY;
 extern int32_t numberOfFreeMemoryRegions;
 
@@ -42,10 +44,10 @@ static void set_window(double lx, double ux, double ly, double uy) {
   convertDoubleToReal34Register(ux, RESERVED_VARIABLE_UX);
   convertDoubleToReal34Register(ly, RESERVED_VARIABLE_LY);
   convertDoubleToReal34Register(uy, RESERVED_VARIABLE_UY);
-  x_min = (float)lx;
-  x_max = (float)ux;
-  y_min = (float)ly;
-  y_max = (float)uy;
+  r47_graph_bound_from_float((float)lx, x_min);
+  r47_graph_bound_from_float((float)ux, x_max);
+  r47_graph_bound_from_float((float)ly, y_min);
+  r47_graph_bound_from_float((float)uy, y_max);
 }
 
 int main(void) {

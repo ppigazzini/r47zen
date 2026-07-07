@@ -192,6 +192,12 @@ bool r47_direct_stop_allowed(uint16_t runState);
 bool r47_apply_pending_stop_refresh_locked(void);
 bool r47_graph_touch_no_nan_stress_locked(int iterations);
 bool r47_sanitize_graph_bounds_locked(void);
+// Upstream promoted the graph window bounds (x_min/x_max/y_min/y_max) from
+// float globals to real_t *const decNumber pointers. These helpers bridge the
+// float-based touch and test math to the real API: read a bound into a float,
+// and write a float (including NaN/Inf) back into a bound.
+float r47_graph_bound_to_float(const real_t *value);
+void r47_graph_bound_from_float(float value, real_t *dst);
 void yieldToAndroidWithMs(int ms);
 void yieldToAndroid(void);
 int requestAndroidFile(int isSave, const char *defaultName, int fileType);

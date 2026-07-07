@@ -27,6 +27,30 @@ extern void fnEqSolvGraph(uint16_t func);
 extern void graph_reset(void);
 extern int8_t PLOT_ZMY;
 
+// Upstream promoted the graph window bounds from float globals to real_t *const
+// decNumber pointers, so the const pointers cannot be reassigned and their
+// targets are not plain floats. Keep the touch gesture math in float for
+// deterministic sensitivity tuning by reading each bound into a float here and
+// writing computed results back through the real API. fnRealToDouble already
+// maps special reals to NaN/+-Inf doubles, so isfinite() checks stay valid.
+float r47_graph_bound_to_float(const real_t *value) {
+  double d;
+  realToDouble(value, &d);
+  return (float)d;
+}
+
+void r47_graph_bound_from_float(float value, real_t *dst) {
+  char buff[64];
+  if (isnan(value)) {
+    stringToReal("NaN", dst, &ctxtReal39);
+  } else if (isinf(value)) {
+    stringToReal(value < 0.0f ? "-Inf" : "Inf", dst, &ctxtReal39);
+  } else {
+    snprintf(buff, sizeof(buff), "%.17g", (double)value);
+    stringToReal(buff, dst, &ctxtReal39);
+  }
+}
+
 static bool r47_graph_touch_supported_locked(void) {
   if (!ram || isCoreBlockingForIo || calcMode != CM_GRAPH) {
     return false;
@@ -69,54 +93,69 @@ static bool r47_reset_graph_locked(void) {
 }
 
 static void r47_sync_graph_bounds_reserved_vars_locked(void) {
+  double bound;
   copySourceRegisterToDestRegister(REGISTER_X, TEMP_REGISTER_1);
 
-  convertDoubleToReal34Register((double)x_min, REGISTER_X);
+  realToDouble(x_min, &bound);
+  convertDoubleToReal34Register(bound, REGISTER_X);
   copySourceRegisterToDestRegister(REGISTER_X, RESERVED_VARIABLE_LX);
 
-  convertDoubleToReal34Register((double)x_max, REGISTER_X);
+  realToDouble(x_max, &bound);
+  convertDoubleToReal34Register(bound, REGISTER_X);
   copySourceRegisterToDestRegister(REGISTER_X, RESERVED_VARIABLE_UX);
 
-  convertDoubleToReal34Register((double)y_min, REGISTER_X);
+  realToDouble(y_min, &bound);
+  convertDoubleToReal34Register(bound, REGISTER_X);
   copySourceRegisterToDestRegister(REGISTER_X, RESERVED_VARIABLE_LY);
 
-  convertDoubleToReal34Register((double)y_max, REGISTER_X);
+  realToDouble(y_max, &bound);
+  convertDoubleToReal34Register(bound, REGISTER_X);
   copySourceRegisterToDestRegister(REGISTER_X, RESERVED_VARIABLE_UY);
 
   copySourceRegisterToDestRegister(TEMP_REGISTER_1, REGISTER_X);
 }
 
 static void r47_reset_graph_bounds_defaults_locked(void) {
-  x_min = r47_graph_default_min;
-  x_max = r47_graph_default_max;
-  y_min = r47_graph_default_min;
-  y_max = r47_graph_default_max;
+  r47_graph_bound_from_float(r47_graph_default_min, x_min);
+  r47_graph_bound_from_float(r47_graph_default_max, x_max);
+  r47_graph_bound_from_float(r47_graph_default_min, y_min);
+  r47_graph_bound_from_float(r47_graph_default_max, y_max);
 }
 
 bool r47_sanitize_graph_bounds_locked(void) {
   bool changed = false;
+  float lx = r47_graph_bound_to_float(x_min);
+  float ux = r47_graph_bound_to_float(x_max);
+  float ly = r47_graph_bound_to_float(y_min);
+  float uy = r47_graph_bound_to_float(y_max);
 
-  if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
-      !isfinite(y_max) || fabsf(x_max - x_min) < 1.0e-6f ||
-      fabsf(y_max - y_min) < 1.0e-6f ||
-      x_min <= -r47_graph_bounds_limit || x_min >= r47_graph_bounds_limit ||
-      x_max <= -r47_graph_bounds_limit || x_max >= r47_graph_bounds_limit ||
-      y_min <= -r47_graph_bounds_limit || y_min >= r47_graph_bounds_limit ||
-      y_max <= -r47_graph_bounds_limit || y_max >= r47_graph_bounds_limit) {
+  if (!isfinite(lx) || !isfinite(ux) || !isfinite(ly) ||
+      !isfinite(uy) || fabsf(ux - lx) < 1.0e-6f ||
+      fabsf(uy - ly) < 1.0e-6f ||
+      lx <= -r47_graph_bounds_limit || lx >= r47_graph_bounds_limit ||
+      ux <= -r47_graph_bounds_limit || ux >= r47_graph_bounds_limit ||
+      ly <= -r47_graph_bounds_limit || ly >= r47_graph_bounds_limit ||
+      uy <= -r47_graph_bounds_limit || uy >= r47_graph_bounds_limit) {
     r47_reset_graph_bounds_defaults_locked();
     changed = true;
   } else {
-    if (x_min > x_max) {
-      const float swapped = x_min;
-      x_min = x_max;
-      x_max = swapped;
+    if (lx > ux) {
+      const float swapped = lx;
+      lx = ux;
+      ux = swapped;
       changed = true;
     }
-    if (y_min > y_max) {
-      const float swapped = y_min;
-      y_min = y_max;
-      y_max = swapped;
+    if (ly > uy) {
+      const float swapped = ly;
+      ly = uy;
+      uy = swapped;
       changed = true;
+    }
+    if (changed) {
+      r47_graph_bound_from_float(lx, x_min);
+      r47_graph_bound_from_float(ux, x_max);
+      r47_graph_bound_from_float(ly, y_min);
+      r47_graph_bound_from_float(uy, y_max);
     }
   }
 
@@ -146,8 +185,13 @@ static bool r47_pan_update_bounds_locked(float dxNorm, float dyNorm) {
     return false;
   }
 
-  const float spanX = x_max - x_min;
-  const float spanY = y_max - y_min;
+  const float curXMin = r47_graph_bound_to_float(x_min);
+  const float curXMax = r47_graph_bound_to_float(x_max);
+  const float curYMin = r47_graph_bound_to_float(y_min);
+  const float curYMax = r47_graph_bound_to_float(y_max);
+
+  const float spanX = curXMax - curXMin;
+  const float spanY = curYMax - curYMin;
   if (!isfinite(spanX) || !isfinite(spanY) || fabsf(spanX) < 1.0e-6f ||
       fabsf(spanY) < 1.0e-6f) {
     return false;
@@ -160,18 +204,18 @@ static bool r47_pan_update_bounds_locked(float dxNorm, float dyNorm) {
     return false;
   }
 
-  const float nextXMin = x_min + shiftX;
-  const float nextXMax = x_max + shiftX;
-  const float nextYMin = y_min + shiftY;
-  const float nextYMax = y_max + shiftY;
+  const float nextXMin = curXMin + shiftX;
+  const float nextXMax = curXMax + shiftX;
+  const float nextYMin = curYMin + shiftY;
+  const float nextYMax = curYMax + shiftY;
   if (!r47_graph_bounds_in_range(nextXMin, nextXMax, nextYMin, nextYMax)) {
     return false;
   }
 
-  x_min = nextXMin;
-  x_max = nextXMax;
-  y_min = nextYMin;
-  y_max = nextYMax;
+  r47_graph_bound_from_float(nextXMin, x_min);
+  r47_graph_bound_from_float(nextXMax, x_max);
+  r47_graph_bound_from_float(nextYMin, y_min);
+  r47_graph_bound_from_float(nextYMax, y_max);
   return true;
 }
 
@@ -192,15 +236,20 @@ static bool r47_zoom_update_bounds_locked(float scaleFactor) {
     return false;
   }
 
-  const float spanX = x_max - x_min;
-  const float spanY = y_max - y_min;
+  const float curXMin = r47_graph_bound_to_float(x_min);
+  const float curXMax = r47_graph_bound_to_float(x_max);
+  const float curYMin = r47_graph_bound_to_float(y_min);
+  const float curYMax = r47_graph_bound_to_float(y_max);
+
+  const float spanX = curXMax - curXMin;
+  const float spanY = curYMax - curYMin;
   if (!isfinite(spanX) || !isfinite(spanY) || fabsf(spanX) < 1.0e-6f ||
       fabsf(spanY) < 1.0e-6f) {
     return false;
   }
 
-  const float centerX = 0.5f * (x_min + x_max);
-  const float centerY = 0.5f * (y_min + y_max);
+  const float centerX = 0.5f * (curXMin + curXMax);
+  const float centerY = 0.5f * (curYMin + curYMax);
   const float newSpanX = spanX / adjustedScale;
   const float newSpanY = spanY / adjustedScale;
   if (!isfinite(centerX) || !isfinite(centerY) || !isfinite(newSpanX) ||
@@ -216,10 +265,10 @@ static bool r47_zoom_update_bounds_locked(float scaleFactor) {
     return false;
   }
 
-  x_min = nextXMin;
-  x_max = nextXMax;
-  y_min = nextYMin;
-  y_max = nextYMax;
+  r47_graph_bound_from_float(nextXMin, x_min);
+  r47_graph_bound_from_float(nextXMax, x_max);
+  r47_graph_bound_from_float(nextYMin, y_min);
+  r47_graph_bound_from_float(nextYMax, y_max);
   return true;
 }
 
@@ -276,16 +325,16 @@ bool r47_graph_touch_no_nan_stress_locked(int iterations) {
     return false;
   }
 
-  const float savedXMin = x_min;
-  const float savedXMax = x_max;
-  const float savedYMin = y_min;
-  const float savedYMax = y_max;
+  const float savedXMin = r47_graph_bound_to_float(x_min);
+  const float savedXMax = r47_graph_bound_to_float(x_max);
+  const float savedYMin = r47_graph_bound_to_float(y_min);
+  const float savedYMax = r47_graph_bound_to_float(y_max);
   const int8_t savedCalcMode = calcMode;
   const int16_t savedMenu = currentMenu();
 
-  if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
-      !isfinite(y_max) || fabsf(x_max - x_min) < 1.0e-6f ||
-      fabsf(y_max - y_min) < 1.0e-6f) {
+  if (!isfinite(savedXMin) || !isfinite(savedXMax) || !isfinite(savedYMin) ||
+      !isfinite(savedYMax) || fabsf(savedXMax - savedXMin) < 1.0e-6f ||
+      fabsf(savedYMax - savedYMin) < 1.0e-6f) {
     r47_reset_graph_bounds_defaults_locked();
   }
 
@@ -297,35 +346,41 @@ bool r47_graph_touch_no_nan_stress_locked(int iterations) {
   for (int i = 0; i < iterations; i++) {
     const float extremePan = (i & 1) == 0 ? 1.0e20f : -1.0e20f;
     const float extremeScale = (i & 1) == 0 ? 1.0e20f : 1.0e-20f;
-    const float beforeXMin = x_min;
-    const float beforeXMax = x_max;
-    const float beforeYMin = y_min;
-    const float beforeYMax = y_max;
+    const float beforeXMin = r47_graph_bound_to_float(x_min);
+    const float beforeXMax = r47_graph_bound_to_float(x_max);
+    const float beforeYMin = r47_graph_bound_to_float(y_min);
+    const float beforeYMax = r47_graph_bound_to_float(y_max);
 
     bool panApplied = r47_apply_graph_pan_locked(extremePan, -extremePan);
     bool pinchApplied = r47_apply_graph_pinch_zoom_locked(extremeScale);
 
-    if (panApplied || pinchApplied || x_min != beforeXMin || x_max != beforeXMax ||
-        y_min != beforeYMin || y_max != beforeYMax) {
+    const float afterXMin = r47_graph_bound_to_float(x_min);
+    const float afterXMax = r47_graph_bound_to_float(x_max);
+    const float afterYMin = r47_graph_bound_to_float(y_min);
+    const float afterYMax = r47_graph_bound_to_float(y_max);
+
+    if (panApplied || pinchApplied || afterXMin != beforeXMin ||
+        afterXMax != beforeXMax || afterYMin != beforeYMin ||
+        afterYMax != beforeYMax) {
       ok = false;
       break;
     }
 
-    if (!isfinite(x_min) || !isfinite(x_max) || !isfinite(y_min) ||
-        !isfinite(y_max) || x_min <= -r47_graph_bounds_limit ||
-        x_min >= r47_graph_bounds_limit || x_max <= -r47_graph_bounds_limit ||
-        x_max >= r47_graph_bounds_limit || y_min <= -r47_graph_bounds_limit ||
-        y_min >= r47_graph_bounds_limit || y_max <= -r47_graph_bounds_limit ||
-        y_max >= r47_graph_bounds_limit) {
+    if (!isfinite(afterXMin) || !isfinite(afterXMax) || !isfinite(afterYMin) ||
+        !isfinite(afterYMax) || afterXMin <= -r47_graph_bounds_limit ||
+        afterXMin >= r47_graph_bounds_limit || afterXMax <= -r47_graph_bounds_limit ||
+        afterXMax >= r47_graph_bounds_limit || afterYMin <= -r47_graph_bounds_limit ||
+        afterYMin >= r47_graph_bounds_limit || afterYMax <= -r47_graph_bounds_limit ||
+        afterYMax >= r47_graph_bounds_limit) {
       ok = false;
       break;
     }
   }
 
-  x_min = savedXMin;
-  x_max = savedXMax;
-  y_min = savedYMin;
-  y_max = savedYMax;
+  r47_graph_bound_from_float(savedXMin, x_min);
+  r47_graph_bound_from_float(savedXMax, x_max);
+  r47_graph_bound_from_float(savedYMin, y_min);
+  r47_graph_bound_from_float(savedYMax, y_max);
   calcMode = savedCalcMode;
   if (savedMenu < 0) {
     showSoftmenu(savedMenu);

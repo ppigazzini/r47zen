@@ -370,24 +370,29 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_restoreSanitizesInvalidGr
 
   pthread_mutex_lock(&screenMutex);
 
-  const float savedXMin = x_min;
-  const float savedXMax = x_max;
-  const float savedYMin = y_min;
-  const float savedYMax = y_max;
+  const float savedXMin = r47_graph_bound_to_float(x_min);
+  const float savedXMax = r47_graph_bound_to_float(x_max);
+  const float savedYMin = r47_graph_bound_to_float(y_min);
+  const float savedYMax = r47_graph_bound_to_float(y_max);
 
-  x_min = NAN;
-  x_max = INFINITY;
-  y_min = 4.0f;
-  y_max = 4.0f;
+  r47_graph_bound_from_float(NAN, x_min);
+  r47_graph_bound_from_float(INFINITY, x_max);
+  r47_graph_bound_from_float(4.0f, y_min);
+  r47_graph_bound_from_float(4.0f, y_max);
 
   bool changed = r47_sanitize_graph_bounds_locked();
-  bool ok = changed && isfinite(x_min) && isfinite(x_max) && isfinite(y_min) &&
-            isfinite(y_max) && x_min < x_max && y_min < y_max;
+  const float sanXMin = r47_graph_bound_to_float(x_min);
+  const float sanXMax = r47_graph_bound_to_float(x_max);
+  const float sanYMin = r47_graph_bound_to_float(y_min);
+  const float sanYMax = r47_graph_bound_to_float(y_max);
+  bool ok = changed && isfinite(sanXMin) && isfinite(sanXMax) &&
+            isfinite(sanYMin) && isfinite(sanYMax) && sanXMin < sanXMax &&
+            sanYMin < sanYMax;
 
-  x_min = savedXMin;
-  x_max = savedXMax;
-  y_min = savedYMin;
-  y_max = savedYMax;
+  r47_graph_bound_from_float(savedXMin, x_min);
+  r47_graph_bound_from_float(savedXMax, x_max);
+  r47_graph_bound_from_float(savedYMin, y_min);
+  r47_graph_bound_from_float(savedYMax, y_max);
   r47_sanitize_graph_bounds_locked();
 
   pthread_mutex_unlock(&screenMutex);
