@@ -648,10 +648,11 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // run after sustained activity, so there is no completed state to assert --
      // neither an X-register sequence nor a final-image hash. This fixture proves
      // the bounded-interrupt path stays responsive (it stops on request without
-     // hanging), not that it computes a particular result. Only NQueens carries
-     // a numeric value oracle; SPIRALk runs to completion but is liveness-only
-     // too (its final image is not reproducible across machines, see below), so
-     // MANSLV2 and SPIRALk are both known result-coverage gaps.
+     // hanging), not that it computes a particular result. NQueens and SPIRALk
+     // both carry numeric value oracles (SPIRALk's final X is reproducible across
+     // machines even though its plot image is not, see below); MANSLV2 is the
+     // remaining known result-coverage gap because its direct-stop interrupt
+     // leaves no completed state to assert.
      .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
      .stop_after_activity_ms = 3000u},
     {.program_name = "NQueens.p47",
@@ -674,13 +675,18 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = seed_spiralk_runtime_registers,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
-     // Run to completion (no direct-stop race), but liveness-only: its final
-     // image is stable on a single host yet NOT reproducible across machines. It
-     // pauses and is resumed by key, and the number of points plotted before it
-     // finishes depends on the pause/resume interleaving, which differs between
-     // the dev host and the CI runner. A pinned hash (0x8cfc1f2910613f3c locally)
-     // failed CI with 0xeae799e2c2ad6d93. Unlike BinetV3/GudrmPL, whose completed
-     // image matches across environments, SPIRALk cannot carry a display oracle.
+     // Runs to completion and leaves a deterministic long-integer result in X.
+     // The final X (150) is reproducible across environments -- verified equal on
+     // the dev host and on the CI runner (twice) -- so it now carries a value
+     // oracle, upgrading SPIRALk from liveness-only. Its final plot IMAGE stays
+     // un-oracled because it is NOT reproducible across machines: the number of
+     // points plotted before it finishes depends on the pause/resume interleaving
+     // (a pinned hash 0x8cfc1f2910613f3c locally failed CI with
+     // 0xeae799e2c2ad6d93), so expected_display_hash stays 0 while the X result
+     // gates the computed value. extract_int_sequence reads 150 from the
+     // "longint:150" register string.
+     .expected_x_sequence = (const int[]){150},
+     .expected_x_sequence_len = 1,
      .expected_display_hash = 0u},
 };
 
