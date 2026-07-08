@@ -27,6 +27,7 @@ TEST_MODULES=(
     r47_contracts.test_live_stop_key_policy_contract
     r47_contracts.test_lcd_packed_row_contract
     r47_contracts.test_keypad_snapshot_wire_contract
+    r47_contracts.test_jni_registration_contract
 )
 
 cd "$PROJECT_ROOT"
