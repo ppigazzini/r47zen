@@ -31,6 +31,7 @@ _FIXTURE_MANIFEST: Final = KEYPAD_FIXTURES_ROOT / "manifest.json"
 
 _NATIVE_PREFIX: Final = "R47_KEYPAD_"
 _ENUM_ENTRY: Final = re.compile(r"R47_KEYPAD_(?P<name>\w+)\s*=\s*(?P<expr>[^,}]+)")
+_KOTLIN_CONST: Final = re.compile(r"const val (?P<name>\w+)\s*=\s*(?P<expr>.+)")
 _LABEL_SLOT_NAMES: Final = (
     "LABEL_PRIMARY",
     "LABEL_F",
@@ -74,6 +75,35 @@ def _kotlin_int(name: str) -> int:
 def _manifest() -> dict[str, object]:
     """Load the exported keypad fixture manifest."""
     return json.loads(_FIXTURE_MANIFEST.read_text(encoding="utf-8"))
+
+
+def _kotlin_offset_constants() -> dict[str, int]:
+    """Resolve the additively-defined Kotlin const vals in snapshot file order.
+
+    Only integer literals and sums of already-resolved names are evaluated, so
+    bit-shift expressions (the SCENE_FLAG_* flags) are skipped rather than
+    parsed. This yields the KEY_COUNT-derived META_* lane offsets without the
+    `shl` handling the shared const parser lacks.
+    """
+    values: dict[str, int] = {}
+    for line in _KOTLIN_SNAPSHOT.read_text(encoding="utf-8").splitlines():
+        match = _KOTLIN_CONST.search(line)
+        if match is None:
+            continue
+        total = 0
+        resolved = True
+        for term in match.group("expr").split("+"):
+            token = term.strip()
+            if token.isdigit():
+                total += int(token)
+            elif token in values:
+                total += values[token]
+            else:
+                resolved = False
+                break
+        if resolved:
+            values[match.group("name")] = total
+    return values
 
 
 class KeypadSnapshotWireContractTest(unittest.TestCase):
@@ -136,6 +166,23 @@ class KeypadSnapshotWireContractTest(unittest.TestCase):
             message = (
                 f"keypad META_LENGTH drift: native={native} manifest={manifest}"
             )
+            raise AssertionError(message)
+
+    def test_meta_lane_offsets_match_native(self) -> None:
+        """Every META_* lane offset must share its index in native and Kotlin."""
+        native = _native_constants()
+        kotlin = _kotlin_offset_constants()
+        meta_names = sorted(name for name in native if name.startswith("META_"))
+        if not meta_names:
+            message = "no META_* offsets parsed from the native enum"
+            raise AssertionError(message)
+        mismatches = {
+            name: (native[name], kotlin.get(name))
+            for name in meta_names
+            if native[name] != kotlin.get(name)
+        }
+        if mismatches:
+            message = f"keypad meta lane offset drift (native, kotlin): {mismatches}"
             raise AssertionError(message)
 
 
