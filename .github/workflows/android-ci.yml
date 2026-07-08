@@ -492,6 +492,31 @@ jobs:
             --validate-release-pgo \
             2>&1 | tee ci-artifacts/logs/build-android.log
 
+      - name: Verify native library hardening
+        # Advisory: assert the packaged arm64 library keeps its exploit-mitigation
+        # posture (BTI/PAC, full RELRO, non-executable stack, no RWX segment, no
+        # text relocations). Non-blocking until it has run green across a few
+        # builds; the script itself exits non-zero so it can gate locally and be
+        # promoted here later.
+        continue-on-error: true
+        shell: bash
+        env:
+          R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
+        run: |
+          set -euo pipefail
+          READELF="$ANDROID_SDK_ROOT/ndk/$R47_NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          export READELF
+          mapfile -t libs < <(find android/app/build -name libr47zen.so -path '*arm64-v8a*' | sort -u)
+          if [[ "${#libs[@]}" -eq 0 ]]; then
+            echo "No arm64-v8a libr47zen.so found to check" >&2
+            exit 1
+          fi
+          status=0
+          for lib in "${libs[@]}"; do
+            bash scripts/security/check_native_hardening.sh "$lib" || status=1
+          done
+          exit "$status"
+
       - name: Run Android lint
         shell: bash
         run: |
