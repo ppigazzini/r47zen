@@ -24,6 +24,14 @@ HOST_WORKLOAD_FIXTURE_TIMEOUT_SIGNAL="${HOST_WORKLOAD_FIXTURE_TIMEOUT_SIGNAL:-TE
 # leaves it false so the oracle still gates. Compile and setup failures stay
 # fatal regardless -- this only affects a fixture's own runtime exit.
 HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE="${HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE:-false}"
+# Narrower than the flag above: when true, only an OUTER wall-clock timeout
+# (exit 124/137) is recorded as degraded coverage instead of failing the run; a
+# fixture that runs to a wrong result (oracle mismatch) or crashes (e.g. an ASan
+# abort, exit 134) still fails. The sanitized lane sets this so SPIRALk -- which
+# is pathologically slow under AddressSanitizer and is expected to hit the outer
+# bound -- degrades to coverage while a real sanitizer fault still gates. The
+# plain correctness lane leaves it false so a genuine hang still fails.
+HOST_WORKLOAD_TOLERATE_TIMEOUT="${HOST_WORKLOAD_TOLERATE_TIMEOUT:-false}"
 REQUIRED_PROGRAM_FIXTURE_SPECS=(
     "BinetV3.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
     "GudrmPL.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
@@ -126,9 +134,12 @@ run_host_workload_fixture() {
             # tolerated. 124/137 is different: the OUTER timeout had to kill a
             # process that hung past the harness's own deadline (e.g. in
             # r47_init_runtime / fnLoadProgram before the deadline loop). The PGO
-            # training lane tolerates that as degraded coverage; the correctness
-            # lane must fail on it, so honor the tolerate flag here too.
-            if [[ "$HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE" == "true" ]]; then
+            # training lane and the sanitized lane tolerate that as degraded
+            # coverage (the latter for SPIRALk's expected ASan slowness); the
+            # plain correctness lane must fail on it. Honor either the broad
+            # tolerate flag or the timeout-only flag here.
+            if [[ "$HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE" == "true" ||
+                "$HOST_WORKLOAD_TOLERATE_TIMEOUT" == "true" ]]; then
                 return 0
             fi
             return "$status"
