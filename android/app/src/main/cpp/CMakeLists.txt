@@ -161,6 +161,19 @@ foreach(R47_ANDROID_LTO_CONFIG IN ITEMS Release RelWithDebInfo)
     endif()
 endforeach()
 
+# Hardware-assisted branch protection for arm64: AArch64 BTI landing pads plus
+# PAC return-address signing (-mbranch-protection=standard). Scoped to
+# arm64-v8a because -mbranch-protection is an AArch64-only option that the
+# compiler rejects on the other packaged ABIs. It applies to every object in
+# the shared library, including the upstream core, and capable devices enforce
+# BTI through the aggregated GNU property note. The mitigation is ABI-neutral
+# and adds negligible overhead, so it stays on for every configuration rather
+# than only the shipping ones.
+if(ANDROID_ABI STREQUAL "arm64-v8a")
+    target_compile_options(r47zen PRIVATE "-mbranch-protection=standard")
+    target_link_options(r47zen PRIVATE "-mbranch-protection=standard")
+endif()
+
 # Link libraries
 find_library(log-lib log)
 find_library(m-lib m)
