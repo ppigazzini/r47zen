@@ -44,7 +44,7 @@ internal class SlotSessionController(
                         slotStore.writeCurrentSlotId(id)
                         Toast.makeText(
                             appContext,
-                            "Switched to $targetName",
+                            appContext.getString(R.string.slot_switched, targetName),
                             Toast.LENGTH_SHORT,
                         ).show()
                     }
