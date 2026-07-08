@@ -619,8 +619,8 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // Verified run-to-run deterministic over repeated host runs (Annex A.10);
      // BinetV3 parks at its plot prompt leaving a stable final image. Re-pinned
      // for the upstream plot-rendering change: the numeric oracles (NQueens,
-     // SPIRALk, MANSLV2) and the other plotting fixture (GudrmPL) are unchanged,
-     // so only this plot image moved; the value tracks the current upstream HEAD
+     // SPIRALk, MANSLV2) and GudrmPL were unchanged at that re-pin, so only this
+     // plot image moved then; the value tracks the current upstream HEAD
      // (upstream reverted the 485b6709 render, so this hash returns to its
      // pre-485b6709 value).
      .expected_display_hash = 0x1ddff07951d1afb6ull},
@@ -632,8 +632,13 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
      // Verified run-to-run deterministic over repeated host runs (Annex A.10);
-     // GudrmPL runs the Gudermannian plot to natural completion.
-     .expected_display_hash = 0xf90d96489eaf1bfaull},
+     // GudrmPL runs the Gudermannian plot to natural completion. Re-pinned for
+     // the upstream real_t graph-bounds refactor (the window bounds x_min/x_max/
+     // y_min/y_max retyped from float to real_t *const), which shifted this plot
+     // image. The new hash reproduces identically on the dev host and the CI
+     // runner, and the other fixtures (BinetV3, NQueens, SPIRALk, MANSLV2) are
+     // unaffected, so only this plot image moved.
+     .expected_display_hash = 0x25b097461cc5a4feull},
     {.program_name = "MANSLV2.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 15000u,
