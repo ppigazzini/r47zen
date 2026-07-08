@@ -9,7 +9,6 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
 import android.util.TypedValue
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
@@ -181,15 +180,12 @@ class ReplicaOverlay @JvmOverloads constructor(
     private var settingsHintLayoutCache: SettingsHintLayoutCache? = null
 
     var onPiPKeyEvent: ((Int) -> Unit)? = null
-    var onLongPressListener: ((Float, Float) -> Unit)? = null
     var onLcdPanListener: ((Float, Float) -> Unit)? = null
     var onLcdPinchListener: ((Float) -> Unit)? = null
     var onLcdResetListener: (() -> Unit)? = null
-    var onSettingsTapListener: (() -> Unit)? = null
     var onSettingsDiscoveryCompleted: (() -> Unit)? = null
     var onGeometryLaidOut: (() -> Unit)? = null
 
-    private val gestureDetector: GestureDetector
     private val scaleGestureDetector: ScaleGestureDetector
     private val viewConfiguration: ViewConfiguration = ViewConfiguration.get(context)
     private val panTouchSlopPx: Float = viewConfiguration.scaledTouchSlop.toFloat()
@@ -231,12 +227,6 @@ class ReplicaOverlay @JvmOverloads constructor(
             val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
             lastPackedLcd[rowOffset + 1] = (R47LcdContract.PIXEL_HEIGHT - bufferRow - 1).toByte()
         }
-
-        gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onLongPress(e: MotionEvent) {
-                onLongPressListener?.invoke(e.x, e.y)
-            }
-        })
 
         scaleGestureDetector = ScaleGestureDetector(
             context,
@@ -638,7 +628,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         if (showSettingsDiscoveryHint && ev.actionMasked == MotionEvent.ACTION_DOWN) {
             completeSettingsDiscoveryHint()
         }
-        gestureDetector.onTouchEvent(ev)
 
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
@@ -665,8 +654,6 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        gestureDetector.onTouchEvent(event)
-
         if (isPiPMode) {
             val fKey = (event.x / width * 6).toInt() + 38
             if (event.action == MotionEvent.ACTION_DOWN) {
