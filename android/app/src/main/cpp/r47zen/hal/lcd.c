@@ -1,11 +1,10 @@
 #include "c47.h"
+#include "lcd.h"
 #include <jni.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <string.h>
 #include <stdlib.h>
-
-#define LCD_ROW_SIZE_BYTES 52u
 
 extern uint8_t *lcd_buffer;
 
