@@ -1,5 +1,6 @@
 #include "jni_bridge.h"
 
+#include "hal/lcd.h"
 #include "keyboard.h"
 
 #include <stdatomic.h>
@@ -1641,7 +1642,7 @@ Java_com_example_r47_MainActivity_getPackedDisplayBuffer(
     return JNI_FALSE;
   }
 
-  if ((*env)->GetArrayLength(env, buffer) < SCREEN_HEIGHT * 52) {
+  if ((*env)->GetArrayLength(env, buffer) < SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES) {
     return JNI_FALSE;
   }
 
@@ -1650,12 +1651,12 @@ Java_com_example_r47_MainActivity_getPackedDisplayBuffer(
   }
 
   jboolean copied = JNI_FALSE;
-  (*env)->SetByteArrayRegion(env, buffer, 0, SCREEN_HEIGHT * 52,
+  (*env)->SetByteArrayRegion(env, buffer, 0, SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES,
                              (jbyte *)packedDisplayBuffer);
   if (!jni_check_and_clear_exception(env,
                                      "SetByteArrayRegion(getPackedDisplayBuffer)")) {
     for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
-      packedDisplayBuffer[52 * row] = 0u;
+      packedDisplayBuffer[LCD_ROW_SIZE_BYTES * row] = 0u;
     }
     atomic_store_explicit(&lcdBufferDirty, false, memory_order_relaxed);
     copied = JNI_TRUE;
