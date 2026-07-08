@@ -18,6 +18,10 @@ from r47_contracts._repo_paths import ANDROID_CPP_ROOT, KOTLIN_R47ZEN_ROOT
 _JNI_REGISTRATION: Final = ANDROID_CPP_ROOT / "jni_registration.c"
 _MAIN_ACTIVITY: Final = KOTLIN_R47ZEN_ROOT / "MainActivity.kt"
 _NATIVE_METHOD: Final = re.compile(r'\{"(\w+)",\s*"\(')
+_NATIVE_BINDING: Final = re.compile(
+    r'\{"(?P<name>\w+)",\s*"[^"]+",\s*\(void \*\)'
+    r"Java_com_example_r47_MainActivity_(?P<impl>\w+)\}",
+)
 _KOTLIN_EXTERNAL_FUN: Final = re.compile(r"external fun (\w+)")
 
 
@@ -31,6 +35,15 @@ def _kotlin_external_functions() -> set[str]:
     """Return the `external fun` names declared in MainActivity."""
     text = _MAIN_ACTIVITY.read_text(encoding="utf-8")
     return set(_KOTLIN_EXTERNAL_FUN.findall(text))
+
+
+def _native_bindings() -> list[tuple[str, str]]:
+    """Return (registered name, implementation suffix) pairs from the table."""
+    text = _JNI_REGISTRATION.read_text(encoding="utf-8")
+    return [
+        (match.group("name"), match.group("impl"))
+        for match in _NATIVE_BINDING.finditer(text)
+    ]
 
 
 class JniRegistrationContractTest(unittest.TestCase):
@@ -52,6 +65,21 @@ class JniRegistrationContractTest(unittest.TestCase):
                 f"registered-only={sorted(native - kotlin)} "
                 f"external-only={sorted(kotlin - native)}"
             )
+            raise AssertionError(message)
+
+    def test_registered_names_bind_matching_implementations(self) -> None:
+        """Each entry must bind its name to the Java_..._<name> implementation."""
+        bindings = _native_bindings()
+        if len(bindings) != len(_native_registered_methods()):
+            message = (
+                "JNI binding parse mismatch: parsed "
+                f"{len(bindings)} bindings for "
+                f"{len(_native_registered_methods())} registered methods"
+            )
+            raise AssertionError(message)
+        mismatched = [(name, impl) for name, impl in bindings if name != impl]
+        if mismatched:
+            message = f"JNI methods bound to a mismatched implementation: {mismatched}"
             raise AssertionError(message)
 
 
