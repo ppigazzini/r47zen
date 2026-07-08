@@ -25,6 +25,7 @@ TEST_MODULES=(
     r47_contracts.test_keyboard_layout_contract
     r47_contracts.test_alpha_case_export_contract
     r47_contracts.test_live_stop_key_policy_contract
+    r47_contracts.test_lcd_packed_row_contract
 )
 
 cd "$PROJECT_ROOT"
