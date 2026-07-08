@@ -148,21 +148,20 @@ class StorageAccessCoordinatorTest {
     @Test
     fun handleResume_doesNotPromptWhenWorkDirectoryIsUnset() {
         val activity = buildActivity()
-        var pickerLaunchCount = 0
+        var launchCount = 0
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
             onNativeFileSelected = {},
             onNativeFileCancelled = {},
             readWorkDirectoryTreeUri = { null },
-            providedSaveIntentLauncher = {},
-            providedLoadIntentLauncher = {},
-            providedWorkDirectoryIntentLauncher = { pickerLaunchCount += 1 },
+            providedSaveIntentLauncher = { launchCount += 1 },
+            providedLoadIntentLauncher = { launchCount += 1 },
         )
 
         coordinator.handleResume()
 
-        assertEquals(0, pickerLaunchCount)
+        assertEquals(0, launchCount)
     }
 
     @Test

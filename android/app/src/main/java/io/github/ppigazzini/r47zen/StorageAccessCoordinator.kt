@@ -30,12 +30,8 @@ internal class StorageAccessCoordinator(
     private val isWorkDirectoryAccessible: (String?) -> Boolean = { treeUriString ->
         WorkDirectory.isAccessible(activity.contentResolver, treeUriString)
     },
-    private val persistSelectedWorkDirectory: (Uri) -> String = { uri ->
-        WorkDirectory.persistSelectedTreeUri(activity, uri)
-    },
     private val providedSaveIntentLauncher: ((Intent) -> Unit)? = null,
     private val providedLoadIntentLauncher: ((Intent) -> Unit)? = null,
-    private val providedWorkDirectoryIntentLauncher: ((Uri?) -> Unit)? = null,
 ) {
     companion object {
         private const val TAG = "R47StorageAccess"
@@ -44,8 +40,6 @@ internal class StorageAccessCoordinator(
     private var saveIntentLauncher: ((Intent) -> Unit)? = providedSaveIntentLauncher
 
     private var loadIntentLauncher: ((Intent) -> Unit)? = providedLoadIntentLauncher
-
-    private var workDirectoryIntentLauncher: ((Uri?) -> Unit)? = providedWorkDirectoryIntentLauncher
 
     fun registerLaunchers() {
         if (saveIntentLauncher == null) {
@@ -73,15 +67,6 @@ internal class StorageAccessCoordinator(
             }
             loadIntentLauncher = launcher::launch
         }
-
-        if (workDirectoryIntentLauncher == null) {
-            val launcher = activity.registerForActivityResult(
-                ActivityResultContracts.OpenDocumentTree()
-            ) { uri ->
-                deliverWorkDirectoryResult(uri)
-            }
-            workDirectoryIntentLauncher = launcher::launch
-        }
     }
 
     fun handleResume() {
@@ -107,18 +92,6 @@ internal class StorageAccessCoordinator(
         } catch (error: Exception) {
             Log.e(TAG, "Failed to launch SAF", error)
             onNativeFileCancelled()
-        }
-    }
-
-    fun requestWorkDirectory() {
-        val launcher = checkNotNull(workDirectoryIntentLauncher) {
-            "StorageAccessCoordinator.registerLaunchers() must be called before requesting the work directory."
-        }
-
-        try {
-            launcher(null)
-        } catch (error: Exception) {
-            Log.e(TAG, "Failed to launch work directory picker", error)
         }
     }
 
@@ -153,18 +126,6 @@ internal class StorageAccessCoordinator(
         } catch (error: Exception) {
             Log.e(TAG, "Failed to open selected SAF file", error)
             onNativeFileCancelled()
-        }
-    }
-
-    internal fun deliverWorkDirectoryResult(uri: Uri?) {
-        if (uri == null) {
-            return
-        }
-
-        try {
-            persistSelectedWorkDirectory(uri)
-        } catch (error: Exception) {
-            Log.e(TAG, "Failed to persist selected work directory", error)
         }
     }
 
