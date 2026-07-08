@@ -174,6 +174,15 @@ if(ANDROID_ABI STREQUAL "arm64-v8a")
     target_link_options(r47zen PRIVATE "-mbranch-protection=standard")
 endif()
 
+# Stack-clash protection: probe the stack per page as it grows so a large or
+# attacker-influenced allocation cannot jump the guard page into another mapping.
+# Scoped to the 64-bit ABIs because clang only implements the probe sequence for
+# aarch64 and x86_64 and rejects it on 32-bit arm. Active at every optimization
+# level, so it applies to every configuration.
+if(ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
+    target_compile_options(r47zen PRIVATE "-fstack-clash-protection")
+endif()
+
 # Link libraries
 find_library(log-lib log)
 find_library(m-lib m)
