@@ -323,7 +323,7 @@ Public maintainer entrypoints:
   the repo-owned `scripts/android/run_connected_android_tests.sh` wrapper,
   which runs the non-fixture instrumentation classes plus one filtered
   `ProgramFixtureInstrumentedTest` method per required `.p47` file. That keeps
-  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
   `SPIRALk.p47` in isolated `connectedDebugAndroidTest` selections under GNU
   `timeout --kill-after` so a hung fixture degrades coverage instead of
   wedging the whole emulator step. Inside each selection,
@@ -603,7 +603,7 @@ names, and release gating.
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
   current hosted gate now runs one grouped non-fixture selection plus one
   bounded `ProgramFixtureInstrumentedTest` selection that still covers
-  `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
   `SPIRALk.p47`. That grouped PROGRAMS selection must still observe run
   activity, stop cleanly through the direct-stop seam, and fail the Android
   lane if its outer timeout is hit. When the change touches background save,

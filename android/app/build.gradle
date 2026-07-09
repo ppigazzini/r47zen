@@ -38,7 +38,7 @@ def runtimeFontAssetNames = [
     'C47__TinyFont.ttf'
 ]
 def requestedProgramFixtureNames = [
-    'BinetV3.p47',
+    'BinetV4.p47',
     'GudrmPL.p47',
     'MANSLV2.p47',
     'NQueens.p47',

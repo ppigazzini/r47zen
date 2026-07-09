@@ -51,7 +51,7 @@ export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1:halt_on_error=0}"
 #     overrunning process and the inner lane records it as DEGRADED coverage
 #     (exit 124/137), not a failure.
 # This matters because the imported workloads split into two classes under
-# sanitizers: the arithmetic and stop-probe fixtures (BinetV3, GudrmPL, MANSLV2,
+# sanitizers: the arithmetic and stop-probe fixtures (BinetV4, GudrmPL, MANSLV2,
 # NQueens) finish in seconds and must complete, while SPIRALk -- a dense,
 # non-deterministic spiral plot -- is pathologically slow under AddressSanitizer's
 # per-access shadow checks on its tight pixel loop (it did not finish in six

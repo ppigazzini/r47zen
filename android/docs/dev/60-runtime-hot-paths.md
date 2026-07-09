@@ -281,7 +281,7 @@ program, a save or load operation, or a progress or pause loop.
   `forceRefresh()` snapshot.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path across the canonical host
-  workload set: the imported `.p47` fixtures `BinetV3.p47`, `GudrmPL.p47`,
+  workload set: the imported `.p47` fixtures `BinetV4.p47`, `GudrmPL.p47`,
   `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Each workload now runs in
   its own host process under the same outer timeout-and-kill safety net, while
   `MANSLV2` stays the maintained direct-stop-after-activity scenario inside

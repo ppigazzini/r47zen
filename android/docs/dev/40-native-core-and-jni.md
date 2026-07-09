@@ -224,7 +224,7 @@ supports that model by keeping shared synchronization in native code:
   core plus the Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, probes the
   wait or progress shims in `android_runtime.c`, then runs the canonical host
   workload set through the host-side Android compatibility path in isolated
-  host processes: the imported `.p47` fixtures `BinetV3.p47`, `GudrmPL.p47`,
+  host processes: the imported `.p47` fixtures `BinetV4.p47`, `GudrmPL.p47`,
   `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Every workload now runs
   under the same outer GNU `timeout --kill-after` safety net so a hung
   workload degrades coverage instead of wedging the host lane. Inside that

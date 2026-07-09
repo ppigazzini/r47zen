@@ -313,7 +313,7 @@ Important files include:
   them before refresh
 - `ProgramFixtureInstrumentedTest.kt`: stages canonical `PROGRAMS` fixtures and
   exposes one Android test method per required fixture so the hosted emulator
-  lane can batch `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`,
+  lane can batch `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`,
   and `SPIRALk.p47` inside the grouped `ProgramFixtureInstrumentation`
   selection while still reporting fixture-local progress through the
   instrumentation stream
@@ -405,7 +405,7 @@ Android compatibility layer.
 - `scripts/workload-regressions/run_workload_regressions.sh` builds the staged
   core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then runs the
   canonical host workload set through the host compatibility path: the
-  imported `.p47` fixtures `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
+  imported `.p47` fixtures `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
   `NQueens.p47`, and `SPIRALk.p47`. Every imported fixture now runs in its own
   host process under the same outer timeout-and-kill safety net, while
   `MANSLV2` remains the bounded direct-stop-after-activity probe inside that
@@ -421,7 +421,7 @@ Android compatibility layer.
   exits non-zero, which `run_workload_regressions.sh` propagates -- only bounded
   timeouts are downgraded to degraded coverage). The other fixtures stay
   liveness-only because their single-`R/S` parked state is degenerate
-  (`BinetV3`/`GudrmPL`), interrupted (`MANSLV2`), or non-deterministic
+  (`BinetV4`/`GudrmPL`), interrupted (`MANSLV2`), or non-deterministic
   (`SPIRALk` graph); a full multi-step result oracle for those is a follow-up
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
   contract. It does prove that the shared compatibility path can start the five

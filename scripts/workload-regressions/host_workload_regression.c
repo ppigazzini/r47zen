@@ -90,7 +90,7 @@ typedef struct {
   const int *expected_x_sequence;
   size_t expected_x_sequence_len;
   // Display-hash oracle for plotting fixtures: the FNV-1a hash of the final LCD
-  // bitmap (compute_display_hash). Plotting workloads (BinetV3, GudrmPL) leave a
+  // bitmap (compute_display_hash). Plotting workloads (BinetV4, GudrmPL) leave a
   // deterministic image, not a scalar in X, so this pins their result where the
   // X-register oracle cannot. 0 stays liveness-only. Only set for fixtures that
   // finish (not interrupted) and whose final image is run-to-run deterministic,
@@ -609,7 +609,7 @@ static workload_result_t run_program_fixture_workload(
 }
 
 static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
-    {.program_name = "BinetV3.p47",
+    {.program_name = "BinetV4.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
      .resume_pause_with_zero_key = false,
@@ -617,12 +617,11 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
      // Verified run-to-run deterministic over repeated host runs (Annex A.10);
-     // BinetV3 parks at its plot prompt leaving a stable final image. Re-pinned
-     // for the upstream plot-rendering change: the numeric oracles (NQueens,
-     // SPIRALk, MANSLV2) and GudrmPL were unchanged at that re-pin, so only this
-     // plot image moved then; the value tracks the current upstream HEAD
-     // (upstream reverted the 485b6709 render, so this hash returns to its
-     // pre-485b6709 value).
+     // BinetV4 parks at its plot prompt leaving a stable final image. Re-pinned
+     // for the upstream programmed-plot menu fix (a9ff33acf: fnPlotSQ blanks the
+     // menu with MNU_SHOW under a running plot) and the sample-program rework
+     // that renamed BinetV3 -> BinetV4 and drives PLSTAT explicitly. The hash
+     // tracks the current upstream HEAD.
      .expected_display_hash = 0x1ddff07951d1afb6ull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
@@ -633,12 +632,13 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_after_activity_ms = 0u,
      // Verified run-to-run deterministic over repeated host runs (Annex A.10);
      // GudrmPL runs the Gudermannian plot to natural completion. Re-pinned for
-     // the upstream real_t graph-bounds refactor (the window bounds x_min/x_max/
-     // y_min/y_max retyped from float to real_t *const), which shifted this plot
-     // image. The new hash reproduces identically on the dev host and the CI
-     // runner, and the other fixtures (BinetV3, NQueens, SPIRALk, MANSLV2) are
-     // unaffected, so only this plot image moved.
-     .expected_display_hash = 0x25b097461cc5a4feull},
+     // the upstream programmed-plot menu fix (a9ff33acf: fnPlotSQ pushes MNU_SHOW
+     // to blank the menu under a running plot instead of leaving a stale menu)
+     // together with the sample-program rework, which shifted this plot image.
+     // The new hash reproduces identically on the dev host and the CI runner, and
+     // the other fixtures (BinetV4, NQueens, SPIRALk, MANSLV2) are unaffected, so
+     // only this plot image moved.
+     .expected_display_hash = 0x70048cf89e72ea6bull},
     {.program_name = "MANSLV2.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 15000u,
