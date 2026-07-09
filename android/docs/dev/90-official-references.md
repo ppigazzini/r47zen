@@ -56,7 +56,7 @@ flowchart TD
 - [Kotlin release process](https://kotlinlang.org/docs/releases.html):
   official JetBrains release page documenting the language, tooling, and bug-fix
   cadence.
-- [Gradle 9.5.1 release notes](https://docs.gradle.org/9.5.1/release-notes.html):
+- [Gradle 9.6.1 release notes](https://docs.gradle.org/9.6.1/release-notes.html):
   official Gradle release notes for the wrapper version now checked in.
 - [Improve the Performance of Gradle Builds](https://docs.gradle.org/current/userguide/performance.html):
   official Gradle guidance for establishing a baseline, preferring

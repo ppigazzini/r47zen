@@ -124,7 +124,7 @@ hydrated on demand, or only exercised in CI before updating the docs.
   `arm64-v8a,x86_64`, and the pinned xlsxio URL plus commit.
 - settings-owned repositories via `android/settings.gradle`
 - version catalog `android/gradle/libs.versions.toml`, which owns the checked-in
-  AGP `9.2.0` plugin coordinate plus AndroidX and Material library versions.
+  AGP `9.2.1` plugin coordinate plus AndroidX and Material library versions.
 - Jetifier explicitly disabled in `android/gradle.properties`
 - base `namespace` and `applicationId` `io.github.ppigazzini.r47zen`
 - Android app, debug, release, JVM-test, and instrumentation-test sources live under
@@ -155,7 +155,7 @@ hydrated on demand, or only exercised in CI before updating the docs.
 - Review NDK and CMake pins when Android's AGP/NDK guidance or CMake release
   notes move, and rerun packaging checks before landing the update.
 - Kotlin is intentionally unpinned in `android/gradle/libs.versions.toml`: the
-  build rides the Kotlin compiler bundled with the pinned AGP line (AGP `9.2.0`)
+  build rides the Kotlin compiler bundled with the pinned AGP line (AGP `9.2.1`)
   rather than a standalone Kotlin plugin, so there is no `kotlin` catalog entry
   to drift against AGP. This avoids AGP/compiler skew, where an explicit Kotlin
   pin newer or older than the one AGP expects can break the build. Add a
