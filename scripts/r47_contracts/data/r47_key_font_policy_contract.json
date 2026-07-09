@@ -437,7 +437,7 @@
     "standard": {
       "asset_name": "C47__StandardFont.ttf",
       "font_path": "res/fonts/C47__StandardFont.ttf",
-      "unicode_codepoint_count": 712,
+      "unicode_codepoint_count": 714,
       "unicode_range_pairs": [
         [
           8,
@@ -973,7 +973,7 @@
         ],
         [
           9654,
-          9655
+          9657
         ],
         [
           9671,
