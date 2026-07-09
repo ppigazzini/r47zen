@@ -15,8 +15,8 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class ProgramFixtureInstrumentedTest {
     @Test
-    fun loadAndRunBinetV3ThroughAndroidRuntime() {
-        runRequestedProgramFixture("BinetV3.p47")
+    fun loadAndRunBinetV4ThroughAndroidRuntime() {
+        runRequestedProgramFixture("BinetV4.p47")
     }
 
     @Test
@@ -570,7 +570,7 @@ class ProgramFixtureInstrumentedTest {
         private const val FIXTURE_CLEANUP_TIMEOUT_MS = 5_000L
         private val REQUIRED_FIXTURE_SCENARIOS = listOf(
             ProgramFixtureScenario(
-                fileName = "BinetV3.p47",
+                fileName = "BinetV4.p47",
                 timeoutMs = RUN_TIMEOUT_MS,
                 pauseResumePolicy = PauseResumePolicy.NONE,
                 seedMode = SeedMode.NONE,

@@ -272,7 +272,7 @@ The hosted instrumentation lane currently relies on:
 
 - `ProgramFixtureInstrumentedTest` plus
   `scripts/android/run_connected_android_tests.sh` for the READP load-and-run
-  matrix over `BinetV3.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
+  matrix over `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
   `SPIRALk.p47`. The wrapper keeps full fixture coverage but reduces Gradle
   startup cost by batching the five non-fixture Android instrumentation
   classes into one filtered selection and the complete
