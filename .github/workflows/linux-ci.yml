@@ -48,10 +48,55 @@ jobs:
           set -euo pipefail
           bash ./scripts/upstream-sync/test_fetch_retry.sh
 
-  linux-simulator:
-    name: Build Linux simulator package
+  nightly-change-gate:
+    name: Decide whether the nightly rebuild should run
     needs:
       - resolve-upstream-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+    steps:
+      # Scheduled runs rebuild the upstream simulator every night even when the
+      # resolved upstream HEAD and the repo commit have not moved. A marker cache
+      # keyed on that pair records a fully-green build; if it is already present,
+      # the nightly rebuild is a no-op and is skipped. push/PR/dispatch always
+      # build (the gate only short-circuits `schedule`).
+      - name: Look up the nightly build marker
+        id: marker
+        if: github.event_name == 'schedule'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nightly-marker
+          key: linux-nightly-built-${{ needs.resolve-upstream-core.outputs.upstream_commit }}-${{ github.sha }}
+          lookup-only: true
+
+      - name: Decide
+        id: gate
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MARKER_HIT: ${{ steps.marker.outputs.cache-hit }}
+          UPSTREAM_SHORT: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "schedule" ]; then
+            echo "should_run=true" >>"$GITHUB_OUTPUT"
+            echo "Event $EVENT_NAME always builds." >&2
+          elif [ "$MARKER_HIT" = "true" ]; then
+            echo "should_run=false" >>"$GITHUB_OUTPUT"
+            echo "Upstream $UPSTREAM_SHORT with this repo commit was already built; skipping the nightly rebuild." >&2
+          else
+            echo "should_run=true" >>"$GITHUB_OUTPUT"
+            echo "New upstream/overlay combination; building." >&2
+          fi
+
+  linux-simulator:
+    name: Build Linux simulator package
+    if: needs.nightly-change-gate.outputs.should_run == 'true'
+    needs:
+      - resolve-upstream-core
+      - nightly-change-gate
     runs-on: ubuntu-latest
     timeout-minutes: 60
     outputs:
@@ -293,8 +338,10 @@ jobs:
 
   host-workload-regressions:
     name: Run host workload runtime regressions
+    if: needs.nightly-change-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
+      - nightly-change-gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -451,3 +498,30 @@ jobs:
             ci-artifacts/logs/clipboard-overflow-harness.log
           if-no-files-found: warn
           retention-days: 14
+
+  record-nightly-marker:
+    name: Record the nightly build marker
+    # Save the marker only after the whole lane passed, so a failing combination
+    # is retried tomorrow instead of being skipped. push also records it so the
+    # next nightly on the same resolved commit skips the rebuild.
+    if: (github.event_name == 'schedule' || github.event_name == 'push') && needs.nightly-change-gate.outputs.should_run == 'true'
+    needs:
+      - resolve-upstream-core
+      - nightly-change-gate
+      - linux-simulator
+      - host-workload-regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prepare marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .nightly-marker
+          printf 'built\n' >.nightly-marker/marker
+
+      - name: Save the nightly build marker
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nightly-marker
+          key: linux-nightly-built-${{ needs.resolve-upstream-core.outputs.upstream_commit }}-${{ github.sha }}
