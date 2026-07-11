@@ -200,7 +200,33 @@ jobs:
 
       - name: Install Linux build dependencies
         shell: bash
-        run: bash ./scripts/android/install_linux_build_deps.sh
+        run: bash ./scripts/android/install_linux_build_deps.sh ccache
+
+      - name: Restore compiler cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache-simsanity
+          key: ${{ runner.os }}-simsanity-ccache-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-simsanity-ccache-${{ github.ref_name }}-
+            ${{ runner.os }}-simsanity-ccache-
+
+      - name: Configure compiler cache
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ccache_dir="${RUNNER_TEMP}/ccache-simsanity"
+          mkdir -p "$ccache_dir"
+
+          {
+            echo "CCACHE_DIR=$ccache_dir"
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CCACHE_COMPILERCHECK=content"
+            echo "CCACHE_MAXSIZE=750M"
+          } >> "$GITHUB_ENV"
+
+          ccache --zero-stats
 
       - name: Set up Java 17
         uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
@@ -235,6 +261,11 @@ jobs:
           make \
             NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
             test
+
+      - name: Show compiler cache stats
+        if: always()
+        shell: bash
+        run: ccache --show-stats
 
   python-contracts:
     name: Run maintained Python contract suite
@@ -342,7 +373,33 @@ jobs:
 
       - name: Install Linux build dependencies
         shell: bash
-        run: bash ./scripts/android/install_linux_build_deps.sh
+        run: bash ./scripts/android/install_linux_build_deps.sh ccache
+
+      - name: Restore compiler cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache-buildpkg
+          key: ${{ runner.os }}-buildpkg-ccache-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildpkg-ccache-${{ github.ref_name }}-
+            ${{ runner.os }}-buildpkg-ccache-
+
+      - name: Configure compiler cache
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ccache_dir="${RUNNER_TEMP}/ccache-buildpkg"
+          mkdir -p "$ccache_dir"
+
+          {
+            echo "CCACHE_DIR=$ccache_dir"
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CCACHE_COMPILERCHECK=content"
+            echo "CCACHE_MAXSIZE=1500M"
+          } >> "$GITHUB_ENV"
+
+          ccache --zero-stats
 
       - name: Set up Java 17
         uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
@@ -491,6 +548,11 @@ jobs:
             --collect-host-pgo \
             --validate-release-pgo \
             2>&1 | tee ci-artifacts/logs/build-android.log
+
+      - name: Show compiler cache stats
+        if: always()
+        shell: bash
+        run: ccache --show-stats
 
       - name: Verify native library hardening
         # Advisory: assert the packaged arm64 library keeps its exploit-mitigation
