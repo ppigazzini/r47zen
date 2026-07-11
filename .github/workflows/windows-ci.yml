@@ -289,9 +289,11 @@ jobs:
   record-nightly-marker:
     name: Record the nightly build marker
     # Save the marker only after every matrix leg passed, so a failing
-    # combination is retried tomorrow instead of being skipped. push also records
-    # it so the next nightly on the same resolved commit skips the rebuild.
-    if: (github.event_name == 'schedule' || github.event_name == 'push') && needs.nightly-change-gate.outputs.should_run == 'true'
+    # combination is retried tomorrow instead of being skipped. Schedule-only on
+    # purpose: Actions caches are branch-scoped, so a marker saved by a push
+    # (github_ci scope) is invisible to the scheduled run (default-branch scope)
+    # and would never be read -- recording it on push would only waste a job.
+    if: github.event_name == 'schedule' && needs.nightly-change-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
       - nightly-change-gate
