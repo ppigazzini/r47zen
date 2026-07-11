@@ -22,10 +22,54 @@ jobs:
     with:
       mode: latest
 
-  windows-simulator:
-    name: Build Windows simulator (${{ matrix.label }})
+  nightly-change-gate:
+    name: Decide whether the nightly rebuild should run
     needs:
       - resolve-upstream-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+    steps:
+      # A marker cache keyed on the resolved upstream commit plus the repo commit
+      # records a green build; when it is already present a scheduled run is a
+      # no-op and is skipped. push always builds (the gate only short-circuits
+      # `schedule`).
+      - name: Look up the nightly build marker
+        id: marker
+        if: github.event_name == 'schedule'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nightly-marker
+          key: windows-nightly-built-${{ needs.resolve-upstream-core.outputs.upstream_commit }}-${{ github.sha }}
+          lookup-only: true
+
+      - name: Decide
+        id: gate
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MARKER_HIT: ${{ steps.marker.outputs.cache-hit }}
+          UPSTREAM_SHORT: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "schedule" ]; then
+            echo "should_run=true" >>"$GITHUB_OUTPUT"
+            echo "Event $EVENT_NAME always builds." >&2
+          elif [ "$MARKER_HIT" = "true" ]; then
+            echo "should_run=false" >>"$GITHUB_OUTPUT"
+            echo "Upstream $UPSTREAM_SHORT with this repo commit was already built; skipping the nightly rebuild." >&2
+          else
+            echo "should_run=true" >>"$GITHUB_OUTPUT"
+            echo "New upstream/overlay combination; building." >&2
+          fi
+
+  windows-simulator:
+    name: Build Windows simulator (${{ matrix.label }})
+    if: needs.nightly-change-gate.outputs.should_run == 'true'
+    needs:
+      - resolve-upstream-core
+      - nightly-change-gate
     runs-on: windows-latest
     timeout-minutes: 75
     strategy:
@@ -241,3 +285,29 @@ jobs:
           path: ci-artifacts/logs/build-windows-${{ matrix.artifact_suffix }}.log
           if-no-files-found: warn
           retention-days: 14
+
+  record-nightly-marker:
+    name: Record the nightly build marker
+    # Save the marker only after every matrix leg passed, so a failing
+    # combination is retried tomorrow instead of being skipped. push also records
+    # it so the next nightly on the same resolved commit skips the rebuild.
+    if: (github.event_name == 'schedule' || github.event_name == 'push') && needs.nightly-change-gate.outputs.should_run == 'true'
+    needs:
+      - resolve-upstream-core
+      - nightly-change-gate
+      - windows-simulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prepare marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .nightly-marker
+          printf 'built\n' >.nightly-marker/marker
+
+      - name: Save the nightly build marker
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nightly-marker
+          key: windows-nightly-built-${{ needs.resolve-upstream-core.outputs.upstream_commit }}-${{ github.sha }}
