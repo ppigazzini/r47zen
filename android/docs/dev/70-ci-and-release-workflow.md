@@ -102,6 +102,23 @@ upstream commit and applies a release gate:
     yields a new tag, which has no release yet, so the nightly run builds and
     tests the new artifact and surfaces any upstream regression
 
+### Dev pre-release retention
+
+Because a new `-dev` pre-release is minted for every new upstream/overlay
+pair, the set grows over time. GitHub has no native release or tag TTL, so
+`.github/workflows/prune-dev-releases.yml` enforces one. It runs on a daily
+schedule (after the nightly build lanes) and on manual dispatch, and deletes
+`-dev` pre-releases older than a TTL (default 7 days) while always retaining
+the newest few (default 3). It removes each deleted release's git tag with
+`gh release delete --cleanup-tag`, so no orphan tags remain.
+
+The filter matches only `isPrerelease` releases whose tag ends in `-dev`, so
+it can never touch a signed `*-signed` production release, and retaining the
+newest pre-releases preserves the recent tags that `upstream-release-gate`
+relies on as its rebuild-idempotency key. A `dry_run` dispatch input lists
+what would be deleted without deleting. The job uses only the first-party
+`gh` CLI and needs `contents: write`.
+
 Production signing does not run in `.github/workflows/android-ci.yml`.
 The separate protected workflow `.github/workflows/android-release.yml` owns
 the signed release lane for the installable APK, the Play upload AAB, and the
