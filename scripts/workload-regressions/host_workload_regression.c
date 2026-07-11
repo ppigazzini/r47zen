@@ -28,7 +28,8 @@ extern uint16_t numberOfPrograms;
 extern void runFunction(int16_t func);
 extern void reallyRunFunction(int16_t func, uint16_t param);
 extern void fnLoadProgram(uint16_t unusedButMandatoryParameter);
-extern calcRegister_t findNamedLabel(const char *labelName);
+extern int16_t dynamicMenuItem;
+extern calcRegister_t findNamedLabel(const char *labelName, uint8_t labelType);
 extern void reallocateRegister(calcRegister_t regist, uint32_t dataType,
                                uint16_t dataSizeWithoutDataLenBlocks,
                                uint32_t tag);
@@ -419,6 +420,13 @@ static workload_result_t run_program_fixture_workload(
     return WORKLOAD_RESULT_FAIL;
   }
 
+  // Every real dispatch path (keyboard, fnRunProgram) clears dynamicMenuItem
+  // before touching programs; the harness drives the core directly, so reset it
+  // here too. Otherwise fnLoadProgram's goToGlobalStep() takes the dynamic-menu
+  // label branch and early-returns without activating the loaded program, and
+  // R/S then runs nothing (currentLocalStepNumber stays 0).
+  dynamicMenuItem = -1;
+
   if (scenario->source == WORKLOAD_SOURCE_PROGRAM_FILE) {
     fnLoadProgram(NOPARAM);
     if (fail_last_error(scenario->program_name)) {
@@ -430,7 +438,9 @@ static workload_result_t run_program_fixture_workload(
       return WORKLOAD_RESULT_FAIL;
     }
   } else {
-    label = findNamedLabel(scenario->program_name);
+    // Upstream added a labelType selector to findNamedLabel; ALL_LABELS keeps
+    // the prior "search global and local" behavior for a built-in XEQ target.
+    label = findNamedLabel(scenario->program_name, ALL_LABELS);
     if (label == INVALID_VARIABLE) {
       fprintf(stderr, "ERROR: %s workload could not resolve built-in label\n",
               scenario->program_name);
