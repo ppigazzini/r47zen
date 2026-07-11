@@ -1,0 +1,113 @@
+name: Prune dev pre-releases
+
+# The nightly android-ci run publishes a `-dev` pre-release per resolved
+# (upstream, overlay) commit pair as a browsable snapshot and as the
+# rebuild-idempotency key (upstream-release-gate skips the build when the
+# release already exists). Left unmanaged the set grows ~1/day and buries the
+# signed `-signed` production releases. GitHub has no native release/tag TTL, so
+# this scheduled job enforces one: it deletes `-dev` pre-releases past the TTL
+# while always retaining the newest KEEP_MIN, and drops each deleted release's
+# git tag with `gh release delete --cleanup-tag`.
+#
+# Safety: the `isPrerelease` + `-dev` suffix filter cannot match a signed
+# production release (those are full releases named `*-signed`), and KEEP_MIN
+# preserves the recent tags the build gate depends on. Run with the dry_run
+# input first to preview.
+
+on:
+  schedule:
+    - cron: '40 4 * * *' # after the nightly linux/windows/android lanes (03:14-03:34)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: List what would be deleted without deleting
+        type: boolean
+        default: false
+      keep_min:
+        description: Always retain the newest N -dev pre-releases regardless of age
+        type: string
+        default: '3'
+      keep_days:
+        description: TTL in days; -dev pre-releases older than this are eligible for deletion
+        type: string
+        default: '7'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prune-dev-releases
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune aged -dev pre-releases and tags
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # delete releases and their git tags
+    steps:
+      - name: Delete aged -dev pre-releases and their tags
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          KEEP_MIN: ${{ github.event.inputs.keep_min || '3' }}
+          KEEP_DAYS: ${{ github.event.inputs.keep_days || '7' }}
+        run: |
+          set -euo pipefail
+
+          cutoff=$(date -u -d "-${KEEP_DAYS} days" +%s)
+
+          # Newest-first list of `-dev` pre-releases as "tag<TAB>createdAt".
+          # --limit is high so the oldest releases (the prune targets) are not
+          # silently truncated (the default is 30).
+          mapfile -t rows < <(
+            gh release list --repo "$GH_REPO" --limit 500 \
+              --json tagName,isPrerelease,createdAt \
+              --jq '[.[] | select(.isPrerelease and (.tagName | endswith("-dev")))]
+                    | sort_by(.createdAt) | reverse
+                    | .[] | "\(.tagName)\t\(.createdAt)"'
+          )
+
+          echo "Found ${#rows[@]} -dev pre-release(s); keep newest ${KEEP_MIN}, TTL ${KEEP_DAYS}d, dry_run=${DRY_RUN}."
+
+          kept=0
+          removed=0
+          idx=0
+          for row in "${rows[@]}"; do
+            idx=$((idx + 1))
+            tag="${row%%$'\t'*}"
+            created="${row#*$'\t'}"
+
+            # Unconditionally keep the newest KEEP_MIN (protects the build gate).
+            if [ "$idx" -le "$KEEP_MIN" ]; then
+              kept=$((kept + 1))
+              continue
+            fi
+
+            # Among the rest, keep anything still inside the TTL window.
+            if [ "$(date -u -d "$created" +%s)" -ge "$cutoff" ]; then
+              kept=$((kept + 1))
+              continue
+            fi
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "[dry-run] would delete $tag (created $created)"
+            else
+              echo "Deleting $tag (created $created)"
+              gh release delete "$tag" --repo "$GH_REPO" --cleanup-tag --yes
+            fi
+            removed=$((removed + 1))
+          done
+
+          verb=$([ "$DRY_RUN" = "true" ] && echo "would delete" || echo "deleted")
+          echo "Summary: kept=${kept}, ${verb}=${removed}."
+          {
+            echo "### Prune dev pre-releases"
+            echo ""
+            echo "- Filter: \`isPrerelease && tag endsWith '-dev'\`"
+            echo "- Keep newest: ${KEEP_MIN}; TTL: ${KEEP_DAYS} days; dry_run: ${DRY_RUN}"
+            echo "- Kept: ${kept}; ${verb}: ${removed}"
+          } >>"$GITHUB_STEP_SUMMARY"
