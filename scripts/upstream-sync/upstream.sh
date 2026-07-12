@@ -352,8 +352,12 @@ resolve_upstream() {
         shift
     done
 
-    [ -n "$upstream_url" ] || upstream_url="$(read_config_value upstream_url 2>/dev/null || true)"
-    [ -n "$upstream_ref" ] || upstream_ref="$(read_config_value upstream_ref 2>/dev/null || true)"
+    # upstream_url and upstream_ref come from the Git-tracked upstream.source, NOT
+    # the Git-ignored upstream.lock. The lock legitimately pins only a commit; if
+    # it also overrode the URL/ref, a provisioned dev machine would keep resolving
+    # against a stale URL after upstream.source changed, with no warning.
+    [ -n "$upstream_url" ] || upstream_url="$(read_file_value "$SOURCE_CONFIG_PATH" upstream_url 2>/dev/null || true)"
+    [ -n "$upstream_ref" ] || upstream_ref="$(read_file_value "$SOURCE_CONFIG_PATH" upstream_ref 2>/dev/null || true)"
 
     [ -n "$upstream_url" ] || upstream_url="$DEFAULT_UPSTREAM_URL"
     [ -n "$upstream_ref" ] || upstream_ref="$DEFAULT_UPSTREAM_REF"
@@ -391,6 +395,15 @@ resolve_upstream() {
     RESOLVED_UPSTREAM_URL="$upstream_url"
     RESOLVED_UPSTREAM_REF="$upstream_ref"
     RESOLVED_UPSTREAM_COMMIT="$upstream_commit"
+
+    # Surface a locked-pin resolution loudly (to stderr, so it does not corrupt
+    # the eval'd stdout). Every ordinary build resolves through here, so a dev
+    # machine that pinned a commit in upstream.lock and forgot no longer silently
+    # stops following the latest HEAD.
+    if [ "$RESOLVED_UPSTREAM_MODE" = "locked" ] &&
+        [ -n "$pinned_commit" ] && [ "$RESOLVED_UPSTREAM_COMMIT" = "$pinned_commit" ]; then
+        echo "NOTE: resolving upstream from the pinned commit ${RESOLVED_UPSTREAM_COMMIT} in ${LOCKFILE_PATH}. Delete upstream.lock (or run 'resolve --latest --write-lock') to resume following the latest ${RESOLVED_UPSTREAM_REF}." >&2
+    fi
 
     if [ "$write_lock" = "true" ]; then
         write_lockfile "$RESOLVED_UPSTREAM_URL" "$RESOLVED_UPSTREAM_REF" "$RESOLVED_UPSTREAM_COMMIT"
