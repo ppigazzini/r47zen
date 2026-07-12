@@ -98,6 +98,42 @@ fail() {
     exit 1
 }
 
+# Score a mutant from the JUnit results XML, not the raw Gradle exit code.
+# Gradle exits non-zero both when a test FAILS (the real kill signal) and when
+# "No tests found for given includes" or a daemon/lock error occurs -- the
+# latter would miscount a renamed/deleted test class as a phantom kill forever.
+# Prints exactly one of KILLED / SURVIVED / NOTESTS on stdout; a missing results
+# file is a hard error (the mutant could not be scored).
+score_mutant() {
+    local test_class="$1"
+    local results_dir="$ANDROID_DIR/app/build/test-results/testReleaseUnitTest"
+    local results_file="$results_dir/TEST-${test_class}.xml"
+
+    rm -f "$results_file"
+    # Ignore Gradle's exit code on purpose: the verdict comes from the XML below.
+    (cd "$ANDROID_DIR" && ./gradlew :app:testReleaseUnitTest \
+        --tests "$test_class" \
+        --console=plain -Pr47.testBuildType=release >/dev/null 2>&1) || true
+
+    if [[ ! -f "$results_file" ]]; then
+        fail "no JUnit results for $test_class (the test class did not run -- renamed or deleted?); the mutant cannot be scored"
+    fi
+
+    python3 - "$results_file" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.parse(sys.argv[1]).getroot()
+tests = int(root.get("tests", "0"))
+failures = int(root.get("failures", "0"))
+errors = int(root.get("errors", "0"))
+if tests == 0:
+    print("NOTESTS")
+else:
+    print("KILLED" if (failures + errors) > 0 else "SURVIVED")
+PY
+}
+
 restore_backups() {
     local backup
     for backup in "$KOTLIN_ROOT"/*.mutbak; do
@@ -152,15 +188,20 @@ for index in "${!MUT_FILES[@]}"; do
         --console=plain -Pr47.testBuildType=release >/dev/null 2>&1); then
         fail "mutant did not compile: $description (fix the mutation spec; a non-compiling mutant is a false kill)"
     fi
-    if (cd "$ANDROID_DIR" && ./gradlew :app:testReleaseUnitTest \
-        --tests "${MUT_TESTS[$index]}" \
-        --console=plain -Pr47.testBuildType=release >/dev/null 2>&1); then
-        echo "SURVIVED: $description (${MUT_TESTS[$index]} did not catch it)"
-        survived=$((survived + 1))
-    else
-        echo "killed:   $description"
-        killed=$((killed + 1))
-    fi
+    verdict="$(score_mutant "${MUT_TESTS[$index]}")"
+    case "$verdict" in
+        KILLED)
+            echo "killed:   $description"
+            killed=$((killed + 1))
+            ;;
+        SURVIVED)
+            echo "SURVIVED: $description (${MUT_TESTS[$index]} did not catch it)"
+            survived=$((survived + 1))
+            ;;
+        *)
+            fail "test class ${MUT_TESTS[$index]} executed zero tests; cannot score mutant: $description"
+            ;;
+    esac
 
     mv -f "$file.mutbak" "$file"
 done

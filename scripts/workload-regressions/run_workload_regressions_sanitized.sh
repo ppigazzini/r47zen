@@ -60,12 +60,13 @@ export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1:halt_on_error=0}"
 # build_graph_crash_harness.sh and runs to completion in the plain workload lane,
 # and the UBSan findings the corpus surfaces come from the fast fixtures too.
 # An ASan memory error still aborts (exit 134) and fails the lane.
-# Tolerate the outer wall-clock timeout (exit 124/137) as degraded coverage so
-# SPIRALk's expected ASan slowness does not fail the lane, while a real
-# sanitizer fault (ASan abort, exit 134) or an oracle mismatch still gates. This
-# is the mechanism the class-split comment above relies on; without it a SPIRALk
-# timeout falls through to a hard failure.
-export HOST_WORKLOAD_TOLERATE_TIMEOUT="${HOST_WORKLOAD_TOLERATE_TIMEOUT:-true}"
+# Tolerate the outer wall-clock timeout (exit 124/137) as degraded coverage for
+# SPIRALk ONLY -- its ASan slowness is expected -- so a genuine hang in any other
+# sanitized fixture (BinetV4, GudrmPL, MANSLV2, NQueens) still fails the lane. A
+# real sanitizer fault (ASan abort, exit 134), an oracle mismatch, or a
+# stop-plumbing failure (exit 3) also still gates. Scoping the tolerance to the
+# named fixture is what keeps this from being a blanket "ignore every timeout".
+export HOST_WORKLOAD_TOLERATE_TIMEOUT_FIXTURES="${HOST_WORKLOAD_TOLERATE_TIMEOUT_FIXTURES:-SPIRALk.p47}"
 export HOST_WORKLOAD_PROGRAM_TIMEOUT_SCALE="${HOST_WORKLOAD_PROGRAM_TIMEOUT_SCALE:-20}"
 export HOST_WORKLOAD_FIXTURE_TIMEOUT="${HOST_WORKLOAD_FIXTURE_TIMEOUT:-90s}"
 export HOST_WORKLOAD_FIXTURE_KILL_AFTER="${HOST_WORKLOAD_FIXTURE_KILL_AFTER:-15s}"

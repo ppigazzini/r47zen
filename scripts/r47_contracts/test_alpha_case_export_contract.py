@@ -22,17 +22,36 @@ KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
 KEYPAD_LAYOUT_PATH = KOTLIN_R47ZEN_ROOT / "ReplicaKeypadLayout.kt"
 
 
-def _prefer_existing_path(primary_path: Path, fallback_path: Path) -> Path:
-    if primary_path.exists():
-        return primary_path
-    return fallback_path
+def _resolve_contract_source(staged_path: Path, upstream_path: Path) -> Path:
+    """Prefer the staged copy, but fail loudly if it has drifted from upstream.
+
+    The staged native tree is a build-time mirror of the upstream source. In CI
+    it is refreshed before the contract runs, so the two match. On a dev machine
+    with a stale staged tree they can diverge, and silently testing the outdated
+    staged copy would let the contract pass against sources the build no longer
+    uses. Comparing the two here surfaces that staleness instead of hiding it.
+    """
+    if not staged_path.exists():
+        return upstream_path
+    upstream_drifted = (
+        upstream_path.exists()
+        and staged_path.read_bytes() != upstream_path.read_bytes()
+    )
+    if upstream_drifted:
+        message = (
+            f"Staged {staged_path} has drifted from upstream {upstream_path}; "
+            "re-stage the native tree before running the alpha-case contract "
+            "(the staged copy is a build-time mirror, not an independent source)."
+        )
+        raise AssertionError(message)
+    return staged_path
 
 
-ASSIGN_PATH = _prefer_existing_path(
+ASSIGN_PATH = _resolve_contract_source(
     STAGED_NATIVE_C47_ROOT / "assign.c",
     UPSTREAM_R47_ASSIGN_PATH,
 )
-ITEMS_PATH = _prefer_existing_path(
+ITEMS_PATH = _resolve_contract_source(
     STAGED_NATIVE_C47_ROOT / "items.c",
     UPSTREAM_R47_ITEMS_PATH,
 )
