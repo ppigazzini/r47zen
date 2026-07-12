@@ -151,6 +151,32 @@ class PhysicalKeyboardInputParityTest {
     }
 
     @Test
+    fun modifierTapIsRoutedThroughTheCoreQueue_notTheCallerThread() {
+        val queued = mutableListOf<Runnable>()
+        val sentKeys = mutableListOf<String>()
+        val controller = PhysicalKeyboardInputController(
+            // Record instead of running inline, so a direct UI-thread call is
+            // distinguishable from a core-queue dispatch.
+            offerCoreTask = { runnable -> queued += runnable },
+            sendSimKeyNative = { id, isFunctionKey, isRelease ->
+                sentKeys += "${id}:${isFunctionKey}:${isRelease}"
+            },
+            sendSimMenuNative = { _ -> },
+        )
+
+        assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_SHIFT_LEFT, keyEvent(KeyEvent.KEYCODE_SHIFT_LEFT)))
+        assertTrue(controller.onKeyUp(KeyEvent.KEYCODE_SHIFT_LEFT))
+
+        // The modifier tap must not have run the native handler on the caller
+        // thread; it must be queued for the core thread.
+        assertTrue("modifier tap ran on the caller thread", sentKeys.isEmpty())
+        assertEquals(1, queued.size)
+
+        queued.forEach { it.run() }
+        assertEquals(listOf("10:false:false", "10:false:true"), sentKeys)
+    }
+
+    @Test
     fun ctrlTapOnlyFiresWhenModifierWasNotUsed() {
         val sentActions = mutableListOf<String>()
         val controller = PhysicalKeyboardInputController(

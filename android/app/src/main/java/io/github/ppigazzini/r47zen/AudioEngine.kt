@@ -38,28 +38,38 @@ object AudioEngine {
         audioThread = Thread {
             Log.i(TAG, "Starting Audio Thread (Zero-GC)...")
             val sampleRate = 44100
-            val minBufSize = AudioTrack.getMinBufferSize(
-                sampleRate,
-                AudioFormat.CHANNEL_OUT_MONO,
-                AudioFormat.ENCODING_PCM_16BIT
-            )
-            val audioTrack = AudioTrack.Builder()
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
+            // Build the AudioTrack inside a guard: on a device where the config
+            // is unsupported, build() throws, and outside a try/catch that would
+            // propagate to the thread's uncaught handler and crash the process.
+            // A failed beeper must not take the app down.
+            val audioTrack = try {
+                val minBufSize = AudioTrack.getMinBufferSize(
+                    sampleRate,
+                    AudioFormat.CHANNEL_OUT_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT
                 )
-                .setAudioFormat(
-                    AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(sampleRate)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                        .build()
-                )
-                .setBufferSizeInBytes(maxOf(minBufSize, 4096))
-                .setTransferMode(AudioTrack.MODE_STREAM)
-                .build()
+                AudioTrack.Builder()
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(sampleRate)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build()
+                    )
+                    .setBufferSizeInBytes(maxOf(minBufSize, 4096))
+                    .setTransferMode(AudioTrack.MODE_STREAM)
+                    .build()
+            } catch (error: Exception) {
+                Log.e(TAG, "Failed to create AudioTrack; beeper disabled for this session", error)
+                clearThreadHandleIfCurrent()
+                return@Thread
+            }
 
             val bufferSize = 48000
             val buffer = ShortArray(bufferSize)
@@ -118,11 +128,7 @@ object AudioEngine {
                 } catch (_: Exception) {
                 }
                 Log.i(TAG, "Audio Thread stopped.")
-                synchronized(this) {
-                    if (audioThread === Thread.currentThread()) {
-                        audioThread = null
-                    }
-                }
+                clearThreadHandleIfCurrent()
             }
         }.apply {
             priority = Thread.MAX_PRIORITY
@@ -130,10 +136,26 @@ object AudioEngine {
         }
     }
 
+    // Clear the handle only if it still points at the calling thread, so a thread
+    // finishing its teardown never clobbers a replacement start() already
+    // installed. Not @Synchronized: it runs on the audio thread while stop()/
+    // start() hold the object monitor, and the identity check keeps it safe.
+    private fun clearThreadHandleIfCurrent() {
+        if (audioThread === Thread.currentThread()) {
+            audioThread = null
+        }
+    }
+
     @Synchronized
     fun stop() {
         audioQueue.clear()
+        // Drop the handle as well as interrupting: a subsequent start() then sees
+        // no thread and spawns a fresh one, instead of observing the still-alive
+        // dying thread and skipping the spawn (which left the beeper dead for the
+        // session). The dying thread's identity-checked self-clear will not touch
+        // the replacement.
         audioThread?.interrupt()
+        audioThread = null
     }
 
     fun playTone(milliHz: Int, durationMs: Int) {
