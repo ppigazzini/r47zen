@@ -8,9 +8,12 @@
 #    counts and report 0 for an empty or missing directory. The connected lane
 #    fails a selection that reports success with 0 executed cases.
 # 2. The host workload correctness lane must fail on an outer-timeout kill
-#    (124/137) rather than tolerating it unconditionally.
+#    (124/137) rather than tolerating it unconditionally, and must fail on a
+#    bounded-stop failure (exit 3) rather than tolerating it unconditionally.
 # 3. The mutation spot-check must compile a mutant before running its tests, so
-#    a non-compiling mutant is not miscounted as killed.
+#    a non-compiling mutant is not miscounted as killed, and must score the
+#    mutant from the JUnit results XML rather than the raw Gradle exit code, so a
+#    renamed/deleted test class ("No tests found") is not a phantom kill.
 #
 # Pure-host check: no SDK, no staged native tree, no build.
 
@@ -62,16 +65,35 @@ echo '<other/>' >"$tmp/TEST-empty.xml"
 # tolerated (rather than an unconditional return 0).
 awk '
     /^        124 \| 137\)/ { inarm = 1 }
-    inarm && /HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE/ { saw_flag = 1 }
+    inarm && /fixture_timeout_tolerated/ { saw_flag = 1 }
     inarm && /return "\$status"/ { saw_return = 1 }
     inarm && /;;/ { inarm = 0 }
     END { exit (saw_flag && saw_return) ? 0 : 1 }
 ' "$WORKLOAD_RUNNER" ||
     fail "run_workload_regressions.sh no longer fails the correctness lane on a 124/137 outer-timeout kill."
 
-# --- 3. mutation spot-check compiles before counting a kill ------------------
+# The exit-3 (bounded-stop) arm must return the status when the broad PGO flag
+# is not set, rather than an unconditional return 0 that hid a stop regression.
+awk -v code='"\\$HOST_WORKLOAD_STOP_TIMEOUT_EXIT_CODE"\\)' '
+    $0 ~ code { inarm = 1 }
+    inarm && /HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE/ { saw_flag = 1 }
+    inarm && /return "\$status"/ { saw_return = 1 }
+    inarm && /;;/ && seen { inarm = 0 }
+    inarm { seen = 1 }
+    END { exit (saw_flag && saw_return) ? 0 : 1 }
+' "$WORKLOAD_RUNNER" ||
+    fail "run_workload_regressions.sh no longer fails the correctness lane on a bounded-stop failure (exit 3)."
+
+# --- 3. mutation spot-check compiles before counting a kill, scores from XML --
 [ -f "$MUTATION" ] || fail "missing $MUTATION"
 grep -q 'compileReleaseKotlin' "$MUTATION" ||
     fail "mutation_spot_check.sh no longer compiles the mutant before running tests (a non-compiling mutant would be a false kill)."
+# The kill verdict must come from the JUnit results XML, not the raw Gradle exit
+# code, or a renamed/deleted test class ("No tests found" -> non-zero exit) would
+# be counted as a phantom kill.
+grep -q 'test-results/testReleaseUnitTest' "$MUTATION" ||
+    fail "mutation_spot_check.sh no longer scores the mutant from the JUnit results XML (a vanished test class would be a phantom kill)."
+grep -q 'NOTESTS' "$MUTATION" ||
+    fail "mutation_spot_check.sh no longer distinguishes a zero-test run from a real kill."
 
-echo "OK: test-integrity guards (androidTest count, workload timeout, mutant compile) are in place."
+echo "OK: test-integrity guards (androidTest count, workload timeout+stop, mutant compile+XML score) are in place."

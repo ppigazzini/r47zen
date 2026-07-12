@@ -457,6 +457,22 @@ jobs:
           bash ./scripts/workload-regressions/build_bridge_tsan_harness.sh 2>&1 \
             | tee ci-artifacts/logs/bridge-tsan-harness.log
 
+      - name: Run graph-crash reproduction harness
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Builds and runs the dedicated graph free-list crash reproduction
+          # (graph_crash_harness.c) over the staged core and Android bridge under
+          # AddressSanitizer and UndefinedBehaviorSanitizer. The upstream graph
+          # overflow that once crashed here is fixed; this harness is the gate
+          # that keeps the fix from silently regressing (an ASan abort fails the
+          # run). No emulator. Reuses the staged native inputs the workload step
+          # produced.
+          mkdir -p ci-artifacts/logs
+          bash ./scripts/workload-regressions/build_graph_crash_harness.sh 2>&1 \
+            | tee ci-artifacts/logs/graph-crash-harness.log
+
       - name: Run clipboard register-dump overflow harness
         shell: bash
         run: |

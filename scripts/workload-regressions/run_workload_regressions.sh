@@ -27,11 +27,15 @@ HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE="${HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE
 # Narrower than the flag above: when true, only an OUTER wall-clock timeout
 # (exit 124/137) is recorded as degraded coverage instead of failing the run; a
 # fixture that runs to a wrong result (oracle mismatch) or crashes (e.g. an ASan
-# abort, exit 134) still fails. The sanitized lane sets this so SPIRALk -- which
-# is pathologically slow under AddressSanitizer and is expected to hit the outer
-# bound -- degrades to coverage while a real sanitizer fault still gates. The
-# plain correctness lane leaves it false so a genuine hang still fails.
+# abort, exit 134) still fails. The plain correctness lane leaves it false so a
+# genuine hang still fails.
 HOST_WORKLOAD_TOLERATE_TIMEOUT="${HOST_WORKLOAD_TOLERATE_TIMEOUT:-false}"
+# Narrower still: a space/comma-separated allowlist of fixture names whose OUTER
+# wall-clock timeout is tolerated as degraded coverage, leaving every other
+# fixture's timeout fatal. The sanitized lane sets this to SPIRALk.p47 -- which
+# is pathologically slow under AddressSanitizer and is expected to hit the outer
+# bound -- so a genuine hang in any other sanitized fixture still gates.
+HOST_WORKLOAD_TOLERATE_TIMEOUT_FIXTURES="${HOST_WORKLOAD_TOLERATE_TIMEOUT_FIXTURES:-}"
 REQUIRED_PROGRAM_FIXTURE_SPECS=(
     "BinetV4.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
     "GudrmPL.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
@@ -98,6 +102,27 @@ emit_fixture_failure_warning() {
     fi
 }
 
+fixture_timeout_tolerated() {
+    # An outer wall-clock timeout (exit 124/137) is tolerated as degraded
+    # coverage when the broad PGO flag is set, when the timeout-only flag is set,
+    # or when this specific fixture is on the per-fixture timeout allowlist.
+    local fixture="$1"
+
+    if [[ "$HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE" == "true" ||
+        "$HOST_WORKLOAD_TOLERATE_TIMEOUT" == "true" ]]; then
+        return 0
+    fi
+
+    local entry
+    for entry in ${HOST_WORKLOAD_TOLERATE_TIMEOUT_FIXTURES//,/ }; do
+        if [[ "$entry" == "$fixture" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 run_host_workload_fixture() {
     local fixture="$1"
     local timeout_bin="$2"
@@ -124,22 +149,31 @@ run_host_workload_fixture() {
             return 0
             ;;
         "$HOST_WORKLOAD_STOP_TIMEOUT_EXIT_CODE")
-            emit_fixture_timeout_warning "$fixture" "the bounded workload deadline expired inside the host harness"
-            return 0
+            # Exit 3 (WORKLOAD_RESULT_STOP_TIMEOUT) is NOT a benign report: the
+            # harness returns it only when a direct-stop fixture (MANSLV2) was
+            # asked to stop and the worker still had not finished within the
+            # bounded deadline -- i.e. the stop plumbing this fixture exists to
+            # guard failed. A successful bounded interrupt exits 0 through the
+            # PASS path. Treat it as a fixture failure: the correctness lane must
+            # fail, and only the broad PGO training flag tolerates it as degraded
+            # coverage. The timeout flags do not apply -- a stop that never
+            # completes is not an outer wall-clock timeout.
+            if [[ "$HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE" == "true" ]]; then
+                emit_fixture_failure_warning "$fixture" "$status"
+                return 0
+            fi
+            echo "ERROR: $fixture bounded stop never completed (exit $status); the direct-stop plumbing regressed." >&2
+            return "$status"
             ;;
         124 | 137)
             emit_fixture_timeout_warning "$fixture" "the outer timeout had to kill the hung workload process"
-            # Exit 3 (WORKLOAD_RESULT_STOP_TIMEOUT) above is the harness cleanly
-            # reporting a stop-policy fixture's bounded interrupt and stays
-            # tolerated. 124/137 is different: the OUTER timeout had to kill a
-            # process that hung past the harness's own deadline (e.g. in
-            # r47_init_runtime / fnLoadProgram before the deadline loop). The PGO
-            # training lane and the sanitized lane tolerate that as degraded
-            # coverage (the latter for SPIRALk's expected ASan slowness); the
-            # plain correctness lane must fail on it. Honor either the broad
-            # tolerate flag or the timeout-only flag here.
-            if [[ "$HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE" == "true" ||
-                "$HOST_WORKLOAD_TOLERATE_TIMEOUT" == "true" ]]; then
+            # The OUTER timeout had to kill a process that hung past the harness's
+            # own deadline (e.g. in r47_init_runtime / fnLoadProgram before the
+            # deadline loop). The PGO training lane tolerates any fixture failure;
+            # the sanitized lane tolerates it only for the fixtures it lists (see
+            # HOST_WORKLOAD_TOLERATE_TIMEOUT_FIXTURES, SPIRALk under ASan); the
+            # plain correctness lane fails on it.
+            if fixture_timeout_tolerated "$fixture"; then
                 return 0
             fi
             return "$status"
