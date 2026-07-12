@@ -82,7 +82,10 @@ Java_com_example_r47_MainActivity_releaseNativeRuntime(JNIEnv *env,
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_nativePreInit(
     JNIEnv *env, jobject thiz, jstring path_obj) {
   (void)thiz;
-  const char *path = (*env)->GetStringUTFChars(env, path_obj, 0);
+  const char *path = (*env)->GetStringUTFChars(env, path_obj, NULL);
+  if (!jni_result_ok(env, (const void *)path, "GetStringUTFChars(nativePreInit path)")) {
+    return;
+  }
   r47_native_preinit_path(path);
   (*env)->ReleaseStringUTFChars(env, path_obj, path);
 }

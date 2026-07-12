@@ -49,10 +49,12 @@ flowchart TD
 
 ## Spring 2026 toolchain references
 
-- [Android Gradle plugin 9.2.0 release notes](https://developer.android.com/build/releases/agp-9-2-0-release-notes):
-  official Android build release notes for the AGP line used by this repo. On
-  this AGP line the repo builds against the checked-in JDK `17`, SDK Build Tools
-  `37.0.0`, and `compileSdk`/`targetSdk` `37` (Android 17 / API 37).
+- [Android Gradle plugin 9.2 release notes](https://developer.android.com/build/releases/agp-9-2-0-release-notes):
+  official Android build release notes for the 9.2 AGP line used by this repo
+  (the repo pins `9.2.1` in `android/gradle/libs.versions.toml`; the 9.2 line
+  shares one release-notes page). On this AGP line the repo builds against the
+  checked-in JDK `17`, SDK Build Tools `37.0.0`, and `compileSdk`/`targetSdk`
+  `37` (Android 17 / API 37).
 - [Kotlin release process](https://kotlinlang.org/docs/releases.html):
   official JetBrains release page documenting the language, tooling, and bug-fix
   cadence.
