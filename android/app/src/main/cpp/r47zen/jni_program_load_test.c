@@ -1,4 +1,5 @@
 #include "jni_bridge.h"
+#include "hal/lcd.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -90,8 +91,8 @@ static uint64_t r47_capture_display_hash_locked(void) {
   uint64_t hash = 1469598103934665603ULL;
   pthread_mutex_lock(&packedDisplayMutex);
   for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
-    const uint8_t *snapshot_line = packedDisplayBuffer + row * 52u;
-    for (size_t byte_index = 2; byte_index < 52u; byte_index++) {
+    const uint8_t *snapshot_line = packedDisplayBuffer + row * LCD_ROW_SIZE_BYTES;
+    for (size_t byte_index = 2; byte_index < LCD_ROW_SIZE_BYTES; byte_index++) {
       hash ^= snapshot_line[byte_index];
       hash *= 1099511628211ULL;
     }
@@ -230,8 +231,8 @@ static void r47_fill_test_display_pattern_locked(void) {
 
   pthread_mutex_lock(&packedDisplayMutex);
   for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
-    uint8_t *snapshot_line = packedDisplayBuffer + row * 52u;
-    for (size_t byte_index = 2; byte_index < 52u; byte_index++) {
+    uint8_t *snapshot_line = packedDisplayBuffer + row * LCD_ROW_SIZE_BYTES;
+    for (size_t byte_index = 2; byte_index < LCD_ROW_SIZE_BYTES; byte_index++) {
       snapshot_line[byte_index] =
           (uint8_t)((row * 31u + byte_index * 7u) & 0xFFu);
     }
