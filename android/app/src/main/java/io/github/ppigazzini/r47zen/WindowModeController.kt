@@ -16,6 +16,13 @@ internal class WindowModeController(
     private val activity: AppCompatActivity,
     private val mainHandler: Handler,
     private val onPiPModeChanged: (Boolean) -> Unit,
+    private val enterPipMode: (PictureInPictureParams) -> Boolean = { params ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            activity.enterPictureInPictureMode(params)
+        } else {
+            false
+        }
+    },
 ) {
     companion object {
         private const val TAG = "R47WindowMode"
@@ -57,7 +64,20 @@ internal class WindowModeController(
             val params = PictureInPictureParams.Builder()
                 .setAspectRatio(PIP_ASPECT_RATIO)
                 .build()
-            activity.enterPictureInPictureMode(params)
+            // enterPictureInPictureMode returns false when PiP is unavailable
+            // (user-disabled in system settings, device/policy restriction) and
+            // can throw IllegalStateException. On either path the PiP callback
+            // never fires, so clear the transient flag here or onPause would skip
+            // auto-save for the rest of the process lifetime.
+            val entered = try {
+                enterPipMode(params)
+            } catch (error: IllegalStateException) {
+                Log.e(TAG, "Picture-in-picture entry failed; staying in normal mode", error)
+                false
+            }
+            if (!entered) {
+                isMovingToPiP = false
+            }
         }
     }
 
