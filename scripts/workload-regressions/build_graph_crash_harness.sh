@@ -90,7 +90,13 @@ ANDROID_BRIDGE_SOURCES=(
     -o "$BUILD_DIR/graph-crash-harness"
 
 echo "Built: $BUILD_DIR/graph-crash-harness"
-echo "Running under ASan/UBSan..."
+echo "Running under ASan/UBSan (iters=${R47_GRAPH_HARNESS_ITERS:-default 3000000})..."
+# Discard the harness stdout: the core prints a per-plot-point "Not plotted"
+# debug line for every off-screen point across the re-solve loop, which floods
+# the log (hundreds of thousands of lines at the default iteration count). The
+# harness's own status (setup/REGIONS/DONE) and any AddressSanitizer report go
+# to stderr, which is preserved, as is the process exit code. Set
+# R47_GRAPH_HARNESS_ITERS to bound the run; the default is a long local soak.
 ASAN_OPTIONS="abort_on_error=1:halt_on_error=1" \
     UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=0" \
-    "$BUILD_DIR/graph-crash-harness"
+    "$BUILD_DIR/graph-crash-harness" >/dev/null
