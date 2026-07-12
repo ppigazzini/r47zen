@@ -103,7 +103,15 @@ internal class PhysicalKeyboardInputController(
     }
 
     private fun tapModifier(id: String) {
-        sendSimKeyNative(id, false, false)
-        sendSimKeyNative(id, false, true)
+        // Route through the core task queue like every other input path. Calling
+        // the native key handler directly here ran it on the UI thread, where it
+        // takes screenMutex and executes the full btnClicked handler; a modifier
+        // tap while a program held the mutex on the core thread would block the
+        // UI thread and risk an ANR, and it also ran core key handling on the
+        // wrong thread.
+        offerCoreTask(Runnable {
+            sendSimKeyNative(id, false, false)
+            sendSimKeyNative(id, false, true)
+        })
     }
 }
