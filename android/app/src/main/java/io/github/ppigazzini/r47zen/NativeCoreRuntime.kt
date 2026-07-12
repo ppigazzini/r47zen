@@ -39,7 +39,16 @@ internal class NativeCoreRuntime(
         onPerformanceSnapshot = onPerformanceSnapshot,
     ),
     private val startCoreThread: (Runnable) -> Unit = { runnable ->
-        Thread(runnable, "R47CoreRuntime").start()
+        Thread(runnable, CORE_THREAD_NAME).also { coreThread = it }.start()
+    },
+    private val joinCoreThread: (Long) -> Unit = { timeoutMillis ->
+        val thread = coreThread
+        // Never join from the core thread itself: a dispose() issued on the core
+        // thread (see the awaitCoreTask deadline test) would otherwise deadlock,
+        // and that thread is already unwinding its own loop.
+        if (thread != null && thread !== Thread.currentThread()) {
+            thread.join(timeoutMillis)
+        }
     },
     private val awaitCoreTask: (Long) -> Runnable? = { timeoutMillis ->
         try {
@@ -52,6 +61,7 @@ internal class NativeCoreRuntime(
 ) {
     companion object {
         private const val TAG = "R47CoreRuntime"
+        private const val CORE_THREAD_NAME = "R47CoreRuntime"
 
         // Upper bound on how long onPause blocks the main thread waiting for the
         // background state save to finish on the core thread. The save still
@@ -59,7 +69,17 @@ internal class NativeCoreRuntime(
         // main-thread jank during backgrounding.
         private const val SAVE_ON_PAUSE_FENCE_MILLIS = 750L
 
+        // Upper bound on how long dispose(stopApp=true) blocks the main thread
+        // joining the core thread. The join guarantees the core thread has
+        // stopped reading the native activity globals before onDestroy releases
+        // them, and before a factory reset resets shared state. Generous enough
+        // for a normal tick to finish; a timeout logs loudly rather than hangs.
+        private const val DISPOSE_JOIN_FENCE_MILLIS = 1_500L
+
         private val coreTasks = LinkedBlockingQueue<Runnable>()
+
+        @Volatile
+        private var coreThread: Thread? = null
 
         @Volatile
         private var isCoreThreadStarted = false
@@ -98,8 +118,19 @@ internal class NativeCoreRuntime(
         displayRefreshLoop.stop()
         if (stopApp) {
             isAppRunningShared = false
-            coreTasks.clear()
+            // Wake the core thread so it observes the stop. Do NOT clear the
+            // queue: a pending onPause save must still run. The thread drains
+            // any remaining tasks before exiting.
             coreTasks.offer(Runnable {})
+            try {
+                joinCoreThread(DISPOSE_JOIN_FENCE_MILLIS)
+            } catch (error: InterruptedException) {
+                Thread.currentThread().interrupt()
+                Log.e(TAG, "Interrupted while joining the core thread on dispose", error)
+            }
+            if (isCoreThreadStarted) {
+                Log.w(TAG, "Core thread still running after the dispose join fence")
+            }
         }
     }
 
@@ -179,16 +210,28 @@ internal class NativeCoreRuntime(
                         }
                     }
                     Log.i(TAG, "Core thread exiting")
+                    // Flush tasks queued during shutdown (e.g. a pending onPause
+                    // save) so dispose() cannot drop them.
+                    drainCoreTasks()
                 } catch (error: Exception) {
-                    Log.e(TAG, "Native core thread crashed", error)
+                    // A native-core exception means corrupted state that cannot
+                    // be safely recovered in place. Stop the runtime and surface
+                    // the failure loudly instead of leaving an interactive UI
+                    // over a dead core.
+                    Log.e(TAG, "Native core thread crashed; stopping the runtime", error)
+                    isAppRunningShared = false
+                    throw error
                 } finally {
                     isCoreThreadStarted = false
                 }
             }
             )
         } else {
-            Log.i(TAG, "Core thread already running; updating activity ref")
-            updateNativeActivityRef()
+            Log.i(TAG, "Core thread already running; updating activity ref on the core thread")
+            // Run the ref swap on the core thread, serialized with the native
+            // readers of the activity globals, instead of mutating them from the
+            // main thread while the core thread is using them.
+            offerTask(Runnable { updateNativeActivityRef() })
         }
     }
 
