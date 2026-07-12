@@ -33,8 +33,11 @@ if ! git -C "$PROJECT_ROOT" cat-file -e "$upstream_commit^{commit}" 2>/dev/null;
         fail "Commit $upstream_commit could not be fetched from $upstream_url"
 fi
 
+# Split on TAB so a submodule path containing spaces is preserved: git ls-tree
+# formats each line as "<mode> <type> <object>\t<path>", so the metadata is
+# field 1 (space-separated) and the full path is field 2.
 gitlinks=$(git -C "$PROJECT_ROOT" ls-tree -r "$upstream_commit" |
-    awk '$1 == "160000" { print $3 "\t" $4 }')
+    awk -F'\t' '$1 ~ /^160000 / { split($1, meta, " "); print meta[3] "\t" $2 }')
 
 [ -n "$gitlinks" ] || exit 0
 
