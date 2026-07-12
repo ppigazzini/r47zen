@@ -15,6 +15,11 @@ on:
         description: Optional upstream commit SHA to pin for a roadblock re-release (blank = latest HEAD)
         required: false
         type: string
+      allow_overwrite:
+        description: Allow re-publishing over an existing release tag (default false; only for a deliberate re-cut)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -47,6 +52,7 @@ jobs:
         env:
           R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+          R47_ALLOW_OVERWRITE: ${{ inputs.allow_overwrite }}
         run: |
           set -euo pipefail
 
@@ -73,6 +79,25 @@ jobs:
           if [[ ! "$version_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+-signed\.[0-9]{8,10}$ ]]; then
             echo "version_name '$version_name' is malformed; expected major.minor.patch-signed.YYYYMMDD[VV] (e.g. 0.1.6-signed.2026061101)." >&2
             exit 1
+          fi
+
+          # Refuse to re-publish over an existing release tag. The publish step
+          # builds the LATEST upstream HEAD and uses overwrite_files, so re-running
+          # the dispatch with the same version_name on a later day would replace
+          # the already-published signed bytes under the same tag with a different
+          # core, silently invalidating every recorded SHA256. Derive the tag the
+          # same way the metadata step does and fail unless allow_overwrite is set
+          # for a deliberate re-cut.
+          release_version_token=$(printf '%s' "$version_name" | sed -e 's/[^0-9A-Za-z._-]/-/g' -e 's/^-*//' -e 's/-*$//')
+          release_version_token="${release_version_token#[Vv]}"
+          release_tag="r47zen-v${release_version_token}"
+          if [[ "$R47_ALLOW_OVERWRITE" != "true" ]]; then
+            if git ls-remote --exit-code --tags origin "refs/tags/${release_tag}" >/dev/null 2>&1; then
+              echo "Release tag ${release_tag} already exists; refusing to overwrite a published release. Re-run with allow_overwrite=true only for a deliberate re-cut." >&2
+              exit 1
+            fi
+          else
+            echo "allow_overwrite=true: proceeding even if ${release_tag} already exists." >&2
           fi
 
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"

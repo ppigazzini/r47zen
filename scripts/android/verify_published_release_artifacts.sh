@@ -157,10 +157,19 @@ verify_evidence_dir() {
         exit 1
     fi
 
-    # SHA256SUMS.txt records the digest under the build-time path; compare the
-    # digest value against the freshly computed digest of the downloaded bytes.
+    # SHA256SUMS.txt records the digest under the build-time path; match the line
+    # whose filename basename equals this artifact, not the first line. Matching
+    # by position was safe only while the file held exactly one entry; the moment
+    # it gains a second (mapping.txt, a symbols zip) the first line could be a
+    # different artifact's digest.
     local recorded_sha actual_sha
-    recorded_sha="$(awk '{print $1}' "$sums_file" | head -n 1)"
+    recorded_sha="$(awk -v name="$artifact_name" '
+        { n = $2; sub(/.*\//, "", n); if (n == name) { print $1; found = 1; exit } }
+        END { exit found ? 0 : 1 }
+    ' "$sums_file")" || {
+        echo "FAIL: SHA256SUMS.txt in ${evidence_dir} has no entry for ${artifact_name}." >&2
+        exit 1
+    }
     actual_sha="$(compute_sha256 "$artifact_path")"
     assert_equal "${expected_type} sha256 integrity" "$recorded_sha" "$actual_sha"
 
