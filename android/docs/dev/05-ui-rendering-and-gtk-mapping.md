@@ -1,10 +1,10 @@
 # UI Rendering And GTK Mapping
 
 This page covers geometry ownership and rendering rules. Read
-`20-kotlin-shell-architecture.md` for lifecycle ownership and
-`30-upstream-interface-surfaces.md` for the scene-export contract and
-`60-runtime-hot-paths.md` for the refresh hot paths. Read
-`80-tests-and-contracts.md` for the geometry, fixture, and visual-regression
+`02-kotlin-shell-architecture.md` for lifecycle ownership and
+`03-upstream-interface-surfaces.md` for the scene-export contract and
+`06-runtime-hot-paths.md` for the refresh hot paths. Read
+`08-tests-and-contracts.md` for the geometry, fixture, and visual-regression
 surfaces.
 
 ## Rendering Flow
@@ -91,7 +91,7 @@ keypad all look correct locally but are globally misplaced together.
 - `KeypadSnapshot.fromNative(...)` decodes those arrays into named Kotlin
   fields; downstream Android code should not re-index raw metadata offsets
 - `NativeDisplayRefreshLoop` is the only UI-side poller for LCD and keypad
-  state; this page covers ownership while `60-runtime-hot-paths.md` covers the
+  state; this page covers ownership while `06-runtime-hot-paths.md` covers the
   cadence and skip gates
 - `ReplicaOverlayController` owns geometry-triggered same-snapshot replay for
   the keypad path. Chrome-geometry changes and PiP exit mark a geometry
@@ -309,7 +309,7 @@ Regression surfaces:
 
 - `scripts/r47_contracts/test_top_label_lane_layout_contract.py`
 - `DynamicKeypadParityFixtureTest.kt`
-- `80-tests-and-contracts.md` for the full contract-to-lane map
+- `08-tests-and-contracts.md` for the full contract-to-lane map
 
 Any future faceplate-offset change must stay on those fixed formulas and layout
 boundaries. Running label placement from a pre-layout `post { ... }`, a refresh

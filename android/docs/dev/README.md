@@ -14,15 +14,16 @@ where the Android overlay boundary sits.
 ```mermaid
 flowchart TD
   A[00 project and upstream]
-  B[10 build and source layout]
-  C[20 Kotlin shell architecture]
-  D[30 upstream interface surfaces]
-  E[40 native core and JNI]
-  F[50 UI rendering and GTK mapping]
-  G[60 runtime hot paths]
-  H[70 CI and release workflow]
-  I[80 tests and contracts]
-  J[90 official references]
+  B[01 build and source layout]
+  C[02 Kotlin shell architecture]
+  D[03 upstream interface surfaces]
+  E[04 native core and JNI]
+  F[05 UI rendering and GTK mapping]
+  G[06 runtime hot paths]
+  H[07 CI and release workflow]
+  I[08 tests and contracts]
+  J[09 official references]
+  K[10 writing]
 
   A --> B
   B --> C
@@ -35,6 +36,7 @@ flowchart TD
   G --> I
   H --> I
   I --> J
+  J --> K
 ```
 
 ## Read In Order
@@ -42,28 +44,30 @@ flowchart TD
 - [00-project-and-upstream.md](00-project-and-upstream.md): what this repo is,
   what the upstream C47 project is, what this repo owns, and how the Android
   overlay interfaces with upstream-owned sources and runtime behavior.
-- [10-build-and-source-layout.md](10-build-and-source-layout.md): build
+- [01-build-and-source-layout.md](01-build-and-source-layout.md): build
   entrypoints, ownership boundaries, staged inputs, compile flow, and
   checkout-sensitive root surfaces.
-- [20-kotlin-shell-architecture.md](20-kotlin-shell-architecture.md): Android
+- [02-kotlin-shell-architecture.md](02-kotlin-shell-architecture.md): Android
   lifecycle, helper ownership, storage, settings, slot flow, input flow, and
   direct live-stop routing.
-- [30-upstream-interface-surfaces.md](30-upstream-interface-surfaces.md): the
+- [03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md): the
   detailed interface from the Android shell into upstream-owned runtime
   behavior.
-- [40-native-core-and-jni.md](40-native-core-and-jni.md): CMake, JNI
+- [04-native-core-and-jni.md](04-native-core-and-jni.md): CMake, JNI
   registration, Android HAL seams, SAF bridge behavior, and native packaging.
-- [50-ui-rendering-and-gtk-mapping.md](50-ui-rendering-and-gtk-mapping.md):
+- [05-ui-rendering-and-gtk-mapping.md](05-ui-rendering-and-gtk-mapping.md):
   logical canvas, LCD projection, keypad geometry, and renderer rules.
-- [60-runtime-hot-paths.md](60-runtime-hot-paths.md): the main hot loops,
+- [06-runtime-hot-paths.md](06-runtime-hot-paths.md): the main hot loops,
   redraw paths, and regression-sensitive lock boundaries.
-- [70-ci-and-release-workflow.md](70-ci-and-release-workflow.md): GitHub
+- [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md): GitHub
   Actions lane split, release gating, artifacts, and local reproduction.
-- [80-tests-and-contracts.md](80-tests-and-contracts.md): the maintainer map
+- [08-tests-and-contracts.md](08-tests-and-contracts.md): the maintainer map
   of verification surfaces, contract owners, focused test suites, and first
   rerun lanes.
-- [90-official-references.md](90-official-references.md): official Android,
+- [09-official-references.md](09-official-references.md): official Android,
   NDK, Gradle, Kotlin, GitHub Actions, and upstream reference surfaces.
+- [10-writing.md](10-writing.md): the rules for the doc pages, the code
+  comments, and the commit messages, plus which pages run hot.
 - [backlog.md](backlog.md): durable in-tree list of known-deferred work.
 - [release-history.md](release-history.md): the upstream-commit-per-release
   traceability log.
@@ -71,24 +75,26 @@ flowchart TD
 ## By Task
 
 - build break, stale staged inputs, or checkout drift:
-  [10-build-and-source-layout.md](10-build-and-source-layout.md)
+  [01-build-and-source-layout.md](01-build-and-source-layout.md)
 - JNI, SAF, or Android-native bridge change:
-  [30-upstream-interface-surfaces.md](30-upstream-interface-surfaces.md) and
-  [40-native-core-and-jni.md](40-native-core-and-jni.md)
+  [03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md) and
+  [04-native-core-and-jni.md](04-native-core-and-jni.md)
 - renderer, geometry, or keypad-scene drift:
-  [50-ui-rendering-and-gtk-mapping.md](50-ui-rendering-and-gtk-mapping.md),
-  [60-runtime-hot-paths.md](60-runtime-hot-paths.md), and
-  [80-tests-and-contracts.md](80-tests-and-contracts.md)
+  [05-ui-rendering-and-gtk-mapping.md](05-ui-rendering-and-gtk-mapping.md),
+  [06-runtime-hot-paths.md](06-runtime-hot-paths.md), and
+  [08-tests-and-contracts.md](08-tests-and-contracts.md)
 - verification planning, contract ownership, or CI test routing:
-  [80-tests-and-contracts.md](80-tests-and-contracts.md) and
-  [70-ci-and-release-workflow.md](70-ci-and-release-workflow.md)
+  [08-tests-and-contracts.md](08-tests-and-contracts.md) and
+  [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md)
 - long-running stop parity, live touch `EXIT` handling, or desktop-stop
   comparisons:
-  [20-kotlin-shell-architecture.md](20-kotlin-shell-architecture.md),
-  [30-upstream-interface-surfaces.md](30-upstream-interface-surfaces.md),
-  [60-runtime-hot-paths.md](60-runtime-hot-paths.md),
-  [80-tests-and-contracts.md](80-tests-and-contracts.md), and
-  [90-official-references.md](90-official-references.md)
+  [02-kotlin-shell-architecture.md](02-kotlin-shell-architecture.md),
+  [03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md),
+  [06-runtime-hot-paths.md](06-runtime-hot-paths.md),
+  [08-tests-and-contracts.md](08-tests-and-contracts.md), and
+  [09-official-references.md](09-official-references.md)
+- writing a page, a code comment, or a commit message:
+  [10-writing.md](10-writing.md)
 
 ## Maintainer Update Workflow
 
@@ -105,8 +111,8 @@ contracts, or verification.
   and superseded commit ideas in the working doc instead of carrying them into
   the maintained reference set.
 
-Use authoritative mood in these pages. Name the real owner path, verification
-surface, and stable local reproduction lane whenever the contract changes.
+[10-writing.md](10-writing.md) owns how these pages are written and marks which
+of them run hot; it is not restated here.
 
 ## Build Entry Points
 

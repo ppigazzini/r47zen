@@ -59,12 +59,12 @@ Build the debug APK:
 The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 The root `Makefile` and `BUILD.md` are upstream-owned and describe the upstream
 simulator build, not the Android lane; see `android/docs/dev/` for this repo's
-build. Full local pipeline: `android/docs/dev/10-build-and-source-layout.md`.
+build. Full local pipeline: `android/docs/dev/01-build-and-source-layout.md`.
 
 Signed prerelease and production release publication run from the CI and
 release workflows. Nightly `-dev` snapshot pre-releases are pruned on a
 schedule (short TTL, newest few retained) while signed releases are kept. See
-`android/docs/dev/70-ci-and-release-workflow.md` for the lane split,
+`android/docs/dev/07-ci-and-release-workflow.md` for the lane split,
 signing-key policy, retention, and published artifacts.
 
 ## Documentation
@@ -80,21 +80,21 @@ Key maintainer pages:
 
 - `android/docs/dev/00-project-and-upstream.md`: what this repo is, what the
   upstream C47 project is, and where the ownership and interface boundary sits.
-- `android/docs/dev/10-build-and-source-layout.md`: how the Android overlay
+- `android/docs/dev/01-build-and-source-layout.md`: how the Android overlay
   builds, compiles, stages, and consumes the shared core.
-- `android/docs/dev/20-kotlin-shell-architecture.md`: Kotlin coordinator,
+- `android/docs/dev/02-kotlin-shell-architecture.md`: Kotlin coordinator,
   lifecycle, storage, and input flow.
-- `android/docs/dev/30-upstream-interface-surfaces.md`: the detailed Android
+- `android/docs/dev/03-upstream-interface-surfaces.md`: the detailed Android
   interface to upstream-owned runtime behavior.
-- `android/docs/dev/40-native-core-and-jni.md`: CMake, JNI, HAL, and bridge
+- `android/docs/dev/04-native-core-and-jni.md`: CMake, JNI, HAL, and bridge
   ownership.
-- `android/docs/dev/50-ui-rendering-and-gtk-mapping.md`: geometry, LCD
+- `android/docs/dev/05-ui-rendering-and-gtk-mapping.md`: geometry, LCD
   projection, keypad layout, and rendering rules.
-- `android/docs/dev/60-runtime-hot-paths.md`: the main runtime loops, redraw
+- `android/docs/dev/06-runtime-hot-paths.md`: the main runtime loops, redraw
   paths, and regression-sensitive boundaries.
-- `android/docs/dev/70-ci-and-release-workflow.md`: GitHub Actions lane split,
+- `android/docs/dev/07-ci-and-release-workflow.md`: GitHub Actions lane split,
   artifacts, and publication flow.
-- `android/docs/dev/80-tests-and-contracts.md`: the maintainer map of test
+- `android/docs/dev/08-tests-and-contracts.md`: the maintainer map of test
   surfaces, contract owners, and rerun lanes.
-- `android/docs/dev/90-official-references.md`: official Android, NDK, Gradle,
+- `android/docs/dev/09-official-references.md`: official Android, NDK, Gradle,
   Kotlin, GitHub Actions, and upstream reference surfaces.

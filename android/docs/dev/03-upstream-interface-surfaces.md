@@ -10,7 +10,7 @@ Read this page when a task touches `MainActivity` external methods, JNI
 registration, packed LCD export, lifecycle save or load entry points,
 instrumentation-only bridge seams, keypad-scene export, SAF-backed file
 requests, or pause and wait behavior in the staged `PC_BUILD` core. Read
-`80-tests-and-contracts.md` for the focused bridge, READP, and storage
+`08-tests-and-contracts.md` for the focused bridge, READP, and storage
 verification surfaces.
 
 ## Interface Inventory
