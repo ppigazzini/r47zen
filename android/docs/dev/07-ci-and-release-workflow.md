@@ -5,12 +5,12 @@ separate protected production-release workflow, what each job verifies, which
 artifacts it publishes, and how to reproduce the same checks locally.
 
 Read `00-project-and-upstream.md` first and
-`10-build-and-source-layout.md` second. This page assumes the project and build
+`01-build-and-source-layout.md` second. This page assumes the project and build
 ownership boundary is already clear.
 
 Read this page when a task touches `.github/workflows/android-ci.yml`, Android
 build scripts, packaging evidence, instrumentation coverage, or release
-publication. Read `80-tests-and-contracts.md` for the contract-to-suite map
+publication. Read `08-tests-and-contracts.md` for the contract-to-suite map
 behind those lanes.
 
 ## Workflow Graph
@@ -157,7 +157,7 @@ It:
 
 It gates `android-build-test-package` and `android-tests`, so a contract drift
 fails fast before the Android build and instrumentation lanes run. See
-`80-tests-and-contracts.md` for the contract-to-suite map.
+`08-tests-and-contracts.md` for the contract-to-suite map.
 
 ### `android-build-test-package`
 

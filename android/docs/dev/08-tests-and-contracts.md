@@ -3,7 +3,7 @@
 This page maps the maintainer verification surfaces, the contracts they lock,
 and the smallest rerun lane that should move with each kind of change.
 
-Read `10-build-and-source-layout.md` first. This page assumes the build,
+Read `01-build-and-source-layout.md` first. This page assumes the build,
 ownership, and CI lane split are already clear.
 
 Read this page when a task changes geometry, keypad snapshots, JNI seams,

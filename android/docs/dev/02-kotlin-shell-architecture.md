@@ -3,7 +3,7 @@
 This page maps the Kotlin shell: the single-activity coordinator, helper
 ownership, lifecycle, storage, settings, slot flow, input flow, and direct
 live-stop routing. Read `00-project-and-upstream.md` and
-`10-build-and-source-layout.md` first.
+`01-build-and-source-layout.md` first.
 
 ## Top-level model
 
@@ -17,9 +17,9 @@ The keypad render path is now explicitly spec-first: `CalculatorKeyView` and
 `KeyRenderPainter` and `C47TextRenderer` own the shared draw-stage policy.
 
 Use this page for Kotlin-side ownership, coordinator structure, lifecycle, and
-storage flow. Read `30-upstream-interface-surfaces.md` for the upstream bridge
-contract, `60-runtime-hot-paths.md` for the hottest runtime loops, and
-`80-tests-and-contracts.md` for the focused parity and lifecycle regression
+storage flow. Read `03-upstream-interface-surfaces.md` for the upstream bridge
+contract, `06-runtime-hot-paths.md` for the hottest runtime loops, and
+`08-tests-and-contracts.md` for the focused parity and lifecycle regression
 surfaces.
 
 ## Kotlin Structure At A Glance
@@ -64,11 +64,11 @@ flowchart LR
 
 | Concern | Primary Kotlin owner | Boundary this page cares about | Read next |
 | --- | --- | --- | --- |
-| activity and settings coordination | `MainActivity`, `SettingsActivity`, `SettingsSwitchPreference` | startup, preferences, PiP, intent routing, helper wiring, and explicit settings-switch widget tinting | `30-upstream-interface-surfaces.md` |
-| native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `60-runtime-hot-paths.md` |
-| overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `50-ui-rendering-and-gtk-mapping.md` |
-| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, slot metadata, save and load ordering | `30-upstream-interface-surfaces.md`, `80-tests-and-contracts.md` |
-| Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `30-upstream-interface-surfaces.md` |
+| activity and settings coordination | `MainActivity`, `SettingsActivity`, `SettingsSwitchPreference` | startup, preferences, PiP, intent routing, helper wiring, and explicit settings-switch widget tinting | `03-upstream-interface-surfaces.md` |
+| native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `06-runtime-hot-paths.md` |
+| overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `05-ui-rendering-and-gtk-mapping.md` |
+| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, slot metadata, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
+| Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `03-upstream-interface-surfaces.md` |
 
 ## Architecture boundary
 
@@ -86,10 +86,10 @@ flowchart LR
   preferences are Android-local models
 - geometry constants, render-spec builders, label placement formulas, painter
   policy, and chrome projection are rendering contracts owned by
-  `50-ui-rendering-and-gtk-mapping.md`, not by this page
+  `05-ui-rendering-and-gtk-mapping.md`, not by this page
 - JNI signatures, cached callbacks, and lock-sensitive bridge behavior are
-  native-interface contracts owned by `40-native-core-and-jni.md` and
-  `30-upstream-interface-surfaces.md`
+  native-interface contracts owned by `04-native-core-and-jni.md` and
+  `03-upstream-interface-surfaces.md`
 
 ## Main coordination flow
 
@@ -132,9 +132,9 @@ red developer HUD in the top shell area. This is a manual observability aid, not
 runtime-policy seam or a replacement for real benchmark and profiler work.
 
 This page stops at the coordination boundary. Read
-`60-runtime-hot-paths.md` for cadence, skip gates, and lock-sensitive loops;
-`50-ui-rendering-and-gtk-mapping.md` for geometry formulas and label placement;
-and `30-upstream-interface-surfaces.md` for the exact JNI entry points and
+`06-runtime-hot-paths.md` for cadence, skip gates, and lock-sensitive loops;
+`05-ui-rendering-and-gtk-mapping.md` for geometry formulas and label placement;
+and `03-upstream-interface-surfaces.md` for the exact JNI entry points and
 callbacks.
 
 ## Lifecycle contract
@@ -184,7 +184,7 @@ without violating the Activity Result lifecycle contract.
 Focused verification for this lifecycle contract lives in
 `DisplayLifecycleInstrumentedTest.kt`, `StorageAccessCoordinatorTest.kt`,
 `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt`, and
-`MainShellThemeTest.kt` as mapped in `80-tests-and-contracts.md`.
+`MainShellThemeTest.kt` as mapped in `08-tests-and-contracts.md`.
 
 ## Input surfaces
 
@@ -297,7 +297,7 @@ while matching the desktop simulator's stop-key parity during an active run.
   Hz, dirty-row percent, and copy ms. The first field is the UI-thread
   `Choreographer#doFrame(...)` cadence, not the phone panel's raw refresh
   rate. The second field counts accepted non-empty packed LCD snapshot copies,
-  not raw native row writes. Read `60-runtime-hot-paths.md` for the default
+  not raw native row writes. Read `06-runtime-hot-paths.md` for the default
   `500 ms` sample window, the `100..1000 ms` clamp, and the exact `DR` and
   `Copy` semantics.
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`

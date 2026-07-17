@@ -8,9 +8,9 @@ upstream, and ownership boundary are already established.
 
 Use this page for build entrypoints, source ownership, staged-input boundaries,
 and checkout-sensitive root surfaces. Read
-`70-ci-and-release-workflow.md` for the GitHub Actions lane split and
-`30-upstream-interface-surfaces.md` for the Android-facing upstream
-interface map. Read `80-tests-and-contracts.md` for the contract-to-test and
+`07-ci-and-release-workflow.md` for the GitHub Actions lane split and
+`03-upstream-interface-surfaces.md` for the Android-facing upstream
+interface map. Read `08-tests-and-contracts.md` for the contract-to-test and
 rerun-lane map.
 
 ## Build At A Glance
@@ -542,7 +542,7 @@ Practical note:
 ## CI lane
 
 The GitHub Actions workflow at `.github/workflows/android-ci.yml` keeps the same
-ownership model as the local build. `70-ci-and-release-workflow.md` owns the full
+ownership model as the local build. `07-ci-and-release-workflow.md` owns the full
 lane split, per-job descriptions, artifact names, and release gating; this
 section records only the build-layout details that live here.
 
@@ -560,12 +560,12 @@ real 16 KB target stays a local maintainer lane through
 Store-release signing lives in the separate protected workflow
 `.github/workflows/android-release.yml`. That workflow is manual-dispatch only,
 is bound to the `production-release` environment, and expects protected
-production signing secrets there. See `70-ci-and-release-workflow.md`.
+production signing secrets there. See `07-ci-and-release-workflow.md`.
 
 ## Release and packaging policy
 
 This section keeps the build-configuration policy that lives with the build
-layout. See `70-ci-and-release-workflow.md` for the CI lane split, the signed
+layout. See `07-ci-and-release-workflow.md` for the CI lane split, the signed
 dev-prerelease publication, the protected production release workflow, artifact
 names, and release gating.
 

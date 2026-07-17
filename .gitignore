@@ -56,6 +56,7 @@ google-services.json
 !/.github/
 !/.gitignore
 !/AGENTS.md
+!/CLAUDE.md
 !/pyproject.toml
 !/.pre-commit-config.yaml
 !/uv.lock
