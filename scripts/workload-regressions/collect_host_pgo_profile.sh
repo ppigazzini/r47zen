@@ -46,9 +46,8 @@ into the Android Release native build.
 
 The maintained CI default is the broad-ci corpus: programs, tvm,
 jacobi_audit, normal_i, gamma, trig, prime, factorial, and an
-upstream-derived matrix-prefix-85 slice. REPORT-17 identified this exact
-family mix as the smallest broad testSuite corpus that reaches well beyond the
-old PROGRAMS harness while keeping matrix coverage and staying far leaner than
+upstream-derived matrix-prefix-85 slice. This family mix is the smallest broad
+testSuite corpus that keeps matrix coverage while staying far leaner than
 full-matrix training.
 
 The Android NDK does not ship the host Linux profiling runtime archive needed

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Runs every pure-host CI contract guard in sequence, folding each into its own
+# Run every pure-host CI contract guard in sequence, folding each into its own
 # GitHub log group and naming its result, so the linux-ci host-workload
 # -regressions job needs one step instead of one per contract. Every contract is
 # run even after a failure, so a single CI run reports all of them; the script

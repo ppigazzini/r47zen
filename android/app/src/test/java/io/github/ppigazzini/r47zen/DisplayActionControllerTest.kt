@@ -140,7 +140,7 @@ class DisplayActionControllerTest {
         clipboard.setPrimaryClip(emptyClip)
         assertEquals(0, clipboard.primaryClip?.itemCount)
 
-        // Before the guard this threw IndexOutOfBoundsException from getItemAt(0).
+        // The guard prevents an IndexOutOfBoundsException from getItemAt(0).
         assertTrue(
             controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {},
         )

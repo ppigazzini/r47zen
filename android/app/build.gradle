@@ -442,8 +442,8 @@ dependencies {
     testImplementation libs.junit4
     testImplementation libs.androidx.test.core
     testImplementation libs.robolectric
-    // Property-based testing for the pure clamp/decode seams (REPORT-28
-    // Milestone B): used only by the seeded *PropertyTest JVM classes.
+    // Property-based testing for the pure clamp/decode seams: used only by the
+    // seeded *PropertyTest JVM classes.
     testImplementation libs.kotest.property
 
     androidTestImplementation libs.androidx.test.core
@@ -451,7 +451,7 @@ dependencies {
     androidTestImplementation libs.androidx.test.runner
 }
 
-// Coverage visibility (REPORT-24 Milestone 2). Kover instruments the JVM unit
+// Coverage visibility. Kover instruments the JVM unit
 // tests and produces a per-class report; it is reporting-only on purpose, with
 // no `verify` gate, so it surfaces what the JNI-facing Kotlin (for example
 // MainActivity.dispatchLiveKey, LiveKeyRouter) actually exercises without yet

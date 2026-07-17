@@ -2,9 +2,9 @@
 
 # Meta-test for scripts/lib/ci_contract.sh: the comment-safe helpers must treat a
 # directive that appears only in a YAML comment as absent, and a real (non
-# -comment) occurrence as present. This guards the class of bug the workflow
-# contracts shipped twice -- a "# ... gh attestation verify ..." comment matching
-# as if it were a real step. Pure host test, no SDK needed.
+# -comment) occurrence as present. This guards the class of bug where a
+# "# ... gh attestation verify ..." comment matches as if it were a real step.
+# Pure host test, no SDK needed.
 
 set -Eeuo pipefail
 

@@ -1,10 +1,8 @@
 #!/bin/bash
 
 # Single source for the Linux build dependencies every CI job needs to build the
-# host simulator and the staged Android native core. Each protected workflow job
-# called these out inline with its own apt list, which drifted (only the
-# simulator-sanity job installed wget, although the LLVM-runtime step in the
-# build/release jobs uses it). Centralizing the core list here keeps the jobs in
+# host simulator and the staged Android native core. Centralizing the core list
+# here keeps the jobs in
 # sync and makes the dependency explicit instead of relying on the runner image.
 # wget is kept in the core list so every job that may reach the apt.llvm.org key
 # fetch has it.

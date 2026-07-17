@@ -206,7 +206,7 @@ def _coverage_payload(
 
 
 def _style_role_offset(key_count: int) -> int:
-    # Mirrors KeypadSnapshot's meta layout so the exported fixtures stay aligned.
+    # Mirror KeypadSnapshot's meta layout so the exported fixtures stay aligned.
     return _META_KEY_ENABLED_OFFSET + key_count + _META_SCALARS_BEFORE_STYLE_ROLE
 
 

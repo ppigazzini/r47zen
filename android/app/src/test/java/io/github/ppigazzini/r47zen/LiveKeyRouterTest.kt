@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class LiveKeyRouterTest {
-    // The consumer half of the direct-stop seam (REPORT-24 Milestone 1, Task 2).
+    // The consumer half of the direct-stop seam.
     // The native run-state gate predicate is covered deterministically by
     // DisplayLifecycleInstrumentedTest.directStopGateDeclinesInteractiveWaitStates,
     // and the key-code policy by LiveProgramStopKeyPolicyTest. Neither proves the
@@ -44,7 +44,7 @@ class LiveKeyRouterTest {
 
     @Test
     fun stopKeysForwardToCoreWhenTheGateDeclines() {
-        // The REPORT-23 regression contract: while a program is parked in an
+        // The regression contract: while a program is parked in an
         // interactive wait the gate declines, so R/S(36) and EXIT(33) MUST reach
         // the core (replot / leave the f/g/I/O menu), not be swallowed.
         for (keyCode in listOf(LiveProgramStopKeyPolicy.EXIT_KEY_CODE, LiveProgramStopKeyPolicy.RUN_STOP_KEY_CODE)) {

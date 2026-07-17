@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Resolver-policy test harness for scripts/upstream-sync/upstream.sh (REPORT-24
-# roadmap U2). It asserts the resolution contract that REPORT-24 Sec.25 restored,
-# so the policy is verified behaviour instead of prose that can silently drift:
+# Resolver-policy test harness for scripts/upstream-sync/upstream.sh. It asserts
+# the resolution contract, so the policy is verified behaviour instead of prose
+# that can silently drift:
 #
 #   * no source pin and no lock  => --auto and --latest resolve the latest HEAD
 #   * a lock pin                  => honoured by --auto and --locked, while

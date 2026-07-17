@@ -56,8 +56,7 @@ copy_file_if_changed() {
 
 # Mirror a source tree into the staged tree without rewriting unchanged files,
 # preserving their mtimes for incremental native builds. Files removed upstream
-# are pruned so the staged set still matches the source exactly, matching the
-# previous wipe-and-copy semantics for the staged input fingerprint.
+# are pruned so the staged set still matches the source exactly.
 stage_tree() {
     local source_dir="$1"
     local dest_dir="$2"
