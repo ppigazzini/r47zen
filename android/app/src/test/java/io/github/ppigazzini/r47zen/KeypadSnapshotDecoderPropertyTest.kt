@@ -10,8 +10,8 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Test
 
-// Property-based totality coverage for the native keypad-snapshot decoder
-// (REPORT-28 Milestone B). KeypadSnapshot.fromNative parses a native int lane
+// Property-based totality coverage for the native keypad-snapshot decoder.
+// KeypadSnapshot.fromNative parses a native int lane
 // and a native label array produced across the JNI boundary. The example-based
 // KeypadSnapshotDecoderTest pins specific decoded values; this asserts the
 // decoder stays total for an arbitrary, possibly malformed, meta/labels pair:

@@ -81,7 +81,7 @@ jobs:
           else
             # No explicit pin: the build MUST follow the latest upstream HEAD.
             # Refuse any other mode so a stale or locked configuration can never
-            # silently ship a non-HEAD core (REPORT-24 §33). To hold a revision,
+            # silently ship a non-HEAD core. To hold a revision,
             # pass the upstream_commit input deliberately instead.
             if [[ "$RESOLVE_MODE" != "latest" ]]; then
               echo "Refusing to resolve in '$RESOLVE_MODE' mode without an explicit upstream_commit pin." >&2

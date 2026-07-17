@@ -1,6 +1,6 @@
 """Lock the keypad font-policy JSON to live fonts, fixtures, and Kotlin owners.
 
-Two complementary layers (REPORT-24 Milestone 4 de-circularization):
+Two complementary layers (de-circularization):
 
 - `test_key_font_policy_payload_matches_contract_json` is a *freshness* guard --
   it proves the committed JSON is a faithful re-derivation. On its own it is

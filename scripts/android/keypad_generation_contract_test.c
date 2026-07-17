@@ -9,7 +9,7 @@
 // 500 ms fallback. This test fails if that refresh coupling is removed.
 //
 // Built and run on the Linux host by run_keypad_generation_contract.sh; no
-// emulator or device is required. See REPORT-25 Annex A.2.
+// emulator or device is required.
 
 #include <stdatomic.h>
 #include <stdint.h>
@@ -37,7 +37,7 @@ int main(void) {
   // screenData is a NULL compatibility symbol referenced only by the compiled,
   // never-invoked PC_BUILD GTK screenshot helpers. It must not be allocated:
   // nothing on Android reads it, so a 384 KB framebuffer here would be dead
-  // resident memory (REPORT-25 D2.3).
+  // resident memory.
   if (screenData != NULL) {
     fprintf(stderr,
             "FAIL: init_lcd_buffers allocated screenData (%p); the unused "

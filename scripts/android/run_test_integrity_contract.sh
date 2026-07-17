@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Contract: the test-integrity guards added in REPORT-32 Milestone M3 stay in
-# place, so a test lane cannot silently pass having tested nothing.
+# Contract: the test-integrity guards stay in place, so a test lane cannot
+# silently pass having tested nothing.
 #
 # 1. count_androidtest_cases (scripts/lib/common.sh) is exercised functionally
 #    against synthetic JUnit result XML: it must sum <testsuite tests="N">

@@ -16,7 +16,7 @@ void calcModeTamGui    (void) {}
 // This must handle the core allocations that GTK version does in setupUI.
 void setupUI(void) {
     LOGI("setupUI: start");
-    // screenData is now handled in init_lcd_buffers
+    // screenData is handled in init_lcd_buffers
 
     // We let doFnReset handle the main RAM and buffer allocations
     // because its logic for splitting errorMessage/aimBuffer is complex.

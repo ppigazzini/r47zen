@@ -1,15 +1,15 @@
 // Host regression guard for the clipboard register-dump buffer overflow.
 // getClipboardAllRegistersString / getClipboardStackRegistersString /
 // getClipboardXRegisterString in android_helpers.c build a register dump into a
-// fixed ANDROID_CLIPSTR (30000) byte buffer. The pre-fix code concatenated every
-// register with unbounded sprintf/strcat/stringToUtf8, so filling a span of
-// registers with large long integers overran the buffer.
+// fixed ANDROID_CLIPSTR (30000) byte buffer, which the getters must not overrun.
+// Concatenating a span of registers holding large long integers with unbounded
+// sprintf/strcat/stringToUtf8 would exceed that cap.
 //
 // This harness stuffs the global numbered registers with a huge long integer
 // (2^60000, ~18000 decimal digits each) so the concatenated dump is megabytes,
 // far past the 30000-byte cap, then calls each clipboard getter. Built under
-// AddressSanitizer: any overrun aborts with a stack trace. After the fix the
-// dump is bounded (truncated at the cap) and the run is clean.
+// AddressSanitizer: any overrun aborts with a stack trace. The dump is bounded
+// (truncated at the cap) and the run stays clean.
 
 #include "keypad_fixture_bridge.h"
 #include "screen.h"
@@ -62,13 +62,13 @@ int main(void) {
 
   // ascii_clean glyph-expansion overflow guard. getXRegisterString strncpy's a
   // dtString register's text into a 1024-byte coreBuf and runs ascii_clean on
-  // it. ascii_clean expands STD_op_i (0xA1 0x48) to three output bytes but its
-  // pre-fix loop guard checked only the cursor at the START of each iteration,
-  // so an op_i processed at cursor 1022 wrote one byte past the 1024-byte tmp[]
+  // it. ascii_clean expands STD_op_i (0xA1 0x48) to three output bytes, so a loop
+  // guard that checked only the cursor at the START of each iteration would let an
+  // op_i processed at cursor 1022 write one byte past the 1024-byte tmp[]
   // scratch (plus the terminator two past). Build a register whose text is 722
   // single-byte chars followed by op_i glyphs: the glyph output cursor lands on
   // 1022 exactly at the 101st glyph, tripping the overrun under AddressSanitizer
-  // before the fix and truncating cleanly at the cap after.
+  // unless the guard truncates cleanly at the cap.
   static char strdata[1200];
   size_t p = 0;
   for (; p < 722; p++) {

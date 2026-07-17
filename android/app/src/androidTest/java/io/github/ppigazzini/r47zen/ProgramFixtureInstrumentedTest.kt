@@ -267,14 +267,14 @@ class ProgramFixtureInstrumentedTest {
                 requestedDirectStop = true
                 sawAcceptedDirectStop = true
                 directStopRequests += 1
-                // REPORT-24 W2 guard: the out-of-band direct stop must only be
-                // accepted while the program is genuinely busy (PGM_RUNNING /
-                // PGM_PAUSED). If it is ever accepted while an OBSERVED interactive
-                // wait holds, the native gate has regressed exactly as in the
-                // swallowed-key bug -- it would steal live R/S/EXIT. Record that as
-                // a failure signal instead of letting the acceptance masquerade as
-                // run activity (the original liveness-OR conflation). Only observed
-                // states are classified, so a null snapshot never false-fails.
+                // The out-of-band direct stop must only be accepted while the
+                // program is genuinely busy (PGM_RUNNING / PGM_PAUSED). If it is
+                // ever accepted while an OBSERVED interactive wait holds, the
+                // native gate has regressed exactly as in the swallowed-key bug --
+                // it would steal live R/S/EXIT. Record that as a failure signal
+                // instead of letting the acceptance masquerade as run activity.
+                // Only observed states are classified, so a null snapshot never
+                // false-fails.
                 if (observedRunStop != null &&
                     observedRunStop != PGM_RUNNING &&
                     observedRunStop != PGM_PAUSED

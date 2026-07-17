@@ -5,7 +5,7 @@ upstream `src/c47/programming/input.c` run-loop stop clause and the real
 `LiveProgramStopKeyPolicy.kt` constants and proves they agree. It fails if the
 Android policy drifts from the upstream EXIT(33)/R-S(36) stop codes or grows
 broader than the upstream rule -- the exact class of divergence behind the
-swallowed-live-key regression (REPORT-24 W1/W3).
+swallowed-live-key regression.
 """
 
 from __future__ import annotations

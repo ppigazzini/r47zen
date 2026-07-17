@@ -4,9 +4,7 @@
 # (install_linux_build_deps.sh + install_host_llvm_toolchain.sh) and asserts the
 # tools they must provide actually resolve and run. This is the class of failure
 # the static wiring contracts cannot catch -- a missing package, a broken repo,
-# an unavailable LLVM major -- and that twice reached a protected workflow before
-# this smoke existed (the apt.llvm.org pipe-to-root, then a dropped llvm-<major>
-# that died with "llvm-config-21: command not found").
+# an unavailable LLVM major.
 #
 # Needs a Debian/Ubuntu host with sudo and network; it actually installs
 # packages, so it is meant for a throwaway CI runner, not a developer machine.

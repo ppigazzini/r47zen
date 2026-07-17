@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Mutation spot-check for the hardened pure seams (REPORT-24 Milestone 5; widened
-# in REPORT-28 Milestone C to the keypad decoder, LCD theme, and graph-gesture
-# accumulator). It applies a small set of compile-clean semantic mutations to
+# Mutation spot-check for the hardened pure seams: the keypad decoder, LCD theme,
+# and graph-gesture accumulator. It applies a small set of compile-clean semantic
+# mutations to
 # those seams and asserts each one is KILLED by the JVM unit tests. This is an
 # empirical measure of assertion strength -- do the tests actually fail when the
 # production logic is broken? -- not a CI gate: it recompiles per mutation and is

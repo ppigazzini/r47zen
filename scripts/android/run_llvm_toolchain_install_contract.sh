@@ -6,7 +6,7 @@
 # (the host PGO profile merger); the minimal clang/clang-tools/lld/libclang-rt
 # set does not. Dropping llvm-<major> makes the install die with
 # `llvm-config-<major>: command not found` (exit 127) -- but only at CI runtime,
-# which is what this guards against statically. The install now lives in
+# which is what this guards against statically. The install lives in
 # install_host_llvm_toolchain.sh, so that script is scanned alongside the
 # workflows. Pure host test, no apt needed.
 

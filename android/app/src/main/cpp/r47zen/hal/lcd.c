@@ -12,8 +12,8 @@ extern uint8_t *lcd_buffer;
 // GTK screenshot/clipboard helpers (drawScreen, copyScreenToClipboard,
 // copyMenuToClipboard) link. None of those helpers are reachable on Android, and
 // the live screen/menu dump reads lcd_buffer via lcd_buffer_pixel_on, so the
-// 384 KB framebuffer is never allocated: it is neither written (the per-row
-// fan-out was removed) nor read on Android. Leaving it NULL keeps the symbol
+// 384 KB framebuffer is never allocated: it is neither written nor read on
+// Android. Leaving it NULL keeps the symbol
 // valid for linking without holding dead resident memory.
 uint32_t *screenData = NULL;
 

@@ -10,8 +10,7 @@
 # llvm-<major> is installed alongside clang/lld/libclang-rt because it ships
 # llvm-config-<major> (used below to resolve the bindir) and llvm-profdata
 # -<major> (the host PGO profile merger); --no-install-recommends drops both
-# otherwise. That omission once shipped to CI and failed at runtime with
-# "llvm-config-<major>: command not found".
+# otherwise.
 #
 # Usage: install_host_llvm_toolchain.sh <llvm_major>
 # Prints the toolchain bindir; when GITHUB_PATH is set, also appends it so later

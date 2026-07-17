@@ -93,7 +93,7 @@ enum {
 
 // Upstream's softkey-label resolver changeSoftKey() became a file-local static at
 // upstream 485b6709 (and shed its always-unused menuNr parameter), so the Android
-// keypad overlay can no longer link it. resolveSoftkeyMeta() below reproduces the
+// keypad overlay cannot link it. resolveSoftkeyMeta() below reproduces the
 // parts the softkey scene needs from the public item API: the reverse-video menu
 // flag, the callback and show-value badges, and the plain item label. The upstream
 // inline formatting that depends on other now-static helpers (placeSubscript

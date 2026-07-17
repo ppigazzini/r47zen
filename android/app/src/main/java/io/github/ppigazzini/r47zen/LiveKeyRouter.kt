@@ -2,11 +2,11 @@ package io.github.ppigazzini.r47zen
 
 internal object LiveKeyRouter {
     /**
-     * Routes one live keypad press between the out-of-band direct stop and the
+     * Route one live keypad press between the out-of-band direct stop and the
      * normal core queue, and returns nothing because the consequence is the
      * side effect (swallow vs forward).
      *
-     * Contract (the consumer half of the REPORT-23 direct-stop seam, which the
+     * Contract (the consumer half of the direct-stop seam, which the
      * native [LiveProgramStopKeyPolicy] key-code check and the run-state gate
      * only cover in halves):
      *

@@ -362,7 +362,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Runs every pure-host workflow contract (NDK resolution, ABI single
+          # Run every pure-host workflow contract (NDK resolution, ABI single
           # -source, published-artifact verifier, production-signing scope,
           # release provenance, privileged-remote-script, LLVM toolchain install,
           # build-deps single-source) plus the ci_contract.sh meta-test, each in
@@ -428,7 +428,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Reruns the same workload corpus over the staged core and Android
+          # Rerun the same workload corpus over the staged core and Android
           # bridge built under AddressSanitizer (the hard gate: a memory error
           # fails the lane) and UndefinedBehaviorSanitizer (recoverable report
           # mode: upstream-owned core UB surfaces for triage without failing the
@@ -444,7 +444,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Races the live input/refresh producer path against the UI read path
+          # Race the live input/refresh producer path against the UI read path
           # with the staged core and Android bridge built under ThreadSanitizer,
           # the one concurrency surface the single-threaded ASan/UBSan lanes do
           # not exercise. A data race or lock-order inversion in the
@@ -468,12 +468,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Builds and runs the dedicated graph free-list crash reproduction
+          # Build and run the dedicated graph free-list crash reproduction
           # (graph_crash_harness.c) over the staged core and Android bridge under
-          # AddressSanitizer and UndefinedBehaviorSanitizer. The upstream graph
-          # overflow that once crashed here is fixed; this harness is the gate
-          # that keeps the fix from silently regressing (an ASan abort fails the
-          # run). The harness discards its per-point plot debug on stdout; its
+          # AddressSanitizer and UndefinedBehaviorSanitizer. This harness is the
+          # gate against the upstream graph free-list overflow regressing on this
+          # path; an ASan abort fails the run. The harness discards its per-point
+          # plot debug on stdout; its
           # status and any sanitizer report are on stderr. No emulator. Reuses the
           # staged native inputs the workload step produced.
           mkdir -p ci-artifacts/logs
@@ -485,7 +485,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Builds the Android-owned clipboard register-dump path under
+          # Build the Android-owned clipboard register-dump path under
           # AddressSanitizer and fills the register file with a huge long integer
           # so the concatenated dump far exceeds the fixed ANDROID_CLIPSTR buffer.
           # An overrun in getClipboardAllRegistersString and friends aborts the
@@ -500,7 +500,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Asserts two hal/lcd.c invariants: a screen refresh bumps
+          # Assert two hal/lcd.c invariants: a screen refresh bumps
           # keypadSnapshotGeneration (the signal the display loop uses to re-read
           # dynamic softkeys such as the EQN editor), and init_lcd_buffers leaves
           # the unused screenData compatibility framebuffer NULL (no dead 384 KB).

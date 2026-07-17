@@ -19,8 +19,8 @@ export PROJECT_ROOT WORKFLOW_DIR SCRIPTS_DIR
 
 # grep -rnE across the workflow tree, dropping YAML comment lines so a directive
 # that only appears in a "# ..." comment never satisfies or violates a contract.
-# This is the single home for the comment-stripping that several contracts used
-# to re-implement by hand (and shipped wrong twice). Prints "file:line:match";
+# This is the single home for the comment-stripping, so no contract re-implements
+# it by hand. Prints "file:line:match";
 # returns grep's status (0 = at least one real match).
 workflow_grep() {
     grep -rnE -- "$1" "$WORKFLOW_DIR" 2>/dev/null |

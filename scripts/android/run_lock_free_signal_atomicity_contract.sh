@@ -5,8 +5,8 @@
 # are written under a mutex by the core thread and sampled with no lock held by
 # the UI/JNI threads, so plain volatile leaves the concurrent access a data race
 # under the C memory model (ThreadSanitizer flags it via
-# build_bridge_tsan_harness.sh). The ThreadSanitizer pass migrated the three
-# packed-display signals in hal/lcd.c and this guard extends the same rule to the
+# build_bridge_tsan_harness.sh). The three packed-display signals in hal/lcd.c are
+# C11 atomics and this guard extends the same rule to the
 # stop-refresh request flag in android_runtime.c, so a later edit that quietly
 # reintroduces `volatile` for any of them is caught fast in
 # run_workflow_contracts.sh rather than only by a live sanitizer run.

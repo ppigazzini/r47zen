@@ -79,7 +79,7 @@ static void r47_draw_graph_from_lu_locked(void) {
 // preserved, matching PLTRST - then the standard Draw-LU solve re-renders.
 // Statistical and program-drawn (.p47) plots are deliberately excluded: their
 // stat redraw does not transport to the Android display from this JNI context
-// (see REPORT-26 Annex E failure log), so reset there stays on the softkey.
+// so reset there stays on the softkey.
 static bool r47_reset_graph_locked(void) {
   if (!r47_graph_touch_supported_locked()) {
     return false;
@@ -163,7 +163,7 @@ bool r47_sanitize_graph_bounds_locked(void) {
   return changed;
 }
 
-// Returns true if a finite, in-range window [nextXMin..nextYMax] should be
+// Return true if a finite, in-range window [nextXMin..nextYMax] should be
 // committed (none NaN/inf, none beyond +/- r47_graph_bounds_limit).
 static bool r47_graph_bounds_in_range(float nextXMin, float nextXMax,
                                       float nextYMin, float nextYMax) {
@@ -571,7 +571,7 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
 // a program between PSE/VIEW steps, an open f/g/I/O menu). In those states the
 // queued sendKey IS processed, and R/S must resume / EXIT must navigate the
 // menus -- short-circuiting them here swallows the keystroke and strands the
-// user (see REPORT-23 regression annex). Keep aligned with
+// user. Keep aligned with
 // src/c47/programming/input.c, which only treats R/S(36)/EXIT(33) as a stop
 // request while *prevStop == PGM_RUNNING.
 bool r47_direct_stop_allowed(uint16_t runState) {
