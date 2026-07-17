@@ -228,15 +228,28 @@ The mechanical checks that exist today:
 - `cd android && ./gradlew lint` is mandatory when Kotlin, manifest, resource,
   or Android Gradle surfaces change.
 
-**Nothing gates the prose.** This repo has no docs lint: no check catches a dead
-internal link, a stray non-ASCII byte, a dead `scripts/...` path named in prose,
-a pointer into `__DEV/`, or a stale pinned number. Every one of those is a
-reader's job today, and that is a gap, not a design. The sibling c47-r47-ci repo
-gates all five in seconds with no toolchain, which is the shape to copy.
+`bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook `docs-lint`, CI lane
+`Docs Lint`) gates the prose. It needs no upstream clone and no toolchain, so it
+runs in seconds on every push, and it settles five mechanical rot classes:
+
+1. a dead internal link, resolved relative to the linking file's own directory,
+2. a backticked `scripts/...` or `.github/...` path named in prose that does not
+   exist - a bare filename is **not** checked; write the path if you want the
+   gate to hold it, and an ellipsis (`scripts/...`) marks a placeholder,
+3. a non-ASCII byte in a tracked doc, save the one documented placeholder
+   codepoint U+00B7 that the keypad legend pages carry on purpose,
+4. a pointer to a *file* under `__DEV/` - naming the directory is allowed;
+   citing a specific file inside it rests a claim on content no other reader
+   has,
+5. a missing `AGENTS.md` or `CLAUDE.md`, or a `CLAUDE.md` whose `@AGENTS.md`
+   import is backticked, fenced, or gone - Claude Code reads `CLAUDE.md`, never
+   `AGENTS.md`, so that one line carries the whole contract.
 
 **No gate can tell you a sentence is false.** A fluent, technical, invented
 rationale parses, links, and pins nothing, and survives review precisely because
-it reads like someone checked. No grep finds that; only reading does.
+it reads like someone checked. No grep finds that; only reading does. The gate
+buys the mechanical half so review can spend its attention on the half that
+needs a reader.
 
 That is the failure mode to write against: prose here is accurate when written
 and rots where the thing under it moves, especially upstream, which moves

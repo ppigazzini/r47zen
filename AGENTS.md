@@ -13,8 +13,11 @@ claims, fix the page in the SAME commit; sync upstream, re-read the pages that
 track it. [android/docs/dev/10-writing.md](android/docs/dev/10-writing.md)
 carries the rules for everything this repo writes for a reader - pages,
 comments, and commit messages alike - and maps every page to what it owns and
-which run hot. Nothing gates the prose: this repo has no docs lint, so a dead
-link, a stale number, or a sentence that has become false is yours to catch.
+which run hot. `bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook
+`docs-lint`, CI lane `Docs Lint`) catches a dead link, a dead script path, a
+stray non-ASCII byte, a pointer to a file under `__DEV/`, and a broken
+`CLAUDE.md` import; it cannot tell you a sentence has become false. That part is
+yours.
 
 ## What this repository is
 

@@ -1,0 +1,33 @@
+name: Docs Lint
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - github_ci
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-lint:
+    name: Docs rot gate over tracked markdown
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Run the docs rot gate
+        shell: bash
+        # No upstream clone, no toolchain: the gate only reads this repo through
+        # git ls-files, so it settles the mechanical rot classes in seconds. It
+        # cannot tell whether a sentence is true; that stays a reader's job.
+        run: bash ./scripts/docs/run_docs_lint.sh
