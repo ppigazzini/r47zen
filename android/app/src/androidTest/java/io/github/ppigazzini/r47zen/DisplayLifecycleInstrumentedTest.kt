@@ -39,14 +39,10 @@ class DisplayLifecycleInstrumentedTest {
 
     @Test
     fun backgroundSavePreservesInjectedDisplaySnapshot() {
-        // DE-FLAKE (REPORT-24 Milestone 4b Slice B): the former
-        // backgroundSavePreservesSpiralkGraphSnapshot ran SPIRALk emergently (the
-        // 90 s polling scenario) only to obtain a non-trivial framebuffer before
-        // asserting that the background save does not corrupt it. But
         // r47_save_background_state_locked merely calls saveCalc(), which
         // serializes calculator state and never touches packedDisplayBuffer
         // (jni_lifecycle.c), so the contract holds for ANY framebuffer. The bridge
-        // now injects a deterministic non-trivial pattern, hashes the framebuffer,
+        // injects a deterministic non-trivial pattern, hashes the framebuffer,
         // runs the background save, and re-hashes -- all under screenMutex so no
         // async redraw can interleave -- with no program run and no timeout. The
         // pause/resume and recreation snapshot tests keep SPIRALk because they
@@ -68,18 +64,14 @@ class DisplayLifecycleInstrumentedTest {
 
     @Test
     fun pauseResumePreservesSpiralkGraphSnapshot() {
-        // REGRESSION FIX (REPORT-24 §32): a Settings-style pause/resume used to be
-        // display-passive against the previously pinned upstream, so an injected
-        // framebuffer survived it byte-for-byte. After CI advanced to the latest
-        // upstream HEAD (REPORT-24 §25), onResume re-renders packedDisplayBuffer
-        // from calculator state, so an injected arbitrary buffer is overwritten by
-        // the state-derived render -- the same display-active behaviour the
-        // recreation test already accounts for (§22). Drive this from SPIRALk
-        // state instead: pause/resume must preserve the calculator state, so a
-        // force-refresh render of that state is byte-identical before and after,
-        // whether or not onResume itself re-renders. forceRefresh on both sides
-        // routes both captures through the same synchronous, screenMutex-guarded
-        // render so the comparison cannot race an async redraw.
+        // onResume re-renders packedDisplayBuffer from calculator state, so an
+        // injected arbitrary buffer is overwritten by the state-derived render --
+        // the same display-active behaviour the recreation test accounts for.
+        // Drive this from SPIRALk state: pause/resume must preserve the calculator
+        // state, so a force-refresh render of that state is byte-identical before
+        // and after, whether or not onResume itself re-renders. forceRefresh on
+        // both sides routes both captures through the same synchronous,
+        // screenMutex-guarded render so the comparison cannot race an async redraw.
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
         val spiralkFixture = targetContext.assets.open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
@@ -158,8 +150,6 @@ class DisplayLifecycleInstrumentedTest {
 
     @Test
     fun directStopGateDeclinesInteractiveWaitStates() {
-        // REGRESSION GUARD (REPORT-23 §30):
-        //
         // The out-of-band direct stop must fire ONLY for the genuinely-busy run
         // states PGM_RUNNING (executing) and PGM_PAUSED (inside a timed PSE
         // loop) -- the states that cannot drain the queued sendKey in time. The
@@ -169,13 +159,10 @@ class DisplayLifecycleInstrumentedTest {
         // R/S(36)/EXIT(33) to the core instead of swallowing them: the second
         // R/S replots and EXIT leaves the menu.
         //
-        // Commit 643b20a widened the native gate to accept PGM_WAITING (and
-        // af617e6 PGM_RESUMING) to make an over-eager direct-stop snapshot test
-        // pass; that codified the bug. This asserts the gate decision
-        // deterministically across every run state -- it does not depend on a
-        // real program reaching a specific (timing-dependent) state -- so the
-        // regression cannot return through a green CI run. It would have failed
-        // on 643b20a.
+        // This asserts the gate decision deterministically across every run state
+        // -- it does not depend on a real program reaching a specific
+        // (timing-dependent) state -- so the regression cannot return through a
+        // green CI run.
         ActivityScenario.launch(MainActivity::class.java).use {
             assertTrue(
                 "Native runtime did not become ready for direct-stop gate coverage",
@@ -210,18 +197,12 @@ class DisplayLifecycleInstrumentedTest {
 
     @Test
     fun requestStopProgramHonorsRunStateGateEndToEnd() {
-        // DE-FLAKE (REPORT-24 Milestone 4b): this replaces the former
-        // busySpiralkAcceptsLiveDirectStop, which waited up to 90 s for a graphing
-        // program to emergently reach a busy state just to prove that the REAL
-        // requestStopProgramNative honours the gate. That emergent dependency is
-        // the §31 trap (a test gated on a program reaching a timing-dependent
-        // state). It is replaced by deterministic run-state injection: the live
-        // gate is exercised end to end (onUIActivity + r47_direct_stop_allowed +
-        // fnStopProgram) for EVERY run state, with no program run and no timeout.
-        // Injection is side-effect-safe because fnStopProgram only sets
-        // programRunStop = PGM_WAITING. The pure predicate is still covered by
-        // directStopGateDeclinesInteractiveWaitStates; this proves the full JNI
-        // function, not just the predicate.
+        // Deterministic run-state injection exercises the live gate end to end
+        // (onUIActivity + r47_direct_stop_allowed + fnStopProgram) for EVERY run
+        // state, with no program run and no timeout. Injection is side-effect-safe
+        // because fnStopProgram only sets programRunStop = PGM_WAITING. The pure
+        // predicate is still covered by directStopGateDeclinesInteractiveWaitStates;
+        // this proves the full JNI function, not just the predicate.
         ActivityScenario.launch(MainActivity::class.java).use {
             assertTrue(
                 "Native runtime did not become ready for run-state gate coverage",

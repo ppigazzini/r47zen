@@ -80,7 +80,7 @@ typedef struct {
   bool (*seed_runtime)(void);
   stop_policy_t stop_policy;
   uint64_t stop_after_activity_ms;
-  // Numeric oracle (REPORT-24 Milestone 3 / W7, hardened in §37): the expected
+  // Numeric oracle: the expected
   // sequence of non-negative integers the X register must contain after the
   // program runs to completion. The comparison ignores display chrome (the
   // vector arrow, decimal points, commas, and whitespace), so an upstream
@@ -95,7 +95,7 @@ typedef struct {
   // deterministic image, not a scalar in X, so this pins their result where the
   // X-register oracle cannot. 0 stays liveness-only. Only set for fixtures that
   // finish (not interrupted) and whose final image is run-to-run deterministic,
-  // verified by repeated runs -- see REPORT-25 Annex A.10.
+  // verified by repeated runs.
   uint64_t expected_display_hash;
 } program_fixture_scenario_t;
 
@@ -318,8 +318,8 @@ static bool seed_spiralk_runtime_registers(void) {
 // NQueens.p47 reads the board size N from X and, with no input, only parks at
 // its prompt (the unseeded run yields a default, not a result). Seeding N = 8
 // drives a full 8-queens search that runs to completion and leaves the solution
-// in X as a string, giving a controlled-input numeric oracle (REPORT-24
-// Milestone 3): the expected result below is an independently verified valid
+// in X as a string, giving a controlled-input numeric oracle: the expected
+// result below is an independently verified valid
 // 8-queens solution (a permutation with no shared row, column, or diagonal).
 static bool seed_nqueens_n8_input(void) {
   reallocateRegister(REGISTER_X, dtReal34, 0, amNone);
@@ -329,7 +329,7 @@ static bool seed_nqueens_n8_input(void) {
 
 // Extract the sequence of non-negative integers embedded in a value string,
 // ignoring every non-digit character (display chrome such as the type tag, the
-// vector arrow, decimal points, commas, and whitespace). Returns the count
+// vector arrow, decimal points, commas, and whitespace). Return the count
 // written to out, capped at max.
 static size_t extract_int_sequence(const char *s, long *out, size_t max) {
   size_t count = 0;
@@ -352,7 +352,7 @@ static size_t extract_int_sequence(const char *s, long *out, size_t max) {
 }
 
 // Render the X register into a stable, type-tagged comparison string so a
-// fixture's numeric result can be asserted, not just its liveness. Mirrors the
+// fixture's numeric result can be asserted, not just its liveness. Mirror the
 // upstream testSuite printRegisterToString for the two result types these
 // fixtures produce (long integer counts, real34 values); other types fall back
 // to their type name so a result-type change is still visible.
@@ -565,8 +565,7 @@ static workload_result_t run_program_fixture_workload(
   // core's gmpMemInBytes counter therefore only ever increments and is monotonic
   // under mini-gmp, so a positive delta is an accounting artifact, not a leak
   // (the memory is freed correctly). Real allocation leaks are caught by the
-  // ASan/UBSan sanitized workload lane, not by this counter. See
-  // __DEV/issues/ISSUE-3-BINET.md Annex B.
+  // ASan/UBSan sanitized workload lane, not by this counter.
 
   char x_value[3200];
   read_x_register_value_string(x_value, sizeof(x_value));
@@ -626,7 +625,7 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
-     // Verified run-to-run deterministic over repeated host runs (Annex A.10);
+     // Verified run-to-run deterministic over repeated host runs;
      // BinetV4 parks at its plot prompt leaving a stable final image. Re-pinned
      // for the upstream programmed-plot menu fix (a9ff33acf: fnPlotSQ blanks the
      // menu with MNU_SHOW under a running plot) and the sample-program rework
@@ -640,7 +639,7 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
-     // Verified run-to-run deterministic over repeated host runs (Annex A.10);
+     // Verified run-to-run deterministic over repeated host runs;
      // GudrmPL runs the Gudermannian plot to natural completion. Re-pinned for
      // the upstream programmed-plot menu fix (a9ff33acf: fnPlotSQ pushes MNU_SHOW
      // to blank the menu under a running plot instead of leaving a stale menu)

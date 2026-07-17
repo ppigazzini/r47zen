@@ -4,8 +4,7 @@
 # No emulator or device is required: it links hal/lcd.c on the host and asserts
 # that a screen refresh (LCD_write_line) bumps keypadSnapshotGeneration, which
 # the Android display loop relies on to re-read dynamic softkeys such as the EQN
-# editor. See scripts/android/keypad_generation_contract_test.c and REPORT-25
-# Annex A.2.
+# editor. See scripts/android/keypad_generation_contract_test.c.
 
 set -Eeuo pipefail
 

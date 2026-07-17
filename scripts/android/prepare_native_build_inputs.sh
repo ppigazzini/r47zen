@@ -195,9 +195,9 @@ hydrate_missing_upstream_paths() {
     ensure_remote
 
     # Reuse the commit if it is already local (every CI lane runs upstream.sh
-    # sync first, which fetches it). Re-fetching here on every build multiplied
-    # upstream requests and contributed to the rate limiting (HTTP 429) that the
-    # parallel release jobs hit. Fetch only when the commit is not already local.
+    # sync first, which fetches it). Re-fetching here on every build multiplies
+    # upstream requests and can trigger the rate limiting (HTTP 429) that parallel
+    # release jobs hit. Fetch only when the commit is not already local.
     if ! git -C "$PROJECT_ROOT" cat-file -e "${RESOLVED_UPSTREAM_COMMIT}^{commit}" 2>/dev/null; then
         git -C "$PROJECT_ROOT" fetch --depth 1 "$UPSTREAM_REMOTE_NAME" "$RESOLVED_UPSTREAM_COMMIT"
     fi

@@ -3,9 +3,8 @@
 # Contract: the two privacy-policy copies stay in sync. The canonical
 # maintainer/Play-Console copy is android/docs/privacy-policy.md; the copy users
 # actually read in-app is android/app/src/main/assets/privacy-policy.html, loaded
-# by SettingsActivity. They are hand-maintained with no generator, so they drift
-# (the HTML once lost the "Google Play Data Safety" section and its last-updated
-# date). This guard fails if their section headings diverge or either loses the
+# by SettingsActivity. They are hand-maintained with no generator, so they drift.
+# This guard fails if their section headings diverge or either loses the
 # last-updated date, so a change to one must be mirrored in the other.
 #
 # Pure-host text check: no SDK, no build.

@@ -223,7 +223,7 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_captureDisplayHashNative(
 
 // Writes a deterministic, non-trivial pattern into the hashed bytes of the
 // packed display framebuffer so a lifecycle event's effect on the framebuffer
-// can be checked without running a graphing program (REPORT-24 Milestone 4b).
+// can be checked without running a graphing program.
 // The caller must already hold screenMutex.
 static void r47_fill_test_display_pattern_locked(void) {
   extern uint8_t *packedDisplayBuffer;
@@ -241,7 +241,7 @@ static void r47_fill_test_display_pattern_locked(void) {
 }
 
 // Deterministic proof that a background save does not corrupt the visible
-// framebuffer (REPORT-24 Milestone 4b Slice B). r47_save_background_state_locked
+// framebuffer. r47_save_background_state_locked
 // only calls saveCalc(), which serializes calculator state and never touches
 // packedDisplayBuffer, so the contract holds for ANY framebuffer -- there is no
 // need to run a graphing program emergently to produce one. A deterministic
@@ -276,7 +276,7 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_backgroundSaveKeepsInject
 }
 
 // Injects the deterministic non-trivial framebuffer pattern and returns its hash,
-// atomically under screenMutex (REPORT-24 Milestone 4b Slice C). The pause/resume
+// atomically under screenMutex. The pause/resume
 // and recreation lifecycle transitions are display-passive -- the native runtime
 // and packedDisplayBuffer persist across them and are not re-rendered (the core
 // thread and native-init flags are process-shared, so a recreated Activity
@@ -555,8 +555,8 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_directStopAllowedForRunSt
 
 // Inject a run state directly so the REAL requestStopProgramNative gate can be
 // asserted end to end across every run state deterministically, instead of
-// waiting for a graphing program to emergently reach a busy state (the flaky
-// 90 s SPIRALk wait this replaces). Safe because fnStopProgram() only sets
+// waiting for a graphing program to emergently reach a busy state. Safe because
+// fnStopProgram() only sets
 // programRunStop = PGM_WAITING and clears a screen flag; it dereferences no
 // program state. Tests must resetRuntime() afterwards to restore isolation.
 JNIEXPORT void JNICALL

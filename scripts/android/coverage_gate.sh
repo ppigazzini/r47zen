@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JVM unit-test coverage gate (REPORT-24 Milestone 5). Reads the Kover release
+# JVM unit-test coverage gate. Reads the Kover release
 # XML report and fails if overall line coverage drops below the floor, or if the
 # hardened live program-stop routing seam loses full line coverage.
 #
@@ -14,7 +14,7 @@
 # android/r47-defaults.properties, set just below the current measurement so a
 # regression fails the gate without freezing the instrumented-only gaps (for
 # example MainActivity). Bump the default up when coverage rises durably. The
-# seam rule separately locks the routing-policy classes REPORT-24 hardened at
+# seam rule separately locks the routing-policy classes at
 # 100 %.
 
 set -Eeuo pipefail

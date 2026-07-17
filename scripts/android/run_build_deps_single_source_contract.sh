@@ -2,8 +2,8 @@
 
 # Contract: the Linux build dependencies are single-sourced. Every CI job must
 # install them by calling scripts/android/install_linux_build_deps.sh, never by
-# inlining its own apt list -- inline lists drift out of sync (the wget
-# discrepancy that prompted this). The guard fails if any workflow reintroduces
+# inlining its own apt list -- inline lists drift out of sync. The guard fails if
+# any workflow reintroduces
 # an inline build-dependency apt install. Pure host test, no apt needed.
 
 set -Eeuo pipefail

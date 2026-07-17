@@ -11,8 +11,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
 
-// Property-based coverage for the pure graph-gesture accumulator (REPORT-28
-// Milestone B). The example-based GraphGestureAccumulatorTest pins specific
+// Property-based coverage for the pure graph-gesture accumulator. The
+// example-based GraphGestureAccumulatorTest pins specific
 // boundary cases; these properties assert the clamp, split, drop, and
 // termination invariants hold across a wide randomized input space the examples
 // only sample at the endpoints. The random source is seeded so any failure

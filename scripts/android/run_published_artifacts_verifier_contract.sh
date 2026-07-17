@@ -78,7 +78,7 @@ write_bundle "$work/valid_apk" apk app.apk "$VC" "$VN" release "$PIN_ABI" yes
 write_bundle "$work/valid_aab" aab app.aab "$VC" "$VN" release "" no
 assert_case "valid signed release passes" pass "$work/valid_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
 
-# The new guard: an APK with no v2+ signing block must be rejected.
+# An APK with no v2+ signing block must be rejected.
 write_bundle "$work/unsigned_apk" apk app.apk "$VC" "$VN" release "$PIN_ABI" no
 assert_case "unsigned APK (no v2+ signing block) fails" fail "$work/unsigned_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
 

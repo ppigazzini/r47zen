@@ -8,8 +8,7 @@ class LiveProgramStopKeyPolicyTest {
     // input.c treats `key == 36 || key == 33` as a stop request while a program is
     // PGM_RUNNING. Pin the policy to those LITERAL codes so widening the policy, or
     // editing a constant, fails here instead of silently following whatever the
-    // production constant happens to be (the REPORT-24 W1 tautology, where the test
-    // fed the function its own constants and could never fail). The cross-source
+    // production constant happens to be. The cross-source
     // lock against the actual upstream input.c lives in
     // scripts/r47_contracts/test_live_stop_key_policy_contract.py.
 

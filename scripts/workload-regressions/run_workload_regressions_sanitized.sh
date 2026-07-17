@@ -37,8 +37,8 @@ export CFLAGS="${CFLAGS:+$CFLAGS }-fsanitize=address,undefined -fno-sanitize=ali
 # pools, decNumber contexts) it never frees, so an exit-time leak census would
 # fail every fixture on intentional never-freed globals. This lane gates on hard
 # memory-safety violations (use-after-free, overflow, bad free) and surfaces UB.
-# The graph free-list overflow that once mattered here is fixed upstream; the
-# dedicated build_graph_crash_harness.sh now guards that the fix holds.
+# The dedicated build_graph_crash_harness.sh guards against the graph free-list
+# overflow.
 export ASAN_OPTIONS="${ASAN_OPTIONS:-abort_on_error=1:halt_on_error=1:detect_leaks=0}"
 export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1:halt_on_error=0}"
 

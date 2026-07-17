@@ -176,7 +176,7 @@ class ReplicaOverlayGoldenTest {
 
     @Test
     fun nativeChrome_compositesLcdRasterColours() {
-        // Semantic oracle (REPORT-24 Milestone 5): prove the LCD raster is actually
+        // Semantic oracle: prove the LCD raster is actually
         // composited into the frame, instead of a re-blessable whole-frame hash
         // that proves nothing about correctness. The two most distinctive LCD
         // content colours -- the top status band and the checker highlight -- must
@@ -202,7 +202,7 @@ class ReplicaOverlayGoldenTest {
 
     @Test
     fun nativeChrome_matchesTextGolden() {
-        // Code-only golden render oracle (REPORT-24 Milestone 5 Slice B): assert the
+        // Code-only golden render oracle: assert the
         // render against an ASCII-luminance fingerprint held in code -- no binary
         // reference image (the Roborazzi alternative the maintainer ruled out) and
         // no opaque SHA. assertEquals on the two multi-line grids yields a
@@ -638,7 +638,7 @@ class ReplicaOverlayGoldenTest {
 
     private fun renderHash(overlay: ReplicaOverlay): String = pngSha256(renderToBitmap(overlay))
 
-    // Code-only golden (REPORT-24 Milestone 5 Slice B): downsample the render to a
+    // Code-only golden: downsample the render to a
     // small ASCII-luminance grid. Unlike a SHA hash it is a *reviewable* fingerprint
     // -- an intended change shows up as a visible shape diff -- and unlike a
     // Roborazzi reference it is plain text, so it adds no binary image to the repo.

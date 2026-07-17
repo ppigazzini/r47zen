@@ -6,8 +6,8 @@
 # .github/actions/setup-android-sdk composite action -- and is never re-inlined
 # into a workflow job.
 #
-# That composite replaced four near-identical ~67-line copies across
-# android-ci.yml and the protected android-release.yml. A reappearing inline
+# That composite is the single home for the SDK setup across android-ci.yml and
+# the protected android-release.yml. A reappearing inline
 # block is drift that re-opens the duplication, so this guard fails when the
 # characteristic inline step names show up in a workflow again, when no workflow
 # routes SDK setup through the composite, or when the composite stops SHA-pinning

@@ -1,11 +1,10 @@
-// Host regression guard for the (now fixed) fast-pan graph crash.
+// Host regression guard for the fast-pan graph crash.
 // Replicates: EQN -> exp(x) -> graph/draw -> zoom in (no curve in view) ->
 // pan the x-window left/right very fast (re-solving every batch) for a long
 // run, the way the Android gesture flush drives fnEqSolvGraph(EQ_PLOT_LU).
-// The upstream solver leak that drove numberOfFreeMemoryRegions toward
-// MAX_FREE_REGIONS is fixed; this harness now confirms the region count stays
-// flat across a sustained re-solve run and would catch a re-regression after an
-// upstream sync. Built with AddressSanitizer so any native fault prints a stack
+// This harness confirms numberOfFreeMemoryRegions stays flat across a
+// sustained re-solve run, so a solver leak driving it toward MAX_FREE_REGIONS
+// after an upstream sync fails the run. Built with AddressSanitizer so any native fault prints a stack
 // trace. Set R47_GRAPH_HARNESS_ITERS to bound the run for a quick check.
 
 #include "keypad_fixture_bridge.h"
