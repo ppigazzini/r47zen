@@ -71,6 +71,8 @@ jobs:
     env:
       ACTIONLINT_VERSION: 1.7.7
       ACTIONLINT_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
+      SHELLCHECK_VERSION: v0.10.0
+      SHELLCHECK_SHA256: 6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -88,17 +90,34 @@ jobs:
           tar -xzf actionlint.tar.gz actionlint
           ./actionlint --version
 
+      - name: Install shellcheck
+        shell: bash
+        # Pin the shellcheck actionlint shells out to, so the inline-run-block
+        # lint is deterministic and does not drift with the runner image's
+        # preinstalled version.
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            --output shellcheck.tar.xz
+          echo "${SHELLCHECK_SHA256}  shellcheck.tar.xz" | sha256sum --check --status
+          tar -xJf shellcheck.tar.xz "shellcheck-${SHELLCHECK_VERSION}/shellcheck"
+          install "shellcheck-${SHELLCHECK_VERSION}/shellcheck" ./shellcheck
+          ./shellcheck --version
+
       - name: Lint workflows with actionlint
         shell: bash
         # actionlint validates workflow syntax, expressions, glob patterns, and
         # the matrix and needs graphs -- the workflow bugs that YAML alone hides.
-        # Its optional shellcheck integration is disabled: repo shell linting is
-        # owned by the dedicated shellcheck job over scripts/*.sh, and the inline
-        # run-block findings today are all SC2129 style plus one SC2209 false
-        # positive on an intentional strip-tool name assignment.
+        # It also shellchecks each inline run: block through the pinned shellcheck
+        # above, at --severity=warning to match the dedicated scripts/*.sh job, so
+        # real bugs in inline bash fail here while pure-style SC2129 noise does
+        # not. The dedicated shellcheck job still owns scripts/*.sh.
+        env:
+          SHELLCHECK_OPTS: --severity=warning
         run: |
           set -euo pipefail
-          ./actionlint -color -shellcheck=
+          ./actionlint -color -shellcheck=./shellcheck
 
       - name: Set up uv
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2

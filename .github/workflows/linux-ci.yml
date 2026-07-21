@@ -269,9 +269,11 @@ jobs:
           fi
 
           if command -v llvm-strip > /dev/null 2>&1; then
-            strip_tool=llvm-strip
+            strip_tool="llvm-strip"
           elif command -v strip > /dev/null 2>&1; then
-            strip_tool=strip
+            # Quoted so shellcheck reads this as the tool NAME, not SC2209
+            # "assign command output".
+            strip_tool="strip"
           else
             echo "No strip tool found in PATH." >&2
             exit 1
