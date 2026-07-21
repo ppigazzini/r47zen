@@ -163,9 +163,7 @@ class KeypadSnapshotWireContractTest(unittest.TestCase):
         native = _native_constants()["META_LENGTH"]
         manifest = _manifest()["metaLength"]
         if native != manifest:
-            message = (
-                f"keypad META_LENGTH drift: native={native} manifest={manifest}"
-            )
+            message = f"keypad META_LENGTH drift: native={native} manifest={manifest}"
             raise AssertionError(message)
 
     def test_meta_lane_offsets_match_native(self) -> None:
