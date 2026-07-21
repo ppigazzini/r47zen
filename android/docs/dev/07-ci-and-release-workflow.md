@@ -341,6 +341,16 @@ This prerelease is intentionally separate from the manual production release
 channel. The APK uses a dedicated prerelease signing key path and never reuses
 the production release key.
 
+The real prerelease key is exposed only to non-`pull_request` runs. A pull
+request runs PR-head build and test scripts, so both the
+`android-build-test-package` and `android-tests` lanes sign a pull request
+build with a throwaway key generated in-job (`keytool`) instead of the real
+prerelease secrets, and fall back to the real key on push, schedule, and
+dispatch. `publish-main-snapshot` is `main`-only, so a throwaway-signed pull
+request build is never published. This keeps the signing secrets unreachable
+from PR-controlled code while still letting pull requests (including forks,
+which receive no secrets) build, package, and run the connected emulator tests.
+
 ### `ci-required`
 
 This is the single job to mark as the required status check in branch
