@@ -500,29 +500,34 @@ jobs:
             echo "release_title=$R47_ANDROID_DEV_RELEASE_TITLE" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Validate prerelease signing inputs
+      - name: Resolve prerelease signing material
         shell: bash
+        # A pull request runs the PR-head build scripts, so exposing the real
+        # prerelease key to them would let a PR exfiltrate it (and fork PRs get no
+        # secrets, so the old validate step failed them outright). Hand the real
+        # key only to non-PR events; on a PR, sign with a throwaway key generated
+        # in-job. publish-main-snapshot is main-only, so a throwaway-signed PR
+        # build is never published.
         env:
-          R47_PRERELEASE_STORE_FILE_BASE64: ${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}
-          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
-          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
-          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          R47_PRERELEASE_STORE_FILE_BASE64: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_FILE_BASE64 || '' }}
         run: |
           set -euo pipefail
-
-          required=(
-            R47_PRERELEASE_STORE_FILE_BASE64
-            R47_PRERELEASE_STORE_PASSWORD
-            R47_PRERELEASE_KEY_ALIAS
-            R47_PRERELEASE_KEY_PASSWORD
-          )
-
-          for secret_name in "${required[@]}"; do
-            if [[ -z "${!secret_name:-}" ]]; then
-              echo "Missing required prerelease secret: ${secret_name}" >&2
+          mkdir -p ci-signing
+          keystore="ci-signing/prerelease.keystore"
+          if [ "$IS_PR" = "true" ]; then
+            keytool -genkeypair -alias r47-throwaway \
+              -dname 'CN=R47 Zen PR throwaway, O=R47 Zen CI' \
+              -keyalg RSA -keysize 2048 -validity 7 \
+              -storetype PKCS12 -keystore "$keystore" \
+              -storepass r47-throwaway -keypass r47-throwaway
+          else
+            if [ -z "$R47_PRERELEASE_STORE_FILE_BASE64" ]; then
+              echo "Missing required prerelease keystore secret." >&2
               exit 1
             fi
-          done
+            printf '%s' "$R47_PRERELEASE_STORE_FILE_BASE64" | base64 --decode >"$keystore"
+          fi
 
       - name: Build, test, and package Android signed dev prerelease APK
         shell: bash
@@ -542,16 +547,16 @@ jobs:
           R47_RELEASE_CHANNEL_BUILD_TOKEN: ${{ needs.upstream-release-gate.outputs.dev_build_token }}
           R47_VERSION_CODE: ${{ needs.upstream-release-gate.outputs.dev_version_code }}
           R47_VERSION_NAME: ${{ needs.upstream-release-gate.outputs.dev_version_name }}
+          # Real passwords only off pull_request; a PR uses the throwaway key
+          # created above, whose credentials are the well-known constant below.
           R47_PRERELEASE_STORE_FILE: ${{ github.workspace }}/ci-signing/prerelease.keystore
-          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
-          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
-          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
+          R47_PRERELEASE_STORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_PASSWORD || 'r47-throwaway' }}
+          R47_PRERELEASE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_ALIAS || 'r47-throwaway' }}
+          R47_PRERELEASE_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_PASSWORD || 'r47-throwaway' }}
           GRADLE_OPTS: '-Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
           mkdir -p ci-artifacts/logs
-          mkdir -p ci-signing
-          printf '%s' '${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}' | base64 --decode > "$R47_PRERELEASE_STORE_FILE"
 
           ./scripts/android/build_android.sh \
             --run-sim-tests \
@@ -777,42 +782,33 @@ jobs:
           include-emulator: 'true'
           android-test-api-level: ${{ steps.defaults.outputs.android_test_api_level }}
 
-      - name: Validate prerelease signing inputs
+      - name: Resolve prerelease signing material for connected tests
         shell: bash
+        # The connected emulator install needs a signed APK. Off pull_request use
+        # the real prerelease key; on a PR sign with a throwaway key generated
+        # in-job so the PR-head test scripts never see the real signing secrets
+        # (and fork PRs, which get no secrets, still run). The real signed APK the
+        # snapshot ships is built only on main by android-build-test-package.
         env:
-          R47_PRERELEASE_STORE_FILE_BASE64: ${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}
-          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
-          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
-          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          R47_PRERELEASE_STORE_FILE_BASE64: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_FILE_BASE64 || '' }}
         run: |
           set -euo pipefail
-
-          required=(
-            R47_PRERELEASE_STORE_FILE_BASE64
-            R47_PRERELEASE_STORE_PASSWORD
-            R47_PRERELEASE_KEY_ALIAS
-            R47_PRERELEASE_KEY_PASSWORD
-          )
-
-          for secret_name in "${required[@]}"; do
-            if [[ -z "${!secret_name:-}" ]]; then
-              echo "Missing required prerelease secret: ${secret_name}" >&2
+          mkdir -p ci-signing
+          keystore="ci-signing/prerelease.keystore"
+          if [ "$IS_PR" = "true" ]; then
+            keytool -genkeypair -alias r47-throwaway \
+              -dname 'CN=R47 Zen PR throwaway, O=R47 Zen CI' \
+              -keyalg RSA -keysize 2048 -validity 7 \
+              -storetype PKCS12 -keystore "$keystore" \
+              -storepass r47-throwaway -keypass r47-throwaway
+          else
+            if [ -z "$R47_PRERELEASE_STORE_FILE_BASE64" ]; then
+              echo "Missing required prerelease keystore secret." >&2
               exit 1
             fi
-          done
-
-      - name: Prepare prerelease keystore for connected tests
-        shell: bash
-        env:
-          R47_PRERELEASE_STORE_FILE_BASE64: ${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}
-          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
-          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
-          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-
-          mkdir -p ci-signing
-          printf '%s' "$R47_PRERELEASE_STORE_FILE_BASE64" | base64 --decode > ci-signing/prerelease.keystore
+            printf '%s' "$R47_PRERELEASE_STORE_FILE_BASE64" | base64 --decode >"$keystore"
+          fi
 
       - name: Make scripts executable
         shell: bash
@@ -969,9 +965,9 @@ jobs:
           R47_CONNECTED_ANDROID_ENABLE_CONFIGURATION_CACHE: 'true'
           R47_CONNECTED_ANDROID_USE_DAEMON: 'true'
           R47_PRERELEASE_STORE_FILE: ${{ github.workspace }}/ci-signing/prerelease.keystore
-          R47_PRERELEASE_STORE_PASSWORD: ${{ secrets.R47_PRERELEASE_STORE_PASSWORD }}
-          R47_PRERELEASE_KEY_ALIAS: ${{ secrets.R47_PRERELEASE_KEY_ALIAS }}
-          R47_PRERELEASE_KEY_PASSWORD: ${{ secrets.R47_PRERELEASE_KEY_PASSWORD }}
+          R47_PRERELEASE_STORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_PASSWORD || 'r47-throwaway' }}
+          R47_PRERELEASE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_ALIAS || 'r47-throwaway' }}
+          R47_PRERELEASE_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_PASSWORD || 'r47-throwaway' }}
           R47_CONNECTED_ANDROID_TEST_CORE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_COMMIT: ${{ github.sha }}
