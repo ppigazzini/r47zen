@@ -570,12 +570,12 @@ jobs:
         run: ccache --show-stats
 
       - name: Verify native library hardening
-        # Advisory: assert the packaged arm64 library keeps its exploit-mitigation
-        # posture (BTI/PAC, full RELRO, non-executable stack, no RWX segment, no
-        # text relocations). Non-blocking until it has run green across a few
-        # builds; the script itself exits non-zero so it can gate locally and be
-        # promoted here later.
-        continue-on-error: true
+        # Blocking gate: assert the packaged arm64 library keeps its
+        # exploit-mitigation posture (BTI/PAC, full RELRO, non-executable stack,
+        # no RWX segment, no text relocations). Promoted from advisory to blocking
+        # on 2026-07-21 after it ran green (all properties PASS on every packaged
+        # libr47zen.so) across the recent main runs; a mitigation regression in
+        # the shipped .so now fails the lane.
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
