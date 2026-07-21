@@ -227,8 +227,17 @@ ensure_remote() {
 
 path_exists_in_head() {
     local path="$1"
+    local listing=""
 
-    git -C "$PROJECT_ROOT" ls-tree -r --name-only HEAD -- "$path" | grep -q .
+    # Distinguish "path is not tracked in HEAD" (empty listing -> return 1) from
+    # "git could not be queried" (broken HEAD/object -> fail closed). Swallowing
+    # the error would silently drop a repo-owned path from the restore set and
+    # leave the upstream overlay's copy in place.
+    if ! listing="$(git -C "$PROJECT_ROOT" ls-tree -r --name-only HEAD -- "$path")"; then
+        fail "Unable to query HEAD for repo-owned path '${path}' during restore. Refusing to continue rather than silently skip its restore and leave an upstream copy in place."
+    fi
+
+    [ -n "$listing" ]
 }
 
 restore_path_reowns_upstream_root_surface() {

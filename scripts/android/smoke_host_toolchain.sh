@@ -36,10 +36,19 @@ echo "OK: build dependencies resolve (cmake, meson, ninja, pkg-config)."
 llvm_major="${1:-}"
 if [ -z "$llvm_major" ]; then
     codename="$(lsb_release -cs)"
+    # Reach apt.llvm.org first so a network/404 failure gives the intended
+    # diagnostic. Left inside the command substitution, curl failing under
+    # `set -o pipefail` aborts the whole script here and the friendly message
+    # below never runs.
+    dists_listing=""
+    if ! dists_listing="$(curl -fsSL "https://apt.llvm.org/${codename}/dists/" 2>/dev/null)"; then
+        fail "could not reach apt.llvm.org to determine an available LLVM major for ${codename}"
+    fi
+    # `|| true` so a no-match grep does not trip pipefail before the check below.
     llvm_major="$(
-        curl -fsSL "https://apt.llvm.org/${codename}/dists/" 2>/dev/null |
+        printf '%s\n' "$dists_listing" |
             grep -oE "llvm-toolchain-${codename}-[0-9]+" |
-            grep -oE '[0-9]+$' | sort -n | tail -1
+            grep -oE '[0-9]+$' | sort -n | tail -1 || true
     )"
     [ -n "$llvm_major" ] || fail "could not determine an available LLVM major for ${codename}"
     echo "Testing the newest LLVM major apt.llvm.org publishes for ${codename}: ${llvm_major}"
