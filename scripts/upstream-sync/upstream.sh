@@ -288,7 +288,7 @@ emit_resolved_output() {
             printf 'R47_RESOLVED_UPSTREAM_URL=%q\n' "$RESOLVED_UPSTREAM_URL"
             printf 'R47_RESOLVED_UPSTREAM_REF=%q\n' "$RESOLVED_UPSTREAM_REF"
             printf 'R47_RESOLVED_UPSTREAM_COMMIT=%q\n' "$RESOLVED_UPSTREAM_COMMIT"
-            printf 'R47_RESOLVED_UPSTREAM_SHORT_COMMIT=%q\n' "${RESOLVED_UPSTREAM_COMMIT:0:12}"
+            printf 'R47_RESOLVED_UPSTREAM_SHORT_COMMIT=%q\n' "${RESOLVED_UPSTREAM_COMMIT:0:8}"
             printf 'R47_RESOLVED_UPSTREAM_MODE=%q\n' "$RESOLVED_UPSTREAM_MODE"
             ;;
         none) ;;

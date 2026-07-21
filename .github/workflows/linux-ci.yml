@@ -205,7 +205,7 @@ jobs:
             exit 1
           fi
 
-          upstream_short_commit="${upstream_commit:0:12}"
+          upstream_short_commit="${upstream_commit:0:8}"
           artifact_name="r47-linux-${upstream_short_commit}"
 
           echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
