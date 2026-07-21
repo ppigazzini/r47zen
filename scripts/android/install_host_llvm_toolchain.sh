@@ -22,11 +22,20 @@
 set -Eeuo pipefail
 
 llvm_major="${1:?usage: install_host_llvm_toolchain.sh <llvm_major>}"
+if [[ ! "$llvm_major" =~ ^[0-9]+$ ]]; then
+    echo "llvm_major must be a positive integer. Got: ${llvm_major}" >&2
+    exit 1
+fi
 
 codename="$(lsb_release -cs)"
+# Scope the apt.llvm.org key with signed-by to just its own repository, rather
+# than dropping it in trusted.gpg.d where it would authenticate every repo on
+# the system.
+keyring="/etc/apt/keyrings/apt.llvm.org.asc"
+sudo install -d -m 0755 /etc/apt/keyrings
 wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key |
-    sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
-echo "deb http://apt.llvm.org/${codename}/ llvm-toolchain-${codename}-${llvm_major} main" |
+    sudo tee "$keyring" >/dev/null
+echo "deb [signed-by=${keyring}] http://apt.llvm.org/${codename}/ llvm-toolchain-${codename}-${llvm_major} main" |
     sudo tee "/etc/apt/sources.list.d/apt-llvm-org-${llvm_major}.list" >/dev/null
 sudo apt-get update
 sudo apt-get install --yes --no-install-recommends \

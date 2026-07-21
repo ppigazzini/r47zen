@@ -103,6 +103,11 @@ for cls in root.iter("class"):
     print(f"seam {name}: {pct:.2f}% line ({covered}/{covered + missed})")
     if missed != 0:
         failures.append(f"{name} is not fully line-covered ({pct:.2f}%, {missed} missed)")
+    elif covered == 0:
+        # A seam with no covered lines is not being exercised. percent() reports
+        # 0/0 as 100%, so without this a seam refactored down to no executable
+        # lines would pass the full-coverage lock trivially.
+        failures.append(f"{name} has no covered lines (seam not exercised or emptied)")
 
 for name in seam_classes - found:
     failures.append(f"seam class {name} not found in the coverage report")
