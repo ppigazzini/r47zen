@@ -49,6 +49,13 @@ note() {
 readonly ALLOWED_NON_ASCII='·'
 
 mapfile -t DOCS < <(git ls-files '*.md')
+# A run that finds no tracked markdown (broken .git, exported tarball, wrong cwd)
+# would iterate every check over nothing and report PASS. That is a fail-open on
+# a gate; refuse to pass instead.
+if [[ ${#DOCS[@]} -eq 0 ]]; then
+    echo "docs rot gate: no tracked markdown found (is this a git checkout?)" >&2
+    exit 1
+fi
 log "docs rot gate over ${#DOCS[@]} tracked markdown files"
 
 # --- 1. every internal link resolves ------------------------------------------

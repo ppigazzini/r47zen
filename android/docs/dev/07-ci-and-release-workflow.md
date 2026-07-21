@@ -265,9 +265,10 @@ It:
   unit-test coverage report so the JNI-facing Kotlin coverage is visible
 - then runs `scripts/android/coverage_gate.sh`, which parses that Kover release
   report and fails the lane if overall line coverage drops below the floor
-  (default 80 %, below the current measurement so it ratchets against
-  regressions) or if the live program-stop routing seam loses full line coverage
-  (REPORT-24 Milestone 5)
+  (`R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT` in
+  `android/r47-defaults.properties`, currently 82 %, below the current
+  measurement so it ratchets against regressions) or if the live program-stop
+  routing seam loses full line coverage (REPORT-24 Milestone 5)
 - uses that single task graph to refresh staged native inputs, build the
   dev-release APK, assemble the instrumentation APKs, and run the JVM suite without a
   second full `build_android.sh` pass
