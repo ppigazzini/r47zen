@@ -23,7 +23,8 @@ Usage:
     --expected-version-code <code> \
     --expected-version-name <name> \
     --expected-apk-abis <abi[,abi...]> \
-    [--expected-signing-mode <mode>]
+    [--expected-signing-mode <mode>] \
+    [--expected-cert-sha256 <hex>]
 EOF
 }
 
@@ -33,6 +34,14 @@ expected_version_code=""
 expected_version_name=""
 expected_apk_abis=""
 expected_signing_mode="release"
+# Optional out-of-band pin of the signing certificate SHA-256. When set (the
+# public cert fingerprint of the release key, safe to track), the published
+# APK's and AAB's recorded cert must equal it, so a build signed with the wrong
+# key fails even though the bundle is internally consistent. Unset keeps the
+# self-consistency checks (APK cert == AAB cert, and present for a signed mode).
+expected_cert_sha256="${R47_RELEASE_EXPECTED_CERT_SHA256:-}"
+apk_signing_cert=""
+aab_signing_cert=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -58,6 +67,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --expected-signing-mode)
             expected_signing_mode="$2"
+            shift 2
+            ;;
+        --expected-cert-sha256)
+            expected_cert_sha256="$2"
             shift 2
             ;;
         --help | -h)
@@ -89,6 +102,10 @@ if [[ -z "$expected_apk_abis" ]]; then
     usage >&2
     exit 1
 fi
+
+# Normalize the optional pin to the same shape the evidence records: lowercase
+# hex, no separators.
+expected_cert_sha256="$(printf '%s' "$expected_cert_sha256" | tr -d ':' | tr 'A-F' 'a-f')"
 
 read_metadata_value() {
     local key="$1"
@@ -137,12 +154,13 @@ verify_evidence_dir() {
         exit 1
     fi
 
-    local artifact_type artifact_name version_code version_name signing_mode
+    local artifact_type artifact_name version_code version_name signing_mode signing_cert
     artifact_type="$(read_metadata_value artifact_type "$metadata_file")"
     artifact_name="$(read_metadata_value artifact_name "$metadata_file")"
     version_code="$(read_metadata_value version_code "$metadata_file")"
     version_name="$(read_metadata_value version_name "$metadata_file")"
     signing_mode="$(read_metadata_value artifact_signed "$metadata_file")"
+    signing_cert="$(read_metadata_value artifact_signing_cert_sha256 "$metadata_file")"
 
     assert_equal "${expected_type} artifact_type" "$expected_type" "$artifact_type"
 
@@ -177,6 +195,25 @@ verify_evidence_dir() {
     assert_equal "${expected_type} version_name" "$expected_version_name" "$version_name"
     assert_equal "${expected_type} signing mode" "$expected_signing_mode" "$signing_mode"
 
+    # A signed release must carry a cryptographically derived signer cert digest
+    # (recorded at build time by collect_packaging_evidence via apksigner/keytool).
+    # Its absence means the artifact was unsigned or built before this evidence
+    # existed; either way it must not pass as a signed release.
+    if [[ "$expected_signing_mode" == "release" || "$expected_signing_mode" == "prerelease" ]]; then
+        if [[ -z "$signing_cert" || "$signing_cert" == "unknown" ]]; then
+            echo "FAIL: ${expected_type} ${artifact_name} has no recorded signing certificate digest (unsigned or pre-cert build?)." >&2
+            exit 1
+        fi
+    fi
+    if [[ "$expected_type" == "apk" ]]; then
+        apk_signing_cert="$signing_cert"
+    else
+        aab_signing_cert="$signing_cert"
+    fi
+    if [[ -n "$expected_cert_sha256" && -n "$signing_cert" && "$signing_cert" != "unknown" ]]; then
+        assert_equal "${expected_type} signing cert sha256" "$expected_cert_sha256" "$signing_cert"
+    fi
+
     if [[ "$expected_type" == "apk" ]]; then
         local abis_file="$evidence_dir/abis.txt"
         if [[ ! -f "$abis_file" ]]; then
@@ -204,5 +241,18 @@ verify_evidence_dir() {
 
 verify_evidence_dir "$apk_evidence_dir" "apk"
 verify_evidence_dir "$aab_evidence_dir" "aab"
+
+# The APK and AAB ship from one release build and must carry the same signer.
+# A mismatch means the two artifacts were signed by different keys.
+if [[ -n "$apk_signing_cert" && "$apk_signing_cert" != "unknown" &&
+    -n "$aab_signing_cert" && "$aab_signing_cert" != "unknown" ]]; then
+    assert_equal "apk/aab signing cert match" "$apk_signing_cert" "$aab_signing_cert"
+fi
+
+if [[ -z "$expected_cert_sha256" ]]; then
+    echo "NOTE: no --expected-cert-sha256 pin supplied; verified signer self-consistency only." >&2
+    echo "NOTE: observed signing cert sha256 = ${apk_signing_cert:-unknown}. Pin it via" >&2
+    echo "NOTE: R47_RELEASE_EXPECTED_CERT_SHA256 to assert signer identity out-of-band." >&2
+fi
 
 echo "All published release artifacts verified against their recorded evidence."

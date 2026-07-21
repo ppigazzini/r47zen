@@ -800,6 +800,11 @@ jobs:
         env:
           R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
+          # Optional signer-identity pin. The release signing cert fingerprint is
+          # public, so set it as a repository variable (not a secret) to assert
+          # the published artifacts were signed by the expected key. Unset keeps
+          # the signer self-consistency checks only.
+          R47_RELEASE_EXPECTED_CERT_SHA256: ${{ vars.R47_RELEASE_EXPECTED_CERT_SHA256 }}
         run: |
           set -euo pipefail
 
