@@ -88,7 +88,11 @@ jobs:
             --upstream-commit "$UPSTREAM_COMMIT" \
             --android-commit "$ANDROID_COMMIT")"
 
-          release_tag="$R47_ANDROID_RELEASE_TAG"
+          # The skip check below and publish-main-snapshot must key on the same
+          # tag. publish creates the `-dev` tag (R47_ANDROID_DEV_RELEASE_TAG); the
+          # bare-stem R47_ANDROID_RELEASE_TAG is created by no lane, so checking it
+          # would never match and the nightly would never skip an unchanged pair.
+          release_tag="$R47_ANDROID_DEV_RELEASE_TAG"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
 
           dev_build_token="${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
@@ -206,7 +210,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ccache-simsanity
-          key: ${{ runner.os }}-simsanity-ccache-${{ github.ref_name }}-${{ github.sha }}
+          # github.run_id makes every run's save key unique so actions/cache
+          # always writes an updated cache (an exact-key hit is never re-saved);
+          # the restore-keys prefixes below still warm-restore the newest cache.
+          key: ${{ runner.os }}-simsanity-ccache-${{ github.ref_name }}-${{ github.sha }}-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-simsanity-ccache-${{ github.ref_name }}-
             ${{ runner.os }}-simsanity-ccache-
@@ -379,7 +386,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ccache-buildpkg
-          key: ${{ runner.os }}-buildpkg-ccache-${{ github.ref_name }}-${{ github.sha }}
+          # github.run_id makes every run's save key unique so actions/cache
+          # always writes an updated cache (an exact-key hit is never re-saved);
+          # the restore-keys prefixes below still warm-restore the newest cache.
+          key: ${{ runner.os }}-buildpkg-ccache-${{ github.ref_name }}-${{ github.sha }}-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-buildpkg-ccache-${{ github.ref_name }}-
             ${{ runner.os }}-buildpkg-ccache-
@@ -1010,6 +1020,13 @@ jobs:
       - android-tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The workflow-level concurrency cancels superseded runs, but this job
+    # creates a GitHub release and tag; a mid-`gh release create` cancel could
+    # leave a half-published release. Give the publish step its own group that
+    # never cancels in progress, so a newer main push waits instead of aborting.
+    concurrency:
+      group: ${{ github.workflow }}-publish-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:

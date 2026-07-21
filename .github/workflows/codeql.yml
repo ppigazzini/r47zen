@@ -1,8 +1,10 @@
-# CodeQL static analysis for the repo-owned native C. Build-free scanning
+# CodeQL static analysis for the repo-owned code. Build-free scanning
 # (build-mode: none) needs no toolchain, so it analyzes the Android-owned JNI
-# glue and mini-gmp fallback without staging the upstream core. The upstream
-# tree (src/, android/.staged-native) is git-ignored and absent on a normal
-# checkout, so this naturally scopes to repo-owned code; paths-ignore is a
+# glue and mini-gmp fallback (c-cpp) and the Kotlin/Java app surface -- SAF and
+# intent handling, lifecycle, settings, and the JNI-facing bridge (java-kotlin)
+# -- without staging the upstream core or running Gradle. The upstream tree
+# (src/, android/.staged-native) is git-ignored and absent on a normal checkout,
+# so this naturally scopes to repo-owned code; paths-ignore is a
 # belt-and-suspenders guard in case a run stages it. Findings surface in the
 # Security tab; this lane is advisory and does not gate merges.
 name: CodeQL
@@ -18,13 +20,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
-    name: Analyze native C
+    name: Analyze ${{ matrix.language }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       security-events: write
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [c-cpp, java-kotlin]
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -34,7 +45,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:
-          languages: c-cpp
+          languages: ${{ matrix.language }}
           build-mode: none
           config: |
             paths-ignore:
@@ -45,4 +56,4 @@ jobs:
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:
-          category: "/language:c-cpp"
+          category: "/language:${{ matrix.language }}"

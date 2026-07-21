@@ -1,8 +1,15 @@
-# Keep the SHA-pinned GitHub Actions current. The workflows pin every third
-# party action to a full commit SHA with a reviewed `# vX.Y.Z` comment; manual
-# pins go stale silently, so Dependabot proposes the bump (SHA + comment) on a
-# weekly cadence for review. Grouped into one PR to keep the review surface
-# small.
+# Keep dependencies current across every ecosystem this repo owns. Manual pins
+# go stale silently, so Dependabot proposes the bump on a weekly cadence for
+# review. Each ecosystem groups its updates into one PR to keep the review
+# surface small.
+#
+# - github-actions: the workflows pin every third-party action to a full commit
+#   SHA with a reviewed `# vX.Y.Z` comment; Dependabot proposes the SHA + comment
+#   bump. The `/` directory scan also covers the composite actions under
+#   `.github/actions/**`.
+# - gradle: the Android app dependencies and AGP/plugin versions, so a
+#   vulnerable transitive library surfaces as a PR instead of shipping silently.
+# - uv: the maintained Python contract/tooling deps in `pyproject.toml`.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
@@ -13,5 +20,25 @@ updates:
       prefix: "ci"
     groups:
       github-actions:
+        patterns:
+          - "*"
+  - package-ecosystem: "gradle"
+    directory: "/android"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "build"
+    groups:
+      gradle:
+        patterns:
+          - "*"
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "build"
+    groups:
+      python:
         patterns:
           - "*"
