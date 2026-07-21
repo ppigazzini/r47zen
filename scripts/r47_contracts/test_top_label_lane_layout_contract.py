@@ -53,8 +53,7 @@ def _assert_unstaggered(placement: LaneGroupPlacement) -> None:
     level = placement.stagger_level
     if level != 0:
         message = (
-            f"no-conflict placement must stay un-staggered, "
-            f"saw stagger_level={level}"
+            f"no-conflict placement must stay un-staggered, saw stagger_level={level}"
         )
         raise AssertionError(message)
 
