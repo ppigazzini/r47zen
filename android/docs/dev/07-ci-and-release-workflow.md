@@ -518,10 +518,20 @@ rather than after publication.
 
 Runs on `main` after `build-production-release-bundle`. It downloads the
 published release APK and AAB and verifies they match the recorded packaging
-evidence (signing mode, ABIs, version, checksums) via
-`scripts/android/verify_published_release_artifacts.sh`, so a mismatch between
-what was built and what was attached to the release fails the lane. This is the
-post-publish integrity gate that complements the SLSA provenance attestation.
+evidence (signing mode, ABIs, version, checksums, and the signer certificate
+SHA-256) via `scripts/android/verify_published_release_artifacts.sh`, so a
+mismatch between what was built and what was attached to the release fails the
+lane. This is the post-publish integrity gate that complements the SLSA
+provenance attestation.
+
+The signer certificate is derived cryptographically at build time by
+`collect_packaging_evidence.sh` (`apksigner` for the APK, `keytool` for the
+AAB) and recorded as `artifact_signing_cert_sha256`. The verify lane requires a
+signed release to carry it, asserts the APK and AAB share one signer, and, when
+the repository variable `R47_RELEASE_EXPECTED_CERT_SHA256` is set to the release
+key's public fingerprint, asserts the published artifacts match that pin. Set
+that variable once from the observed value the lane logs to gate signer
+identity out-of-band.
 
 ## Reproducing or re-releasing a past build
 

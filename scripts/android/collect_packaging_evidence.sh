@@ -381,6 +381,13 @@ if [[ "$artifact_type" == "apk" || "$artifact_type" == "aab" ]]; then
     unzip -q "$primary_artifact_path" -d "$unpack_dir"
 fi
 
+# Cryptographic signer identity, recorded at build time where the artifact is
+# freshly produced and cannot yet be tampered. The APK path uses apksigner and
+# the AAB path uses keytool; both normalize to lowercase hex with no separators
+# so the two artifacts' certs can be compared downstream. Stays "unknown" for an
+# unsigned artifact or when the tool is unavailable.
+signing_cert_sha256="unknown"
+
 if [[ "$artifact_type" == "apk" ]]; then
     if [[ -z "$android_sdk_root" || -z "$ndk_version" ]]; then
         echo "APK evidence collection requires --android-sdk-root and --ndk-version." >&2
@@ -408,6 +415,20 @@ if [[ "$artifact_type" == "apk" ]]; then
     if [[ -z "$llvm_objdump" || ! -x "$llvm_objdump" ]]; then
         echo "Unable to locate llvm-objdump for NDK $ndk_version." >&2
         exit 1
+    fi
+
+    apksigner_bin="$(find "$android_sdk_root/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+    if [[ -n "$apksigner_bin" && -x "$apksigner_bin" ]]; then
+        if apksigner_certs="$("$apksigner_bin" verify --print-certs "$primary_artifact_path" 2>/dev/null)"; then
+            apk_cert_digest="$(
+                printf '%s\n' "$apksigner_certs" |
+                    sed -n 's/.*certificate SHA-256 digest: *\([0-9a-fA-F]*\).*/\1/p' |
+                    head -n 1 | tr 'A-F' 'a-f'
+            )"
+            if [[ -n "$apk_cert_digest" ]]; then
+                signing_cert_sha256="$apk_cert_digest"
+            fi
+        fi
     fi
 
     "$zipalign_bin" -c -P 16 -v 4 "$primary_artifact_path" | tee "$output_dir/zipalign.txt"
@@ -455,6 +476,19 @@ fi
 
 if [[ "$artifact_type" == "aab" ]]; then
     extract_packaged_compliance_assets "$unpack_dir" "base/assets" "$output_dir"
+
+    if command -v keytool >/dev/null 2>&1; then
+        if aab_certs="$(keytool -printcert -jarfile "$primary_artifact_path" 2>/dev/null)"; then
+            aab_cert_digest="$(
+                printf '%s\n' "$aab_certs" |
+                    sed -n 's/.*SHA256: *\([0-9A-Fa-f:]*\).*/\1/p' |
+                    head -n 1 | tr -d ':' | tr 'A-F' 'a-f'
+            )"
+            if [[ -n "$aab_cert_digest" ]]; then
+                signing_cert_sha256="$aab_cert_digest"
+            fi
+        fi
+    fi
 fi
 
 populate_compliance_assets "$output_dir"
@@ -509,5 +543,6 @@ write_metadata_line "android_variant" "$variant" "$build_metadata_file"
 write_metadata_line "artifact_type" "$artifact_type" "$build_metadata_file"
 write_metadata_line "artifact_name" "$artifact_name" "$build_metadata_file"
 write_metadata_line "artifact_signed" "$signing_mode" "$build_metadata_file"
+write_metadata_line "artifact_signing_cert_sha256" "$signing_cert_sha256" "$build_metadata_file"
 
 echo "Packaging evidence written to $output_dir"
