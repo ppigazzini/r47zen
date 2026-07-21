@@ -92,8 +92,17 @@ jobs:
           release_version_token="${release_version_token#[Vv]}"
           release_tag="r47zen-v${release_version_token}"
           if [[ "$R47_ALLOW_OVERWRITE" != "true" ]]; then
-            if git ls-remote --exit-code --tags origin "refs/tags/${release_tag}" >/dev/null 2>&1; then
+            # ls-remote returns 0 when the tag exists and 2 when it does not;
+            # any other code is a network/auth error. Fail closed on both "exists"
+            # and "error" so a transient failure never opens the overwrite gate.
+            # (`set -e` does not fire inside a condition, so branch on the code.)
+            ls_remote_status=0
+            git ls-remote --exit-code --tags origin "refs/tags/${release_tag}" >/dev/null 2>&1 || ls_remote_status=$?
+            if [[ "$ls_remote_status" -eq 0 ]]; then
               echo "Release tag ${release_tag} already exists; refusing to overwrite a published release. Re-run with allow_overwrite=true only for a deliberate re-cut." >&2
+              exit 1
+            elif [[ "$ls_remote_status" -ne 2 ]]; then
+              echo "Could not determine whether ${release_tag} exists (git ls-remote exit ${ls_remote_status}); refusing to proceed rather than risk overwriting a published release." >&2
               exit 1
             fi
           else
@@ -843,8 +852,10 @@ jobs:
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           # Attest the exact signed bytes that ship on the GitHub release, so a
-          # consumer can verify they were produced by this workflow run
-          # (gh attestation verify <file> --repo ${{ github.repository }}).
+          # consumer can verify they were produced by THIS workflow, not merely
+          # somewhere in this repo:
+          #   gh attestation verify <file> --repo ${{ github.repository }} \
+          #     --signer-workflow ${{ github.repository }}/.github/workflows/android-release.yml
           subject-path: |
             release-apk/*.apk
             release-aab/*.aab
@@ -852,16 +863,21 @@ jobs:
       - name: Verify build provenance attestation
         env:
           GH_TOKEN: ${{ github.token }}
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/android-release.yml
         shell: bash
         run: |
           set -euo pipefail
 
           # Re-verify the attestation just produced for each shipped artifact, so
           # a broken, unsigned, or missing provenance fails the release in the
-          # same run instead of being discovered after publication.
+          # same run instead of being discovered after publication. Bind to this
+          # workflow's identity so an attestation produced by any OTHER workflow
+          # in the repo cannot satisfy the check.
           for artifact in release-apk/*.apk release-aab/*.aab; do
             echo "Verifying build provenance for ${artifact}"
-            gh attestation verify "${artifact}" --repo "${GITHUB_REPOSITORY}"
+            gh attestation verify "${artifact}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --signer-workflow "${SIGNER_WORKFLOW}"
           done
 
       - name: Pack release evidence archives
@@ -1004,7 +1020,11 @@ jobs:
             release-apk/${{ steps.evidence.outputs.apk_evidence_archive_name }}
             release-aab/${{ steps.evidence.outputs.aab_evidence_archive_name }}
           fail_on_unmatched_files: true
-          overwrite_files: true
+          # Only replace assets on an existing tag when the dispatch explicitly
+          # asked for a re-cut; the resolve-release-inputs guard already fails a
+          # non-overwrite run whose tag exists, so this is the second half of the
+          # same contract at the actual publish point.
+          overwrite_files: ${{ inputs.allow_overwrite }}
           prerelease: false
           draft: false
           make_latest: true

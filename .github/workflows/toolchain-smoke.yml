@@ -37,6 +37,9 @@ jobs:
   toolchain-smoke:
     name: Host toolchain install smoke
     runs-on: ubuntu-latest
+    # The apt + apt.llvm.org installs can hang on a broken mirror; bound the job
+    # instead of inheriting the 360-minute default.
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

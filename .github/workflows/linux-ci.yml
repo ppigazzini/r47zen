@@ -143,7 +143,12 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ccache-linux
-          key: ${{ runner.os }}-linux-ccache-${{ github.ref_name }}-${{ github.sha }}
+          # github.run_id makes every run's save key unique so actions/cache
+          # always writes an updated cache (an exact-key hit is never re-saved).
+          # The restore-keys prefixes below still warm-restore the newest cache,
+          # so hits accumulate across nightly upstream drift instead of freezing
+          # at the last main commit.
+          key: ${{ runner.os }}-linux-ccache-${{ github.ref_name }}-${{ github.sha }}-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-linux-ccache-${{ github.ref_name }}-
             ${{ runner.os }}-linux-ccache-
@@ -519,6 +524,8 @@ jobs:
             ci-artifacts/logs/host-workload-regressions-sanitized.log
             ci-artifacts/logs/bridge-tsan-harness.log
             ci-artifacts/logs/clipboard-overflow-harness.log
+            ci-artifacts/logs/graph-crash-harness.log
+            ci-artifacts/logs/keypad-generation-contract.log
           if-no-files-found: warn
           retention-days: 14
 

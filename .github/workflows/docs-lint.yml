@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - github_ci
+      - main
   pull_request:
 
 permissions:

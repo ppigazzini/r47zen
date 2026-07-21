@@ -140,7 +140,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ccache-${{ matrix.artifact_suffix }}
-          key: ${{ runner.os }}-${{ matrix.artifact_suffix }}-ccache-${{ github.ref_name }}-${{ github.sha }}
+          # github.run_id makes every run's save key unique so actions/cache
+          # always writes an updated cache (an exact-key hit is never re-saved);
+          # the restore-keys prefixes below still warm-restore the newest cache.
+          key: ${{ runner.os }}-${{ matrix.artifact_suffix }}-ccache-${{ github.ref_name }}-${{ github.sha }}-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.artifact_suffix }}-ccache-${{ github.ref_name }}-
             ${{ runner.os }}-${{ matrix.artifact_suffix }}-ccache-
