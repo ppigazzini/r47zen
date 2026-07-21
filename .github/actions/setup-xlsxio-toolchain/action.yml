@@ -23,7 +23,11 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ inputs.prefix }}
-        key: ${{ runner.os }}-xlsxio-${{ inputs.commit }}-static-tools-v1
+        # Key on the source url and commit AND a hash of this action, so changing
+        # the source repository or the build recipe (the cmake flags below)
+        # invalidates the cache automatically instead of relying on a manual
+        # version bump. hashFiles hashes this file, which carries the flags.
+        key: ${{ runner.os }}-xlsxio-${{ inputs.url }}-${{ inputs.commit }}-${{ hashFiles('.github/actions/setup-xlsxio-toolchain/action.yml') }}-static-tools-v2
 
     - name: Build upstream xlsxio toolchain
       if: steps.xlsxio-cache.outputs.cache-hit != 'true'
