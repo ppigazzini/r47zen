@@ -24,8 +24,19 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ANDROID_DIR="$PROJECT_ROOT/android"
 DEFAULTS_PATH="$ANDROID_DIR/r47-defaults.properties"
 REPORT_XML="${R47_COVERAGE_REPORT_XML:-$ANDROID_DIR/app/build/reports/kover/reportRelease.xml}"
-DEFAULT_MIN_TOTAL_LINE_PERCENT="$(sed -n 's/^R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT=//p' "$DEFAULTS_PATH" 2>/dev/null | head -1)"
-MIN_TOTAL_LINE_PERCENT="${R47_COVERAGE_MIN_TOTAL_LINE_PERCENT:-${DEFAULT_MIN_TOTAL_LINE_PERCENT:-80}}"
+# Read the ratchet floor from the defaults file. Do not swallow a missing file
+# into a hardcoded fallback: a defaults-path rename would silently lower the gate
+# and re-bless a real regression, so fail closed if the file or key is absent.
+if [[ ! -f "$DEFAULTS_PATH" ]]; then
+    echo "coverage gate: defaults file not found: $DEFAULTS_PATH" >&2
+    exit 1
+fi
+DEFAULT_MIN_TOTAL_LINE_PERCENT="$(sed -n 's/^R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT=//p' "$DEFAULTS_PATH" | head -1)"
+if [[ -z "$DEFAULT_MIN_TOTAL_LINE_PERCENT" ]]; then
+    echo "coverage gate: R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT missing from $DEFAULTS_PATH" >&2
+    exit 1
+fi
+MIN_TOTAL_LINE_PERCENT="${R47_COVERAGE_MIN_TOTAL_LINE_PERCENT:-$DEFAULT_MIN_TOTAL_LINE_PERCENT}"
 SEAM_CLASSES=(
     "io/github/ppigazzini/r47zen/LiveKeyRouter"
     "io/github/ppigazzini/r47zen/LiveProgramStopKeyPolicy"

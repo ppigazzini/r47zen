@@ -235,7 +235,7 @@ restore_path_reowns_upstream_root_surface() {
     local path="$1"
 
     case "$path" in
-        Makefile | meson.build | meson_options.txt | src | src/* | dep | dep/* | docs/code | docs/code/* | subprojects | subprojects/* | tools | tools/*)
+        Makefile | meson.build | meson_options.txt | src | src/* | dep | dep/* | docs | docs/* | res | res/* | subprojects | subprojects/* | tools | tools/*)
             return 0
             ;;
         *)
