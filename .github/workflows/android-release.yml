@@ -504,6 +504,24 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Shred the decoded release keystore
+        if: always()
+        shell: bash
+        # Remove the decoded production keystore whether the job passed or
+        # failed. Hosted runners wipe RUNNER_TEMP, but a reused or self-hosted
+        # runner would otherwise keep the private signing key on disk. shred
+        # overwrites before unlinking; rm is the fallback if shred is absent.
+        env:
+          KEYSTORE_PATH: ${{ steps.release-keystore.outputs.keystore_path }}
+        run: |
+          set -euo pipefail
+          if [ -n "${KEYSTORE_PATH:-}" ] && [ -f "$KEYSTORE_PATH" ]; then
+            shred -u "$KEYSTORE_PATH" 2>/dev/null || rm -f "$KEYSTORE_PATH"
+            echo "Removed decoded release keystore."
+          else
+            echo "No decoded release keystore to remove."
+          fi
+
   verify-production-release:
     name: Verify production release on the emulator
     if: github.ref == 'refs/heads/main'
