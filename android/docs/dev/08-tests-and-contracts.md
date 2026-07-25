@@ -419,10 +419,24 @@ Android compatibility layer.
   asserted against the independently verified valid solution
   `-> 8., 4., 1., 3., 6., 2., 7., 5.`. A wrong result fails the lane (the harness
   exits non-zero, which `run_workload_regressions.sh` propagates -- only bounded
-  timeouts are downgraded to degraded coverage). The other fixtures stay
-  liveness-only because their single-`R/S` parked state is degenerate
-  (`BinetV4`/`GudrmPL`), interrupted (`MANSLV2`), or non-deterministic
-  (`SPIRALk` graph); a full multi-step result oracle for those is a follow-up
+  timeouts are downgraded to degraded coverage). `SPIRALk.p47` carries a second
+  X-register oracle (final `X = 150`); its plot image stays un-oracled because
+  the number of points plotted before it finishes is not reproducible across
+  machines. Only `MANSLV2` stays liveness-only, because its direct-stop
+  interrupt leaves no completed state to assert
+- The two plotting fixtures (`BinetV4.p47`, `GudrmPL.p47`) leave a deterministic
+  image rather than a scalar in X, so they are pinned by an FNV-1a
+  `expected_display_hash` over the final LCD bitmap instead. That hash covers
+  only the rows below the status bar (`y >= STATUS_BAR_ROWS`, matching the
+  `clearScreenExcludingStatusBar` geometry in upstream `screen.h`). The bar is
+  masked on purpose: it paints the calculator date, so a whole-screen hash of
+  any fixture that halts with a painted bar drifts on every calendar day and no
+  pinned golden can track it. Upstream `70756a9e4` made that reachable by
+  force-repainting the bar on the program halt paths, and three consecutive
+  nightly Linux CI runs then produced three different whole-screen hashes for
+  `BinetV4` on 2026-07-23, 2026-07-24, and 2026-07-25. Masking the bar keeps the
+  plot -- the result these fixtures actually assert -- fully covered; the plot
+  area itself was bit-identical either side of that upstream change
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
   contract. It does prove that the shared compatibility path can start the five
   imported fixtures, compute the verified 8-queens result, and accept a bounded

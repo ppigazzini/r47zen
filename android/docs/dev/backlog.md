@@ -22,12 +22,16 @@ stays closed unless new evidence reopens it.
     miscompile the decNumber `lsu[]` and mini-gmp flexible-array idioms on this
     exact core. Gate behind a full workload-regression + ASan/UBSan pass on the
     decNumber corpus, and be prepared to reject it outright.
-- Roborazzi (or equivalent) tolerance-based plot goldens. The adopt trigger
-  (a third BinetV3/GudrmPL display-hash re-pin) has fired, so this is now a
-  decision, not a gated wait: either adopt tolerance goldens for the two plot
-  fixtures or explicitly re-document the exact-hash strategy. Restore a
-  post-program softmenu oracle with the corrected `MNU_SHOW` expectation so menu
-  correctness is guarded independently of the whole-screen hash.
+- Roborazzi (or equivalent) tolerance-based plot goldens. The decision landed on
+  keeping exact hashes but narrowing what they cover: `compute_display_hash` now
+  masks the status-bar rows, which removed the largest churn driver (the bar
+  paints the date, so a whole-screen hash drifted every calendar day once
+  upstream `70756a9e4` began force-repainting it on the halt paths). Exact
+  hashes over the plot area remain the strategy. Revisit tolerance goldens only
+  if the plot area itself starts churning on upstream geometry changes, which
+  masking does not address. Still open: restore a post-program softmenu oracle
+  with the corrected `MNU_SHOW` expectation so menu correctness is guarded
+  independently of the plot hash.
 - FACTORS value oracle. `FactorsInstrumentedTest` asserts only the result type,
   not the value. Needs either an emulator capture of the reproducible
   X-register matrix string or a new host-workload function-invocation scenario

@@ -35,14 +35,34 @@ extern void reallocateRegister(calcRegister_t regist, uint32_t dataType,
                                uint32_t tag);
 extern bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y);
 
-// FNV-1a hash of the final LCD bitmap, read pixel-by-pixel through the same
-// lcd_buffer_pixel_on path the screen dump uses (so it ignores the packed
-// buffer's row-header bytes). Plotting fixtures leave a deterministic image
-// rather than a scalar in the X register, so this gives them a result oracle the
-// X-register check cannot express.
+// Height of the upstream status bar, in pixel rows. Upstream carries no named
+// constant for it: screen.h hardcodes the same geometry in its clear macros,
+// where clearScreenStatusBar fills lcd_fill_rect(0, 0, ..., 20) and
+// clearScreenExcludingStatusBar fills lcd_fill_rect(0, 20, SCREEN_WIDTH, 220).
+// Re-derive this from those macros if upstream ever moves the boundary.
+#define STATUS_BAR_ROWS 20u
+
+// FNV-1a hash of the final LCD bitmap BELOW the status bar, read pixel-by-pixel
+// through the same lcd_buffer_pixel_on path the screen dump uses (so it ignores
+// the packed buffer's row-header bytes). Plotting fixtures leave a deterministic
+// image rather than a scalar in the X register, so this gives them a result
+// oracle the X-register check cannot express.
+//
+// The status-bar rows are excluded on purpose: the bar carries the calculator's
+// date and time, so any fixture whose final image includes a painted bar hashes
+// differently on every calendar day, which no pinned golden can track. Upstream
+// 70756a9e4 (merge of perf/run-gate-statusbar-keytimers) made that reachable by
+// throttling refreshStatusBar() to every 256 program steps and force-repainting
+// the bar on the halt paths in lblGtoXeq.c, which left BinetV4 parked at its
+// plot prompt with a freshly painted date where the bar had previously stayed
+// blank. Three consecutive CI runs proved the drift: the full-screen hash was
+// 0x8abd91c8d92dac51 on 2026-07-23, 0x780d1240e67431e1 on 2026-07-24, and
+// 0x7c5f11a811e409e1 on 2026-07-25. Masking the bar leaves the plot itself --
+// the result these fixtures actually assert -- fully covered, and it verified
+// bit-identical across that upstream change.
 static uint64_t compute_display_hash(void) {
   uint64_t hash = 1469598103934665603ull;  // FNV-1a 64-bit offset basis
-  for (uint32_t y = 0; y < SCREEN_HEIGHT; ++y) {
+  for (uint32_t y = STATUS_BAR_ROWS; y < SCREEN_HEIGHT; ++y) {
     for (uint32_t x = 0; x < SCREEN_WIDTH; ++x) {
       hash ^= (uint64_t)(lcd_buffer_pixel_on(x, y) ? 1u : 0u);
       hash *= 1099511628211ull;  // FNV-1a 64-bit prime
@@ -91,11 +111,13 @@ typedef struct {
   const int *expected_x_sequence;
   size_t expected_x_sequence_len;
   // Display-hash oracle for plotting fixtures: the FNV-1a hash of the final LCD
-  // bitmap (compute_display_hash). Plotting workloads (BinetV4, GudrmPL) leave a
-  // deterministic image, not a scalar in X, so this pins their result where the
-  // X-register oracle cannot. 0 stays liveness-only. Only set for fixtures that
-  // finish (not interrupted) and whose final image is run-to-run deterministic,
-  // verified by repeated runs.
+  // bitmap below the status bar (compute_display_hash). Plotting workloads
+  // (BinetV4, GudrmPL) leave a deterministic image, not a scalar in X, so this
+  // pins their result where the X-register oracle cannot. 0 stays liveness-only.
+  // Only set for fixtures that finish (not interrupted) and whose final image is
+  // run-to-run deterministic, verified by repeated runs. The hash covers only
+  // y >= STATUS_BAR_ROWS, so a painted date or time in the status bar cannot
+  // make a golden drift by calendar day -- see compute_display_hash.
   uint64_t expected_display_hash;
 } program_fixture_scenario_t;
 
@@ -627,11 +649,14 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_after_activity_ms = 0u,
      // Verified run-to-run deterministic over repeated host runs;
      // BinetV4 parks at its plot prompt leaving a stable final image. Re-pinned
-     // for the upstream programmed-plot menu fix (a9ff33acf: fnPlotSQ blanks the
-     // menu with MNU_SHOW under a running plot) and the sample-program rework
-     // that renamed BinetV3 -> BinetV4 and drives PLSTAT explicitly. The hash
-     // tracks the current upstream HEAD.
-     .expected_display_hash = 0x1ddff07951d1afb6ull},
+     // for upstream 70756a9e4, which force-repaints the status bar on the halt
+     // paths and so leaves a painted date over what used to be a blank bar; the
+     // hash now masks the bar, so this value covers the plot only. The plot area
+     // is bit-identical either side of that upstream change (verified by dumping
+     // the bitmap at 1dee4cfb0 and at 70756a9e4 and diffing: only rows 4-15,
+     // columns 25-102 moved, all inside the masked bar), so the previous
+     // full-screen golden 0x1ddff07951d1afb6 and this one assert the same image.
+     .expected_display_hash = 0x2d0284422ded0739ull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
@@ -640,14 +665,13 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
      // Verified run-to-run deterministic over repeated host runs;
-     // GudrmPL runs the Gudermannian plot to natural completion. Re-pinned for
-     // the upstream programmed-plot menu fix (a9ff33acf: fnPlotSQ pushes MNU_SHOW
-     // to blank the menu under a running plot instead of leaving a stale menu)
-     // together with the sample-program rework, which shifted this plot image.
-     // The new hash reproduces identically on the dev host and the CI runner, and
-     // the other fixtures (BinetV4, NQueens, SPIRALk, MANSLV2) are unaffected, so
-     // only this plot image moved.
-     .expected_display_hash = 0x70048cf89e72ea6bull},
+     // GudrmPL runs the Gudermannian plot to natural completion. Its plot image
+     // did NOT move under upstream 70756a9e4: the previous full-screen golden
+     // 0x70048cf89e72ea6b still matched at that revision. This value differs only
+     // because compute_display_hash now masks the status-bar rows, so the hash is
+     // taken over a smaller region; it was re-derived, not re-blessed over a
+     // changed image.
+     .expected_display_hash = 0x339c3071194a7027ull},
     {.program_name = "MANSLV2.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 15000u,
