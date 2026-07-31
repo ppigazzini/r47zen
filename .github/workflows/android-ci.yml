@@ -324,6 +324,31 @@ jobs:
 
           bash ./scripts/r47_contracts/run_contract_suite.sh
 
+      # Report only, and deliberately so. The ledger/suite coverage mismatch is
+      # already a hard failure inside the suite above, via
+      # test_upstream_provenance_contract. What is left is drift, and this repo
+      # resolves upstream HEAD on every run, so drift is the normal state - a
+      # gate on it would paint the lane red for doing exactly what it is
+      # supposed to do. Surfacing it in the job summary instead means an
+      # upstream advance that moves a derived golden is visible at a glance
+      # rather than buried in the suite log.
+      - name: Summarize upstream provenance drift
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export PYTHONPATH="${PWD}/scripts"
+          report="$(uv run --group dev python -m r47_contracts.upstream_provenance || true)"
+
+          {
+            echo "## Upstream provenance"
+            echo
+            echo '```'
+            printf '%s\n' "$report"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   android-build-test-package:
     name: Build, test, and package Android signed dev prerelease APK
     if: needs.upstream-release-gate.outputs.should_run == 'true'

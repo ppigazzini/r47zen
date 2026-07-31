@@ -1,0 +1,72 @@
+{
+  "inputs": [
+    {
+      "contracts": [
+        "scripts/r47_contracts/data/r47_key_font_policy_contract.json"
+      ],
+      "derivers": [
+        "scripts/r47_contracts/derive_key_font_policy.py"
+      ],
+      "path": "res/fonts/C47__NumericFont.ttf",
+      "sha256": "ce77dad4b8ec5a44f790a088c2cdb3922b13a598a6eb53e23e38a13702e5a938"
+    },
+    {
+      "contracts": [
+        "scripts/r47_contracts/data/r47_key_font_policy_contract.json"
+      ],
+      "derivers": [
+        "scripts/r47_contracts/derive_key_font_policy.py",
+        "scripts/r47_contracts/derive_key_visual_policy.py",
+        "scripts/r47_contracts/derive_top_label_lane_layout.py"
+      ],
+      "path": "res/fonts/C47__StandardFont.ttf",
+      "sha256": "b80fca14e779d9188ec3821d1dd625fef7d09d501ea8b2174acdd60a42bf5a89"
+    },
+    {
+      "contracts": [
+        "scripts/r47_contracts/data/r47_key_font_policy_contract.json"
+      ],
+      "derivers": [
+        "scripts/r47_contracts/derive_key_font_policy.py"
+      ],
+      "path": "res/fonts/C47__TinyFont.ttf",
+      "sha256": "cbab3edf7b0d1f21da0a8f7455bfa931c7ee3c3e3180c8986256bb29625c54dd"
+    },
+    {
+      "contracts": [
+        "scripts/r47_contracts/data/r47_keyboard_layout_contract.json"
+      ],
+      "derivers": [
+        "scripts/r47_contracts/derive_keyboard_layout_contract.py"
+      ],
+      "path": "src/c47/assign.c",
+      "sha256": "0660cdbfb12a64047aac13bf6f0cc353fb6b3fec4ecb747bcd273635b3fb308d"
+    },
+    {
+      "contracts": [
+        "scripts/r47_contracts/data/r47_keyboard_layout_contract.json"
+      ],
+      "derivers": [
+        "scripts/r47_contracts/derive_keyboard_layout_contract.py"
+      ],
+      "path": "src/c47/items.c",
+      "sha256": "64674a9d6189a3bbc2c0eee49275a25132329ef76b78c214895d2615d208a59d"
+    },
+    {
+      "contracts": [
+        "scripts/r47_contracts/test_live_stop_key_policy_contract.py"
+      ],
+      "derivers": [
+        "scripts/r47_contracts/derive_live_stop_key_policy.py"
+      ],
+      "path": "src/c47/programming/input.c",
+      "sha256": "3e469ac36998cd71258bf99f917788eccf3b16bd34b66d9ad56eb1509878ef36"
+    }
+  ],
+  "recorded": {
+    "recorded_on": "2026-07-31",
+    "upstream_commit": "5697da16239b64ec28b2f7d504e743b8da9c0ab8",
+    "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
+  },
+  "schema": 1
+}
