@@ -28,6 +28,7 @@ TEST_MODULES=(
     r47_contracts.test_lcd_packed_row_contract
     r47_contracts.test_keypad_snapshot_wire_contract
     r47_contracts.test_jni_registration_contract
+    r47_contracts.test_upstream_provenance_contract
 )
 
 cd "$PROJECT_ROOT"
@@ -48,3 +49,12 @@ for module in "${DERIVE_MODULES[@]}"; do
 done
 
 uv run --group dev python -m unittest "${TEST_MODULES[@]}"
+
+# Provenance REPORT, not a gate. test_upstream_provenance_contract already fails
+# the run when the ledger and the suite disagree about which upstream inputs
+# exist. Drift is different: this repo tracks upstream HEAD, so an input moving
+# is the normal state and must never fail a lane by itself. Printing it here
+# gives whoever reads the log the one thing the goldens cannot say on their own
+# - which upstream bytes moved, and therefore which golden to root-cause before
+# re-blessing it.
+uv run --group dev python -m r47_contracts.upstream_provenance

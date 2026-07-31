@@ -154,10 +154,21 @@ It:
 - syncs the authoritative upstream tree
 - provisions Python 3.14 and `uv`
 - runs `bash ./scripts/r47_contracts/run_contract_suite.sh`
+- writes the upstream provenance report to the job summary
 
 It gates `android-build-test-package` and `android-tests`, so a contract drift
 fails fast before the Android build and instrumentation lanes run. See
 `08-tests-and-contracts.md` for the contract-to-suite map.
+
+The provenance summary step is deliberately report-only and runs with
+`if: always()`. The failure it would otherwise gate on - the ledger and the
+suite disagreeing about which upstream inputs exist - is already a hard failure
+inside the suite through `test_upstream_provenance_contract.py`. What is left is
+drift, and this lane resolves upstream HEAD on every run, so drift is the normal
+state; gating on it would paint the lane red for working as designed. Putting it
+in the job summary means an upstream advance that moves a derived golden is
+visible at a glance instead of buried in the suite log. See
+[08-tests-and-contracts.md](08-tests-and-contracts.md) for the ledger itself.
 
 ### `android-build-test-package`
 

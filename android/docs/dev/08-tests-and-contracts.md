@@ -61,6 +61,7 @@ flowchart TD
 | pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
 | Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved | rerun the narrow native Gradle build first, then the latest-upstream Android build lane when new upstream HAL symbols appear |
 | upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
+| which upstream bytes the derived goldens came from | `scripts/r47_contracts/data/upstream_provenance.json`, `scripts/r47_contracts/upstream_provenance.py`, the `UPSTREAM_R47_*_PATH` constants in `scripts/r47_contracts/_repo_paths.py` | `scripts/r47_contracts/test_upstream_provenance_contract.py` | grouped `scripts/r47_contracts` validation lane; coverage fails there, drift only reports |
 
 `Theme.R47` and `Theme.R47.PopupMenu` are intentional fixed-dark contracts.
 If a future change makes the shell or popup menus follow the device light or
@@ -167,6 +168,52 @@ The grouped Python lane currently covers:
 These Python tests are the first contract surface to inspect when a geometry or
 label rule change begins in the checked-in calculators-specific payloads rather
 than in Android runtime glue.
+
+### Upstream Provenance Ledger
+
+`scripts/r47_contracts/data/upstream_provenance.json` records which upstream
+bytes the committed goldens were derived from: one entry per upstream input,
+carrying its `sha256` plus the derivers and contract surfaces that depend on it.
+`scripts/r47_contracts/upstream_provenance.py` reads it.
+
+This exists because the freshness guard is circular. The goldens re-derive from
+live inputs that arrive with no commit here, so re-running a deriver re-blesses
+whatever the tree currently says, including a wrong change. The ledger is the
+out-of-band record that makes `did upstream actually move this input?` a
+question the tree can answer.
+
+It keys on content, never on commit archaeology: `upstream.sh` fetches upstream
+shallow, so the local object store holds a single upstream commit and
+`git log -- <path>` cannot attribute a per-file change here. The recorded
+`upstream_commit` is a watermark for the snapshot as a whole.
+
+Two findings, gated differently on purpose:
+
+- **coverage** - the suite reads an upstream input the ledger omits, or the
+  ledger lists one nothing reads any more. A repo-side mistake, deterministic,
+  and a hard failure through `test_upstream_provenance_contract.py`. The
+  declared set is introspected from the `UPSTREAM_R47_*_PATH` constants in
+  `scripts/r47_contracts/_repo_paths.py` and the font assets in
+  `scripts/r47_contracts/derive_key_font_policy.py`, so a new upstream input
+  cannot enter the suite without the ledger noticing.
+- **drift** - a recorded input moved. Normal under a tracks-latest-HEAD policy,
+  so it is reported and never fails a lane by itself. The report names the
+  goldens the moved bytes put in question.
+
+```bash
+# report drift and coverage (exit 0); the contract suite runs this last
+PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance
+
+# re-record after root-causing the drift - a deliberate act, not a refresh
+PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance \
+    --record --upstream-commit <sha>
+```
+
+Re-recording erases the evidence that something moved, so do it only after the
+independent correctness tests pass and the drift is root-caused, and name the
+upstream commit in the commit body. Regenerating without that is laundering.
+`--check-drift` exits non-zero on drift for deliberate maintainer use; do not
+gate a lane on it.
 
 ## Android JVM Contract Suite
 

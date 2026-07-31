@@ -129,10 +129,15 @@ cannot run, say why and record what was checked instead.
    the committed file against a fresh re-derivation is circular: re-running the
    deriver re-blesses any change, including a wrong one. Before re-blessing,
    confirm the independent correctness tests still pass and root-cause the
-   drift.
+   drift. `PYTHONPATH=scripts uv run --group dev python -m
+   r47_contracts.upstream_provenance` answers the out-of-band half of that -
+   which upstream inputs moved since the goldens were recorded, and which
+   goldens each one puts in question.
 3. **Upstream drift is not a regression, and not a licence either.** When a
    golden moves because upstream moved, name the upstream commit and show what
-   changed. Regenerating without that is laundering.
+   changed. Regenerating without that is laundering. Re-record the provenance
+   ledger (`--record --upstream-commit <sha>`) in the same commit that
+   re-blesses a golden, never on its own.
 4. **Verify against a live tree, not memory.** When a local note and upstream
    disagree, upstream wins.
 5. **Retract what you cannot prove.** Say which claims are measured, which are
