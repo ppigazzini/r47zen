@@ -35,7 +35,11 @@ cd "$PROJECT_ROOT"
 export PYTHONPATH="$PROJECT_ROOT/scripts"
 
 uv run --group dev python -V
-uv run --group dev ruff check --no-cache --select ALL scripts/r47_contracts
+# No --select here: a CLI selector overrides the config's `select` AND discards
+# its `ignore`, which silently re-enabled a rule pyproject.toml deliberately
+# turns off. pyproject.toml already sets `select = ["ALL"]`, so let it own the
+# rule set and keep this lane identical to the pre-commit hook.
+uv run --group dev ruff check --no-cache scripts/r47_contracts
 uv run --group dev ty check scripts/r47_contracts
 uv run --group dev python -m r47_contracts.validate_geometry_dataset
 

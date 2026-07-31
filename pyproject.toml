@@ -5,9 +5,9 @@ requires-python = ">=3.14"
 
 [dependency-groups]
 dev = [
-    "pre-commit>=4.6.0",
-    "ruff>=0.15.22",
-    "ty>=0.0.61",
+    "pre-commit>=4.6.1",
+    "ruff>=0.16.1",
+    "ty>=0.0.65",
     "fontTools>=4.63.0",
 ]
 
@@ -17,6 +17,13 @@ src = ["scripts"]
 
 [tool.ruff.lint]
 select = ["ALL"]
+# `select = ["ALL"]` opts every newly stabilized rule in on the next ruff bump,
+# which is deliberate: a new rule should surface as a lint failure to triage,
+# not stay silent. CPY001 is the one standing exception. It wants a per-file
+# copyright header; this repo states its licence once in COPYING and carries no
+# per-file headers, so the rule contradicts an existing project convention
+# rather than finding a defect. Stabilized in ruff 0.16.0.
+ignore = ["CPY001"]
 
 [tool.ty.environment]
 python-version = "3.14"
