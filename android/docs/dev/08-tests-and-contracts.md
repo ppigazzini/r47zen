@@ -77,6 +77,12 @@ That runner uses the repo-managed Python environment through
 derivation scripts all use the same maintained dependency set.
 The checked-in VS Code task and Android CI workflow both call that runner so
 the keyboard-layout audit stays in the standard execution lane.
+`pyproject.toml` owns the `ruff` rule set (`select = ["ALL"]` plus a short
+documented `ignore`), and the runner passes no `--select`: a CLI selector
+overrides the configured `select` and discards the configured `ignore` with it,
+so an ignored rule would come back only in that lane. Keeping the selector in
+one file also means a `ruff` bump lands the same new rules in the hook and the
+suite at once.
 If a one-off maintainer check needs an untracked package, prefer
 `uv run --with <packages list> ...` instead of mutating `pyproject.toml`.
 Only pin the dependency in `pyproject.toml` when the package becomes part of a

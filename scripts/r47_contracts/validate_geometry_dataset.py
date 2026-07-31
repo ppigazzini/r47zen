@@ -269,10 +269,12 @@ def load_raw_entries_from_document(root: dict[str, object]) -> list[RawEntry]:
 
 
 def _sorted_with_positions(entries: Iterable[RawEntry]) -> list[RawEntry]:
-    return sorted(
-        (entry for entry in entries if entry.start is not None),
-        key=lambda item: item.start,
-    )
+    # Pair each entry with its start before sorting. `RawEntry.start` is
+    # `int | None`, so a `key=lambda item: item.start` reads as a possibly-None
+    # sort key even though the filter has already excluded those rows; binding
+    # the start inside the comprehension carries the narrowing to the key.
+    positioned = [(entry.start, entry) for entry in entries if entry.start is not None]
+    return [entry for _, entry in sorted(positioned, key=lambda pair: pair[0])]
 
 
 def _diffs(values: list[int]) -> list[int]:
@@ -587,21 +589,27 @@ def _matrix_alignment_errors(
     right_aligned = matrix_right == standard_right
     if left_aligned == right_aligned:
         return [
-            "ERROR "
-            f"[{table}/matrix_4x4] expected the visible 4x4 slice to align "
-            "to exactly one side of the virtual 4x5 lattice",
+            (
+                "ERROR "
+                f"[{table}/matrix_4x4] expected the visible 4x4 slice to align "
+                "to exactly one side of the virtual 4x5 lattice"
+            ),
         ]
     if table == "horizontal_main" and not right_aligned:
         return [
-            "ERROR "
-            f"[{table}/matrix_4x4] expected the main table to omit the "
-            "leftmost 4x5 slot and stay right-aligned",
+            (
+                "ERROR "
+                f"[{table}/matrix_4x4] expected the main table to omit the "
+                "leftmost 4x5 slot and stay right-aligned"
+            ),
         ]
     if table == "horizontal_symmetry" and not left_aligned:
         return [
-            "ERROR "
-            f"[{table}/matrix_4x4] expected the symmetry table to omit the "
-            "rightmost 4x5 slot and stay left-aligned",
+            (
+                "ERROR "
+                f"[{table}/matrix_4x4] expected the symmetry table to omit the "
+                "rightmost 4x5 slot and stay left-aligned"
+            ),
         ]
     if left_aligned:
         return _matrix_edge_errors(
@@ -628,10 +636,12 @@ def _matrix_edge_errors(
     if actual == expected:
         return []
     return [
-        "ERROR "
-        f"[{table}/matrix_4x4] {side_label}-omitted 4x5 lattice "
-        f"{('starts' if side_label == 'left' else 'ends')} at {actual}, "
-        f"expected {expected}",
+        (
+            "ERROR "
+            f"[{table}/matrix_4x4] {side_label}-omitted 4x5 lattice "
+            f"{('starts' if side_label == 'left' else 'ends')} at {actual}, "
+            f"expected {expected}"
+        ),
     ]
 
 

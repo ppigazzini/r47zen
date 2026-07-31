@@ -6,16 +6,23 @@ repos:
       - id: check-toml
       - id: check-yaml
         args: [--unsafe]
+      # Keep the vendored FSF mini-gmp fallback byte-exact. Its GNU sources use
+      # form-feed page breaks, which these two hooks read as trailing whitespace
+      # and strip. The file is never staged in normal work, so the damage only
+      # shows up under `pre-commit run --all-files` - silently rewriting a
+      # third-party source we are supposed to carry unmodified.
       - id: end-of-file-fixer
+        exclude: ^android/compat/mini-gmp-fallback/
       - id: trailing-whitespace
+        exclude: ^android/compat/mini-gmp-fallback/
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.22
+    rev: v0.16.1
     hooks:
       - id: ruff
         args: [--fix, --exit-zero]
       - id: ruff-format
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.11.30
+    rev: 0.12.0
     hooks:
       - id: uv-lock
   - repo: https://github.com/shellcheck-py/shellcheck-py
