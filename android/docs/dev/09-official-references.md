@@ -14,6 +14,7 @@ flowchart TD
   E[CI and release]
   F[Storage and manifest]
   G[View and rendering]
+  H[Bilevel bitmap packing]
 
   A --> B
   A --> C
@@ -21,6 +22,7 @@ flowchart TD
   A --> E
   A --> F
   A --> G
+  A --> H
 ```
 
 ## Upstream project surfaces
@@ -509,3 +511,40 @@ Current repository icon surfaces:
 - [Make custom views more accessible (Views)](https://developer.android.com/guide/topics/ui/accessibility/views/custom-views):
   directional-controller, click-action, accessibility-event, and
   accessibility-node guidance for custom interactive views.
+
+## Bilevel bitmap packing conventions
+
+These back the packing order `compute_display_hash` uses in
+`scripts/workload-regressions/host_workload_regression.c`, documented in
+[08-tests-and-contracts.md](08-tests-and-contracts.md). The 1-bit-per-pixel
+conventions agree across all four: the leftmost pixel of a group occupies the
+high-order bit, and every scanline restarts on a byte boundary. They disagree on
+row order and on row padding, which is why those two are decided here rather
+than inherited.
+
+- [PNG Specification (Third Edition)](https://www.w3.org/TR/png/): the W3C and
+  ISO/IEC 15948 bitmap layout. At bit depth 1 the leftmost pixel occupies the
+  high-order bits of a byte, scanlines are top-down when not interlaced, each
+  begins on a byte boundary, and any trailing bits in the final byte of a
+  scanline are undefined. That last rule is the portability trap a fixed-width
+  digest must design around.
+- [TIFF 6.0 Specification](https://download.osgeo.org/libtiff/doc/TIFF6.pdf):
+  Adobe's baseline bilevel format, mirrored by the libtiff project. `FillOrder`
+  (tag 266) defaults to 1, which stores lower column values in the higher-order
+  bits; the reverse ordering exists as value 2 and is uncommon enough that the
+  spec warns readers may not support it.
+- [Bitmap storage (Win32 GDI)](https://learn.microsoft.com/en-us/windows/win32/gdi/bitmap-storage)
+  and [BITMAPINFOHEADER](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapinfoheader):
+  the DIB layout upstream's `fnScreenDump` writes. Same high-order-bit-first
+  packing, but rows run bottom-up for a positive `biHeight` and each row is
+  padded to a 4-byte boundary. This repo's display digest deliberately takes
+  neither: top-down keeps the row index in the same coordinate space as the
+  status-bar mask, and padding bytes would put uninitialized data in a digest.
+- [PBM format description](https://netpbm.sourceforge.net/doc/pbm.html): the
+  netpbm raw bilevel format, the smallest complete statement of the same
+  convention - leftmost pixel in the most significant bit, rows byte-aligned,
+  no padding beyond the row.
+
+The notable counterexample is the X11 XBM format, which packs the leftmost pixel
+in the *least* significant bit. Nothing here consumes XBM; it is named because a
+reader who has met it is the reader most likely to assume the opposite order.

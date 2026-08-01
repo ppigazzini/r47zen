@@ -42,11 +42,32 @@ extern bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y);
 // Re-derive this from those macros if upstream ever moves the boundary.
 #define STATUS_BAR_ROWS 20u
 
-// FNV-1a hash of the final LCD bitmap BELOW the status bar, read pixel-by-pixel
-// through the same lcd_buffer_pixel_on path the screen dump uses (so it ignores
-// the packed buffer's row-header bytes). Plotting fixtures leave a deterministic
-// image rather than a scalar in the X register, so this gives them a result
-// oracle the X-register check cannot express.
+// Fail the build if a row stops packing into whole octets. compute_display_hash
+// consumes each row as SCREEN_WIDTH/8 octets, so a width that is not a multiple
+// of 8 would drop every row's trailing pixels from the oracle with no other
+// symptom: the digest would stay stable, stay deterministic, and stop covering
+// the right edge of the plot.
+typedef char display_hash_row_packs_into_whole_octets
+    [(SCREEN_WIDTH % 8 == 0) ? 1 : -1];
+
+// FNV-1a hash of the final LCD bitmap BELOW the status bar. Read every pixel
+// through the same lcd_buffer_pixel_on path the screen dump uses, and pack eight
+// pixels into each hashed octet, x ascending, most significant bit first. The
+// accessor owns the packed buffer's row stride, its two row-header bytes, and
+// its reversed bit order, so the digest is a function of pixel coordinates
+// alone: an upstream change to how the framebuffer is packed cannot move it
+// while the image holds. Plotting fixtures leave a deterministic image rather
+// than a scalar in the X register, so this gives them a result oracle the
+// X-register check cannot express.
+//
+// The octet order is the one PNG, TIFF, BMP, and PBM share: leftmost pixel in
+// the high-order bit. Restarting the octet on every row is the load-bearing
+// half -- it keeps the digest decomposable by row, so changing how many
+// status-bar rows are masked drops octets instead of reshuffling all of them.
+//
+// The packing order is part of what the goldens below pin. Nothing recomputes
+// this digest independently, so changing the order silently re-pins a different
+// encoding of the same pixels: change it only together with a re-bless.
 //
 // The status-bar rows are excluded on purpose: the bar carries the calculator's
 // date and time, so any fixture whose final image includes a painted bar hashes
@@ -63,8 +84,13 @@ extern bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y);
 static uint64_t compute_display_hash(void) {
   uint64_t hash = 1469598103934665603ull;  // FNV-1a 64-bit offset basis
   for (uint32_t y = STATUS_BAR_ROWS; y < SCREEN_HEIGHT; ++y) {
-    for (uint32_t x = 0; x < SCREEN_WIDTH; ++x) {
-      hash ^= (uint64_t)(lcd_buffer_pixel_on(x, y) ? 1u : 0u);
+    for (uint32_t x = 0; x < SCREEN_WIDTH; x += 8u) {
+      uint8_t octet = 0u;
+      for (uint32_t bit = 0u; bit < 8u; ++bit) {
+        octet = (uint8_t)((octet << 1) |
+                          (lcd_buffer_pixel_on(x + bit, y) ? 1u : 0u));
+      }
+      hash ^= (uint64_t)octet;
       hash *= 1099511628211ull;  // FNV-1a 64-bit prime
     }
   }
@@ -647,16 +673,11 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
-     // Verified run-to-run deterministic over repeated host runs;
-     // BinetV4 parks at its plot prompt leaving a stable final image. Re-pinned
-     // for upstream 70756a9e4, which force-repaints the status bar on the halt
-     // paths and so leaves a painted date over what used to be a blank bar; the
-     // hash now masks the bar, so this value covers the plot only. The plot area
-     // is bit-identical either side of that upstream change (verified by dumping
-     // the bitmap at 1dee4cfb0 and at 70756a9e4 and diffing: only rows 4-15,
-     // columns 25-102 moved, all inside the masked bar), so the previous
-     // full-screen golden 0x1ddff07951d1afb6 and this one assert the same image.
-     .expected_display_hash = 0x2d0284422ded0739ull},
+     // Verified run-to-run deterministic over repeated host runs; BinetV4 parks
+     // at its plot prompt leaving a stable final image. The value covers the plot
+     // area only, because compute_display_hash masks the status-bar rows, so the
+     // date the bar paints on the halt path cannot move it by calendar day.
+     .expected_display_hash = 0x4e0e715a6af1e31cull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
@@ -664,14 +685,11 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
-     // Verified run-to-run deterministic over repeated host runs;
-     // GudrmPL runs the Gudermannian plot to natural completion. Its plot image
-     // did NOT move under upstream 70756a9e4: the previous full-screen golden
-     // 0x70048cf89e72ea6b still matched at that revision. This value differs only
-     // because compute_display_hash now masks the status-bar rows, so the hash is
-     // taken over a smaller region; it was re-derived, not re-blessed over a
-     // changed image.
-     .expected_display_hash = 0x339c3071194a7027ull},
+     // Verified run-to-run deterministic over repeated host runs; GudrmPL runs
+     // the Gudermannian plot to natural completion. The value covers the plot
+     // area only, because compute_display_hash masks the status-bar rows, so the
+     // date the bar paints on the halt path cannot move it by calendar day.
+     .expected_display_hash = 0x89f304684393d7e0ull},
     {.program_name = "MANSLV2.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 15000u,
