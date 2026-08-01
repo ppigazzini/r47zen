@@ -479,7 +479,30 @@ Android compatibility layer.
   interrupt leaves no completed state to assert
 - The two plotting fixtures (`BinetV4.p47`, `GudrmPL.p47`) leave a deterministic
   image rather than a scalar in X, so they are pinned by an FNV-1a
-  `expected_display_hash` over the final LCD bitmap instead. That hash covers
+  `expected_display_hash` over the final LCD bitmap instead. `compute_display_hash`
+  in `scripts/workload-regressions/host_workload_regression.c` owns it: it reads
+  every pixel through `lcd_buffer_pixel_on` and hashes eight pixels per octet, x
+  ascending, most significant bit first. Reading through the accessor rather than
+  the packed buffer keeps the digest a function of pixel coordinates, so an
+  upstream change to the row stride, to the two row-header bytes, or to the
+  reversed bit order cannot move a golden while the image holds; a file-scope
+  negative-array typedef fails the build if `SCREEN_WIDTH` stops being a multiple
+  of 8, because a partial trailing octet would drop the right edge of every row
+  and change nothing else. The packing follows the convention PNG, TIFF, BMP, and
+  PBM share (see
+  [09-official-references.md](09-official-references.md#bilevel-bitmap-packing-conventions)):
+  leftmost pixel in the high-order bit, and every row restarts on an octet
+  boundary. Both matter here. The bit order is the one four formats already
+  agreed on, so a reader has no reason to "correct" it toward the X11 XBM
+  ordering; the per-row restart is what keeps the digest decomposable by row, so
+  masking a different number of status-bar rows drops octets instead of
+  reshuffling every one of them. Row order is top-down, unlike BMP, so the
+  digest's rows sit in the same coordinate space as the mask. As packed, each
+  octet is bit-identical to a byte of the live `lcd_buffer` payload in reverse
+  order -- the accessor mirrors x within the row -- which makes a hexdump of the
+  framebuffer readable against the digest during triage. That is an observation,
+  not a dependency: the digest is defined on coordinates, so a repacking
+  upstream leaves it where it was. That hash covers
   only the rows below the status bar (`y >= STATUS_BAR_ROWS`, matching the
   `clearScreenExcludingStatusBar` geometry in upstream `screen.h`). The bar is
   masked on purpose: it paints the calculator date, so a whole-screen hash of
