@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dev = [
     "pre-commit>=4.6.1",
     "ruff>=0.16.1",
-    "ty>=0.0.65",
+    "ty>=0.0.69",
     "fontTools>=4.63.0",
 ]
 
