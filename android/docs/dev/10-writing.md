@@ -218,7 +218,7 @@ The commit is the durable record of *why*, and the only place history belongs.
 The mechanical checks that exist today:
 
 - `pre-commit` runs `end-of-file-fixer`, `trailing-whitespace`, `shellcheck`,
-  `shfmt`, `ruff`, and `check-yaml` (see `.pre-commit-config.yaml`).
+  `shfmt`, `ruff-check`, and `check-yaml` (see `.pre-commit-config.yaml`).
 - `scripts/upstream-sync/upstream.sh verify-source-policy` fails when the
   tracked `upstream.source` regains an `upstream_commit` pin. `pre-commit` runs
   it on any change to that file.

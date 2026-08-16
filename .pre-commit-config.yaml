@@ -16,13 +16,15 @@ repos:
       - id: trailing-whitespace
         exclude: ^android/compat/mini-gmp-fallback/
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.1
+    rev: v0.16.3
     hooks:
-      - id: ruff
+      # `ruff-check` is the current hook id; the bare `ruff` id still resolves
+      # but is a legacy alias upstream and reports itself as one.
+      - id: ruff-check
         args: [--fix, --exit-zero]
       - id: ruff-format
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.12.0
+    rev: 0.12.5
     hooks:
       - id: uv-lock
   - repo: https://github.com/shellcheck-py/shellcheck-py
