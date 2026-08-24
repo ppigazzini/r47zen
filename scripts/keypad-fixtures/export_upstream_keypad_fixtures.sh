@@ -4,6 +4,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 STAGED_CPP_DIR="$PROJECT_ROOT/android/.staged-native/cpp"
 BUILD_DIR="$PROJECT_ROOT/android/build/keypad-fixtures-host"
 OUTPUT_DIR="$PROJECT_ROOT/android/app/src/test/resources/keypad-fixtures"
@@ -41,8 +43,7 @@ mkdir -p "$OUTPUT_DIR"
 
 bash "$PROJECT_ROOT/scripts/android/generate_staged_native_metadata.sh" --cpp-dir "$STAGED_CPP_DIR"
 
-JAVAC_PATH="$(readlink -f "$(command -v javac)")"
-JDK_HOME="$(cd "$(dirname "$JAVAC_PATH")/.." && pwd)"
+JDK_HOME="$(resolve_jdk_home)"
 
 mapfile -t STAGED_C47_SOURCES < <(find "$STAGED_CPP_DIR/c47" -type f -name '*.c' ! -name 'reservedRegisterLookupGenerator.c' | LC_ALL=C sort)
 mapfile -t STAGED_GENERATED_SOURCES < <(find "$STAGED_CPP_DIR/generated" -type f -name '*.c' | LC_ALL=C sort)

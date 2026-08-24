@@ -119,3 +119,43 @@ retry_with_backoff() {
         delay=$((delay * 2))
     done
 }
+
+# Print the home of a JDK whose JNI headers the host C harnesses compile
+# against: JAVA_HOME when it holds one, otherwise the JDK owning javac on
+# PATH. Fails (1) with an actionable message when neither yields a JDK, so a
+# host without one stops here rather than inside a compiler invocation whose
+# -I flags point somewhere arbitrary.
+#
+# include/jni.h is checked, not assumed: a JRE, a JAVA_HOME pointing at a
+# stale directory, and a javac shim all resolve to a path that exists and has
+# no headers under it.
+#
+# Any JDK satisfies this. These harnesses need jni.h and jni_md.h, not the
+# pinned build JDK: R47_DEFAULT_ANDROID_BUILD_JDK_VERSION governs the Gradle
+# toolchain that compiles the app, not host links against the JNI headers.
+resolve_jdk_home() {
+    local candidate=""
+    local javac_path=""
+
+    if [ -n "${JAVA_HOME-}" ] && [ -f "$JAVA_HOME/include/jni.h" ]; then
+        printf '%s\n' "$JAVA_HOME"
+        return 0
+    fi
+
+    javac_path="$(command -v javac 2>/dev/null || true)"
+    if [ -n "$javac_path" ]; then
+        javac_path="$(readlink -f "$javac_path")"
+        candidate="$(cd "$(dirname "$javac_path")/.." && pwd)"
+        if [ -f "$candidate/include/jni.h" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    fi
+
+    echo "ERROR: No JDK with JNI headers found." >&2
+    echo "Set JAVA_HOME to a JDK containing include/jni.h, or install a JDK providing javac on PATH." >&2
+    if [ -n "$candidate" ]; then
+        echo "Checked: $candidate (from javac at $javac_path)" >&2
+    fi
+    return 1
+}

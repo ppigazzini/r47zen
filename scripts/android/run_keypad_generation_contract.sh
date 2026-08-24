@@ -10,6 +10,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 TRACKED_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp/r47zen"
 STAGED_CPP_DIR="${R47_ANDROID_STAGED_CPP_DIR:-$PROJECT_ROOT/android/.staged-native/cpp}"
 BUILD_DIR="${R47_KEYPAD_CONTRACT_BUILD_DIR:-$PROJECT_ROOT/android/build/keypad-generation-contract}"
@@ -21,8 +23,7 @@ if [ ! -f "$STAGED_CPP_DIR/c47/defines.h" ]; then
     exit 1
 fi
 
-javac_path="$(readlink -f "$(command -v javac)")"
-jdk_home="$(cd "$(dirname "$javac_path")/.." && pwd)"
+jdk_home="$(resolve_jdk_home)"
 
 mkdir -p "$BUILD_DIR"
 output="$BUILD_DIR/keypad-generation-contract"
