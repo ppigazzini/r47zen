@@ -287,6 +287,23 @@ def resolveRepoNoticeSourceFile = { Map component ->
     return new File(repositoryRootDir, sourcePath)
 }
 
+// The JDK that runs Gradle, AGP, javac, the Kotlin compiler, and the JVM unit
+// tests. Declaring it as a toolchain rather than inheriting whatever JDK
+// launched Gradle is what keeps a maintainer host and the CI runners on the
+// same compiler and the same test JVM; without it the build silently follows
+// JAVA_HOME. R47_DEFAULT_ANDROID_BUILD_JDK_VERSION is the single source the
+// setup-java steps read as well, and
+// scripts/android/run_build_jdk_pin_coherence_contract.sh fails if the two
+// drift. A host without that JDK now fails with "No matching toolchains
+// found" instead of compiling against an unpinned one.
+def buildJdkVersion = readDefaultInteger('R47_DEFAULT_ANDROID_BUILD_JDK_VERSION')
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(buildJdkVersion)
+    }
+}
+
 android {
     namespace = defaultApplicationId
     compileSdk = project.findProperty('r47.compileSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK')

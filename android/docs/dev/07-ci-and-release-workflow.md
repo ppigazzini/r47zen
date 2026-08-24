@@ -136,7 +136,7 @@ It:
 
 - checks out the repo
 - installs Linux simulator build dependencies
-- provisions Java 17 and the pinned `xlsxio` toolchain
+- provisions the pinned build JDK and the pinned `xlsxio` toolchain
 - syncs the authoritative upstream tree
 - runs `make test`
 
@@ -601,6 +601,13 @@ The workflow keeps its shared toolchain pins in `android/r47-defaults.properties
 
 Those defaults feed:
 
+- the build JDK every `actions/setup-java` step installs, read as
+  `steps.defaults.outputs.build_jdk_version` rather than written as a literal.
+  The same key drives the Gradle Java toolchain, so a runner and a maintainer
+  host compile and run the JVM tests on the same JDK;
+  `scripts/android/run_build_jdk_pin_coherence_contract.sh` (in the
+  `run_workflow_contracts.sh` group of the `linux-ci` host lane) fails the build
+  if a workflow, the toolchain, or the doctor drifts from the pin
 - compile and target SDK setup
 - build-tools, CMake, and NDK package selection
 - hosted emulator API and ABI selection

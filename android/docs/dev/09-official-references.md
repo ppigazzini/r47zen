@@ -54,9 +54,24 @@ flowchart TD
 - [Android Gradle plugin 9.3 release notes](https://developer.android.com/build/releases/agp-9-3-0-release-notes):
   official Android build release notes for the 9.3 AGP line used by this repo
   (the repo pins `9.3.2` in `android/gradle/libs.versions.toml`; the 9.3 line
-  shares one release-notes page). On this AGP line the repo builds against the
-  checked-in JDK `17`, SDK Build Tools `37.0.0`, and `compileSdk`/`targetSdk`
-  `37` (Android 17 / API 37).
+  shares one release-notes page). Its compatibility table states a JDK
+  *minimum* and default of `17` and no maximum, which is why this repo's build
+  JDK is a measured pin in `android/r47-defaults.properties` rather than a copy
+  of that number. On this AGP line the repo builds against SDK Build Tools
+  `37.0.0` and `compileSdk`/`targetSdk` `37` (Android 17 / API 37).
+- [Java versions in Android builds](https://developer.android.com/build/jdks):
+  official Android reference separating the JDK that runs Gradle from the Java
+  toolchain, `sourceCompatibility`/`targetCompatibility`, and the Kotlin
+  `jvmTarget`. It is the source for the recommendation this repo follows -
+  always declare the toolchain rather than inheriting the JDK that launched
+  Gradle.
+- [Gradle Java toolchains](https://docs.gradle.org/current/userguide/toolchains.html):
+  official Gradle reference for toolchain declaration, auto-detection, and the
+  "No matching toolchains found" failure a host without the pinned JDK gets.
+- [Gradle compatibility matrix](https://docs.gradle.org/current/userguide/compatibility.html):
+  official table of which Java versions can run Gradle and be used as
+  toolchains per Gradle release; check it before moving the build JDK pin, and
+  do not confuse "can run Gradle" with "AGP tests this".
 - [Kotlin release process](https://kotlinlang.org/docs/releases.html):
   official JetBrains release page documenting the language, tooling, and bug-fix
   cadence.
