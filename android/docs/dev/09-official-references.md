@@ -61,7 +61,7 @@ flowchart TD
   official JetBrains release page documenting the language, tooling, and bug-fix
   cadence.
 - [Gradle 9.7.0 release notes](https://docs.gradle.org/9.7.0/release-notes.html):
-  official Gradle release notes for the wrapper version now checked in.
+  official Gradle release notes for the checked-in wrapper version.
 - [Improve the Performance of Gradle Builds](https://docs.gradle.org/current/userguide/performance.html):
   official Gradle guidance for establishing a baseline, preferring
   workflow-specific task graphs, and using daemon, cache, parallelism, and
@@ -342,7 +342,7 @@ Current repository icon surfaces:
 - [Add haptic feedback to events](https://developer.android.com/develop/ui/views/haptics/haptic-feedback):
   official Android haptics guidance for view-based feedback, predefined
   `VibrationEffect` usage, fallback tradeoffs, and keypress interaction
-  constants. The doc includes press/release examples, but this app now keeps a
+  constants. The doc includes press/release examples, but this app keeps a
   press-only keypad pulse for calculator interaction, defaults to the Android
   system response through a dedicated toggle, and reserves the custom
   `0..100 ms` slider for explicit app-owned override behavior.

@@ -221,7 +221,7 @@ Current full-lane Android-owned build entry:
   `build.sim/src/generateTestPgms/testPgms.bin` into `res/testPgms/`, and runs
   `meson test -C build.sim --print-errorlogs`.
 
-Current root surfaces no longer on the Android lane:
+Root surfaces outside the Android lane:
 
 - `Makefile`
 - `tools/onARaspberry`
@@ -345,9 +345,9 @@ Public maintainer entrypoints:
   then publish a direct stop inside a maintained budget and require a clean
   stop verdict without calculator error.
 - `make sim` is the canonical root simulator and generator validation path for
-  the upstream-shaped desktop lane. Android full builds now drive the same
+  the upstream-shaped desktop lane. Android full builds drive the same
   `build.sim` Meson/Ninja targets through `scripts/android/build_sim_assets.sh`
-  instead of routing through the root Makefile, while parity on the Android
+  rather than routing through the root Makefile, while parity on the Android
   build/test/package lane comes from
   `./scripts/android/build_android.sh --run-sim-tests`, which stages the
   generated `testPgms.bin` into `res/testPgms/` before running
@@ -488,8 +488,8 @@ Build-safety rule:
 
 ## Local Start-To-End Pipeline
 
-Use this order when you want the same local maintainer flow that the repo now
-expects from a clean shell:
+Use this order for the local maintainer flow the repo expects from a clean
+shell:
 
 1. Run `./scripts/android/build_android.sh --doctor` to confirm SDK, NDK, CMake,
    font-source, and staged-input readiness.
@@ -601,8 +601,8 @@ names, and release gating.
   then run `scripts/android/run_connected_android_tests.sh` on a device or
   emulator with the same prerelease signing inputs CI uses. Add
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
-  current hosted gate now runs one grouped non-fixture selection plus one
-  bounded `ProgramFixtureInstrumentedTest` selection that still covers
+  hosted gate runs one grouped non-fixture selection plus one bounded
+  `ProgramFixtureInstrumentedTest` selection that covers
   `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
   `SPIRALk.p47`. That grouped PROGRAMS selection must still observe run
   activity, stop cleanly through the direct-stop seam, and fail the Android

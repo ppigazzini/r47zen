@@ -35,8 +35,8 @@ and link flags to the release-native target configs, `Release` and
 shipping builds on the optimized shared-library path while debug builds stay on
 the normal non-LTO lane.
 
-When a reviewed indexed LLVM profile is available, the Android build can now
-also consume it through Gradle property `r47.pgoProfilePath` or environment
+When a reviewed indexed LLVM profile is available, the Android build also
+consumes it through Gradle property `r47.pgoProfilePath` or environment
 variable `R47_PGO_PROFILE_PATH`, which feed CMake cache entry
 `R47_PGO_PROFILE_PATH`. Only the release-native configs consume that profile;
 the default debug lane remains profile-free.
@@ -66,14 +66,15 @@ paths instead of treating those entry points as no-op stubs.
 `PC_BUILD` is defined for every config in `android/app/src/main/cpp/CMakeLists
 .txt`, including the shipped `Release` native build -- it is load-bearing (the
 desktop code paths the port reuses), not a sim-only debug affordance, so the
-`PC_BUILD`-gated upstream diagnostics ride into production. The one that mattered
-was the `items.c` `gmpMemInBytes` self-check, which prints to stderr on the
-per-operation hot path: the Android core links the vendored mini-gmp fallback,
-which historically passed size 0 to the c47 `freeGmp`/`reallocGmp` accounting
-hooks, so the counter never returned to zero and the self-check fired every op.
-`android/compat/mini-gmp-fallback/mini-gmp.c` now carries a size-prefix header so
-the hooks receive the real block size and the counter balances; the
-`run_mini_gmp_accounting_contract.sh` host contract guards it against a re-vendor.
+`PC_BUILD`-gated upstream diagnostics ride into production. The costly one is
+the `items.c` `gmpMemInBytes` self-check, which prints to stderr on the
+per-operation hot path whenever the allocation counter fails to return to zero.
+The Android core links the vendored mini-gmp fallback, so
+`android/compat/mini-gmp-fallback/mini-gmp.c` must carry a size-prefix header
+and hand the real block size to the c47 `freeGmp`/`reallocGmp` accounting hooks;
+a stock mini-gmp passes size 0 there and fires the self-check on every
+operation. `run_mini_gmp_accounting_contract.sh` is the host contract that
+guards the header against a re-vendor.
 
 That `PC_BUILD` choice also makes the Android HAL responsible for any desktop-
 side helper symbols that upstream starts exporting through `src/c47/hal/*.h`.
@@ -193,16 +194,16 @@ supports that model by keeping shared synchronization in native code:
 - `NativeDisplayRefreshLoop` uses `Choreographer.postFrameCallback(...)` on the
   main looper, first reads `getPackedDisplayGeneration()`, only calls
   `getPackedDisplayBuffer(...)` when the generation changes, retries the same
-  generation after a failed non-blocking copy, and now reads keypad refreshes
+  generation after a failed non-blocking copy, and reads keypad refreshes
   through `getKeypadSnapshotGeneration()` plus the cached
   `NativeKeypadSnapshotStore`; `copyKeypadSnapshotNative(...)` assembles one
   logical keypad scene under one `pthread_mutex_trylock(&screenMutex)` window,
   USER mode composition stays inside that one native copy, and busy results
   reuse the last accepted Kotlin snapshot until the same generation is copied
   successfully
-- `ReplicaOverlayController` now consumes that same cached whole-snapshot store
-  for overlay replay and dynamic-key refresh, so the UI thread no longer builds
-  one logical keypad scene through multiple blocking JNI calls
+- `ReplicaOverlayController` consumes that same cached whole-snapshot store for
+  overlay replay and dynamic-key refresh, which keeps the UI thread from
+  building one logical keypad scene through multiple blocking JNI calls
 - the three lock-free display-change signals the UI thread polls without a
   display mutex held -- `packedDisplayGeneration`, `keypadSnapshotGeneration`,
   and `lcdBufferDirty` in `hal/lcd.c` -- are C11 relaxed atomics, not plain
@@ -225,8 +226,8 @@ supports that model by keeping shared synchronization in native code:
   wait or progress shims in `android_runtime.c`, then runs the canonical host
   workload set through the host-side Android compatibility path in isolated
   host processes: the imported `.p47` fixtures `BinetV4.p47`, `GudrmPL.p47`,
-  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Every workload now runs
-  under the same outer GNU `timeout --kill-after` safety net so a hung
+  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Every workload runs under
+  the same outer GNU `timeout --kill-after` safety net so a hung
   workload degrades coverage instead of wedging the host lane. Inside that
   shared framework, the maintained `MANSLV2` scenario still waits for observed
   run activity and then publishes a direct stop through `fnStopProgram(0)`.
@@ -246,8 +247,8 @@ supports that model by keeping shared synchronization in native code:
   pause, wait, and LCD-style workloads, injects a temporary resource-dir shim
   so the Linux host link can reuse a host-installed `libclang_rt.profile`
   archive that the NDK does not ship, then produces the indexed profile
-  artifact now consumed by the release-native Android build path. The
-  maintained full-lane owner of that collector plus consumer sequence is now
+  artifact the release-native Android build path consumes. The maintained
+  full-lane owner of that collector plus consumer sequence is
   `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
 - `jni_program_load_test.c` exposes the instrumentation-only bridge used by
   `ProgramFixtureInstrumentedTest`, `DisplayLifecycleInstrumentedTest`, and
@@ -279,8 +280,8 @@ supports that model by keeping shared synchronization in native code:
   Android-owned mid-run seam that both releases the recursive `screenMutex` and
   drains `processCoreTasksNative()` while shared-core execution is still in
   flight
-- `MainActivity.dispatchLiveKey(...)` now routes live positive `R/S` and
-  `EXIT` presses to `requestStopProgramNative()` before queue fallback.
+- `MainActivity.dispatchLiveKey(...)` routes live positive `R/S` and `EXIT`
+  presses to `requestStopProgramNative()` before queue fallback.
   `requestStopProgramNative()`
   publishes stop intent through the existing upstream `fnStopProgram()` path
   without taking `screenMutex` or queueing onto `NativeCoreRuntime`, and it
@@ -297,7 +298,7 @@ supports that model by keeping shared synchronization in native code:
   `src/c47/programming/input.c`, which only treats `R/S`(36)/`EXIT`(33) as a
   stop request while `*prevStop == PGM_RUNNING`. Widening the gate to accept
   `PGM_WAITING`/`PGM_RESUMING` swallows those live keystrokes and strands the
-  user (REPORT-23 runtime-regression annex). The shared predicate is probed
+  user. The shared predicate is probed
   side-effect-free through the instrumentation bridge
   (`ProgramLoadTestBridge.directStopAllowedForRunState(...)`), so
   `DisplayLifecycleInstrumentedTest.directStopGateDeclinesInteractiveWaitStates`
@@ -316,13 +317,11 @@ supports that model by keeping shared synchronization in native code:
   stop on a staged `SPIRALk` graph already matches `forceRefreshNative()`
   without moving redraw work onto the UI thread.
 - Android's official ANR guidance explicitly calls out main-thread lock
-  contention as a foreground input-dispatch failure mode. The landed whole-
-  snapshot try-copy repair removes the previous split blocking keypad export
-  path from the UI thread.
-- If a shared-core loop still never observes `programRunStop`, Android still
-  cannot preempt it. After this landing, that remaining limitation is a
-  shared-core stop-observation gap, not Android queue starvation or UI-thread
-  keypad export blocking.
+  contention as a foreground input-dispatch failure mode. The whole-snapshot
+  try-copy keeps blocking keypad export off the UI thread.
+- If a shared-core loop never observes `programRunStop`, Android cannot preempt
+  it. That limit is a shared-core stop-observation gap, not Android queue
+  starvation and not UI-thread keypad export blocking.
 - native-owned JVM work acquires `JNIEnv` through `jni_acquire_env()` and
   `jni_release_env()` so attach and detach remain scope-bound
 - the bridge can update the current activity reference when the activity is
@@ -346,14 +345,13 @@ it must stay display-passive and must not synthesize a redraw.
 across recreation (`NativeCoreRuntime`'s `isCoreThreadStarted` /
 `isNativeInitializedShared` are process-shared, so the recreated Activity
 re-attaches rather than re-initialising), but recreation **does re-render
-`packedDisplayBuffer` from calculator state** -- REPORT-24 Milestone 4b Slice C
-tried to assert recreation preserves a raw injected framebuffer and CI proved
-otherwise (the injected pattern was replaced by the state render). So the
-recreation snapshot test keeps a real `SPIRALk` graph: a graph display is
-cursor-free and byte-stable, so re-rendering it from the persisted graph state
-reproduces the same framebuffer. The *Settings-style pause/resume* transition
-re-renders the same way against the current upstream HEAD (an earlier pin made
-it display-passive, which no longer holds), so
+`packedDisplayBuffer` from calculator state**. A raw injected framebuffer
+therefore cannot survive recreation -- the state render replaces the injected
+pattern -- so the recreation snapshot test must assert over a state-derived
+image. It keeps a real `SPIRALk` graph: a graph display is cursor-free and
+byte-stable, so re-rendering it from the persisted graph state reproduces the
+same framebuffer. The *Settings-style pause/resume* transition re-renders the
+same way against upstream HEAD, which this page tracks, so
 `pauseResumePreservesSpiralkGraphSnapshot` drives the same `SPIRALk` graph and
 compares a `forceRefresh` render of the persisted state before and after the
 transition: pause/resume must preserve the calculator state, so the state-derived
@@ -375,12 +373,13 @@ share the same contract.
   proves the display-passive contract deterministically: it injects a non-trivial
   framebuffer pattern, hashes it, runs the background save, and re-hashes, all
   under `screenMutex` (via the `backgroundSaveKeepsInjectedDisplayBuffer` bridge),
-  with no program run -- replacing the former emergent `SPIRALk` graph save test.
+  with no program run, so the assertion does not depend on an emergent graph
+  render.
 - `forceRefreshNative()` routes to `r47_force_refresh()`, which is the explicit
   native redraw path for real state-change owners such as runtime init,
   `loadStateNative()`, and test-owned refresh seams.
-- runtime init and `loadStateNative()` now sanitize restored graph bounds
-  before that first redraw so a corrupted auto-save cannot carry non-finite,
+- runtime init and `loadStateNative()` sanitize restored graph bounds before
+  that first redraw so a corrupted auto-save cannot carry non-finite,
   collapsed, or out-of-range windows into the first graph refresh.
 - The direct-stop pending refresh seam is a third owner in this area.
   `requestStopProgramNative()` publishes only the request; `tick()` and
@@ -472,7 +471,7 @@ The CI lane verifies that contract by checking zip alignment and native library
 `LOAD` segment alignment in the built debug APK. The `android-tests` lane uses
 the temporary multi-ABI override only for hosted `x86_64` emulator execution.
 
-Local runtime proof for the same contract now lives in
+Local runtime proof for the same contract lives in
 `scripts/android/run_16kb_runtime_smoke.sh`. That script checks the connected
 device or emulator page size through `adb shell getconf`, requires
 `16384`-byte pages, and then runs only

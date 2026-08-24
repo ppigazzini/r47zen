@@ -46,7 +46,7 @@ flowchart TD
 | rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `ReplicaOverlayController.kt`, `KeypadLabelModes.kt`, `C47TypefacePolicy.kt` | `CalculatorKeyViewRenderSpecTest.kt`, `CalculatorKeyViewFontSelectionTest.kt`, `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ReplicaOverlayGoldenTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | physical keyboard mapping and first-key shell focus routing | `PhysicalKeyboardBindingTables.kt`, `PhysicalKeyboardMapper`, `PhysicalKeyboardInputController`, `ReplicaOverlay.kt` | `PhysicalKeyboardInputParityTest.kt`, `ReplicaOverlayVisualPolicyTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.PhysicalKeyboardInputParityTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest` |
 | core thread, display loop, and runtime gate behavior | `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_lifecycle.c`, `jni_display.c`, `android_runtime.c` | `NativeCoreRuntimeTest.kt`, `NativeDisplayRefreshLoopTest.kt`, `GraphRedrawInstrumentedTest.kt`, `run_workload_regressions.sh` | focused JVM tests first, then the host workload lane when the compatibility path moved |
-| live program-stop key routing (which keys publish the out-of-band direct stop, which run states accept it, and whether a key is forwarded or swallowed) | `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `MainActivity.kt` `dispatchLiveKey`, `jni_input.c` `r47_direct_stop_allowed`, upstream `src/c47/programming/input.c` (`key == 36 || key == 33` while `*prevStop == PGM_RUNNING`) | `scripts/r47_contracts/test_live_stop_key_policy_contract.py` (cross-source lock of the Kotlin policy to upstream `input.c`), `LiveProgramStopKeyPolicyTest.kt` (literal-code key-set sweep), `LiveKeyRouterTest.kt` (forward when the gate declines, swallow only when it accepts, never query the gate for non-stop keys), `DisplayLifecycleInstrumentedTest.directStopGateDeclinesInteractiveWaitStates` (pure run-state gate predicate) and `requestStopProgramHonorsRunStateGateEndToEnd` (the real `requestStopProgramNative` exercised end to end across every run state via deterministic `setProgramRunStop` injection, replacing the former emergent 90 s SPIRALk busy-stop wait), `ProgramFixtureInstrumentedTest` (rejects a direct stop accepted while parked in an interactive wait) | `scripts/r47_contracts/run_contract_suite.sh` and `:app:testReleaseUnitTest --tests io.github.ppigazzini.r47zen.LiveProgramStopKeyPolicyTest --tests io.github.ppigazzini.r47zen.LiveKeyRouterTest`, then the connected lane when the native gate or bridge moved |
+| live program-stop key routing (which keys publish the out-of-band direct stop, which run states accept it, and whether a key is forwarded or swallowed) | `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `MainActivity.kt` `dispatchLiveKey`, `jni_input.c` `r47_direct_stop_allowed`, upstream `src/c47/programming/input.c` (`key == 36 || key == 33` while `*prevStop == PGM_RUNNING`) | `scripts/r47_contracts/test_live_stop_key_policy_contract.py` (cross-source lock of the Kotlin policy to upstream `input.c`), `LiveProgramStopKeyPolicyTest.kt` (literal-code key-set sweep), `LiveKeyRouterTest.kt` (forward when the gate declines, swallow only when it accepts, never query the gate for non-stop keys), `DisplayLifecycleInstrumentedTest.directStopGateDeclinesInteractiveWaitStates` (pure run-state gate predicate) and `requestStopProgramHonorsRunStateGateEndToEnd` (the real `requestStopProgramNative` exercised end to end across every run state via deterministic `setProgramRunStop` injection rather than an emergent 90 s SPIRALk busy-stop wait), `ProgramFixtureInstrumentedTest` (rejects a direct stop accepted while parked in an interactive wait) | `scripts/r47_contracts/run_contract_suite.sh` and `:app:testReleaseUnitTest --tests io.github.ppigazzini.r47zen.LiveProgramStopKeyPolicyTest --tests io.github.ppigazzini.r47zen.LiveKeyRouterTest`, then the connected lane when the native gate or bridge moved |
 | developer performance HUD preference, configurable sample-window slider, snapshot transport, and shell visibility | `DeveloperPerformanceSnapshot.kt`, `NativeDisplayRefreshLoop.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml` | `NativeDisplayRefreshLoopTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `ReplicaOverlayGoldenTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.NativeDisplayRefreshLoopTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest` |
 | graph LCD touch gate (proven `CM_GRAPH` path with `-MNU_PLOT_FUNC` and `-MNU_GRAPHS`), multi-touch pointer continuity, post-start continuation deadband for stationary-finger jitter, bounded queued-pan backlog capping (`<= 4.0f` normalized backlog per axis), bounded per-apply pan splitting (`<= 1.0f` normalized per native apply), widened pinch queue clamp (`0.4f..2.5f`), native oversized-input rejection, transactional finite graph-bounds commit checks (`+/-1.0e38f`), restore-time graph-bounds sanitization after `restoreCalc()`, and LCD graph-touch settings copy | `ReplicaOverlay.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `GraphGestureAccumulator.kt`, `android/app/src/main/cpp/r47zen/jni_input.c`, `android/app/src/main/cpp/r47zen/jni_lifecycle.c`, `android/app/src/main/cpp/r47zen/jni_program_load_test.c`, `android/app/src/main/res/values/strings.xml` | `GraphGestureAccumulatorTest.kt`, `ReplicaOverlayGoldenTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `GraphTouchStressInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.GraphGestureAccumulatorTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest && ./gradlew :app:assembleDebugAndroidTest :app:connectedDebugAndroidTest --tests io.github.ppigazzini.r47zen.GraphTouchStressInstrumentedTest` |
 | stop delivery and first-stop LCD cleanup during long-running program execution | `MainActivity.kt`, `LiveProgramStopKeyPolicy.kt`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, `ReplicaOverlayController.kt`, `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `NativeCoreRuntime.kt`, `jni_display.c`, `jni_input.c`, `jni_lifecycle.c`, `android_runtime.c` | `LiveProgramStopKeyPolicyTest.kt`, `NativeDisplayRefreshLoopTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt`, `ProgramFixtureInstrumentedTest.kt`, `DisplayLifecycleInstrumentedTest.kt`, `scripts/workload-regressions/run_workload_regressions.sh`, and focused JVM stop-routing checks | rerun `LiveProgramStopKeyPolicyTest` first, then the host workload lane, then `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest` when the Android-owned stop or first-stop refresh seam moved |
@@ -118,13 +118,13 @@ Kotlin constants) so a re-blessed wrong value fails even when the freshness
 guard passes. `test_keyboard_layout_contract.py` (per-key value assertions) and
 `test_key_font_policy_contract.py` (font files, fallback validity, and keypad
 constants) follow this pairing; a new snapshot contract must add its correctness
-oracle before it is trusted (REPORT-24 Milestone 4).
+oracle before it is trusted.
 
 The grouped Python lane currently covers:
 
 - `validate_geometry_dataset.py`: structural and spacing checks for the
   physical dataset plus Android UI contract validation against `R47Geometry.kt`,
-  `R47KeypadPolicy.kt`, and `CalculatorKeyView.kt`; this now includes the
+  `R47KeypadPolicy.kt`, and `CalculatorKeyView.kt`; this covers the
   native-only `chrome.lcd_windows.native` contract, the top-right
   `chrome.main_menu_button` rectangle, the native `400 x 240` aspect-ratio
   lock, integer width and height for native mode, and the rule that
@@ -274,10 +274,10 @@ Important contract files include:
   (`packedLcd_matchesArgbRendering`) and by a structural colour oracle
   (`nativeChrome_compositesLcdRasterColours`); the overall chrome is locked by
   `nativeChrome_matchesTextGolden`, a **code-only** ASCII-luminance downsample of
-  the render held in `CHROME_TEXT_GOLDEN` (REPORT-24 Milestone 5 Slice B). The
-  text golden replaces the former re-blessable SHA hash: its `assertEquals` diff
-  shows the visual change as a grid diff a reviewer can confirm, and it adds no
-  binary reference image to the repository. It also locks the removal of the old
+  the render held in `CHROME_TEXT_GOLDEN`. A text golden is deliberate here: its
+  `assertEquals` diff shows the visual change as a grid a reviewer can confirm,
+  where a SHA hash only says "differs" and invites a blind re-bless, and it adds
+  no binary reference image to the repository. It also locks the absence of
   full-width top-bezel interception, covers developer-performance HUD visibility
   when the setting is enabled, and verifies LCD graph-touch setting gating,
   accumulated-slop pan start, post-start jitter deadband, plus multi-touch
@@ -288,8 +288,8 @@ Important contract files include:
   shell-menu copy and the retained dark settings-discovery hint surfaces in
   light system mode
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
-  the app-facing whole-snapshot export, the landed single-snapshot USER-mode
-  contract that still keeps printed main-key legends, the Virtuoso blank-keycap
+  the app-facing whole-snapshot export, the single-snapshot USER-mode
+  contract that keeps printed main-key legends, the Virtuoso blank-keycap
   composition, and the Kotlin-side softkey `graphic` and `off` scene masks,
   including the requirement that those masks keep enabled blank capsules
   distinct from native empty-slot scenes, plus runtime non-null snapshot
@@ -381,13 +381,13 @@ Important files include:
   graph-bounds stability under repeated very large pan and pinch deltas, and
   separately verifies the restore path sanitizes injected invalid graph bounds
   before refresh
-- The connected-device lane now includes a required `MANSLV2.p47`
+- The connected-device lane includes a required `MANSLV2.p47`
   bounded-stop regression inside that shared per-fixture wrapper: after
   observed post-load activity it requests a direct stop through
   `ProgramLoadTestBridge.requestStopProgram()`, which reuses the same upstream
   `fnStopProgram(0)` publisher as live `R/S` and `EXIT`. The Android fixture
-  now resets every staged run to the upstream `doFnReset(CONFIRMED, false)`
-  baseline before load and skips blocked state snapshots instead of stalling
+  resets every staged run to the upstream `doFnReset(CONFIRMED, false)`
+  baseline before load and skips blocked state snapshots rather than stalling
   the test thread behind `screenMutex`, including the terminal load-timeout
   path after a `READP` worker exceeds its budget. Blocking `snapshotState()` is
   only safe after the worker is idle; when the worker still owns
@@ -398,8 +398,8 @@ Important files include:
   the harness publishing the
   bounded stop request while the shared core is busy. That proves the required
   Android bounded-stop delivery path through the owned seam, and the hosted
-  wrapper now fails the lane if `MANSLV2` times out instead of downgrading it
-  to degraded coverage. The grouped PROGRAMS harness now also waits for actual
+  wrapper fails the lane if `MANSLV2` times out rather than downgrading it to
+  degraded coverage. The grouped PROGRAMS harness waits for actual
   calculator `programRunStop` quiescence rather than the short-lived `R/S`
   key-dispatch worker and performs cleanup before the activity closes: it
   drains only genuinely-busy `PGM_RUNNING`/`PGM_PAUSED` fixtures through the
@@ -417,11 +417,10 @@ Important files include:
   `packedDisplayBuffer`), so `backgroundSavePreservesInjectedDisplaySnapshot`
   injects a non-trivial framebuffer via
   `ProgramLoadTestBridge.backgroundSaveKeepsInjectedDisplayBuffer` and asserts the
-  save leaves it unchanged, with no program run (REPORT-24 Milestone 4b Slice B).
+  save leaves it unchanged, with no program run.
   Pause/resume and recreation both **re-render `packedDisplayBuffer` from
-  calculator state** against the current upstream HEAD (CI proved a raw injected
-  framebuffer is not preserved across either; for pause/resume this changed when
-  CI advanced to the latest upstream), so
+  calculator state** against upstream HEAD, so a raw injected framebuffer
+  survives neither and neither can be asserted that way. Instead
   `pauseResumePreservesSpiralkGraphSnapshot` and
   `activityRecreationPreservesSpiralkGraphSnapshot` both drive a real `SPIRALk`
   graph -- a cursor-free, byte-stable display whose re-render from the persisted
@@ -459,13 +458,13 @@ Android compatibility layer.
   core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then runs the
   canonical host workload set through the host compatibility path: the
   imported `.p47` fixtures `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
-  `NQueens.p47`, and `SPIRALk.p47`. Every imported fixture now runs in its own
+  `NQueens.p47`, and `SPIRALk.p47`. Every imported fixture runs in its own
   host process under the same outer timeout-and-kill safety net, while
   `MANSLV2` remains the bounded direct-stop-after-activity probe inside that
   framework. It runs as the dedicated `host-workload-regressions` lane in
   `linux-ci.yml` on every pull request (no emulator), in addition to remaining
   the focused host compatibility rerun surface
-- `host_workload_regression.c` now reads the X register after each fixture and
+- `host_workload_regression.c` reads the X register after each fixture and
   logs it (`INFO: <fixture> X register = <type>:<value>`), so a changed result
   is visible. `NQueens.p47` is a per-fixture numeric oracle: seeded with `N = 8`
   it runs a full 8-queens search to completion and its X-register result is
@@ -505,14 +504,11 @@ Android compatibility layer.
   upstream leaves it where it was. That hash covers
   only the rows below the status bar (`y >= STATUS_BAR_ROWS`, matching the
   `clearScreenExcludingStatusBar` geometry in upstream `screen.h`). The bar is
-  masked on purpose: it paints the calculator date, so a whole-screen hash of
-  any fixture that halts with a painted bar drifts on every calendar day and no
-  pinned golden can track it. Upstream `70756a9e4` made that reachable by
-  force-repainting the bar on the program halt paths, and three consecutive
-  nightly Linux CI runs then produced three different whole-screen hashes for
-  `BinetV4` on 2026-07-23, 2026-07-24, and 2026-07-25. Masking the bar keeps the
-  plot -- the result these fixtures actually assert -- fully covered; the plot
-  area itself was bit-identical either side of that upstream change
+  masked on purpose: it paints the calculator date, upstream repaints it on the
+  program halt paths, and a whole-screen hash of any fixture that halts with a
+  painted bar therefore drifts on every calendar day, which no pinned golden can
+  track. Masking it keeps the plot -- the result these fixtures actually assert
+  -- fully covered
 - The status bar is the only thing the digest masks, so the softmenu row below
   the plot is inside it. A plot golden therefore moves when upstream changes
   which menu the fixture lands on, with the plot itself untouched: `GudrmPL`
@@ -544,10 +540,10 @@ Android compatibility layer.
   lane beside the plain run.
 - `scripts/workload-regressions/build_graph_crash_harness.sh` builds the same
   tree under AddressSanitizer and UndefinedBehaviorSanitizer and hammers the
-  graph re-solve path the way a fast pan/zoom does. The upstream solver leak that
-  once overflowed the RAM free-memory-region list is fixed, so it now confirms
-  the fix holds (`numberOfFreeMemoryRegions` stays flat) and would catch a
-  re-regression after an upstream sync; `R47_GRAPH_HARNESS_ITERS` bounds the run.
+  graph re-solve path the way a fast pan/zoom does. It asserts the upstream
+  solver does not leak the RAM free-memory-region list
+  (`numberOfFreeMemoryRegions` stays flat), so it catches that regression
+  returning after an upstream sync; `R47_GRAPH_HARNESS_ITERS` bounds the run.
   It is a manual maintainer tool, not a CI lane.
 - `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds the staged
   core and Android bridge under ThreadSanitizer and races the live input and
@@ -581,7 +577,7 @@ Android compatibility layer.
   (`KeypadSnapshotDecoderPropertyTest`, `GraphGestureAccumulatorPropertyTest`)
   that assert the same clamp, split, drop, and totality invariants across a
   randomized input space.
-- The maintained PGO collector now uses a separate merged profile surface: the
+- The maintained PGO collector uses a separate merged profile surface: the
   `broad-ci` `testSuite` base of `programs`, `tvm`, `jacobi_audit`,
   `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the generated
   `matrix_prefix_85` slice from `src/testSuite/tests/matrix.txt`, plus the
@@ -600,7 +596,7 @@ Android compatibility layer.
 - `scripts/workload-regressions/host_workload_regression.c` is the harness that
   probes the wait, pause, progress, and workload-run behavior behind that lane
 - `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
-  is now the normal pull-request owner of the Android wrapper testSuite rerun,
+  is the normal pull-request owner of the Android wrapper testSuite rerun,
   the host-side PGO collector, and the Android release-native PGO consumer
   check in one lane. The lower-level collector script remains available for
   focused debugging.
