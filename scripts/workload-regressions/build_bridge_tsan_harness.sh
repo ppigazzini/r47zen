@@ -15,6 +15,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 STAGED_CPP_DIR="$PROJECT_ROOT/android/.staged-native/cpp"
 TRACKED_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp"
 BUILD_DIR="$PROJECT_ROOT/android/build/bridge-tsan-harness"
@@ -28,8 +30,7 @@ if [ ! -f "$STAGED_CPP_DIR/c47/defines.h" ]; then
     exit 1
 fi
 
-JAVAC_PATH="$(readlink -f "$(command -v javac)")"
-JDK_HOME="$(cd "$(dirname "$JAVAC_PATH")/.." && pwd)"
+JDK_HOME="$(resolve_jdk_home)"
 
 mapfile -t STAGED_C47_SOURCES < <(find "$STAGED_CPP_DIR/c47" -type f -name '*.c' ! -name 'reservedRegisterLookupGenerator.c' | LC_ALL=C sort)
 mapfile -t STAGED_GENERATED_SOURCES < <(find "$STAGED_CPP_DIR/generated" -type f -name '*.c' | LC_ALL=C sort)
