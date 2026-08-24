@@ -12,7 +12,7 @@ native core. `MainActivity` coordinates Android lifecycle, preferences, slot
 selection, settings, and external integrations. It does not own the calculator
 engine loop.
 
-The keypad render path is now explicitly spec-first: `CalculatorKeyView` and
+The keypad render path is explicitly spec-first: `CalculatorKeyView` and
 `CalculatorSoftkeyPainter` resolve `KeyRenderSpec` data for one key, then
 `KeyRenderPainter` and `C47TextRenderer` own the shared draw-stage policy.
 
@@ -250,20 +250,20 @@ while matching the desktop simulator's stop-key parity during an active run.
   letterbox or window the shell according to Android compatibility behavior
 - Picture-in-Picture is enabled
 - settings live in a separate non-exported `SettingsActivity`
-- `MainActivity` now installs one projected top-right orange-left and
-  blue-right rectangle touch target into `ReplicaOverlay` after keypad
-  rebuild. The visible marker sits near the LCD top edge, but the touch zone
-  still extends around and above it.
+- `MainActivity` installs one projected top-right orange-left and blue-right
+  rectangle touch target into `ReplicaOverlay` after keypad rebuild. The
+  visible marker sits near the LCD top edge, but the touch zone extends around
+  and above it.
   `DisplayActionController` anchors the shell popup there for `Settings`,
-  `Copy...`, `Paste Number`, and `Picture in Picture`. `Copy...` now opens a
+  `Copy...`, `Paste Number`, and `Picture in Picture`. `Copy...` opens a
   dedicated follow-up popup that mirrors the upstream desktop clipboard actions
   with `Copy X Register`, `Copy Stack Registers`, and `Copy All Registers`.
   Both popup layers use a dedicated dark popup theme so device light mode can
-  never flip the shell menu to a light surface, while `ReplicaOverlay` no
-  longer treats the full top bezel as one hidden settings strip and dismisses
-  the onboarding card on the first shell touch
-- `SettingsActivity` stays Preference-based, but its host layout is now
-  adaptive: the base `settings_activity.xml` uses `ConstraintLayout`, and
+  never flip the shell menu to a light surface, while `ReplicaOverlay` treats
+  only the projected marker as the settings target, not the full top bezel, and
+  dismisses the onboarding card on the first shell touch
+- `SettingsActivity` is Preference-based and its host layout is adaptive: the
+  base `settings_activity.xml` uses `ConstraintLayout`, and
   `layout-w600dp/settings_activity.xml` centers the preferences inside a
   bounded `MaterialCardView` panel for larger or resizable windows
 - the settings-owned activity stack uses the dedicated
@@ -293,15 +293,15 @@ while matching the desktop simulator's stop-key parity during an active run.
   `developer_performance_hud_window_millis` slider and dispatches them
   directly to `ReplicaOverlay.kt` and `NativeDisplayRefreshLoop.kt`, while the
   loop supplies the sampled `DeveloperPerformanceSnapshot` label data used by
-  the overlay. The fixed settings copy now names those fields as UI Hz, LCD
-  Hz, dirty-row percent, and copy ms. The first field is the UI-thread
+  the overlay. The fixed settings copy names those fields as UI Hz, LCD Hz,
+  dirty-row percent, and copy ms. The first field is the UI-thread
   `Choreographer#doFrame(...)` cadence, not the phone panel's raw refresh
   rate. The second field counts accepted non-empty packed LCD snapshot copies,
   not raw native row writes. Read `06-runtime-hot-paths.md` for the default
   `500 ms` sample window, the `100..1000 ms` clamp, and the exact `DR` and
   `Copy` semantics.
-- keypad haptics are Android-view concerns first: `ReplicaKeypadLayout`
-  now uses press-only keypad haptics for calculator interaction. `ACTION_DOWN`
+- keypad haptics are Android-view concerns first: `ReplicaKeypadLayout` uses
+  press-only keypad haptics for calculator interaction. `ACTION_DOWN`
   uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` and
   `ACTION_CANCEL` only clear pressed state and send key `0` with no release
   pulse. `HapticFeedbackController` owns the three preference-driven states

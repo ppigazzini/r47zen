@@ -22,24 +22,22 @@ stays closed unless new evidence reopens it.
     miscompile the decNumber `lsu[]` and mini-gmp flexible-array idioms on this
     exact core. Gate behind a full workload-regression + ASan/UBSan pass on the
     decNumber corpus, and be prepared to reject it outright.
-- Roborazzi (or equivalent) tolerance-based plot goldens. The decision landed on
-  keeping exact hashes but narrowing what they cover: `compute_display_hash` now
-  masks the status-bar rows, which removed the largest churn driver (the bar
-  paints the date, so a whole-screen hash drifted every calendar day once
-  upstream `70756a9e4` began force-repainting it on the halt paths). Exact
-  hashes over the plot area remain the strategy. Revisit tolerance goldens only
-  if the plot area itself starts churning on upstream geometry changes, which
-  masking does not address. Still open: restore a post-program softmenu oracle
-  with the corrected `MNU_SHOW` expectation so menu correctness is guarded
-  independently of the plot hash.
+- Roborazzi (or equivalent) tolerance-based plot goldens. The standing decision
+  is exact hashes over a narrowed area: `compute_display_hash` masks the
+  status-bar rows, which removes the largest churn driver, because the bar
+  paints the date and a whole-screen hash therefore drifts every calendar day.
+  Revisit tolerance goldens only if the plot area itself starts churning on
+  upstream geometry changes, which masking does not address. Still open:
+  restore a post-program softmenu oracle with the corrected `MNU_SHOW`
+  expectation so menu correctness is guarded independently of the plot hash.
 - FACTORS value oracle. `FactorsInstrumentedTest` asserts only the result type,
   not the value. Needs either an emulator capture of the reproducible
   X-register matrix string or a new host-workload function-invocation scenario
   (seed `kR47LargeFactorsInput`, call `ITM_FACTORS`, read the register string).
 - Keyboard static-override contract is stale. `derive_keyboard_layout_contract`'s
   `load_android_static_label_overrides` targets a `keyCode == N && type ==`
-  construct that `jni_display.c` has been refactored away from (now
-  `resolveMainKeyLabelInfo`/`makeMainLabelPresentation`), so its negative
+  construct `jni_display.c` does not contain -- its label path is
+  `resolveMainKeyLabelInfo`/`makeMainLabelPresentation` -- so its negative
   assertions for keys 11/12/37 pass vacuously against an empty override set.
   Redesign the contract for the presentation architecture; do NOT simply
   raise-on-empty (that would fail immediately against the legitimately empty
@@ -67,7 +65,7 @@ stays closed unless new evidence reopens it.
   keys. (Local hygiene; the keys are also in GitHub secrets and, under Play App
   Signing, a lost upload key is resettable.)
 - Enable the Immutable Releases repository setting (Settings -> Releases). The
-  release workflow now also refuses to overwrite an existing tag unless
+  release workflow also refuses to overwrite an existing tag unless
   `allow_overwrite` is set, so this is defense in depth.
 - Emulator lane: bump `R47_DEFAULT_ANDROID_TEST_API_LEVEL` from 34 to 35 once
   the lane is green twice; add 36/37 forward-compat lanes when stable images

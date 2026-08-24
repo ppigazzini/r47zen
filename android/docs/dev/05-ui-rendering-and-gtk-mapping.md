@@ -55,7 +55,7 @@ flowchart LR
 - `chrome.native_shell_draw_corner_radius` is `0`, so the native shell keeps no
   painted outer body and retains only the projected top-right menu affordance
   zone plus LCD frame as shared shell chrome
-- the Android shell now ships one adaptive projection path with one shared
+- the Android shell ships one adaptive projection path with one shared
   visible-frame trim of `48 / 49 / 48 / 56`
 - `chrome.lcd_windows` keeps one native LCD rectangle on that shared canvas:
   `85 / 242 / 1650 / 990`
@@ -104,9 +104,9 @@ keypad all look correct locally but are globally misplaced together.
   computes the smallest changed rectangle, updates the backing `Bitmap`, and
   invalidates only that on-screen region
 - the animated settings-discovery hint stays Android-owned in `ReplicaOverlay`,
-  but its banner geometry and `StaticLayout` are now cached on real size or
-  layout changes so `dispatchDraw()` only updates the pulse stroke and reuses
-  the prebuilt text layout
+  but its banner geometry and `StaticLayout` are cached and rebuilt only on a
+  real size or layout change, so `dispatchDraw()` updates the pulse stroke and
+  reuses the prebuilt text layout
 - keypad content and state stay native-owned, while Android owns measurement,
   projection, and drawing
 - `LAYOUT_CLASS_ALPHA` hides the unused fourth-label text but keeps the spacer
@@ -169,21 +169,21 @@ The touch-cell map follows the same measured geometry but does not reuse the
 rendered key-view bounds. The upper keypad uses a `4 x 6` touch grid with the
 enter key spanning two columns, the lower keypad uses a `4 x 5` grid, and all
 touch-row bands have height `260`. Android still maps GTK font roles and label
-semantics, but the live coordinates now come from the measured reference canvas
-rather than from a copied GTK screen layout.
+semantics, but the live coordinates come from the measured reference canvas,
+not from a copied GTK screen layout.
 
 ## Per-key renderer
 
-Each key is still a `CalculatorKeyView`, but the per-key draw path is now
-spec-first. Main keys resolve one `KeyRenderSpec` before draw, then paint the
-body, labels, and accessibility output from that resolved spec.
+Every key is a `CalculatorKeyView`, and the per-key draw path is spec-first.
+Main keys resolve one `KeyRenderSpec` before draw, then paint the body, labels,
+and accessibility output from that resolved spec.
 
 Softkeys stay on a dedicated function-key renderer path because the native
 scene contract carries reverse-video, overlay, preview, and value-state rules
-that the main-key path does not. `CalculatorSoftkeyPainter` now resolves the
-same shared `KeyRenderSpec` vocabulary first, then draws softkey-only
-decorations from that spec while `CalculatorKeyView` continues to decide
-whether a key is on the main-key or function-key branch.
+that the main-key path does not. `CalculatorSoftkeyPainter` resolves the same
+shared `KeyRenderSpec` vocabulary first, then draws softkey-only decorations
+from that spec, while `CalculatorKeyView` owns the decision of whether a key is
+on the main-key or function-key branch.
 
 For empty-slot fill classification, Android treats dotted-row and preview
 markers as decorator bits layered on top of the native scene meaning. A native
@@ -199,9 +199,9 @@ Render split:
   size, label, and layout-class changes before draw so steady-state main-key
   `onDraw()` work stays in the painter stage
 - the detached compatibility mirrors for primary, faceplate, and fourth-label
-  text now sit behind `MainKeyLabelMirrors.kt`, so `CalculatorKeyView` keeps
-  the render-spec and painter ownership while the mirror bridge remains one
-  explicitly disposable compatibility seam
+  text sit behind `MainKeyLabelMirrors.kt`, so `CalculatorKeyView` keeps the
+  render-spec and painter ownership while the mirror bridge stays one explicitly
+  disposable compatibility seam
 - `CalculatorSoftkeyPainter` owns softkey value-field bounds, overlay center,
   preview accents, reverse-video states, strike marks, and the final softkey
   `KeyRenderSpec`
@@ -209,7 +209,7 @@ Render split:
   size, pressed state, and draw-surface flag, then routes shared chrome,
   label, and line stages through `KeyRenderPainter` while delegating overlay-
   only marks to `SoftkeyOverlayPainter`
-- both key renderers now keep Android-owned font rendering quality local to the
+- both key renderers keep Android-owned font rendering quality local to the
   painter path by enabling subpixel text while keeping `LINEAR_TEXT_FLAG` off
   on the calculator font paints instead of widening the geometry or snapshot
   contracts
@@ -242,8 +242,8 @@ Render split:
 
 ## Label mode policy
 
-The Android shell now applies two keypad label policies, and the special
-`virtuoso` main-key mode intentionally forces blank softkey capsules too.
+The Android shell applies two keypad label policies, and the special
+`virtuoso` main-key mode deliberately forces blank softkey capsules too.
 
 Main keys:
 
@@ -266,7 +266,7 @@ Softkeys:
 
 The split is intentional. `on`, `alpha`, and `off` main-key presentation still
 depend on upstream-owned key tables and label-role export, but the Android-only
-`user` contract is now a renderer policy: the app keeps the printed-legends
+`user` is a renderer policy: the app keeps the printed-legends
 snapshot for the main key body and overlays only the USER `f` and `g` labels
 after decode. Softkey `graphic` and `off` remain renderer policy too, so the
 app applies them as decoded scene masks instead of widening the softkey draw
@@ -328,8 +328,8 @@ Renderer process rules for live maintenance:
 - if a change affects drawing only, call `invalidate()` so underline, color,
   and text-shaping updates do not wait for the next key event
 
-Main keys and softkeys still share one view class, but the seam is now one
-shared spec model plus family-specific geometry builders: `CalculatorKeyView`
+Main keys and softkeys share one view class, and the seam is one shared spec
+model plus family-specific geometry builders: `CalculatorKeyView`
 builds the main-key spec, `CalculatorSoftkeyPainter` builds the softkey spec,
 and both painter paths consume the same `KeyRenderSpec` vocabulary.
 
@@ -395,8 +395,9 @@ The primary label is centered on the painted body, the `f` plus `g` pair is
 centered as one group on that same body centerline, and the fourth label is
 anchored from the painted body right edge rather than from the middle of the
 spare lane. `CalculatorKeyView` applies the fixed `16`, `80`, and `86` values
-from `R47LabelLayoutPolicy`; it no longer recomputes fourth-label placement from
-runtime glyph width or font-height compensation.
+from `R47LabelLayoutPolicy`, and it must not recompute fourth-label placement
+from runtime glyph width or font-height compensation: a second source for that
+placement is how the Kotlin render drifts from the checked-in contract.
 
 For softkeys, the slot is intentionally larger than the painted body:
 
@@ -454,8 +455,8 @@ flags. The current `CalculatorKeyView` softkey renderer does not draw those
 four flags directly; audit the native scene contract and Android renderer
 together before treating any of them as visible Android surfaces.
 
-The softkey capsule fill now keys off the decoded scene type rather than blank
-text alone:
+The softkey capsule fill keys off the decoded scene type, not blank text
+alone:
 
 - the native clear-scene softkey state uses the darker empty capsule
   `RGB(32, 32, 32)`
@@ -478,20 +479,20 @@ is a native empty slot.
 hardcoding one text style for all keys. In practice that means:
 
 - primary labels can use different visual roles from faceplate labels
-- all visible keypad text now goes through one custom `Canvas` text path owned
-  by `C47TextRenderer`
+- all visible keypad text goes through one custom `Canvas` text path owned by
+  `C47TextRenderer`
 - `CalculatorKeyView` keeps detached `TextView` mirrors only as compatibility
   holders for text, paint, and test inspection through
   `MainKeyLabelMirrors.kt`; runtime geometry, accessibility, and raster output
-  now start from the resolved `KeyRenderSpec`
-- `CalculatorSoftkeyPainter` still owns softkey chrome, overlays, preview
-  marks, and strike lines, but it now reuses the same text-paint helper as the
-  main-key path instead of carrying a separate text-paint policy
-- `C47TextRenderer` now resolves fitted-label size and final bounds through one
-  internal resolved-metrics helper, so fitted labels no longer bounce through a
-  second label-spec builder just to reach the same final geometry
-- main-key and softkey labels now use the staged standard calculator font as
-  the primary keypad typeface across all shipped lanes
+  start from the resolved `KeyRenderSpec`
+- `CalculatorSoftkeyPainter` owns softkey chrome, overlays, preview marks, and
+  strike lines, and it reuses the same text-paint helper as the main-key path
+  rather than carrying a separate text-paint policy
+- `C47TextRenderer` resolves fitted-label size and final bounds through one
+  internal resolved-metrics helper, so a fitted label reaches its final geometry
+  without a second label-spec builder
+- main-key and softkey labels use the staged standard calculator font as the
+  primary keypad typeface across all shipped lanes
 - all shipped keypad-label lanes fall back to the staged tiny calculator font
   only when the standard font is unavailable
 - numeric and softkey roles can diverge without changing geometry ownership
@@ -504,8 +505,8 @@ hardcoding one text style for all keys. In practice that means:
 Main-label projection keeps a small set of explicit renderer assists shared
 with the GTK-style presentation layer instead of restating source vocabulary in
 Kotlin. Raw plain-space legends render as the visible-space placeholder `·_·`
-rather than as a blank lane, and key `37` now follows that shared formatter
-path instead of carrying an Android-only underscore literal.
+rather than as a blank lane, and key `37` follows that shared formatter path
+rather than carrying an Android-only underscore literal.
 
 The current keypad rule is standard-first rather than coverage-gated. It does
 not reinterpret native label-role metadata or change geometry ownership.
@@ -525,11 +526,10 @@ The current text-paint policy is also explicit:
   Android `Paint` docs describe it as a smooth-scale helper that disables font
   hinting
 - primary-label fit math still happens against the main-key body width, but the
-  horizontal padding term is now explicit in the checked-in Android UI contract
-  JSON and the Python label-geometry payload instead of hiding as a Kotlin-only
-  literal
+  horizontal padding term is explicit in the checked-in Android UI contract
+  JSON and the Python label-geometry payload rather than a Kotlin-only literal
 
-The verification surface for this text-rendering split is now:
+The verification surface for this text-rendering split is:
 
 - `CalculatorKeyViewRenderSpecTest.kt` for main-key body bounds, including the
   left-anchored percent-width body layout, primary anchors, top-label group
@@ -593,7 +593,7 @@ the spec is wrong, stay in `CalculatorKeyView.buildMainKeyRenderSpec()` or
 `CalculatorSoftkeyPainter.buildRenderSpec()`. If the spec is right but pixels
 are wrong, stay in the painter stage.
 
-Kotlin-side render-spec access now goes through typed slot enums in
+Kotlin-side render-spec access goes through typed slot enums in
 `KeyRenderSpec.kt` while the serialized `id` strings stay stable for Python
 contracts and checked-in payloads.
 

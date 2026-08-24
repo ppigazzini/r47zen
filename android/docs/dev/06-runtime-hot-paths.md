@@ -61,9 +61,9 @@ flowchart LR
   a blocked wait wakes promptly during shutdown.
 - The same queue still carries normal keypad input from touch, PiP, and
   physical keyboard controllers.
-- Live touchscreen and PiP `R/S` or `EXIT` now bypass that queue through
-  `requestStopProgramNative()`, but every other key still follows the normal
-  queued path.
+- Live touchscreen and PiP `R/S` or `EXIT` bypass that queue through
+  `requestStopProgramNative()`; every other key follows the normal queued
+  path.
 - The direct stop seam is therefore not "more work on the queue". It publishes
   stop intent immediately and leaves the first-stop full refresh to the native
   `tick()` or `yieldToAndroidWithMs()` consumption points under `screenMutex`.
@@ -81,7 +81,7 @@ out, or the app behaves as if work is happening on multiple native threads.
 - When the lock is available, timers advance every 5 ms through
   `refreshTimer(NULL)` and the LCD refresh path runs every 100 ms through
   `refreshLcd(NULL)` plus `lcd_refresh()`.
-- Before the ordinary 100 ms LCD refresh, `tick()` now checks
+- Before the ordinary 100 ms LCD refresh, `tick()` checks
   `r47_apply_pending_stop_refresh_locked()`. When a live direct stop has
   published a refresh request, that helper re-arms `SCRUPD_AUTO`, sets
   `reDraw = true`, runs `refreshScreen(190)`, `refreshLcd(NULL)`, and
@@ -159,10 +159,10 @@ That would duplicate the most expensive JNI reads in the shell.
   span.
 - `ReplicaOverlay.redrawPackedSnapshot()` repaints the cached packed snapshot
   for palette changes without inventing a new native redraw path.
-- the animated settings-discovery hint in `ReplicaOverlay` now keeps its
-  `StaticLayout` and card geometry in a cache rebuilt from real size or layout
-  changes, so the pulse animation no longer allocates text-layout objects on
-  each draw pass.
+- the animated settings-discovery hint in `ReplicaOverlay` keeps its
+  `StaticLayout` and card geometry in a cache rebuilt only on a real size or
+  layout change, so the pulse animation allocates no text-layout objects per
+  draw pass.
 
 This path is sensitive because it runs on the UI thread, owns the live packed
 snapshot cache, and is the easiest place to reintroduce transport-level work as
@@ -206,12 +206,12 @@ corrupts a graph or mixes status text into an otherwise stable LCD snapshot.
   layout before forcing one replay.
 - `CalculatorKeyView` keeps a cached `mainKeyRenderSpec` and refreshes it when
   label, layout-class, or size changes move main-key geometry.
-- `CalculatorSoftkeyPainter` now caches the resolved `KeyRenderSpec` by the
-  current snapshot, font set, size, pressed state, and draw-surface flag, so
-  unchanged softkey frames can stay on the painter path without rebuilding the
-  spec graph. Unnecessary softkey `invalidate()` churn is still expensive, but
-  it no longer forces a full spec rebuild on every draw.
-- PiP exit now uses that same contract. The restored full-window shell marks a
+- `CalculatorSoftkeyPainter` caches the resolved `KeyRenderSpec` by the
+  current snapshot, font set, size, pressed state, and draw-surface flag, so an
+  unchanged softkey frame stays on the painter path without rebuilding the spec
+  graph. Unnecessary softkey `invalidate()` churn still costs a repaint; it does
+  not cost a spec rebuild.
+- PiP exit uses that same contract. The restored full-window shell marks a
   pending geometry replay and the next real overlay layout reapplies the
   current scene once.
 - After layout, `applyTopLabelPlacementsAfterLayout(...)` reruns the row-local
@@ -247,20 +247,20 @@ program, a save or load operation, or a progress or pause loop.
 
 ## Residual Hang: NaN-Driven Non-Yielding Runs
 
-- The improved hot path solved the old throughput and redraw issues: the app
-  now runs heavy workloads smoothly, keeps LCD updates responsive, and can
-  publish live `R/S` or `EXIT` stop intent without waiting on the core queue.
-- The narrower display-plane bug from graph workloads is also fixed on the
-  Android-owned side: direct stop publication now schedules a core-owned full
-  refresh so the first post-stop LCD matches an explicit `forceRefresh()`.
-- The remaining Android-only hang appears when a shared-core program drifts
-  into a non-terminating `NaN` loop and never reaches a path that observes
-  `programRunStop` or yields back through an Android compatibility seam.
-- In that state, the remaining limitation is no longer Android queue starvation
-  or UI-thread keypad export blocking. It is a shared-core stop-observation gap
-  that Android cannot preempt from the outside.
-- Android's official ANR guidance still matters here, but the owned shell side
-  is now the fast publisher rather than the bottleneck.
+- The hot path described above runs heavy workloads without starving the
+  queue, keeps LCD updates responsive, and publishes live `R/S` or `EXIT` stop
+  intent without waiting on the core queue. Direct stop publication schedules a
+  core-owned full refresh, so the first post-stop LCD matches an explicit
+  `forceRefresh()` on graph workloads.
+- One Android-only hang remains, and it is a gap rather than a design: a
+  shared-core program that drifts into a non-terminating `NaN` loop never
+  reaches a path that observes `programRunStop` or yields back through an
+  Android compatibility seam.
+- The limit is therefore a shared-core stop-observation gap that Android cannot
+  preempt from the outside, not Android queue starvation and not UI-thread
+  keypad export blocking. No owned-shell change closes it.
+- Android's official ANR guidance still applies, with the owned shell side as
+  the fast publisher rather than the bottleneck.
 
 ## Regression And Evidence Surfaces
 
@@ -276,14 +276,14 @@ program, a save or load operation, or a progress or pause loop.
   covers renderer stability for the borderless native shell and the retained
   top settings-strip interaction.
 - `android/app/src/androidTest/java/io/github/ppigazzini/r47zen/DisplayLifecycleInstrumentedTest.kt`
-  now proves that passive lifecycle edges preserve a staged `SPIRALk` graph and
-  that the first direct stop on that same workload already matches an explicit
+  proves that passive lifecycle edges preserve a staged `SPIRALk` graph and
+  that the first direct stop on that same workload matches an explicit
   `forceRefresh()` snapshot.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path across the canonical host
   workload set: the imported `.p47` fixtures `BinetV4.p47`, `GudrmPL.p47`,
-  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Each workload now runs in
-  its own host process under the same outer timeout-and-kill safety net, while
+  `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Each workload runs in its
+  own host process under the same outer timeout-and-kill safety net, while
   `MANSLV2` stays the maintained direct-stop-after-activity scenario inside
   that framework. The broad `broad-ci` base already covers `prime` and
   `factorial` through upstream `testSuite` inputs.
@@ -293,19 +293,19 @@ program, a save or load operation, or a progress or pause loop.
   cases, then runs the imported `.p47` fixture overlay through the same host
   compatibility path so graph, pause, wait, and LCD-style workloads also land
   in the indexed `.profdata` consumed by the Android release-native build.
-- There is now focused automated Android coverage proving that the direct-stop
-  publisher can interrupt the required `MANSLV2` bounded-stop regression after
-  observed activity, and the Android wrapper now treats a timed-out
-  `MANSLV2` selection as a hard failure instead of degraded coverage. There is
-  still no focused automated lane proving that keypad snapshot export itself
-  stays non-blocking on the UI thread during the same class of
-  deliberately non-yielding run.
+- Focused automated Android coverage proves that the direct-stop publisher can
+  interrupt the required `MANSLV2` bounded-stop regression after observed
+  activity, and the Android wrapper treats a timed-out `MANSLV2` selection as a
+  hard failure rather than degraded coverage. The gap: no focused automated lane
+  proves that keypad snapshot export itself stays non-blocking on the UI thread
+  during the same class of deliberately non-yielding run, so that property is
+  asserted nowhere.
 - `./scripts/android/build_android.sh --run-sim-tests` keeps the Android full
   build path aligned with the `build.sim` Meson and Ninja lane.
 - `ProgramFixtureInstrumentedTest` drives canonical program fixtures through the
   Android `READP` path used by the live app and reuses the same native
   direct-stop publisher as live `R/S` and `EXIT` for the bounded
-  `MANSLV2` interrupt scenario. Hosted CI now runs one filtered
+  `MANSLV2` interrupt scenario. Hosted CI runs one filtered
   `ProgramFixtureInstrumentedTest` method per fixture under the same outer
   timeout-and-kill safety net used by the host wrapper.
 

@@ -68,12 +68,12 @@ flowchart LR
   `NativeCoreRuntime.saveStateOnPause(...)`, which posts `saveStateNative()` to
   the core thread and waits for completion.
 - `saveStateNative()` locks `screenMutex` and delegates to
-  `r47_save_background_state_locked()`, which now performs only `saveCalc()`.
+  `r47_save_background_state_locked()`, which performs only `saveCalc()`.
   That path must stay display-passive for a normal background save or
   Settings-entry transition.
-- `MainActivity.onResume()` no longer requests `forceRefreshNative()` for a
-  normal Settings return. The existing display loop and overlay resume hook are
-  sufficient to preserve the current snapshot.
+- `MainActivity.onResume()` must not request `forceRefreshNative()` for a normal
+  Settings return: the display loop and the overlay resume hook already preserve
+  the current snapshot, so a redraw there is redundant.
 - `loadStateNative()` remains a redraw owner because it reconstructs calculator
   state through `restoreCalc()` and then refreshes the LCD.
 - `forceRefreshNative()` remains an explicit redraw seam for runtime init and
@@ -90,8 +90,8 @@ flowchart LR
   `btnPressed(...)` or `btnReleased(...)` and key codes `38..43` onto the
   dedicated function-key press and release handlers.
 - `MainActivity.dispatchLiveKey(...)` is the live touch and PiP tap seam. It
-  now routes `R/S` and `EXIT` through `requestStopProgramNative()` before queue
-  fallback, so live stop publication no longer waits on the core-owner queue.
+  routes `R/S` and `EXIT` through `requestStopProgramNative()` before queue
+  fallback, so live stop publication does not wait on the core-owner queue.
   When native code reports that no program is running or paused, the same key
   falls back to the normal queued `sendKey(...)` path and keeps its standard
   calculator meaning.
@@ -138,15 +138,15 @@ flowchart LR
   the last accepted snapshot per main-key mode. `NativeDisplayRefreshLoop`
   checks generation first and reuses that cached snapshot when the native copy
   path reports a busy lock.
-- USER-mode composition now happens inside `copyKeypadSnapshotNative(...)`, so
-  the UI no longer assembles one logical keypad scene through multiple JNI
-  reads.
+- USER-mode composition happens inside `copyKeypadSnapshotNative(...)`, so the
+  UI assembles one logical keypad scene from a single JNI read rather than
+  several.
 - After a successful copy, the JNI export clears the packed-row dirty flag in
   each copied row. That flag is transport bookkeeping, not part of the visible
   LCD contract.
 - `screenData` remains allocated only as a compatibility framebuffer for
   compiled upstream `PC_BUILD` helpers such as screenshot and menu-export
-  paths. The Android UI no longer consumes it directly.
+  paths. The Android UI does not consume it.
 - `setLcdColors(...)` marks every native LCD row dirty for future exports while
   `ReplicaOverlay` immediately recolors the cached packed snapshot on the UI
   side.

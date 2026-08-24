@@ -196,13 +196,12 @@ It:
 - uploads the build log, the host-core PGO artifact, and the Android packaging artifact bundle
   `r47zen-<upstream short>-<android short>`
 
-That means the dev-prerelease packaging lane now owns the full
-normal-pull-request
-host-core optimization sequence:
+That means the dev-prerelease packaging lane owns the full
+normal-pull-request host-core optimization sequence:
 
 - the Android wrapper testSuite rerun still proves the repo-owned simulator
   parity path before Gradle packaging
-- the host-side PGO collector now runs under the same wrapper-owned lane,
+- the host-side PGO collector runs under the same wrapper-owned lane,
   produces the `.profdata` artifact uploaded by CI, and builds instrumented
   upstream `src/testSuite/testSuite` with the maintained `broad-ci` corpus of
   `programs`, `tvm`, `jacobi_audit`, `normal_i`, `gamma`, `trig`, `prime`,
@@ -245,7 +244,7 @@ host-core optimization sequence:
   CI package step
 - the Android emulator lane remains narrower and still owns only the five
   staged `.p47` `PROGRAMS` fixtures
-- the Android release-native PGO consumer check now runs inside that same
+- the Android release-native PGO consumer check runs inside that same
   wrapper-owned build step, so the build log records the full collector-to-
   consumer sequence in one place
 
@@ -279,7 +278,7 @@ It:
   (`R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT` in
   `android/r47-defaults.properties`, currently 82 %, below the current
   measurement so it ratchets against regressions) or if the live program-stop
-  routing seam loses full line coverage (REPORT-24 Milestone 5)
+  routing seam loses full line coverage
 - uses that single task graph to refresh staged native inputs, build the
   dev-release APK, assemble the instrumentation APKs, and run the JVM suite without a
   second full `build_android.sh` pass
@@ -313,8 +312,8 @@ The hosted instrumentation lane currently relies on:
   Android lane if the grouped fixture selection hits the outer timeout. The
   fixture harness itself must not call blocking `snapshotState()` after a
   timed-out `READP` worker, because that worker can still own `screenMutex`.
-  The grouped harness now falls back to non-blocking state reads until the
-  worker quiesces and still performs bounded stop-and-reset cleanup before the
+  The grouped harness falls back to non-blocking state reads until the worker
+  quiesces and performs bounded stop-and-reset cleanup before the
   activity closes so one long-running fixture cannot strand the next grouped
   case on CI
 - the grouped non-fixture release-path selection containing

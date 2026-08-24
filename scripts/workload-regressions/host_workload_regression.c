@@ -69,18 +69,11 @@ typedef char display_hash_row_packs_into_whole_octets
 // this digest independently, so changing the order silently re-pins a different
 // encoding of the same pixels: change it only together with a re-bless.
 //
-// The status-bar rows are excluded on purpose: the bar carries the calculator's
-// date and time, so any fixture whose final image includes a painted bar hashes
-// differently on every calendar day, which no pinned golden can track. Upstream
-// 70756a9e4 (merge of perf/run-gate-statusbar-keytimers) made that reachable by
-// throttling refreshStatusBar() to every 256 program steps and force-repainting
-// the bar on the halt paths in lblGtoXeq.c, which left BinetV4 parked at its
-// plot prompt with a freshly painted date where the bar had previously stayed
-// blank. Three consecutive CI runs proved the drift: the full-screen hash was
-// 0x8abd91c8d92dac51 on 2026-07-23, 0x780d1240e67431e1 on 2026-07-24, and
-// 0x7c5f11a811e409e1 on 2026-07-25. Masking the bar leaves the plot itself --
-// the result these fixtures actually assert -- fully covered, and it verified
-// bit-identical across that upstream change.
+// Exclude the status-bar rows: the bar carries the calculator's date and time,
+// and upstream repaints it on the program halt paths in lblGtoXeq.c, so any
+// fixture whose final image includes a painted bar hashes differently on every
+// calendar day and no pinned golden can track it. Masking the bar leaves the
+// plot itself -- the result these fixtures actually assert -- fully covered.
 static uint64_t compute_display_hash(void) {
   uint64_t hash = 1469598103934665603ull;  // FNV-1a 64-bit offset basis
   for (uint32_t y = STATUS_BAR_ROWS; y < SCREEN_HEIGHT; ++y) {
