@@ -513,6 +513,15 @@ Android compatibility layer.
   `BinetV4` on 2026-07-23, 2026-07-24, and 2026-07-25. Masking the bar keeps the
   plot -- the result these fixtures actually assert -- fully covered; the plot
   area itself was bit-identical either side of that upstream change
+- The status bar is the only thing the digest masks, so the softmenu row below
+  the plot is inside it. A plot golden therefore moves when upstream changes
+  which menu the fixture lands on, with the plot itself untouched: `GudrmPL`
+  ends `PLSTAT` then `PLTFCNS` and so depends on `fnPseudoMenu` in upstream
+  `softmenus.c`, while `BinetV4` lands on `MNU_PLOT_FUNC`. Root-cause a drifted
+  plotting golden by dumping the 400x240 buffer either side of the upstream
+  change and diffing it by row: rows `223..236` carry the softmenu labels and
+  `168..173` that menu's page marker and box border, so a diff confined to those
+  is changed chrome, and any plot-area row that moves is a changed result
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
   contract. It does prove that the shared compatibility path can start the five
   imported fixtures, compute the verified 8-queens result, and accept a bounded

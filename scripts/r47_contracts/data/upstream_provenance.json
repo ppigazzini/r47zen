@@ -8,7 +8,7 @@
         "scripts/r47_contracts/derive_key_font_policy.py"
       ],
       "path": "res/fonts/C47__NumericFont.ttf",
-      "sha256": "ce77dad4b8ec5a44f790a088c2cdb3922b13a598a6eb53e23e38a13702e5a938"
+      "sha256": "2ec658111c3f204305f5313172016e1841af2f7ca4a938ef05a223ac12c9b50b"
     },
     {
       "contracts": [
@@ -20,7 +20,7 @@
         "scripts/r47_contracts/derive_top_label_lane_layout.py"
       ],
       "path": "res/fonts/C47__StandardFont.ttf",
-      "sha256": "b80fca14e779d9188ec3821d1dd625fef7d09d501ea8b2174acdd60a42bf5a89"
+      "sha256": "9862f234c493290ae8fdede90d69f9e4a0cb7c4e8b2c839320c72f6452c90053"
     },
     {
       "contracts": [
@@ -30,7 +30,7 @@
         "scripts/r47_contracts/derive_key_font_policy.py"
       ],
       "path": "res/fonts/C47__TinyFont.ttf",
-      "sha256": "cbab3edf7b0d1f21da0a8f7455bfa931c7ee3c3e3180c8986256bb29625c54dd"
+      "sha256": "ca2f681fe99500af611b59cc92edd69aab96ebb765fd5d75408eef603d0ba190"
     },
     {
       "contracts": [
@@ -50,7 +50,7 @@
         "scripts/r47_contracts/derive_keyboard_layout_contract.py"
       ],
       "path": "src/c47/items.c",
-      "sha256": "64674a9d6189a3bbc2c0eee49275a25132329ef76b78c214895d2615d208a59d"
+      "sha256": "a5bb7b96e00e834a8bdce6737a262b657914698502ff87f6763587d93ec56190"
     },
     {
       "contracts": [
@@ -60,12 +60,12 @@
         "scripts/r47_contracts/derive_live_stop_key_policy.py"
       ],
       "path": "src/c47/programming/input.c",
-      "sha256": "3e469ac36998cd71258bf99f917788eccf3b16bd34b66d9ad56eb1509878ef36"
+      "sha256": "17fb6075ec62827ed4ef751c37538cc87a72f912adcb0a86395c99b13c34506c"
     }
   ],
   "recorded": {
-    "recorded_on": "2026-07-31",
-    "upstream_commit": "5697da16239b64ec28b2f7d504e743b8da9c0ab8",
+    "recorded_on": "2026-08-24",
+    "upstream_commit": "2640d570ac8ed459bbdb2fd8661f3d5b847a08f0",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 1
