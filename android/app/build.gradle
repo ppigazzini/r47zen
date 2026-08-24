@@ -427,6 +427,20 @@ android {
 
     testOptions {
         unitTests.includeAndroidResources = true
+
+        // Robolectric pulls in conscrypt, which calls System.load() from the
+        // unnamed module. From JDK 24 that is a restricted method: the JVM
+        // prints a "Restricted methods will be blocked in a future release"
+        // warning on every unit-test run, and a later JDK turns it into an
+        // error. Granting native access to the classpath silences the warning
+        // now and keeps the lane working when the block lands. The flag does
+        // not exist before JDK 24, so it is gated on the pinned build JDK
+        // rather than passed unconditionally.
+        unitTests.all { test ->
+            if (buildJdkVersion >= 24) {
+                test.jvmArgs '--enable-native-access=ALL-UNNAMED'
+            }
+        }
     }
 
     lint {
