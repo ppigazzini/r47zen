@@ -155,6 +155,52 @@ print_doctor_line() {
     printf '%-22s %s\n' "$1" "$2"
 }
 
+# Major version of the JDK installed at $1, or empty when it cannot be read.
+jdk_major_version() {
+    local jdk_home="$1"
+    local specification_version=""
+
+    [ -x "$jdk_home/bin/java" ] || return 1
+
+    specification_version="$("$jdk_home/bin/java" -XshowSettings:properties -version 2>&1 |
+        sed -n 's/^[[:space:]]*java\.specification\.version = //p' | head -n 1)"
+    [ -n "$specification_version" ] || return 1
+
+    printf '%s\n' "${specification_version%%.*}"
+}
+
+# Print the home of an installed JDK whose major version is $1, searching the
+# same places Gradle's toolchain auto-detection looks at on a plain host. Gradle
+# does not need this to be JAVA_HOME -- a toolchain resolves against every
+# detected installation -- so the doctor must not report a mismatch just because
+# JAVA_HOME points at a different JDK.
+find_jdk_home_for_major() {
+    local wanted_major="$1"
+    local candidate=""
+    local -a candidates=()
+
+    [ -n "${JAVA_HOME-}" ] && candidates+=("$JAVA_HOME")
+
+    if [ "$(uname -s)" = "Darwin" ] && [ -x /usr/libexec/java_home ]; then
+        candidate=$(/usr/libexec/java_home -v "$wanted_major" 2>/dev/null || true)
+        [ -n "$candidate" ] && candidates+=("$candidate")
+    fi
+
+    for candidate in /usr/lib/jvm/* "$HOME"/.sdkman/candidates/java/* \
+        /Library/Java/JavaVirtualMachines/*/Contents/Home; do
+        candidates+=("$candidate")
+    done
+
+    for candidate in "${candidates[@]}"; do
+        [ -d "$candidate" ] || continue
+        [ "$(jdk_major_version "$candidate" || true)" = "$wanted_major" ] || continue
+        printf '%s\n' "$candidate"
+        return 0
+    done
+
+    return 1
+}
+
 find_present_retired_legacy_cpp_paths() {
     local path=""
 
@@ -330,7 +376,7 @@ fi
 if [ -n "${JAVA_HOME-}" ]; then
     export PATH="$JAVA_HOME/bin:$PATH"
 else
-    echo "WARNING: No local Java installation detected. Gradle build requires JDK 17+."
+    echo "WARNING: No local Java installation detected. The Gradle build resolves a Java toolchain pinned to JDK $(read_property_value "$DEFAULTS_FILE" R47_DEFAULT_ANDROID_BUILD_JDK_VERSION) in $DEFAULTS_FILE."
 fi
 
 R47_GRADLE_RUNNER_NOTICE_EMITTED=false
@@ -648,12 +694,23 @@ print_doctor_report() {
     local current_fingerprint=""
     local current_inputs_file=""
     local legacy_cpp_paths=""
+    local build_jdk_home=""
     local font_source_dir=""
     local font_source_status=""
 
     echo "R47 Android Doctor"
     echo "=================="
     print_doctor_line "defaults" "$DEFAULTS_FILE"
+
+    # The build JDK is a toolchain requirement, not a JAVA_HOME requirement:
+    # Gradle fails with "No matching toolchains found" when no installation
+    # matches the pin, however the host launched Gradle.
+    if build_jdk_home=$(find_jdk_home_for_major "$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION"); then
+        print_doctor_line "build jdk" "$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION present ($build_jdk_home)"
+    else
+        print_doctor_line "build jdk" "$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION missing (no installed JDK matches the toolchain pin)"
+        doctor_failed=true
+    fi
 
     if [ -d "$ANDROID_SDK_ROOT" ]; then
         print_doctor_line "sdk root" "$ANDROID_SDK_ROOT"

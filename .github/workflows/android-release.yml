@@ -161,6 +161,7 @@ jobs:
 
           . ./android/r47-defaults.properties
 
+          echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "application_id=$R47_DEFAULT_ANDROID_APPLICATION_ID" >> "$GITHUB_OUTPUT"
           echo "android_test_abi_filters=$R47_DEFAULT_ANDROID_TEST_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
@@ -186,11 +187,11 @@ jobs:
         shell: bash
         run: bash ./scripts/android/install_linux_build_deps.sh
 
-      - name: Set up Java 17
+      - name: Set up the pinned build JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
@@ -552,6 +553,7 @@ jobs:
 
           . ./android/r47-defaults.properties
 
+          echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "application_id=$R47_DEFAULT_ANDROID_APPLICATION_ID" >> "$GITHUB_OUTPUT"
           echo "android_test_abi_filters=$R47_DEFAULT_ANDROID_TEST_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
@@ -577,11 +579,11 @@ jobs:
         shell: bash
         run: bash ./scripts/android/install_linux_build_deps.sh
 
-      - name: Set up Java 17
+      - name: Set up the pinned build JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0

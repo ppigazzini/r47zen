@@ -35,7 +35,7 @@ never mixes different core revisions in one run.
 
 ## Quick Start
 
-Prerequisites: JDK 17, the Android SDK and NDK, CMake, Meson/Ninja, and `uv`
+Prerequisites: a JDK, the Android SDK and NDK, CMake, Meson/Ninja, and `uv`
 for the Python contract lane. Rather than list exact versions here (they live in
 `android/r47-defaults.properties`), probe your machine and let the build report
 what is missing:

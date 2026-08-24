@@ -118,10 +118,27 @@ hydrated on demand, or only exercised in CI before updating the docs.
 
 - machine-readable Android tool defaults live in
   `android/r47-defaults.properties`; the checked-in values currently cover
-  Java `17`, `compileSdk 37`, `targetSdk 37`, `minSdk 24`, build tools
+  `compileSdk 37`, `targetSdk 37`, `minSdk 24`, build tools
   `37.0.0`, `ndkVersion 29.0.14206865`, CMake `4.1.2`, default ABI filter
   `arm64-v8a`, hosted Android test API `34`, hosted Android test ABI filters
   `arm64-v8a,x86_64`, and the pinned xlsxio URL plus commit.
+- two of those keys are about Java and they are not interchangeable. Read the
+  values from the file; what matters here is which is which:
+  - `R47_DEFAULT_ANDROID_BUILD_JDK_VERSION` is the JDK that *runs* the build --
+    Gradle, AGP, javac, the Kotlin compiler, and the JVM unit tests. It is
+    declared as a Gradle Java toolchain in `android/app/build.gradle`, so it is
+    a requirement on the host rather than a description of it: a host with no
+    matching installation fails with "No matching toolchains found" instead of
+    silently compiling on whatever `JAVA_HOME` points at.
+    `./scripts/android/build_android.sh --doctor` reports it as the `build jdk`
+    row, searching every installation Gradle would, not just `JAVA_HOME`.
+  - `R47_DEFAULT_ANDROID_JAVA_VERSION` is the language and bytecode level the
+    app is compiled *to* (`sourceCompatibility`, `targetCompatibility`, and the
+    Kotlin `jvmTarget` AGP derives from them; verified by reading the emitted
+    class-file major version, not inferred). It is capped below the build JDK:
+    the Kotlin compiler AGP bundles rejects a `jvmTarget` above its own
+    supported range, and this key changes shipped dex, so it moves only with
+    device-lane evidence.
 - settings-owned repositories via `android/settings.gradle`
 - version catalog `android/gradle/libs.versions.toml`, which owns the checked-in
   AGP `9.3.2` plugin coordinate plus AndroidX and Material library versions.
@@ -149,7 +166,11 @@ hydrated on demand, or only exercised in CI before updating the docs.
   before a broader build.
 - Review AGP compatibility and JDK requirements whenever a new AGP stable line
   is adopted; keep `android/gradle/libs.versions.toml` and
-  `android/r47-defaults.properties` aligned when that happens.
+  `android/r47-defaults.properties` aligned when that happens. AGP states a
+  minimum JDK, not a maximum, so "AGP requires JDK N" is not evidence that the
+  build JDK must be N: raising
+  `R47_DEFAULT_ANDROID_BUILD_JDK_VERSION` past it is a measurement (compile,
+  JVM unit tests, coverage gate, lint, `assembleDebug`), not a reading.
 - Review compile and target SDK levels when Android publishes the next stable
   API level, and keep local plus hosted test lanes on explicit API images.
 - Review NDK and CMake pins when Android's AGP/NDK guidance or CMake release

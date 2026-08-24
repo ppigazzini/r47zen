@@ -189,6 +189,7 @@ jobs:
 
           . ./android/r47-defaults.properties
 
+          echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
           echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
@@ -235,11 +236,11 @@ jobs:
 
           ccache --zero-stats
 
-      - name: Set up Java 17
+      - name: Set up the pinned build JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up xlsxio toolchain
         uses: ./.github/actions/setup-xlsxio-toolchain
@@ -383,6 +384,7 @@ jobs:
 
           . ./android/r47-defaults.properties
 
+          echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
@@ -436,11 +438,11 @@ jobs:
 
           ccache --zero-stats
 
-      - name: Set up Java 17
+      - name: Set up the pinned build JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
@@ -760,6 +762,7 @@ jobs:
 
           . ./android/r47-defaults.properties
 
+          echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
@@ -784,11 +787,11 @@ jobs:
         shell: bash
         run: bash ./scripts/android/install_linux_build_deps.sh
 
-      - name: Set up Java 17
+      - name: Set up the pinned build JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
