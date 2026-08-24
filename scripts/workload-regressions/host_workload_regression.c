@@ -689,7 +689,14 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // the Gudermannian plot to natural completion. The value covers the plot
      // area only, because compute_display_hash masks the status-bar rows, so the
      // date the bar paints on the halt path cannot move it by calendar day.
-     .expected_display_hash = 0x89f304684393d7e0ull},
+     // The mask stops at the status bar, so rows 223..236 (the softmenu labels)
+     // and 168..173 (that menu's page marker and box border) are inside the
+     // digest. GudrmPL ends PLSTAT then PLTFCNS, so upstream fnPseudoMenu in
+     // softmenus.c decides which softmenu it lands on and can move this golden
+     // with every plot-area row bit-identical. Diff the two bitmaps by row
+     // before re-blessing: a diff confined to those rows is changed chrome, a
+     // plot-area row that moves is a changed result.
+     .expected_display_hash = 0x64a2ba534393f1c7ull},
     {.program_name = "MANSLV2.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 15000u,
