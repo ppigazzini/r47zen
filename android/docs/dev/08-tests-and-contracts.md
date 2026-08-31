@@ -602,7 +602,9 @@ Android compatibility layer.
   focused debugging.
 - `scripts/upstream-sync/upstream.sh verify-restore-boundary` fails when the
   repo-owned restore allowlist would re-own authoritative upstream root
-  surfaces, and `sync` runs that same guard before it restores tracked paths
+  surfaces, and also when a tracked root file is missing from that allowlist
+  (the overlay would then replace it with upstream's copy); `sync` runs that
+  same guard before it restores tracked paths
 - the CI workflow keeps three main verification jobs distinct:
   `upstream-simulator-sanity`, `android-build-test-package`, and
   `android-tests`
