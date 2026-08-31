@@ -37,15 +37,26 @@ UPSTREAM_REQUIRED_FILES=(
     "subprojects/gmp-6.2.1.wrap"
     "subprojects/packagefiles/gmp-6.2.1/meson.build"
 )
+# Every Git-tracked root file this repo owns, plus the repo-owned directories.
+# The upstream overlay writes whatever upstream ships at its own root, so a root
+# file missing from this list is silently replaced by the upstream copy on the
+# next sync. Upstream added AGENTS.md and CLAUDE.md at its root, which is how
+# that gap first became visible; keep this list equal to the tracked root set in
+# AGENTS.md so the next upstream root file cannot repeat it.
 REPO_OWNED_RESTORE_PATHS=(
     .gitignore
+    .pre-commit-config.yaml
+    AGENTS.md
+    CLAUDE.md
     COPYING
     README.md
+    pyproject.toml
+    upstream.source
+    uv.lock
     android/
     .github/
     __DEV/
     scripts/
-    upstream.source
 )
 
 RESOLVED_UPSTREAM_URL=""
