@@ -465,7 +465,12 @@ Build-safety rule:
   `docs/code/meson.build`, `subprojects/`, or `tools/`.
 - `scripts/upstream-sync/upstream.sh verify-restore-boundary` is the focused
   guard for that contract, and `sync` runs the same check before it restores
-  tracked repo-owned paths.
+  tracked repo-owned paths. It guards the allowlist from both sides: no entry
+  may re-own an upstream root surface, and every tracked root file must appear
+  in the allowlist. The second half matters because the overlay writes
+  upstream's root over ours, so a tracked root file left out of the list is
+  replaced by upstream's copy on the next sync with no diff to review - which
+  is what happened when upstream added its own `AGENTS.md` and `CLAUDE.md`.
 - Android-only native fixes belong under
   `android/app/src/main/cpp/r47zen` or in staging logic, not in tracked
   root `src/**` overrides.
@@ -477,7 +482,8 @@ Build-safety rule:
 
 1. `scripts/upstream-sync/upstream.sh sync --auto --write-lock` overlays the
    resolved upstream core into the working tree,
-  validates that the restore allowlist stays off upstream-owned root surfaces,
+  validates that the restore allowlist stays off upstream-owned root surfaces
+  and still covers every tracked root file,
   hydrates the ignored upstream-owned root build inputs, restores tracked
   Android-port files, and refreshes the local ignored `upstream.lock` with the
   commit used for that run.

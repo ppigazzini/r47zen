@@ -272,6 +272,36 @@ verify_source_policy() {
     fi
 }
 
+# Every Git-tracked file at the repo root must be in the restore set. The
+# overlay writes upstream's root over ours, so a root file left out is replaced
+# by upstream's copy on the next sync, silently and without a diff to review.
+# Directories are covered by their own entries, so only depth-1 files are checked.
+verify_restore_root_coverage() {
+    local root_file=""
+    local restore_path=""
+    local covered=""
+    local missing=()
+
+    while IFS= read -r root_file; do
+        [ -n "$root_file" ] || continue
+        covered=""
+        for restore_path in "${REPO_OWNED_RESTORE_PATHS[@]}"; do
+            if [ "$restore_path" = "$root_file" ]; then
+                covered=1
+                break
+            fi
+        done
+        [ -n "$covered" ] || missing+=("$root_file")
+    done < <(git -C "$PROJECT_ROOT" ls-tree --name-only HEAD -- . |
+        while IFS= read -r entry; do
+            [ -f "$PROJECT_ROOT/$entry" ] && printf '%s\n' "$entry"
+        done)
+
+    if [ "${#missing[@]}" -gt 0 ]; then
+        fail "Restore coverage gap: tracked root file(s) missing from REPO_OWNED_RESTORE_PATHS: ${missing[*]}. The upstream overlay would replace them with upstream's copies. Add each one to the list in $(basename "${BASH_SOURCE[0]}")."
+    fi
+}
+
 verify_restore_boundary() {
     local restore_path=""
 
@@ -280,6 +310,8 @@ verify_restore_boundary() {
             fail "Restore boundary drift detected: $restore_path would re-own an authoritative upstream root surface."
         fi
     done
+
+    verify_restore_root_coverage
 }
 
 restore_repo_owned_paths() {
