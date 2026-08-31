@@ -1084,7 +1084,7 @@
     "tiny": {
       "asset_name": "C47__TinyFont.ttf",
       "font_path": "res/fonts/C47__TinyFont.ttf",
-      "unicode_codepoint_count": 668,
+      "unicode_codepoint_count": 671,
       "unicode_range_pairs": [
         [
           0,
@@ -1233,6 +1233,10 @@
         [
           8462,
           8463
+        ],
+        [
+          8467,
+          8467
         ],
         [
           8469,
@@ -1441,6 +1445,10 @@
         [
           11375,
           11375
+        ],
+        [
+          11827,
+          11828
         ]
       ]
     }
