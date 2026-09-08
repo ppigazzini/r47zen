@@ -69,10 +69,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      ACTIONLINT_VERSION: 1.7.7
-      ACTIONLINT_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
-      SHELLCHECK_VERSION: v0.10.0
-      SHELLCHECK_SHA256: 6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+      SHELLCHECK_VERSION: v0.11.0
+      SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -129,5 +129,5 @@ jobs:
         # audits (known-vulnerable-action lookups) are a follow-up.
         run: |
           set -euo pipefail
-          uvx zizmor@1.5.2 --no-online-audits --min-severity=medium \
+          uvx zizmor@1.30.0 --no-online-audits --min-severity=medium \
             .github/workflows .github/actions
