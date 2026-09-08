@@ -51,14 +51,17 @@ flowchart TD
 
 ## Spring 2026 toolchain references
 
-- [Android Gradle plugin 9.3 release notes](https://developer.android.com/build/releases/agp-9-3-0-release-notes):
-  official Android build release notes for the 9.3 AGP line used by this repo
-  (the repo pins `9.3.2` in `android/gradle/libs.versions.toml`; the 9.3 line
+- [Android Gradle plugin 9.4 release notes](https://developer.android.com/build/releases/agp-9-4-0-release-notes):
+  official Android build release notes for the 9.4 AGP line used by this repo
+  (the repo pins `9.4.0` in `android/gradle/libs.versions.toml`; the 9.4 line
   shares one release-notes page). Its compatibility table states a JDK
   *minimum* and default of `17` and no maximum, which is why this repo's build
   JDK is a measured pin in `android/r47-defaults.properties` rather than a copy
-  of that number. On this AGP line the repo builds against SDK Build Tools
-  `37.0.0` and `compileSdk`/`targetSdk` `37` (Android 17 / API 37).
+  of that number. The same table states a Gradle minimum of `9.6.0`, which the
+  checked-in wrapper `9.7.1` clears, and a maximum supported API level of `37`.
+  On this AGP line the repo builds against SDK Build Tools `37.0.0` and
+  `compileSdk`/`targetSdk` `37` (Android 17 / API 37) - the build-tools pin is
+  deliberately above the `36.0.0` the table names as minimum and default.
 - [Java versions in Android builds](https://developer.android.com/build/jdks):
   official Android reference separating the JDK that runs Gradle from the Java
   toolchain, `sourceCompatibility`/`targetCompatibility`, and the Kotlin
