@@ -40,7 +40,7 @@
         "scripts/r47_contracts/derive_keyboard_layout_contract.py"
       ],
       "path": "src/c47/assign.c",
-      "sha256": "0660cdbfb12a64047aac13bf6f0cc353fb6b3fec4ecb747bcd273635b3fb308d"
+      "sha256": "367f76308422bc298ebbc863c6d4d2d58b43eed02bd775aabf9aef40ccf14983"
     },
     {
       "contracts": [
@@ -50,7 +50,7 @@
         "scripts/r47_contracts/derive_keyboard_layout_contract.py"
       ],
       "path": "src/c47/items.c",
-      "sha256": "21f34814d2d8d9a692e78a34f11c024338a6d7e0fda30354f4e99166ed194310"
+      "sha256": "2b70d82ae9ac525380a80e3597f1d298b0d1b09298fe99a27777a1149aa1675e"
     },
     {
       "contracts": [
@@ -64,8 +64,8 @@
     }
   ],
   "recorded": {
-    "recorded_on": "2026-09-08",
-    "upstream_commit": "d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5",
+    "recorded_on": "2026-09-09",
+    "upstream_commit": "2b2637c522d9d126ba65c9ffc6f11d3f9cb9142d",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 1

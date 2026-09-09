@@ -42,6 +42,16 @@ extern bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y);
 // Re-derive this from those macros if upstream ever moves the boundary.
 #define STATUS_BAR_ROWS 20u
 
+// First status-bar column that is NOT date, time, or week-of-year. Upstream
+// lays the bar out left to right as date/time/WoY and then the mode
+// annunciators, and X_REAL_COMPLEX (defines.h) is the origin of the first
+// annunciator, so everything left of it is the clock-driven half and
+// everything from it rightwards is calculator state. The date can start at
+// X_DATE (25, or 1 once the time or WoY shares the row) and the time at
+// X_TIME_WOY (12 or 17), so masking from column 0 covers every flag
+// combination rather than today's.
+#define STATUS_BAR_CLOCK_COLUMNS ((uint32_t)X_REAL_COMPLEX)
+
 // Fail the build if a row stops packing into whole octets. compute_display_hash
 // consumes each row as SCREEN_WIDTH/8 octets, so a width that is not a multiple
 // of 8 would drop every row's trailing pixels from the oracle with no other
@@ -50,34 +60,48 @@ extern bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y);
 typedef char display_hash_row_packs_into_whole_octets
     [(SCREEN_WIDTH % 8 == 0) ? 1 : -1];
 
-// FNV-1a hash of the final LCD bitmap BELOW the status bar. Read every pixel
-// through the same lcd_buffer_pixel_on path the screen dump uses, and pack eight
-// pixels into each hashed octet, x ascending, most significant bit first. The
-// accessor owns the packed buffer's row stride, its two row-header bytes, and
-// its reversed bit order, so the digest is a function of pixel coordinates
-// alone: an upstream change to how the framebuffer is packed cannot move it
-// while the image holds. Plotting fixtures leave a deterministic image rather
-// than a scalar in the X register, so this gives them a result oracle the
-// X-register check cannot express.
+// The masked strip must also start on an octet boundary, for the same reason:
+// the status-bar rows hash (SCREEN_WIDTH - STATUS_BAR_CLOCK_COLUMNS)/8 octets,
+// so a boundary off a multiple of 8 would silently drop or duplicate pixels at
+// the seam instead of failing.
+typedef char display_hash_clock_mask_packs_into_whole_octets
+    [(X_REAL_COMPLEX % 8 == 0) ? 1 : -1];
+
+// FNV-1a hash of the final LCD bitmap, masking only the clock-driven columns of
+// the status bar. Read every pixel through the same lcd_buffer_pixel_on path the
+// screen dump uses, and pack eight pixels into each hashed octet, x ascending,
+// most significant bit first. The accessor owns the packed buffer's row stride,
+// its two row-header bytes, and its reversed bit order, so the digest is a
+// function of pixel coordinates alone: an upstream change to how the framebuffer
+// is packed cannot move it while the image holds. Plotting fixtures leave a
+// deterministic image rather than a scalar in the X register, so this gives them
+// a result oracle the X-register check cannot express.
 //
 // The octet order is the one PNG, TIFF, BMP, and PBM share: leftmost pixel in
 // the high-order bit. Restarting the octet on every row is the load-bearing
-// half -- it keeps the digest decomposable by row, so changing how many
-// status-bar rows are masked drops octets instead of reshuffling all of them.
+// half -- it keeps the digest decomposable by row, so changing the masked
+// region drops octets instead of reshuffling all of them.
 //
 // The packing order is part of what the goldens below pin. Nothing recomputes
 // this digest independently, so changing the order silently re-pins a different
 // encoding of the same pixels: change it only together with a re-bless.
 //
-// Exclude the status-bar rows: the bar carries the calculator's date and time,
-// and upstream repaints it on the program halt paths in lblGtoXeq.c, so any
-// fixture whose final image includes a painted bar hashes differently on every
-// calendar day and no pinned golden can track it. Masking the bar leaves the
-// plot itself -- the result these fixtures actually assert -- fully covered.
+// Mask the clock, not the bar. Only the date/time/WoY columns churn: upstream
+// repaints them on the program halt paths in lblGtoXeq.c, so a fixture whose
+// final image carries a painted date hashes differently on every calendar day
+// and no pinned golden can track it. The rest of the bar is the mode
+// annunciators, which are calculator state and belong in the digest for the
+// same reason the softmenu rows do -- a golden that moves when they move is the
+// oracle catching a regression, not noise. Masking the whole 20 rows instead
+// would also discard plot content: in GRAPHMODE upstream clips the bar to
+// widthGraphInfoBox and draws the graph canvas from y=0, so rows 0..19 above
+// x=160 are plot, not chrome.
 static uint64_t compute_display_hash(void) {
   uint64_t hash = 1469598103934665603ull;  // FNV-1a 64-bit offset basis
-  for (uint32_t y = STATUS_BAR_ROWS; y < SCREEN_HEIGHT; ++y) {
-    for (uint32_t x = 0; x < SCREEN_WIDTH; x += 8u) {
+  for (uint32_t y = 0; y < SCREEN_HEIGHT; ++y) {
+    const uint32_t first_x =
+        (y < STATUS_BAR_ROWS) ? STATUS_BAR_CLOCK_COLUMNS : 0u;
+    for (uint32_t x = first_x; x < SCREEN_WIDTH; x += 8u) {
       uint8_t octet = 0u;
       for (uint32_t bit = 0u; bit < 8u; ++bit) {
         octet = (uint8_t)((octet << 1) |
@@ -130,13 +154,14 @@ typedef struct {
   const int *expected_x_sequence;
   size_t expected_x_sequence_len;
   // Display-hash oracle for plotting fixtures: the FNV-1a hash of the final LCD
-  // bitmap below the status bar (compute_display_hash). Plotting workloads
-  // (BinetV4, GudrmPL) leave a deterministic image, not a scalar in X, so this
-  // pins their result where the X-register oracle cannot. 0 stays liveness-only.
-  // Only set for fixtures that finish (not interrupted) and whose final image is
-  // run-to-run deterministic, verified by repeated runs. The hash covers only
-  // y >= STATUS_BAR_ROWS, so a painted date or time in the status bar cannot
-  // make a golden drift by calendar day -- see compute_display_hash.
+  // bitmap with the status bar's clock columns masked (compute_display_hash).
+  // Plotting workloads (BinetV4, GudrmPL) leave a deterministic image, not a
+  // scalar in X, so this pins their result where the X-register oracle cannot.
+  // 0 stays liveness-only. Only set for fixtures that finish (not interrupted)
+  // and whose final image is run-to-run deterministic, verified by repeated
+  // runs. The hash skips x < STATUS_BAR_CLOCK_COLUMNS on y < STATUS_BAR_ROWS, so
+  // a painted date or time cannot make a golden drift by calendar day, while the
+  // mode annunciators to their right stay covered -- see compute_display_hash.
   uint64_t expected_display_hash;
 } program_fixture_scenario_t;
 
@@ -667,10 +692,13 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
      // Verified run-to-run deterministic over repeated host runs; BinetV4 parks
-     // at its plot prompt leaving a stable final image. The value covers the plot
-     // area only, because compute_display_hash masks the status-bar rows, so the
-     // date the bar paints on the halt path cannot move it by calendar day.
-     .expected_display_hash = 0x4e0e715a6af1e31cull},
+     // at its plot prompt leaving a stable final image. BinetV4 does not end in
+     // GRAPHMODE: its rows 0..19 are status bar at full width, measured as the
+     // ten date cells at x 25..102 (pitch 8 from X_DATE) plus annunciator runs
+     // at 138-149, 160-165, 186-216, 264-290 and 315-327. The date is masked and
+     // the annunciators are not, so a mode regression moves this golden and a
+     // new calendar day does not.
+     .expected_display_hash = 0x2d0f11012f70c634ull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
@@ -679,17 +707,19 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
      // Verified run-to-run deterministic over repeated host runs; GudrmPL runs
-     // the Gudermannian plot to natural completion. The value covers the plot
-     // area only, because compute_display_hash masks the status-bar rows, so the
-     // date the bar paints on the halt path cannot move it by calendar day.
-     // The mask stops at the status bar, so rows 223..236 (the softmenu labels)
-     // and 168..173 (that menu's page marker and box border) are inside the
-     // digest. GudrmPL ends PLSTAT then PLTFCNS, so upstream fnPseudoMenu in
-     // softmenus.c decides which softmenu it lands on and can move this golden
-     // with every plot-area row bit-identical. Diff the two bitmaps by row
-     // before re-blessing: a diff confined to those rows is changed chrome, a
-     // plot-area row that moves is a changed result.
-     .expected_display_hash = 0x64a2ba534393f1c7ull},
+     // the Gudermannian plot to natural completion. Unlike the other fixtures it
+     // ends in GRAPHMODE and paints no status bar at all: its rows 0..19 carry
+     // only plot frame, measured at x 158-159, 279-281 and 386-390. Masking the
+     // whole band would have discarded those 94 pixels for no gain, which is why
+     // the mask is columns rather than rows.
+     // All three softkey rows are inside the digest (measured 838 + 705 + 733
+     // pixels over y 171..239). GudrmPL ends PLSTAT then PLTFCNS, so upstream
+     // fnPseudoMenu in softmenus.c decides which softmenu it lands on and can
+     // move this golden with every plot-area row bit-identical. That is wanted:
+     // a moved golden is the oracle catching changed chrome. Diff the two
+     // bitmaps by row before re-blessing -- a diff confined to y >= 171 is
+     // changed chrome, a plot-area row that moves is a changed result.
+     .expected_display_hash = 0xac3443a946abd291ull},
     {.program_name = "MANSLV2.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 15000u,
@@ -733,9 +763,12 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // un-oracled because it is NOT reproducible across machines: the number of
      // points plotted before it finishes depends on the pause/resume interleaving
      // (a pinned hash 0x8cfc1f2910613f3c locally failed CI with
-     // 0xeae799e2c2ad6d93), so expected_display_hash stays 0 while the X result
+     // 0xeae799e2c2ad6d93, and a later host run under the column mask produced a
+     // third value again), so expected_display_hash stays 0 while the X result
      // gates the computed value. extract_int_sequence reads 150 from the
-     // "longint:150" register string.
+     // "longint:150" register string. SPIRALk does paint a softmenu despite
+     // ending on a plot: its bottom softkey row (y 217..239) is byte-identical
+     // to BinetV4's, so "a plot fixture has no menu" is not a safe assumption.
      .expected_x_sequence = (const int[]){150},
      .expected_x_sequence_len = 1,
      .expected_display_hash = 0u},
