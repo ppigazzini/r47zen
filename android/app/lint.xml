@@ -36,9 +36,14 @@
 
     <!-- Library versions in gradle/libs.versions.toml are pinned deliberately and
          bumped as explicit, reviewed decisions, mirroring AndroidGradlePluginVersion
-         above. NewerVersionAvailable makes a per-dependency network call to a remote
-         Maven repo and is disabled by default; under warningsAsErrors it turns a
-         green build red whenever upstream publishes a patch, with no change to this
-         repo, making CI non-deterministic. Deliberate pins, not lint, gate bumps. -->
+         above. Both checks below report the same finding: a newer version exists.
+         NewerVersionAvailable makes a per-dependency network call to a remote Maven
+         repo and is off by default; GradleDependency reads the offline index bundled
+         with lint and is on by default, so suppressing only the first leaves the lane
+         exposed. Under warningsAsErrors either one turns a green build red whenever a
+         dependency publishes a patch, with no change to this repo, making CI
+         non-deterministic. Deliberate pins gate bumps: Dependabot proposes them
+         and review accepts them. Lint does not. -->
     <issue id="NewerVersionAvailable" severity="ignore" />
+    <issue id="GradleDependency" severity="ignore" />
 </lint>
