@@ -494,30 +494,43 @@ Android compatibility layer.
   boundary. Both matter here. The bit order is the one four formats already
   agreed on, so a reader has no reason to "correct" it toward the X11 XBM
   ordering; the per-row restart is what keeps the digest decomposable by row, so
-  masking a different number of status-bar rows drops octets instead of
+  changing the masked region drops octets instead of
   reshuffling every one of them. Row order is top-down, unlike BMP, so the
   digest's rows sit in the same coordinate space as the mask. As packed, each
   octet is bit-identical to a byte of the live `lcd_buffer` payload in reverse
   order -- the accessor mirrors x within the row -- which makes a hexdump of the
   framebuffer readable against the digest during triage. That is an observation,
   not a dependency: the digest is defined on coordinates, so a repacking
-  upstream leaves it where it was. That hash covers
-  only the rows below the status bar (`y >= STATUS_BAR_ROWS`, matching the
-  `clearScreenExcludingStatusBar` geometry in upstream `screen.h`). The bar is
-  masked on purpose: it paints the calculator date, upstream repaints it on the
-  program halt paths, and a whole-screen hash of any fixture that halts with a
-  painted bar therefore drifts on every calendar day, which no pinned golden can
-  track. Masking it keeps the plot -- the result these fixtures actually assert
-  -- fully covered
-- The status bar is the only thing the digest masks, so the softmenu row below
-  the plot is inside it. A plot golden therefore moves when upstream changes
-  which menu the fixture lands on, with the plot itself untouched: `GudrmPL`
-  ends `PLSTAT` then `PLTFCNS` and so depends on `fnPseudoMenu` in upstream
-  `softmenus.c`, while `BinetV4` lands on `MNU_PLOT_FUNC`. Root-cause a drifted
-  plotting golden by dumping the 400x240 buffer either side of the upstream
-  change and diffing it by row: rows `223..236` carry the softmenu labels and
-  `168..173` that menu's page marker and box border, so a diff confined to those
-  is changed chrome, and any plot-area row that moves is a changed result
+  upstream leaves it where it was. The digest masks the clock, not
+  the bar: on `y < STATUS_BAR_ROWS` it skips `x < STATUS_BAR_CLOCK_COLUMNS`,
+  which is upstream's `X_REAL_COMPLEX` (`defines.h`), the origin of the first
+  mode annunciator. Everything left of it is date, time, or week-of-year and
+  churns with the calendar; everything from it rightwards is calculator state.
+  The date can start at `X_DATE` (25, or 1 once the time or WoY shares the row)
+  and the time at `X_TIME_WOY` (12 or 17), so masking from column 0 covers every
+  flag combination rather than the current one. A second negative-array typedef
+  fails the build if `X_REAL_COMPLEX` stops being a multiple of 8, since a seam
+  off an octet boundary would drop or duplicate pixels there silently
+- Masking columns rather than the whole band is deliberate, and measured. In
+  `GRAPHMODE` upstream clips the bar to `widthGraphInfoBox` and draws the graph
+  canvas from `y = 0` (`plotstat.c`), so rows `0..19` right of `x = 160` are plot,
+  not chrome. `GudrmPL` ends in that mode and paints no bar at all: its masked
+  band held only plot frame, at `x` `158-159`, `279-281` and `386-390`. `BinetV4`
+  and `SPIRALk` do not end in `GRAPHMODE` and carry a full-width bar, measured as
+  ten date cells at `x` `25..102` plus annunciator runs from `138`. Masking rows
+  would have discarded 94 pixels of `GudrmPL` plot frame and every fixture's
+  annunciators for no gain
+- The mode annunciators and all three softkey rows stay inside the digest on
+  purpose. A golden that moves when they move is the oracle catching changed
+  chrome, not noise. `GudrmPL` ends `PLSTAT` then `PLTFCNS` and so depends on
+  `fnPseudoMenu` in upstream `softmenus.c`, while `BinetV4` lands on
+  `MNU_PLOT_FUNC`; `SPIRALk` paints a softmenu too despite ending on a plot, its
+  bottom softkey row being byte-identical to `BinetV4`'s, so "a plot fixture has
+  no menu" is not a safe assumption. Root-cause a drifted plotting golden by
+  dumping the 400x240 buffer either side of the upstream change and diffing it
+  by row: `GudrmPL` carries 838, 705 and 733 pixels across softkey rows one to
+  three (`y 171..239`), so a diff confined to `y >= 171` is changed chrome, and
+  any plot-area row that moves is a changed result
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
   contract. It does prove that the shared compatibility path can start the five
   imported fixtures, compute the verified 8-queens result, and accept a bounded
