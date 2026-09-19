@@ -20,7 +20,7 @@
         "scripts/r47_contracts/derive_top_label_lane_layout.py"
       ],
       "path": "res/fonts/C47__StandardFont.ttf",
-      "sha256": "9862f234c493290ae8fdede90d69f9e4a0cb7c4e8b2c839320c72f6452c90053"
+      "sha256": "d9dba05319edd0eb300c4e6486da8edc3e8844973de6fb2b917699a9d7d7faa6"
     },
     {
       "contracts": [
@@ -40,7 +40,7 @@
         "scripts/r47_contracts/derive_keyboard_layout_contract.py"
       ],
       "path": "src/c47/assign.c",
-      "sha256": "367f76308422bc298ebbc863c6d4d2d58b43eed02bd775aabf9aef40ccf14983"
+      "sha256": "f8d18ffd3ce9b14eefb704dc3134114932ac83423483b370acfc5d80b013cf8a"
     },
     {
       "contracts": [
@@ -50,7 +50,7 @@
         "scripts/r47_contracts/derive_keyboard_layout_contract.py"
       ],
       "path": "src/c47/items.c",
-      "sha256": "2b70d82ae9ac525380a80e3597f1d298b0d1b09298fe99a27777a1149aa1675e"
+      "sha256": "e9286a4b6e2f00ef09d04ba40f4b8b603272ceef41110355494fbda6efb98b97"
     },
     {
       "contracts": [
@@ -64,8 +64,8 @@
     }
   ],
   "recorded": {
-    "recorded_on": "2026-09-09",
-    "upstream_commit": "2b2637c522d9d126ba65c9ffc6f11d3f9cb9142d",
+    "recorded_on": "2026-09-19",
+    "upstream_commit": "492298ff54a753bdaacacb09725aabdf65f2f853",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 1

@@ -59,7 +59,7 @@ flowchart TD
 | SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `requestedProgramFixtureNames`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
 | pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
-| Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved | rerun the narrow native Gradle build first, then the latest-upstream Android build lane when new upstream HAL symbols appear |
+| Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved. A signature change fails the build, but a changed *meaning* behind an unchanged signature does not: `scripts/android/run_keypad_generation_contract.sh` is the behavioral half, and locks the `bitblt24` blit semantics documented in `src/c47/hal/lcd.h` | rerun the narrow native Gradle build first, then `run_keypad_generation_contract.sh`, then the latest-upstream Android build lane when new upstream HAL symbols appear |
 | upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
 | which upstream bytes the derived goldens came from | `scripts/r47_contracts/data/upstream_provenance.json`, `scripts/r47_contracts/upstream_provenance.py`, the `UPSTREAM_R47_*_PATH` constants in `scripts/r47_contracts/_repo_paths.py` | `scripts/r47_contracts/test_upstream_provenance_contract.py` | grouped `scripts/r47_contracts` validation lane; coverage fails there, drift only reports |
 
@@ -558,6 +558,24 @@ Android compatibility layer.
   (`numberOfFreeMemoryRegions` stays flat), so it catches that regression
   returning after an upstream sync; `R47_GRAPH_HARNESS_ITERS` bounds the run.
   It is a manual maintainer tool, not a CI lane.
+- `scripts/android/run_keypad_generation_contract.sh` links `hal/lcd.c` alone on
+  the host -- no emulator, no device -- and runs
+  `scripts/android/keypad_generation_contract_test.c`. It asserts three
+  `hal/lcd.c` contracts. First, `LCD_write_line` must bump
+  `keypadSnapshotGeneration`, the signal the display loop uses to re-read dynamic
+  softkeys such as the EQN editor. Second, `init_lcd_buffers` must leave the
+  unused `screenData` compatibility framebuffer NULL, so no dead 384 KB stays
+  resident. Third, `bitblt24` must implement the `fill` semantics of upstream
+  `src/c47/hal/lcd.h`: with `BLT_NONE` only the pixels where `val` has a 1 are
+  written, and with `BLT_SET` the dx columns are cleared before `BLT_OR` and set
+  before `BLT_ANDN`. That third one is the reason the test exists in this shape.
+  `bitblt24` keeps its signature across upstream revisions, so a divergence in
+  what `fill` *means* compiles clean and shows up only as wrong pixels: upstream
+  492298ff redefined it and rewrote `softmenus.c` `drawKeyFrame` to depend on the
+  new reading, which turned the softkey frame into a silent no-op against the
+  older Android implementation. The assertions count set pixels over a whole row,
+  so they stay valid independently of the column mirroring inside the Android
+  `bitblt24`. It runs in the `host-workload-regressions` lane of `linux-ci.yml`.
 - `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds the staged
   core and Android bridge under ThreadSanitizer and races the live input and
   refresh producer path against the UI read path, the one concurrency surface

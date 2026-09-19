@@ -101,7 +101,16 @@ static inline bool jni_acquire_env(jni_env_scope_t *scope,
         return false;
     }
 
-    jint attach_result = (*g_jvm)->AttachCurrentThread(g_jvm, &scope->env, NULL);
+    // The two jni.h copies disagree on this out parameter: the NDK declares
+    // AttachCurrentThread(JavaVM*, JNIEnv**, void*) while the host JDK declares
+    // (JavaVM*, void**, void*), and the host workload lane compiles this header
+    // against the JDK copy. void * converts to either without a diagnostic; a
+    // void ** cast would be right for only one of them, and passing &scope->env
+    // bare is right for only the other -- which is why the JDK build warned here
+    // on GCC 13 and failed outright on GCC 14. GetEnv needs no such care: both
+    // headers declare its out parameter void **.
+    jint attach_result =
+        (*g_jvm)->AttachCurrentThread(g_jvm, (void *)&scope->env, NULL);
     if (attach_result != JNI_OK || scope->env == NULL) {
         LOGE("%s: AttachCurrentThread failed (%d)", context, attach_result);
         scope->env = NULL;
