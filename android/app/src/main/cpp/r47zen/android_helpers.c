@@ -355,7 +355,11 @@ char* getXRegisterString() {
             break;
 
         case dtShortInteger:
-            shortIntegerToDisplayString(regist, coreBuf, false, 0);
+            // maxWidth: upstream 492298ff added the caller's available width so a
+            // temporary information prefix is not painted over. SCREEN_WIDTH is the
+            // whole-line value the function hardcoded before, and what every upstream
+            // caller without a prefix passes, so the extracted text does not change.
+            shortIntegerToDisplayString(regist, coreBuf, false, noBaseOverride, SCREEN_WIDTH);
             break;
 
         case dtLongInteger:

@@ -698,7 +698,17 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // at 138-149, 160-165, 186-216, 264-290 and 315-327. The date is masked and
      // the annunciators are not, so a mode regression moves this golden and a
      // new calendar day does not.
-     .expected_display_hash = 0x2d0f11012f70c634ull},
+     //
+     // Re-blessed at upstream 492298ff, which rewrote softmenus.c drawKeyFrame
+     // from greyRect plus lcd_fill_rect to one bitblt24(BLT_OR, BLT_SET) per 24
+     // columns. hal/lcd.c had the pre-492298ff reading of BLT_SET, under which
+     // that call was `j |= 0` -- a no-op -- so the softkey frame stopped being
+     // drawn at all: 0x2d0f11012f70c634 -> 0x29072c7bcf2130c7. Fixing the fill
+     // semantics restores the frame and gives this hash. Verified by dumping the
+     // bitmap either side of the HAL fix: the delta is 255 pixels, all switched
+     // on, confined to rows 217-239 -- the dotted top rule of the softkey band
+     // and the dotted cell divider at column 66. Nothing else in the image moved.
+     .expected_display_hash = 0x06acb50abbba005dull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
