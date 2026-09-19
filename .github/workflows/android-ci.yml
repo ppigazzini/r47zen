@@ -388,6 +388,7 @@ jobs:
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk_minor=$R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
           echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
@@ -455,6 +456,7 @@ jobs:
         uses: ./.github/actions/setup-android-sdk
         with:
           compile-sdk: ${{ steps.defaults.outputs.compile_sdk }}
+          compile-sdk-minor: ${{ steps.defaults.outputs.compile_sdk_minor }}
           build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
           cmake-version: ${{ steps.defaults.outputs.cmake_version }}
           ndk-version: ${{ steps.defaults.outputs.ndk_version }}
@@ -766,6 +768,7 @@ jobs:
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk_minor=$R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
           echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
@@ -804,6 +807,7 @@ jobs:
         uses: ./.github/actions/setup-android-sdk
         with:
           compile-sdk: ${{ steps.defaults.outputs.compile_sdk }}
+          compile-sdk-minor: ${{ steps.defaults.outputs.compile_sdk_minor }}
           build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
           cmake-version: ${{ steps.defaults.outputs.cmake_version }}
           ndk-version: ${{ steps.defaults.outputs.ndk_version }}

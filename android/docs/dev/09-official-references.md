@@ -53,7 +53,7 @@ flowchart TD
 
 - [Android Gradle plugin 9.4 release notes](https://developer.android.com/build/releases/agp-9-4-0-release-notes):
   official Android build release notes for the 9.4 AGP line used by this repo
-  (the repo pins `9.4.0` in `android/gradle/libs.versions.toml`; the 9.4 line
+  (the repo pins `9.4.1` in `android/gradle/libs.versions.toml`; the 9.4 line
   shares one release-notes page). Its compatibility table states a JDK
   *minimum* and default of `17` and no maximum, which is why this repo's build
   JDK is a measured pin in `android/r47-defaults.properties` rather than a copy
@@ -62,6 +62,10 @@ flowchart TD
   On this AGP line the repo builds against SDK Build Tools `37.0.0` and
   `compileSdk`/`targetSdk` `37` (Android 17 / API 37) - the build-tools pin is
   deliberately above the `36.0.0` the table names as minimum and default.
+  `compileSdk` additionally carries `compileSdkMinor 2`, so the build compiles
+  against the `android-37.2` platform. AGP has no `targetSdkMinor`: a minor SDK
+  version is a compile-time API surface only, so `targetSdk` stays the bare `37`
+  and the shipped manifest does not move with it.
 - [Java versions in Android builds](https://developer.android.com/build/jdks):
   official Android reference separating the JDK that runs Gradle from the Java
   toolchain, `sourceCompatibility`/`targetCompatibility`, and the Kotlin
