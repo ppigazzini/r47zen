@@ -719,19 +719,18 @@ print_doctor_report() {
         doctor_failed=true
     fi
 
-    compile_sdk_dir=""
-    for platform_dir in \
-        "$ANDROID_SDK_ROOT/platforms/android-$R47_DEFAULT_ANDROID_COMPILE_SDK" \
-        "$ANDROID_SDK_ROOT/platforms/android-$R47_DEFAULT_ANDROID_COMPILE_SDK".*; do
-        if [ -d "$platform_dir" ]; then
-            compile_sdk_dir="$platform_dir"
-            break
-        fi
-    done
-    if [ -n "$compile_sdk_dir" ]; then
-        print_doctor_line "compile sdk" "$(basename "$compile_sdk_dir") present"
+    # The build declares compileSdkMinor, so AGP resolves exactly one platform id
+    # (android-<major>.<minor>) and any other installed minor is no substitute.
+    # Check for that exact directory, not the first minor that happens to exist,
+    # or the doctor reports "present" for a platform the build cannot use.
+    compile_sdk_id="android-$R47_DEFAULT_ANDROID_COMPILE_SDK"
+    if [ -n "${R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR:-}" ]; then
+        compile_sdk_id="$compile_sdk_id.$R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR"
+    fi
+    if [ -d "$ANDROID_SDK_ROOT/platforms/$compile_sdk_id" ]; then
+        print_doctor_line "compile sdk" "$compile_sdk_id present"
     else
-        print_doctor_line "compile sdk" "android-$R47_DEFAULT_ANDROID_COMPILE_SDK missing"
+        print_doctor_line "compile sdk" "$compile_sdk_id missing"
         doctor_failed=true
     fi
 

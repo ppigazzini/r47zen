@@ -307,6 +307,7 @@ java {
 android {
     namespace = defaultApplicationId
     compileSdk = project.findProperty('r47.compileSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK')
+    compileSdkMinor = project.findProperty('r47.compileSdkMinor')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR')
     def coreVersion = (project.findProperty('r47.coreVersion') ?: "unknown").toString()
     def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z._-]/, "_")
     def normalizedReleaseChannelBuildToken = releaseChannelBuildToken?.replaceAll(/[^0-9A-Za-z._-]/, "_")

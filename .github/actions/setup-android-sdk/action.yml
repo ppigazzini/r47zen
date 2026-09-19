@@ -5,6 +5,12 @@ inputs:
   compile-sdk:
     description: Android compileSdk / platform level to install.
     required: true
+  compile-sdk-minor:
+    description: >-
+      Android minor SDK version to install beside compile-sdk, e.g. 2 for
+      platforms;android-37.2. Empty selects the major's own platform id.
+    required: false
+    default: ''
   build-tools-version:
     description: Android build-tools version to install.
     required: true
@@ -133,6 +139,7 @@ runs:
       shell: bash
       env:
         COMPILE_SDK: ${{ inputs.compile-sdk }}
+        COMPILE_SDK_MINOR: ${{ inputs.compile-sdk-minor }}
         BUILD_TOOLS_VERSION: ${{ inputs.build-tools-version }}
         CMAKE_VERSION: ${{ inputs.cmake-version }}
         NDK_VERSION: ${{ inputs.ndk-version }}
@@ -141,12 +148,18 @@ runs:
 
         sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
         # Some api levels ship under the bare platform id (android-36) and newer
-        # ones under the minor-version id (android-37.0). Resolve whichever this
-        # api uses so compile-sdk stays the plain integer Gradle expects.
-        platform_pkg="platforms;android-${COMPILE_SDK}"
-        if [ ! -d "${sdk_root}/platforms/android-${COMPILE_SDK}" ] &&
-          sdkmanager --list 2>/dev/null | grep -Fq "platforms;android-${COMPILE_SDK}.0"; then
-          platform_pkg="platforms;android-${COMPILE_SDK}.0"
+        # ones under a minor-version id (android-37.0, android-37.2). When
+        # compile-sdk-minor is set it names the minor outright, matching the
+        # compileSdkMinor the Gradle build declares; otherwise resolve whichever
+        # id this api uses so compile-sdk stays the plain integer Gradle expects.
+        if [ -n "${COMPILE_SDK_MINOR}" ]; then
+          platform_pkg="platforms;android-${COMPILE_SDK}.${COMPILE_SDK_MINOR}"
+        else
+          platform_pkg="platforms;android-${COMPILE_SDK}"
+          if [ ! -d "${sdk_root}/platforms/android-${COMPILE_SDK}" ] &&
+            sdkmanager --list 2>/dev/null | grep -Fq "platforms;android-${COMPILE_SDK}.0"; then
+            platform_pkg="platforms;android-${COMPILE_SDK}.0"
+          fi
         fi
 
         sdkmanager \
@@ -160,6 +173,7 @@ runs:
       shell: bash
       env:
         COMPILE_SDK: ${{ inputs.compile-sdk }}
+        COMPILE_SDK_MINOR: ${{ inputs.compile-sdk-minor }}
         BUILD_TOOLS_VERSION: ${{ inputs.build-tools-version }}
         CMAKE_VERSION: ${{ inputs.cmake-version }}
         NDK_VERSION: ${{ inputs.ndk-version }}
@@ -169,12 +183,18 @@ runs:
 
         sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
         # Some api levels ship under the bare platform id (android-36) and newer
-        # ones under the minor-version id (android-37.0). Resolve whichever this
-        # api uses so compile-sdk stays the plain integer Gradle expects.
-        platform_pkg="platforms;android-${COMPILE_SDK}"
-        if [ ! -d "${sdk_root}/platforms/android-${COMPILE_SDK}" ] &&
-          sdkmanager --list 2>/dev/null | grep -Fq "platforms;android-${COMPILE_SDK}.0"; then
-          platform_pkg="platforms;android-${COMPILE_SDK}.0"
+        # ones under a minor-version id (android-37.0, android-37.2). When
+        # compile-sdk-minor is set it names the minor outright, matching the
+        # compileSdkMinor the Gradle build declares; otherwise resolve whichever
+        # id this api uses so compile-sdk stays the plain integer Gradle expects.
+        if [ -n "${COMPILE_SDK_MINOR}" ]; then
+          platform_pkg="platforms;android-${COMPILE_SDK}.${COMPILE_SDK_MINOR}"
+        else
+          platform_pkg="platforms;android-${COMPILE_SDK}"
+          if [ ! -d "${sdk_root}/platforms/android-${COMPILE_SDK}" ] &&
+            sdkmanager --list 2>/dev/null | grep -Fq "platforms;android-${COMPILE_SDK}.0"; then
+            platform_pkg="platforms;android-${COMPILE_SDK}.0"
+          fi
         fi
 
         sdkmanager \
