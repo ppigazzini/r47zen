@@ -497,9 +497,10 @@ Android compatibility layer.
   changing the masked region drops octets instead of
   reshuffling every one of them. Row order is top-down, unlike BMP, so the
   digest's rows sit in the same coordinate space as the mask. As packed, each
-  octet is bit-identical to a byte of the live `lcd_buffer` payload in reverse
-  order -- the accessor mirrors x within the row -- which makes a hexdump of the
-  framebuffer readable against the digest during triage. That is an observation,
+  octet is the bitwise complement of a byte of the live `lcd_buffer` payload in
+  reverse order -- the accessor mirrors x within the row, and `lcd_buffer`
+  stores a dark pixel as a 0 bit -- which makes a hexdump of the framebuffer
+  readable against the digest during triage. That is an observation,
   not a dependency: the digest is defined on coordinates, so a repacking
   upstream leaves it where it was. The digest masks the clock, not
   the bar: on `y < STATUS_BAR_ROWS` it skips `x < STATUS_BAR_CLOCK_COLUMNS`,
@@ -560,22 +561,33 @@ Android compatibility layer.
   It is a manual maintainer tool, not a CI lane.
 - `scripts/android/run_keypad_generation_contract.sh` links `hal/lcd.c` alone on
   the host -- no emulator, no device -- and runs
-  `scripts/android/keypad_generation_contract_test.c`. It asserts three
+  `scripts/android/keypad_generation_contract_test.c`. It asserts four
   `hal/lcd.c` contracts. First, `LCD_write_line` must bump
   `keypadSnapshotGeneration`, the signal the display loop uses to re-read dynamic
   softkeys such as the EQN editor. Second, `init_lcd_buffers` must leave the
   unused `screenData` compatibility framebuffer NULL, so no dead 384 KB stays
   resident. Third, `bitblt24` must implement the `fill` semantics of upstream
   `src/c47/hal/lcd.h`: with `BLT_NONE` only the pixels where `val` has a 1 are
-  written, and with `BLT_SET` the dx columns are cleared before `BLT_OR` and set
-  before `BLT_ANDN`. That third one is the reason the test exists in this shape.
+  written, and with `BLT_SET` the dx columns are written white before `BLT_OR`
+  and dark before `BLT_ANDN`. That third one is the reason the test exists in
+  this shape.
   `bitblt24` keeps its signature across upstream revisions, so a divergence in
   what `fill` *means* compiles clean and shows up only as wrong pixels: upstream
   492298ff redefined it and rewrote `softmenus.c` `drawKeyFrame` to depend on the
   new reading, which turned the softkey frame into a silent no-op against the
-  older Android implementation. The assertions count set pixels over a whole row,
-  so they stay valid independently of the column mirroring inside the Android
-  `bitblt24`. It runs in the `host-workload-regressions` lane of `linux-ci.yml`.
+  older Android implementation. Fourth, `lcd_buffer` must use the polarity of
+  the upstream simulator HALs, which upstream 1560394c moved onto the DMCP one:
+  a 1 bit is white, so `BLT_OR` draws dark by clearing bits, `lcd_clear_buf`
+  leaves no pixel on, `lcd_buffer_pixel_on` reads a 0 bit as on, and
+  `LCD_write_line` inverts each row into the packed snapshot, where a 1 bit
+  stays dark for `ReplicaOverlay`. The same merge added the first core code that
+  writes `lcd_buffer` bytes itself, the function-name box in `screen.c`, which
+  drew inverted on the older polarity. Nothing drawn through `bitblt24` alone can
+  show that: swapping the two ops and the reader cancels out, which is why the
+  BinetV4 hash did not move when the HAL did. The assertions count dark pixels
+  over a whole row, so they stay valid independently of the column mirroring
+  inside the Android `bitblt24`. It runs in the `host-workload-regressions` lane
+  of `linux-ci.yml`.
 - `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds the staged
   core and Android bridge under ThreadSanitizer and races the live input and
   refresh producer path against the UI read path, the one concurrency surface

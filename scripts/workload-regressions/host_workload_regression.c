@@ -708,7 +708,15 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // bitmap either side of the HAL fix: the delta is 255 pixels, all switched
      // on, confined to rows 217-239 -- the dotted top rule of the softkey band
      // and the dotted cell divider at column 66. Nothing else in the image moved.
-     .expected_display_hash = 0x06acb50abbba005dull},
+     //
+     // Re-blessed at upstream 1560394c, which merged f6391423e: register-line
+     // text now starts at screen.h noShiftOffset (2) where it started at x 1,
+     // so BinetV4's T-line value moved right one column: 0x06acb50abbba005d ->
+     // 0x015d36bb0e5925fa. Verified by dumping the bitmap either side of the
+     // merge: 960 pixels differ, 480 on and 480 off, all in rows 28-55 (the
+     // T line) at x 1..270, and each row is the old row shifted by exactly one
+     // column. No glyph changed shape and nothing else in the image moved.
+     .expected_display_hash = 0x015d36bb0e5925faull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,

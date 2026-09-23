@@ -114,8 +114,15 @@ void LCD_write_line(uint8_t *line_buf) {
   const size_t buffer_row = (size_t)(SCREEN_HEIGHT - row_id - 1u);
   pthread_mutex_lock(&packedDisplayMutex);
   uint8_t *snapshot_line = packedDisplayBuffer + buffer_row * LCD_ROW_SIZE_BYTES;
-  memcpy(snapshot_line, line_buf, LCD_ROW_SIZE_BYTES);
+  // lcd_buffer follows the DMCP polarity upstream adopted in 1560394c, a 1 bit
+  // is a white pixel, while the packed snapshot keeps a 1 bit as a dark one,
+  // which is what ReplicaOverlay.decodePackedRow paints. Invert on the copy so
+  // the JNI transport contract stays where it was.
   snapshot_line[0] = 1u;
+  snapshot_line[1] = row_id;
+  for (size_t column = 2; column < LCD_ROW_SIZE_BYTES; column++) {
+    snapshot_line[column] = (uint8_t)~line_buf[column];
+  }
   line_buf[0] = 0u;
   atomic_store_explicit(&lcdBufferDirty, true, memory_order_relaxed);
   atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
@@ -171,10 +178,13 @@ void bitblt24(uint32_t x, uint32_t dx, uint32_t y, uint32_t val, int blt_op, int
   const uint32_t lowmask = (1u << dx) - 1u;
   const uint32_t bytes_needed = (bit_off + dx + 7) / 8;
   const uint32_t srcbits = (val & lowmask) << bit_off;
-  // BLT_SET: the dx columns are cleared before BLT_OR and set before BLT_ANDN, so
-  // the pixels where val has a 0 are written too. Tracks upstream hal/lcd.h at
-  // 492298ff; the older form replaced srcbits outright, which made a BLT_OR plus
-  // BLT_SET call a no-op and left softmenus.c drawKeyFrame drawing nothing.
+  // Tracks upstream c47-gtk/hal/lcd.c at 1560394c, which moved the simulator
+  // lcd_buffer onto the DMCP polarity (a 1 bit is white): BLT_OR draws dark
+  // pixels by clearing bits and BLT_ANDN draws white ones by setting them.
+  // BLT_SET writes the dx columns white before BLT_OR and dark before BLT_ANDN,
+  // so the pixels where val has a 0 are written too; before 492298ff it
+  // replaced srcbits outright, which made a BLT_OR plus BLT_SET call a no-op and
+  // left softmenus.c drawKeyFrame drawing nothing.
   const uint32_t fillbits = (fill == BLT_SET) ? lowmask << bit_off : 0u;
   uint8_t srcbytes[4] = {
       (uint8_t)(srcbits),
@@ -191,13 +201,13 @@ void bitblt24(uint32_t x, uint32_t dx, uint32_t y, uint32_t val, int blt_op, int
   uint8_t *j = &lcd_buffer[y * LCD_ROW_SIZE_BYTES + byte_i + 2];
   switch (blt_op) {
     case BLT_OR:
-      for (uint32_t i = 0; i < bytes_needed; i++) j[i] = (j[i] & ~fillbytes[i]) | srcbytes[i];
+      for (uint32_t i = 0; i < bytes_needed; i++) j[i] = (j[i] | fillbytes[i]) & ~srcbytes[i];
       break;
     case BLT_XOR:
       for (uint32_t i = 0; i < bytes_needed; i++) j[i] ^= srcbytes[i];
       break;
     case BLT_ANDN:
-      for (uint32_t i = 0; i < bytes_needed; i++) j[i] = (j[i] | fillbytes[i]) & ~srcbytes[i];
+      for (uint32_t i = 0; i < bytes_needed; i++) j[i] = (j[i] & ~fillbytes[i]) | srcbytes[i];
       break;
     default:
       return;
@@ -225,7 +235,8 @@ void refresh_gui(void) {}
 // Android HAL implementation of the upstream PC_BUILD pixel-read helper.
 // Called by fnMenuDump and fnScreenDump (both gated by PC_BUILD, which the
 // Android build enables to reuse shared PC logic). Reads directly from the
-// packed lcd_buffer using the same bit layout as the GTK HAL reference.
+// packed lcd_buffer, as upstream testSuite/hal/lcd.c does: a pixel is on (dark)
+// where its bit is 0.
 bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y) {
   if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT || !lcd_buffer) {
     return false;
@@ -234,5 +245,5 @@ bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y) {
   const uint32_t bitIndex = SCREEN_WIDTH - 1 - x;
   const uint32_t byte_i = bitIndex >> 3;
   const uint32_t bit_j = bitIndex & 7u;
-  return (line_buf[2 + byte_i] >> bit_j) & 1u;
+  return !((line_buf[2 + byte_i] >> bit_j) & 1u);
 }
