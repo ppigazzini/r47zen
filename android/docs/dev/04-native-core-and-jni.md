@@ -83,7 +83,12 @@ The current concrete examples are `create_dir(char *dir)` and
 `lcd_buffer_pixel_on(uint32_t x, uint32_t y)` from `hal/lcd.h`. When an
 upstream sync advances those HAL contracts, update the Android HAL in
 `android/app/src/main/cpp/r47zen/hal/` in the same change instead of assuming
-the staged core will keep linking against older Android-owned exports.
+the staged core will keep linking against older Android-owned exports. A
+contract can also change meaning under an unchanged signature. The `lcd_buffer`
+polarity is one: `hal/lcd.c` follows the upstream simulator HALs, where a 1 bit
+is a white pixel as on DMCP, and inverts each row once in `LCD_write_line` so
+the packed snapshot Kotlin reads keeps a 1 bit as a dark pixel.
+`run_keypad_generation_contract.sh` locks both halves.
 
 `android/app/src/main/cpp/CMakeLists.txt` passes and consumes
 `R47_STAGED_CPP_DIR` so the live Android native build reads shared-native inputs

@@ -146,8 +146,10 @@ That would duplicate the most expensive JNI reads in the shell.
   `lcdBufferDirty` is false, and `NativeDisplayRefreshLoop` only attempts the
   copy after `getPackedDisplayGeneration()` changes, so Kotlin does not receive
   a fresh packed snapshot on unchanged frames.
-- `hal/lcd.c::LCD_write_line(...)` increments `packedDisplayGeneration` once per
-  dirty-row write. That means multiple native row writes can collapse into one
+- `hal/lcd.c::LCD_write_line(...)` copies the row into the packed snapshot
+  inverted, one pass over its 50 pixel bytes, because `lcd_buffer` stores a
+  dark pixel as a 0 bit and the snapshot as a 1 bit. It increments
+  `packedDisplayGeneration` once per dirty-row write. That means multiple native row writes can collapse into one
   accepted Kotlin snapshot before the next UI frame, which is why the HUD's
   `LCD Hz` field is snapshot cadence rather than raw row-write frequency.
 - After a successful copy, the JNI export clears each row's dirty flag in the
