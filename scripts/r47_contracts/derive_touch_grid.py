@@ -6,9 +6,13 @@ import json
 import sys
 from dataclasses import asdict, dataclass
 from itertools import pairwise
+from typing import TYPE_CHECKING
 
-from r47_contracts._contract_data import load_physical_geometry
+from r47_contracts._contract_data import index_geometry_tables, load_physical_geometry
 from r47_contracts._repo_paths import R47_PHYSICAL_GEOMETRY_DATA_PATH, REPO_ROOT
+
+if TYPE_CHECKING:
+    from r47_contracts._contract_data import GeometryEntry, PhysicalGeometry
 
 _UPPER_ROW_IDS = ["row_1", "row_2", "row_3", "row_4"]
 _LOWER_ROW_IDS = ["row_5", "row_6", "row_7", "row_8"]
@@ -33,17 +37,6 @@ _MIN_BOUNDARY_CENTER_COUNT = 2
 
 class TouchGridContractError(ValueError):
     """Raised when the geometry dataset cannot drive touch-grid derivation."""
-
-    @classmethod
-    def invalid_data(
-        cls,
-        label: str,
-        expected: str,
-        actual: object,
-    ) -> TouchGridContractError:
-        """Build an error for invalid structured geometry data."""
-        message = f"Expected {label} to be {expected}, got {actual!r}"
-        return cls(message)
 
     @classmethod
     def missing_boundaries(cls, label: str) -> TouchGridContractError:
@@ -124,65 +117,20 @@ def _rounded_value(value: float) -> float:
     return round(value, 6)
 
 
-def _require_mapping(value: object, *, label: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise TouchGridContractError.invalid_data(label, "a JSON object", value)
-    return {
-        _require_string(key, label=f"{label}.key"): nested_value
-        for key, nested_value in value.items()
-    }
+def _center_from_entry(entry: GeometryEntry) -> float:
+    return _midpoint(entry["start"], entry["stop"])
 
 
-def _require_list(value: object, *, label: str) -> list[object]:
-    if not isinstance(value, list):
-        raise TouchGridContractError.invalid_data(label, "a JSON list", value)
-    return list(value)
+def softkey_touch_row_top(geometry: PhysicalGeometry) -> float:
+    """Return the top of the softkey touch row as the payload publishes it.
 
-
-def _require_number(value: object, *, label: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        raise TouchGridContractError.invalid_data(label, "a number", value)
-    return float(value)
-
-
-def _require_string(value: object, *, label: str) -> str:
-    if not isinstance(value, str):
-        raise TouchGridContractError.invalid_data(label, "a string", value)
-    return value
-
-
-def _require_scalar(value: object, *, label: str) -> str | int | float:
-    if isinstance(value, bool) or not isinstance(value, str | int | float):
-        raise TouchGridContractError.invalid_data(label, "a scalar value", value)
-    return value
-
-
-def _load_geometry() -> dict[str, object]:
-    return _require_mapping(load_physical_geometry(), label="geometry document")
-
-
-def _index_tables(
-    geometry: dict[str, object],
-) -> dict[str, dict[str, dict[str, object]]]:
-    tables = _require_list(geometry["tables"], label="tables")
-    indexed_tables: dict[str, dict[str, dict[str, object]]] = {}
-    for raw_table in tables:
-        table = _require_mapping(raw_table, label="geometry table")
-        table_id = _require_string(table.get("id"), label="table.id")
-        raw_entries = _require_list(table.get("entries"), label=f"{table_id}.entries")
-        entries: dict[str, dict[str, object]] = {}
-        for raw_entry in raw_entries:
-            entry = _require_mapping(raw_entry, label=f"{table_id} entry")
-            entry_id = _require_string(entry.get("id"), label=f"{table_id}.entry.id")
-            entries[entry_id] = entry
-        indexed_tables[table_id] = entries
-    return indexed_tables
-
-
-def _center_from_entry(entry: dict[str, object]) -> float:
-    start = _require_number(entry.get("start"), label="entry.start")
-    stop = _require_number(entry.get("stop"), label="entry.stop")
-    return _midpoint(start, stop)
+    It is the first upper-row boundary, rounded like every published boundary,
+    so the shell contract that aligns to it reads the same number a consumer of
+    the payload would.
+    """
+    vertical_main = index_geometry_tables(geometry)["vertical_main"]
+    centers = [_center_from_entry(vertical_main[row_id]) for row_id in _UPPER_ROW_IDS]
+    return _rounded_value(_centerline_boundaries(centers, label="upper-row")[0])
 
 
 def _check_uniform_spacing(centers: list[float]) -> dict[str, float | list[float]]:
@@ -203,20 +151,10 @@ def _check_uniform_spacing(centers: list[float]) -> dict[str, float | list[float
 
 def build_touch_grid_payload() -> dict[str, object]:
     """Build the logical touch-grid payload from the canonical geometry dataset."""
-    geometry = _load_geometry()
-    reference_frame = _require_mapping(
-        geometry["reference_frame"],
-        label="reference_frame",
-    )
-    reference_width = _require_number(
-        reference_frame.get("width"),
-        label="reference_frame.width",
-    )
-    reference_height = _require_number(
-        reference_frame.get("height"),
-        label="reference_frame.height",
-    )
-    tables = _index_tables(geometry)
+    geometry = load_physical_geometry()
+    reference_width = float(geometry["reference_frame"]["width"])
+    reference_height = float(geometry["reference_frame"]["height"])
+    tables = index_geometry_tables(geometry)
 
     vertical_main = tables["vertical_main"]
     horizontal_main = tables["horizontal_main"]
@@ -299,13 +237,13 @@ def build_touch_grid_payload() -> dict[str, object]:
 
     return {
         "source": {
-            "dataset": _require_string(geometry.get("dataset"), label="dataset"),
+            "dataset": geometry["dataset"],
             "geometry_path": str(
                 R47_PHYSICAL_GEOMETRY_DATA_PATH.relative_to(REPO_ROOT),
             ),
             "reference_height": reference_height,
             "reference_width": reference_width,
-            "version": _require_scalar(geometry.get("version"), label="version"),
+            "version": geometry["version"],
         },
         "logical_canvas": {
             "source": "reference_frame",

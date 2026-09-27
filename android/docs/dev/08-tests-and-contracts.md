@@ -107,6 +107,22 @@ When a historical external GIMP export needs checking, pass its JSON path direct
 `validate_geometry_dataset.py`; no checked-in GIMP dataset exists in this
 repository.
 
+The two hand-maintained inputs have a declared shape, and the loader is the
+gate. `scripts/r47_contracts/_contract_data.py` owns a valgebra schema for each:
+`PhysicalGeometry`, a closed `TypedDict` the geometry derivers read with static
+types, and `ANDROID_UI_CONTRACT`, a closed dict literal the UI-contract readers
+take apart with the `*_member` accessors. `load_physical_geometry` and
+`load_android_ui_contract` validate the file as they read it, so a missing or
+unknown key, a wrong type, a JSON `true` where a number belongs, or a malformed
+`#AARRGGBB` colour fails once with its path as a `ContractDataError`, before any
+deriver runs. `load_contract_document` stays schema-free for the validator CLI,
+which accepts foreign dataset paths. The derived goldens are not shape-checked
+on purpose: the whole-document re-derivation their tests perform is the
+stronger claim. The geometry and UI-contract derivers and their tests read
+through these loaders, so `run_contract_suite.sh` exercises the gate on every
+run. The schema catches shape and nothing else: a value of the right type with
+the wrong number is still the numeric contracts' job.
+
 A checked-in contract JSON is verified at two layers so it is not a
 self-blessing snapshot. A `*_payload_matches_contract_json` test is only a
 **freshness** guard: it proves the committed JSON is a faithful re-derivation,
@@ -174,7 +190,10 @@ than in Android runtime glue.
 `scripts/r47_contracts/data/upstream_provenance.json` records which upstream
 bytes the committed goldens were derived from: one entry per upstream input,
 carrying its `sha256` plus the derivers and contract surfaces that depend on it.
-`scripts/r47_contracts/upstream_provenance.py` reads it.
+`scripts/r47_contracts/upstream_provenance.py` reads it, through a closed
+valgebra schema (`Ledger`): a ledger with an unknown key, a non-list `derivers`,
+or a `sha256` that is neither 64 hex digits nor the empty string an unhydrated
+input records is refused as a `ProvenanceError` rather than read leniently.
 
 This exists because the freshness guard is circular. The goldens re-derive from
 live inputs that arrive with no commit here, so re-running a deriver re-blesses

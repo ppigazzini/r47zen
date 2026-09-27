@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from typing import TYPE_CHECKING
 
 from r47_contracts._contract_data import (
     load_android_ui_contract,
@@ -18,35 +19,17 @@ from r47_contracts._repo_paths import (
     REPO_ROOT,
 )
 
-
-def _require_mapping(value: object, *, label: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        message = f"Expected {label} to be a mapping, got {value!r}"
-        raise TypeError(message)
-    return {key: nested for key, nested in value.items() if isinstance(key, str)}
+if TYPE_CHECKING:
+    from r47_contracts._contract_data import PhysicalGeometry
 
 
-def _require_list(value: object, *, label: str) -> list[object]:
-    if not isinstance(value, list):
-        message = f"Expected {label} to be a list, got {value!r}"
-        raise TypeError(message)
-    return list(value)
-
-
-def _family_pitch(geometry: dict[str, object], *, table_id: str, family: str) -> float:
-    tables = _require_list(geometry.get("tables"), label="geometry document.tables")
-    for raw_table in tables:
-        table = _require_mapping(raw_table, label="geometry table")
-        if table.get("id") != table_id:
+def _family_pitch(geometry: PhysicalGeometry, *, table_id: str, family: str) -> float:
+    for table in geometry["tables"]:
+        if table["id"] != table_id:
             continue
-        entries = _require_list(table.get("entries"), label=f"{table_id}.entries")
-        for raw_entry in entries:
-            entry = _require_mapping(raw_entry, label=f"{table_id} entry")
-            if entry.get("family") != family:
-                continue
-            start_step = entry.get("start_step")
-            if isinstance(start_step, int | float) and not isinstance(start_step, bool):
-                return float(start_step)
+        for entry in table["entries"]:
+            if entry["family"] == family and entry["start_step"] is not None:
+                return float(entry["start_step"])
     message = f"Expected a pitch for {table_id}/{family}"
     raise ValueError(message)
 

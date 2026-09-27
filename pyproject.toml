@@ -9,6 +9,13 @@ dev = [
     "ruff>=0.16.9",
     "ty>=0.0.84",
     "fontTools>=4.66.0",
+    # The contract-data schemas: valgebra validates each JSON input against its
+    # declared shape at load, annotated-types spells the refinements, and
+    # typing_extensions provides the PEP 728 `closed=True` TypedDict that
+    # `typing` only ships from 3.15.
+    "valgebra>=0.0.14",
+    "annotated-types>=0.8.0",
+    "typing-extensions>=4.16.0",
 ]
 
 [tool.ruff]
@@ -24,6 +31,13 @@ select = ["ALL"]
 # per-file headers, so the rule contradicts an existing project convention
 # rather than finding a defect. Stabilized in ruff 0.16.0.
 ignore = ["CPY001"]
+
+[tool.ruff.lint.flake8-type-checking]
+# valgebra reads a TypedDict's annotations at `Validator(...)` time through
+# `get_type_hints`, so every class a field names must still be imported at
+# runtime; without this entry TC001-TC003 would move such an import under
+# `if TYPE_CHECKING:` and the schema build would raise NameError.
+runtime-evaluated-base-classes = ["typing_extensions.TypedDict"]
 
 [tool.ty.environment]
 python-version = "3.14"

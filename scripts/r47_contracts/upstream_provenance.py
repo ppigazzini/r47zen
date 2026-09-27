@@ -37,7 +37,10 @@ import hashlib
 import json
 import sys
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Final, Literal, TypedDict
+from typing import TYPE_CHECKING, Annotated, Final, Literal
+
+from typing_extensions import TypedDict
+from valgebra import Regex, ValidationError, Validator
 
 from r47_contracts import _repo_paths
 from r47_contracts._repo_paths import DATA_ROOT, REPO_ROOT
@@ -79,29 +82,34 @@ class ProvenanceError(RuntimeError):
         return cls(message)
 
 
-class InputRecord(TypedDict):
+class InputRecord(TypedDict, closed=True):
     """One upstream input and the contract surfaces that derive from it."""
 
     path: str
-    sha256: str
+    # `hash_file` writes "" for an input the tree does not hold, so a ledger
+    # recorded on an unhydrated tree still reads back.
+    sha256: Annotated[str, Regex(r"[0-9a-f]{64}|")]
     derivers: list[str]
     contracts: list[str]
 
 
-class RecordedSnapshot(TypedDict):
+class RecordedSnapshot(TypedDict, closed=True):
     """The upstream watermark the ledger was recorded against."""
 
     upstream_url: str
-    upstream_commit: str
-    recorded_on: str
+    upstream_commit: Annotated[str, Regex(rf"[0-9a-f]{{40}}|{UNKNOWN_COMMIT}")]
+    recorded_on: Annotated[str, Regex(r"\d{4}-\d{2}-\d{2}")]
 
 
-class Ledger(TypedDict):
-    """The on-disk provenance ledger."""
+class Ledger(TypedDict, closed=True):
+    """The on-disk provenance ledger; `load_ledger` admits nothing else."""
 
     schema: int
     recorded: RecordedSnapshot
     inputs: list[InputRecord]
+
+
+LEDGER: Final = Validator(Ledger)
 
 
 class Finding(TypedDict):
@@ -223,42 +231,10 @@ def load_ledger(path: Path = LEDGER_PATH) -> Ledger:
         raise ProvenanceError.unreadable(path, "top level is not an object")
     if payload.get("schema") != SCHEMA_VERSION:
         raise ProvenanceError.wrong_schema(path, payload.get("schema"))
-    return cast_ledger(payload)
-
-
-def _string_list(value: object) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [str(item) for item in value]
-
-
-def cast_ledger(payload: dict[str, object]) -> Ledger:
-    """Narrow a parsed JSON object to the ledger shape."""
-    recorded = payload.get("recorded")
-    inputs = payload.get("inputs")
-    if not isinstance(recorded, dict) or not isinstance(inputs, list):
-        raise ProvenanceError.unreadable(
-            LEDGER_PATH,
-            "missing a 'recorded' object or an 'inputs' array",
-        )
-    return Ledger(
-        schema=SCHEMA_VERSION,
-        recorded=RecordedSnapshot(
-            upstream_url=str(recorded.get("upstream_url", "")),
-            upstream_commit=str(recorded.get("upstream_commit", UNKNOWN_COMMIT)),
-            recorded_on=str(recorded.get("recorded_on", "")),
-        ),
-        inputs=[
-            InputRecord(
-                path=str(entry.get("path", "")),
-                sha256=str(entry.get("sha256", "")),
-                derivers=_string_list(entry.get("derivers")),
-                contracts=_string_list(entry.get("contracts")),
-            )
-            for entry in inputs
-            if isinstance(entry, dict)
-        ],
-    )
+    try:
+        return LEDGER.ensure(payload)
+    except ValidationError as error:
+        raise ProvenanceError.unreadable(path, str(error)) from error
 
 
 def build_ledger(upstream_url: str, upstream_commit: str) -> Ledger:

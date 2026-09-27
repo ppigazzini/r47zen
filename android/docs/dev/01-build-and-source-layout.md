@@ -35,7 +35,8 @@ rerun-lane map.
   through the repo root `pyproject.toml` and should be run with `uv run
   --group dev ...`.
 - Keep the full Python `3.14` dev tool set available in that environment:
-  `ruff`, `ty`, and `fontTools`.
+  `ruff`, `ty`, `fontTools`, and `valgebra` with `annotated-types` and
+  `typing-extensions`. The root `pyproject.toml` `dev` group is the list.
 - The font-policy, visual-policy, and top-label derivation scripts inspect the
   shipped calculator fonts through `fontTools`, so a partial Python setup is
   not enough for the full contract lane.

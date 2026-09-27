@@ -18,28 +18,13 @@ from r47_contracts._repo_paths import (
     R47_PHYSICAL_GEOMETRY_DATA_PATH,
     REPO_ROOT,
 )
-from r47_contracts.derive_touch_grid import build_touch_grid_payload
+from r47_contracts.derive_touch_grid import softkey_touch_row_top
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from r47_contracts._contract_data import PhysicalGeometry
 
 _LEGACY_TEXTURE_CONTRACT_WIDTH = 537.0
 _LEGACY_TEXTURE_CONTRACT_HEIGHT = 1005.0
-
-
-class ShellGeometryContractError(ValueError):
-    """Raised when the measured shell-geometry inputs are invalid."""
-
-    @classmethod
-    def invalid_data(
-        cls,
-        label: str,
-        expected: str,
-        actual: object,
-    ) -> ShellGeometryContractError:
-        """Build an error for invalid structured geometry data."""
-        message = f"Expected {label} to be {expected}, got {actual!r}"
-        return cls(message)
 
 
 @dataclass(frozen=True)
@@ -76,105 +61,13 @@ def _rect_from_contract(
     )
 
 
-def _require_mapping(value: object, *, label: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise ShellGeometryContractError.invalid_data(label, "a JSON object", value)
-    return {
-        _require_string(key, label=f"{label}.key"): nested_value
-        for key, nested_value in value.items()
-    }
-
-
-def _require_list(value: object, *, label: str) -> list[object]:
-    if not isinstance(value, list):
-        raise ShellGeometryContractError.invalid_data(label, "a JSON list", value)
-    return list(value)
-
-
-def _require_number(value: object, *, label: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        raise ShellGeometryContractError.invalid_data(label, "a number", value)
-    return float(value)
-
-
-def _require_string(value: object, *, label: str) -> str:
-    if not isinstance(value, str):
-        raise ShellGeometryContractError.invalid_data(label, "a string", value)
-    return value
-
-
-def _require_scalar(value: object, *, label: str) -> str | int | float:
-    if isinstance(value, bool) or not isinstance(value, str | int | float):
-        raise ShellGeometryContractError.invalid_data(label, "a scalar value", value)
-    return value
-
-
-def _softkey_touch_row_top() -> float:
-    touch_grid_payload = _require_mapping(
-        build_touch_grid_payload(),
-        label="touch_grid_payload",
-    )
-    logical_canvas_geometry = _require_mapping(
-        touch_grid_payload["logical_canvas_geometry"],
-        label="touch_grid_payload.logical_canvas_geometry",
-    )
-    upper = _require_mapping(
-        logical_canvas_geometry["upper"],
-        label="touch_grid_payload.logical_canvas_geometry.upper",
-    )
-    row_boundaries = _require_list(
-        upper["row_boundaries"],
-        label="touch_grid_payload.logical_canvas_geometry.upper.row_boundaries",
-    )
-    return _require_number(
-        row_boundaries[0],
-        label="touch_grid_payload.logical_canvas_geometry.upper.row_boundaries[0]",
-    )
-
-
-def _load_geometry(
-    path: Path = R47_PHYSICAL_GEOMETRY_DATA_PATH,
-) -> dict[str, object]:
-    return _require_mapping(load_physical_geometry(path), label="geometry document")
-
-
-def _index_tables(
-    geometry: dict[str, object],
-) -> dict[str, dict[str, dict[str, object]]]:
-    tables = _require_list(geometry["tables"], label="tables")
-    indexed_tables: dict[str, dict[str, dict[str, object]]] = {}
-    for raw_table in tables:
-        table = _require_mapping(raw_table, label="geometry table")
-        table_id = _require_string(table.get("id"), label="table.id")
-        raw_entries = _require_list(table.get("entries"), label=f"{table_id}.entries")
-        entries: dict[str, dict[str, object]] = {}
-        for raw_entry in raw_entries:
-            entry = _require_mapping(raw_entry, label=f"{table_id} entry")
-            entry_id = _require_string(entry.get("id"), label=f"{table_id}.entry.id")
-            entries[entry_id] = entry
-        indexed_tables[table_id] = entries
-    return indexed_tables
-
-
-def _reference_lcd_rect(geometry: dict[str, object]) -> _Rect:
-    raw_real_lcd = geometry.get("real_lcd")
-    if raw_real_lcd is not None:
-        real_lcd = _require_mapping(raw_real_lcd, label="real_lcd")
-        return _Rect(
-            left=_require_number(real_lcd.get("left"), label="real_lcd.left"),
-            top=_require_number(real_lcd.get("top"), label="real_lcd.top"),
-            width=_require_number(real_lcd.get("width"), label="real_lcd.width"),
-            height=_require_number(real_lcd.get("height"), label="real_lcd.height"),
-        )
-
-    tables = _index_tables(geometry)
-    horizontal_lcd = tables["horizontal_main"]["lcd"]
-    vertical_lcd = tables["vertical_main"]["lcd"]
+def _reference_lcd_rect(geometry: PhysicalGeometry) -> _Rect:
+    real_lcd = geometry["real_lcd"]
     return _Rect(
-        left=_require_number(horizontal_lcd.get("start"), label="horizontal lcd.start"),
-        top=_require_number(vertical_lcd.get("start"), label="vertical lcd.start"),
-        width=_require_number(horizontal_lcd.get("span"), label="horizontal lcd.span"),
-        height=_require_number(vertical_lcd.get("span"), label="vertical lcd.span"),
+        left=float(real_lcd["left"]),
+        top=float(real_lcd["top"]),
+        width=float(real_lcd["width"]),
+        height=float(real_lcd["height"]),
     )
 
 
@@ -192,19 +85,9 @@ def _aspect_ratio(rect: _Rect) -> float:
 
 def build_shell_geometry_payload() -> dict[str, object]:
     """Build the shell and LCD payload used by the Android contract tests."""
-    geometry = _load_geometry()
-    reference_frame = _require_mapping(
-        geometry["reference_frame"],
-        label="reference_frame",
-    )
-    reference_width = _require_number(
-        reference_frame.get("width"),
-        label="reference_frame.width",
-    )
-    reference_height = _require_number(
-        reference_frame.get("height"),
-        label="reference_frame.height",
-    )
+    geometry = load_physical_geometry()
+    reference_width = float(geometry["reference_frame"]["width"])
+    reference_height = float(geometry["reference_frame"]["height"])
     android_app_contract = load_android_ui_contract()
     chrome_contract = contract_mapping_member(
         android_app_contract,
@@ -296,19 +179,19 @@ def build_shell_geometry_payload() -> dict[str, object]:
     row_height = 144.0 * logical_scale_y
     row_step = 260.0 * logical_scale_y
     row_gap = row_step - row_height
-    softkey_touch_row_top = _softkey_touch_row_top()
+    touch_row_top = softkey_touch_row_top(geometry)
     softkey_row_top = 1290.0 * logical_scale_y
 
     return {
         "source": {
-            "dataset": _require_string(geometry.get("dataset"), label="dataset"),
+            "dataset": geometry["dataset"],
             "android_contract_path": str(
                 R47_ANDROID_UI_CONTRACT_PATH.relative_to(REPO_ROOT),
             ),
             "geometry_path": str(
                 R47_PHYSICAL_GEOMETRY_DATA_PATH.relative_to(REPO_ROOT),
             ),
-            "version": _require_scalar(geometry.get("version"), label="version"),
+            "version": geometry["version"],
             "reference_width": reference_width,
             "reference_height": reference_height,
         },
@@ -370,7 +253,7 @@ def build_shell_geometry_payload() -> dict[str, object]:
                 "row_height": _rounded(row_height),
                 "row_step": _rounded(row_step),
                 "row_gap": _rounded(row_gap),
-                "softkey_touch_row_top": _rounded(softkey_touch_row_top),
+                "softkey_touch_row_top": _rounded(touch_row_top),
                 "softkey_row_top": _rounded(softkey_row_top),
                 "first_small_row_top": _rounded(1550.0 * logical_scale_y),
                 "enter_row_top": _rounded(2070.0 * logical_scale_y),
@@ -438,7 +321,7 @@ def build_shell_geometry_payload() -> dict[str, object]:
             ),
             "native_lcd_window_bottom_delta_vs_softkey_touch_row_top": _rounded(
                 (logical_native_lcd_window.top + logical_native_lcd_window.height)
-                - softkey_touch_row_top,
+                - touch_row_top,
             ),
             "main_menu_button_right_delta_vs_native_lcd_right": _rounded(
                 (logical_main_menu_button.left + logical_main_menu_button.width)
