@@ -632,10 +632,11 @@ Android compatibility layer.
   `LcdThemePolicy.kt`, and `GraphGestureAccumulator.kt` and asserts each is
   killed by the matching JVM test (`LiveProgramStopKeyPolicyTest`,
   `LiveKeyRouterTest`, `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
-  `GraphGestureAccumulatorTest`). A surviving mutant marks an assertion gap. It
-  recompiles per mutation, so it is a manual maintainer tool, not a CI gate; run
-  it after changing one of those seams or its tests. All ten current mutants are
-  killed. The decoder and gesture seams also carry seeded Kotest property tests
+  `GraphGestureAccumulatorTest`). A surviving mutant marks an assertion gap and
+  fails the run. The `android-tests` job in `android-ci.yml` runs it on every
+  event, so the push that weakens a seam test is the run that fails; run it
+  locally after changing one of those seams or its tests. The mutant list is
+  `MUT_FILES` in the script. The decoder and gesture seams also carry seeded Kotest property tests
   (`KeypadSnapshotDecoderPropertyTest`, `GraphGestureAccumulatorPropertyTest`)
   that assert the same clamp, split, drop, and totality invariants across a
   randomized input space.
@@ -680,7 +681,10 @@ Android compatibility layer.
   `run_workflow_contracts.sh` host group, lock the signing isolation: each key
   is named by one signing job only, and no job that names a key syncs, builds,
   compiles, or emulates the upstream core. Each first proves it fails on seeded
-  fixtures. `scripts/android/sign_android_artifacts.sh` verifies its own
+  fixtures. The group runs as a `pre-commit` hook, in the `python-contracts`
+  job of `android-ci.yml` (where `ci-required`, and so the `main` ruleset,
+  depends on it), and in the `host-workload-regressions` job of
+  `linux-ci.yml`. `scripts/android/sign_android_artifacts.sh` verifies its own
   outputs against the keystore certificate, and
   `scripts/android/run_published_artifacts_verifier_contract.sh` locks the
   downstream verifier

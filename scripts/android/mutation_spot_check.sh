@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Mutation spot-check for the hardened pure seams: the keypad decoder, LCD theme,
-# and graph-gesture accumulator. It applies a small set of compile-clean semantic
-# mutations to
-# those seams and asserts each one is KILLED by the JVM unit tests. This is an
-# empirical measure of assertion strength -- do the tests actually fail when the
-# production logic is broken? -- not a CI gate: it recompiles per mutation and is
-# meant for manual maintainer runs.
+# Mutation spot-check for the hardened pure seams: the live stop-key policy and
+# router, the keypad decoder, the LCD theme, and the graph-gesture accumulator.
+# It applies a small set of compile-clean semantic mutations to those seams and
+# asserts each one is KILLED by the JVM unit tests: an empirical measure of
+# assertion strength -- do the tests actually fail when the production logic is
+# broken? The android-tests job in android-ci.yml runs it on every event and
+# fails on a survivor; run it locally after changing a seam or its test.
 #
 # A mutant is "killed" when the targeted test fails with the mutation applied and
 # "survived" when the test still passes, which marks an assertion gap. The

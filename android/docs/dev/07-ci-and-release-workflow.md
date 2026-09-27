@@ -59,7 +59,8 @@ flowchart TD
 - run Android lint explicitly instead of assuming Gradle builds cover it
 - keep external `uses:` pins on full-length commit SHAs and keep the reviewed
   tag comment on the same line so the workflow stays auditable and
-  Dependabot-readable
+  Dependabot-readable; the repository's Actions setting `sha_pinning_required`
+  fails any run that uses a tag-pinned action
 - publish logs and packaging evidence as first-class artifacts
 - publish the main snapshot only after all required lanes pass
 - keep production signing and user-facing release publication in a separate
@@ -75,8 +76,14 @@ The main workflow is `.github/workflows/android-ci.yml`.
 It runs on:
 
 - manual dispatch
-- pushes to `main` and `github_ci`
+- the nightly schedule
+- pushes to `main` and to `github_ci`, the on-demand pre-merge branch (see
+  [Landing a change on main](#landing-a-change-on-main))
 - pull requests
+
+`linux-ci.yml` runs on the same pushes and pull requests plus its own nightly
+schedule; `windows-ci.yml` runs on the same pushes and its nightly schedule, not
+on pull requests.
 
 The workflow uses one concurrency group per pull request or ref and cancels
 superseded runs.
@@ -107,6 +114,27 @@ upstream commit and applies a release gate:
     build, test, and publish lanes (`should_run=false`). A new upstream commit
     yields a new tag, which has no release yet, so the nightly run builds and
     tests the new artifact and surfaces any upstream regression
+
+### Landing a change on main
+
+A repository ruleset on the default branch requires the `CI required checks`
+run from GitHub Actions to have passed on the pushed commit, and blocks force
+pushes and deletion of `main`. Nobody bypasses it. A direct push of a commit CI
+has not seen is refused, so land a change through `github_ci`:
+
+```sh
+git push --force-with-lease origin main:github_ci
+# wait for Android CI on github_ci to finish green
+git push origin main
+```
+
+A pull request works the same way: Android CI runs on it and the merge needs
+the check. Because the check is keyed on the commit, not the branch, the push
+to `main` lands the exact commit that passed. Only Android CI's `ci-required`
+job is required; Linux CI, Windows CI, Docs Lint, Shell Lint, and CodeQL report
+on the same pushes but do not block. Rewriting `main` (a force push) means
+disabling the ruleset for the duration. `gh api repos/<owner>/<repo>/rules/branches/main`
+shows the rules in force.
 
 ### Dev pre-release retention
 
@@ -161,8 +189,9 @@ the alias. The job then removes the key, runs
 the artifact names the downstream jobs already read. The emulator jobs sign
 their test installs with a throwaway key generated in-job.
 
-Two host contracts in the `run_workflow_contracts.sh` group lock this, and
-each first proves it can fail on seeded fixtures:
+Two host contracts in the `run_workflow_contracts.sh` group, which
+`python-contracts` runs under `ci-required`, lock this, and each first proves
+it can fail on seeded fixtures:
 
 - `scripts/android/run_production_signing_scope_contract.sh` fails when a
   signing secret is named outside its owning job, scanning every workflow and
@@ -211,6 +240,9 @@ It:
 - syncs the authoritative upstream tree
 - provisions Python 3.14 and `uv`
 - runs `bash ./scripts/r47_contracts/run_contract_suite.sh`
+- runs `bash ./scripts/android/run_workflow_contracts.sh`, the host CI
+  contracts (signing isolation, release provenance, pinned toolchains, test
+  integrity); this is the run that gates, because `ci-required` needs this job
 - writes the upstream provenance report to the job summary
 
 It gates `android-build-test-package` and `android-tests`, so a contract drift
@@ -277,7 +309,8 @@ normal-pull-request host-core optimization sequence:
   `scripts/workload-regressions/run_workload_regressions.sh`, not the CI PGO
   corpus. The broad `broad-ci` base already covers `prime` and `factorial`
   through upstream `testSuite` inputs. That harness also runs as the dedicated
-  `host-workload-regressions` lane in `linux-ci.yml` on every pull request (no
+  `host-workload-regressions` lane in `linux-ci.yml` on every pull request and
+  every push to `main` or `github_ci` (no
   emulator), where it both proves fixture liveness and asserts the seeded
   `NQueens.p47` (`N = 8`) numeric result against the independently verified
   8-queens solution; a wrong result fails that lane
@@ -357,6 +390,9 @@ It:
   `android/r47-defaults.properties`, currently 82 %, below the current
   measurement so it ratchets against regressions) or if the live program-stop
   routing seam loses full line coverage
+- then runs `scripts/android/mutation_spot_check.sh` on every event, which
+  fails the job when a seam mutant survives (see
+  [08-tests-and-contracts.md](08-tests-and-contracts.md))
 - uses that single task graph to refresh staged native inputs, build the
   dev-release APK, assemble the instrumentation APKs, and run the JVM suite without a
   second full `build_android.sh` pass
@@ -435,21 +471,22 @@ pull request build is never published.
 
 ### `ci-required`
 
-This is the single job to mark as the required status check in branch
-protection, not the individual test jobs. It runs with `if: always()` and
+This is the one check the `main` ruleset requires (see
+[Landing a change on main](#landing-a-change-on-main)), not the individual test
+jobs. It runs with `if: always()` and
 `needs` the release gate plus every test lane
 (`upstream-simulator-sanity`, `python-contracts`,
 `android-build-test-package`, `sign-dev-prerelease`, `android-tests`).
 `sign-dev-prerelease` is in the set because it runs the packaging evidence
 checks on the bytes that ship.
 
-GitHub reports a skipped required job as passing, so gating branch protection
-directly on the test jobs could report green when the release gate skipped them
+GitHub reports a skipped required job as passing, so requiring the test jobs
+directly could report green when the release gate skipped them
 (a re-run of an already-released upstream and overlay state). `ci-required`
 closes that: it passes when the gate legitimately skipped the lane
 (`should_run != true`), and otherwise fails unless every test job genuinely
 succeeded, so a skipped, cancelled, or failed test job cannot report green
-through branch protection. `publish-main-snapshot` is intentionally not one of
+through the ruleset. `publish-main-snapshot` is intentionally not one of
 its dependencies because it is a publish lane, not a verification lane.
 
 ## Production release workflow

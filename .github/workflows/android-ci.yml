@@ -325,6 +325,17 @@ jobs:
 
           bash ./scripts/r47_contracts/run_contract_suite.sh
 
+      # The host workflow contracts (signing isolation, release provenance,
+      # pinned toolchains, test integrity) run here so ci-required, the check
+      # the main ruleset requires, fails when one does. linux-ci runs the same
+      # group in host-workload-regressions; this copy is the one that gates.
+      - name: Run host CI contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          bash ./scripts/android/run_workflow_contracts.sh
+
       # Report only, and deliberately so. The ledger/suite coverage mismatch is
       # already a hard failure inside the suite above, via
       # test_upstream_provenance_contract. What is left is drift, and this repo
@@ -1048,14 +1059,12 @@ jobs:
           bash ./scripts/android/coverage_gate.sh \
             2>&1 | tee ci-artifacts/logs/android-coverage-gate.log
 
-      - name: Run mutation spot-check (scheduled only)
-        # The mutation spot-check is the strongest assertion-strength probe but it
-        # recompiles per mutant, so it runs on the nightly schedule rather than on
-        # every PR. It fails the scheduled run if a seam mutant survives (an
-        # assertion gap), which the maintainer sees on the nightly build without
-        # it ever slowing a pull request. Reuses the SDK and staged native inputs
-        # this job already set up.
-        if: github.event_name == 'schedule'
+      - name: Run mutation spot-check
+        # Run on every event, so the push that weakens a seam test is the run
+        # that fails. A schedule-only step would miss it: the nightly skips when
+        # the push already published this upstream/overlay pair. It fails the
+        # job when a seam mutant survives (an assertion gap) and reuses the SDK
+        # and staged native inputs this job already set up.
         shell: bash
         run: |
           set -euo pipefail
