@@ -217,7 +217,7 @@ The mechanical checks that exist today:
 - `pre-commit` runs the hooks `.pre-commit-config.yaml` declares; that file is
   the list. Besides formatting and linting it runs
   `scripts/android/run_workflow_contracts.sh`, the host CI contracts that
-  `android-ci.yml` also runs under the check the `main` ruleset requires.
+  `android-ci.yml` also runs inside `ci-required`.
 - `scripts/upstream-sync/upstream.sh verify-source-policy` fails when the
   tracked `upstream.source` regains an `upstream_commit` pin. `pre-commit` runs
   it on any change to that file.

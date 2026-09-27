@@ -152,11 +152,6 @@ make sim && make test                                # upstream simulator core
 
 ## Facts that surprise people
 
-- **`main` refuses a commit CI has not passed.** A ruleset requires the
-  Android CI `CI required checks` run on the pushed commit, so land through
-  `git push --force-with-lease origin main:github_ci`, wait for green, then
-  push `main`. [07-ci-and-release-workflow.md](android/docs/dev/07-ci-and-release-workflow.md#landing-a-change-on-main)
-  has the rest.
 - **A lane failing does not mean this repo changed.** Every lane resolves
   upstream HEAD at runtime, so an upstream commit breaks CI here with no commit
   here. Pin `upstream.lock` locally to tell the two apart.

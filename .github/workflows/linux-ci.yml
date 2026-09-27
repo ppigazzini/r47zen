@@ -5,8 +5,8 @@ on:
   schedule:
     - cron: '24 3 * * *'
   # main runs the lanes on every landed commit; github_ci is the on-demand
-  # pre-merge branch (git push --force-with-lease origin main:github_ci) whose
-  # green Android CI run lets that commit through the main ruleset.
+  # pre-merge branch (git push --force-with-lease origin main:github_ci) that
+  # runs every lane on a change before it reaches main.
   push:
     branches:
       - main

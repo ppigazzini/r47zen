@@ -326,9 +326,8 @@ jobs:
           bash ./scripts/r47_contracts/run_contract_suite.sh
 
       # The host workflow contracts (signing isolation, release provenance,
-      # pinned toolchains, test integrity) run here so ci-required, the check
-      # the main ruleset requires, fails when one does. linux-ci runs the same
-      # group in host-workload-regressions; this copy is the one that gates.
+      # pinned toolchains, test integrity) run here so ci-required fails when
+      # one does. linux-ci runs the same group in host-workload-regressions.
       - name: Run host CI contracts
         shell: bash
         run: |

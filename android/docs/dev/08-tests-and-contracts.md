@@ -682,8 +682,8 @@ Android compatibility layer.
   is named by one signing job only, and no job that names a key syncs, builds,
   compiles, or emulates the upstream core. Each first proves it fails on seeded
   fixtures. The group runs as a `pre-commit` hook, in the `python-contracts`
-  job of `android-ci.yml` (where `ci-required`, and so the `main` ruleset,
-  depends on it), and in the `host-workload-regressions` job of
+  job of `android-ci.yml` (where `ci-required` depends on it), and in the
+  `host-workload-regressions` job of
   `linux-ci.yml`. `scripts/android/sign_android_artifacts.sh` verifies its own
   outputs against the keystore certificate, and
   `scripts/android/run_published_artifacts_verifier_contract.sh` locks the

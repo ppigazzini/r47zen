@@ -77,8 +77,9 @@ It runs on:
 
 - manual dispatch
 - the nightly schedule
-- pushes to `main` and to `github_ci`, the on-demand pre-merge branch (see
-  [Landing a change on main](#landing-a-change-on-main))
+- pushes to `main` and to `github_ci`, the on-demand pre-merge branch:
+  `git push --force-with-lease origin main:github_ci` runs every lane on a
+  change before it reaches `main`
 - pull requests
 
 `linux-ci.yml` runs on the same pushes and pull requests plus its own nightly
@@ -114,27 +115,6 @@ upstream commit and applies a release gate:
     build, test, and publish lanes (`should_run=false`). A new upstream commit
     yields a new tag, which has no release yet, so the nightly run builds and
     tests the new artifact and surfaces any upstream regression
-
-### Landing a change on main
-
-A repository ruleset on the default branch requires the `CI required checks`
-run from GitHub Actions to have passed on the pushed commit, and blocks force
-pushes and deletion of `main`. Nobody bypasses it. A direct push of a commit CI
-has not seen is refused, so land a change through `github_ci`:
-
-```sh
-git push --force-with-lease origin main:github_ci
-# wait for Android CI on github_ci to finish green
-git push origin main
-```
-
-A pull request works the same way: Android CI runs on it and the merge needs
-the check. Because the check is keyed on the commit, not the branch, the push
-to `main` lands the exact commit that passed. Only Android CI's `ci-required`
-job is required; Linux CI, Windows CI, Docs Lint, Shell Lint, and CodeQL report
-on the same pushes but do not block. Rewriting `main` (a force push) means
-disabling the ruleset for the duration. `gh api repos/<owner>/<repo>/rules/branches/main`
-shows the rules in force.
 
 ### Dev pre-release retention
 
@@ -471,9 +451,10 @@ pull request build is never published.
 
 ### `ci-required`
 
-This is the one check the `main` ruleset requires (see
-[Landing a change on main](#landing-a-change-on-main)), not the individual test
-jobs. It runs with `if: always()` and
+This is the job to require as a status check if `main` ever gets branch
+protection, not the individual test jobs. Nothing requires it today: `main`
+takes direct pushes by maintainer decision, so a red `ci-required` reports the
+failure but blocks no push. It runs with `if: always()` and
 `needs` the release gate plus every test lane
 (`upstream-simulator-sanity`, `python-contracts`,
 `android-build-test-package`, `sign-dev-prerelease`, `android-tests`).
@@ -486,7 +467,7 @@ directly could report green when the release gate skipped them
 closes that: it passes when the gate legitimately skipped the lane
 (`should_run != true`), and otherwise fails unless every test job genuinely
 succeeded, so a skipped, cancelled, or failed test job cannot report green
-through the ruleset. `publish-main-snapshot` is intentionally not one of
+through a required check. `publish-main-snapshot` is intentionally not one of
 its dependencies because it is a publish lane, not a verification lane.
 
 ## Production release workflow
