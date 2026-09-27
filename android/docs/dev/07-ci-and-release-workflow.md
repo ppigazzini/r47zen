@@ -618,15 +618,10 @@ keep their existing package or toolchain caches and add `ccache` so compiler
 results survive across runs as well.
 
 The Windows lane installs its MSYS2 packages with `update: true`, so the runner
-toolchain moves with no commit here, just as the upstream core does. It holds
-one package back: `windows-ci.yml` downgrades cairo to 1.18.4-4 right after
-MSYS2 setup. cairo 1.18.6-1 ships a `libcairo-2.dll` without a PE TLS
-directory, so the first pangocairo text render aborts with `0xC0000409`
-([msys2/MINGW-packages#31852](https://github.com/msys2/MINGW-packages/issues/31852)).
-The package step's `c47.exe --writeexportall` is the first GTK program to run,
-and MSYS2 bash maps that NTSTATUS to a silent exit 127. The package bundles
-the DLL, so the pin also keeps the shipped exe working. Drop the step once
-MSYS2 publishes a fixed cairo.
+toolchain moves with no commit here, just as the upstream core does. A red
+Windows run with no commit here can therefore be an MSYS2 package rather
+than an upstream change; the package versions pacman logs in the MSYS2
+setup step are what tell the two apart.
 
 When CI behavior changes because of a toolchain update, update the defaults file
 and the docs together.

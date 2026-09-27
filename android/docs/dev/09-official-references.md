@@ -58,7 +58,7 @@ flowchart TD
   *minimum* and default of `17` and no maximum, which is why this repo's build
   JDK is a measured pin in `android/r47-defaults.properties` rather than a copy
   of that number. The same table states a Gradle minimum of `9.6.0`, which the
-  checked-in wrapper `9.7.1` clears, and a maximum supported API level of `37`.
+  checked-in wrapper `9.8.0` clears, and a maximum supported API level of `37`.
   On this AGP line the repo builds against SDK Build Tools `37.0.0` and
   `compileSdk`/`targetSdk` `37` (Android 17 / API 37) - the build-tools pin is
   deliberately above the `36.0.0` the table names as minimum and default.
@@ -82,7 +82,7 @@ flowchart TD
 - [Kotlin release process](https://kotlinlang.org/docs/releases.html):
   official JetBrains release page documenting the language, tooling, and bug-fix
   cadence.
-- [Gradle 9.7.1 release notes](https://docs.gradle.org/9.7.1/release-notes.html):
+- [Gradle 9.8.0 release notes](https://docs.gradle.org/9.8.0/release-notes.html):
   official Gradle release notes for the checked-in wrapper version.
 - [Improve the Performance of Gradle Builds](https://docs.gradle.org/current/userguide/performance.html):
   official Gradle guidance for establishing a baseline, preferring
