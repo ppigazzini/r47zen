@@ -994,10 +994,12 @@ PACKAGING_SIGNING_MODE="debug"
 
 if [ "$RELEASE_CHANNEL_OVERRIDE" = "dev" ]; then
     ASSEMBLE_TASK="assembleRelease"
-    APK_PATH="app/build/outputs/apk/release/app-release.apk"
+    # Resolved after the build from output-metadata.json: AGP writes
+    # app-release.apk when the prerelease signing inputs are complete and
+    # app-release-unsigned.apk when they are absent, which is how CI builds it.
+    APK_PATH=""
     PACKAGED_APK_NAME="$R47_ANDROID_DEV_APK_NAME"
     PACKAGING_VARIANT="release"
-    PACKAGING_SIGNING_MODE="prerelease"
     # The published dev-prerelease APK is not an instrumentation target, so keep
     # the androidTest program-load bridge out of the shipped library.
     GRADLE_PROPS="$GRADLE_PROPS -Pr47.includeProgramLoadTestBridge=false"
@@ -1021,6 +1023,21 @@ if [ "$ANDROID_ONLY" = false ]; then
 fi
 run_gradle --max-workers "$R47_BUILD_JOBS" "$ASSEMBLE_TASK" $GRADLE_EXTRA_ARGS $GRADLE_PROPS
 ensure_retired_legacy_cpp_paths_absent
+
+if [ "$ASSEMBLE_TASK" = "assembleRelease" ]; then
+    # Read the file this build wrote rather than guessing its name: a stale
+    # app-release.apk from an earlier signed build can sit beside a fresh
+    # app-release-unsigned.apk.
+    RELEASE_APK_METADATA="app/build/outputs/apk/release/output-metadata.json"
+    [ -f "$RELEASE_APK_METADATA" ] || fail "Missing $ANDROID_PROJECT_DIR/$RELEASE_APK_METADATA after assembleRelease."
+    RELEASE_APK_FILE=$(sed -n 's/.*"outputFile": *"\([^"]*\)".*/\1/p' "$RELEASE_APK_METADATA" | head -n 1)
+    [ -n "$RELEASE_APK_FILE" ] || fail "$RELEASE_APK_METADATA names no outputFile."
+    APK_PATH="app/build/outputs/apk/release/$RELEASE_APK_FILE"
+    case "$RELEASE_APK_FILE" in
+        *-unsigned.apk) PACKAGING_SIGNING_MODE="unsigned" ;;
+        *) PACKAGING_SIGNING_MODE="prerelease" ;;
+    esac
+fi
 
 if [ -f "$APK_PATH" ]; then
     echo "SUCCESS: APK created at: $ANDROID_PROJECT_DIR/$APK_PATH"

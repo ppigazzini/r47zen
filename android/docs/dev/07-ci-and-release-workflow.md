@@ -22,7 +22,8 @@ flowchart TD
   C[upstream-release-gate]
   D[upstream-simulator-sanity]
   E[python-contracts]
-  F[android-build-test-package]
+  F[android-build-test-package<br/>unsigned, no secrets]
+  S[sign-dev-prerelease]
   G[android-tests]
   H[publish-main-snapshot<br/>main branch]
   R[ci-required<br/>required status check]
@@ -31,14 +32,16 @@ flowchart TD
   C --> D
   C --> E
   E --> F
+  F --> S
   E --> G
   D --> H
-  F --> H
+  S --> H
   G --> H
   C --> R
   D --> R
   E --> R
   F --> R
+  S --> R
   G --> R
 ```
 
@@ -61,6 +64,9 @@ flowchart TD
 - publish the main snapshot only after all required lanes pass
 - keep production signing and user-facing release publication in a separate
   protected manual-only workflow
+- keep every signing key off any runner that syncs, compiles, or runs the
+  upstream core: build jobs produce unsigned bytes and a dedicated signing job
+  per lane signs them (see [Signing isolation](#signing-isolation))
 
 ## Workflow triggers and gating
 
@@ -122,8 +128,59 @@ what would be deleted without deleting. The job uses only the first-party
 Production signing does not run in `.github/workflows/android-ci.yml`.
 The separate protected workflow `.github/workflows/android-release.yml` owns
 the signed release lane for the installable APK, the Play upload AAB, and the
-versioned GitHub release publication. It runs on manual dispatch only and
-stays isolated behind the `production-release` environment.
+versioned GitHub release publication. It runs on manual dispatch only, and its
+one secret-holding job, `sign-production-release`, is the only job bound to the
+`production-release` environment.
+
+## Signing isolation
+
+A signing key never shares a runner with upstream code. Every job that syncs,
+compiles, tests, or emulates the upstream core runs it unreviewed at upstream
+HEAD, and a compile step alone can embed any file the runner can read (a
+decoded keystore, `/proc/self/environ`) into the shipped native library. A
+later step on the same runner is no boundary either: an earlier step can leave
+a process behind or rewrite the workspace. So each lane splits in two:
+
+| lane | builds, unsigned, no secrets | signs, one key |
+|---|---|---|
+| dev prerelease (`android-ci.yml`) | `android-build-test-package` | `sign-dev-prerelease`, prerelease key off `pull_request`, throwaway key on a pull request |
+| production (`android-release.yml`) | `build-production-release-bundle` | `sign-production-release`, release upload key, `production-release` environment |
+
+A build job uploads AGP's unsigned output as an artifact named
+`<artifact stem>-unsigned` and fails if AGP reports a signed APK or the bundle
+carries a JAR signature. A signing job checks out this repository alone,
+provisions the JDK and the pinned SDK packages, downloads those bytes, decodes
+the key into `RUNNER_TEMP` for one step, and signs with
+`scripts/android/sign_android_artifacts.sh`: `apksigner` from the pinned
+build-tools for the APK (v1 through v3, native libraries page-aligned to 16 KB),
+`jarsigner` for the bundle. The script reads passwords from
+`R47_SIGNING_STORE_PASSWORD` and `R47_SIGNING_KEY_PASSWORD` only and fails
+unless each output verifies and its signer equals the keystore's certificate for
+the alias. The job then removes the key, runs
+`collect_packaging_evidence.sh` over the signed bytes, and uploads them under
+the artifact names the downstream jobs already read. The emulator jobs sign
+their test installs with a throwaway key generated in-job.
+
+Two host contracts in the `run_workflow_contracts.sh` group lock this, and
+each first proves it can fail on seeded fixtures:
+
+- `scripts/android/run_production_signing_scope_contract.sh` fails when a
+  signing secret is named outside its owning job, scanning every workflow and
+  composite action;
+- `scripts/android/run_signing_isolation_contract.sh` fails when a job that
+  names a signing secret also runs the upstream sync, the build wrapper,
+  Gradle, a compiler, the simulator build, or the emulator, or when a secret
+  sits in workflow-level `env`.
+
+The limits. The isolation contract matches command names, so a step that
+reaches upstream code through a name it does not list passes it; the signing
+jobs stay short so a reviewer can read them whole. A signing job still runs the
+pinned third-party `android-actions/setup-android` inside the SDK composite
+before the key is decoded. And the environment only gates what it holds: a
+repository-scoped secret is readable by every job in every workflow, so store
+the four `R47_RELEASE_*` secrets in the `production-release` environment, not
+at repository scope, and delete the repository copies.
+`gh api repos/<owner>/<repo>/actions/secrets` must not list them.
 
 ## Job graph
 
@@ -192,9 +249,11 @@ It:
   not run lint automatically
 - verifies that retired app-module native snapshot paths stay absent and that
   staging remains build-only under `android/.staged-native/cpp`
-- collects packaging evidence for the signed dev-prerelease APK
-- uploads the build log, the host-core PGO artifact, and the Android packaging artifact bundle
-  `r47zen-<upstream short>-<android short>`
+- builds the dev-prerelease APK unsigned: the job holds no prerelease signing
+  input, so AGP writes `app-release-unsigned.apk`, and the job fails if it
+  reports anything else
+- uploads the build log, the host-core PGO artifact, and the unsigned APK as
+  `r47zen-<upstream short>-<android short>-unsigned` for `sign-dev-prerelease`
 
 That means the dev-prerelease packaging lane owns the full
 normal-pull-request host-core optimization sequence:
@@ -259,6 +318,25 @@ upstream addition of `create_dir`, `_ioFileNameOverride`, and
  until the Android HAL exported all three. Treat that class of failure as a
  repo-owned Android HAL compatibility defect, not as an upstream-core bug.
 
+### `sign-dev-prerelease`
+
+This job signs the APK `android-build-test-package` built and packages it for
+publication. It runs whenever the build lane runs, pull requests included.
+
+It:
+
+- checks out this repository only and provisions the build JDK and the pinned
+  SDK packages; it runs no upstream sync, Gradle, compiler, or emulator
+- signs with the prerelease key on push, schedule, and dispatch, and with a
+  throwaway key generated in-job on a pull request, so PR-head scripts never
+  see the real key and fork pull requests, which receive no secrets, still
+  produce an installable APK
+- collects packaging evidence for the signed APK: expected ABIs, 16 KB zip
+  alignment, ELF `LOAD` segment alignment, compliance assets, and the signer
+  certificate digest
+- uploads the Android packaging artifact bundle
+  `r47zen-<upstream short>-<android short>`
+
 ### `android-tests`
 
 This job covers the Android-owned JVM and instrumentation suites.
@@ -282,16 +360,16 @@ It:
 - uses that single task graph to refresh staged native inputs, build the
   dev-release APK, assemble the instrumentation APKs, and run the JVM suite without a
   second full `build_android.sh` pass
-- validates and decodes the dedicated prerelease keystore so the connected
-  emulator lane installs the same signed release-path APK identity that the
-  dev-prerelease lane publishes
+- generates a throwaway keystore in-job on every event for the connected-test
+  installs: the emulator needs installable release-path APKs, not the
+  published signing identity, and this job compiles and runs the upstream core,
+  so it never receives the prerelease key
 - creates or restores an `x86_64` emulator snapshot
 - runs `scripts/android/run_connected_android_tests.sh`, which invokes
   `connectedReleaseAndroidTest` once for the grouped non-fixture Android
   instrumentation class filter and once for the full
   `ProgramFixtureInstrumentedTest` class with the temporary ABI override from
-  `r47.abiFilters`, the same prerelease signing inputs, and configuration cache
-  enabled
+  `r47.abiFilters`, that throwaway key, and configuration cache enabled
 - uploads logs plus JVM, instrumentation, and Kover coverage
   (`android/app/build/reports/kover`) reports in the Android test artifact
   bundle `r47zen-tests-<upstream short>-<android short>`
@@ -343,23 +421,17 @@ verification jobs succeed.
 It publishes on `main` for push, schedule, and manual-dispatch CI runs after
 the required verification lanes pass.
 
-It downloads the packaged Android artifacts, archives the packaging evidence,
-and publishes the signed dev-prerelease tagged
+It downloads the packaging artifact bundle `sign-dev-prerelease` uploaded,
+archives the packaging evidence, and publishes the signed dev-prerelease tagged
 `r47zen-<upstream short>-<android short>-dev`.
 
 This prerelease is intentionally separate from the manual production release
-channel. The APK uses a dedicated prerelease signing key path and never reuses
-the production release key.
+channel. The APK uses a dedicated prerelease signing key and never reuses the
+production release key.
 
-The real prerelease key is exposed only to non-`pull_request` runs. A pull
-request runs PR-head build and test scripts, so both the
-`android-build-test-package` and `android-tests` lanes sign a pull request
-build with a throwaway key generated in-job (`keytool`) instead of the real
-prerelease secrets, and fall back to the real key on push, schedule, and
-dispatch. `publish-main-snapshot` is `main`-only, so a throwaway-signed pull
-request build is never published. This keeps the signing secrets unreachable
-from PR-controlled code while still letting pull requests (including forks,
-which receive no secrets) build, package, and run the connected emulator tests.
+The real prerelease key reaches `sign-dev-prerelease` alone, and only off
+`pull_request`. `publish-main-snapshot` is `main`-only, so a throwaway-signed
+pull request build is never published.
 
 ### `ci-required`
 
@@ -367,7 +439,9 @@ This is the single job to mark as the required status check in branch
 protection, not the individual test jobs. It runs with `if: always()` and
 `needs` the release gate plus every test lane
 (`upstream-simulator-sanity`, `python-contracts`,
-`android-build-test-package`, `android-tests`).
+`android-build-test-package`, `sign-dev-prerelease`, `android-tests`).
+`sign-dev-prerelease` is in the set because it runs the packaging evidence
+checks on the bytes that ship.
 
 GitHub reports a skipped required job as passing, so gating branch protection
 directly on the test jobs could report green when the release gate skipped them
@@ -387,26 +461,25 @@ flowchart TD
   A[workflow_dispatch]
   B[resolve-release-inputs]
   C[resolve-upstream-core]
-  D[production-release environment approval]
-  E[build-production-release-bundle]
-  F[wrapper-owned host-core optimization flow]
-  G[signed release APK and AAB]
-  H[upload workflow artifacts]
+  E[build-production-release-bundle<br/>unsigned, no secrets]
+  S[sign-production-release<br/>production-release environment]
+  V[verify-production-release<br/>emulator, throwaway key]
+  W[verify-published-artifacts]
   I[publish-production-release]
   J[versioned GitHub release]
-  V[verify-production-release<br/>emulator, main]
-  W[verify-published-artifacts<br/>main]
 
-  A --> B --> E
-  A --> C --> E
-  A --> D --> E
-  E --> F
-  E --> G
-  G --> H --> I --> J
+  A --> B
+  A --> C
+  B --> E
+  C --> E
+  E --> S
   B --> V
   C --> V
-  E --> W
-  I --> W
+  S --> W
+  S --> I
+  V --> I
+  W --> I
+  I --> J
 ```
 
 ### `build-production-release-bundle`
@@ -433,22 +506,8 @@ This workflow:
   so the protected release lane uses the same wrapper-owned host-core
   optimization flow as the Android CI release-path lane and writes
   `ci-artifacts/pgo/r47-host-core.profdata`
-- accepts Android SDK licenses non-interactively and restores the hosted test
-  emulator image so the protected release lane can rerun the same Android test
-  categories the Android CI release-path lane covers
-- decodes the protected release keystore once, then passes the complete
-  release-signing tuple only to the wrapper-owned release-PGO validation,
-  release verification, connected release tests, and final signed bundle build
-  so the release-path test install matches the release lane's signing identity
-- runs Android lint, `:app:assembleRelease`,
-  `:app:assembleReleaseAndroidTest`, and `:app:testReleaseUnitTest` with
-  `r47.testBuildType=release` and CI-only
-  `r47.releaseMinify=false` / `r47.releaseShrinkResources=false`
-- reruns grouped `connectedReleaseAndroidTest` selections on the hosted
-  emulator through `scripts/android/run_connected_android_tests.sh`, keeping
-  the Android CI release-path full non-fixture and
-  `ProgramFixtureInstrumentedTest` coverage on the release path before the
-  final signed bundle build
+- holds no signing input: no environment, no secret, no keystore (see
+  [Signing isolation](#signing-isolation))
 - resolves `version_code` and `version_name` from manual workflow inputs
 - uses a monotonic positive-integer `version_code` for Play uploads; the
   maintainer pattern is `YYYYMMDDVV`
@@ -460,28 +519,44 @@ This workflow:
   user-visible string, and points to Semantic Versioning as a common basis;
   keeping the underlying release version semver-shaped also makes the derived
   prefixed GitHub tag easier to read and maintain
-- reads `R47_RELEASE_STORE_FILE_BASE64`, `R47_RELEASE_STORE_PASSWORD`,
-  `R47_RELEASE_KEY_ALIAS`, and `R47_RELEASE_KEY_PASSWORD` only from the
-  protected environment
 - builds `:app:assembleRelease :app:bundleRelease
-  -Pr47.pgoProfilePath=...` so the signed release APK and AAB consume the same
-  collected host-core profile that the wrapper already validated
-- uploads the release build logs, the host-core PGO artifact bundle, the
-  signed AAB artifact bundle `r47zen-<upstream short>-<android short>-release`,
-  and the signed APK artifact bundle
-  `r47zen-<upstream short>-<android short>-release-apk`
-- ships `r47zen-<upstream short>-<android short>-release.aab`,
+  -Pr47.pgoProfilePath=...` unsigned, so the release APK and AAB consume the
+  same collected host-core profile that the wrapper already validated, and
+  fails if AGP reports a signed APK or the bundle carries a JAR signature
+- uploads the release build logs, the host-core PGO artifact bundle, and the
+  unsigned APK, unsigned AAB, `mapping.txt`, and `native-debug-symbols.zip` as
+  `r47zen-<upstream short>-<android short>-release-unsigned`
+
+### `sign-production-release`
+
+The only job that reads the release upload key, and the only job bound to the
+`production-release` environment. It:
+
+- checks out this repository only and provisions the build JDK and the pinned
+  SDK packages; it runs no upstream sync, Gradle, compiler, or emulator
+- decodes `R47_RELEASE_STORE_FILE_BASE64` into `RUNNER_TEMP` for the signing
+  step alone and signs the unsigned APK and AAB with
+  `scripts/android/sign_android_artifacts.sh`, reading
+  `R47_RELEASE_KEY_ALIAS`, `R47_RELEASE_STORE_PASSWORD`, and
+  `R47_RELEASE_KEY_PASSWORD`
+- removes the decoded key in the signing step's exit trap and again in an
+  `if: always()` step
+- collects packaging evidence over the signed bytes and uploads the signed AAB
+  artifact bundle `r47zen-<upstream short>-<android short>-release` and the
+  signed APK artifact bundle
+  `r47zen-<upstream short>-<android short>-release-apk`, which ship
+  `r47zen-<upstream short>-<android short>-release.aab`,
   `r47zen-<upstream short>-<android short>-release.apk`,
   `BUILD-METADATA.txt`, `SHA256SUMS.txt`, `mapping.txt`,
-  `native-debug-symbols.zip`, and the compliance-assets payload in the
-  workflow artifacts
+  `native-debug-symbols.zip`, and the compliance-assets payload
 
 ### `publish-production-release`
 
 This workflow job:
 
-- downloads the signed AAB and APK workflow artifact bundles after the build
-  job succeeds
+- downloads the signed AAB and APK workflow artifact bundles after
+  `sign-production-release`, `verify-production-release`, and
+  `verify-published-artifacts` succeed
 - repacks maintainers' packaging-evidence zips for the AAB and APK from the
   collected compliance assets, provenance, mapping, symbols, and packaging
   reports
@@ -506,8 +581,11 @@ that do not live in the Gradle workflow itself:
 - any account-level testing or production-access prerequisites enforced by the
   Play developer account type
 
-Configure the `production-release` environment with the branch restrictions,
-required reviewers, and the four release-signing secrets the workflow expects.
+Configure the `production-release` environment with a required reviewer, a
+`main`-only deployment branch policy, and the four `R47_RELEASE_*` secrets, not
+repository-scoped copies (see [Signing isolation](#signing-isolation)). Only
+`sign-production-release` uses it, so the reviewer approves use of the key
+after the build succeeds, not the whole run.
 
 Enable the repository's **Immutable Releases** setting (Settings -> General ->
 Releases). It locks a published release's tag and assets against
@@ -517,16 +595,22 @@ It is a one-time repository setting, not a workflow change.
 
 ### `verify-production-release`
 
-Runs on `main` under the `production-release` environment, in parallel with the
-build job (it needs only `resolve-release-inputs` and `resolve-upstream-core`).
-It rebuilds the release build type, signs it with a throwaway verification
-keystore generated in-job (never the production key), and exercises the release
-on an emulator, so a release-only regression is caught before the store handoff
-rather than after publication.
+Runs on `main` in parallel with the build job (it needs only
+`resolve-release-inputs` and `resolve-upstream-core`) and without the
+environment, because it holds no secret. It rebuilds the release build type,
+runs Android lint, `:app:assembleReleaseAndroidTest`, and
+`:app:testReleaseUnitTest` with `r47.testBuildType=release` and CI-only
+`r47.releaseMinify=false` / `r47.releaseShrinkResources=false`, signs the
+installs with a throwaway verification keystore generated in-job (never the
+production key), and runs the grouped `connectedReleaseAndroidTest` selections
+through `scripts/android/run_connected_android_tests.sh` on an emulator, so a
+release-only regression is caught before the store handoff rather than after
+publication. It does not test the published bytes: those are minified and
+signed by `sign-production-release`.
 
 ### `verify-published-artifacts`
 
-Runs on `main` after `build-production-release-bundle`. It downloads the
+Runs on `main` after `sign-production-release`. It downloads the
 published release APK and AAB and verifies they match the recorded packaging
 evidence (signing mode, ABIs, version, checksums, and the signer certificate
 SHA-256) via `scripts/android/verify_published_release_artifacts.sh`, so a
@@ -534,14 +618,15 @@ mismatch between what was built and what was attached to the release fails the
 lane. This is the post-publish integrity gate that complements the SLSA
 provenance attestation.
 
-The signer certificate is derived cryptographically at build time by
-`collect_packaging_evidence.sh` (`apksigner` for the APK, `keytool` for the
-AAB) and recorded as `artifact_signing_cert_sha256`. The verify lane requires a
-signed release to carry it, asserts the APK and AAB share one signer, and, when
-the repository variable `R47_RELEASE_EXPECTED_CERT_SHA256` is set to the release
-key's public fingerprint, asserts the published artifacts match that pin. Set
-that variable once from the observed value the lane logs to gate signer
-identity out-of-band.
+The signer certificate is derived cryptographically in
+`sign-production-release` by `collect_packaging_evidence.sh` (`apksigner` for
+the APK, `keytool` for the AAB) and recorded as
+`artifact_signing_cert_sha256`. The verify lane requires a signed release to
+carry it, asserts the APK and AAB share one signer, and asserts both equal the
+repository variable `R47_RELEASE_EXPECTED_CERT_SHA256`, the upload key's public
+certificate fingerprint. A release signed by any other key fails before
+publication. Rotating the upload key means updating that variable in the same
+change; `gh variable list` shows the current value.
 
 ## Reproducing or re-releasing a past build
 
@@ -639,6 +724,8 @@ The workflow publishes three main artifact classes:
   records the final signed-bundle consumer path
 - protected-release workflow artifact bundles for the signed AAB and the signed
   APK, plus the versioned GitHub release assets published from those bundles
+- the unsigned `*-unsigned` hand-off bundles each build job uploads for its
+  signing job, kept for seven days
 
 Android artifact names use the two-commit Android identity
 `upstream short + Android short`. Linux and Windows simulator package workflows
@@ -679,15 +766,19 @@ Use the smallest local lane that matches the failure surface:
   `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`, then
   `cd android && ./gradlew lint :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`, then
   rerun `scripts/android/run_connected_android_tests.sh` with the same
-  `R47_CONNECTED_ANDROID_TEST_*` plus `R47_RELEASE_*` environment that the
-  protected workflow exports, then
+  `R47_CONNECTED_ANDROID_TEST_*` environment and a throwaway `R47_RELEASE_*`
+  keystore, as `verify-production-release` does, then build and sign as in the
+  next item
+- CI-matching signed production APK and bundle with current staged inputs:
   `cd android && ./gradlew :app:assembleRelease :app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`
-  with the `R47_RELEASE_*` environment variables plus explicit `r47.versionCode`
-  and `r47.versionName` inputs
-- signed production APK and bundle with current staged inputs:
-  `cd android && ./gradlew :app:assembleRelease :app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`
-  with the `R47_RELEASE_*` environment variables plus explicit
-  `r47.versionCode` and `r47.versionName` inputs
+  with explicit `r47.versionCode` and `r47.versionName` inputs and no
+  `R47_RELEASE_*` in the environment, then sign
+  `app/build/outputs/apk/release/app-release-unsigned.apk` and
+  `app/build/outputs/bundle/release/app-release.aab` with
+  `scripts/android/sign_android_artifacts.sh`, passwords in
+  `R47_SIGNING_STORE_PASSWORD` and `R47_SIGNING_KEY_PASSWORD`. The four
+  `r47.releaseStore*` / `r47.releaseKey*` inputs still make Gradle sign in one
+  step on a maintainer host; CI does not use them
 
 If the task touches staging, generated inputs, or upstream hydration, prefer
 the full build script over isolated Gradle invocations.
@@ -724,6 +815,10 @@ the full build script over isolated Gradle invocations.
   production secrets into `.github/workflows/android-ci.yml`.
 - Keep the dev-prerelease lane signed with dedicated prerelease key material
   and keep it separate from production `R47_RELEASE_*` signing inputs.
+- Keep every signing key in a job that runs no upstream code: build unsigned,
+  then sign in a job that checks out only this repository. The signing scope
+  and isolation contracts fail a change that moves a key back; move the work,
+  not the contract.
 - Keep the Android artifact identity separate from the upstream-only simulator
   package identity.
 - Update this page when job names, release gating, artifact names, or local

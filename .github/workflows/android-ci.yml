@@ -351,8 +351,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   android-build-test-package:
-    name: Build, test, and package Android signed dev prerelease APK
+    name: Build, test, and package the unsigned Android dev prerelease APK
     if: needs.upstream-release-gate.outputs.should_run == 'true'
+    # This job syncs, compiles, and runs the unpinned upstream core, so it holds
+    # no signing input. sign-dev-prerelease signs the APK it uploads on a fresh
+    # runner that executes none of that code.
     needs:
       - resolve-upstream-core
       - upstream-release-gate
@@ -361,6 +364,8 @@ jobs:
     timeout-minutes: 75
     outputs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
+      unsigned_artifact_name: ${{ steps.meta.outputs.unsigned_artifact_name }}
+      dev_apk_name: ${{ steps.meta.outputs.dev_apk_name }}
       release_tag: ${{ steps.meta.outputs.release_tag }}
       release_title: ${{ steps.meta.outputs.release_title }}
     steps:
@@ -522,6 +527,7 @@ jobs:
             --android-commit "$android_commit")"
 
           echo "artifact_name=$R47_ANDROID_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
+          echo "unsigned_artifact_name=${R47_ANDROID_ARTIFACT_STEM}-unsigned" >> "$GITHUB_OUTPUT"
           echo "dev_apk_name=$R47_ANDROID_DEV_APK_NAME" >> "$GITHUB_OUTPUT"
 
           if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
@@ -529,36 +535,7 @@ jobs:
             echo "release_title=$R47_ANDROID_DEV_RELEASE_TITLE" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Resolve prerelease signing material
-        shell: bash
-        # A pull request runs the PR-head build scripts, so exposing the real
-        # prerelease key to them would let a PR exfiltrate it (and fork PRs get no
-        # secrets, so the old validate step failed them outright). Hand the real
-        # key only to non-PR events; on a PR, sign with a throwaway key generated
-        # in-job. publish-main-snapshot is main-only, so a throwaway-signed PR
-        # build is never published.
-        env:
-          IS_PR: ${{ github.event_name == 'pull_request' }}
-          R47_PRERELEASE_STORE_FILE_BASE64: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_FILE_BASE64 || '' }}
-        run: |
-          set -euo pipefail
-          mkdir -p ci-signing
-          keystore="ci-signing/prerelease.keystore"
-          if [ "$IS_PR" = "true" ]; then
-            keytool -genkeypair -alias r47-throwaway \
-              -dname 'CN=R47 Zen PR throwaway, O=R47 Zen CI' \
-              -keyalg RSA -keysize 2048 -validity 7 \
-              -storetype PKCS12 -keystore "$keystore" \
-              -storepass r47-throwaway -keypass r47-throwaway
-          else
-            if [ -z "$R47_PRERELEASE_STORE_FILE_BASE64" ]; then
-              echo "Missing required prerelease keystore secret." >&2
-              exit 1
-            fi
-            printf '%s' "$R47_PRERELEASE_STORE_FILE_BASE64" | base64 --decode >"$keystore"
-          fi
-
-      - name: Build, test, and package Android signed dev prerelease APK
+      - name: Build, test, and package the unsigned Android dev prerelease APK
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
@@ -576,12 +553,6 @@ jobs:
           R47_RELEASE_CHANNEL_BUILD_TOKEN: ${{ needs.upstream-release-gate.outputs.dev_build_token }}
           R47_VERSION_CODE: ${{ needs.upstream-release-gate.outputs.dev_version_code }}
           R47_VERSION_NAME: ${{ needs.upstream-release-gate.outputs.dev_version_name }}
-          # Real passwords only off pull_request; a PR uses the throwaway key
-          # created above, whose credentials are the well-known constant below.
-          R47_PRERELEASE_STORE_FILE: ${{ github.workspace }}/ci-signing/prerelease.keystore
-          R47_PRERELEASE_STORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_PASSWORD || 'r47-throwaway' }}
-          R47_PRERELEASE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_ALIAS || 'r47-throwaway' }}
-          R47_PRERELEASE_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_PASSWORD || 'r47-throwaway' }}
           GRADLE_OPTS: '-Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
@@ -686,6 +657,171 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Stage the unsigned dev prerelease APK for signing
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          apk_dir='android/app/build/outputs/apk/release'
+          if [[ ! -f "$apk_dir/output-metadata.json" ]]; then
+            echo "Missing ${apk_dir}/output-metadata.json." >&2
+            exit 1
+          fi
+          apk_file="$(sed -n 's/.*"outputFile": *"\([^"]*\)".*/\1/p' "$apk_dir/output-metadata.json" | head -n 1)"
+
+          # Fail closed if anything in this job signed: signing material here
+          # would share a runner with upstream code.
+          if [[ "$apk_file" != *-unsigned.apk || ! -f "$apk_dir/$apk_file" ]]; then
+            echo "Expected an unsigned dev prerelease APK, but AGP reports '${apk_file}'." >&2
+            exit 1
+          fi
+
+          mkdir -p ci-artifacts/dev-unsigned
+          cp "$apk_dir/$apk_file" ci-artifacts/dev-unsigned/app-release-unsigned.apk
+
+      - name: Upload the unsigned dev prerelease APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.meta.outputs.unsigned_artifact_name }}
+          path: ci-artifacts/dev-unsigned/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload host-core PGO artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-host-core-pgo
+          path: |
+            ci-artifacts/pgo/
+            ci-artifacts/logs/build-android.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  sign-dev-prerelease:
+    name: Sign and package the dev prerelease APK
+    if: needs.upstream-release-gate.outputs.should_run == 'true'
+    # The only job that reads the prerelease signing key. It checks out this
+    # repository alone and signs the APK android-build-test-package uploaded:
+    # no upstream sync, no Gradle, no compiler, no emulator. Keep it that way;
+    # scripts/android/run_signing_isolation_contract.sh fails a secret-holding
+    # job that builds or runs upstream code. A pull request signs with a
+    # throwaway key, so PR-head scripts never see the real one and fork PRs,
+    # which get no secrets, still produce an installable artifact.
+    needs:
+      - resolve-upstream-core
+      - upstream-release-gate
+      - android-build-test-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Load shared Android defaults
+        id: defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          . ./android/r47-defaults.properties
+
+          echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk_minor=$R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR" >> "$GITHUB_OUTPUT"
+          echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Set up the pinned build JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ steps.defaults.outputs.build_jdk_version }}
+
+      - name: Set up Android SDK
+        uses: ./.github/actions/setup-android-sdk
+        with:
+          compile-sdk: ${{ steps.defaults.outputs.compile_sdk }}
+          compile-sdk-minor: ${{ steps.defaults.outputs.compile_sdk_minor }}
+          build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
+          cmake-version: ${{ steps.defaults.outputs.cmake_version }}
+          ndk-version: ${{ steps.defaults.outputs.ndk_version }}
+
+      - name: Download the unsigned dev prerelease APK
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.android-build-test-package.outputs.unsigned_artifact_name }}
+          path: ci-artifacts/dev-unsigned
+
+      - name: Sign the dev prerelease APK
+        shell: bash
+        env:
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          R47_PRERELEASE_STORE_FILE_BASE64: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_FILE_BASE64 || '' }}
+          R47_PRERELEASE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_ALIAS || 'r47-throwaway' }}
+          R47_SIGNING_STORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_PASSWORD || 'r47-throwaway' }}
+          R47_SIGNING_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_PASSWORD || 'r47-throwaway' }}
+          DEV_APK_NAME: ${{ needs.android-build-test-package.outputs.dev_apk_name }}
+          BUILD_TOOLS_VERSION: ${{ steps.defaults.outputs.build_tools_version }}
+        run: |
+          set -euo pipefail
+
+          # The decoded key lives for this step only: the trap removes it on
+          # success or failure, and the next step repeats the removal in case
+          # the runner killed this shell.
+          keystore_path="${RUNNER_TEMP}/r47-prerelease-key.keystore"
+          trap 'shred -u "$keystore_path" 2>/dev/null || rm -f "$keystore_path"' EXIT
+          if [ "$IS_PR" = "true" ]; then
+            keytool -genkeypair -alias "$R47_PRERELEASE_KEY_ALIAS" \
+              -dname 'CN=R47 Zen PR throwaway, O=R47 Zen CI' \
+              -keyalg RSA -keysize 2048 -validity 7 \
+              -storetype PKCS12 -keystore "$keystore_path" \
+              -storepass:env R47_SIGNING_STORE_PASSWORD \
+              -keypass:env R47_SIGNING_KEY_PASSWORD
+          else
+            for secret_name in \
+              R47_PRERELEASE_STORE_FILE_BASE64 \
+              R47_PRERELEASE_KEY_ALIAS \
+              R47_SIGNING_STORE_PASSWORD \
+              R47_SIGNING_KEY_PASSWORD
+            do
+              if [[ -z "${!secret_name:-}" ]]; then
+                echo "Missing required prerelease signing secret for ${secret_name}." >&2
+                exit 1
+              fi
+            done
+            (
+              umask 077
+              printf '%s' "$R47_PRERELEASE_STORE_FILE_BASE64" | base64 --decode > "$keystore_path"
+            )
+          fi
+
+          bash ./scripts/android/sign_android_artifacts.sh \
+            --keystore "$keystore_path" \
+            --key-alias "$R47_PRERELEASE_KEY_ALIAS" \
+            --build-tools-version "$BUILD_TOOLS_VERSION" \
+            --apk ci-artifacts/dev-unsigned/app-release-unsigned.apk \
+            --apk-out "ci-artifacts/dev-signed/${DEV_APK_NAME}"
+
+      - name: Shred the decoded prerelease keystore
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          keystore_path="${RUNNER_TEMP}/r47-prerelease-key.keystore"
+          if [ -f "$keystore_path" ]; then
+            shred -u "$keystore_path" 2>/dev/null || rm -f "$keystore_path"
+            echo "Removed decoded prerelease keystore."
+          else
+            echo "No decoded prerelease keystore to remove."
+          fi
+
       - name: Collect packaging evidence
         shell: bash
         run: |
@@ -693,9 +829,9 @@ jobs:
 
           bash ./scripts/android/collect_packaging_evidence.sh \
             --variant release \
-            --apk android/app/build/outputs/apk/release/app-release.apk \
+            --apk "ci-artifacts/dev-signed/${{ needs.android-build-test-package.outputs.dev_apk_name }}" \
             --output-dir ci-artifacts/release \
-            --artifact-name "${{ steps.meta.outputs.dev_apk_name }}" \
+            --artifact-name "${{ needs.android-build-test-package.outputs.dev_apk_name }}" \
             --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
             --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
             --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
@@ -703,8 +839,8 @@ jobs:
             --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
             --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --android-source-commit "${GITHUB_SHA}" \
-            --upstream-source-repository-url "${{ steps.upstream.outputs.upstream_url }}" \
-            --upstream-source-commit "${{ steps.upstream.outputs.upstream_commit }}" \
+            --upstream-source-repository-url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --upstream-source-commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
             --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
             --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
             --version-code "${{ needs.upstream-release-gate.outputs.dev_version_code }}" \
@@ -718,20 +854,9 @@ jobs:
       - name: Upload Android build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ steps.meta.outputs.artifact_name }}
+          name: ${{ needs.android-build-test-package.outputs.artifact_name }}
           path: ci-artifacts/release/
           if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload host-core PGO artifact
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ steps.meta.outputs.artifact_name }}-host-core-pgo
-          path: |
-            ci-artifacts/pgo/
-            ci-artifacts/logs/build-android.log
-          if-no-files-found: warn
           retention-days: 14
 
   android-tests:
@@ -814,33 +939,19 @@ jobs:
           include-emulator: 'true'
           android-test-api-level: ${{ steps.defaults.outputs.android_test_api_level }}
 
-      - name: Resolve prerelease signing material for connected tests
+      - name: Generate a throwaway key for connected-test installs
         shell: bash
-        # The connected emulator install needs a signed APK. Off pull_request use
-        # the real prerelease key; on a PR sign with a throwaway key generated
-        # in-job so the PR-head test scripts never see the real signing secrets
-        # (and fork PRs, which get no secrets, still run). The real signed APK the
-        # snapshot ships is built only on main by android-build-test-package.
-        env:
-          IS_PR: ${{ github.event_name == 'pull_request' }}
-          R47_PRERELEASE_STORE_FILE_BASE64: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_FILE_BASE64 || '' }}
+        # The emulator only needs installable release-path APKs, and this job
+        # compiles and runs the upstream core, so it never receives the real
+        # prerelease key. The published dev APK is signed by sign-dev-prerelease.
         run: |
           set -euo pipefail
           mkdir -p ci-signing
-          keystore="ci-signing/prerelease.keystore"
-          if [ "$IS_PR" = "true" ]; then
-            keytool -genkeypair -alias r47-throwaway \
-              -dname 'CN=R47 Zen PR throwaway, O=R47 Zen CI' \
-              -keyalg RSA -keysize 2048 -validity 7 \
-              -storetype PKCS12 -keystore "$keystore" \
-              -storepass r47-throwaway -keypass r47-throwaway
-          else
-            if [ -z "$R47_PRERELEASE_STORE_FILE_BASE64" ]; then
-              echo "Missing required prerelease keystore secret." >&2
-              exit 1
-            fi
-            printf '%s' "$R47_PRERELEASE_STORE_FILE_BASE64" | base64 --decode >"$keystore"
-          fi
+          keytool -genkeypair -alias r47-throwaway \
+            -dname 'CN=R47 Zen connected-test throwaway, O=R47 Zen CI' \
+            -keyalg RSA -keysize 2048 -validity 7 \
+            -storetype PKCS12 -keystore ci-signing/prerelease.keystore \
+            -storepass r47-throwaway -keypass r47-throwaway
 
       - name: Make scripts executable
         shell: bash
@@ -997,9 +1108,9 @@ jobs:
           R47_CONNECTED_ANDROID_ENABLE_CONFIGURATION_CACHE: 'true'
           R47_CONNECTED_ANDROID_USE_DAEMON: 'true'
           R47_PRERELEASE_STORE_FILE: ${{ github.workspace }}/ci-signing/prerelease.keystore
-          R47_PRERELEASE_STORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_STORE_PASSWORD || 'r47-throwaway' }}
-          R47_PRERELEASE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_ALIAS || 'r47-throwaway' }}
-          R47_PRERELEASE_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.R47_PRERELEASE_KEY_PASSWORD || 'r47-throwaway' }}
+          R47_PRERELEASE_STORE_PASSWORD: r47-throwaway
+          R47_PRERELEASE_KEY_ALIAS: r47-throwaway
+          R47_PRERELEASE_KEY_PASSWORD: r47-throwaway
           R47_CONNECTED_ANDROID_TEST_CORE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_CONNECTED_ANDROID_TEST_SOURCE_COMMIT: ${{ github.sha }}
@@ -1045,6 +1156,7 @@ jobs:
       - upstream-release-gate
       - upstream-simulator-sanity
       - android-build-test-package
+      - sign-dev-prerelease
       - android-tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1174,8 +1286,9 @@ jobs:
     # Always runs, even when the heavy test lane is skipped by the release gate.
     # This is the single job to mark as the required status check: GitHub treats a
     # skipped required job as passing, so gating directly on the skippable test
-    # jobs (python-contracts, android-build-test-package, android-tests) could
-    # report green having run nothing on a re-run of an already-released state.
+    # jobs (python-contracts, android-build-test-package, sign-dev-prerelease,
+    # android-tests) could report green having run nothing on a re-run of an
+    # already-released state.
     # This job fails unless every test job genuinely succeeded whenever the gate
     # asked them to run.
     if: always()
@@ -1184,6 +1297,7 @@ jobs:
       - upstream-simulator-sanity
       - python-contracts
       - android-build-test-package
+      - sign-dev-prerelease
       - android-tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1196,6 +1310,7 @@ jobs:
           SIM_RESULT: ${{ needs.upstream-simulator-sanity.result }}
           PY_RESULT: ${{ needs.python-contracts.result }}
           BUILD_RESULT: ${{ needs.android-build-test-package.result }}
+          SIGN_RESULT: ${{ needs.sign-dev-prerelease.result }}
           TESTS_RESULT: ${{ needs.android-tests.result }}
         run: |
           set -euo pipefail
@@ -1216,6 +1331,7 @@ jobs:
           for pair in "upstream-simulator-sanity=$SIM_RESULT" \
                       "python-contracts=$PY_RESULT" \
                       "android-build-test-package=$BUILD_RESULT" \
+                      "sign-dev-prerelease=$SIGN_RESULT" \
                       "android-tests=$TESTS_RESULT"; do
             name="${pair%%=*}"
             result="${pair#*=}"

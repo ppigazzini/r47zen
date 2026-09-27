@@ -125,16 +125,21 @@ jobs:
       upstream_commit: ${{ inputs.upstream_commit }}
 
   build-production-release-bundle:
-    name: Build signed production release assets
+    name: Build unsigned production release assets
     if: github.ref == 'refs/heads/main'
+    # This job syncs, compiles, and runs the unpinned upstream core, so it holds
+    # no signing input: no environment, no secret, no keystore. A compile step
+    # can embed any readable file into the shipped library, and upstream test
+    # code runs with this job's environment. sign-production-release signs the
+    # bytes this job uploads on a fresh runner that executes none of it.
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
-    environment: production-release
     runs-on: ubuntu-latest
     timeout-minutes: 120
     outputs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
+      unsigned_artifact_name: ${{ steps.meta.outputs.unsigned_artifact_name }}
       apk_artifact_name: ${{ steps.meta.outputs.apk_artifact_name }}
       release_bundle_name: ${{ steps.meta.outputs.release_bundle_name }}
       release_apk_name: ${{ steps.meta.outputs.release_apk_name }}
@@ -211,34 +216,6 @@ jobs:
           include-emulator: 'true'
           android-test-api-level: ${{ steps.defaults.outputs.android_test_api_level }}
 
-      - name: Materialize release keystore
-        id: release-keystore
-        shell: bash
-        env:
-          R47_RELEASE_STORE_FILE_BASE64: ${{ secrets.R47_RELEASE_STORE_FILE_BASE64 }}
-          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
-          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
-          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-
-          for secret_name in \
-            R47_RELEASE_STORE_FILE_BASE64 \
-            R47_RELEASE_STORE_PASSWORD \
-            R47_RELEASE_KEY_ALIAS \
-            R47_RELEASE_KEY_PASSWORD
-          do
-            if [[ -z "${!secret_name:-}" ]]; then
-              echo "Missing required production-release environment secret: ${secret_name}" >&2
-              exit 1
-            fi
-          done
-
-          keystore_path="${RUNNER_TEMP}/r47-release-upload-key.jks"
-          printf '%s' "$R47_RELEASE_STORE_FILE_BASE64" | base64 --decode > "$keystore_path"
-          chmod 600 "$keystore_path"
-          echo "keystore_path=$keystore_path" >> "$GITHUB_OUTPUT"
-
       - name: Install matching host LLVM profiling runtime
         shell: bash
         run: |
@@ -305,6 +282,7 @@ jobs:
 
           echo "artifact_name=$R47_ANDROID_RELEASE_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
           echo "apk_artifact_name=${R47_ANDROID_RELEASE_ARTIFACT_STEM}-apk" >> "$GITHUB_OUTPUT"
+          echo "unsigned_artifact_name=${R47_ANDROID_RELEASE_ARTIFACT_STEM}-unsigned" >> "$GITHUB_OUTPUT"
           echo "release_bundle_name=$R47_ANDROID_RELEASE_AAB_NAME" >> "$GITHUB_OUTPUT"
           echo "release_apk_name=$R47_ANDROID_RELEASE_APK_NAME" >> "$GITHUB_OUTPUT"
           echo "release_tag=r47zen-v${release_version_token}" >> "$GITHUB_OUTPUT"
@@ -313,10 +291,6 @@ jobs:
       - name: Prepare staged native inputs and simulator parity
         shell: bash
         env:
-          R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
-          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
-          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
-          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
@@ -338,13 +312,9 @@ jobs:
             --validate-release-pgo \
             2>&1 | tee ci-artifacts/logs/build-android-release.log
 
-      - name: Build signed release APK and bundle
+      - name: Build unsigned release APK and bundle
         shell: bash
         env:
-          R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
-          R47_RELEASE_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
-          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
-          R47_RELEASE_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
           R47_RELEASE_HOST_PGO_PROFILE: ${{ github.workspace }}/ci-artifacts/pgo/r47-host-core.profdata
           R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
@@ -372,32 +342,37 @@ jobs:
             -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
             2>&1 | tee ../ci-artifacts/logs/android-release-bundle.log
 
-      - name: Collect release packaging evidence
+      - name: Stage unsigned release assets for signing
         shell: bash
-        env:
-          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
-          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
         run: |
           set -euo pipefail
 
-          bundle_output_dir='ci-artifacts/release-aab'
-          apk_output_dir='ci-artifacts/release-apk'
+          apk_dir='android/app/build/outputs/apk/release'
           bundle_path='android/app/build/outputs/bundle/release/app-release.aab'
-          release_apk_path='android/app/build/outputs/apk/release/app-release.apk'
           mapping_path='android/app/build/outputs/mapping/release/mapping.txt'
           native_symbols_dir='android/app/build/intermediates/native_debug_metadata/release/extractReleaseNativeDebugMetadata/out'
-          native_symbols_path="$PWD/ci-artifacts/native-debug-symbols.zip"
+          staging_dir="$PWD/ci-artifacts/release-unsigned"
 
-          if [[ ! -f "$bundle_path" ]]; then
-            echo "Missing release bundle at ${bundle_path}." >&2
+          if [[ ! -f "$apk_dir/output-metadata.json" ]]; then
+            echo "Missing ${apk_dir}/output-metadata.json." >&2
             exit 1
           fi
-          if [[ ! -f "$release_apk_path" ]]; then
-            echo "Missing release APK at ${release_apk_path}." >&2
+          apk_file="$(sed -n 's/.*"outputFile": *"\([^"]*\)".*/\1/p' "$apk_dir/output-metadata.json" | head -n 1)"
+
+          # Fail closed if anything in this job signed: signing material here
+          # would share a runner with upstream code.
+          if [[ "$apk_file" != *-unsigned.apk ]]; then
+            echo "Expected an unsigned release APK, but AGP reports '${apk_file}'." >&2
             exit 1
           fi
-          if [[ ! -f "$mapping_path" ]]; then
-            echo "Missing release mapping file at ${mapping_path}." >&2
+          for required in "$apk_dir/$apk_file" "$bundle_path" "$mapping_path"; do
+            if [[ ! -f "$required" ]]; then
+              echo "Missing release output ${required}." >&2
+              exit 1
+            fi
+          done
+          if unzip -Z1 "$bundle_path" | grep -Eq '^META-INF/[^/]+\.(SF|RSA|DSA|EC)$'; then
+            echo "Expected an unsigned release bundle, but ${bundle_path} carries a JAR signature." >&2
             exit 1
           fi
           if [[ ! -d "$native_symbols_dir" ]]; then
@@ -405,66 +380,14 @@ jobs:
             exit 1
           fi
 
-          mkdir -p ci-artifacts "$bundle_output_dir" "$apk_output_dir"
-          rm -f "$native_symbols_path"
+          mkdir -p "$staging_dir"
+          cp "$apk_dir/$apk_file" "$staging_dir/app-release-unsigned.apk"
+          cp "$bundle_path" "$staging_dir/app-release-unsigned.aab"
+          cp "$mapping_path" "$staging_dir/mapping.txt"
           (
             cd "$native_symbols_dir"
-            zip -qr "$native_symbols_path" .
+            zip -qr "$staging_dir/native-debug-symbols.zip" .
           )
-
-          bash ./scripts/android/collect_packaging_evidence.sh \
-            --variant release \
-            --bundle "$bundle_path" \
-            --output-dir "$bundle_output_dir" \
-            --artifact-name "${{ steps.meta.outputs.release_bundle_name }}" \
-            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
-            --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
-            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
-            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
-            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
-            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --android-source-commit "${GITHUB_SHA}" \
-            --upstream-source-repository-url "${{ steps.upstream.outputs.upstream_url }}" \
-            --upstream-source-commit "${{ steps.upstream.outputs.upstream_commit }}" \
-            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
-            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
-            --application-id "${{ steps.defaults.outputs.application_id }}" \
-            --version-code "$R47_VERSION_CODE_INPUT" \
-            --version-name "$R47_VERSION_NAME_INPUT" \
-            --signing-mode release \
-            --ref "${GITHUB_REF}" \
-            --sha "${GITHUB_SHA}" \
-            --run-id "${GITHUB_RUN_ID}" \
-            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
-            --mapping-file "$mapping_path" \
-            --native-symbols "$native_symbols_path"
-
-          bash ./scripts/android/collect_packaging_evidence.sh \
-            --variant release \
-            --apk "$release_apk_path" \
-            --output-dir "$apk_output_dir" \
-            --artifact-name "${{ steps.meta.outputs.release_apk_name }}" \
-            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
-            --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
-            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
-            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
-            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
-            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --android-source-commit "${GITHUB_SHA}" \
-            --upstream-source-repository-url "${{ steps.upstream.outputs.upstream_url }}" \
-            --upstream-source-commit "${{ steps.upstream.outputs.upstream_commit }}" \
-            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
-            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
-            --application-id "${{ steps.defaults.outputs.application_id }}" \
-            --version-code "$R47_VERSION_CODE_INPUT" \
-            --version-name "$R47_VERSION_NAME_INPUT" \
-            --signing-mode release \
-            --ref "${GITHUB_REF}" \
-            --sha "${GITHUB_SHA}" \
-            --run-id "${GITHUB_RUN_ID}" \
-            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
-            --mapping-file "$mapping_path" \
-            --native-symbols "$native_symbols_path"
 
       - name: Upload release build logs
         if: always()
@@ -491,10 +414,228 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+      - name: Upload unsigned release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.meta.outputs.unsigned_artifact_name }}
+          path: ci-artifacts/release-unsigned/
+          if-no-files-found: error
+          retention-days: 7
+
+  sign-production-release:
+    name: Sign production release assets
+    if: github.ref == 'refs/heads/main'
+    # The only job that reads the release signing key. It checks out this
+    # repository alone and signs bytes build-production-release-bundle uploaded:
+    # no upstream sync, no Gradle, no compiler, no emulator. Keep it that way;
+    # scripts/android/run_signing_isolation_contract.sh fails a secret-holding
+    # job that builds or runs upstream code.
+    needs:
+      - resolve-release-inputs
+      - resolve-upstream-core
+      - build-production-release-bundle
+    environment: production-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Load shared Android defaults
+        id: defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          . ./android/r47-defaults.properties
+
+          echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "application_id=$R47_DEFAULT_ANDROID_APPLICATION_ID" >> "$GITHUB_OUTPUT"
+          echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk_minor=$R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR" >> "$GITHUB_OUTPUT"
+          echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Set up the pinned build JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ steps.defaults.outputs.build_jdk_version }}
+
+      - name: Set up Android SDK
+        uses: ./.github/actions/setup-android-sdk
+        with:
+          compile-sdk: ${{ steps.defaults.outputs.compile_sdk }}
+          compile-sdk-minor: ${{ steps.defaults.outputs.compile_sdk_minor }}
+          build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
+          cmake-version: ${{ steps.defaults.outputs.cmake_version }}
+          ndk-version: ${{ steps.defaults.outputs.ndk_version }}
+
+      - name: Download unsigned release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build-production-release-bundle.outputs.unsigned_artifact_name }}
+          path: ci-artifacts/release-unsigned
+
+      - name: Sign release APK and bundle
+        shell: bash
+        env:
+          R47_RELEASE_STORE_FILE_BASE64: ${{ secrets.R47_RELEASE_STORE_FILE_BASE64 }}
+          R47_RELEASE_KEY_ALIAS: ${{ secrets.R47_RELEASE_KEY_ALIAS }}
+          R47_SIGNING_STORE_PASSWORD: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
+          R47_SIGNING_KEY_PASSWORD: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+          RELEASE_APK_NAME: ${{ needs.build-production-release-bundle.outputs.release_apk_name }}
+          RELEASE_BUNDLE_NAME: ${{ needs.build-production-release-bundle.outputs.release_bundle_name }}
+          BUILD_TOOLS_VERSION: ${{ steps.defaults.outputs.build_tools_version }}
+        run: |
+          set -euo pipefail
+
+          for secret_name in \
+            R47_RELEASE_STORE_FILE_BASE64 \
+            R47_RELEASE_KEY_ALIAS \
+            R47_SIGNING_STORE_PASSWORD \
+            R47_SIGNING_KEY_PASSWORD
+          do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "Missing required production release signing secret for ${secret_name}." >&2
+              exit 1
+            fi
+          done
+
+          # The decoded key lives for this step only: the trap removes it on
+          # success or failure, and the next step repeats the removal in case
+          # the runner killed this shell.
+          keystore_path="${RUNNER_TEMP}/r47-release-upload-key.jks"
+          trap 'shred -u "$keystore_path" 2>/dev/null || rm -f "$keystore_path"' EXIT
+          (
+            umask 077
+            printf '%s' "$R47_RELEASE_STORE_FILE_BASE64" | base64 --decode > "$keystore_path"
+          )
+
+          bash ./scripts/android/sign_android_artifacts.sh \
+            --keystore "$keystore_path" \
+            --key-alias "$R47_RELEASE_KEY_ALIAS" \
+            --build-tools-version "$BUILD_TOOLS_VERSION" \
+            --apk ci-artifacts/release-unsigned/app-release-unsigned.apk \
+            --apk-out "ci-artifacts/release-signed/${RELEASE_APK_NAME}" \
+            --bundle ci-artifacts/release-unsigned/app-release-unsigned.aab \
+            --bundle-out "ci-artifacts/release-signed/${RELEASE_BUNDLE_NAME}"
+
+      - name: Shred the decoded release keystore
+        if: always()
+        shell: bash
+        # Hosted runners wipe RUNNER_TEMP, but a reused or self-hosted runner
+        # would otherwise keep the private signing key on disk if the signing
+        # step was killed before its trap ran. shred overwrites before
+        # unlinking; rm is the fallback if shred is absent.
+        run: |
+          set -euo pipefail
+          keystore_path="${RUNNER_TEMP}/r47-release-upload-key.jks"
+          if [ -f "$keystore_path" ]; then
+            shred -u "$keystore_path" 2>/dev/null || rm -f "$keystore_path"
+            echo "Removed decoded release keystore."
+          else
+            echo "No decoded release keystore to remove."
+          fi
+
+      - name: Collect release packaging evidence
+        shell: bash
+        env:
+          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
+        run: |
+          set -euo pipefail
+
+          bundle_output_dir='ci-artifacts/release-aab'
+          apk_output_dir='ci-artifacts/release-apk'
+          bundle_path="ci-artifacts/release-signed/${{ needs.build-production-release-bundle.outputs.release_bundle_name }}"
+          release_apk_path="ci-artifacts/release-signed/${{ needs.build-production-release-bundle.outputs.release_apk_name }}"
+          mapping_path='ci-artifacts/release-unsigned/mapping.txt'
+          native_symbols_path="$PWD/ci-artifacts/release-unsigned/native-debug-symbols.zip"
+
+          if [[ ! -f "$bundle_path" ]]; then
+            echo "Missing release bundle at ${bundle_path}." >&2
+            exit 1
+          fi
+          if [[ ! -f "$release_apk_path" ]]; then
+            echo "Missing release APK at ${release_apk_path}." >&2
+            exit 1
+          fi
+          if [[ ! -f "$mapping_path" ]]; then
+            echo "Missing release mapping file at ${mapping_path}." >&2
+            exit 1
+          fi
+          if [[ ! -f "$native_symbols_path" ]]; then
+            echo "Missing native debug symbols at ${native_symbols_path}." >&2
+            exit 1
+          fi
+
+          mkdir -p "$bundle_output_dir" "$apk_output_dir"
+
+          bash ./scripts/android/collect_packaging_evidence.sh \
+            --variant release \
+            --bundle "$bundle_path" \
+            --output-dir "$bundle_output_dir" \
+            --artifact-name "${{ needs.build-production-release-bundle.outputs.release_bundle_name }}" \
+            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
+            --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
+            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
+            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
+            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
+            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --android-source-commit "${GITHUB_SHA}" \
+            --upstream-source-repository-url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --upstream-source-commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
+            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
+            --application-id "${{ steps.defaults.outputs.application_id }}" \
+            --version-code "$R47_VERSION_CODE_INPUT" \
+            --version-name "$R47_VERSION_NAME_INPUT" \
+            --signing-mode release \
+            --ref "${GITHUB_REF}" \
+            --sha "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --mapping-file "$mapping_path" \
+            --native-symbols "$native_symbols_path"
+
+          bash ./scripts/android/collect_packaging_evidence.sh \
+            --variant release \
+            --apk "$release_apk_path" \
+            --output-dir "$apk_output_dir" \
+            --artifact-name "${{ needs.build-production-release-bundle.outputs.release_apk_name }}" \
+            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
+            --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
+            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
+            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
+            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
+            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --android-source-commit "${GITHUB_SHA}" \
+            --upstream-source-repository-url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --upstream-source-commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
+            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
+            --application-id "${{ steps.defaults.outputs.application_id }}" \
+            --version-code "$R47_VERSION_CODE_INPUT" \
+            --version-name "$R47_VERSION_NAME_INPUT" \
+            --signing-mode release \
+            --ref "${GITHUB_REF}" \
+            --sha "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --mapping-file "$mapping_path" \
+            --native-symbols "$native_symbols_path"
+
       - name: Upload signed release AAB artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ steps.meta.outputs.artifact_name }}
+          name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
           path: ci-artifacts/release-aab/
           if-no-files-found: error
           retention-days: 30
@@ -502,28 +643,10 @@ jobs:
       - name: Upload signed release APK artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ steps.meta.outputs.apk_artifact_name }}
+          name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
           path: ci-artifacts/release-apk/
           if-no-files-found: error
           retention-days: 30
-
-      - name: Shred the decoded release keystore
-        if: always()
-        shell: bash
-        # Remove the decoded production keystore whether the job passed or
-        # failed. Hosted runners wipe RUNNER_TEMP, but a reused or self-hosted
-        # runner would otherwise keep the private signing key on disk. shred
-        # overwrites before unlinking; rm is the fallback if shred is absent.
-        env:
-          KEYSTORE_PATH: ${{ steps.release-keystore.outputs.keystore_path }}
-        run: |
-          set -euo pipefail
-          if [ -n "${KEYSTORE_PATH:-}" ] && [ -f "$KEYSTORE_PATH" ]; then
-            shred -u "$KEYSTORE_PATH" 2>/dev/null || rm -f "$KEYSTORE_PATH"
-            echo "Removed decoded release keystore."
-          else
-            echo "No decoded release keystore to remove."
-          fi
 
   verify-production-release:
     name: Verify production release on the emulator
@@ -531,7 +654,6 @@ jobs:
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
-    environment: production-release
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -615,7 +737,7 @@ jobs:
           # build to be installable; it signs with a throwaway key generated
           # here, never the production release key. This keeps the production
           # signing material materialized in exactly one place
-          # (build-production-release-bundle).
+          # (sign-production-release).
           keystore_path="${RUNNER_TEMP}/r47-verify-throwaway-key.jks"
           keytool -genkeypair -noprompt \
             -keystore "$keystore_path" \
@@ -793,6 +915,7 @@ jobs:
     needs:
       - resolve-release-inputs
       - build-production-release-bundle
+      - sign-production-release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -854,6 +977,7 @@ jobs:
     needs:
       - resolve-release-inputs
       - build-production-release-bundle
+      - sign-production-release
       - verify-production-release
       - verify-published-artifacts
     runs-on: ubuntu-latest

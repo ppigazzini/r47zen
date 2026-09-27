@@ -671,10 +671,19 @@ Android compatibility layer.
   `upstream-simulator-sanity`, `android-build-test-package`, and
   `android-tests`
 - `.github/workflows/android-release.yml` reruns the same wrapper-owned
-  host-core optimization flow as `android-build-test-package`, then runs lint,
-  JVM tests, instrumentation assembly, and
-  `:app:bundleRelease -Pr47.pgoProfilePath=...` before it publishes signed
-  release evidence
+  host-core optimization flow as `android-build-test-package` and builds
+  `:app:bundleRelease -Pr47.pgoProfilePath=...` unsigned; its emulator job runs
+  lint, JVM tests, and instrumentation assembly, and `sign-production-release`
+  signs the outputs before it publishes release evidence
+- `scripts/android/run_production_signing_scope_contract.sh` and
+  `scripts/android/run_signing_isolation_contract.sh`, in the
+  `run_workflow_contracts.sh` host group, lock the signing isolation: each key
+  is named by one signing job only, and no job that names a key syncs, builds,
+  compiles, or emulates the upstream core. Each first proves it fails on seeded
+  fixtures. `scripts/android/sign_android_artifacts.sh` verifies its own
+  outputs against the keystore certificate, and
+  `scripts/android/run_published_artifacts_verifier_contract.sh` locks the
+  downstream verifier
 
 When a change touches staged-core compatibility, `yieldToAndroidWithMs(...)`,
 or wait and progress behavior, start with the host workload harness before you
@@ -699,7 +708,8 @@ assume the problem is Android UI code.
   `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
 - staged-native, simulator, or CI-critical verification change: run
   `./scripts/android/build_android.sh --run-sim-tests`
-- release identity, signing, or packaging change: run lint,
+- release identity, signing, or packaging change: run
+  `bash scripts/android/run_workflow_contracts.sh`, lint,
   `:app:testDebugUnitTest`, `:app:assembleDebugAndroidTest`,
   `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`, and
   `:app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`,

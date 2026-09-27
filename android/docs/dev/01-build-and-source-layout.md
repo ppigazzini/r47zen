@@ -156,7 +156,10 @@ hydrated on demand, or only exercised in CI before updating the docs.
 - `r47.releaseChannel=dev` switches the release install identity to `.dev`,
   appends `-dev.<token>` to `versionName`, defaults `testBuildType` to
   `release`, and uses dedicated prerelease signing when the full
-  `R47_PRERELEASE_*` or `r47.prerelease*` input set is present
+  `R47_PRERELEASE_*` or `r47.prerelease*` input set is present. Without it AGP
+  writes `app-release-unsigned.apk`, which is how CI builds the dev APK before
+  `sign-dev-prerelease` signs it; `build_android.sh` reads the file name from
+  `output-metadata.json` rather than assuming one
 - release native debug symbols default to `FULL` via
   `r47.releaseNativeDebugSymbolLevel`
 
@@ -586,9 +589,11 @@ real 16 KB target stays a local maintainer lane through
 `scripts/android/run_16kb_runtime_smoke.sh`. This is not a store-release lane.
 
 Store-release signing lives in the separate protected workflow
-`.github/workflows/android-release.yml`. That workflow is manual-dispatch only,
-is bound to the `production-release` environment, and expects protected
-production signing secrets there. See `07-ci-and-release-workflow.md`.
+`.github/workflows/android-release.yml`, which is manual-dispatch only. Its
+build job holds no signing input; `sign-production-release`, the one job bound
+to the `production-release` environment, signs the unsigned outputs with
+`scripts/android/sign_android_artifacts.sh`. See the signing isolation section
+of `07-ci-and-release-workflow.md`.
 
 ## Release and packaging policy
 
@@ -602,7 +607,8 @@ names, and release gating.
 - `android/app/build.gradle` defines release signing from
   `r47.releaseStoreFile`, `r47.releaseStorePassword`, `r47.releaseKeyAlias`,
   and `r47.releaseKeyPassword`. Supplying only some of those values is a hard
-  configuration error.
+  configuration error. CI supplies none of them: both CI lanes build unsigned
+  and sign outside Gradle, so this path serves a maintainer host only.
 - Release builds default `minifyEnabled` and `shrinkResources` to `true` and
   request `ndk.debugSymbolLevel "FULL"`.
 - `bundleRelease` is the canonical AAB command. `assembleRelease` remains
@@ -627,7 +633,8 @@ names, and release gating.
   lifecycle changes:
     `cd android && ./gradlew :app:assembleReleaseAndroidTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`,
   then run `scripts/android/run_connected_android_tests.sh` on a device or
-  emulator with the same prerelease signing inputs CI uses. Add
+  emulator with a complete `R47_PRERELEASE_*` set for any key; CI generates a
+  throwaway keystore in-job for these installs. Add
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
   hosted gate runs one grouped non-fixture selection plus one bounded
   `ProgramFixtureInstrumentedTest` selection that covers
