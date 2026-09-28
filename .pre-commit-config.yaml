@@ -67,11 +67,12 @@ repos:
         pass_filenames: false
       - id: workflow-contracts
         # The host CI contracts (signing isolation, release provenance, pinned
-        # toolchains, test integrity) read workflows, scripts, and Android build
-        # inputs. They need no SDK and run in seconds, so a broken contract fails
-        # here before CI. android-ci runs the same group inside ci-required.
+        # toolchains, test integrity) read workflows, scripts, Android build
+        # inputs, and the tool pins in this file, pyproject.toml, and uv.lock.
+        # They need no SDK and run in seconds, so a broken contract fails here
+        # before CI. android-ci runs the same group inside ci-required.
         name: host CI contracts
         entry: scripts/android/run_workflow_contracts.sh
         language: script
-        files: ^(\.github/|scripts/|android/)
+        files: ^(\.github/|scripts/|android/|\.pre-commit-config\.yaml$|pyproject\.toml$|uv\.lock$)
         pass_filenames: false

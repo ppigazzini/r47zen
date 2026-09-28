@@ -36,7 +36,7 @@ concurrency:
 jobs:
   toolchain-smoke:
     name: Host toolchain install smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The apt + apt.llvm.org installs can hang on a broken mirror; bound the job
     # instead of inheriting the 360-minute default.
     timeout-minutes: 20

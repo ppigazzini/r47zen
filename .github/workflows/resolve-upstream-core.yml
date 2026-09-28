@@ -34,7 +34,7 @@ permissions:
 jobs:
   resolve:
     name: Resolve authoritative upstream core revision
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       upstream_url: ${{ steps.resolve.outputs.upstream_url }}

@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 # Bundle the stripped Windows simulator runtime and its GTK dependency closure
-# for the windows-ci artifact. Runs under the MSYS2 shell on windows-latest.
+# for the windows-ci artifact, under the MSYS2 shell on the windows-ci runner.
 #
 # Required environment (set by the windows-ci "Bundle stripped runtime" step):
 #   ARTIFACT_SUFFIX  matrix artifact suffix used for the artifact directory name

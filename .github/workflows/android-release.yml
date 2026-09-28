@@ -34,7 +34,7 @@ concurrency:
 jobs:
   resolve-release-inputs:
     name: Resolve release version inputs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       version_code: ${{ steps.resolve.outputs.version_code }}
@@ -135,7 +135,7 @@ jobs:
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     outputs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
@@ -435,7 +435,7 @@ jobs:
       - resolve-upstream-core
       - build-production-release-bundle
     environment: production-release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Check out repository
@@ -654,7 +654,7 @@ jobs:
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - name: Configure Git init defaults
@@ -916,7 +916,7 @@ jobs:
       - resolve-release-inputs
       - build-production-release-bundle
       - sign-production-release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Check out repository
@@ -980,7 +980,7 @@ jobs:
       - sign-production-release
       - verify-production-release
       - verify-published-artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write
