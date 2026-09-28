@@ -9,6 +9,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.lang.ref.WeakReference
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -201,6 +202,38 @@ class NativeCoreRuntimeTest {
         assertFalse("crash must clear the running flag", NativeCoreRuntime.isAppRunning())
     }
 
+    @Test
+    fun reattach_releasesThePreviousHost_soARecreatedActivityIsCollectable() {
+        val firstHost = attachThenDetachFirstRuntime()
+        val updateLatch = CountDownLatch(1)
+        val second = createRuntime(onUpdateActivityRef = { updateLatch.countDown() })
+
+        second.attach()
+        assertTrue(updateLatch.await(2, TimeUnit.SECONDS))
+
+        // The core thread outlives every Activity. Once the successor attaches, it
+        // must hold nothing that reaches the predecessor, or each recreation leaks
+        // one Activity with its view tree for the life of the process.
+        waitUntil("the first runtime's host is collected", 5_000) {
+            System.gc()
+            firstHost.get() == null
+        }
+
+        second.dispose(stopApp = true)
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+    }
+
+    // A separate frame, so no local in the test method keeps the first host alive.
+    private fun attachThenDetachFirstRuntime(): WeakReference<Any> {
+        val host = Any()
+        val initLatch = CountDownLatch(1)
+        val runtime = createRuntime(onInit = { initLatch.countDown() }, host = host)
+        runtime.attach()
+        assertTrue(initLatch.await(2, TimeUnit.SECONDS))
+        runtime.dispose(stopApp = false)
+        return WeakReference(host)
+    }
+
     private fun createRuntime(
         onInit: () -> Unit = {},
         onUpdateActivityRef: () -> Unit = {},
@@ -208,6 +241,9 @@ class NativeCoreRuntimeTest {
         tickDelayMillis: Int = 10,
         tickOverride: (() -> Int)? = null,
         awaitCoreTask: ((Long) -> Runnable?)? = null,
+        // Stands in for the Activity whose bound member references the production
+        // runtime's lambdas capture.
+        host: Any? = null,
     ): NativeCoreRuntime {
         return NativeCoreRuntime(
             filesDirPath = "/tmp/r47-tests",
@@ -218,7 +254,9 @@ class NativeCoreRuntimeTest {
                 onInit()
             },
             updateNativeActivityRef = onUpdateActivityRef,
-            tick = tickOverride ?: { tickDelayMillis },
+            tick = tickOverride ?: host?.let { captured ->
+                { System.identityHashCode(captured); tickDelayMillis }
+            } ?: { tickDelayMillis },
             saveStateNative = onSaveState,
             forceRefreshNative = {},
             getPackedDisplayGeneration = { 0 },

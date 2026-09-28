@@ -3,6 +3,7 @@
 
 #include "saveRestoreCalcState.h"
 
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -13,6 +14,18 @@ extern void fnTimerDummy1(uint16_t timerType);
 extern void execTimerApp(uint16_t timerType);
 
 void r47_save_background_state_locked(void);
+
+// Set once, at the end of r47_init_runtime, and never cleared. The UI thread is
+// live before the core finishes init (MainActivity posts a keypad refresh and an
+// LCD theme after first layout), so every UI-thread entry point that touches
+// core state gates on r47_runtime_ready() first. The release store publishes
+// ram, the softmenu stack, lcd_buffer, and packedDisplayBuffer; the acquire load
+// in the readers is what makes those pointers safe to follow.
+static _Atomic bool g_r47_runtime_ready = false;
+
+bool r47_runtime_ready(void) {
+  return atomic_load_explicit(&g_r47_runtime_ready, memory_order_acquire);
+}
 
 void releaseNativeActivityReferences(JNIEnv *env) {
   if (g_mainActivityObj != NULL) {
@@ -105,6 +118,11 @@ void r47_native_preinit_path(const char *path) {
 }
 
 void r47_init_runtime(int slotId) {
+  // Hold screenMutex across the whole init, so a UI-thread trylock reader that
+  // passes the ready gate can never interleave with doFnReset or restoreCalc.
+  // The mutex is recursive, so the r47_force_refresh below re-enters it.
+  pthread_mutex_lock(&screenMutex);
+
   extern int current_slot_id;
   current_slot_id = slotId;
 
@@ -134,6 +152,8 @@ void r47_init_runtime(int slotId) {
   fnTimerConfig(TO_ASM_ACTIVE, refreshFn, TO_ASM_ACTIVE);
 
   r47_force_refresh();
+  atomic_store_explicit(&g_r47_runtime_ready, true, memory_order_release);
+  pthread_mutex_unlock(&screenMutex);
 }
 
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(

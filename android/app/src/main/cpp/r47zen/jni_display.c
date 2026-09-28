@@ -1580,12 +1580,31 @@ Java_com_example_r47_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
                                     memory_order_relaxed);
 }
 
+// The UI-thread keypad read: never blocks on the core thread, which can hold
+// screenMutex for a whole running program. bridge_tsan_harness.c calls this
+// same function, so the harness races the production gate, not a copy of it.
+bool r47_try_copy_app_keypad_snapshot(
+    int32_t *fill,
+    char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+               [R47_KEYPAD_LABEL_CAPACITY],
+    int32_t mainKeyDynamicMode) {
+  if (!r47_runtime_ready()) {
+    return false;
+  }
+  if (pthread_mutex_trylock(&screenMutex) != 0) {
+    return false;
+  }
+  fillAppKeypadSnapshotLocked((jint *)fill, labels, (jint)mainKeyDynamicMode);
+  pthread_mutex_unlock(&screenMutex);
+  return true;
+}
+
 JNIEXPORT jboolean JNICALL
 Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
     JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
     jobjectArray labelsBuffer) {
   (void)thiz;
-  if (!ram || metaBuffer == NULL || labelsBuffer == NULL) {
+  if (metaBuffer == NULL || labelsBuffer == NULL) {
     return JNI_FALSE;
   }
 
@@ -1595,15 +1614,13 @@ Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
     return JNI_FALSE;
   }
 
-  if (pthread_mutex_trylock(&screenMutex) != 0) {
-    return JNI_FALSE;
-  }
-
   jint fill[KEYPAD_META_LENGTH];
   char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
              [R47_KEYPAD_LABEL_CAPACITY];
-  fillAppKeypadSnapshotLocked(fill, labels, mainKeyDynamicMode);
-  pthread_mutex_unlock(&screenMutex);
+  if (!r47_try_copy_app_keypad_snapshot((int32_t *)fill, labels,
+                                        (int32_t)mainKeyDynamicMode)) {
+    return JNI_FALSE;
+  }
 
   (*env)->SetIntArrayRegion(env, metaBuffer, 0, KEYPAD_META_LENGTH, fill);
   if (jni_check_and_clear_exception(env,
@@ -1614,6 +1631,28 @@ Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
   return writeExportedKeypadLabelsToArray(env, labelsBuffer, labels)
              ? JNI_TRUE
              : JNI_FALSE;
+}
+
+// Re-transport every LCD row so Kotlin repaints in the new palette. The colors
+// themselves live in Kotlin (ReplicaOverlay), so text and bg are unused here.
+// MainActivity calls this on the core thread; it still takes screenMutex,
+// because it writes lcd_buffer's dirty bytes and runs the same row copy as the
+// core's own refresh, and an unlocked caller loses rows the core is mid-way
+// through drawing.
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_setLcdColors(JNIEnv *env, jobject thiz,
+                                               jint text, jint bg) {
+  (void)env;
+  (void)thiz;
+  (void)text;
+  (void)bg;
+  if (!r47_runtime_ready()) {
+    return;
+  }
+  pthread_mutex_lock(&screenMutex);
+  lcd_mark_all_rows_dirty();
+  lcd_refresh();
+  pthread_mutex_unlock(&screenMutex);
 }
 
 JNIEXPORT jint JNICALL
@@ -1633,7 +1672,9 @@ Java_com_example_r47_MainActivity_getPackedDisplayBuffer(
   (void)thiz;
   extern uint8_t *packedDisplayBuffer;
   extern pthread_mutex_t packedDisplayMutex;
-  if (!packedDisplayBuffer) {
+  // The ready gate's acquire load is what makes the packedDisplayBuffer pointer
+  // (written once by init_lcd_buffers on the core thread) safe to read here.
+  if (!r47_runtime_ready()) {
     return JNI_FALSE;
   }
 

@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var replicaOverlay: ReplicaOverlay
     private lateinit var coreRuntime: NativeCoreRuntime
     private lateinit var storageAccessCoordinator: StorageAccessCoordinator
+    private lateinit var nativeFileRequestGate: NativeFileRequestGate
     private lateinit var displayActionController: DisplayActionController
     private lateinit var factoryResetController: FactoryResetController
     private lateinit var physicalKeyboardInputController: PhysicalKeyboardInputController
@@ -95,7 +96,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun applyLcdTheme(theme: String, luminancePercent: Int, isNegative: Boolean) {
         val palette = LcdThemePolicy.resolve(theme, luminancePercent, isNegative)
         replicaOverlay.setLcdColors(palette.text, palette.background)
-        setLcdColors(palette.text, palette.background)
+        // Re-transport the LCD rows on the core thread, which owns lcd_buffer. A
+        // call before the runtime exists has nothing to re-transport: native init
+        // sends every row once it runs.
+        if (::coreRuntime.isInitialized) {
+            coreRuntime.offerTask(Runnable { setLcdColors(palette.text, palette.background) })
+        }
     }
 
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
@@ -242,6 +248,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         windowModeController = createWindowModeController()
         factoryResetController = createFactoryResetController()
         storageAccessCoordinator = createStorageAccessCoordinator()
+        nativeFileRequestGate = NativeFileRequestGate(
+            post = { mainHandler.post(it) },
+            launch = storageAccessCoordinator::requestNativeFile,
+            cancelNative = ::onFileCancelledNative,
+        )
         displayActionController = createDisplayActionController()
         physicalKeyboardInputController = createPhysicalKeyboardInputController()
         slotSessionController = createSlotSessionController()
@@ -270,6 +281,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             onResetRequested = ::handleFactoryResetRequested,
             onDestroyFactoryReset = ::handleFactoryResetDestroy,
             onDestroyFinish = ::handleFactoryResetFinish,
+            isCoreThreadRunning = NativeCoreRuntime::isCoreThreadRunning,
         )
     }
 
@@ -422,7 +434,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             performHapticClick = hapticFeedbackController::performClick,
             dispatchLiveKey = ::dispatchLiveKey,
             getKeypadSnapshot = keypadSnapshotStore::snapshotForMode,
-            isRuntimeReady = { ::coreRuntime.isInitialized },
+            isRuntimeReady = NativeCoreRuntime::isNativeInitialized,
         )
     }
 
@@ -507,6 +519,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         // Drop any delayed callbacks (e.g. the graph-gesture flush) so they cannot
         // fire against a destroyed activity.
         mainHandler.removeCallbacksAndMessages(null)
+        // The core thread may be parked in requestAndroidFile on a request whose
+        // posted launch was just dropped; release it with a cancel.
+        if (::nativeFileRequestGate.isInitialized) {
+            nativeFileRequestGate.cancelPending()
+        }
         // Guard the lateinit controllers: if onCreate threw before startCoreRuntime
         // assigned them, onDestroy still runs, and an unguarded access would mask
         // the original crash with an UninitializedPropertyAccessException.
@@ -570,9 +587,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     @Keep
     fun requestFile(isSave: Boolean, defaultName: String, fileType: Int) {
-        mainHandler.post {
-            storageAccessCoordinator.requestNativeFile(isSave, defaultName, fileType)
-        }
+        nativeFileRequestGate.request(isSave, defaultName, fileType)
     }
 
     @Keep

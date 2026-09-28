@@ -127,7 +127,8 @@ Changes here affect the full runtime even when the Android UI code is untouched.
   metadata and label buffers plus one cached `KeypadSnapshot` per main-key
   mode.
 - `copyKeypadSnapshotNative(...)` assembles one coherent keypad snapshot under
-  a single `pthread_mutex_trylock(&screenMutex)` window. When the lock is busy,
+  a single `pthread_mutex_trylock(&screenMutex)` window and returns `false`
+  before `r47_runtime_ready()`. When the lock is busy,
   the store returns the last accepted snapshot for that mode instead of
   blocking the UI thread or synthesizing an empty scene.
 - Only a refresh result marked `isUpToDate` advances `lastKeypadGeneration`.

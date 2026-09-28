@@ -1,18 +1,19 @@
 package io.github.ppigazzini.r47zen
 
+import android.app.Activity
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
 import java.io.File
 
 internal class FactoryResetController(
-    private val activity: AppCompatActivity,
+    private val activity: Activity,
     private val onResetRequested: () -> Unit,
     private val onDestroyFactoryReset: () -> Unit,
     private val onDestroyFinish: () -> Unit,
+    private val isCoreThreadRunning: () -> Boolean,
 ) {
     companion object {
         private const val TAG = "R47FactoryReset"
@@ -57,12 +58,24 @@ internal class FactoryResetController(
     }
 
     fun handleDestroy(shouldStopApp: Boolean) {
-        if (isResetInProgress) {
+        if (isResetInProgress && isCoreThreadRunning()) {
+            // The core thread outlived the dispose join fence: a long program, or
+            // a file request still waiting. Wiping now would race the autosave it
+            // runs on its way out, and resetting the shared runtime state would
+            // let the relaunch start a second core thread beside it. Keep the
+            // data; the relaunch shows the old state and the reset can be retried.
+            Log.e(TAG, "Factory reset skipped: the core thread is still running")
+            onDestroyFinish()
+        } else if (isResetInProgress) {
             onDestroyFactoryReset()
             clearInternalAppData()
         } else if (shouldStopApp) {
             onDestroyFinish()
         }
+    }
+
+    internal fun markResetInProgressForTest() {
+        isResetInProgress = true
     }
 
     private fun scheduleRestart(relaunchIntent: Intent) {

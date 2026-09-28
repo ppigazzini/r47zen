@@ -90,7 +90,25 @@ internal class NativeCoreRuntime(
         @Volatile
         private var isNativeInitializedShared = false
 
+        // The runtime the core thread calls into, republished by every attach().
+        // The core thread outlives each Activity, and every runtime's lambdas are
+        // bound member references to the Activity that built it, so the thread
+        // must reach its host only through this field: a recreated Activity's
+        // predecessor then becomes collectable as soon as the successor attaches.
+        @Volatile
+        private var activeRuntime: NativeCoreRuntime? = null
+
+        // Built in the companion so the thread's Runnable captures no runtime.
+        private val coreLoop = Runnable { runCoreLoop() }
+
         fun isAppRunning(): Boolean = isAppRunningShared
+
+        // True once initNative has returned on the core thread; native gates its
+        // UI-thread entry points on the same point (r47_runtime_ready).
+        fun isNativeInitialized(): Boolean = isNativeInitializedShared
+
+        // True until the core thread has left its loop and drained its queue.
+        fun isCoreThreadRunning(): Boolean = isCoreThreadStarted
 
         internal fun isCoreThreadStartedForTest(): Boolean = isCoreThreadStarted
 
@@ -101,6 +119,85 @@ internal class NativeCoreRuntime(
             isCoreThreadStarted = false
             isAppRunningShared = false
             isNativeInitializedShared = false
+            activeRuntime = null
+        }
+
+        private fun runCoreLoop() {
+            try {
+                if (!initializeOrReattach()) {
+                    return
+                }
+                var lastTickLog = 0L
+                while (isAppRunningShared) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastTickLog > 5000) {
+                        Log.i(TAG, "Core thread heartbeat")
+                        lastTickLog = now
+                    }
+                    if (!runCoreIteration()) {
+                        break
+                    }
+                }
+                Log.i(TAG, "Core thread exiting")
+                // Flush tasks queued during shutdown (e.g. a pending onPause
+                // save) so dispose() cannot drop them.
+                drainCoreTasks()
+            } catch (error: Exception) {
+                // A native-core exception means corrupted state that cannot
+                // be safely recovered in place. Stop the runtime and surface
+                // the failure loudly instead of leaving an interactive UI
+                // over a dead core.
+                Log.e(TAG, "Native core thread crashed; stopping the runtime", error)
+                isAppRunningShared = false
+                throw error
+            } finally {
+                isCoreThreadStarted = false
+            }
+        }
+
+        // Each call reads activeRuntime afresh and keeps it only for its own
+        // frame, so no long-lived local on the core thread pins an old host.
+        private fun initializeOrReattach(): Boolean {
+            val runtime = activeRuntime ?: return false
+            Log.i(TAG, "Core thread starting; nativeInitialized=$isNativeInitializedShared")
+            if (!isNativeInitializedShared) {
+                runtime.nativePreInit(runtime.filesDirPath)
+                runtime.initNative(runtime.filesDirPath, runtime.currentSlotIdProvider())
+                isNativeInitializedShared = true
+            } else {
+                runtime.updateNativeActivityRef()
+            }
+            return true
+        }
+
+        private fun runCoreIteration(): Boolean {
+            drainCoreTasks()
+            val runtime = activeRuntime ?: return false
+            val nextTickDelayMillis = runtime.tick().coerceAtLeast(0).toLong()
+            if (nextTickDelayMillis == 0L) {
+                return true
+            }
+            val queuedTask = runtime.awaitCoreTask(nextTickDelayMillis)
+            if (queuedTask != null) {
+                drainCoreTasks(queuedTask)
+            }
+            return true
+        }
+
+        private fun drainCoreTasks(initialTask: Runnable? = coreTasks.poll()) {
+            var task = initialTask
+            while (task != null) {
+                runCoreTask(task)
+                task = coreTasks.poll()
+            }
+        }
+
+        private fun runCoreTask(task: Runnable) {
+            try {
+                task.run()
+            } catch (error: Exception) {
+                Log.e(TAG, "Core task failed", error)
+            }
         }
 
         internal fun resetSharedStateForTest() {
@@ -109,6 +206,7 @@ internal class NativeCoreRuntime(
     }
 
     fun attach() {
+        activeRuntime = this
         isAppRunningShared = true
         startOrAttachCoreThread()
         displayRefreshLoop.start()
@@ -130,6 +228,9 @@ internal class NativeCoreRuntime(
             }
             if (isCoreThreadStarted) {
                 Log.w(TAG, "Core thread still running after the dispose join fence")
+            }
+            if (activeRuntime === this) {
+                activeRuntime = null
             }
         }
     }
@@ -178,76 +279,13 @@ internal class NativeCoreRuntime(
     private fun startOrAttachCoreThread() {
         if (!isCoreThreadStarted) {
             isCoreThreadStarted = true
-            startCoreThread(
-                Runnable {
-                try {
-                    Log.i(TAG, "Core thread starting; nativeInitialized=$isNativeInitializedShared")
-                    if (!isNativeInitializedShared) {
-                        nativePreInit(filesDirPath)
-                        initNative(filesDirPath, currentSlotIdProvider())
-                        isNativeInitializedShared = true
-                    } else {
-                        updateNativeActivityRef()
-                    }
-
-                    var lastTickLog = 0L
-                    while (isAppRunningShared) {
-                        val now = System.currentTimeMillis()
-                        if (now - lastTickLog > 5000) {
-                            Log.i(TAG, "Core thread heartbeat")
-                            lastTickLog = now
-                        }
-
-                        drainCoreTasks()
-                        val nextTickDelayMillis = tick().coerceAtLeast(0).toLong()
-                        if (nextTickDelayMillis == 0L) {
-                            continue
-                        }
-
-                        val queuedTask = awaitCoreTask(nextTickDelayMillis)
-                        if (queuedTask != null) {
-                            drainCoreTasks(queuedTask)
-                        }
-                    }
-                    Log.i(TAG, "Core thread exiting")
-                    // Flush tasks queued during shutdown (e.g. a pending onPause
-                    // save) so dispose() cannot drop them.
-                    drainCoreTasks()
-                } catch (error: Exception) {
-                    // A native-core exception means corrupted state that cannot
-                    // be safely recovered in place. Stop the runtime and surface
-                    // the failure loudly instead of leaving an interactive UI
-                    // over a dead core.
-                    Log.e(TAG, "Native core thread crashed; stopping the runtime", error)
-                    isAppRunningShared = false
-                    throw error
-                } finally {
-                    isCoreThreadStarted = false
-                }
-            }
-            )
+            startCoreThread(coreLoop)
         } else {
             Log.i(TAG, "Core thread already running; updating activity ref on the core thread")
             // Run the ref swap on the core thread, serialized with the native
             // readers of the activity globals, instead of mutating them from the
             // main thread while the core thread is using them.
             offerTask(Runnable { updateNativeActivityRef() })
-        }
-    }
-
-    private fun drainCoreTasks(initialTask: Runnable? = coreTasks.poll()) {
-        var task = initialTask
-        while (task != null) {
-            runCoreTask(task)
-            task = coreTasks.poll()
-        }
-    }
-
-    private fun runCoreTask(task: Runnable) {
-        try {
-            task.run()
-        } catch (error: Exception) {
-            Log.e(TAG, "Core task failed", error)
         }
     }
 }

@@ -1,6 +1,5 @@
 #include "c47.h"
 #include "lcd.h"
-#include <jni.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <string.h>
@@ -47,7 +46,7 @@ void r47_reset_host_lcd_refresh_count(void) {
   hostLcdRefreshCount = 0;
 }
 
-static void markAllRowsDirty(void) {
+void lcd_mark_all_rows_dirty(void) {
   if (!lcd_buffer) {
     return;
   }
@@ -55,19 +54,6 @@ static void markAllRowsDirty(void) {
   for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
     lcd_buffer[row * LCD_ROW_SIZE_BYTES] = 1u;
   }
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_setLcdColors(JNIEnv *env,
-                                               jobject thiz,
-                                               jint text,
-                                               jint bg) {
-  (void)env;
-  (void)thiz;
-  (void)text;
-  (void)bg;
-  markAllRowsDirty();
-  lcd_refresh();
 }
 
 void init_lcd_buffers() {

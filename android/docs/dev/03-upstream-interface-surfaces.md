@@ -17,10 +17,10 @@ verification surfaces.
 
 | Surface | Android side | Native bridge | Shared-core side | Sensitive detail |
 | --- | --- | --- | --- | --- |
-| runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and `updateNativeActivityRef()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach stays display-passive |
+| runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and `updateNativeActivityRef()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `r47_init_runtime()` holds `screenMutex` throughout and publishes `r47_runtime_ready()` last, and the UI-thread entry points return early until it is true; `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach stays display-passive |
 | lifecycle save, load, and explicit refresh | `saveStateNative()`, `loadStateNative()`, `forceRefreshNative()` | `jni_lifecycle.c` | `saveCalc()`, `restoreCalc()`, `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` | `saveStateNative()` must stay display-passive for background save; redraw belongs only to real state loads or explicit refresh owners |
 | direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
-| LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `setLcdColors()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()`, `getKeypadMetaNative()`, `getKeypadLabelsNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, compatibility `screenData`, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work, `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early when the lock is busy, and the legacy split keypad getters remain compatibility surfaces rather than the hot UI path |
+| LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `setLcdColors()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy; `setLcdColors()` runs on the core thread under `screenMutex` |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned, and reattach must not redraw the LCD |
 | storage and yield boundary | `StorageAccessCoordinator` returns detached file descriptors through `onFileSelectedNative()` or `onFileCancelledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
@@ -52,10 +52,14 @@ flowchart LR
   `updateNativeActivityRef()` and keeps reattach display-passive.
 - `r47_native_preinit_path(...)` sets the Android base path used by
   `hal/io.c` and installs the GMP allocator hooks before the shared core starts.
-- `r47_init_runtime(...)` sets the current slot, calls `setupUI()`, initializes
-  LCD buffers, resets and restores calculator state, sets both
-  `nextScreenRefresh` and `nextTimerRefresh`, and registers the native timer
-  callbacks that the staged core expects.
+- `r47_init_runtime(...)` holds `screenMutex` for its whole body. It sets the
+  current slot, calls `setupUI()`, initializes LCD buffers, resets and restores
+  calculator state, sets both `nextScreenRefresh` and `nextTimerRefresh`,
+  registers the native timer callbacks that the staged core expects, and
+  publishes `r47_runtime_ready()` last. The UI thread is live before init
+  finishes, so every UI-thread entry point that touches core state gates on that
+  flag; `scripts/workload-regressions/build_bridge_tsan_harness.sh` races those
+  entry points against init.
 - `Java_com_example_r47_MainActivity_tick(...)` is the steady-state entry point
   from the Kotlin core thread. It uses `pthread_mutex_trylock(&screenMutex)`,
   advances timers every 5 ms, refreshes the LCD every 100 ms when the lock is
@@ -123,9 +127,11 @@ flowchart LR
   Android side. It reads `getPackedDisplayGeneration()` first and only attempts
   a packed-LCD copy when the generation changed; keypad metadata and labels are
   still polled while the app is active.
-- `getPackedDisplayBuffer(...)` copies the packed LCD snapshot only when
-  `lcdBufferDirty` is true and returns `true` only after a successful copy. It
-  uses `pthread_mutex_trylock`, so a busy native section simply skips one frame
+- `getPackedDisplayBuffer(...)` returns `false` until `r47_runtime_ready()`,
+  whose acquire load is what makes the `packedDisplayBuffer` pointer safe to
+  read, then copies the packed LCD snapshot only when `lcdBufferDirty` is true
+  and returns `true` only after a successful copy. It uses
+  `pthread_mutex_trylock`, so a busy native section simply skips one frame
   instead of blocking the UI thread.
 - `getKeypadSnapshotGeneration()` exposes the native keypad snapshot generation
   used by the UI-side refresh loop.
@@ -133,7 +139,9 @@ flowchart LR
   the Android hot-path keypad export. It fills one fixed `KEYPAD_META_LENGTH`
   integer array plus one label array under a single
   `pthread_mutex_trylock(&screenMutex)` critical section and returns `false`
-  when the native side is busy.
+  before `r47_runtime_ready()` or when the native side is busy. The gate and
+  the copy live in `r47_try_copy_app_keypad_snapshot(...)`, which the TSan
+  harness calls directly, so the harness races the production gate.
 - `NativeKeypadSnapshotStore` owns the reusable Kotlin-side buffers and caches
   the last accepted snapshot per main-key mode. `NativeDisplayRefreshLoop`
   checks generation first and reuses that cached snapshot when the native copy
@@ -144,16 +152,16 @@ flowchart LR
 - After a successful copy, the JNI export clears the packed-row dirty flag in
   each copied row. That flag is transport bookkeeping, not part of the visible
   LCD contract.
-- `screenData` remains allocated only as a compatibility framebuffer for
-  compiled upstream `PC_BUILD` helpers such as screenshot and menu-export
-  paths. The Android UI does not consume it.
-- `setLcdColors(...)` marks every native LCD row dirty for future exports while
-  `ReplicaOverlay` immediately recolors the cached packed snapshot on the UI
-  side.
-- the legacy `getKeypadMetaNative(mainKeyDynamicMode)` and
-  `getKeypadLabelsNative(mainKeyDynamicMode)` exports remain bridge
-  compatibility surfaces and test helpers, but the live Android frame loop no
-  longer depends on their split blocking semantics.
+- `screenData` is a NULL symbol in `hal/lcd.c`, kept only so the compiled
+  upstream `PC_BUILD` screenshot and clipboard helpers link; nothing on Android
+  allocates, writes, or reads it.
+- `setLcdColors(...)` marks every native LCD row dirty and re-transports them,
+  while `ReplicaOverlay` recolors the cached packed snapshot on the UI side at
+  once. `MainActivity.applyLcdTheme` queues the native call on the core thread,
+  and the call itself takes `screenMutex` and returns before
+  `r47_runtime_ready()`: it writes `lcd_buffer` dirty bytes and runs the same row
+  copy as the core's own refresh, so an unlocked caller would lose rows the core
+  was drawing.
 - the legacy `r47_get_keypad_meta(..., bool isDynamic)` and
   `r47_get_keypad_labels(..., bool isDynamic)` functions remain the
   bool-based fixture-export contract used by repo tooling and keep the older
@@ -189,7 +197,11 @@ flowchart LR
 - `processCoreTasksNative()` is the re-entry hook used by
   `yieldToAndroidWithMs(...)`. It calls back into `MainActivity.processCoreTasks()`
   so queued Android-side work can run while the native core is yielding.
-- `requestFile(...)` posts onto the main handler and hands control to
+- `requestFile(...)` hands the request to `NativeFileRequestGate`, which posts
+  it onto the main handler exactly once: the posted launch runs, or
+  `MainActivity.onDestroy` cancels the request whose launch it dropped, so the
+  core thread parked in `requestAndroidFile` always gets a result or a cancel
+  (`NativeFileRequestGateTest`). The launch hands control to
   `StorageAccessCoordinator`, which owns the SAF launcher registration and the
   detached file-descriptor handoff. The same coordinator also owns the
   first-run welcome-dialog handoff into the direct work-directory tree picker

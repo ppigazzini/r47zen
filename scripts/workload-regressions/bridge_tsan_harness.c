@@ -8,13 +8,19 @@
 // the core single-threaded, so that producer/consumer protocol has never run
 // under a data-race adversary.
 //
-// This harness races a producer thread (the live sendKey input path plus
-// r47_force_refresh, exactly as the core runtime drives the screen) against a
-// consumer thread that reproduces the UI read path: it samples the volatile
-// generation counters the way getKeypadSnapshotGeneration /
-// getPackedDisplayGeneration do, reads the keypad snapshot under screenMutex via
-// the real r47_get_keypad_meta entry point, and runs the packed-display
-// trylock-copy-clear sequence the way getPackedDisplayBuffer does. Built under
+// Two phases. The startup phase races the UI entry points against
+// r47_init_runtime itself: MainActivity posts a keypad refresh and an LCD theme
+// apply after first layout, while the core thread is still initializing, so
+// the UI-thread keypad copy (r47_try_copy_app_keypad_snapshot, the function
+// copyKeypadSnapshotNative calls), the packed-display copy, and the setLcdColors
+// entry point must be safe against an init in flight. The steady-state phase
+// races a producer thread (the live sendKey input path plus r47_force_refresh,
+// exactly as the core runtime drives the screen) against a consumer thread that
+// reproduces the UI read path: it samples the volatile generation counters the
+// way getKeypadSnapshotGeneration / getPackedDisplayGeneration do, reads the
+// keypad snapshot under screenMutex via the real r47_get_keypad_meta entry
+// point, runs the packed-display trylock-copy-clear sequence the way
+// getPackedDisplayBuffer does, and calls setLcdColors. Built under
 // -fsanitize=thread by build_bridge_tsan_harness.sh, a missing acquire on a
 // generation counter, a torn read across the trylock fast path, or a lock-order
 // inversion between the two display mutexes fails the harness instead of passing
@@ -45,6 +51,11 @@ extern void r47_init_runtime(int slotId);
 // fixtures in jni_program_load_test.c already do.
 extern void Java_com_example_r47_MainActivity_sendKey(void *env, void *thiz,
                                                       int32_t keyCode);
+// The LCD theme entry point. It ignores all four arguments (jni_display.c).
+extern void Java_com_example_r47_MainActivity_setLcdColors(void *env,
+                                                           void *thiz,
+                                                           int32_t text,
+                                                           int32_t bg);
 
 // The lock-free signals the UI thread samples without holding a display mutex.
 // Match hal/lcd.c's C11 atomic definitions so the consumer's relaxed loads are
@@ -57,9 +68,10 @@ extern pthread_mutex_t packedDisplayMutex;
 
 // Sink to keep the consumer reads from being optimized away.
 static volatile uint32_t g_consumer_sink = 0;
-// Harness-owned handoff flag; atomic so the harness itself is race-free and only
-// the bridge's synchronization is under test.
+// Harness-owned handoff flags; atomic so the harness itself is race-free and
+// only the bridge's synchronization is under test.
 static atomic_bool g_producer_done = false;
+static atomic_bool g_init_done = false;
 
 static long harness_iterations(void) {
   long iterations = 4000;
@@ -91,7 +103,8 @@ static void *producer_main(void *arg) {
 
 // Consumer: the UI read side. Mirrors the three production read paths exactly.
 static void consumer_read_packed_display(void) {
-  if (!packedDisplayBuffer) {
+  // The production gate: an acquire load that publishes packedDisplayBuffer.
+  if (!r47_runtime_ready()) {
     return;
   }
   // Unsynchronized fast-path dirty check (jni_display.c getPackedDisplayBuffer):
@@ -115,6 +128,28 @@ static void consumer_read_packed_display(void) {
   g_consumer_sink ^= acc;
 }
 
+// Startup phase: the UI side is live before r47_init_runtime returns.
+static void *startup_reader_main(void *arg) {
+  (void)arg;
+  static int32_t meta[R47_KEYPAD_META_LENGTH];
+  static char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+                    [R47_KEYPAD_LABEL_CAPACITY];
+  long spins = 0;
+  long copies = 0;
+  while (!atomic_load_explicit(&g_init_done, memory_order_relaxed)) {
+    if (r47_try_copy_app_keypad_snapshot(meta, labels, 0)) {
+      g_consumer_sink ^= (uint32_t)meta[R47_KEYPAD_META_CALC_MODE];
+      copies++;
+    }
+    consumer_read_packed_display();
+    Java_com_example_r47_MainActivity_setLcdColors(NULL, NULL, 0, 0);
+    spins++;
+  }
+  fprintf(stderr, "startup reader: %ld spins, %ld keypad copies during init\n",
+          spins, copies);
+  return NULL;
+}
+
 static void *consumer_main(void *arg) {
   (void)arg;
   int32_t meta[R47_KEYPAD_META_LENGTH];
@@ -133,6 +168,9 @@ static void *consumer_main(void *arg) {
     g_consumer_sink ^= (uint32_t)meta[R47_KEYPAD_META_CALC_MODE];
 
     consumer_read_packed_display();
+    if ((spins & 63) == 0) {
+      Java_com_example_r47_MainActivity_setLcdColors(NULL, NULL, 0, 0);
+    }
     spins++;
   }
   fprintf(stderr, "consumer: %ld read spins\n", spins);
@@ -145,7 +183,15 @@ int main(void) {
 
   r47_initialize_native_bridge_state();
   r47_native_preinit_path(runtime_dir);
+
+  pthread_t startup_reader;
+  if (pthread_create(&startup_reader, NULL, startup_reader_main, NULL) != 0) {
+    fprintf(stderr, "FATAL: cannot start startup reader thread\n");
+    return 1;
+  }
   r47_init_runtime(0);
+  atomic_store_explicit(&g_init_done, true, memory_order_relaxed);
+  pthread_join(startup_reader, NULL);
 
   long iterations = harness_iterations();
   fprintf(stderr, "bridge TSan harness: %ld producer iterations\n", iterations);

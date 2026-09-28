@@ -62,12 +62,18 @@ enum {
 void r47_initialize_native_bridge_state(void);
 void r47_native_preinit_path(const char *path);
 void r47_init_runtime(int slotId);
+bool r47_runtime_ready(void);
 void r47_force_refresh(void);
 void r47_send_sim_function(int funcId);
 void r47_send_sim_menu(int menuId);
 void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease);
 void r47_fill_keyboard_state(int32_t *fill);
 void r47_get_keypad_meta(int32_t *fill, bool isDynamic);
+bool r47_try_copy_app_keypad_snapshot(
+    int32_t *fill,
+    char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+               [R47_KEYPAD_LABEL_CAPACITY],
+    int32_t mainKeyDynamicMode);
 void r47_get_keypad_labels(
     char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
                [R47_KEYPAD_LABEL_CAPACITY],

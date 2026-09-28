@@ -583,7 +583,7 @@ Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
                                                            jobject thiz) {
   (void)env;
   (void)thiz;
-  if (!ram) {
+  if (!r47_runtime_ready()) {
     return JNI_FALSE;
   }
 

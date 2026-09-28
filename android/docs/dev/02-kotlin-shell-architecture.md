@@ -111,7 +111,9 @@ Main flow:
     slices the retained backlog into bounded per-apply chunks, and clamps queued
     pinch scale before JNI apply.
 3. `NativeCoreRuntime` serializes calculator execution on one shared core
-   thread.
+   thread. The thread outlives each Activity and reaches its host only through
+   the runtime the latest `attach()` published, so a recreated Activity's
+   predecessor is released once the successor attaches.
 4. `NativeDisplayRefreshLoop` is the single UI-side poller for LCD and keypad
    scene state.
 5. `NativeDisplayRefreshLoop` watches packed-display and keypad-snapshot
@@ -163,9 +165,14 @@ callbacks.
   enabled and the app is not moving into PiP or a reset-driven relaunch. That
   save is lifecycle-passive from the LCD point of view and must not rebuild the
   visible screen.
-- `onDestroy()` stops the shared runtime when the activity is actually
-  finishing, and the factory-reset path also clears internal app data after the
-  runtime has been told to stop.
+- `onDestroy()` cancels a native file request whose posted launch it just
+  dropped (`NativeFileRequestGate`), stops the shared runtime when the activity
+  is actually finishing, and on the factory-reset path clears internal app data
+  only once the core thread has stopped. When the thread outlived the dispose
+  join fence, `FactoryResetController` keeps the data and the shared runtime
+  state: a live thread would autosave into a wiped directory, and a reset
+  shared state would let the relaunch start a second core thread
+  (`FactoryResetControllerTest`).
 - `onPictureInPictureModeChanged()` routes PiP state through
   `ReplicaOverlayController`, which switches the overlay between normal shell
   mode and PiP mode and treats PiP exit as a geometry-replay boundary for the

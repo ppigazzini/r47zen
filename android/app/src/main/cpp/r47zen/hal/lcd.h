@@ -10,4 +10,9 @@
 // R47LcdContract.PACKED_ROW_SIZE_BYTES on the other side of the JNI boundary.
 #define LCD_ROW_SIZE_BYTES 52u
 
+// Set every row's dirty byte in lcd_buffer, so the next lcd_refresh copies the
+// whole screen into the packed snapshot. The caller holds screenMutex: the core
+// writes the same bytes while it draws.
+void lcd_mark_all_rows_dirty(void);
+
 #endif // R47ZEN_HAL_LCD_H
