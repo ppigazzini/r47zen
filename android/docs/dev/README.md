@@ -99,9 +99,8 @@ Use one promotion workflow when a non-trivial task changes Android behavior,
 contracts, or verification.
 
 1. Draft the task analysis, options, implementation notes, and verification
-  outside the maintained pages first. The maintainer keeps those drafts in the
-  git-ignored `__DEV/`; a fresh clone has none, so nothing a reader needs may
-  live only there.
+  outside the maintained pages first; nothing a reader needs may live only in
+  a draft.
 2. Keep exploratory notes and provisional claims in the draft while the code
   and test result are still moving.
 3. After the implementation and focused verification settle, promote the final
