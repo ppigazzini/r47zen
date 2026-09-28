@@ -367,9 +367,9 @@ It:
 - then runs `scripts/android/coverage_gate.sh`, which parses that Kover release
   report and fails the lane if overall line coverage drops below the floor
   (`R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT` in
-  `android/r47-defaults.properties`, currently 82 %, below the current
-  measurement so it ratchets against regressions) or if the live program-stop
-  routing seam loses full line coverage
+  `android/r47-defaults.properties`, set by hand just below the last
+  measurement and only ever raised) or if the live program-stop routing seam
+  loses full line coverage
 - then runs `scripts/android/mutation_spot_check.sh` on every event, which
   fails the job when a seam mutant survives (see
   [08-tests-and-contracts.md](08-tests-and-contracts.md))

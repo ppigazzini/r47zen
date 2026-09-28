@@ -2,10 +2,13 @@
 // Replicates: EQN -> exp(x) -> graph/draw -> zoom in (no curve in view) ->
 // pan the x-window left/right very fast (re-solving every batch) for a long
 // run, the way the Android gesture flush drives fnEqSolvGraph(EQ_PLOT_LU).
-// This harness confirms numberOfFreeMemoryRegions stays flat across a
-// sustained re-solve run, so a solver leak driving it toward MAX_FREE_REGIONS
-// after an upstream sync fails the run. Built with AddressSanitizer so any native fault prints a stack
-// trace. Set R47_GRAPH_HARNESS_ITERS to bound the run for a quick check.
+// It fails, exit 1, when numberOfFreeMemoryRegions rises more than
+// R47_GRAPH_HARNESS_REGION_SLACK (default 2) above its count after the first
+// re-solve, or comes within one of MAX_FREE_REGIONS: a solver that leaks one
+// region every few dozen re-solves exhausts the table on a device long before
+// AddressSanitizer sees a fault. Built with AddressSanitizer so any native
+// fault prints a stack trace. R47_GRAPH_HARNESS_ITERS bounds the run; a
+// negative slack forces the failure path, which is how to check it still fires.
 
 #include "keypad_fixture_bridge.h"
 #include "screen.h"
@@ -37,6 +40,16 @@ extern void convertDoubleToReal34Register(double value, calcRegister_t regist);
 extern void r47_graph_bound_from_float(float value, real_t *dst);
 extern int8_t PLOT_ZMY;
 extern int32_t numberOfFreeMemoryRegions;
+
+static long long_env(const char *name, long fallback) {
+  const char *text = getenv(name);
+  if (text == NULL || *text == '\0') {
+    return fallback;
+  }
+  char *end = NULL;
+  long parsed = strtol(text, &end, 10);
+  return (end != NULL && *end == '\0') ? parsed : fallback;
+}
 
 static void set_window(double lx, double ux, double ly, double uy) {
   convertDoubleToReal34Register(lx, RESERVED_VARIABLE_LX);
@@ -89,15 +102,13 @@ int main(void) {
   double center = 0.0;
   double drift = 0.0008;         // sweeps center across the run
   // Default to a long run; R47_GRAPH_HARNESS_ITERS bounds it for a fast
-  // post-sync regression check that numberOfFreeMemoryRegions stays flat.
-  long iterations = 3000000;
-  const char *iters_env = getenv("R47_GRAPH_HARNESS_ITERS");
-  if (iters_env != NULL) {
-    long parsed = strtol(iters_env, NULL, 10);
-    if (parsed > 0) {
-      iterations = parsed;
-    }
+  // post-sync check.
+  long iterations = long_env("R47_GRAPH_HARNESS_ITERS", 3000000);
+  if (iterations <= 0) {
+    iterations = 3000000;
   }
+  const long region_slack = long_env("R47_GRAPH_HARNESS_REGION_SLACK", 2);
+  int32_t baseline_regions = -1;
   for (long i = 0; i < iterations; i++) {
     double dir = (i & 1) ? -1.0 : 1.0;          // left/right/left/right
     center += dir * 0.45 * span + drift;        // oscillate + sweep right
@@ -116,12 +127,30 @@ int main(void) {
       fnEqSolvGraph(EQ_PLOT_LU);
     }
 
+    // The first re-solve settles the free-region list; every later one must
+    // leave it within the slack.
+    if (baseline_regions < 0) {
+      baseline_regions = numberOfFreeMemoryRegions;
+    }
+    if ((long)numberOfFreeMemoryRegions > (long)baseline_regions + region_slack ||
+        numberOfFreeMemoryRegions >= MAX_FREE_REGIONS - 1) {
+      fprintf(stderr,
+              "FAIL: free memory regions rose from %d to %d by re-solve %ld "
+              "(slack %ld, table size %d): the solver leaks regions\n",
+              baseline_regions, numberOfFreeMemoryRegions, i, region_slack,
+              MAX_FREE_REGIONS);
+      return 1;
+    }
+
     if ((i % 200) == 0) {
       fprintf(stderr, "REGIONS iter=%ld freeRegions=%d center=%.4f err=%u\n", i,
               numberOfFreeMemoryRegions, center, lastErrorCode);
     }
   }
 
-  fprintf(stderr, "DONE: completed %ld re-solves with no crash\n", iterations);
+  fprintf(stderr,
+          "DONE: completed %ld re-solves with no crash; free regions stayed "
+          "within %ld of %d\n",
+          iterations, region_slack, baseline_regions);
   return 0;
 }

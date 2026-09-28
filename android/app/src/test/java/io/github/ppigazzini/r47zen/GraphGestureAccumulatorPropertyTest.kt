@@ -5,7 +5,9 @@ import io.kotest.property.RandomSource
 import io.kotest.property.arbitrary.int
 import io.kotest.property.arbitrary.map
 import io.kotest.property.arbitrary.of
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -87,6 +89,37 @@ class GraphGestureAccumulatorPropertyTest {
     }
 
     @Test
+    fun scale_inRangeFactorsDrainAsTheirProduct() {
+        val rs = RandomSource.seeded(SEED)
+        // [0.8, 1.25]: up to three of them multiply to [0.512, 1.953], inside
+        // the clamp, so the drained factor must be the plain product. The clamp
+        // test above accepts any in-range value, including a pinch that was
+        // pinned or dropped; this is the oracle for the value itself.
+        val factor = Arb.int(800..1250).map { it / 1000f }
+
+        repeat(ITERATIONS) {
+            val accumulator = createAccumulator()
+            val factors = (0 until rs.random.nextInt(1, 4)).map { factor.sample(rs).value }
+            factors.forEach { accumulator.addScale(it) }
+            val product = factors.fold(1f) { total, next -> total * next }
+
+            val batch = accumulator.drainBatch()
+            if (abs(product - 1f) <= SCALE_FLUSH_EPSILON) {
+                assertNull("a neutral pinch produced a batch (seed=$SEED, input=$factors)", batch)
+            } else {
+                assertNotNull("an in-range pinch was dropped (seed=$SEED, input=$factors)", batch)
+                assertEquals(
+                    "drained pinch is not the product of its factors (seed=$SEED, input=$factors)",
+                    product,
+                    batch!!.scaleFactor,
+                    PRODUCT_TOLERANCE,
+                )
+            }
+            assertFalse("a drained pinch left pending state (seed=$SEED)", accumulator.hasPending())
+        }
+    }
+
+    @Test
     fun nonFiniteInputIsAlwaysDroppedAndNeverThrows() {
         val rs = RandomSource.seeded(SEED)
         val nonFinite = Arb.of(
@@ -128,6 +161,7 @@ class GraphGestureAccumulatorPropertyTest {
         const val SCALE_FLUSH_EPSILON = 0.0001f
         const val SCALE_FACTOR_MIN = 0.4f
         const val SCALE_FACTOR_MAX = 2.5f
+        const val PRODUCT_TOLERANCE = 1e-5f
 
         // Pending is capped at panPendingLimit and each batch removes at least
         // panApplyLimit until the remainder falls below the flush epsilon, so a

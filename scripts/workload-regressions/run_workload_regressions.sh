@@ -204,124 +204,133 @@ resolve_program_root() {
     printf '%s\n' "$DEFAULT_UPSTREAM_PROGRAM_ROOT"
 }
 
-PROGRAM_ROOT="$(resolve_program_root)"
+main() {
+    PROGRAM_ROOT="$(resolve_program_root)"
 
-if [[ ! -d "$PROGRAM_ROOT" ]]; then
-    fail "Program root $PROGRAM_ROOT does not exist. Run the Android build path that stages program fixtures, run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock, or set PROGRAM_ROOT explicitly."
-fi
-
-if ! command -v "$CC_BIN" >/dev/null 2>&1; then
-    fail "Compiler $CC_BIN is not available on PATH."
-fi
-
-TIMEOUT_BIN="$(resolve_timeout_bin)" || fail "Neither timeout nor gtimeout is available on PATH. Install GNU coreutils timeout or set HOST_WORKLOAD_TIMEOUT_BIN explicitly."
-
-if ! command -v "$TIMEOUT_BIN" >/dev/null 2>&1; then
-    fail "Timeout helper $TIMEOUT_BIN is not available on PATH."
-fi
-
-for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
-    IFS='|' read -r fixture _ _ <<<"$fixture_spec"
-    if [[ ! -f "$PROGRAM_ROOT/$fixture" ]]; then
-        fail "Program root $PROGRAM_ROOT is missing $fixture."
+    if [[ ! -d "$PROGRAM_ROOT" ]]; then
+        fail "Program root $PROGRAM_ROOT does not exist. Run the Android build path that stages program fixtures, run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock, or set PROGRAM_ROOT explicitly."
     fi
-done
 
-env \
-    -u CC \
-    -u CPPFLAGS \
-    -u CFLAGS \
-    -u LDFLAGS \
-    R47_ANDROID_STAGED_CPP_DIR="$STAGED_CPP_DIR" \
-    bash "$PREPARE_NATIVE_INPUTS_SCRIPT"
+    if ! command -v "$CC_BIN" >/dev/null 2>&1; then
+        fail "Compiler $CC_BIN is not available on PATH."
+    fi
 
-mkdir -p "$BUILD_DIR"
+    TIMEOUT_BIN="$(resolve_timeout_bin)" || fail "Neither timeout nor gtimeout is available on PATH. Install GNU coreutils timeout or set HOST_WORKLOAD_TIMEOUT_BIN explicitly."
 
-JDK_HOME="$(resolve_jdk_home)"
+    if ! command -v "$TIMEOUT_BIN" >/dev/null 2>&1; then
+        fail "Timeout helper $TIMEOUT_BIN is not available on PATH."
+    fi
 
-mapfile -t STAGED_C47_SOURCES < <(find "$STAGED_CPP_DIR/c47" -type f -name '*.c' ! -name 'reservedRegisterLookupGenerator.c' | LC_ALL=C sort)
-mapfile -t STAGED_GENERATED_SOURCES < <(find "$STAGED_CPP_DIR/generated" -type f -name '*.c' | LC_ALL=C sort)
-mapfile -t STAGED_GMP_SOURCES < <(find "$STAGED_CPP_DIR/gmp" -type f -name '*.c' | LC_ALL=C sort)
+    for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
+        IFS='|' read -r fixture _ _ <<<"$fixture_spec"
+        if [[ ! -f "$PROGRAM_ROOT/$fixture" ]]; then
+            fail "Program root $PROGRAM_ROOT is missing $fixture."
+        fi
+    done
 
-STAGED_DEC_SOURCES=(
-    "$STAGED_CPP_DIR/decNumberICU/decContext.c"
-    "$STAGED_CPP_DIR/decNumberICU/decDouble.c"
-    "$STAGED_CPP_DIR/decNumberICU/decNumber.c"
-    "$STAGED_CPP_DIR/decNumberICU/decPacked.c"
-    "$STAGED_CPP_DIR/decNumberICU/decQuad.c"
-    "$STAGED_CPP_DIR/decNumberICU/decimal128.c"
-    "$STAGED_CPP_DIR/decNumberICU/decimal32.c"
-    "$STAGED_CPP_DIR/decNumberICU/decimal64.c"
-)
+    env \
+        -u CC \
+        -u CPPFLAGS \
+        -u CFLAGS \
+        -u LDFLAGS \
+        R47_ANDROID_STAGED_CPP_DIR="$STAGED_CPP_DIR" \
+        bash "$PREPARE_NATIVE_INPUTS_SCRIPT"
 
-ANDROID_BRIDGE_SOURCES=(
-    "$TRACKED_CPP_DIR/r47zen/android_runtime.c"
-    "$TRACKED_CPP_DIR/r47zen/android_helpers.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/audio.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/gui.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/io.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/lcd.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/print_ir.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_activity_bridge.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_display.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_input.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_lifecycle.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_registration.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_storage.c"
-)
+    mkdir -p "$BUILD_DIR"
 
-EXTRA_CPPFLAGS=()
-EXTRA_CFLAGS=()
-EXTRA_LDFLAGS=()
+    JDK_HOME="$(resolve_jdk_home)"
 
-if [[ -n "${CPPFLAGS:-}" ]]; then
-    read -r -a EXTRA_CPPFLAGS <<<"${CPPFLAGS}"
+    mapfile -t STAGED_C47_SOURCES < <(find "$STAGED_CPP_DIR/c47" -type f -name '*.c' ! -name 'reservedRegisterLookupGenerator.c' | LC_ALL=C sort)
+    mapfile -t STAGED_GENERATED_SOURCES < <(find "$STAGED_CPP_DIR/generated" -type f -name '*.c' | LC_ALL=C sort)
+    mapfile -t STAGED_GMP_SOURCES < <(find "$STAGED_CPP_DIR/gmp" -type f -name '*.c' | LC_ALL=C sort)
+
+    STAGED_DEC_SOURCES=(
+        "$STAGED_CPP_DIR/decNumberICU/decContext.c"
+        "$STAGED_CPP_DIR/decNumberICU/decDouble.c"
+        "$STAGED_CPP_DIR/decNumberICU/decNumber.c"
+        "$STAGED_CPP_DIR/decNumberICU/decPacked.c"
+        "$STAGED_CPP_DIR/decNumberICU/decQuad.c"
+        "$STAGED_CPP_DIR/decNumberICU/decimal128.c"
+        "$STAGED_CPP_DIR/decNumberICU/decimal32.c"
+        "$STAGED_CPP_DIR/decNumberICU/decimal64.c"
+    )
+
+    ANDROID_BRIDGE_SOURCES=(
+        "$TRACKED_CPP_DIR/r47zen/android_runtime.c"
+        "$TRACKED_CPP_DIR/r47zen/android_helpers.c"
+        "$TRACKED_CPP_DIR/r47zen/hal/audio.c"
+        "$TRACKED_CPP_DIR/r47zen/hal/gui.c"
+        "$TRACKED_CPP_DIR/r47zen/hal/io.c"
+        "$TRACKED_CPP_DIR/r47zen/hal/lcd.c"
+        "$TRACKED_CPP_DIR/r47zen/hal/print_ir.c"
+        "$TRACKED_CPP_DIR/r47zen/jni_activity_bridge.c"
+        "$TRACKED_CPP_DIR/r47zen/jni_display.c"
+        "$TRACKED_CPP_DIR/r47zen/jni_input.c"
+        "$TRACKED_CPP_DIR/r47zen/jni_lifecycle.c"
+        "$TRACKED_CPP_DIR/r47zen/jni_registration.c"
+        "$TRACKED_CPP_DIR/r47zen/jni_storage.c"
+    )
+
+    EXTRA_CPPFLAGS=()
+    EXTRA_CFLAGS=()
+    EXTRA_LDFLAGS=()
+
+    if [[ -n "${CPPFLAGS:-}" ]]; then
+        read -r -a EXTRA_CPPFLAGS <<<"${CPPFLAGS}"
+    fi
+
+    if [[ -n "${CFLAGS:-}" ]]; then
+        read -r -a EXTRA_CFLAGS <<<"${CFLAGS}"
+    fi
+
+    if [[ -n "${LDFLAGS:-}" ]]; then
+        read -r -a EXTRA_LDFLAGS <<<"${LDFLAGS}"
+    fi
+
+    "$CC_BIN" -std=c99 -O0 -g -pthread \
+        -D_GNU_SOURCE -D_DEFAULT_SOURCE \
+        -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47 \
+        -Dmpz_div_2exp=mpz_tdiv_q_2exp -Dmpz_fits_uint_p=mpz_fits_ulong_p \
+        "${EXTRA_CPPFLAGS[@]}" \
+        "${EXTRA_CFLAGS[@]}" \
+        -I"$JDK_HOME/include" \
+        -I"$JDK_HOME/include/linux" \
+        -I"$TRACKED_CPP_DIR/r47zen/stubs" \
+        -I"$STAGED_CPP_DIR/c47" \
+        -I"$STAGED_CPP_DIR/c47/core" \
+        -I"$STAGED_CPP_DIR/c47/hal" \
+        -I"$STAGED_CPP_DIR/c47/ui" \
+        -I"$STAGED_CPP_DIR/c47/logicalOps" \
+        -I"$STAGED_CPP_DIR/c47/mathematics" \
+        -I"$STAGED_CPP_DIR/c47/programming" \
+        -I"$STAGED_CPP_DIR/c47/solver" \
+        -I"$STAGED_CPP_DIR/c47/browsers" \
+        -I"$STAGED_CPP_DIR/c47/distributions" \
+        -I"$STAGED_CPP_DIR/c47/c47Extensions" \
+        -I"$STAGED_CPP_DIR/decNumberICU" \
+        -I"$STAGED_CPP_DIR/generated" \
+        -I"$TRACKED_CPP_DIR/r47zen" \
+        -I"$STAGED_CPP_DIR/gmp" \
+        -include "$TRACKED_CPP_DIR/r47zen/android_mocks.h" \
+        "$PROJECT_ROOT/scripts/workload-regressions/host_workload_regression.c" \
+        "${STAGED_C47_SOURCES[@]}" \
+        "${STAGED_GENERATED_SOURCES[@]}" \
+        "${STAGED_GMP_SOURCES[@]}" \
+        "${STAGED_DEC_SOURCES[@]}" \
+        "${ANDROID_BRIDGE_SOURCES[@]}" \
+        "${EXTRA_LDFLAGS[@]}" \
+        -lm \
+        -o "$BUILD_DIR/$HOST_WORKLOAD_OUTPUT_NAME"
+
+    for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
+        IFS='|' read -r fixture timeout_duration kill_after <<<"$fixture_spec"
+        run_host_workload_fixture "$fixture" "$TIMEOUT_BIN" "$timeout_duration" "$kill_after"
+    done
+}
+
+# Run only when executed. Sourcing defines the defaults and functions without
+# building anything, which is how run_test_integrity_contract.sh drives
+# run_host_workload_fixture against a stub timeout.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
 fi
-
-if [[ -n "${CFLAGS:-}" ]]; then
-    read -r -a EXTRA_CFLAGS <<<"${CFLAGS}"
-fi
-
-if [[ -n "${LDFLAGS:-}" ]]; then
-    read -r -a EXTRA_LDFLAGS <<<"${LDFLAGS}"
-fi
-
-"$CC_BIN" -std=c99 -O0 -g -pthread \
-    -D_GNU_SOURCE -D_DEFAULT_SOURCE \
-    -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47 \
-    -Dmpz_div_2exp=mpz_tdiv_q_2exp -Dmpz_fits_uint_p=mpz_fits_ulong_p \
-    "${EXTRA_CPPFLAGS[@]}" \
-    "${EXTRA_CFLAGS[@]}" \
-    -I"$JDK_HOME/include" \
-    -I"$JDK_HOME/include/linux" \
-    -I"$TRACKED_CPP_DIR/r47zen/stubs" \
-    -I"$STAGED_CPP_DIR/c47" \
-    -I"$STAGED_CPP_DIR/c47/core" \
-    -I"$STAGED_CPP_DIR/c47/hal" \
-    -I"$STAGED_CPP_DIR/c47/ui" \
-    -I"$STAGED_CPP_DIR/c47/logicalOps" \
-    -I"$STAGED_CPP_DIR/c47/mathematics" \
-    -I"$STAGED_CPP_DIR/c47/programming" \
-    -I"$STAGED_CPP_DIR/c47/solver" \
-    -I"$STAGED_CPP_DIR/c47/browsers" \
-    -I"$STAGED_CPP_DIR/c47/distributions" \
-    -I"$STAGED_CPP_DIR/c47/c47Extensions" \
-    -I"$STAGED_CPP_DIR/decNumberICU" \
-    -I"$STAGED_CPP_DIR/generated" \
-    -I"$TRACKED_CPP_DIR/r47zen" \
-    -I"$STAGED_CPP_DIR/gmp" \
-    -include "$TRACKED_CPP_DIR/r47zen/android_mocks.h" \
-    "$PROJECT_ROOT/scripts/workload-regressions/host_workload_regression.c" \
-    "${STAGED_C47_SOURCES[@]}" \
-    "${STAGED_GENERATED_SOURCES[@]}" \
-    "${STAGED_GMP_SOURCES[@]}" \
-    "${STAGED_DEC_SOURCES[@]}" \
-    "${ANDROID_BRIDGE_SOURCES[@]}" \
-    "${EXTRA_LDFLAGS[@]}" \
-    -lm \
-    -o "$BUILD_DIR/$HOST_WORKLOAD_OUTPUT_NAME"
-
-for fixture_spec in "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]}"; do
-    IFS='|' read -r fixture timeout_duration kill_after <<<"$fixture_spec"
-    run_host_workload_fixture "$fixture" "$TIMEOUT_BIN" "$timeout_duration" "$kill_after"
-done

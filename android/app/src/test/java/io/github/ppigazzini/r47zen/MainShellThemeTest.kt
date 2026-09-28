@@ -23,6 +23,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -79,19 +80,24 @@ class MainShellThemeTest {
     @Test
     fun settingsDiscoveryHint_keepsDarkCardsInLightSystemMode() {
         val activity = buildThemedActivity()
-        val overlay = ReplicaOverlay(activity).apply {
-            setShowSettingsDiscoveryHint(true)
-            measure(exactly(1080), exactly(2160))
-            layout(0, 0, 1080, 2160)
-        }
-        val bitmap = Bitmap.createBitmap(1080, 2160, Bitmap.Config.ARGB_8888)
+        val withHint = renderOverlay(activity, showHint = true)
+        val withoutHint = renderOverlay(activity, showHint = false)
+        val samplePoints = computeHintSamplePoints(activity, withHint.first)
+        val cardPixel = withHint.second.getPixel(samplePoints.infoX, samplePoints.infoY)
 
-        overlay.draw(Canvas(bitmap))
-
-        val samplePoints = computeHintSamplePoints(activity, overlay)
-        val infoCardColor = bitmap.getPixel(samplePoints.infoX, samplePoints.infoY)
-
-        assertTrue(ColorUtils.calculateLuminance(infoCardColor) < 0.15)
+        // The overlay background is black, so a dark pixel alone would pass with
+        // no card drawn at all: the card must change the pixel it covers, stay
+        // dark, and carry its message in light text.
+        assertNotEquals(
+            "no hint card at the point the card layout computes",
+            withoutHint.second.getPixel(samplePoints.infoX, samplePoints.infoY),
+            cardPixel,
+        )
+        assertTrue(ColorUtils.calculateLuminance(cardPixel) < 0.15)
+        assertTrue(
+            "the hint card carries no light text",
+            countLightPixels(withHint.second, samplePoints.cardRect) > 0,
+        )
     }
 
     @Test
@@ -158,6 +164,27 @@ class MainShellThemeTest {
         assertEquals(lcdTop, menuBottom, 0.01f)
         assertEquals(lcdRight, menuRight, 0.01f)
         assertTrue(menuLeft >= lcdLeft)
+    }
+
+    private fun renderOverlay(activity: ThemedShellActivity, showHint: Boolean): Pair<ReplicaOverlay, Bitmap> {
+        val overlay = ReplicaOverlay(activity).apply {
+            setShowSettingsDiscoveryHint(showHint)
+            measure(exactly(1080), exactly(2160))
+            layout(0, 0, 1080, 2160)
+        }
+        val bitmap = Bitmap.createBitmap(1080, 2160, Bitmap.Config.ARGB_8888)
+        overlay.draw(Canvas(bitmap))
+        return overlay to bitmap
+    }
+
+    private fun countLightPixels(bitmap: Bitmap, rect: RectF): Int {
+        val left = rect.left.roundToInt().coerceIn(0, bitmap.width - 1)
+        val top = rect.top.roundToInt().coerceIn(0, bitmap.height - 1)
+        val width = (rect.right.roundToInt() - left).coerceIn(1, bitmap.width - left)
+        val height = (rect.bottom.roundToInt() - top).coerceIn(1, bitmap.height - top)
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, left, top, width, height)
+        return pixels.count { ColorUtils.calculateLuminance(it) > 0.7 }
     }
 
     private fun buildThemedActivity(): ThemedShellActivity {
@@ -234,6 +261,7 @@ class MainShellThemeTest {
         return HintSamplePoints(
             infoX = (infoCardRect.left + dp(activity, INFO_CARD_SAMPLE_INSET_DP)).roundToInt(),
             infoY = (infoCardRect.top + dp(activity, INFO_CARD_SAMPLE_INSET_DP)).roundToInt(),
+            cardRect = infoCardRect,
         )
     }
 
@@ -252,6 +280,7 @@ class MainShellThemeTest {
     private data class HintSamplePoints(
         val infoX: Int,
         val infoY: Int,
+        val cardRect: RectF,
     )
 
     private class PiPCapturingActivity : AppCompatActivity() {

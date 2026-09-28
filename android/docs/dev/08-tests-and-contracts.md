@@ -573,11 +573,18 @@ Android compatibility layer.
   lane beside the plain run.
 - `scripts/workload-regressions/build_graph_crash_harness.sh` builds the same
   tree under AddressSanitizer and UndefinedBehaviorSanitizer and hammers the
-  graph re-solve path the way a fast pan/zoom does. It asserts the upstream
-  solver does not leak the RAM free-memory-region list
-  (`numberOfFreeMemoryRegions` stays flat), so it catches that regression
-  returning after an upstream sync; `R47_GRAPH_HARNESS_ITERS` bounds the run.
-  It is a manual maintainer tool, not a CI lane.
+  graph re-solve path the way a fast pan/zoom does. It exits 1 when the
+  upstream solver leaks the RAM free-memory-region list:
+  `numberOfFreeMemoryRegions` must stay within `R47_GRAPH_HARNESS_REGION_SLACK`
+  (default 2) of its count after the first re-solve and below
+  `MAX_FREE_REGIONS - 1`, so a slow leak fails long before it exhausts the
+  table on a device. A negative slack forces the failure path, which is how to
+  check the assertion still fires. `R47_GRAPH_HARNESS_ITERS` bounds the run;
+  the `host-workload-regressions` job of `linux-ci.yml` runs 4000 re-solves.
+- `scripts/workload-regressions/build_clipboard_overflow_harness.sh` builds the
+  same tree under AddressSanitizer and drives the clipboard register dumps past
+  their buffer caps in the same CI job. It is a memory-safety probe: AddressSanitizer
+  aborts on an overrun, and nothing checks the dumped text itself.
 - `scripts/android/run_keypad_generation_contract.sh` links `hal/lcd.c` alone on
   the host -- no emulator, no device -- and runs
   `scripts/android/keypad_generation_contract_test.c`. It asserts four
@@ -630,6 +637,14 @@ Android compatibility layer.
   flags. It runs in the `host-workload-regressions` lane beside the ASan/UBSan
   run (`setarch -R` disables ASLR so ThreadSanitizer can map its shadow);
   `R47_TSAN_HARNESS_ITERS` bounds the run.
+  `scripts/android/run_bridge_tsan_lane_contract.sh` keeps that gate from being
+  quietly disarmed: reading live lines only, it requires `halt_on_error=1` in
+  the `TSAN_OPTS` assignment and the run to use it, and admits a suppression
+  only when it names a staged upstream path
+  (`android/.staged-native/cpp/{c47,decNumberICU,gmp,generated}/`), because
+  TSan matches a pattern against function and file names alike and a
+  `race:jni_display` entry would silence the bridge. It proves both checks fail
+  on seeded fixtures first.
 - `scripts/android/mutation_spot_check.sh` measures assertion strength on the
   hardened pure seams: it applies known compile-clean semantic mutations to
   `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `KeypadSnapshot.kt`,
@@ -640,10 +655,27 @@ Android compatibility layer.
   fails the run. The `android-tests` job in `android-ci.yml` runs it on every
   event, so the push that weakens a seam test is the run that fails; run it
   locally after changing one of those seams or its tests. The mutant list is
-  `MUT_FILES` in the script. The decoder and gesture seams also carry seeded Kotest property tests
-  (`KeypadSnapshotDecoderPropertyTest`, `GraphGestureAccumulatorPropertyTest`)
-  that assert the same clamp, split, drop, and totality invariants across a
-  randomized input space.
+  `MUT_FILES` in the script. The decoder and gesture seams also carry seeded
+  Kotest property tests with independent oracles:
+  `GraphGestureAccumulatorPropertyTest` requires in-range pinch factors to
+  drain as their plain product, beside the clamp, split, and drop invariants,
+  and `KeypadSnapshotDecoderPropertyTest` requires every key and label slot to
+  decode the label at its wire position `(code - 1) * LABELS_PER_KEY + slot`.
+  Three of the mutants are scored by these property tests, because the example
+  tests let them survive.
+- `scripts/android/run_test_integrity_contract.sh` runs, rather than reads, the
+  scripts that decide whether a lane can pass having tested nothing. It
+  sources `run_workload_regressions.sh` (its `main` guard builds nothing) and
+  drives `run_host_workload_fixture` with a stub `timeout`: with every tolerate
+  variable unset, as the correctness lane runs, an outer-timeout kill, a wrong
+  result, and a bounded-stop failure must each fail, and each tolerate
+  variable must widen only what it names. It runs `mutation_spot_check.sh`
+  against a sandbox of seam copies and a fake `gradlew`
+  (`R47_MUTATION_ANDROID_DIR`): every mutant must be compiled before it is
+  scored, a surviving mutant, a zero-test class, missing results XML, and a
+  non-compiling mutant must each fail the run, and the seam sources must come
+  back unchanged. It also checks `count_androidtest_cases`, the connected
+  lane's zero-test guard, against synthetic JUnit XML.
 - The maintained PGO collector uses a separate merged profile surface: the
   `broad-ci` `testSuite` base of `programs`, `tvm`, `jacobi_audit`,
   `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the generated

@@ -16,7 +16,9 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-ANDROID_DIR="$PROJECT_ROOT/android"
+# R47_MUTATION_ANDROID_DIR points the run at another tree: the test-integrity
+# contract runs this script against a sandbox with a fake gradlew.
+ANDROID_DIR="${R47_MUTATION_ANDROID_DIR:-$PROJECT_ROOT/android}"
 KOTLIN_ROOT="$ANDROID_DIR/app/src/main/java/io/github/ppigazzini/r47zen"
 
 POLICY_FILE="$KOTLIN_ROOT/LiveProgramStopKeyPolicy.kt"
@@ -29,6 +31,8 @@ ROUTER_TEST="io.github.ppigazzini.r47zen.LiveKeyRouterTest"
 DECODER_TEST="io.github.ppigazzini.r47zen.KeypadSnapshotDecoderTest"
 THEME_TEST="io.github.ppigazzini.r47zen.LcdThemePolicyTest"
 GESTURE_TEST="io.github.ppigazzini.r47zen.GraphGestureAccumulatorTest"
+GESTURE_PROPERTY_TEST="io.github.ppigazzini.r47zen.GraphGestureAccumulatorPropertyTest"
+DECODER_PROPERTY_TEST="io.github.ppigazzini.r47zen.KeypadSnapshotDecoderPropertyTest"
 
 # Parallel mutation records: file, exact unique old text, mutated text, the test
 # class that must catch it, and a human description.
@@ -43,6 +47,9 @@ MUT_FILES=(
     "$THEME_FILE"
     "$GESTURE_FILE"
     "$GESTURE_FILE"
+    "$GESTURE_FILE"
+    "$GESTURE_FILE"
+    "$DECODER_FILE"
 )
 MUT_OLD=(
     "const val EXIT_KEY_CODE = 33"
@@ -55,6 +62,9 @@ MUT_OLD=(
     "return minimumLuminance + ((maximumLuminance - minimumLuminance) * fraction)"
     "return sign(value) * panApplyLimit"
     "return value.coerceIn(-panPendingLimit, panPendingLimit)"
+    "val updatedScale = pendingScaleFactor * scaleFactor"
+    "updatedScale.coerceIn(scaleFactorMin, scaleFactorMax)"
+    "return keyStates[code - 1]"
 )
 MUT_NEW=(
     "const val EXIT_KEY_CODE = 34"
@@ -67,6 +77,9 @@ MUT_NEW=(
     "return minimumLuminance"
     "return value"
     "return value"
+    "val updatedScale = pendingScaleFactor + scaleFactor - 1f"
+    "scaleFactorMax"
+    "return KeypadKeySnapshot.EMPTY"
 )
 MUT_TESTS=(
     "$POLICY_TEST"
@@ -79,6 +92,9 @@ MUT_TESTS=(
     "$THEME_TEST"
     "$GESTURE_TEST"
     "$GESTURE_TEST"
+    "$GESTURE_PROPERTY_TEST"
+    "$GESTURE_PROPERTY_TEST"
+    "$DECODER_PROPERTY_TEST"
 )
 MUT_DESC=(
     "LiveProgramStopKeyPolicy: EXIT key code 33 -> 34"
@@ -91,6 +107,9 @@ MUT_DESC=(
     "LcdThemePolicy: collapse the luminance interpolation to its minimum"
     "GraphGestureAccumulator: drop the per-apply pan-step clamp"
     "GraphGestureAccumulator: drop the pending-backlog cap"
+    "GraphGestureAccumulator: compose pinch factors by adding, not multiplying"
+    "GraphGestureAccumulator: drain every pinch at the maximum factor"
+    "KeypadSnapshot: decode every in-range key as the empty key"
 )
 
 fail() {
