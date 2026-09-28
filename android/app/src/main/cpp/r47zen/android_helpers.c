@@ -7,11 +7,6 @@
 #include "display.h"
 #include "fonts.h"
 
-#ifndef LOG_TAG
-#define LOG_TAG "R47Helpers"
-#endif
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-
 #define ANDROID_CLIPSTR 30000
 
 static void ascii_clean(char *str, size_t str_size) {

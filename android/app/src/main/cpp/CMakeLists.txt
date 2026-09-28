@@ -126,6 +126,10 @@ if(R47_INCLUDE_PROGRAM_LOAD_TEST_BRIDGE)
 endif()
 
 # Shared library
+# Warn on the Android-owned glue, not the staged upstream core, whose warning
+# level is upstream's to set.
+set_source_files_properties(${ANDROID_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra")
+
 add_library(r47zen SHARED
     ${R47_STAGED_C47_SOURCES}
     ${DEC_SOURCES}
@@ -134,9 +138,10 @@ add_library(r47zen SHARED
     ${R47_STAGED_GMP_SOURCES}
 )
 
-# The pinned Android NDK+CMake toolchain routes CMake IPO properties through a
-# gold-based link step that fails in this workspace. Keep ThinLTO on the real
-# shared-library target and scope it to the native shipping configs.
+# Keep ThinLTO as explicit flags on the shared-library target, scoped to the
+# native shipping configs, rather than CMake's INTERPROCEDURAL_OPTIMIZATION:
+# the flags pin the linker to lld, which the NDK ships, whatever CMake's IPO
+# module would pick.
 foreach(R47_ANDROID_LTO_CONFIG IN ITEMS Release RelWithDebInfo)
     # AGP maps app shipping builds through RelWithDebInfo, so force the same
     # high-optimization level on both shipping-native configurations.

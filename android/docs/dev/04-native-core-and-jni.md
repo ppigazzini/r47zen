@@ -35,6 +35,14 @@ and link flags to the release-native target configs, `Release` and
 shipping builds on the optimized shared-library path while debug builds stay on
 the normal non-LTO lane.
 
+The Android-owned glue (`ANDROID_SOURCES`: `r47zen/*.c` and `r47zen/hal/*.c`)
+compiles with `-Wall -Wextra`; the staged upstream sources keep upstream's
+warning level. The flags stop short of `-Werror` because the glue includes
+upstream headers, so a new warning from an upstream commit would otherwise break
+the build with no commit here. `r47zen/android_mocks.h` reaches every
+translation unit through `-include`, so its `LOG_TAG` (`R47Native`) is the one
+native log tag.
+
 When a reviewed indexed LLVM profile is available, the Android build also
 consumes it through Gradle property `r47.pgoProfilePath` or environment
 variable `R47_PGO_PROFILE_PATH`, which feed CMake cache entry

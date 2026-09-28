@@ -120,7 +120,9 @@ gint64 g_get_real_time(void) {
 uint32_t sys_current_ms(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+  // Widen before multiplying: a 32-bit time_t overflows tv_sec * 1000 after
+  // 24.8 days of uptime. The uint32_t result wraps by design (r47_time.h).
+  return (uint32_t)((uint64_t)ts.tv_sec * 1000u + (uint64_t)ts.tv_nsec / 1000000u);
 }
 
 void r47_request_stop_refresh(void) {

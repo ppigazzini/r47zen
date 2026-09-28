@@ -59,6 +59,10 @@ void lcd_mark_all_rows_dirty(void) {
 void init_lcd_buffers() {
   if (!packedDisplayBuffer) {
     packedDisplayBuffer = (uint8_t *)malloc(SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
+    if (!packedDisplayBuffer) {
+      LOGE("init_lcd_buffers: cannot allocate the packed LCD buffer");
+      abort();
+    }
     memset(packedDisplayBuffer, 0, SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
     for (int row = 0; row < SCREEN_HEIGHT; row++) {
       packedDisplayBuffer[row * LCD_ROW_SIZE_BYTES] = 1u;
@@ -69,6 +73,10 @@ void init_lcd_buffers() {
 
   if (!lcd_buffer) {
     lcd_buffer = (uint8_t *)malloc(SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
+    if (!lcd_buffer) {
+      LOGE("init_lcd_buffers: cannot allocate the LCD buffer");
+      abort();
+    }
     memset(lcd_buffer, 255, SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
     for (int row = 0; row < SCREEN_HEIGHT; row++) {
       lcd_buffer[row * LCD_ROW_SIZE_BYTES] = 1u;

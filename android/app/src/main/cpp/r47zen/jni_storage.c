@@ -67,8 +67,7 @@ static int failAndroidFileRequest(int lockCount) {
 }
 
 int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
-  LOGI("requestAndroidFile(isSave=%d, defaultName=%s, fileType=%d)", isSave,
-       defaultName, fileType);
+  LOGI("requestAndroidFile(isSave=%d, fileType=%d)", isSave, fileType);
 
   int override_fd = takeFileRequestOverride(isSave, fileType);
   if (override_fd >= 0) {

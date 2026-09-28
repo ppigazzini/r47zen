@@ -7,11 +7,6 @@
 #include <sys/stat.h>
 #include <android/log.h>
 
-#ifndef LOG_TAG
-#define LOG_TAG "R47Io"
-#endif
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-
 // Android HAL definition of the upstream PC_BUILD filename-override slot.
 // fnScreenDump (gated by PC_BUILD) checks this array first; if non-empty it
 // uses the value as the BMP output filename instead of the timestamp default.
@@ -43,8 +38,6 @@ int current_slot_id = 0; // Linked via JNI
 
 static FILE *openedFile = NULL;
 extern int requestAndroidFile(int isSave, const char* defaultName, int fileType);
-extern void onFileSelectedNative(int fd);
-extern void onFileCancelledNative();
 
 static void ensure_android_subdir(const char *subdir) {
     char buf[1024];

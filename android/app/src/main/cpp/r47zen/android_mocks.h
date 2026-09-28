@@ -8,12 +8,10 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 #include <pthread.h>
 
+// Every translation unit gets this header through -include, so this is the
+// one native log tag.
 #define LOG_TAG "R47Native"
 
 #if defined(HOST_TOOL_BUILD)
@@ -146,7 +144,6 @@ extern uint32_t sys_current_ms(void);
 extern gint64 g_get_monotonic_time(void);
 extern gint64 g_get_real_time(void);
 extern int requestAndroidFile(int isSave, const char* defaultName, int fileType);
-extern pthread_mutex_t coreMutex;
 extern pthread_mutex_t screenMutex;
 
 // Globals needed by core - MATCHING TYPES IN c47.h

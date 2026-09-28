@@ -163,7 +163,7 @@ static int16_t calculateKeyLogicalId(int16_t keyId) {
 
 static bool_t isUserKeyboardEnabled(void) {
   extern bool_t getSystemFlag(int32_t sf);
-  return getSystemFlag(0x8014);
+  return getSystemFlag(FLAG_USER);
 }
 
 static bool_t isAlphaKeyboardActive(void) {
@@ -1683,7 +1683,8 @@ Java_com_example_r47_MainActivity_getPackedDisplayBuffer(
     return JNI_FALSE;
   }
 
-  if ((*env)->GetArrayLength(env, buffer) < SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES) {
+  const jsize packedBytes = (jsize)(SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
+  if ((*env)->GetArrayLength(env, buffer) < packedBytes) {
     return JNI_FALSE;
   }
 
@@ -1692,7 +1693,7 @@ Java_com_example_r47_MainActivity_getPackedDisplayBuffer(
   }
 
   jboolean copied = JNI_FALSE;
-  (*env)->SetByteArrayRegion(env, buffer, 0, SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES,
+  (*env)->SetByteArrayRegion(env, buffer, 0, packedBytes,
                              (jbyte *)packedDisplayBuffer);
   if (!jni_check_and_clear_exception(env,
                                      "SetByteArrayRegion(getPackedDisplayBuffer)")) {
