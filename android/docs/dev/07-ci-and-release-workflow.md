@@ -518,8 +518,11 @@ This workflow:
   older revision; the resolved commit is recorded in the release tag and
   `BUILD-METADATA.txt` so the artifact stays traceable after the fact
 - accepts an optional `upstream_commit` dispatch input as a CI-reachable
-  roadblock pin: when set to a commit SHA, `resolve-upstream-core` resolves
-  `--locked --commit <sha>` and the release is built from exactly that revision.
+  roadblock pin: when set to a full 40-character commit SHA,
+  `resolve-upstream-core` resolves `--locked --commit <sha>` and the release is
+  built from exactly that revision. An abbreviated SHA is refused before any
+  fetch, since a shallow fetch accepts only a full one; `BUILD-METADATA.txt`
+  records the full SHA to paste.
   This is the supported way to reproduce or re-release a past
   `BUILD-METADATA.txt` commit. Leaving it blank ships the latest HEAD. Holding a
   revision locally instead is done through the Git-ignored `upstream.lock`, never
@@ -586,6 +589,10 @@ This workflow job:
 - repacks maintainers' packaging-evidence zips for the AAB and APK from the
   collected compliance assets, provenance, mapping, symbols, and packaging
   reports
+- attests SLSA build provenance for the APK, the AAB, and both
+  packaging-evidence zips, then verifies each attestation against this
+  workflow's identity with `gh attestation verify`, before anything is
+  published
 - creates or updates the GitHub release tag
   `r47zen-v<sanitized version_name>` titled `R47 Zen <version_name>`
 - keeps the derived tag predictable when `version_name` stays ASCII and follows
@@ -621,12 +628,6 @@ signed release without an approval. Adding one would pause every release at
 approved; self-review must stay allowed while there is one maintainer.
 `gh api repos/ppigazzini/r47zen/environments/production-release` shows the
 live configuration.
-
-Enable the repository's **Immutable Releases** setting (Settings -> General ->
-Releases). It locks a published release's tag and assets against
-post-publication rewrite, closing the tag-rewrite attack class (the 2025
-tj-actions and 2026 trivy-action incidents) against this repo's own releases.
-It is a one-time repository setting, not a workflow change.
 
 ### `verify-production-release`
 

@@ -444,6 +444,11 @@ resolve_upstream() {
             ;;
     esac
 
+    # A shallow fetch accepts only a full SHA, so an abbreviated pin would pass
+    # here and fail at the fetch, minutes later and with a less direct error.
+    [[ "$upstream_commit" =~ ^[0-9a-fA-F]{40}$ ]] ||
+        fail "upstream commit must be a full 40-character SHA; got '$upstream_commit'."
+
     RESOLVED_UPSTREAM_URL="$upstream_url"
     RESOLVED_UPSTREAM_REF="$upstream_ref"
     RESOLVED_UPSTREAM_COMMIT="$upstream_commit"

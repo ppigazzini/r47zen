@@ -550,7 +550,11 @@ shell:
    export PATH="$HOME/.cache/r47/xlsxio/$(sed -n 's/^R47_DEFAULT_XLSXIO_COMMIT=//p' android/r47-defaults.properties)/bin:$PATH"
    ```
 
-4. Run `make test` for the root simulator and native suite.
+4. Run `make test` for the root simulator and native suite. It writes its test
+   outputs into the repository root (`backupTest.cfg` and `c47*Test.*` files,
+   plus plot bitmaps and `*.REGS.TSV` tables for some suites). They are upstream's
+   test artifacts, git-ignored by the root `/*` rule, safe to delete, and
+   recreated by the next run.
 5. Run `./scripts/android/build_android.sh` for the full Android lane. That regenerates
    `build.sim`, refreshes `android/.staged-native/cpp`, writes
   `android/local.properties`, and assembles the debug APK through `./gradlew`.

@@ -72,12 +72,17 @@ jobs:
           # An explicit upstream_commit is a deliberate roadblock pin: resolve
           # locked to exactly that commit regardless of mode.
           if [[ -n "$PIN_COMMIT" ]]; then
-            if [[ ! "$PIN_COMMIT" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
-              echo "upstream_commit must be a hex commit SHA (7-40 chars). Got: $PIN_COMMIT" >&2
+            # A shallow fetch accepts only a full SHA; upstream.sh enforces the
+            # same, this just fails before any network work.
+            if [[ ! "$PIN_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "upstream_commit must be a full 40-character commit SHA. Got: $PIN_COMMIT" >&2
               exit 1
             fi
             echo "Roadblock pin: locking upstream resolution to $PIN_COMMIT" >&2
-            eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --locked --commit "$PIN_COMMIT")"
+            # Assign first, then eval: `eval "$(...)"` returns eval's status, so a
+            # failing resolver would continue with every variable unset.
+            resolved="$(bash ./scripts/upstream-sync/upstream.sh resolve --locked --commit "$PIN_COMMIT")"
+            eval "$resolved"
           else
             # No explicit pin: the build MUST follow the latest upstream HEAD.
             # Refuse any other mode so a stale or locked configuration can never
@@ -88,7 +93,8 @@ jobs:
               echo "An unpinned build must resolve the latest upstream HEAD. Set mode: latest, or pass upstream_commit to pin deliberately." >&2
               exit 1
             fi
-            eval "$(bash ./scripts/upstream-sync/upstream.sh resolve --latest)"
+            resolved="$(bash ./scripts/upstream-sync/upstream.sh resolve --latest)"
+            eval "$resolved"
           fi
 
           echo "Resolved upstream commit: $R47_RESOLVED_UPSTREAM_COMMIT (mode $R47_RESOLVED_UPSTREAM_MODE)" >&2

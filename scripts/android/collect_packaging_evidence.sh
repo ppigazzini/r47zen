@@ -404,11 +404,15 @@ if [[ "$artifact_type" == "apk" ]]; then
         diff -u "$expected_file" "$actual_file"
     fi
 
-    zipalign_bin="$(find "$android_sdk_root/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+    # The pinned build-tools, never the newest one installed, so the evidence
+    # records the zipalign and apksigner the build itself ran.
+    build_tools_version="$(sed -n 's/^R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION=//p' \
+        "$(dirname "${BASH_SOURCE[0]}")/../../android/r47-defaults.properties")"
+    zipalign_bin="$android_sdk_root/build-tools/$build_tools_version/zipalign"
     llvm_objdump="$(find "$android_sdk_root/ndk/$ndk_version/toolchains/llvm/prebuilt" -type f -name llvm-objdump | sort | head -n 1)"
 
     if [[ -z "$zipalign_bin" || ! -x "$zipalign_bin" ]]; then
-        echo "Unable to locate zipalign under $android_sdk_root/build-tools." >&2
+        echo "Unable to locate zipalign in the pinned build-tools $build_tools_version under $android_sdk_root/build-tools." >&2
         exit 1
     fi
 
@@ -417,7 +421,7 @@ if [[ "$artifact_type" == "apk" ]]; then
         exit 1
     fi
 
-    apksigner_bin="$(find "$android_sdk_root/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+    apksigner_bin="$android_sdk_root/build-tools/$build_tools_version/apksigner"
     if [[ -n "$apksigner_bin" && -x "$apksigner_bin" ]]; then
         if apksigner_certs="$("$apksigner_bin" verify --print-certs "$primary_artifact_path" 2>/dev/null)"; then
             apk_cert_digest="$(

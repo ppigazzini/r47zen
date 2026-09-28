@@ -780,6 +780,20 @@ print_doctor_report() {
 
     if [ -n "$lock_commit" ]; then
         print_doctor_line "upstream lock" "$lock_commit (${lock_url:-$source_url})"
+        # CI builds upstream HEAD, so a lock that trails it means local checks
+        # verify a different core than CI does. Pinning is allowed, so this
+        # warns rather than fails, and an offline host just says so.
+        local source_ref head_commit
+        source_ref=$(read_property_value "$PROJECT_ROOT/upstream.source" upstream_ref || true)
+        head_commit=$(timeout 20 git ls-remote "${lock_url:-$source_url}" "${source_ref:-HEAD}" 2>/dev/null |
+            awk 'NR == 1 {print $1}' || true)
+        if [ -z "$head_commit" ]; then
+            print_doctor_line "upstream head" "unreachable; cannot tell whether the lock trails it"
+        elif [ "$head_commit" = "$lock_commit" ]; then
+            print_doctor_line "upstream head" "$head_commit (the lock is current)"
+        else
+            print_doctor_line "upstream head" "$head_commit; WARNING: the lock pins another commit, so local checks verify a different core than CI"
+        fi
     elif [ -f "$PROJECT_ROOT/upstream.lock" ]; then
         print_doctor_line "upstream lock" "present without upstream_commit; will follow latest from ${source_url:-unknown}"
     else

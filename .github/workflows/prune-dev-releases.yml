@@ -58,6 +58,14 @@ jobs:
         run: |
           set -euo pipefail
 
+          # A non-integer KEEP_MIN makes the `-le` test below error on every row,
+          # which `if` reads as false, so the newest-N protection of the build
+          # gate would silently stop applying.
+          if [[ ! "$KEEP_MIN" =~ ^[1-9][0-9]*$ || ! "$KEEP_DAYS" =~ ^[0-9]+$ ]]; then
+            echo "keep_min must be a positive integer and keep_days a non-negative integer; got keep_min='$KEEP_MIN' keep_days='$KEEP_DAYS'." >&2
+            exit 1
+          fi
+
           cutoff=$(date -u -d "-${KEEP_DAYS} days" +%s)
 
           # Newest-first list of `-dev` pre-releases as "tag<TAB>createdAt".

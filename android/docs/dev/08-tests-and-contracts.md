@@ -799,7 +799,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_published_artifacts_verifier_contract.sh` | `verify_published_release_artifacts.sh` accepts a valid release and rejects tampered bytes, a wrong version, a leaked ABI, a wrong signing mode, an unsigned APK, and signer mismatches | yes, synthetic evidence |
 | `run_production_signing_scope_contract.sh` | each signing key is named only by its signing job | yes, fixtures |
 | `run_signing_isolation_contract.sh` | no job that names a signing key builds or runs upstream code | yes, fixtures |
-| `run_release_provenance_contract.sh` | `publish-production-release` attests and verifies SLSA provenance with the permissions that needs | text |
+| `run_release_provenance_contract.sh` | `publish-production-release` attests and verifies SLSA provenance for the APK, the AAB, and both packaging-evidence zips, with the permissions that needs; live lines only, so a commented-out step fails it | text |
 | `run_privileged_remote_script_contract.sh` | no workflow or script pipes a network fetch into a shell | text |
 | `run_llvm_toolchain_install_contract.sh` | every user of `llvm-config-<major>` installs `llvm-<major>`, which ships `llvm-profdata`; live lines only | text |
 | `run_build_deps_single_source_contract.sh` | Linux build dependencies come only from `install_linux_build_deps.sh`; live lines only | text |

@@ -143,6 +143,21 @@ else
     fail "locked without any pin should exit non-zero"
 fi
 
+echo "Scenario 3b: an abbreviated commit pin fails at resolve, not at fetch"
+write_source
+rm -f "$LOCK_FILE"
+if R47_UPSTREAM_SOURCE_FILE="$SRC_FILE" R47_UPSTREAM_LOCK_FILE="$LOCK_FILE" \
+    bash "$UPSTREAM_SH" resolve --locked --commit "${COMMIT_OLD:0:12}" --format none >/dev/null 2>&1; then
+    fail "an abbreviated --commit should exit non-zero"
+else
+    pass "an abbreviated --commit exits non-zero"
+fi
+assert_eq "a full --commit resolves" "$COMMIT_OLD" "$(
+    R47_UPSTREAM_SOURCE_FILE="$SRC_FILE" R47_UPSTREAM_LOCK_FILE="$LOCK_FILE" \
+        bash "$UPSTREAM_SH" resolve --locked --commit "$COMMIT_OLD" --format shell |
+        sed -n "s/^R47_RESOLVED_UPSTREAM_COMMIT=//p" | tr -d "'\""
+)"
+
 echo "Scenario 4: verify-source-policy guards the tracked source"
 write_source
 assert_eq "unpinned source passes the guard" "pass" "$(verify_source_policy_status)"

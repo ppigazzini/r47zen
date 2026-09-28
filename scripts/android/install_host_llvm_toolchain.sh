@@ -32,9 +32,19 @@ codename="$(lsb_release -cs)"
 # than dropping it in trusted.gpg.d where it would authenticate every repo on
 # the system.
 keyring="/etc/apt/keyrings/apt.llvm.org.asc"
+# The primary key apt.llvm.org signs with. A downloaded key with any other
+# fingerprint is refused before apt is told to trust it.
+llvm_apt_key_fingerprint="6084F3CF814B57C1CF12EFD515CF4D18AF4F7421"
+key_file="$(mktemp)"
+trap 'rm -f "$key_file"' EXIT
+wget -qO "$key_file" https://apt.llvm.org/llvm-snapshot.gpg.key
+fingerprint="$(gpg --show-keys --with-colons "$key_file" | awk -F: '/^fpr:/ {print $10; exit}')"
+if [ "$fingerprint" != "$llvm_apt_key_fingerprint" ]; then
+    echo "apt.llvm.org key fingerprint is '$fingerprint', expected $llvm_apt_key_fingerprint." >&2
+    exit 1
+fi
 sudo install -d -m 0755 /etc/apt/keyrings
-wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key |
-    sudo tee "$keyring" >/dev/null
+sudo install -m 0644 "$key_file" "$keyring"
 echo "deb [signed-by=${keyring}] http://apt.llvm.org/${codename}/ llvm-toolchain-${codename}-${llvm_major} main" |
     sudo tee "/etc/apt/sources.list.d/apt-llvm-org-${llvm_major}.list" >/dev/null
 sudo apt-get update

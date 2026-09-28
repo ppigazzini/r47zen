@@ -12,7 +12,7 @@ on:
         required: false
         type: string
       upstream_commit:
-        description: Optional upstream commit SHA to pin for this run (roadblock; blank = latest HEAD)
+        description: Optional full 40-character upstream commit SHA to pin for this run (roadblock; blank = latest HEAD)
         required: false
         type: string
   push:
@@ -114,8 +114,10 @@ jobs:
             dev_version_name="$(grep -E '^R47_DEFAULT_ANDROID_VERSION_NAME=' ./android/r47-defaults.properties | cut -d= -f2)"
           fi
 
-          if [[ -z "$dev_version_name" ]]; then
-            echo "Dev prerelease version name must be non-empty." >&2
+          # Gradle appends -dev.<token>, so the base must be a bare
+          # major.minor.patch; anything else reaches file and tag names unchecked.
+          if [[ ! "$dev_version_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Dev prerelease version name must be major.minor.patch (e.g. 0.1.0). Got: '$dev_version_name'" >&2
             exit 1
           fi
 
@@ -129,17 +131,22 @@ jobs:
           # new to build or test and we skip the heavy lanes. A push or a manual
           # dispatch always proceeds: a push moves ANDROID_COMMIT (new tag), and a
           # maintainer dispatch is an explicit rebuild request.
+          # A release only counts as published once it carries its APK: a
+          # publish cancelled between creating the release and uploading the
+          # asset leaves a release with no APK, which the next run must redo.
+          published_apks="$(gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '[.assets[] | select(.name | endswith(".apk"))] | length' \
+            2>/dev/null || true)"
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             echo "Manual dispatch: building regardless of existing $release_tag." >&2
             should_run=true
-          elif gh release view "$release_tag" \
-            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $release_tag already exists: no new upstream or overlay" >&2
-            echo "commit since the last publish. Skipping the build/test/publish" >&2
-            echo "lanes." >&2
+          elif [[ "${published_apks:-0}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Release $release_tag already exists with its APK: no new upstream" >&2
+            echo "or overlay commit since the last publish. Skipping the" >&2
+            echo "build/test/publish lanes." >&2
             should_run=false
           else
-            echo "No release $release_tag yet: building a new artifact." >&2
+            echo "No published APK for $release_tag yet: building a new artifact." >&2
             should_run=true
           fi
 
@@ -1168,10 +1175,11 @@ jobs:
       - android-tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # The workflow-level concurrency cancels superseded runs, but this job
-    # creates a GitHub release and tag; a mid-`gh release create` cancel could
-    # leave a half-published release. Give the publish step its own group that
-    # never cancels in progress, so a newer main push waits instead of aborting.
+    # This group only keeps two publish jobs from running at once. It does not
+    # shield this job from the workflow-level cancel-in-progress: a newer push
+    # to main cancels the whole older run, this job included, even mid-upload.
+    # A release left without its APK that way is not treated as published by
+    # upstream-release-gate, so the next run publishes it again.
     concurrency:
       group: ${{ github.workflow }}-publish-${{ github.ref }}
       cancel-in-progress: false
@@ -1262,8 +1270,9 @@ jobs:
           - The Android lane rebuilt assets, reran the simulator-native suite
             from ./scripts/android/build_android.sh --run-sim-tests, and then
             packaged the signed dev-channel APK.
-          - The workflow verified packaged ABIs and ran the Android 16 KB zip
-            alignment check described in the Android docs.
+          - The workflow verified the packaged ABIs, that the APK is zip-aligned
+            for 16 KB pages (zipalign -c -P 16), and that every native library's
+            ELF LOAD segments are 16 KB aligned.
           - ${evidence_archive_name} preserves the compliance-assets/ directory,
             BUILD-METADATA.txt, SHA256SUMS.txt, ABI/alignment reports, and the
             packaged notice inventory exactly as collected by

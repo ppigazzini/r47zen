@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       upstream_commit:
-        description: Optional upstream commit SHA to pin for a roadblock re-release (blank = latest HEAD)
+        description: Optional full 40-character upstream commit SHA to pin for a roadblock re-release (blank = latest HEAD)
         required: false
         type: string
       allow_overwrite:
@@ -1001,38 +1001,6 @@ jobs:
           name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
           path: release-apk
 
-      - name: Attest build provenance for the published artifacts
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          # Attest the exact signed bytes that ship on the GitHub release, so a
-          # consumer can verify they were produced by THIS workflow, not merely
-          # somewhere in this repo:
-          #   gh attestation verify <file> --repo ${{ github.repository }} \
-          #     --signer-workflow ${{ github.repository }}/.github/workflows/android-release.yml
-          subject-path: |
-            release-apk/*.apk
-            release-aab/*.aab
-
-      - name: Verify build provenance attestation
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/android-release.yml
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Re-verify the attestation just produced for each shipped artifact, so
-          # a broken, unsigned, or missing provenance fails the release in the
-          # same run instead of being discovered after publication. Bind to this
-          # workflow's identity so an attestation produced by any OTHER workflow
-          # in the repo cannot satisfy the check.
-          for artifact in release-apk/*.apk release-aab/*.aab; do
-            echo "Verifying build provenance for ${artifact}"
-            gh attestation verify "${artifact}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --signer-workflow "${SIGNER_WORKFLOW}"
-          done
-
       - name: Pack release evidence archives
         id: evidence
         shell: bash
@@ -1082,6 +1050,42 @@ jobs:
 
           echo "aab_evidence_archive_name=${aab_evidence_archive_name}" >> "$GITHUB_OUTPUT"
           echo "apk_evidence_archive_name=${apk_evidence_archive_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Attest build provenance for the published artifacts
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          # Attest the exact signed bytes that ship on the GitHub release, and
+          # the two packaging-evidence archives that document them, so a
+          # consumer can verify they were produced by THIS workflow, not merely
+          # somewhere in this repo:
+          #   gh attestation verify <file> --repo ${{ github.repository }} \
+          #     --signer-workflow ${{ github.repository }}/.github/workflows/android-release.yml
+          subject-path: |
+            release-apk/*.apk
+            release-aab/*.aab
+            release-apk/*-packaging-evidence.zip
+            release-aab/*-packaging-evidence.zip
+
+      - name: Verify build provenance attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/android-release.yml
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Re-verify the attestation just produced for each shipped artifact, so
+          # a broken, unsigned, or missing provenance fails the release in the
+          # same run instead of being discovered after publication. Bind to this
+          # workflow's identity so an attestation produced by any OTHER workflow
+          # in the repo cannot satisfy the check.
+          for artifact in release-apk/*.apk release-aab/*.aab \
+            release-apk/*-packaging-evidence.zip release-aab/*-packaging-evidence.zip; do
+            echo "Verifying build provenance for ${artifact}"
+            gh attestation verify "${artifact}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --signer-workflow "${SIGNER_WORKFLOW}"
+          done
 
       - name: Write release notes
         shell: bash
