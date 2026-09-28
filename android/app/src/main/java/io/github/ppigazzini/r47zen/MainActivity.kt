@@ -246,6 +246,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun initializeStartupControllers() {
         windowModeController = createWindowModeController()
+        windowModeController.fitContentToSafeArea(binding.root)
         factoryResetController = createFactoryResetController()
         storageAccessCoordinator = createStorageAccessCoordinator()
         nativeFileRequestGate = NativeFileRequestGate(

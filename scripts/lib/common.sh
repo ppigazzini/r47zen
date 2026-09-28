@@ -44,6 +44,9 @@ detect_job_count() {
 # to guard an instrumentation selection against silently executing nothing --
 # e.g. a hardcoded -e class filter whose class was renamed or removed, which
 # some AndroidJUnitRunner versions report as zero tests with a success exit.
+# Reads the tests attribute of each <testsuite> element alone: the enclosing
+# <testsuites> repeats the total, and a suite name such as
+# io.github.ppigazzini.r47zen.X carries digits of its own.
 count_androidtest_cases() {
     local results_dir="$1"
     local total=0 n
@@ -55,10 +58,21 @@ count_androidtest_cases() {
         [ -n "$n" ] && total=$((total + n))
     done < <(
         find "$results_dir" -type f -name '*.xml' -print0 2>/dev/null |
-            xargs -0 -r grep -hoE '<testsuite[^>]* tests="[0-9]+"' 2>/dev/null |
-            grep -oE '[0-9]+'
+            xargs -0 -r grep -hoE '<testsuite[[:space:]][^>]*[[:space:]]tests="[0-9]+"' 2>/dev/null |
+            sed -E 's/.*[[:space:]]tests="([0-9]+)"$/\1/'
     )
     printf '%s\n' "$total"
+}
+
+# Print the distinct test classes that JUnit result XML under a directory tree
+# reports, one per line, sorted. Prints nothing when the directory is missing.
+androidtest_classes_run() {
+    local results_dir="$1"
+    [ -d "$results_dir" ] || return 0
+    find "$results_dir" -type f -name '*.xml' -print0 2>/dev/null |
+        xargs -0 -r grep -hoE '<testcase[[:space:]][^>]*classname="[^"]+"' 2>/dev/null |
+        sed -E 's/.*classname="([^"]+)"$/\1/' |
+        LC_ALL=C sort -u
 }
 
 # Run a command, retrying with backoff when it exits non-zero. Intended for

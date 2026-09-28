@@ -389,10 +389,10 @@ It:
   so it never receives the prerelease key
 - creates or restores an `x86_64` emulator snapshot
 - runs `scripts/android/run_connected_android_tests.sh`, which invokes
-  `connectedReleaseAndroidTest` once for the grouped non-fixture Android
-  instrumentation class filter and once for the full
-  `ProgramFixtureInstrumentedTest` class with the temporary ABI override from
-  `r47.abiFilters`, that throwaway key, and configuration cache enabled
+  `connectedReleaseAndroidTest` once per non-fixture Android instrumentation
+  class and once for the full `ProgramFixtureInstrumentedTest` class with the
+  temporary ABI override from `r47.abiFilters`, that throwaway key, and
+  configuration cache enabled
 - uploads logs plus JVM, instrumentation, and Kover coverage
   (`android/app/build/reports/kover`) reports in the Android test artifact
   bundle `r47zen-tests-<upstream short>-<android short>`
@@ -402,11 +402,11 @@ The hosted instrumentation lane currently relies on:
 - `ProgramFixtureInstrumentedTest` plus
   `scripts/android/run_connected_android_tests.sh` for the READP load-and-run
   matrix over `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47`. The wrapper keeps full fixture coverage but reduces Gradle
-  startup cost by batching the five non-fixture Android instrumentation
-  classes into one filtered selection and the complete
-  `ProgramFixtureInstrumentedTest` class into one second bounded
-  `connectedReleaseAndroidTest` selection. That grouped PROGRAMS selection
+  `SPIRALk.p47`. The wrapper runs each non-fixture Android instrumentation
+  class in a `connectedReleaseAndroidTest` selection of its own, because a
+  comma-joined class filter runs only its first class, and the complete
+  `ProgramFixtureInstrumentedTest` class in one last bounded selection. That
+  grouped PROGRAMS selection
   still includes the `MANSLV2` bounded-stop regression: it resets to the
   upstream `doFnReset(CONFIRMED, false)` baseline before load, reuses the same
   native `fnStopProgram(0)` publisher as live `R/S` and `EXIT`, and fails the
@@ -417,12 +417,13 @@ The hosted instrumentation lane currently relies on:
   quiesces and performs bounded stop-and-reset cleanup before the
   activity closes so one long-running fixture cannot strand the next grouped
   case on CI
-- the grouped non-fixture release-path selection containing
-  `FactorsInstrumentedTest`, `DisplayLifecycleInstrumentedTest`,
-  `GraphRedrawInstrumentedTest`, `GraphTouchStressInstrumentedTest`, and
-  `StorageAccessCoordinatorInstrumentedTest` for Android math, passive
-  lifecycle LCD preservation, redraw-path sanity, extreme graph-touch
-  restore-bounds stress, and SAF coordination on the same signed release test
+- the one-class release-path selections of `FactorsInstrumentedTest`,
+  `DisplayLifecycleInstrumentedTest`,
+  `GraphRedrawInstrumentedTest`, `GraphTouchStressInstrumentedTest`,
+  `StorageAccessCoordinatorInstrumentedTest`, and
+  `SystemBarInsetsInstrumentedTest` for Android math, passive lifecycle LCD
+  preservation, redraw-path sanity, extreme graph-touch restore-bounds stress,
+  SAF coordination, and system-bar insets on the same signed release test
   install path
 
 The JVM segment of this lane also keeps graph-touch gating regression coverage
@@ -593,8 +594,11 @@ This workflow job:
   packaging-evidence archives to that GitHub release
 - keeps Play Console upload manual after review; this workflow does not push to
   Google Play
-- writes release notes that state the GitHub release came from the manual
-  protected production lane
+- writes release notes that state what was checked against which bytes: the
+  published APK and AAB for signer, version, ABIs, and checksums; lint, the
+  JVM tests, and the instrumentation tests against the non-minified,
+  throwaway-signed rebuild that `verify-production-release` makes of the same
+  commit
 
 The manual Play handoff still requires the maintainer-owned publication inputs
 that do not live in the Gradle workflow itself:

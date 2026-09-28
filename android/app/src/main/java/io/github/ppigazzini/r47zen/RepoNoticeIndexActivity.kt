@@ -21,7 +21,9 @@ class RepoNoticeIndexActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SystemBarInsets.drawEdgeToEdge(this)
         setContentView(R.layout.activity_repo_notice_index)
+        SystemBarInsets.padContentToSafeArea(this)
 
         findViewById<MaterialToolbar>(R.id.top_app_bar)
             .configureScreenToolbar(

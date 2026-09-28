@@ -26,8 +26,6 @@
         <!-- Customize your theme here. -->
         <!-- Legacy/Fallback compatibility -->
         <item name="colorControlActivated">#8EDAFE</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
 
     <style name="Theme.R47.Settings" parent="Theme.Material3.Dark.NoActionBar">
@@ -47,8 +45,6 @@
         <item name="colorOnSurface">#F7F3EA</item>
         <item name="android:colorBackground">#12151A</item>
         <item name="colorControlActivated">#8EDAFE</item>
-        <item name="android:navigationBarColor">?attr/colorSurface</item>
-        <item name="android:statusBarColor">?attr/colorSurfaceContainer</item>
     </style>
 
     <style name="Theme.R47.PopupMenu" parent="Theme.Material3.Dark.NoActionBar">

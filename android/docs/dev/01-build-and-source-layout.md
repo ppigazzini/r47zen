@@ -347,12 +347,18 @@ Public maintainer entrypoints:
   `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
   emulator is `x86_64`. The current required emulator-backed coverage includes
   the repo-owned `scripts/android/run_connected_android_tests.sh` wrapper,
-  which runs two selections: the non-fixture instrumentation classes, then the
-  whole `ProgramFixtureInstrumentedTest` class, which covers `BinetV4.p47`,
-  `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`, under GNU
-  `timeout --kill-after`. Both selections are required: a timeout fails the
-  lane rather than degrading coverage, and so does a selection that reports
-  success having executed no test. The wrapper runs `connectedReleaseAndroidTest`
+  which runs one selection per class: each non-fixture instrumentation class on
+  its own, then the whole `ProgramFixtureInstrumentedTest` class, which covers
+  `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`,
+  under GNU `timeout --kill-after`. A comma-joined class filter runs only its
+  first class under `connectedReleaseAndroidTest`, so no filter names two.
+  Every selection is required: a timeout fails the lane rather than degrading
+  coverage, and so does a selection that reports success having executed no
+  test or reports a class other than the one it asked for. Each selection
+  starts from an empty results directory and is counted on its own results,
+  which the wrapper then keeps under
+  `androidTest-results/selections/<selection>`. The wrapper runs
+  `connectedReleaseAndroidTest`
   when the build type is `release` (the default on the `dev` channel, which is
   how CI runs it) and `connectedDebugAndroidTest` otherwise.
   `ProgramFixtureInstrumentedTest` loads each program through the Android
@@ -361,7 +367,9 @@ Public maintainer entrypoints:
   native stop seam that backs live `R/S` and `EXIT`. The required emulator
   coverage also includes `DisplayLifecycleInstrumentedTest`, which proves that
   background save and a Settings-style pause or resume preserve the visible
-  packed LCD snapshot on a staged `SPIRALk` graph.
+  packed LCD snapshot on a staged `SPIRALk` graph, and
+  `SystemBarInsetsInstrumentedTest`, which proves with fullscreen off that the
+  calculator and the Settings screen stay out of the system bars.
 - `ProgramFixtureInstrumentedTest` also treats LCD redraw activity from the JNI
   snapshot as valid run evidence for fast-returning fixtures such as
   `GudrmPL.p47`, matching the host workload harness instead of requiring only
@@ -410,10 +418,10 @@ Internal helpers:
 - `scripts/keypad-fixtures/export_upstream_keypad_fixtures.sh` owns the grouped
   keypad-fixture exporter implementation.
 - `scripts/android/run_connected_android_tests.sh` owns the grouped hosted
-  emulator instrumentation wrapper. It runs the non-fixture Android test
-  classes as one selection and the whole `ProgramFixtureInstrumentedTest` class,
-  which covers every canonical `PROGRAMS` fixture, as a second one under GNU
-  `timeout`; both are required.
+  emulator instrumentation wrapper. It runs each non-fixture Android test class
+  as a selection of its own and the whole `ProgramFixtureInstrumentedTest`
+  class, which covers every canonical `PROGRAMS` fixture, as a last one under
+  GNU `timeout`; all are required.
 - `scripts/workload-regressions/run_workload_regressions.sh` owns the grouped
   workload-regression implementation: it compiles the host harness once, runs
   each required fixture in its own host process, and applies the same outer
@@ -640,7 +648,7 @@ names, and release gating.
   emulator with a complete `R47_PRERELEASE_*` set for any key; CI generates a
   throwaway keystore in-job for these installs. Add
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
-  hosted gate runs one grouped non-fixture selection plus one bounded
+  hosted gate runs one selection per non-fixture class plus one bounded
   `ProgramFixtureInstrumentedTest` selection that covers
   `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
   `SPIRALk.p47`. That grouped PROGRAMS selection must still observe run

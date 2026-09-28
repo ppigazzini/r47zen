@@ -6,32 +6,33 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/lib/common.sh
 source "$SCRIPT_DIR/../lib/common.sh"
-ANDROID_DIR="$PROJECT_ROOT/android"
+# Both directories are overridable so run_test_integrity_contract.sh can run
+# this script against a sandbox with a fake gradlew.
+ANDROID_DIR="${R47_CONNECTED_ANDROID_DIR:-$PROJECT_ROOT/android}"
 DEFAULTS_PATH="$ANDROID_DIR/r47-defaults.properties"
-LOG_DIR="$PROJECT_ROOT/ci-artifacts/logs"
+LOG_DIR="${R47_CONNECTED_ANDROID_LOG_DIR:-$PROJECT_ROOT/ci-artifacts/logs}"
 CONNECTED_RESULTS_DIR="$ANDROID_DIR/app/build/outputs/androidTest-results/connected"
+SELECTION_RESULTS_ROOT="$ANDROID_DIR/app/build/outputs/androidTest-results/selections"
 PROGRAM_FIXTURE_TEST_CLASS="io.github.ppigazzini.r47zen.ProgramFixtureInstrumentedTest"
 R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT="${R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT:-6m}"
 R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER="${R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER:-30s}"
 R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT_SIGNAL="${R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT_SIGNAL:-TERM}"
+# Each class runs as a selection of its own. A comma-joined -e class list ran
+# only its first class under connectedReleaseAndroidTest, so one filter names
+# one class, and each selection must report results for exactly that class.
 NON_FIXTURE_TEST_CLASSES=(
     "io.github.ppigazzini.r47zen.FactorsInstrumentedTest"
     "io.github.ppigazzini.r47zen.DisplayLifecycleInstrumentedTest"
     "io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest"
     "io.github.ppigazzini.r47zen.GraphTouchStressInstrumentedTest"
     "io.github.ppigazzini.r47zen.StorageAccessCoordinatorInstrumentedTest"
+    "io.github.ppigazzini.r47zen.SystemBarInsetsInstrumentedTest"
 )
-# Both connected selections are required: a timeout in either one must fail the
-# Android lane, never downgrade to a warning. The NonFixture selection runs with
-# no per-selection timeout today, so the soft-warning path is unreachable for it;
-# marking it required keeps the regression guard in DisplayLifecycleInstrumentedTest
-# from silently fail-soft if a future timeout is ever added to this selection.
-# emit_fixture_timeout_warning is intentionally retained for any
+# Every connected selection is required: a timeout in any one fails the Android
+# lane, never downgrades to a warning. The list is filled from the selection
+# specs below. emit_fixture_timeout_warning is intentionally retained for any
 # future non-required, timed selection.
-REQUIRED_CONNECTED_ANDROID_SELECTIONS=(
-    "NonFixtureInstrumentation"
-    "ProgramFixtureInstrumentation"
-)
+REQUIRED_CONNECTED_ANDROID_SELECTIONS=()
 
 fail() {
     echo "ERROR: $*" >&2
@@ -267,34 +268,51 @@ esac
 
 R47_CONNECTED_ANDROID_TEST_APPLICATION_ID="${R47_CONNECTED_ANDROID_APPLICATION_ID}.test"
 
-NON_FIXTURE_TEST_FILTER="$(
-    IFS=,
-    printf '%s' "${NON_FIXTURE_TEST_CLASSES[*]}"
-)"
-
-TEST_SELECTION_SPECS=(
-    "NonFixtureInstrumentation|$NON_FIXTURE_TEST_FILTER||"
+TEST_SELECTION_SPECS=()
+for test_class in "${NON_FIXTURE_TEST_CLASSES[@]}"; do
+    TEST_SELECTION_SPECS+=("${test_class##*.}|$test_class||")
+done
+TEST_SELECTION_SPECS+=(
     "ProgramFixtureInstrumentation|${PROGRAM_FIXTURE_TEST_CLASS}|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
 )
+for selection_spec in "${TEST_SELECTION_SPECS[@]}"; do
+    REQUIRED_CONNECTED_ANDROID_SELECTIONS+=("${selection_spec%%|*}")
+done
 
 cd "$ANDROID_DIR"
+rm -rf "$SELECTION_RESULTS_ROOT"
 
 for selection_spec in "${TEST_SELECTION_SPECS[@]}"; do
     IFS='|' read -r selection_name selection_filter timeout_duration kill_after <<<"$selection_spec"
     log_file="$LOG_DIR/android-connected-$(sanitize_label "$selection_name").log"
+    selection_results="$SELECTION_RESULTS_ROOT/$(sanitize_label "$selection_name")"
 
-    if run_connected_selection "$selection_name" "$selection_filter" "$log_file" "$timeout_duration" "$kill_after"; then
+    # Each selection starts from an empty results directory and keeps its own
+    # copy under selections/, so the zero-test guard counts what this selection
+    # ran, never a result file an earlier selection left behind.
+    rm -rf "$CONNECTED_RESULTS_DIR"
+    status=0
+    run_connected_selection "$selection_name" "$selection_filter" "$log_file" "$timeout_duration" "$kill_after" ||
+        status=$?
+    if [[ -d "$CONNECTED_RESULTS_DIR" ]]; then
+        mkdir -p "$SELECTION_RESULTS_ROOT"
+        mv "$CONNECTED_RESULTS_DIR" "$selection_results"
+    fi
+
+    if [[ "$status" -eq 0 ]]; then
         # A passing selection must have executed at least one test. A hardcoded
         # -e class filter whose class was renamed or removed can otherwise report
         # success having run nothing, silently shrinking the suite.
-        executed="$(count_androidtest_cases "$CONNECTED_RESULTS_DIR")"
+        executed="$(count_androidtest_cases "$selection_results")"
         if [[ "$executed" -eq 0 ]]; then
             fail "Connected Android test selection $selection_name reported success but executed 0 tests (check the class filter in NON_FIXTURE_TEST_CLASSES / PROGRAM_FIXTURE_TEST_CLASS). See $log_file."
         fi
-        echo "INFO: connected selection $selection_name executed $executed test case(s)" >&2
+        ran_classes="$(androidtest_classes_run "$selection_results")"
+        if [[ "$ran_classes" != "$selection_filter" ]]; then
+            fail "Connected Android test selection $selection_name asked for $selection_filter but its results report: ${ran_classes:-no class}. See $log_file."
+        fi
+        echo "INFO: connected selection $selection_name executed $executed test case(s) of $selection_filter" >&2
         continue
-    else
-        status=$?
     fi
 
     case "$status" in

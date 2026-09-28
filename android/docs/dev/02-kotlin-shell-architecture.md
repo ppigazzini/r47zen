@@ -36,7 +36,7 @@ grouped by role; the directory itself is the authority when a file is added:
   `DeveloperPerformanceSnapshot.kt`
 - shell coordination: `ReplicaOverlayController.kt`,
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
-  `WindowModeController.kt`, `FactoryResetController.kt`,
+  `WindowModeController.kt`, `SystemBarInsets.kt`, `FactoryResetController.kt`,
   `HapticFeedbackController.kt`, `AudioEngine.kt`, `LiveKeyRouter.kt`,
   `LiveProgramStopKeyPolicy.kt`, and `GraphGestureAccumulator.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt`,
@@ -297,10 +297,16 @@ while matching the desktop simulator's stop-key parity during an active run.
   and the phone light or dark setting must never change the app theme.
   `DisplayActionController` also wraps popup menus in the dedicated dark
   `Theme.R47.PopupMenu` context so that invariant still holds if future work
-  touches activity theming. `WindowModeController` applies a dark visible
-  system-bar treatment when fullscreen is off, and the projected main-menu
-  affordance stays on that same dark shell surface instead of depending on a
-  hidden top-bezel gesture
+  touches activity theming. The projected main-menu affordance stays on that
+  same dark shell surface instead of depending on a hidden top-bezel gesture
+- every activity draws edge to edge on every API level, the layout targetSdk
+  35 and later enforces, through `SystemBarInsets.kt`: transparent bars with
+  light icons over the activity's own dark background, and a root padded by
+  the system-bar and display-cutout insets. The Settings-family screens always
+  pad; `WindowModeController` pads the main screen only while fullscreen is
+  off, and in fullscreen hides the bars and keeps the whole window. The root
+  consumes the insets, so no descendant pads for them again, and
+  `ReplicaOverlay` projects the calculator into whatever size that leaves
 - LCD appearance stays on a curated Android-local theme list owned by
   `LcdThemePolicy.kt`; `MainActivityPreferenceController.kt` normalizes stored
   `lcd_theme` values, clamps `lcd_luminance` to the XML-declared `20..120`

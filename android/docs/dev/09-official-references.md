@@ -95,7 +95,7 @@ flowchart TD
 - [Configuration Cache](https://docs.gradle.org/current/userguide/configuration_cache.html):
   official Gradle guidance for reusing configuration work across repeated task
   graphs; the Android connected-test wrapper enables it in CI because the lane
-  repeats the same release-variant task graph across grouped selections.
+  repeats the same release-variant task graph across its selections.
 - [Build Environment Configuration](https://docs.gradle.org/current/userguide/build_environment.html):
   official reference for `gradle.properties`, command-line precedence, and the
   documented homes for settings such as `org.gradle.parallel`,

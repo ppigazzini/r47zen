@@ -35,7 +35,7 @@ internal class MainActivityPreferenceController(
 
         private const val KEY_BEEPER_ENABLED = "beeper_enabled"
         private const val KEY_BEEPER_VOLUME = "beeper_volume"
-        private const val KEY_FULLSCREEN_MODE = "fullscreen_mode"
+        internal const val KEY_FULLSCREEN_MODE = "fullscreen_mode"
         private const val KEY_LCD_NEGATIVE = "lcd_negative"
         private const val KEY_LCD_GRAPH_TOUCH_ENABLED = "lcd_graph_touch_enabled"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"

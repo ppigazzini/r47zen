@@ -21,7 +21,9 @@ class NoticeAssetActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SystemBarInsets.drawEdgeToEdge(this)
         setContentView(R.layout.activity_notice_asset)
+        SystemBarInsets.padContentToSafeArea(this)
 
         val titleText = intent.getStringExtra(EXTRA_TITLE)
             ?: getString(R.string.repo_notice_asset_fallback_title)

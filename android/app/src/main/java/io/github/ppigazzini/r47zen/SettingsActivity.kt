@@ -28,7 +28,9 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SystemBarInsets.drawEdgeToEdge(this)
         setContentView(R.layout.settings_activity)
+        SystemBarInsets.padContentToSafeArea(this)
 
         findViewById<MaterialToolbar>(R.id.top_app_bar)
             .configureScreenToolbar(

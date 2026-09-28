@@ -1,14 +1,14 @@
 package io.github.ppigazzini.r47zen
 
 import android.app.PictureInPictureParams
-import android.graphics.Color
 import android.os.Build
 import android.os.Handler
 import android.util.Log
 import android.util.Rational
+import android.view.View
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
@@ -27,32 +27,38 @@ internal class WindowModeController(
     companion object {
         private const val TAG = "R47WindowMode"
         private val PIP_ASPECT_RATIO = Rational(400, 240)
-        private val VISIBLE_SYSTEM_BAR_COLOR = Color.rgb(18, 21, 26)
     }
 
     private var isMovingToPiP = false
+    private var isFullscreen = true
+    private var content: View? = null
+
+    /**
+     * Draws the activity edge to edge and pads [root] by the safe area while
+     * fullscreen mode is off. Fullscreen hides the bars and keeps the whole
+     * window, display cutout included.
+     */
+    fun fitContentToSafeArea(root: View) {
+        SystemBarInsets.drawEdgeToEdge(activity)
+        content = root
+        SystemBarInsets.padToSafeArea(root) { !isFullscreen }
+    }
 
     fun applyFullscreenMode(isFullscreen: Boolean) {
+        this.isFullscreen = isFullscreen
         val window = activity.window ?: return
         try {
-            WindowCompat.setDecorFitsSystemWindows(window, !isFullscreen)
-            val decorView = window.decorView
-            WindowInsetsControllerCompat(window, decorView).apply {
-                isAppearanceLightStatusBars = false
-                isAppearanceLightNavigationBars = false
+            WindowInsetsControllerCompat(window, window.decorView).apply {
                 if (isFullscreen) {
-                    window.statusBarColor = Color.TRANSPARENT
-                    window.navigationBarColor = Color.TRANSPARENT
                     systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     hide(WindowInsetsCompat.Type.systemBars())
                     window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 } else {
-                    window.statusBarColor = VISIBLE_SYSTEM_BAR_COLOR
-                    window.navigationBarColor = VISIBLE_SYSTEM_BAR_COLOR
                     show(WindowInsetsCompat.Type.systemBars())
                     window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 }
             }
+            content?.let(ViewCompat::requestApplyInsets)
         } catch (error: Exception) {
             Log.e(TAG, "Failed to apply fullscreen mode", error)
         }

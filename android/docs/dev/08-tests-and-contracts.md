@@ -55,7 +55,7 @@ flowchart TD
 | keypad haptic gate, Android-default toggle versus custom `0..100 ms` override, and press-only keypad cadence | `HapticFeedbackController.kt`, `ReplicaKeypadLayout.kt`, `MainActivity.kt`, `SettingsActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml` | `HapticFeedbackControllerTest.kt`, `ReplicaKeypadLayoutHapticsTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest --tests io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
 | beeper volume normalization and audio settings dispatch | `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `MainActivityPreferenceControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest` |
 | LCD display theme normalization, inverse polarity, and palette contrast | `LcdThemePolicy.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
-| main shell visible bars, fixed shell-menu copy, orange-blue touch-target placement, copy-popup shape, first-touch discovery-hint dismissal, and any retained discovery-hint surfaces | `MainActivity.kt`, `DisplayActionController.kt`, `WindowModeController.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/strings.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `MainShellThemeTest.kt`, `ReplicaOverlayVisualPolicyTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest` |
+| system-bar and cutout insets on every screen, fixed shell-menu copy, orange-blue touch-target placement, copy-popup shape, first-touch discovery-hint dismissal, and any retained discovery-hint surfaces | `MainActivity.kt`, `DisplayActionController.kt`, `WindowModeController.kt`, `SystemBarInsets.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/strings.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `MainShellThemeTest.kt`, `ReplicaOverlayVisualPolicyTest.kt`, `SystemBarInsetsTest.kt`, `WindowModeControllerTest.kt`, `SystemBarInsetsInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest --tests io.github.ppigazzini.r47zen.SystemBarInsetsTest --tests io.github.ppigazzini.r47zen.WindowModeControllerTest`, then the `SystemBarInsetsInstrumentedTest` connected selection |
 | SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `requestedProgramFixtureNames`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
 | pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
@@ -319,10 +319,16 @@ Important contract files include:
   accumulated-slop pan start, post-start jitter deadband, plus multi-touch
   pointer replacement continuity after primary-pointer release
 - `MainShellThemeTest.kt`: locks the `WindowModeController` PiP request to the
-  native LCD `400 x 240` aspect ratio and keeps the visible-system-bar theme
-  contract covered in the same focused JVM lane while also locking the fixed
-  shell-menu copy and the retained dark settings-discovery hint surfaces in
-  light system mode
+  native LCD `400 x 240` aspect ratio, the fixed shell-menu copy, and the
+  retained dark settings-discovery hint surfaces in light system mode
+- `SystemBarInsetsTest.kt`: dispatches synthetic bar and cutout insets and
+  locks the safe-area padding: added to the declared padding, replaced rather
+  than accumulated on a second pass, dropped while disabled, consumed so no
+  descendant pads again, and applied to the content root of `SettingsActivity`,
+  `RepoNoticeIndexActivity`, and `NoticeAssetActivity`
+- `WindowModeControllerTest.kt`: locks the PiP entry flag, and that the main
+  screen pads by the safe area with fullscreen off, under light bar icons, and
+  keeps the whole window with fullscreen on
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
   the app-facing whole-snapshot export, the single-snapshot USER-mode
   contract that keeps printed main-key legends, the Virtuoso blank-keycap
@@ -407,10 +413,10 @@ Important files include:
   selection while still reporting fixture-local progress through the
   instrumentation stream
 - `scripts/android/run_connected_android_tests.sh`: owns the hosted emulator
-  wrapper that runs the five non-fixture instrumentation classes as one
-  grouped class-filter selection and executes the complete
-  `ProgramFixtureInstrumentedTest` class under one bounded outer timeout,
-  failing the lane if that grouped PROGRAMS selection hangs
+  wrapper that runs each non-fixture instrumentation class in a selection of
+  its own and the complete `ProgramFixtureInstrumentedTest` class under one
+  bounded outer timeout, failing the lane if a selection hangs, runs no test,
+  or reports a class other than the one it asked for
 - `GraphTouchStressInstrumentedTest.kt`: launches `MainActivity`, waits for
   runtime readiness, runs extreme native graph-touch stress iterations through
   `ProgramLoadTestBridge.runExtremeGraphTouchStress(...)` to prove
@@ -477,6 +483,10 @@ Important files include:
   `forceRefreshNative()`
 - `StorageAccessCoordinatorInstrumentedTest.kt`: locks detached-fd handoff and
   cancellation behavior through the Android file-descriptor seam
+- `SystemBarInsetsInstrumentedTest.kt`: with fullscreen off, requires the main
+  calculator view and the Settings toolbar and list to lie inside the real
+  system-bar and cutout insets, and requires a non-zero status-bar inset so the
+  check cannot pass on a window without bars
 - `scripts/android/run_16kb_runtime_smoke.sh`: asserts that a connected device
   or emulator reports `16384`-byte pages before it runs the focused activity
   recreation lifecycle probe on the live Android runtime
@@ -693,7 +703,15 @@ Android compatibility layer.
   scored, a surviving mutant, a zero-test class, missing results XML, and a
   non-compiling mutant must each fail the run, and the seam sources must come
   back unchanged. It also checks `count_androidtest_cases`, the connected
-  lane's zero-test guard, against synthetic JUnit XML.
+  lane's zero-test guard, against JUnit XML in AGP's shape (a `<testsuites>`
+  wrapper and suite names with digits of their own), and runs
+  `run_connected_android_tests.sh` against a sandbox with a fake `gradlew`
+  (`R47_CONNECTED_ANDROID_DIR`) that, like `connectedReleaseAndroidTest`, runs
+  only the first class of a comma-joined filter: every class must run in a
+  selection of its own and report results for exactly that class, a later
+  selection that runs nothing must fail even after earlier ones ran tests, a
+  stale result file must never count, and each selection's results must
+  survive for the artifact upload.
 - The maintained PGO collector uses a separate merged profile surface: the
   `broad-ci` `testSuite` base of `programs`, `tvm`, `jacobi_audit`,
   `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the generated

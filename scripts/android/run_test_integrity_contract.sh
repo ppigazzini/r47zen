@@ -19,6 +19,14 @@
 #    fail when a mutant survives, when a test class runs zero tests, when no
 #    results XML appears, and when a mutant does not compile; it must compile
 #    each mutant before scoring it, and must restore every seam source.
+# 4. The connected-test runner's guards are run, not read: the contract runs
+#    run_connected_android_tests.sh against a sandbox with a fake gradlew and
+#    adb that write AGP-shaped result XML and, like connectedReleaseAndroidTest,
+#    run only the first class of a comma-joined filter. Every class must run in
+#    a selection of its own and report results for exactly that class; a later
+#    selection that runs nothing fails even after earlier ones ran tests; a
+#    stale result file never counts; each selection's results survive for the
+#    artifact upload.
 #
 # Pure-host check: no SDK, no staged native tree, no build.
 
@@ -31,6 +39,7 @@ source "$SCRIPT_DIR/../lib/common.sh"
 
 WORKLOAD_RUNNER="$PROJECT_ROOT/scripts/workload-regressions/run_workload_regressions.sh"
 MUTATION="$PROJECT_ROOT/scripts/android/mutation_spot_check.sh"
+CONNECTED="$PROJECT_ROOT/scripts/android/run_connected_android_tests.sh"
 
 fail() {
     echo "FAIL: $1" >&2
@@ -57,6 +66,27 @@ XML
 got="$(count_androidtest_cases "$tmp")"
 [ "$got" = "5" ] ||
     fail "count_androidtest_cases summed to '$got', expected 5 across two suites."
+
+# AGP's shape: a <testsuites> wrapper that repeats the total, and suite and
+# class names that carry digits of their own (r47zen). Only the suite's tests
+# attribute counts.
+rm -f "$tmp"/TEST-*.xml
+cat >"$tmp/TEST-agp.xml" <<'XML'
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="3" failures="0" errors="0" skipped="0" time="0.000">
+  <testsuite name="io.github.ppigazzini.r47zen.Sample2Test" tests="3" failures="0" errors="0" skipped="0" time="1.5">
+    <testcase name="a1" classname="io.github.ppigazzini.r47zen.Sample2Test" time="0.5" />
+    <testcase name="a2" classname="io.github.ppigazzini.r47zen.Sample2Test" time="0.5" />
+    <testcase name="a3" classname="io.github.ppigazzini.r47zen.Sample2Test" time="0.5" />
+  </testsuite>
+</testsuites>
+XML
+got="$(count_androidtest_cases "$tmp")"
+[ "$got" = "3" ] ||
+    fail "count_androidtest_cases counted '$got' in AGP-shaped XML holding 3 tests."
+got="$(androidtest_classes_run "$tmp")"
+[ "$got" = "io.github.ppigazzini.r47zen.Sample2Test" ] ||
+    fail "androidtest_classes_run reported '$got' for a single-class result."
 
 # A results tree that exists but holds no <testsuite tests=> lines is zero.
 rm -f "$tmp"/TEST-*.xml
@@ -208,4 +238,101 @@ expect_mutation_failure "a zero-test run" "executed zero tests" notests
 expect_mutation_failure "a run with no results XML" "no JUnit results" noxml
 expect_mutation_failure "a mutant that does not compile" "did not compile" kill 1
 
-echo "OK: test-integrity guards hold when run: androidTest count, workload fixture-exit policy, mutation spot-check scoring."
+# --- 4. connected-test selections, run against a sandbox and a fake gradlew --
+[ -f "$CONNECTED" ] || fail "missing $CONNECTED"
+connected_sandbox="$tmp/connected-sandbox"
+connected_results="$connected_sandbox/android/app/build/outputs/androidTest-results"
+mkdir -p "$connected_sandbox/android" "$connected_sandbox/bin"
+cp "$PROJECT_ROOT/android/r47-defaults.properties" "$connected_sandbox/android/"
+printf '#!/bin/bash\nexit 0\n' >"$connected_sandbox/bin/adb"
+# Run the first class of the filter, as connectedReleaseAndroidTest does with a
+# comma-joined list, and write two AGP-shaped results for it. The class that
+# FAKE_EMPTY_SELECTION names runs nothing; for the one FAKE_WRONG_SELECTION
+# names, the results report another class.
+cat >"$connected_sandbox/android/gradlew" <<'SH'
+#!/bin/bash
+filter=""
+for arg in "$@"; do
+    case "$arg" in
+        -Pandroid.testInstrumentationRunnerArguments.class=*) filter="${arg#*=}" ;;
+    esac
+done
+ran="${filter%%,*}"
+case "$ran" in
+    *".${FAKE_EMPTY_SELECTION:-none}") exit 0 ;;
+    *".${FAKE_WRONG_SELECTION:-none}") ran="$ran.Other" ;;
+esac
+results="app/build/outputs/androidTest-results/connected/release"
+mkdir -p "$results"
+cat >"$results/TEST-test(AVD) - 16.xml" <<XML
+<testsuites tests="2"><testsuite name="$ran" tests="2">
+<testcase name="t1" classname="$ran" /><testcase name="t2" classname="$ran" />
+</testsuite></testsuites>
+XML
+SH
+chmod +x "$connected_sandbox/bin/adb" "$connected_sandbox/android/gradlew"
+
+# run_connected OUTPUT_FILE [NAME=VALUE...]: run the real runner in the sandbox
+# with the fake settings that follow, and return its exit status.
+run_connected() {
+    local output="$1" status=0
+    shift
+    (
+        export PATH="$connected_sandbox/bin:$PATH"
+        export R47_CONNECTED_ANDROID_DIR="$connected_sandbox/android"
+        export R47_CONNECTED_ANDROID_LOG_DIR="$tmp/connected-logs"
+        unset GITHUB_ACTIONS GITHUB_STEP_SUMMARY FAKE_EMPTY_SELECTION FAKE_WRONG_SELECTION
+        local setting name
+        for setting in "$@"; do
+            export "${setting?}"
+        done
+        for name in JOBS NDK_VERSION ABI_FILTERS CORE_COMMIT SOURCE_REPOSITORY_URL SOURCE_COMMIT \
+            UPSTREAM_SOURCE_REPOSITORY_URL UPSTREAM_SOURCE_COMMIT XLSXIO_SOURCE_REPOSITORY_URL \
+            XLSXIO_SOURCE_COMMIT; do
+            export "R47_CONNECTED_ANDROID_TEST_$name=contract"
+        done
+        bash "$CONNECTED"
+    ) >"$output" 2>&1 || status=$?
+    return "$status"
+}
+
+# expect_connected_failure LABEL PATTERN [NAME=VALUE...]
+expect_connected_failure() {
+    local label="$1" pattern="$2"
+    shift 2
+    if run_connected "$tmp/connected-case.log" "$@"; then
+        fail "connected runner passed $label."
+    fi
+    grep -q -- "$pattern" "$tmp/connected-case.log" ||
+        fail "connected runner failed $label without the expected diagnosis: $(tail -n 2 "$tmp/connected-case.log")"
+}
+
+run_connected "$tmp/connected-all.log" ||
+    fail "connected runner failed with every class running: $(tail -n 3 "$tmp/connected-all.log")"
+mapfile -t connected_classes < <(sed -n '/^NON_FIXTURE_TEST_CLASSES=(/,/^)/p' "$CONNECTED" |
+    sed -n 's/^[[:space:]]*"\(io\.github\.[^"]*\)"$/\1/p')
+[ "${#connected_classes[@]}" -gt 0 ] || fail "could not read NON_FIXTURE_TEST_CLASSES from $CONNECTED"
+connected_classes+=("io.github.ppigazzini.r47zen.ProgramFixtureInstrumentedTest")
+for class in "${connected_classes[@]}"; do
+    grep -q "executed 2 test case(s) of $class\$" "$tmp/connected-all.log" ||
+        fail "connected runner never ran $class in a selection of its own: $(grep -c 'executed' "$tmp/connected-all.log") selection(s) reported."
+done
+for selection in "$connected_results"/selections/*/; do
+    [ "$(count_androidtest_cases "$selection")" = 2 ] ||
+        fail "connected runner did not keep the results of $(basename "$selection") for the artifact upload."
+done
+
+expect_connected_failure "a later selection that ran nothing, after earlier ones ran tests" \
+    "ProgramFixtureInstrumentation reported success but executed 0 tests" \
+    FAKE_EMPTY_SELECTION=ProgramFixtureInstrumentedTest
+expect_connected_failure "a selection whose results report another class" \
+    "GraphRedrawInstrumentedTest asked for io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest" \
+    FAKE_WRONG_SELECTION=GraphRedrawInstrumentedTest
+
+mkdir -p "$connected_results/connected"
+printf '<testsuite name="stale" tests="5"/>\n' >"$connected_results/connected/TEST-stale.xml"
+expect_connected_failure "a stale result file for a first selection that ran nothing" \
+    "FactorsInstrumentedTest reported success but executed 0 tests" \
+    FAKE_EMPTY_SELECTION=FactorsInstrumentedTest
+
+echo "OK: test-integrity guards hold when run: androidTest count, workload fixture-exit policy, mutation spot-check scoring, one connected selection per class."

@@ -805,8 +805,8 @@ jobs:
       - name: Build Android release verification artifacts and run JVM tests
         shell: bash
         env:
-          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
-          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
           R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
           R47_RELEASE_STORE_PASSWORD: throwaway
           R47_RELEASE_KEY_ALIAS: verify
@@ -1112,10 +1112,13 @@ jobs:
           installation and the signed production AAB ${aab_name} for Play
           Console upload.
 
-          The protected release workflow rebuilt the authoritative upstream core,
-          reran the wrapper-owned host-core optimization flow, Android lint,
-          release-path JVM tests, and release-path instrumentation tests before
-          publishing these assets.
+          The release workflow built these assets from the upstream core above
+          through the wrapper-owned host-core optimization flow, and checked
+          their signer, version, ABIs, and checksums before publishing them.
+          Android lint, the release-path JVM tests, and the release-path
+          instrumentation tests ran on an emulator against a rebuild of the same
+          commit that is not minified and is signed with a throwaway key, not
+          against these exact bytes.
 
           The Linux host toolchain built xlsxio_xlsx2csv from ${xlsxio_url} at
           commit ${xlsxio_commit} to satisfy the upstream font-generation

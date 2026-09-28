@@ -16,13 +16,11 @@ import android.util.Rational
 import android.util.TypedValue
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.ColorUtils
-import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.material.color.MaterialColors
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,26 +53,6 @@ class MainShellThemeTest {
         controller.enterPictureInPicture()
 
         assertEquals(Rational(400, 240), activity.lastPictureInPictureParams?.aspectRatio)
-    }
-
-    @Test
-    fun fullscreenOff_usesDarkVisibleSystemBars() {
-        val activity = buildThemedActivity()
-        val controller = WindowModeController(
-            activity = activity,
-            mainHandler = Handler(Looper.getMainLooper()),
-            onPiPModeChanged = {},
-        )
-
-        controller.applyFullscreenMode(false)
-
-        val insetsController = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
-        val expectedBarColor = Color.rgb(18, 21, 26)
-
-        assertEquals(expectedBarColor, activity.window.statusBarColor)
-        assertEquals(expectedBarColor, activity.window.navigationBarColor)
-        assertFalse(insetsController.isAppearanceLightStatusBars)
-        assertFalse(insetsController.isAppearanceLightNavigationBars)
     }
 
     @Test
