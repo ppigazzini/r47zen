@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- PictureInPictureIssue: PiP is entered explicitly from the display menu,
+         never auto-entered, and a full-screen replica gains nothing from a
+         source-rect hint. -->
     <application
+        tools:ignore="PictureInPictureIssue"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -13,8 +18,13 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.R47">
+        <!-- The calculator replica is a portrait product. From targetSdk 36 the
+             platform ignores the portrait lock on large screens (smallest width
+             600 dp and up), where the replica letterboxes into the window it
+             gets; the lock still holds on phones. -->
         <activity
             android:name=".MainActivity"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity"
             android:exported="true"
             android:screenOrientation="portrait"
             android:supportsPictureInPicture="true"

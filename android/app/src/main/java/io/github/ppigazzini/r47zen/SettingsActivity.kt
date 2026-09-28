@@ -52,7 +52,7 @@ class SettingsActivity : AppCompatActivity() {
 class SettingsFragment : PreferenceFragmentCompat() {
 
     private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == "main_key_dynamic_mode") {
+        if (key == MainActivityPreferenceController.KEY_MAIN_KEY_DYNAMIC_MODE) {
             updateKeypadDesignPreferences()
         }
     }
@@ -243,9 +243,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     private fun updateKeypadDesignPreferences() {
         val sharedPreferences = preferenceManager.sharedPreferences ?: return
-        val softkeyPreference = findPreference<ListPreference>("softkey_dynamic_mode") ?: return
+        val softkeyPreference = findPreference<ListPreference>(MainActivityPreferenceController.KEY_SOFTKEY_DYNAMIC_MODE) ?: return
         val mainMode = sharedPreferences.getString(
-            "main_key_dynamic_mode",
+            MainActivityPreferenceController.KEY_MAIN_KEY_DYNAMIC_MODE,
             MainKeyDynamicMode.DEFAULT.storageValue,
         )
         softkeyPreference.isEnabled = mainMode != MainKeyDynamicMode.VIRTUOSO.storageValue

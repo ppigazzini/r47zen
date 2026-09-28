@@ -215,7 +215,9 @@ internal class DisplayActionController(
             Runnable {
                 for (char in cappedText) {
                     if (char == 'i' || char == 'j') {
-                        sendSimFuncNative(if (char == 'i') 1159 else 1160)
+                        sendSimFuncNative(
+                            if (char == 'i') NativeShellCodes.FUNC_OP_I else NativeShellCodes.FUNC_OP_J,
+                        )
                         Thread.sleep(50)
                         continue
                     }

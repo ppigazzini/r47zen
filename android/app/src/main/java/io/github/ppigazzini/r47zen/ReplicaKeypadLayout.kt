@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47zen
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Typeface
 import android.view.MotionEvent
@@ -178,6 +179,9 @@ internal object ReplicaKeypadLayout {
         }
     }
 
+    // Key views route input through dispatchKey and the native core, not click
+    // semantics, so performClick is not the interaction model.
+    @SuppressLint("ClickableViewAccessibility")
     private fun addKey(
         context: Context,
         overlay: ReplicaOverlay,
@@ -267,6 +271,7 @@ internal object ReplicaKeypadLayout {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun createTouchListener(
         code: Int,
         performHapticClick: (View) -> Unit,

@@ -38,7 +38,8 @@ grouped by role; the directory itself is the authority when a file is added:
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
   `WindowModeController.kt`, `SystemBarInsets.kt`, `FactoryResetController.kt`,
   `HapticFeedbackController.kt`, `AudioEngine.kt`, `LiveKeyRouter.kt`,
-  `LiveProgramStopKeyPolicy.kt`, and `GraphGestureAccumulator.kt`
+  `LiveProgramStopKeyPolicy.kt`, `GraphGestureAccumulator.kt`,
+  `GraphGestureFlusher.kt`, and `NativeShellCodes.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt`,
   `ReplicaChromeLayout.kt`, `CalculatorKeyView.kt`,
   `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `KeyRenderPainter.kt`,
@@ -120,7 +121,10 @@ Main flow:
   stationary finger jitter does not turn into endless micro-pan updates, and
     `GraphGestureAccumulator` caps queued pan backlog to a small recent range,
     slices the retained backlog into bounded per-apply chunks, and clamps queued
-    pinch scale before JNI apply.
+    pinch scale before JNI apply. `GraphGestureFlusher` queues at most one
+    flush task at a time, spaces flushes at least 16 ms apart, and applies one
+    batch per task, so a continuous drag interleaves with the other queued core
+    tasks instead of re-solving back to back ahead of them.
 3. `NativeCoreRuntime` serializes calculator execution on one shared core
    thread. The thread outlives each Activity and reaches its host only through
    the runtime the latest `attach()` published, so a recreated Activity's
@@ -218,6 +222,17 @@ The Kotlin shell currently accepts input from five paths:
 
 Each path ultimately resolves to core-thread work or a small Android-side action.
 
+The on-screen keypad takes one key at a time, as the hardware scans it:
+`ReplicaOverlay` disables motion-event splitting, so a second finger reaches
+the first touched key view as `ACTION_POINTER_*`, which the key listeners
+ignore. Native input keeps one pressed-key slot, so a second `ACTION_DOWN` on
+another key would leave the first key pressed with no release.
+
+The physical-keyboard HOME and MYMENU shortcuts and the paste path's `i` and
+`j` pass `NativeShellCodes` values, never upstream item numbers: `items.h`
+renumbers between upstream revisions, so `jni_input.c` resolves each code to
+its `MNU_*` or `ITM_*` symbol at build time.
+
 `ReplicaOverlay` also owns the shell-level focus policy for the physical-
 keyboard path. It stays focusable in touch mode, blocks descendant focus
 navigation, and keeps touchscreen focus from suppressing the shell, so the
@@ -263,7 +278,11 @@ while matching the desktop simulator's stop-key parity during an active run.
 ## Current platform shape
 
 - the app is view-based and uses view binding
-- `MainActivity` remains portrait-first in the manifest for shell fidelity
+- `MainActivity` remains portrait-first in the manifest for shell fidelity.
+  From targetSdk 36 the platform ignores that lock on large screens (smallest
+  width 600 dp and up), so there the activity takes whatever window it gets and
+  `ReplicaOverlay` letterboxes the replica into it; the lock still holds on
+  phones
 - the application is explicitly resizable, so large screens and foldables may
   letterbox or window the shell according to Android compatibility behavior
 - Picture-in-Picture is enabled

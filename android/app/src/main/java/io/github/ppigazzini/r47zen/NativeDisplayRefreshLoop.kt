@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47zen
 
+import android.os.SystemClock
 import android.view.Choreographer
 
 internal interface DisplayRefreshLoop {
@@ -44,7 +45,9 @@ internal class NativeDisplayRefreshLoop(
                 return
             }
 
-            refreshFrame(System.currentTimeMillis())
+            // Monotonic: a wall-clock step backwards would stall the 500 ms
+            // label cadence until the clock caught up again.
+            refreshFrame(SystemClock.uptimeMillis())
 
             if (isActive && isAppRunning()) {
                 Choreographer.getInstance().postFrameCallback(this)

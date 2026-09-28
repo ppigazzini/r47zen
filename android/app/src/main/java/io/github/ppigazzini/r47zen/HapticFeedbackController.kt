@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47zen
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
@@ -95,6 +96,9 @@ internal class HapticFeedbackController(
         }
     }
 
+    // EFFECT_CLICK is an inlined API 29 int; performFallbackFeedback reads it
+    // only behind its SDK_INT >= Q guard.
+    @SuppressLint("InlinedApi")
     fun performClick(targetView: View): Boolean {
         if (!isEnabled) {
             return false
@@ -116,6 +120,7 @@ internal class HapticFeedbackController(
         )
     }
 
+    @SuppressLint("InlinedApi")
     private fun performDefaultFeedback(targetView: View): Boolean {
         if (targetView.performHapticFeedback(
                 hapticFeedbackConstant,

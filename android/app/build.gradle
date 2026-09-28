@@ -30,7 +30,7 @@ if (!xlsxioLicenseSourceFile.isFile()) {
 }
 
 def canonicalRuntimeFontDir = new File(repositoryRootDir, 'res/fonts')
-def generatedRuntimeFontDir = new File(project.buildDir, 'generated/assets/runtime/fonts')
+def generatedRuntimeFontDir = layout.buildDirectory.dir('generated/assets/runtime/fonts').get().asFile
 def runtimeFontSourceDir = canonicalRuntimeFontDir.isDirectory() ? canonicalRuntimeFontDir : generatedRuntimeFontDir
 def runtimeFontAssetNames = [
     'C47__StandardFont.ttf',
@@ -87,22 +87,20 @@ def readBooleanProperty(String propertyName, boolean defaultValue) {
     return value.toBoolean()
 }
 
+// Through providers.exec, git's output is a configuration-cache input: a new
+// commit invalidates the cached configuration instead of baking the previous
+// commit into the SOURCE and SPDX assets.
 def readGitOutput(List<String> args) {
-    def stdout = new ByteArrayOutputStream()
     try {
-        exec {
-            workingDir rootProject.file('..')
+        def output = providers.exec {
+            workingDir = rootProject.file('..')
             commandLine(['git'] + args)
-            standardOutput = stdout
-            errorOutput = new ByteArrayOutputStream()
             ignoreExitValue = true
-        }
+        }.standardOutput.asText.get().trim()
+        return output ? output : null
     } catch (Exception ignored) {
         return null
     }
-
-    def output = stdout.toString().trim()
-    return output ? output : null
 }
 
 def normalizeRepositoryUrl(String url) {
@@ -132,8 +130,8 @@ def upstreamSourceRepositoryUrl = normalizeRepositoryUrl(project.findProperty('r
 def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toString()?.trim()
 def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.xlsxioSourceRepositoryUrl') ?: System.getenv('R47_XLSXIO_URL') ?: System.getenv('XLSXIO_URL') ?: readDefaultValue('R47_DEFAULT_XLSXIO_URL')).toString())
 def xlsxioSourceCommit = (project.findProperty('r47.xlsxioSourceCommit') ?: System.getenv('R47_XLSXIO_COMMIT') ?: System.getenv('XLSXIO_COMMIT') ?: readDefaultValue('R47_DEFAULT_XLSXIO_COMMIT')).toString()
-def generatedComplianceAssetsDir = "$buildDir/generated/assets/compliance"
-def generatedRuntimeAssetsDir = "$buildDir/generated/assets/runtime"
+def generatedComplianceAssetsDir = layout.buildDirectory.dir('generated/assets/compliance').get().asFile.path
+def generatedRuntimeAssetsDir = layout.buildDirectory.dir('generated/assets/runtime').get().asFile.path
 def stagedNativeCppDir = rootProject.file('.staged-native/cpp').absolutePath
 def nativePrepScript = rootProject.file('../scripts/android/prepare_native_build_inputs.sh').absolutePath
 def repoNoticeInventory = new JsonSlurper().parse(repoNoticeInventoryFile)
@@ -360,7 +358,6 @@ android {
 
         externalNativeBuild {
             cmake {
-                cppFlags ""
                 arguments(*externalNativeBuildArguments)
             }
         }

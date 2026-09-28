@@ -432,12 +432,41 @@ void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
   pthread_mutex_unlock(&screenMutex);
 }
 
+// Resolve a shell function code from jni_bridge.h to its upstream item, or 0.
+static int r47_shell_function_item(int shellFunc) {
+  switch (shellFunc) {
+  case R47_SHELL_FUNC_OP_I:
+    return ITM_op_i_char;
+  case R47_SHELL_FUNC_OP_J:
+    return ITM_op_j_char;
+  default:
+    return 0;
+  }
+}
+
+// Resolve a shell menu code from jni_bridge.h to its upstream softmenu id, or 0.
+static int r47_shell_menu_item(int shellMenu) {
+  switch (shellMenu) {
+  case R47_SHELL_MENU_HOME:
+    return -MNU_HOME;
+  case R47_SHELL_MENU_MY_MENU:
+    return -MNU_MyMenu;
+  default:
+    return 0;
+  }
+}
+
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_sendSimFuncNative(
-    JNIEnv *env, jobject thiz, jint funcId) {
+    JNIEnv *env, jobject thiz, jint shellFunc) {
   (void)env;
   (void)thiz;
-  r47_send_sim_function((int)funcId);
+  int item = r47_shell_function_item((int)shellFunc);
+  if (item == 0) {
+    LOGE("sendSimFuncNative: unknown shell function code %d", (int)shellFunc);
+    return;
+  }
+  r47_send_sim_function(item);
 }
 
 JNIEXPORT jboolean JNICALL
@@ -491,10 +520,15 @@ Java_com_example_r47_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz) {
 
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_sendSimMenuNative(
-    JNIEnv *env, jobject thiz, jint menuId) {
+    JNIEnv *env, jobject thiz, jint shellMenu) {
   (void)env;
   (void)thiz;
-  r47_send_sim_menu((int)menuId);
+  int item = r47_shell_menu_item((int)shellMenu);
+  if (item == 0) {
+    LOGE("sendSimMenuNative: unknown shell menu code %d", (int)shellMenu);
+    return;
+  }
+  r47_send_sim_menu(item);
 }
 
 JNIEXPORT void JNICALL

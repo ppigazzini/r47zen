@@ -43,6 +43,16 @@
 
 #define MAIN_ACTIVITY_CLASS "io/github/ppigazzini/r47zen/MainActivity"
 
+// Shell codes Kotlin passes to sendSimMenuNative and sendSimFuncNative in place
+// of upstream item numbers, which items.h renumbers between upstream revisions.
+// jni_input.c resolves each code against the staged items.h, so an upstream
+// rename fails the build instead of opening the wrong menu. NativeShellCodes.kt
+// mirrors these values, and test_jni_registration_contract.py holds them equal.
+#define R47_SHELL_MENU_HOME 1
+#define R47_SHELL_MENU_MY_MENU 2
+#define R47_SHELL_FUNC_OP_I 1
+#define R47_SHELL_FUNC_OP_J 2
+
 extern JavaVM *g_jvm;
 extern jobject g_mainActivityObj;
 extern jmethodID g_requestFileId;

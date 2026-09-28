@@ -33,6 +33,8 @@ internal class MainActivityPreferenceController(
         const val MAX_LCD_LUMINANCE = 120
         val DEFAULT_SOFTKEY_DYNAMIC_MODE = SoftkeyDynamicMode.DEFAULT
 
+        internal const val KEY_AUTO_SAVE_MINIMIZE = "auto_save_minimize"
+        internal const val KEY_FORCE_CLOSE_ON_EXIT = "force_close_on_exit"
         private const val KEY_BEEPER_ENABLED = "beeper_enabled"
         private const val KEY_BEEPER_VOLUME = "beeper_volume"
         internal const val KEY_FULLSCREEN_MODE = "fullscreen_mode"
@@ -41,11 +43,11 @@ internal class MainActivityPreferenceController(
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_LCD_THEME = "lcd_theme"
         private const val KEY_LCD_LUMINANCE = "lcd_luminance"
-        private const val KEY_MAIN_KEY_DYNAMIC_MODE = "main_key_dynamic_mode"
+        internal const val KEY_MAIN_KEY_DYNAMIC_MODE = "main_key_dynamic_mode"
         private const val KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = "developer_performance_hud_window_millis"
         private const val KEY_SHOW_DEVELOPER_PERFORMANCE_HUD = "show_developer_performance_hud"
         private const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
-        private const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
+        internal const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
         private const val LEGACY_KEY_LCD_MODE = "lcd_mode"
     }
 

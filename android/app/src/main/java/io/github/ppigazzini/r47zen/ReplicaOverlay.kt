@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47zen
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
 import android.os.Build
@@ -219,6 +220,11 @@ class ReplicaOverlay @JvmOverloads constructor(
         isFocusableInTouchMode = true
         descendantFocusability = FOCUS_BLOCK_DESCENDANTS
         setTouchscreenBlocksFocus(false)
+        // One key at a time, as the hardware scans it: native input keeps one
+        // pressed-key slot, so a second finger must not deliver an ACTION_DOWN
+        // of its own to another key. Extra pointers reach the first touched
+        // view as ACTION_POINTER_*, which the key listeners ignore.
+        isMotionEventSplittingEnabled = false
         // Allow drawing outside individual key boundaries
         clipChildren = false
         clipToPadding = false
@@ -653,6 +659,9 @@ class ReplicaOverlay @JvmOverloads constructor(
         return false
     }
 
+    // LCD pan, pinch, and PiP taps drive gesture detectors and the native core,
+    // not click semantics, so performClick is not the interaction model.
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (isPiPMode) {
             val fKey = (event.x / width * 6).toInt() + 38

@@ -132,8 +132,8 @@ The registered native surface includes:
   graph-active path (`CM_GRAPH` with menus `-MNU_PLOT_FUNC` and
   `-MNU_GRAPHS`) and defined as a no-op outside supported graph screens
 - native-owned graph-touch sensitivity calibration for pan and pinch, with
-  Kotlin forwarding normalized deltas and scale factors through the
-  `MainActivity` queue, where `GraphGestureAccumulator` splits queued pan into
+  Kotlin forwarding normalized deltas and scale factors through
+  `GraphGestureFlusher`, where `GraphGestureAccumulator` splits queued pan into
   bounded `<= 1.0f` normalized steps after capping queued pan backlog to a
   `+/-4.0f` recent range per axis, and clamps queued pinch factors to
   `0.4f..2.5f` before native apply

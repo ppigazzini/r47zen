@@ -331,7 +331,10 @@ Public maintainer entrypoints:
   Kotlin, Java, manifest, resource, or Android Gradle files change and the
   staged build-only native tree is already current. Lint is not run
   automatically by `assembleDebug`, so CI and local maintainer verification
-  need to call it explicitly.
+  need to call it explicitly. `android/app/lint.xml` holds only the
+  suppressions whose reason holds for every file; one with a local reason sits
+  at its site, as `tools:ignore` in XML or `@SuppressLint` in Kotlin, next to
+  the comment that justifies it.
 - `cd android && ./gradlew :app:bundleRelease` or
 -  `cd android && ./gradlew :app:assembleRelease` is the module-local release
   lane only when the staged build-only native tree is already current. Release

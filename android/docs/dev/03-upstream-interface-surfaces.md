@@ -116,8 +116,12 @@ flowchart LR
   control surface, not the hot keypad path. It bails out when
   `isCoreBlockingForIo` is set so Android does not inject keypad work while the
   core is suspended in a SAF file request.
-- `sendSimMenuNative(int)` calls `showSoftmenu(...)` and then forces a screen
-  refresh. `sendSimFuncNative(int)` calls `runFunction(...)` directly.
+- `sendSimMenuNative(int)` resolves a shell menu code (`R47_SHELL_MENU_*` in
+  `jni_bridge.h`, mirrored by `NativeShellCodes.kt`) to its `-MNU_*` softmenu,
+  calls `showSoftmenu(...)`, and forces a screen refresh. `sendSimFuncNative(int)`
+  resolves a shell function code (`R47_SHELL_FUNC_*`) to its `ITM_*` item and
+  calls `runFunction(...)`. An unknown code logs and does nothing. Neither takes
+  an upstream item number, since `items.h` renumbers between upstream revisions.
 - All of these paths lock `screenMutex`, so they must stay short and must not
   add Android-side blocking work inside the native critical section.
 

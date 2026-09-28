@@ -18,7 +18,6 @@ import android.content.SharedPreferences
 import android.content.res.Configuration
 import com.google.android.material.color.MaterialColors
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @Keep
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
@@ -44,20 +43,24 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var slotSessionController: SlotSessionController
     private lateinit var windowModeController: WindowModeController
 
-    private val graphGestureLock = Any()
-    private var graphGestureFlushQueued = false
 
-    @Volatile
-    private var lastGraphGestureFlushUptimeMs = 0L
-    private val graphGestureAccumulator = GraphGestureAccumulator(
-        panFlushEpsilon = GRAPH_PAN_FLUSH_EPSILON,
-        panApplyLimit = GRAPH_PAN_APPLY_LIMIT,
-        panPendingLimit = GRAPH_PAN_PENDING_LIMIT,
-        scaleFlushEpsilon = GRAPH_SCALE_FLUSH_EPSILON,
-        scaleFactorMin = GRAPH_SCALE_FACTOR_MIN,
-        scaleFactorMax = GRAPH_SCALE_FACTOR_MAX,
-    )
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val graphGestureFlusher = GraphGestureFlusher(
+        accumulator = GraphGestureAccumulator(
+            panFlushEpsilon = GRAPH_PAN_FLUSH_EPSILON,
+            panApplyLimit = GRAPH_PAN_APPLY_LIMIT,
+            panPendingLimit = GRAPH_PAN_PENDING_LIMIT,
+            scaleFlushEpsilon = GRAPH_SCALE_FLUSH_EPSILON,
+            scaleFactorMin = GRAPH_SCALE_FACTOR_MIN,
+            scaleFactorMax = GRAPH_SCALE_FACTOR_MAX,
+        ),
+        minFlushIntervalMs = GRAPH_GESTURE_MIN_FLUSH_INTERVAL_MS,
+        uptimeMillis = SystemClock::uptimeMillis,
+        post = { mainHandler.post(it) },
+        postDelayed = { task, delayMs -> mainHandler.postDelayed(task, delayMs) },
+        offerCoreTask = ::offerCoreTask,
+        applyBatch = ::applyGraphGestureBatch,
+    )
 
     companion object {
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
@@ -134,90 +137,23 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         coreRuntime.offerTask(task)
     }
 
-    private fun queueGraphPan(dxNorm: Float, dyNorm: Float) {
-        synchronized(graphGestureLock) {
-            graphGestureAccumulator.addPan(dxNorm, dyNorm)
-        }
-        scheduleGraphGestureFlush()
-    }
-
-    private fun queueGraphPinch(scaleFactor: Float) {
-        synchronized(graphGestureLock) {
-            graphGestureAccumulator.addScale(scaleFactor)
-        }
-        scheduleGraphGestureFlush()
-    }
-
     private fun queueGraphReset() {
         offerCoreTask(Runnable { resetGraphNative() })
     }
 
-    private fun scheduleGraphGestureFlush() {
-        val shouldEnqueue = synchronized(graphGestureLock) {
-            if (graphGestureFlushQueued) {
-                false
-            } else {
-                graphGestureFlushQueued = true
-                true
-            }
-        }
-
-        if (!shouldEnqueue) {
-            return
-        }
-
-        // Rate-limit the re-solve. While a flush is pending (graphGestureFlush
-        // Queued stays true until it drains), further gesture deltas coalesce in
-        // the accumulator instead of queuing more re-solves, so a fast drag
-        // applies at most one re-solve per interval and the net motion is never
-        // lost.
-        val sinceLast = SystemClock.uptimeMillis() - lastGraphGestureFlushUptimeMs
-        if (sinceLast >= GRAPH_GESTURE_MIN_FLUSH_INTERVAL_MS) {
-            offerGraphGestureFlush()
-        } else {
-            mainHandler.postDelayed(
-                ::offerGraphGestureFlush,
-                GRAPH_GESTURE_MIN_FLUSH_INTERVAL_MS - sinceLast,
-            )
-        }
-    }
-
-    private fun offerGraphGestureFlush() {
-        lastGraphGestureFlushUptimeMs = SystemClock.uptimeMillis()
-        offerCoreTask(Runnable { flushGraphGesturesOnCoreThread() })
-    }
-
-    private fun flushGraphGesturesOnCoreThread() {
-        while (true) {
-            val batch = synchronized(graphGestureLock) { graphGestureAccumulator.drainBatch() }
-
-            if (batch != null) {
-                val hasPan =
-                    abs(batch.panDxNorm) > GRAPH_PAN_FLUSH_EPSILON ||
-                        abs(batch.panDyNorm) > GRAPH_PAN_FLUSH_EPSILON
-                val hasScale = abs(batch.scaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON
-                // Apply a combined drag+pinch in one native call so the heavy
-                // graph re-solve runs once per batch instead of twice during
-                // fast play. Fall back to the single-axis bridges otherwise.
-                when {
-                    hasPan && hasScale ->
-                        applyGraphPanZoomNative(batch.panDxNorm, batch.panDyNorm, batch.scaleFactor)
-                    hasPan -> applyGraphPanNative(batch.panDxNorm, batch.panDyNorm)
-                    hasScale -> applyGraphPinchZoomNative(batch.scaleFactor)
-                }
-            }
-
-            val shouldContinue = synchronized(graphGestureLock) {
-                val hasPending = graphGestureAccumulator.hasPending()
-                if (!hasPending) {
-                    graphGestureFlushQueued = false
-                }
-                hasPending
-            }
-
-            if (!shouldContinue) {
-                return
-            }
+    private fun applyGraphGestureBatch(batch: GraphGestureBatch) {
+        val hasPan =
+            abs(batch.panDxNorm) > GRAPH_PAN_FLUSH_EPSILON ||
+                abs(batch.panDyNorm) > GRAPH_PAN_FLUSH_EPSILON
+        val hasScale = abs(batch.scaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON
+        // Apply a combined drag+pinch in one native call so the heavy graph
+        // re-solve runs once per batch instead of twice during fast play. Fall
+        // back to the single-axis bridges otherwise.
+        when {
+            hasPan && hasScale ->
+                applyGraphPanZoomNative(batch.panDxNorm, batch.panDyNorm, batch.scaleFactor)
+            hasPan -> applyGraphPanNative(batch.panDxNorm, batch.panDyNorm)
+            hasScale -> applyGraphPinchZoomNative(batch.scaleFactor)
         }
     }
 
@@ -348,8 +284,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun initializeOverlayAndPreferences(prefs: SharedPreferences) {
         replicaOverlay = binding.replicaOverlay
         replicaOverlay.onSettingsDiscoveryCompleted = ::markSettingsDiscoveryComplete
-        replicaOverlay.onLcdPanListener = ::queueGraphPan
-        replicaOverlay.onLcdPinchListener = ::queueGraphPinch
+        replicaOverlay.onLcdPanListener = graphGestureFlusher::addPan
+        replicaOverlay.onLcdPinchListener = graphGestureFlusher::addScale
         replicaOverlay.onLcdResetListener = ::queueGraphReset
         keypadSnapshotStore = createKeypadSnapshotStore()
         replicaOverlayController = createReplicaOverlayController()
@@ -465,10 +401,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         startActivity(Intent(this, SettingsActivity::class.java))
     }
 
-    private fun dpToPx(value: Float): Int {
-        return (value * resources.displayMetrics.density).roundToInt()
-    }
-
     private fun startCoreRuntime() {
         coreRuntime = createCoreRuntime()
         coreRuntime.attach()
@@ -580,7 +512,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         super.onPause()
         val isEnteringPiP = windowModeController.isEnteringPictureInPicture()
         Log.i(TAG, "onPause: isEnteringPiP=$isEnteringPiP")
-        if (!isEnteringPiP && !factoryResetController.isResetInProgress && appPreferences.getBoolean("auto_save_minimize", true)) {
+        if (!isEnteringPiP && !factoryResetController.isResetInProgress && appPreferences.getBoolean(MainActivityPreferenceController.KEY_AUTO_SAVE_MINIMIZE, true)) {
             Log.i(TAG, "Auto-saving state on pause (synchronous via core thread)...")
             coreRuntime.saveStateOnPause(autoSaveEnabled = true)
         }
@@ -595,7 +527,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     fun quitApp() {
         Log.i(TAG, "quitApp called from native")
         mainHandler.post {
-            val forceClose = appPreferences.getBoolean("force_close_on_exit", false)
+            val forceClose = appPreferences.getBoolean(MainActivityPreferenceController.KEY_FORCE_CLOSE_ON_EXIT, false)
             if (forceClose) {
                 finishAndRemoveTask()
             } else {
@@ -620,8 +552,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun releaseNativeRuntime()
     private external fun sendKey(keyCode: Int)
     private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)
-    private external fun sendSimMenuNative(menuId: Int)
-    private external fun sendSimFuncNative(funcId: Int)
+    private external fun sendSimMenuNative(shellMenu: Int)
+    private external fun sendSimFuncNative(shellFunc: Int)
     private external fun applyGraphPanNative(dxNorm: Float, dyNorm: Float): Boolean
     private external fun applyGraphPinchZoomNative(scaleFactor: Float): Boolean
     private external fun applyGraphPanZoomNative(dxNorm: Float, dyNorm: Float, scaleFactor: Float): Boolean

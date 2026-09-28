@@ -127,13 +127,7 @@ internal class NativeCoreRuntime(
                 if (!initializeOrReattach()) {
                     return
                 }
-                var lastTickLog = 0L
                 while (isAppRunningShared) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastTickLog > 5000) {
-                        Log.i(TAG, "Core thread heartbeat")
-                        lastTickLog = now
-                    }
                     if (!runCoreIteration()) {
                         break
                     }

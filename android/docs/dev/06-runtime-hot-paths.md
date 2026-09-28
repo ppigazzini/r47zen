@@ -61,6 +61,10 @@ flowchart LR
   a blocked wait wakes promptly during shutdown.
 - The same queue still carries normal keypad input from touch, PiP, and
   physical keyboard controllers.
+- LCD graph pan and pinch reach it through `GraphGestureFlusher`: one flush
+  task queued at a time, flushes at least 16 ms apart, one batch per task.
+  Each flush is a heavy upstream re-solve, so a drag that re-solved back to
+  back would hold the queue.
 - Live touchscreen and PiP `R/S` or `EXIT` bypass that queue through
   `requestStopProgramNative()`; every other key follows the normal queued
   path.

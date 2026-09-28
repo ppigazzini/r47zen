@@ -155,8 +155,8 @@ internal object PhysicalKeyboardShortcuts {
             tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "04")
         }
-        PhysicalKeyboardShortcutId.HOME -> enqueueMenu(-1921)
-        PhysicalKeyboardShortcutId.MYMENU -> enqueueMenu(-1349)
+        PhysicalKeyboardShortcutId.HOME -> enqueueMenu(NativeShellCodes.MENU_HOME)
+        PhysicalKeyboardShortcutId.MYMENU -> enqueueMenu(NativeShellCodes.MENU_MY_MENU)
         PhysicalKeyboardShortcutId.TO_POL -> {
             tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "01")

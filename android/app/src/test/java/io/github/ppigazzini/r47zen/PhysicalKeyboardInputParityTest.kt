@@ -115,8 +115,12 @@ class PhysicalKeyboardInputParityTest {
         )
 
         assertEquals(
-            listOf("menu:-1921"),
+            listOf("menu:${NativeShellCodes.MENU_HOME}"),
             dispatchShortcut(PhysicalKeyboardShortcutId.HOME, expectedOperations = 1),
+        )
+        assertEquals(
+            listOf("menu:${NativeShellCodes.MENU_MY_MENU}"),
+            dispatchShortcut(PhysicalKeyboardShortcutId.MYMENU, expectedOperations = 1),
         )
     }
 

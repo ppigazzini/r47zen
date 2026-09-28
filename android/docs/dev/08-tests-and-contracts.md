@@ -194,7 +194,9 @@ runs. What each one locks:
   exported fixture manifest
 - `test_jni_registration_contract.py`: the `RegisterNatives` table in
   `jni_registration.c` and `MainActivity`'s `external fun` set are equal, and
-  each entry binds the implementation with the same name suffix
+  each entry binds the implementation with the same name suffix; the
+  `R47_SHELL_*` codes in `jni_bridge.h` equal `NativeShellCodes.kt`, and
+  `jni_input.c` resolves each to an `items.h` symbol, never a number
 - `test_upstream_provenance_contract.py`: the provenance ledger covers exactly
   the upstream inputs the contract modules declare (see below)
 
@@ -339,7 +341,7 @@ Important contract files include:
   dynamic full labels
 - `PhysicalKeyboardInputParityTest.kt`: locks printable, function-key,
   shortcut, and modifier-tap mapping behavior across the Android-owned mapping
-  and shortcut tables
+  and shortcut tables, and that HOME and MYMENU pass their `NativeShellCodes`
 - `ReplicaOverlayVisualPolicyTest.kt`: locks shell-owned keyboard focus,
   including `FOCUS_BLOCK_DESCENDANTS`, so the first DPAD event is routed to the
   calculator instead of Android focus search
@@ -369,7 +371,9 @@ Important contract files include:
   release-without-haptic path, the cancel-without-haptic path, and the
   predefined-vibrator or short one-shot override when the view path declines,
   when the user opts into a custom keypress-duration override, or when custom
-  mode is set to `0 ms`
+  mode is set to `0 ms`; the haptics test also sends a real two-pointer
+  sequence through the overlay and requires one key per touch, in either lift
+  order
 - `MainActivityPreferenceControllerTest.kt`: locks persisted `beeper_volume`
   normalization against the XML-declared `0..100` range, plus `lcd_theme`
   fallback to the supported display-theme set, legacy `lcd_mode` migration,
@@ -380,6 +384,10 @@ Important contract files include:
   accumulator so non-finite pan input is dropped, queued pinch scale stays
   clamped to `0.4f..2.5f`, and oversized queued pan is split into bounded
   per-apply chunks before JNI apply
+- `GraphGestureFlusherTest.kt`: with a fake clock, main looper, and core queue,
+  locks that deltas coalesce into one queued flush, that a flush applies one
+  batch even when deltas arrive during it, that flushes keep the minimum
+  interval, and that no motion is lost across flushes
 - `GraphGestureAccumulatorPropertyTest.kt`: a seeded Kotest property test that
   proves the same clamp, split, drop, and bounded-drain invariants hold across a
   randomized finite and non-finite input space, not just the example endpoints

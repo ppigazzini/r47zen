@@ -5,7 +5,10 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#FF000000"
-    tools:context=".MainActivity">
+    tools:context=".MainActivity"
+    tools:ignore="Overdraw">
+    <!-- The black shell is drawn over the theme's surface-coloured window on
+         purpose: it is what shows behind the transparent system bars. -->
 
     <io.github.ppigazzini.r47zen.ReplicaOverlay
         android:id="@+id/replica_overlay"

@@ -1,6 +1,7 @@
 package io.github.ppigazzini.r47zen
 
 import android.content.Context
+import android.graphics.Rect
 import android.view.MotionEvent
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
@@ -67,6 +68,76 @@ class ReplicaKeypadLayoutHapticsTest {
         assertFalse(keyView.isPressed)
         assertEquals(listOf(1), pressedCodes)
         assertEquals(listOf(1, 0), keyEvents)
+    }
+
+    @Test
+    fun secondFinger_onAnotherKey_neverPressesIt_firstLiftedLast() {
+        assertEquals(listOf(1, 0), twoFingerKeyEvents(firstLifted = 1))
+    }
+
+    @Test
+    fun secondFinger_onAnotherKey_neverPressesIt_firstLiftedFirst() {
+        assertEquals(listOf(1, 0), twoFingerKeyEvents(firstLifted = 0))
+    }
+
+    /**
+     * Native input keeps one pressed-key slot, as the hardware scans one key at
+     * a time. Touch key 1, touch key 2 with a second finger, then lift the
+     * finger at pointer index [firstLifted] and the other one; return the key
+     * events the keypad dispatched.
+     */
+    private fun twoFingerKeyEvents(firstLifted: Int): List<Int> {
+        val keyEvents = mutableListOf<Int>()
+        val overlay = buildOverlay(onPress = {}, onKeyEvent = keyEvents::add)
+        val first = centerOf(findKeyView(overlay, code = 1))
+        val second = centerOf(findKeyView(overlay, code = 2))
+        val pointers = arrayOf(pointer(0, first), pointer(1, second))
+        val events = listOf(
+            multiPointer(0L, MotionEvent.ACTION_DOWN, 0, arrayOf(pointers[0])),
+            multiPointer(10L, MotionEvent.ACTION_POINTER_DOWN, 1, pointers),
+            multiPointer(20L, MotionEvent.ACTION_POINTER_UP, firstLifted, pointers),
+            multiPointer(30L, MotionEvent.ACTION_UP, 0, arrayOf(pointers[1 - firstLifted])),
+        )
+        try {
+            events.forEach { overlay.dispatchTouchEvent(it) }
+        } finally {
+            events.forEach(MotionEvent::recycle)
+        }
+        return keyEvents
+    }
+
+    private data class Pointer(val id: Int, val x: Float, val y: Float)
+
+    private fun pointer(id: Int, at: Pair<Float, Float>) = Pointer(id, at.first, at.second)
+
+    private fun Array<Pointer>.props() = map { p ->
+        MotionEvent.PointerProperties().apply {
+            id = p.id
+            toolType = MotionEvent.TOOL_TYPE_FINGER
+        }
+    }.toTypedArray()
+
+    private fun Array<Pointer>.coords() = map { p ->
+        MotionEvent.PointerCoords().apply {
+            x = p.x
+            y = p.y
+            pressure = 1f
+            size = 1f
+        }
+    }.toTypedArray()
+
+    private fun multiPointer(time: Long, action: Int, index: Int, pointers: Array<Pointer>): MotionEvent {
+        val indexedAction = action or (index shl MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+        return MotionEvent.obtain(
+            0L, time, indexedAction, pointers.size, pointers.props(), pointers.coords(),
+            0, 0, 1f, 1f, 0, 0, 0, 0,
+        )
+    }
+
+    private fun centerOf(view: View): Pair<Float, Float> {
+        val bounds = Rect()
+        view.getHitRect(bounds)
+        return bounds.exactCenterX() to bounds.exactCenterY()
     }
 
     private fun buildOverlay(
