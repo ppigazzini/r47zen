@@ -48,9 +48,9 @@ The tracked root files are the ones the `.gitignore` reopen rule admits;
 `git ls-files | grep -v /` lists them, `upstream.source`, `AGENTS.md`, and the
 Python toolchain files among them.
 
-Maintainer-local ignored paths such as `__DEV/`, `.venv/`, or `upstream.lock`
-may also exist in a local workspace, but they are not part of the tracked clean
-overlay contract.
+Maintainer-local ignored paths such as `.venv/` or `upstream.lock` may also
+exist in a local workspace, but they are not part of the tracked clean overlay
+contract.
 
 ## Working Tree After Hydration
 

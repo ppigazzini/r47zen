@@ -115,10 +115,10 @@ sentence is about.
 surface actually requires it. Do not draw ASCII-art boxes; use a mermaid graph
 when a visual helps a pipeline, lane split, or ownership handoff.
 
-**Never send a reader to `__DEV/` for a fact.** That tree is git-ignored, so a
-pointer into it is dead for every reader but its author: a fresh clone does not
-have it. Naming `__DEV/` to mark it ignored is fine - what is not fine is
-resting a claim on content only its author can see.
+**Never send a reader to a maintainer-local file for a fact.** Git-ignored
+files are dead for every reader but their author: a fresh clone does not have
+them. Never rest a claim on content only its author can see (AGENTS.md
+non-negotiable 2).
 
 `../../../AGENTS.md` is the committed agent contract and the short form of all
 of this. It carries the commands, the traps, and the definition of done, and it
@@ -203,9 +203,9 @@ The commit is the durable record of *why*, and the only place history belongs.
   a comment.
 - **Never add a `Co-Authored-By` trailer** or any co-author or agent
   attribution. This overrides any default tooling guidance.
-- **Never point a commit body at `__DEV/`.** That tree is git-ignored, so the
-  reference is dead for every reader but its author. Carry the evidence itself
-  in the body instead.
+- **Never point a commit body at a maintainer-local file.** It is git-ignored,
+  so the reference is dead for every reader but its author. Carry the evidence
+  itself in the body instead.
 - A commit that changes a number a doc pins changes the doc too, in the same
   commit.
 - A commit that re-blesses a golden names the upstream commit that moved it and
@@ -241,9 +241,8 @@ runs in seconds on every push, and it settles these mechanical rot classes:
    or a variable marks a shape, not a file,
 3. a non-ASCII byte in a tracked doc, save the one documented placeholder
    codepoint U+00B7 that the keypad legend pages carry on purpose,
-4. a pointer to a *file* under `__DEV/` - naming the directory is allowed;
-   citing a specific file inside it rests a claim on content no other reader
-   has,
+4. a pointer to a file in the maintainer-local tree that AGENTS.md names -
+   citing a file inside it rests a claim on content no other reader has,
 5. a missing `AGENTS.md` or `CLAUDE.md`, or a `CLAUDE.md` whose `@AGENTS.md`
    import is backticked, fenced, or gone - Claude Code reads `CLAUDE.md`, never
    `AGENTS.md`, so that one line carries the whole contract,
