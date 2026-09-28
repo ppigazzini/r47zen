@@ -4,7 +4,10 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 ANDROID_DIR="$PROJECT_ROOT/android"
+CONNECTED_RESULTS_DIR="$ANDROID_DIR/app/build/outputs/androidTest-results/connected"
 DEFAULTS_PATH="$ANDROID_DIR/r47-defaults.properties"
 DEFAULT_TEST_CLASS="io.github.ppigazzini.r47zen.DisplayLifecycleInstrumentedTest#activityRecreationPreservesSpiralkGraphSnapshot"
 
@@ -137,11 +140,19 @@ main() {
     echo "Focused instrumentation target: $test_class"
 
     cd "$ANDROID_DIR"
+    rm -rf "$CONNECTED_RESULTS_DIR"
     ANDROID_SERIAL="$serial" ./gradlew \
         :app:connectedDebugAndroidTest \
         --no-daemon --stacktrace --console=plain \
         "-Pr47.abiFilters=$abi_filters" \
         "-Pandroid.testInstrumentationRunnerArguments.class=$test_class"
+
+    # A class#method filter whose method was renamed runs nothing and still
+    # reports success, so require a result from the class it names.
+    [[ "$(count_androidtest_cases "$CONNECTED_RESULTS_DIR")" -gt 0 ]] ||
+        fail "The 16 KB smoke ran no test for $test_class."
+    [[ "$(androidtest_classes_run "$CONNECTED_RESULTS_DIR")" == "${test_class%%#*}" ]] ||
+        fail "The 16 KB smoke results do not report ${test_class%%#*} alone."
 }
 
 main "$@"

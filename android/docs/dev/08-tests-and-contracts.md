@@ -524,14 +524,20 @@ Android compatibility layer.
   it runs a full 8-queens search to completion and its X-register result is
   asserted against the independently verified valid solution
   `-> 8., 4., 1., 3., 6., 2., 7., 5.`. A wrong result fails the lane (the harness
-  exits non-zero, which `run_workload_regressions.sh` propagates -- only bounded
-  timeouts are downgraded to degraded coverage). `SPIRALk.p47` carries a second
-  X-register oracle (final `X = 150`); its plot image stays un-oracled because
-  the number of points plotted before it finishes is not reproducible across
-  machines. Only `MANSLV2` stays liveness-only, because its direct-stop
-  interrupt leaves no completed state to assert
+  exits non-zero, which `run_workload_regressions.sh` propagates; a timeout
+  fails it too, unless a tolerate setting names that fixture, as the sanitized
+  lane does for `SPIRALk`). `SPIRALk.p47` carries an X-register pin (final
+  `X = 150`): the harness's own recorded result, checked equal across machines,
+  not a value derived apart from the program. Its plot image stays unpinned
+  because the number of points plotted before it finishes is not reproducible
+  across machines. Only `MANSLV2` stays liveness-only, because its direct-stop
+  interrupt leaves no completed state to assert; it fails if it finishes
+  before any direct stop was requested, since the stop seam then went untested.
+  The runner's fixture list and the harness's `kProgramFixtureScenarios` table
+  must name the same fixtures, or the runner fails before it builds
 - The two plotting fixtures (`BinetV4.p47`, `GudrmPL.p47`) leave a deterministic
-  image rather than a scalar in X, so they are pinned by an FNV-1a
+  image rather than a scalar in X, so they are pinned -- regression pins, the
+  harness's own recorded output, not independent oracles -- by an FNV-1a
   `expected_display_hash` over the final LCD bitmap instead. `compute_display_hash`
   in `scripts/workload-regressions/host_workload_regression.c` owns it: it reads
   every pixel through `lcd_buffer_pixel_on` and hashes eight pixels per octet, x
@@ -795,18 +801,18 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_signing_isolation_contract.sh` | no job that names a signing key builds or runs upstream code | yes, fixtures |
 | `run_release_provenance_contract.sh` | `publish-production-release` attests and verifies SLSA provenance with the permissions that needs | text |
 | `run_privileged_remote_script_contract.sh` | no workflow or script pipes a network fetch into a shell | text |
-| `run_llvm_toolchain_install_contract.sh` | every user of `llvm-config-<major>` installs `llvm-<major>`, which ships `llvm-profdata` | text |
-| `run_build_deps_single_source_contract.sh` | Linux build dependencies come only from `install_linux_build_deps.sh` | text |
+| `run_llvm_toolchain_install_contract.sh` | every user of `llvm-config-<major>` installs `llvm-<major>`, which ships `llvm-profdata`; live lines only | text |
+| `run_build_deps_single_source_contract.sh` | Linux build dependencies come only from `install_linux_build_deps.sh`; live lines only | text |
 | `run_toolchain_pin_coherence_contract.sh` | the documentary Gradle and AGP pins in `r47-defaults.properties` match the wrapper and the version catalog | text |
 | `run_build_jdk_pin_coherence_contract.sh` | the Gradle toolchain, every `setup-java`, and the doctor read the build JDK pin | text, with a vacuity guard |
 | `run_action_pin_consistency_contract.sh` | one SHA and tag per action, shfmt, shellcheck, ruff, and Python pinned alike in CI, pre-commit, `uv.lock`, and `pyproject.toml`, and no `-latest` runner label (see [07](07-ci-and-release-workflow.md#pins-that-live-in-more-than-one-file)) | yes, fixtures |
-| `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely, and every deadline site uses the helpers | yes, compiles and runs a C test |
+| `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely, and every deadline site uses the helpers with no raw comparison in either operand order | yes, compiles and runs a C test; the patterns prove themselves on seeded lines |
 | `run_setup_android_packages_contract.sh` | every `setup-android` use passes explicit `packages:` without the legacy `tools` package | text |
 | `run_setup_android_composite_contract.sh` | SDK setup lives only in the composite, its actions are SHA-pinned, and each cache key covers every input its install step reads | yes, cache-key fixtures |
 | `run_bridge_tsan_lane_contract.sh` | the TSan lane keeps `halt_on_error=1` and upstream-only suppressions (see above) | yes, fixtures |
-| `run_lock_free_signal_atomicity_contract.sh` | the lock-free display and refresh signals stay C11 atomics, never plain `volatile` | text |
+| `run_lock_free_signal_atomicity_contract.sh` | the lock-free display and refresh signals stay C11 atomics, never plain `volatile`, and every use in the glue is an `atomic_*(&signal, ...)` call | yes, fixtures |
 | `run_mini_gmp_accounting_contract.sh` | the vendored mini-gmp fallback keeps the size-prefix header the GMP accounting hooks need | text |
-| `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on | text |
+| `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on; live lines only | text |
 | `run_test_integrity_contract.sh` | the workload fixture-exit policy, the mutation spot-check, and the connected lane's zero-test count (see above) | yes, runs them |
 | `run_privacy_policy_parity_contract.sh` | the markdown and shipped-HTML privacy policies share section headings and a last-updated date | text |
 

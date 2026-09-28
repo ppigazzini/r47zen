@@ -39,6 +39,12 @@ class LcdThemePolicyTest {
                         "${theme.storageValue} negative=$isNegative at $luminance% contrast was $contrast",
                         contrast >= theme.minimumContrast,
                     )
+                    // Independent of the enum, so lowering a theme's own floor
+                    // cannot weaken this check with it.
+                    assertTrue(
+                        "${theme.storageValue} negative=$isNegative at $luminance% contrast $contrast is below WCAG AA",
+                        contrast >= WCAG_AA_TEXT_CONTRAST,
+                    )
                 }
             }
         }
@@ -88,5 +94,10 @@ class LcdThemePolicyTest {
                     ColorUtils.calculateLuminance(minimumPalette.text),
             )
         }
+    }
+
+    private companion object {
+        /** WCAG 2 AA minimum contrast for normal-size text. */
+        const val WCAG_AA_TEXT_CONTRAST = 4.5
     }
 }

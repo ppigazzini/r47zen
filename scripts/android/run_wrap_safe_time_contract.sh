@@ -12,7 +12,8 @@
 #      "deadline 0 is unset / due immediately" sentinel.
 #   2. Assert the deadline-bearing sources (jni_lifecycle.c,
 #      android_runtime.c) include r47_time.h, use the helpers, and carry no
-#      raw deadline comparison.
+#      raw deadline comparison in either operand order; the patterns first
+#      prove themselves on seeded lines.
 
 set -Eeuo pipefail
 
@@ -52,15 +53,38 @@ deadline_sources=(
 )
 
 # Raw uint32 deadline comparisons this contract forbids: any relational
-# operator between the scheduler deadlines (nextTimerRefresh,
-# nextScreenRefresh, next_due, the mock-timer fields) and the current clock.
+# operator (<, <=, >, >=), in either operand order, between a scheduler deadline
+# (nextTimerRefresh, nextScreenRefresh, next_due, the mock-timer fields) and the
+# current clock or another deadline.
+deadline_ids='(nextTimerRefresh|nextScreenRefresh|next_due|next_fire(_ms)?|g_android_mock[A-Za-z0-9_.]*)'
+clock_ids='(now|sys_current_ms\(\))'
 raw_patterns=(
-    '(nextTimerRefresh|nextScreenRefresh|next_due)[[:space:]]*<=?[[:space:]]*now'
-    'sys_current_ms\(\)[[:space:]]*>='
-    'now[[:space:]]*<[[:space:]]*g_android_mock'
-    'next_fire(_ms)?[[:space:]]*(<=|>)[[:space:]]*now'
-    'nextScreenRefresh[[:space:]]*<[[:space:]]*next_due'
+    "${deadline_ids}[[:space:]]*[<>]=?[[:space:]]*${clock_ids}([^A-Za-z0-9_]|$)"
+    "(^|[^A-Za-z0-9_])${clock_ids}[[:space:]]*[<>]=?[[:space:]]*${deadline_ids}"
+    "${deadline_ids}[[:space:]]*[<>]=?[[:space:]]*${deadline_ids}"
 )
+
+# Prove the patterns catch every operand order, and pass the helper calls and
+# plain assignments the real sources use.
+for seeded in 'if (now >= next_due)' 'if (nextTimerRefresh > now)' \
+    'if (sys_current_ms() >= nextScreenRefresh)' 'if (next_fire_ms <= now)' \
+    'if (nextScreenRefresh < next_due)' 'if (now < g_android_mock_timeout.next_fire_ms)' \
+    'return next_due>now;'; do
+    matched=false
+    for pattern in "${raw_patterns[@]}"; do
+        grep -Eq -- "$pattern" <<<"$seeded" && matched=true
+    done
+    [ "$matched" = true ] || fail "the raw-comparison patterns miss the seeded '$seeded'."
+done
+for allowed in 'if (r47_ms_deadline_reached(now, next_due))' 'nextTimerRefresh = now + 5;' \
+    'uint32_t now = sys_current_ms();' 'if (r47_ms_before(nextScreenRefresh, next_due))' \
+    'if (nowPlaying > limit)'; do
+    for pattern in "${raw_patterns[@]}"; do
+        if grep -Eq -- "$pattern" <<<"$allowed"; then
+            fail "the raw-comparison pattern '$pattern' rejects the allowed '$allowed'."
+        fi
+    done
+done
 
 for source_file in "${deadline_sources[@]}"; do
     [ -f "$source_file" ] || fail "missing deadline source $source_file"

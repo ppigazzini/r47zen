@@ -625,6 +625,16 @@ static workload_result_t run_program_fixture_workload(
             (unsigned int)programRunStop);
     return WORKLOAD_RESULT_FAIL;
   }
+  // A bounded-stop scenario tests the direct stop only if one was requested: a
+  // program that ends by itself inside the window would pass without it.
+  if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
+      !requested_direct_stop) {
+    fprintf(stderr,
+            "ERROR: %s finished before any direct stop was requested, so the "
+            "stop seam went untested\n",
+            scenario->program_name);
+    return WORKLOAD_RESULT_FAIL;
+  }
   // No gmpMemInBytes leak check: this host build links the Android mini-gmp
   // fallback (android/compat/mini-gmp-fallback), whose gmp_free / gmp_xrealloc_
   // limbs pass size 0 to the core's freeGmp / reallocGmp accounting hooks. The
@@ -691,8 +701,11 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
-     // Verified run-to-run deterministic over repeated host runs; BinetV4 parks
-     // at its plot prompt leaving a stable final image. BinetV4 does not end in
+     // A regression pin, not an independent oracle: the hash is this harness's
+     // own recorded output, so it proves the final image did not change, not that
+     // it is right. Re-pin only with a bitmap diff that accounts for every moved
+     // pixel, as below. Verified run-to-run deterministic over repeated host
+     // runs; BinetV4 parks at its plot prompt leaving a stable final image. BinetV4 does not end in
      // GRAPHMODE: its rows 0..19 are status bar at full width, measured as the
      // ten date cells at x 25..102 (pitch 8 from X_DATE) plus annunciator runs
      // at 138-149, 160-165, 186-216, 264-290 and 315-327. The date is masked and
@@ -724,8 +737,9 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = NULL,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
-     // Verified run-to-run deterministic over repeated host runs; GudrmPL runs
-     // the Gudermannian plot to natural completion. Unlike the other fixtures it
+     // A regression pin, not an independent oracle: the hash is this harness's
+     // own recorded output. Verified run-to-run deterministic over repeated host
+     // runs; GudrmPL runs the Gudermannian plot to natural completion. Unlike the other fixtures it
      // ends in GRAPHMODE and paints no status bar at all: its rows 0..19 carry
      // only plot frame, measured at x 158-159, 279-281 and 386-390. Masking the
      // whole band would have discarded those 94 pixels for no gain, which is why
@@ -734,7 +748,7 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // pixels over y 171..239). GudrmPL ends PLSTAT then PLTFCNS, so upstream
      // fnPseudoMenu in softmenus.c decides which softmenu it lands on and can
      // move this golden with every plot-area row bit-identical. That is wanted:
-     // a moved golden is the oracle catching changed chrome. Diff the two
+     // a moved pin is the harness catching changed chrome. Diff the two
      // bitmaps by row before re-blessing -- a diff confined to y >= 171 is
      // changed chrome, a plot-area row that moves is a changed result.
      .expected_display_hash = 0xac3443a946abd291ull},
@@ -747,11 +761,11 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // run after sustained activity, so there is no completed state to assert --
      // neither an X-register sequence nor a final-image hash. This fixture proves
      // the bounded-interrupt path stays responsive (it stops on request without
-     // hanging), not that it computes a particular result. NQueens and SPIRALk
-     // both carry numeric value oracles (SPIRALk's final X is reproducible across
-     // machines even though its plot image is not, see below); MANSLV2 is the
-     // remaining known result-coverage gap because its direct-stop interrupt
-     // leaves no completed state to assert.
+     // hanging), not that it computes a particular result. NQueens carries an
+     // independent value oracle and SPIRALk a recorded value pin (its final X is
+     // reproducible across machines even though its plot image is not, see
+     // below); MANSLV2 is the remaining known result-coverage gap because its
+     // direct-stop interrupt leaves no completed state to assert.
      .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
      .stop_after_activity_ms = 3000u},
     {.program_name = "NQueens.p47",
@@ -776,8 +790,10 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_after_activity_ms = 0u,
      // Runs to completion and leaves a deterministic long-integer result in X.
      // The final X (150) is reproducible across environments -- verified equal on
-     // the dev host and on the CI runner (twice) -- so it now carries a value
-     // oracle, upgrading SPIRALk from liveness-only. Its final plot IMAGE stays
+     // the dev host and on the CI runner (twice) -- so it carries a value pin,
+     // upgrading SPIRALk from liveness-only. A pin, not an independent oracle:
+     // 150 is this harness's own recorded result, not a value derived apart from
+     // the program; NQueens is the one fixture with an independent oracle. Its final plot IMAGE stays
      // un-oracled because it is NOT reproducible across machines: the number of
      // points plotted before it finishes depends on the pause/resume interleaving
      // (a pinned hash 0x8cfc1f2910613f3c locally failed CI with

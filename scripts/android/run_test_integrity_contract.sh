@@ -136,6 +136,15 @@ expect_fixture_status() {
     fi
 }
 
+# The runner's fixture list and the harness's scenario table must name the same
+# fixtures; the runner checks this before it builds, and so does this contract.
+fixture_gaps="$(
+    # shellcheck source=scripts/workload-regressions/run_workload_regressions.sh
+    source "$WORKLOAD_RUNNER"
+    program_fixture_list_gaps
+)"
+[ -z "$fixture_gaps" ] || fail "workload runner and harness name different fixtures: $fixture_gaps"
+
 expect_fixture_status "a clean fixture" pass NQueens.p47 0
 expect_fixture_status "an outer-timeout kill (124)" fail NQueens.p47 124
 expect_fixture_status "an outer-timeout kill (137)" fail NQueens.p47 137

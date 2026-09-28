@@ -46,6 +46,17 @@ REQUIRED_PROGRAM_FIXTURE_SPECS=(
     "SPIRALk.p47|$HOST_WORKLOAD_FIXTURE_TIMEOUT|$HOST_WORKLOAD_FIXTURE_KILL_AFTER"
 )
 
+# Print each fixture that only one of REQUIRED_PROGRAM_FIXTURE_SPECS and the
+# harness's kProgramFixtureScenarios table names; nothing when they agree. A
+# fixture in the table alone never runs; one in the specs alone has no oracle.
+program_fixture_list_gaps() {
+    local harness="$SCRIPT_DIR/host_workload_regression.c"
+    diff <(printf '%s\n' "${REQUIRED_PROGRAM_FIXTURE_SPECS[@]%%|*}" | LC_ALL=C sort) \
+        <(sed -n 's/^[[:space:]]*{\.program_name = "\([^"]*\)".*/\1/p' "$harness" | LC_ALL=C sort) |
+        sed -n -e 's/^< \(.*\)/\1: in REQUIRED_PROGRAM_FIXTURE_SPECS only/p' \
+            -e 's/^> \(.*\)/\1: in kProgramFixtureScenarios only/p' || true
+}
+
 fail() {
     echo "ERROR: $*" >&2
     exit 1
@@ -205,6 +216,10 @@ resolve_program_root() {
 }
 
 main() {
+    local fixture_gaps
+    fixture_gaps="$(program_fixture_list_gaps)"
+    [[ -z "$fixture_gaps" ]] || fail "the runner and the harness name different fixtures: $fixture_gaps"
+
     PROGRAM_ROOT="$(resolve_program_root)"
 
     if [[ ! -d "$PROGRAM_ROOT" ]]; then

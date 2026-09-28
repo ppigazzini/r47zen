@@ -21,8 +21,9 @@ for f in "$WORKFLOW_DIR"/*.yml "$PROJECT_ROOT/scripts/android/install_host_llvm_
     # Only files that actually invoke llvm-config-<major> (strip_yaml_comments
     # ignores comment lines that merely mention it, e.g. a contract step's own
     # description).
-    strip_yaml_comments <"$f" | grep -qF 'llvm-config-' || continue
-    if ! grep -qF '"llvm-${llvm_major}"' "$f"; then
+    live="$(strip_yaml_comments <"$f")"
+    grep -qF 'llvm-config-' <<<"$live" || continue
+    if ! grep -qF '"llvm-${llvm_major}"' <<<"$live"; then
         echo "FAIL: $(basename "$f") uses llvm-config-<major> but never installs the llvm-\${llvm_major} package that provides it (and llvm-profdata)." >&2
         status=1
     fi

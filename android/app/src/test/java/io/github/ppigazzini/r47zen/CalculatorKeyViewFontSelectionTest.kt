@@ -31,7 +31,7 @@ class CalculatorKeyViewFontSelectionTest {
     }
 
     @Test
-    fun numericStyleFallsBackToStandardTypefaceWhenNumericFontMissesGlyph() {
+    fun numericStyleKeepsStandardTypefaceWhenNumericFontMissesGlyph() {
         val view = createMainKeyView(19)
 
         view.updateLabels(snapshotFor(19, numericMatrixKeyState(primaryLabel = "⎌")))
@@ -78,7 +78,7 @@ class CalculatorKeyViewFontSelectionTest {
     }
 
     @Test
-    fun topLabelsFallbackToStandardTypefaceWhenNumericFontMissesGlyph() {
+    fun topLabelsKeepStandardTypefaceWhenNumericFontMissesGlyph() {
         val view = createMainKeyView(19)
 
         view.updateLabels(

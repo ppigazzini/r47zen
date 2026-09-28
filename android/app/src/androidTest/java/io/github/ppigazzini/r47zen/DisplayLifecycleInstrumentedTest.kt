@@ -26,6 +26,9 @@ class DisplayLifecycleInstrumentedTest {
             ProgramLoadTestBridge.forceRefresh()
 
             val beforeHash = ProgramLoadTestBridge.captureDisplayHash()
+            // captureDisplayHash returns 0 when no framebuffer is available, and
+            // two such zeros would compare equal without a display to preserve.
+            assertTrue("no display hash was captured before the save", beforeHash != 0L)
             ProgramLoadTestBridge.saveBackgroundStateForTest()
             val afterHash = ProgramLoadTestBridge.captureDisplayHash()
 
@@ -133,6 +136,7 @@ class DisplayLifecycleInstrumentedTest {
             runSpiralkScenario(loadState)
 
             val beforeHash = ProgramLoadTestBridge.captureDisplayHash()
+            assertTrue("no display hash was captured before recreation", beforeHash != 0L)
             scenario.recreate()
             assertTrue(
                 "Native runtime did not become ready after MainActivity recreation",

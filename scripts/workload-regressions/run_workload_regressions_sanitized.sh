@@ -48,8 +48,9 @@ export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1:halt_on_error=0}"
 #     overrun to a FATAL exit, so it is scaled well above the outer bound
 #     (HOST_WORKLOAD_PROGRAM_TIMEOUT_SCALE) and never governs here;
 #   - the outer wall-clock timeout (HOST_WORKLOAD_FIXTURE_TIMEOUT) kills an
-#     overrunning process and the inner lane records it as DEGRADED coverage
-#     (exit 124/137), not a failure.
+#     overrunning process (exit 124/137); the inner lane records that as
+#     DEGRADED coverage only for a fixture HOST_WORKLOAD_TOLERATE_TIMEOUT_FIXTURES
+#     names, below, and as a failure for every other.
 # This matters because the imported workloads split into two classes under
 # sanitizers: the arithmetic and stop-probe fixtures (BinetV4, GudrmPL, MANSLV2,
 # NQueens) finish in seconds and must complete, while SPIRALk -- a dense,

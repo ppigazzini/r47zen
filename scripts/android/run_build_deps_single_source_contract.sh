@@ -19,7 +19,7 @@ fi
 
 # build-essential is the canonical sentinel of the build-dependency list; it
 # must appear only in the installer, never inline in a workflow.
-offenders="$(grep -rln 'build-essential' "$WORKFLOW_DIR" 2>/dev/null || true)"
+offenders="$(workflow_grep 'build-essential' | cut -d: -f1 | sort -u || true)"
 if [ -n "$offenders" ]; then
     contract_fail \
         "workflow(s) inline the build-dependency apt list instead of calling $INSTALLER:" \
@@ -27,7 +27,7 @@ if [ -n "$offenders" ]; then
 fi
 
 # And every job that installs build deps must actually invoke the installer.
-if ! grep -rqF "$INSTALLER" "$WORKFLOW_DIR" 2>/dev/null; then
+if ! workflow_uses "${INSTALLER//./\\.}"; then
     contract_fail "no workflow calls $INSTALLER; the single source is unused."
 fi
 

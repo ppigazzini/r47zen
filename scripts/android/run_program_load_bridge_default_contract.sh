@@ -27,13 +27,15 @@ fail() {
 [ -f "$BUILD_GRADLE" ] || fail "missing required file: ${BUILD_GRADLE#"$PROJECT_ROOT/"}"
 [ -f "$RELEASE_WORKFLOW" ] || fail "missing required file: ${RELEASE_WORKFLOW#"$PROJECT_ROOT/"}"
 
+# Live lines only: a `//` or `#` comment must not satisfy or violate a check.
 # The Gradle default must resolve to false.
-if ! grep -Eq "readBooleanProperty\('r47\.includeProgramLoadTestBridge',[[:space:]]*false\)" "$BUILD_GRADLE"; then
+if ! grep -vE '^[[:space:]]*//' "$BUILD_GRADLE" |
+    grep -Eq "readBooleanProperty\('r47\.includeProgramLoadTestBridge',[[:space:]]*false\)"; then
     fail "build.gradle no longer defaults includeProgramLoadTestBridge to false (the bridge would ship by default)."
 fi
 
 # The published release workflow must never opt the bridge in.
-if grep -Eq 'includeProgramLoadTestBridge=true' "$RELEASE_WORKFLOW"; then
+if grep -vE '^[[:space:]]*#' "$RELEASE_WORKFLOW" | grep -Eq 'includeProgramLoadTestBridge=true'; then
     fail "android-release.yml enables the program-load bridge in a published release build."
 fi
 
