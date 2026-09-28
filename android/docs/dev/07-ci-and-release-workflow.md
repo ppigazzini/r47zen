@@ -685,8 +685,10 @@ reports and none blocks a push.
 
 Two composite actions carry setup shared by several jobs:
 `./.github/actions/setup-android-sdk` (writable SDK root, license acceptance,
-the pinned SDK packages from `android/r47-defaults.properties`, and their
-cache, whose key covers every input the install step reads) and
+the pinned SDK packages from `android/r47-defaults.properties`, installed
+through `retry_with_backoff` from `scripts/lib/common.sh` because a cache miss
+downloads several GB and a dropped connection is transient, and their cache,
+whose key covers every input the install step reads) and
 `./.github/actions/setup-xlsxio-toolchain` (builds the pinned xlsxio commit
 with a fixed CMake recipe and caches it on the source URL, the commit, and the
 action file's hash). `.github/dependabot.yml` opens weekly grouped update pull

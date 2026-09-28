@@ -145,6 +145,8 @@ runs:
         NDK_VERSION: ${{ inputs.ndk-version }}
       run: |
         set -euo pipefail
+        # shellcheck source=scripts/lib/common.sh
+        source "$GITHUB_WORKSPACE/scripts/lib/common.sh"
 
         sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
         # Some api levels ship under the bare platform id (android-36) and newer
@@ -162,7 +164,10 @@ runs:
           fi
         fi
 
-        sdkmanager \
+        # A cache miss downloads several GB from dl.google.com, where a dropped
+        # connection ("Premature EOF") is transient; sdkmanager resumes what is
+        # missing, so retry before failing the lane.
+        retry_with_backoff "sdkmanager package install" sdkmanager \
           "${platform_pkg}" \
           "build-tools;${BUILD_TOOLS_VERSION}" \
           "cmake;${CMAKE_VERSION}" \
@@ -180,6 +185,8 @@ runs:
         ANDROID_TEST_API_LEVEL: ${{ inputs.android-test-api-level }}
       run: |
         set -euo pipefail
+        # shellcheck source=scripts/lib/common.sh
+        source "$GITHUB_WORKSPACE/scripts/lib/common.sh"
 
         sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
         # Some api levels ship under the bare platform id (android-36) and newer
@@ -197,7 +204,10 @@ runs:
           fi
         fi
 
-        sdkmanager \
+        # A cache miss downloads several GB from dl.google.com, where a dropped
+        # connection ("Premature EOF") is transient; sdkmanager resumes what is
+        # missing, so retry before failing the lane.
+        retry_with_backoff "sdkmanager package install" sdkmanager \
           "${platform_pkg}" \
           "build-tools;${BUILD_TOOLS_VERSION}" \
           "cmake;${CMAKE_VERSION}" \
