@@ -24,22 +24,33 @@ surfaces.
 
 ## Kotlin Structure At A Glance
 
-- activity entrypoints and settings surfaces: `MainActivity.kt`, `SettingsActivity.kt`,
-  `SettingsSwitchPreference.kt`
+The files under `android/app/src/main/java/io/github/ppigazzini/r47zen/`,
+grouped by role; the directory itself is the authority when a file is added:
+
+- activity entrypoints and settings surfaces: `MainActivity.kt`,
+  `SettingsActivity.kt`, `SettingsSwitchPreference.kt`,
+  `RepoNoticeIndexActivity.kt`, `NoticeAssetActivity.kt`, `ScreenToolbar.kt`,
+  and `EnglishResourceContext.kt`
 - runtime loops: `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`,
-  `NativeKeypadSnapshotStore.kt`
+  `NativeKeypadSnapshotStore.kt`, `NativeFileRequestGate.kt`, and
+  `DeveloperPerformanceSnapshot.kt`
 - shell coordination: `ReplicaOverlayController.kt`,
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
-  `WindowModeController.kt`, `LiveProgramStopKeyPolicy.kt`
+  `WindowModeController.kt`, `FactoryResetController.kt`,
+  `HapticFeedbackController.kt`, `AudioEngine.kt`, `LiveKeyRouter.kt`,
+  `LiveProgramStopKeyPolicy.kt`, and `GraphGestureAccumulator.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt`,
-  `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`,
-  `KeyRenderPainter.kt`, `C47TextRenderer.kt`, `MainKeyLabelMirrors.kt`,
-  `SoftkeyOverlayPainter.kt`, `R47Geometry.kt`, `TopLabelLaneLayout.kt`
+  `ReplicaChromeLayout.kt`, `CalculatorKeyView.kt`,
+  `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `KeyRenderPainter.kt`,
+  `C47TextRenderer.kt`, `C47TypefacePolicy.kt`, `MainKeyLabelMirrors.kt`,
+  `SoftkeyOverlayPainter.kt`, `SettingsMenuGlyph.kt`, `R47Geometry.kt`,
+  `R47KeypadPolicy.kt`, `TopLabelLaneLayout.kt`, and `LcdThemePolicy.kt`
 - storage and slots: `StorageAccessCoordinator.kt`, `WorkDirectory.kt`,
-  `SlotSessionController.kt`, `SlotStore.kt`
+  `SlotSessionController.kt`, and `SlotStore.kt`
 - keyboard and keypad models: `PhysicalKeyboardInputController.kt`,
-  `PhysicalKeyboardMapper` support files, `KeypadSnapshot.kt`,
-  `KeypadTopology.kt`
+  `PhysicalKeyboardInput.kt`, `PhysicalKeyboardBindingTables.kt`,
+  `PhysicalKeyboardShortcutId.kt`, `KeypadSnapshot.kt`,
+  `KeyboardStateSnapshot.kt`, `KeypadTopology.kt`, and `KeypadLabelModes.kt`
 
 ## Kotlin Runtime Flow
 

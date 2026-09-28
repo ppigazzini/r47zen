@@ -49,7 +49,7 @@ flowchart TD
   documentation hub that covers the broader C47 ecosystem, including R47
   variant context and user-facing project documentation.
 
-## Spring 2026 toolchain references
+## Toolchain references
 
 - [Android Gradle plugin 9.4 release notes](https://developer.android.com/build/releases/agp-9-4-0-release-notes):
   official Android build release notes for the 9.4 AGP line used by this repo
@@ -126,7 +126,7 @@ flowchart TD
   `Looper` thread attached to the `Choreographer` when a new display frame is
   being rendered. Use this when documenting UI-side cadence fields or other
   frame-sensitive polling loops such as `NativeDisplayRefreshLoop`.
-- [ANRs](https://developer.android.com/topic/performance/vitals/anr):
+- [ANRs](https://developer.android.com/topic/performance/issues/anr):
   official foreground input-dispatch timeout, main-thread lock-contention, and
   ANR trace guidance used when Android-specific hangs look like UI-thread
   stalls rather than pure core-thread starvation.
@@ -174,7 +174,8 @@ Current repository icon surfaces:
   `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml`
 - Runtime vectors and fallbacks:
   `android/app/src/main/res/drawable/ic_launcher_foreground.xml`,
-  `android/app/src/main/res/drawable/ic_launcher_legacy.xml`,
+  `android/app/src/main/res/drawable/ic_launcher_foreground_inset.xml` (the
+  adaptive foreground the `mipmap-anydpi-v26` icons use),
   `android/app/src/main/res/mipmap/ic_launcher.xml`, and
   `android/app/src/main/res/mipmap/ic_launcher_round.xml`
 
@@ -210,18 +211,14 @@ Current repository icon surfaces:
   profiler or trace has already identified the bottleneck.
 - [Macrobenchmark overview](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview):
   official Android app benchmarking guidance. Benchmark a release-like,
-  profileable app from a separate `com.android.test` module and treat the
-  generated JSON or trace artifacts as a distinct app-performance surface, not
-  as a substitute for shared-core PGO corpus selection.
+  `profileable`, non-debuggable app from a separate `com.android.test` module,
+  collect the JSON and trace outputs, treat emulator numbers as
+  non-representative, and treat those artifacts as a distinct app-performance
+  surface, not as a substitute for shared-core PGO corpus selection.
 - [System tracing overview](https://developer.android.com/topic/performance/tracing):
   official Perfetto and system tracing overview. Use tracing for root-cause
   analysis once a benchmark or workload points at a regression; it complements
   native-core PGO and Android benchmarking rather than replacing either one.
-- [Slow rendering](https://developer.android.com/topic/performance/vitals/render):
-  official Android jank and render-time guidance. Treat
-  16.67 ms as the 60 fps frame budget, validate jank on release-like builds,
-  use Perfetto or Systrace for frame-level diagnosis, and keep field reporting
-  separate for slow and frozen frames.
 - [Inspect GPU rendering](https://developer.android.com/topic/performance/rendering/inspect-gpu-rendering):
   official developer-option guidance for mapping on-screen frame bars to the
   rendering pipeline. Use it as a fast local visualizer for
@@ -233,9 +230,6 @@ Current repository icon surfaces:
   registration, thread attachment, reference management, exception rules, and
   the guidance to minimize marshalling and prefer region-style copy calls when
   a simple copy contract is enough.
-- [JNI performance article alias](https://developer.android.com/training/articles/perf-jni):
-  stable alias that currently resolves to the maintained JNI guidance page;
-  useful when historical Android notes still reference the older URL.
 - [simpleperf](https://developer.android.com/ndk/guides/simpleperf): official
   native profiler for symbol, DSO, thread, and call-graph attribution before
   hot-path micro-optimization. Current guidance is to identify the hottest
@@ -275,13 +269,13 @@ Current repository icon surfaces:
 - [Use Play App Signing](https://support.google.com/googleplay/android-developer/answer/9842756):
   official Google Play guidance for upload keys, app-signing-key custody,
   bundle-first release flow, and upload-key reset behavior.
-- [Enable app optimization with R8](https://developer.android.com/build/shrink-code):
+- [Enable app optimization with R8](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization):
   current Android guidance to enable minify and resource shrinking for release
   builds.
 - [Building and testing Java with Gradle](https://docs.github.com/en/actions/tutorials/build-and-test-code/java-with-gradle):
   GitHub Actions guidance for Gradle cache setup, Java toolchain setup, and
   Gradle-oriented workflow structure.
-- [Security hardening for GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions):
+- [Security hardening for GitHub Actions](https://docs.github.com/en/actions/reference/security/secure-use):
   GitHub Actions guidance for least-privilege `GITHUB_TOKEN` policy, action
   pinning, trusted-code boundaries, and secret-exposure minimization in
   workflow design. The same guidance also states that a full-length commit SHA
@@ -290,7 +284,7 @@ Current repository icon surfaces:
   GitHub guidance for reviewing and refreshing SHA-pinned actions; same-line
   version comments are part of the supported Dependabot update surface when the
   pinned commit maps to a tagged release.
-- [Using secrets in GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions):
+- [Using secrets in GitHub Actions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets):
   GitHub guidance for repository and environment secrets, shell-safe secret
   handling, and the Base64 binary-blob pattern used for small upload keystores.
 - [Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments):
@@ -299,7 +293,7 @@ Current repository icon surfaces:
 - [Events that trigger workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule):
   schedule-trigger semantics, default-branch-only execution, UTC defaults, and
   delay or drop behavior relevant to the daily signed dev-prerelease lane.
-- [Manually running a workflow](https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow):
+- [Manually running a workflow](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow):
   the maintainer entry point for versioned protected releases outside the
   scheduled dev-prerelease lane.
 - [Passing information between jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs):
@@ -309,7 +303,7 @@ Current repository icon surfaces:
 - [Control workflow concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency):
   workflow-level concurrency controls used to cancel superseded runs for the
   same pull request or ref.
-- [Store and share data with workflow artifacts](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-what-your-workflow-does/storing-and-sharing-data-from-a-workflow):
+- [Store and share data with workflow artifacts](https://docs.github.com/en/actions/tutorials/store-and-share-data):
   artifact upload and download behavior for GitHub Actions.
 - [Manage releases in a repository](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository):
   the release model used by the main-branch snapshot lane.
@@ -368,26 +362,20 @@ Current repository icon surfaces:
   press-only keypad pulse for calculator interaction, defaults to the Android
   system response through a dedicated toggle, and reserves the custom
   `0..100 ms` slider for explicit app-owned override behavior.
-- [Keep your app responsive](https://developer.android.com/training/articles/perf-anr):
+- [Keep your app responsive](https://developer.android.com/topic/performance/anrs/keep-your-app-responsive):
   official Android guidance for 5 s input deadlines, minimizing main-thread
   work, minimizing lock contention, and using Perfetto or CPU profiling when
   responsiveness regresses.
 - [Rendering](https://developer.android.com/topic/performance/rendering):
   official entry point for reducing overdraw, optimizing view hierarchies, and
   using Profile GPU Rendering on View-based UI.
-- [Slow rendering](https://developer.android.com/topic/performance/vitals/render):
+- [Slow rendering](https://developer.android.com/topic/performance/issues/render):
   official jank and frozen-frame guidance for the 16 ms, 700 ms, and 5 s
   thresholds, plus the UI-thread and `RenderThread` split used when diagnosing
-  rendering regressions.
-- [Benchmark your app](https://developer.android.com/topic/performance/benchmarking/benchmarking-overview):
-  official Android benchmarking overview for choosing Macrobenchmark versus
-  Microbenchmark, preventing regressions, and treating benchmarking as a
-  repeatable quality surface rather than an ad hoc profiler session.
-- [Write a Macrobenchmark](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview):
-  official release-like Android app benchmark setup for startup and complex UI
-  flows. Use a separate `com.android.test` module, benchmark a `profileable`
-  non-debuggable target configured as close to release as possible, collect the
-  JSON and trace outputs, and treat emulator numbers as non-representative.
+  rendering regressions. Validate jank on release-like builds, use Perfetto for
+  frame-level diagnosis, keep View-based rendering under the frame budget, and
+  avoid UI-thread allocation or draw-path work. The benchmark and
+  Macrobenchmark references are under Native and build integration.
 - [Overview of measuring app performance](https://developer.android.com/topic/performance/measuring-performance):
   official Android triage guide for startup, scroll jank, and other app
   performance problems before committing to one benchmark or profiling surface.
@@ -470,7 +458,7 @@ Current repository icon surfaces:
   canonical secondary accessibility reference for avoiding color-only meaning;
   use this after the Android implementation docs when evaluating whether a UI
   surface still communicates through text, shape, or layout.
-- [Layout basics](https://m3.material.io/foundations/layout/understanding-layout/overview):
+- [Layout basics](https://m3.material.io/foundations/layout):
   current Material 3 guidance for canonical-layout-first design, panes,
   spacers, and window-size-class thinking.
 - [Lists](https://m3.material.io/components/lists/overview):
@@ -511,10 +499,9 @@ Current repository icon surfaces:
   `Paint` subclass used for text measurement and drawing in widget text paths.
 - [AOSP TextView.java](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/widget/TextView.java):
   current platform source initializes widget text with
-  `mTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG)`, which explains why the
-  earlier explicit antialias experiment on this repo's widget-backed main-key
-  path could appear to do nothing before the keypad text path was unified under
-  custom painting.
+  `mTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG)`, so widget-backed text is
+  already antialiased and an explicit antialias flag on that path changes
+  nothing.
 - [Layout](https://developer.android.com/reference/android/text/Layout):
   Android's base text-layout class for visual elements on screen; built with a
   `TextPaint`, exposes `draw(Canvas)`, and documents that its `TextPaint`
@@ -526,10 +513,6 @@ Current repository icon surfaces:
   Android text-measurement contract object that packages the `TextPaint`, break
   strategy, hyphenation, and text-direction inputs used for layout work outside
   a final `TextView` or `StaticLayout`.
-- [Slow rendering](https://developer.android.com/topic/performance/vitals/render):
-  official Android vitals guidance for keeping View-based rendering under the
-  frame budget and for avoiding avoidable UI-thread allocation or draw-path
-  work when investigating jank.
 - [Make custom views more accessible (Views)](https://developer.android.com/guide/topics/ui/accessibility/views/custom-views):
   directional-controller, click-action, accessibility-event, and
   accessibility-node guidance for custom interactive views.

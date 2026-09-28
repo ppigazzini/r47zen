@@ -207,8 +207,9 @@ Top-level repo-owned overlay paths:
   `scripts/android/`, `scripts/r47_contracts/`, `scripts/upstream-sync/`,
   `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
   `scripts/workload-regressions/`.
-- `.github/` and `upstream.source` are repo-owned overlay paths outside the
-  Android module.
+- `.github/` and the tracked root files (`git ls-files | grep -v /`), among
+  them `upstream.source`, `pyproject.toml`, and `.pre-commit-config.yaml`, are
+  repo-owned overlay paths outside the Android module.
 
 Shared upstream-shaped top-level surfaces when the active lane hydrates them:
 
@@ -263,7 +264,7 @@ Current `--android-only` lane behavior:
 Current non-Android root surfaces that should not be used to justify Android
 ownership claims:
 
-- `dist.sh`
+- the upstream `dist` and `distS` release-packaging scripts
 - upstream DMCP SDK submodule paths under `dep/DMCP_SDK` and
   `dep/DMCP5_SDK`, which the current repo does not carry locally and the
   Android lane never stages
@@ -346,14 +347,16 @@ Public maintainer entrypoints:
   `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
   emulator is `x86_64`. The current required emulator-backed coverage includes
   the repo-owned `scripts/android/run_connected_android_tests.sh` wrapper,
-  which runs the non-fixture instrumentation classes plus one filtered
-  `ProgramFixtureInstrumentedTest` method per required `.p47` file. That keeps
-  `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
-  `SPIRALk.p47` in isolated `connectedDebugAndroidTest` selections under GNU
-  `timeout --kill-after` so a hung fixture degrades coverage instead of
-  wedging the whole emulator step. Inside each selection,
-  `ProgramFixtureInstrumentedTest` still loads the program through the Android
-  `READP` path, and the `MANSLV2` selection remains bounded: once the harness
+  which runs two selections: the non-fixture instrumentation classes, then the
+  whole `ProgramFixtureInstrumentedTest` class, which covers `BinetV4.p47`,
+  `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`, under GNU
+  `timeout --kill-after`. Both selections are required: a timeout fails the
+  lane rather than degrading coverage, and so does a selection that reports
+  success having executed no test. The wrapper runs `connectedReleaseAndroidTest`
+  when the build type is `release` (the default on the `dev` channel, which is
+  how CI runs it) and `connectedDebugAndroidTest` otherwise.
+  `ProgramFixtureInstrumentedTest` loads each program through the Android
+  `READP` path, and the `MANSLV2` case remains bounded: once the harness
   observes real run activity it publishes a direct stop through the same
   native stop seam that backs live `R/S` and `EXIT`. The required emulator
   coverage also includes `DisplayLifecycleInstrumentedTest`, which proves that
@@ -408,8 +411,9 @@ Internal helpers:
   keypad-fixture exporter implementation.
 - `scripts/android/run_connected_android_tests.sh` owns the grouped hosted
   emulator instrumentation wrapper. It runs the non-fixture Android test
-  classes directly and executes each canonical `PROGRAMS` fixture as its own
-  filtered `connectedDebugAndroidTest` selection under GNU `timeout`.
+  classes as one selection and the whole `ProgramFixtureInstrumentedTest` class,
+  which covers every canonical `PROGRAMS` fixture, as a second one under GNU
+  `timeout`; both are required.
 - `scripts/workload-regressions/run_workload_regressions.sh` owns the grouped
   workload-regression implementation: it compiles the host harness once, runs
   each required fixture in its own host process, and applies the same outer
@@ -473,8 +477,8 @@ Build-safety rule:
   may re-own an upstream root surface, and every tracked root file must appear
   in the allowlist. The second half matters because the overlay writes
   upstream's root over ours, so a tracked root file left out of the list is
-  replaced by upstream's copy on the next sync with no diff to review - which
-  is what happened when upstream added its own `AGENTS.md` and `CLAUDE.md`.
+  replaced by upstream's copy on the next sync with no diff to review; upstream
+  carries its own `AGENTS.md` and `CLAUDE.md`, so those two are the live case.
 - Android-only native fixes belong under
   `android/app/src/main/cpp/r47zen` or in staging logic, not in tracked
   root `src/**` overrides.

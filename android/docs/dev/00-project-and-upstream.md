@@ -29,9 +29,6 @@ That tracked clean overlay state is:
 ```text
 repo root, clean tracked overlay
 |- .github/
-|- .gitignore
-|- COPYING
-|- README.md
 |- android/
 |  |- app/src/main/java/io/github/ppigazzini/r47zen/
 |  |  |- R47Geometry.kt
@@ -44,8 +41,12 @@ repo root, clean tracked overlay
 |  |- r47_contracts/
 |  |  `- data/
 |  `- upstream-sync/
-`- upstream.source
+`- the tracked root files
 ```
+
+The tracked root files are the ones the `.gitignore` reopen rule admits;
+`git ls-files | grep -v /` lists them, `upstream.source`, `AGENTS.md`, and the
+Python toolchain files among them.
 
 Maintainer-local ignored paths such as `__DEV/`, `.venv/`, or `upstream.lock`
 may also exist in a local workspace, but they are not part of the tracked clean
@@ -150,8 +151,8 @@ Upstream owns the shared calculator behavior.
 
 In practice, that split looks like this:
 
-- repo-owned overlay paths: `android/`, `scripts/`, `.github/`, `__DEV/`, and
-  `upstream.source`
+- repo-owned overlay paths: `android/`, `scripts/`, `.github/`, and the tracked
+  root files (`git ls-files | grep -v /`), `upstream.source` among them
 - upstream-shaped shared inputs when hydrated: `src/`, `dep/decNumberICU`,
   `meson.build`, `meson_options.txt`, repo-root `res/fonts`, and other root
   build inputs used by the active lane

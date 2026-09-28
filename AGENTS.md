@@ -14,10 +14,10 @@ track it. [android/docs/dev/10-writing.md](android/docs/dev/10-writing.md)
 carries the rules for everything this repo writes for a reader - pages,
 comments, and commit messages alike - and maps every page to what it owns and
 which run hot. `bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook
-`docs-lint`, CI lane `Docs Lint`) catches a dead link, a dead script path, a
-stray non-ASCII byte, a pointer to a file under `__DEV/`, and a broken
-`CLAUDE.md` import; it cannot tell you a sentence has become false. That part is
-yours.
+`docs-lint`, CI lane `Docs Lint`) catches a dead link or anchor, a repo path
+that is not tracked, a stray non-ASCII byte, a pointer to a file under
+`__DEV/`, and a broken `CLAUDE.md` import; it cannot tell you a sentence has
+become false. That part is yours.
 
 ## What this repository is
 
@@ -158,8 +158,10 @@ make sim && make test                                # upstream simulator core
 - **Switching upstream commits locally corrupts the staged tree**, and it
   surfaces as unrelated clang/NDK errors. Remove `android/.staged-native`,
   `build.sim`, `android/app/.cxx`, and `android/app/build` before re-staging.
-- **The staged tree strips the `src/c47/` and `dep/` prefixes**, so a path under
-  `android/.staged-native/cpp/` is not an upstream path. Do not cite it as one.
+- **The staged tree strips the `src/` and `dep/` prefixes**:
+  `src/c47/assign.c` stages as `android/.staged-native/cpp/c47/assign.c` and
+  `dep/decNumberICU/` as `.../cpp/decNumberICU/`. A staged path is therefore not
+  an upstream path. Do not cite it as one.
 - **`res/fonts` is git-ignored and hydrated from upstream**, so a font asset can
   change with no commit here and move a derived golden.
 - **The retired paths

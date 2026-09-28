@@ -38,19 +38,19 @@ lists, SDK levels that Gradle already declares. Quote the command and let the
 reader run it. Where a number *is* deliberately pinned as a golden, say which
 deriver regenerates it.
 
-**A freshness guard is not an oracle.** `scripts/r47_contracts/` holds goldens
-that re-derive from live inputs. A guard that compares the committed JSON
-against a fresh re-derivation proves only that the file is a faithful
-re-derivation: it is circular, and re-running the deriver re-blesses any change,
-including a wrong one. Say so on any page that describes one, and name the
-independent tests that are the actual correctness oracle. Never document a
+**A freshness guard is not an oracle.** A golden that re-derives from live
+inputs proves only that it is a faithful re-derivation;
+[08-tests-and-contracts.md](08-tests-and-contracts.md#python-contract-suite)
+owns why that is circular and which tests are the correctness oracle. Say so on
+any page that describes a freshness guard, name the oracle, and never document a
 re-bless as a fix.
 
 **Separate canonical sources from staged sources.** This repo's sharpest
 documentation trap. Root `src/c47/`, `dep/`, and the Meson files are canonical.
 `android/.staged-native/cpp` is a build-only staged copy, refreshed by
-`scripts/android/prepare_native_build_inputs.sh`, and it strips the `src/c47/`
-and `dep/` prefixes, so its paths are not upstream paths. Never tell a reader to
+`scripts/android/prepare_native_build_inputs.sh`, and it strips the `src/` and
+`dep/` prefixes (`src/c47/assign.c` stages as `.../cpp/c47/assign.c`), so its
+paths are not upstream paths. Never tell a reader to
 edit the staged tree when the real source is at the repo root, and never cite a
 staged path as though it were upstream.
 
@@ -89,11 +89,12 @@ thoroughness; it is where rot hides.
 ## Doc pages
 
 `README.md` is the index; GitHub renders it for the folder, so it is what a
-reader lands on. The rest are `00-` to `10-`, numbered by **reading order**, not
-importance: a contributor works down from the project boundary into the build,
-out through the shell and the native core into the runtime, CI, and tests. The
-prefix is the only ordinal; nothing else numbers them. Renumbering a page means
-updating every inbound link in the same commit.
+reader lands on. The numbered pages `00-` to `10-` go by **reading order**, not
+importance: a contributor works down from the project boundary into the
+build, out through the shell and the native core into the runtime, CI, and
+tests. The prefix is
+the only ordinal; nothing else numbers them. Renumbering a page means updating
+every inbound link in the same commit.
 
 This repo has two documentation audiences and they do not mix on one page.
 `android/docs/dev/` is maintainer-facing. `README.md` and the in-app strings
@@ -143,7 +144,7 @@ better than the person who broke it.
 | [04-native-core-and-jni.md](04-native-core-and-jni.md) | CMake, JNI registration, HAL seams, SAF bridge, native packaging | hot - tracks this repo |
 | [05-ui-rendering-and-gtk-mapping.md](05-ui-rendering-and-gtk-mapping.md) | logical canvas, LCD projection, keypad geometry, renderer rules | hot - tracks upstream |
 | [06-runtime-hot-paths.md](06-runtime-hot-paths.md) | the main hot loops, redraw paths, lock boundaries | hot - tracks this repo |
-| [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md) | the lane split, release gating, artifacts, local reproduction | hot - tracks this repo |
+| [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md) | every workflow and composite action, the lane split, release gating, artifacts, `dependabot.yml`, local reproduction | hot - tracks this repo |
 | [08-tests-and-contracts.md](08-tests-and-contracts.md) | verification surfaces, contract owners, focused suites, rerun lanes | hot - tracks this repo |
 | [09-official-references.md](09-official-references.md) | external links | cold |
 | this page | the rules | cold |
@@ -229,12 +230,15 @@ The mechanical checks that exist today:
 
 `bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook `docs-lint`, CI lane
 `Docs Lint`) gates the prose. It needs no upstream clone and no toolchain, so it
-runs in seconds on every push, and it settles five mechanical rot classes:
+runs in seconds on every push, and it settles these mechanical rot classes:
 
 1. a dead internal link, resolved relative to the linking file's own directory,
-2. a backticked `scripts/...` or `.github/...` path named in prose that does not
-   exist - a bare filename is **not** checked; write the path if you want the
-   gate to hold it, and an ellipsis (`scripts/...`) marks a placeholder,
+2. a `scripts/...`, `.github/...`, or `android/...` path, in prose, a code span,
+   a command, or a fenced block, that the tracked tree does not hold - a bare
+   filename is **not** checked, so write the path if you want the gate to hold
+   it; a git-ignored path (the staged tree, build outputs) is skipped because a
+   clean checkout lacks it by design; and an ellipsis (`scripts/...`), a glob,
+   or a variable marks a shape, not a file,
 3. a non-ASCII byte in a tracked doc, save the one documented placeholder
    codepoint U+00B7 that the keypad legend pages carry on purpose,
 4. a pointer to a *file* under `__DEV/` - naming the directory is allowed;
@@ -242,7 +246,10 @@ runs in seconds on every push, and it settles five mechanical rot classes:
    has,
 5. a missing `AGENTS.md` or `CLAUDE.md`, or a `CLAUDE.md` whose `@AGENTS.md`
    import is backticked, fenced, or gone - Claude Code reads `CLAUDE.md`, never
-   `AGENTS.md`, so that one line carries the whole contract.
+   `AGENTS.md`, so that one line carries the whole contract,
+6. a `page.md#anchor` or `#anchor` link whose anchor matches no heading of the
+   target page, slugged as GitHub slugs it - a retitled heading otherwise lands
+   the reader at the top of the page with no error.
 
 **No gate can tell you a sentence is false.** A fluent, technical, invented
 rationale parses, links, and pins nothing, and survives review precisely because

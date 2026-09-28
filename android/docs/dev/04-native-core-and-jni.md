@@ -63,10 +63,11 @@ The Android native module currently compiles the staged upstream core in
 GLib and GTK compatibility behavior used by upstream pause, wait, and progress
 paths instead of treating those entry points as no-op stubs.
 
-`PC_BUILD` is defined for every config in `android/app/src/main/cpp/CMakeLists
-.txt`, including the shipped `Release` native build -- it is load-bearing (the
-desktop code paths the port reuses), not a sim-only debug affordance, so the
-`PC_BUILD`-gated upstream diagnostics ride into production. The costly one is
+`PC_BUILD` is defined for every config in
+`android/app/src/main/cpp/CMakeLists.txt`, including the shipped `Release`
+native build -- it is load-bearing (the desktop code paths the port reuses), not
+a sim-only debug affordance, so the `PC_BUILD`-gated upstream diagnostics ride
+into production. The costly one is
 the `items.c` `gmpMemInBytes` self-check, which prints to stderr on the
 per-operation hot path whenever the allocation counter fails to return to zero.
 The Android core links the vendored mini-gmp fallback, so

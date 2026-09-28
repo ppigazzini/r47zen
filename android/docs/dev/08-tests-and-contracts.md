@@ -76,8 +76,8 @@ The maintained entry point is
 That runner uses the repo-managed Python environment through
 `uv run --group dev ...` so `ruff`, `ty`, and the `fontTools`-backed font
 derivation scripts all use the same maintained dependency set.
-The checked-in VS Code task and Android CI workflow both call that runner so
-the keyboard-layout audit stays in the standard execution lane.
+The `python-contracts` job in `android-ci.yml` calls that runner, so the
+keyboard-layout audit stays in the standard execution lane.
 `pyproject.toml` owns the `ruff` rule set (`select = ["ALL"]` plus a short
 documented `ignore`), and the runner passes no `--select`: a CLI selector
 overrides the configured `select` and discards the configured `ignore` with it,
@@ -136,7 +136,8 @@ guard passes. `test_keyboard_layout_contract.py` (per-key value assertions) and
 constants) follow this pairing; a new snapshot contract must add its correctness
 oracle before it is trusted.
 
-The grouped Python lane currently covers:
+`run_contract_suite.sh` is the complete list of modules the grouped Python lane
+runs. What each one locks:
 
 - `validate_geometry_dataset.py`: structural and spacing checks for the
   physical dataset plus Android UI contract validation against `R47Geometry.kt`,
@@ -180,6 +181,22 @@ The grouped Python lane currently covers:
   visible-space `·_·` placeholder, and formatter assists, and drift between
   the live payload and the checked-in `r47_keyboard_layout_contract.json`
   document
+- `derive_live_stop_key_policy.py` and `test_live_stop_key_policy_contract.py`:
+  the live `R/S` and `EXIT` stop codes and their `PGM_RUNNING` guard, parsed
+  from upstream `src/c47/programming/input.c`, against
+  `LiveProgramStopKeyPolicy.kt`; a cross-source oracle, not a snapshot
+- `test_lcd_packed_row_contract.py`: `LCD_ROW_SIZE_BYTES` in `hal/lcd.h`
+  against the Kotlin `PACKED_ROW_SIZE_BYTES`, and the packed buffer size as row
+  stride times pixel height
+- `test_keypad_snapshot_wire_contract.py`: key count, labels per key, scene
+  contract version, label-slot order, total meta length, and every meta lane
+  offset agree between `keypad_fixture_bridge.h`, `KeypadSnapshot.kt`, and the
+  exported fixture manifest
+- `test_jni_registration_contract.py`: the `RegisterNatives` table in
+  `jni_registration.c` and `MainActivity`'s `external fun` set are equal, and
+  each entry binds the implementation with the same name suffix
+- `test_upstream_provenance_contract.py`: the provenance ledger covers exactly
+  the upstream inputs the contract modules declare (see below)
 
 These Python tests are the first contract surface to inspect when a geometry or
 label rule change begins in the checked-in calculators-specific payloads rather
@@ -548,15 +565,16 @@ Android compatibility layer.
   bottom softkey row being byte-identical to `BinetV4`'s, so "a plot fixture has
   no menu" is not a safe assumption. Root-cause a drifted plotting golden by
   dumping the 400x240 buffer either side of the upstream change and diffing it
-  by row: `GudrmPL` carries 838, 705 and 733 pixels across softkey rows one to
-  three (`y 171..239`), so a diff confined to `y >= 171` is changed chrome, and
-  any plot-area row that moves is a changed result
+  by row: `GudrmPL` paints all three softkey rows (`y 171..239`), so a diff
+  confined to `y >= 171` is changed chrome, and any plot-area row that moves is
+  a changed result
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
   contract. It does prove that the shared compatibility path can start the five
   imported fixtures, compute the verified 8-queens result, and accept a bounded
-  direct stop for `MANSLV2`, or record degraded coverage for any individual hung
-  workload without hanging the lane, before Android-shell responsiveness enters
-  the picture.
+  direct stop for `MANSLV2`, before Android-shell responsiveness enters the
+  picture. The outer timeout keeps a hung workload from hanging the lane; in
+  the correctness lane that timeout fails the run, and only the tolerate
+  settings the sanitized and PGO lanes set turn it into degraded coverage.
 - That host-only compatibility path does not widen the Android emulator
   `PROGRAMS` fixture matrix.
 - `scripts/workload-regressions/run_workload_regressions_sanitized.sh` reruns
@@ -704,9 +722,10 @@ Android compatibility layer.
   surfaces, and also when a tracked root file is missing from that allowlist
   (the overlay would then replace it with upstream's copy); `sync` runs that
   same guard before it restores tracked paths
-- the CI workflow keeps three main verification jobs distinct:
-  `upstream-simulator-sanity`, `android-build-test-package`, and
-  `android-tests`
+- `android-ci.yml` keeps its verification jobs distinct --
+  `upstream-simulator-sanity`, `python-contracts`,
+  `android-build-test-package`, `sign-dev-prerelease`, and `android-tests` --
+  and `ci-required` needs all of them
 - `.github/workflows/android-release.yml` reruns the same wrapper-owned
   host-core optimization flow as `android-build-test-package` and builds
   `:app:bundleRelease -Pr47.pgoProfilePath=...` unsigned; its emulator job runs
@@ -728,6 +747,45 @@ Android compatibility layer.
 When a change touches staged-core compatibility, `yieldToAndroidWithMs(...)`,
 or wait and progress behavior, start with the host workload harness before you
 assume the problem is Android UI code.
+
+## Host CI Contracts
+
+`bash scripts/android/run_workflow_contracts.sh` runs the host CI contracts in
+one pass; its `CONTRACTS` array is the complete list. They need no SDK, no
+staged tree, and no device, and finish in seconds, so they run as a
+`pre-commit` hook, in the `python-contracts` job of `android-ci.yml` (which
+`ci-required` depends on), and in `host-workload-regressions` of
+`linux-ci.yml`. The last column says whether a contract executes the thing it
+guards or proves itself on seeded fixtures (it can fail), or only reads text
+(a rewrite that keeps the matched tokens can fool it).
+
+| contract | locks | can fail on its own |
+|---|---|---|
+| `run_ci_contract_lib_meta_test.sh` | the comment-safe grep helpers in `scripts/lib/ci_contract.sh` treat a commented directive as absent | yes, fixtures |
+| `run_ndk_resolution_contract.sh` | `resolve_android_ndk_version.sh`: a missing pinned NDK is fatal, never a silent fallback | yes, fake SDK trees |
+| `run_release_abi_single_source_contract.sh` | no workflow hardcodes `--expected-abis`; they read `R47_DEFAULT_ANDROID_ABI_FILTERS` | text |
+| `run_published_artifacts_verifier_contract.sh` | `verify_published_release_artifacts.sh` accepts a valid release and rejects tampered bytes, a wrong version, a leaked ABI, a wrong signing mode, an unsigned APK, and signer mismatches | yes, synthetic evidence |
+| `run_production_signing_scope_contract.sh` | each signing key is named only by its signing job | yes, fixtures |
+| `run_signing_isolation_contract.sh` | no job that names a signing key builds or runs upstream code | yes, fixtures |
+| `run_release_provenance_contract.sh` | `publish-production-release` attests and verifies SLSA provenance with the permissions that needs | text |
+| `run_privileged_remote_script_contract.sh` | no workflow or script pipes a network fetch into a shell | text |
+| `run_llvm_toolchain_install_contract.sh` | every user of `llvm-config-<major>` installs `llvm-<major>`, which ships `llvm-profdata` | text |
+| `run_build_deps_single_source_contract.sh` | Linux build dependencies come only from `install_linux_build_deps.sh` | text |
+| `run_toolchain_pin_coherence_contract.sh` | the documentary Gradle and AGP pins in `r47-defaults.properties` match the wrapper and the version catalog | text |
+| `run_build_jdk_pin_coherence_contract.sh` | the Gradle toolchain, every `setup-java`, and the doctor read the build JDK pin | text, with a vacuity guard |
+| `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely, and every deadline site uses the helpers | yes, compiles and runs a C test |
+| `run_setup_android_packages_contract.sh` | every `setup-android` use passes explicit `packages:` without the legacy `tools` package | text |
+| `run_setup_android_composite_contract.sh` | SDK setup lives only in the composite, its actions are SHA-pinned, and each cache key covers every input its install step reads | yes, cache-key fixtures |
+| `run_bridge_tsan_lane_contract.sh` | the TSan lane keeps `halt_on_error=1` and upstream-only suppressions (see above) | yes, fixtures |
+| `run_lock_free_signal_atomicity_contract.sh` | the lock-free display and refresh signals stay C11 atomics, never plain `volatile` | text |
+| `run_mini_gmp_accounting_contract.sh` | the vendored mini-gmp fallback keeps the size-prefix header the GMP accounting hooks need | text |
+| `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on | text |
+| `run_test_integrity_contract.sh` | the workload fixture-exit policy, the mutation spot-check, and the connected lane's zero-test count (see above) | yes, runs them |
+| `run_privacy_policy_parity_contract.sh` | the markdown and shipped-HTML privacy policies share section headings and a last-updated date | text |
+
+"Text" contracts are a floor: they catch the drift they name, and a later
+edit that keeps the matched tokens can pass them. Prefer an executing check
+when one of them guards something that matters.
 
 ## Which Lane To Run First
 

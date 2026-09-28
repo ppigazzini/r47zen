@@ -11,8 +11,8 @@
 #
 # Each check is paid for by a real failure mode in this repo:
 #
-#   * The maintainer set was renumbered NN- -> 0N- and a writing page was added,
-#     rewriting every cross-reference in one pass. A typo in any of them is a dead
+#   * The pages link to each other by file name, and a renumber or a rename
+#     rewrites every cross-reference in one pass. A typo in any of them is a dead
 #     link the reader hits and the author never does.               -> check 1
 #   * Docs name their owner constantly ("build_android.sh", "upstream.sh"). A
 #     rename leaves the prose reading perfectly and pointing at nothing.
@@ -23,6 +23,8 @@
 #     reference for every reader who is not its author.              -> check 4
 #   * Claude Code reads CLAUDE.md and never AGENTS.md, so CLAUDE.md's @AGENTS.md
 #     import is the only thing that loads the contract at all.       -> check 5
+#   * A link can name a live page and a heading that was retitled; GitHub then
+#     lands the reader at the top of the page, silently.             -> check 6
 #
 # NOT checked, deliberately: whether a sentence is true. A fluent invented
 # rationale parses, links, and names no dead path. Only a reader catches that.
@@ -78,21 +80,40 @@ for f in "${DOCS[@]}"; do
 done
 log "check 1: internal links resolve ($n broken)"
 
-# --- 2. every repo path named in prose exists ---------------------------------
-# Only backticked paths under the directories this repo owns. A bare filename
+# --- 2. every repo path named in a doc is tracked -----------------------------
+# Any path under the directories this repo owns, in prose, a code span, a
+# command, or a fenced block, with or without a leading "./". A bare filename
 # ("build_android.sh") is not checked -- write the path if you want the gate to
-# hold it. An ellipsis marks a placeholder ("scripts/..."), not a claim that a
-# file exists, so those are skipped: prose has to be able to name a shape.
+# hold it. Existence is judged against the TRACKED tree, so a file that exists
+# only in the local checkout cannot pass here and then fail in CI. Skipped on
+# purpose: a git-ignored path (the staged tree, build outputs, local.properties)
+# names generated or machine-local content that a clean checkout lacks by
+# design; an ellipsis ("scripts/...") marks a placeholder; and a path that runs
+# into a glob, brace, or variable names a shape, not a file. A path is matched
+# only after whitespace, a backtick, a quote, or "=", so a URL or a link target
+# (check 1) is not re-read here.
 n=0
+mapfile -t TRACKED < <(git ls-files)
+declare -A TRACKED_PATH=()
+for t in "${TRACKED[@]}"; do
+    while [[ -z "${TRACKED_PATH[$t]+set}" ]]; do
+        TRACKED_PATH[$t]=1 # the file, then each directory that holds it
+        [[ "$t" == */* ]] || break
+        t="${t%/*}"
+    done
+done
 while IFS= read -r p; do
     case "$p" in *...*) continue ;; esac
-    [[ -e "$p" ]] || {
-        note "DEAD PATH     $p (named in a tracked doc, not in this repo)"
-        n=$((n + 1))
-    }
-done < <(grep -ohE '`(scripts|\.github)/[A-Za-z0-9_/.-]+`' "${DOCS[@]}" |
-    tr -d '`' | grep -vE '/$' | sort -u)
-log "check 2: repo paths named in prose exist ($n dead)"
+    [[ -n "${TRACKED_PATH[$p]+set}" ]] && continue
+    # A directory pattern ("**/build/") matches an absent path only in its
+    # directory form, and a clean checkout has none of those directories.
+    git check-ignore -q -- "$p" && continue
+    git check-ignore -q -- "$p/" && continue
+    note "DEAD PATH     $p (named in a tracked doc, not tracked in this repo)"
+    n=$((n + 1))
+done < <(grep -ohP '(?:^|(?<=[\s`"\x27=]))(?:\./)?(?:scripts|\.github|android)/[A-Za-z0-9_/.-]++(?![*{<$\[])' "${DOCS[@]}" |
+    sed -E 's#^\./##; s#[./]+$##' | sort -u)
+log "check 2: repo paths named in a doc are tracked ($n dead)"
 
 # --- 3. tracked docs are ASCII, bar the documented placeholder ----------------
 # Strip the one allowed codepoint, then any remaining non-ASCII is a violation.
@@ -140,6 +161,48 @@ if [[ -f CLAUDE.md ]]; then
     fi
 fi
 log "check 5: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
+
+# --- 6. every intra-repo anchor names a heading ------------------------------
+# A link "page.md#anchor" or "#anchor" must match a heading of the target page,
+# slugged the way GitHub slugs it: lowercase, drop every character but letters,
+# digits, space, "-" and "_", turn each space into "-", and suffix a repeat
+# "-1", "-2". Headings inside fenced blocks are code, not headings. Only
+# tracked markdown targets are checked; a "#L10" into a source file is GitHub's.
+n=0
+# Print every heading anchor of markdown FILE, one per line.
+heading_anchors() {
+    awk '
+        /^[[:space:]]*(```|~~~)/ { fenced = !fenced; next }
+        fenced || !/^#{1,6}[[:space:]]/ { next }
+        {
+            h = $0
+            sub(/^#+[[:space:]]+/, "", h)
+            sub(/[[:space:]]+#+[[:space:]]*$/, "", h)
+            h = tolower(h)
+            gsub(/[^a-z0-9 _-]/, "", h)
+            gsub(/ /, "-", h)
+            slug = (h in seen) ? h "-" seen[h] : h
+            seen[h]++
+            print slug
+        }
+    ' "$1"
+}
+for f in "${DOCS[@]}"; do
+    dir="$(dirname "$f")"
+    while IFS= read -r target; do
+        case "$target" in http* | mailto*) continue ;; *'#'*) ;; *) continue ;; esac
+        path="${target%%#*}"
+        anchor="${target#*#}"
+        page="$f"
+        [[ -z "$path" ]] || page="$dir/$path"
+        [[ "$page" == *.md && -f "$page" ]] || continue # check 1 owns the file
+        heading_anchors "$page" | grep -qxF -- "$anchor" || {
+            note "DEAD ANCHOR   $f -> $target (no such heading in $page)"
+            n=$((n + 1))
+        }
+    done < <(grep -oE '\]\([^) ]+\)' "$f" | sed 's/^](//; s/)$//')
+done
+log "check 6: intra-repo anchors name a heading ($n dead)"
 
 if [[ "$fail" -ne 0 ]]; then
     log "DOCS GATE FAILED"

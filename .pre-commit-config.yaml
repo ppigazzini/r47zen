@@ -54,9 +54,10 @@ repos:
         files: ^upstream\.source$
         pass_filenames: false
       - id: docs-lint
-        # Docs rot gate: dead internal links, dead script paths named in prose,
-        # stray non-ASCII, a pointer to a file under the git-ignored __DEV/, and a
-        # broken CLAUDE.md @AGENTS.md import. The script discovers its own file
+        # Docs rot gate: dead internal links and anchors, untracked repo paths
+        # named in a doc, stray non-ASCII, a pointer to a file under the
+        # git-ignored __DEV/, and a broken CLAUDE.md @AGENTS.md import. The
+        # script discovers its own file
         # set through `git ls-files`, so it lints every tracked doc, not only the
         # staged ones; it needs no toolchain and runs in seconds.
         name: docs rot gate

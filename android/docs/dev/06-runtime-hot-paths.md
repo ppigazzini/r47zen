@@ -308,9 +308,9 @@ program, a save or load operation, or a progress or pause loop.
 - `ProgramFixtureInstrumentedTest` drives canonical program fixtures through the
   Android `READP` path used by the live app and reuses the same native
   direct-stop publisher as live `R/S` and `EXIT` for the bounded
-  `MANSLV2` interrupt scenario. Hosted CI runs one filtered
-  `ProgramFixtureInstrumentedTest` method per fixture under the same outer
-  timeout-and-kill safety net used by the host wrapper.
+  `MANSLV2` interrupt scenario. Hosted CI runs the whole class as one
+  connected selection under an outer GNU `timeout --kill-after`, and a timeout
+  fails the lane (`scripts/android/run_connected_android_tests.sh`).
 
 When a task changes one of these hot paths, update the narrowest relevant
 verification lane first and widen only if the first check does not cover the

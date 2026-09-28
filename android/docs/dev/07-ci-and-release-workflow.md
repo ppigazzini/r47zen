@@ -257,6 +257,10 @@ It:
   drift onto the runner-default LLVM toolchain
 - syncs the authoritative upstream tree
 - runs `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
+- runs `scripts/security/check_native_hardening.sh` on every packaged arm64
+  `libr47zen.so` and fails the job when a mitigation is missing: AArch64
+  branch protection (BTI/PAC), full RELRO, a non-executable stack, no
+  writable-and-executable segment, and no text relocations
 - runs `cd android && ./gradlew lint` explicitly because normal Gradle builds do
   not run lint automatically
 - verifies that retired app-module native snapshot paths stay absent and that
@@ -325,11 +329,11 @@ contract.
 
 Because this lane syncs the authoritative upstream core before staging and
 native build, it is also the first owner of Android HAL drift against new
-upstream `PC_BUILD` helper symbols. A recent concrete failure was the latest-
-upstream addition of `create_dir`, `_ioFileNameOverride`, and
-`lcd_buffer_pixel_on`; the Android lane failed at `:app:buildCMakeRelWithDebInfo`
- until the Android HAL exported all three. Treat that class of failure as a
- repo-owned Android HAL compatibility defect, not as an upstream-core bug.
+upstream `PC_BUILD` helper symbols: when upstream starts calling a HAL function
+the Android HAL does not export, this lane fails to link at
+`:app:buildCMakeRelWithDebInfo`. Treat that class of failure as a repo-owned
+Android HAL compatibility defect, not as an upstream-core bug, and add the
+symbol under `android/app/src/main/cpp/r47zen/hal/`.
 
 ### `sign-dev-prerelease`
 
@@ -646,6 +650,35 @@ certificate fingerprint. A release signed by any other key fails before
 publication. Rotating the upload key means updating that variable in the same
 change; `gh variable list` shows the current value.
 
+## Other workflows
+
+The Android lanes above are two of the workflows under `.github/workflows/`.
+The rest, and what each one gates:
+
+| workflow | runs on | what it does | blocks |
+|---|---|---|---|
+| `resolve-upstream-core.yml` | `workflow_call` from every lane below and above | resolves one upstream URL and commit per run through `upstream.sh resolve`, refusing any mode but `latest` unless a commit pin is passed | -- (a callee) |
+| `linux-ci.yml` | push to `main` and `github_ci`, pull request, nightly schedule | `upstream-resolver-policy` runs `test_resolver_policy.sh` and `test_fetch_retry.sh`; `linux-simulator` builds `make dist_linux`; `host-workload-regressions` runs the host harnesses and `run_workflow_contracts.sh` (see [08-tests-and-contracts.md](08-tests-and-contracts.md)); a green schedule or `main` push records the nightly marker | nothing requires it; it reports |
+| `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`; same nightly marker as Linux | nothing requires it; it reports |
+| `shell-lint.yml` | push to `main` and `github_ci`, pull request | `shellcheck` and `shfmt -i 4 -ci -d` over `scripts/**/*.sh`, then `actionlint` (shelling out to a pinned `shellcheck`) and `zizmor --no-online-audits --min-severity=medium` over `.github/` | nothing requires it; it reports |
+| `docs-lint.yml` | push to `main` and `github_ci`, pull request | `scripts/docs/run_docs_lint.sh` (see [10-writing.md](10-writing.md#the-gates)) | nothing requires it; it reports |
+| `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL `c-cpp` with `build-mode: none` over repo-owned C, ignoring `src`, `dep`, and the staged tree; findings go to the Security tab. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
+| `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
+| `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
+
+`ci-required` in `android-ci.yml` is the one aggregate verdict, and even it is
+not a required status check: `main` takes direct pushes, so every row above
+reports and none blocks a push.
+
+Two composite actions carry setup shared by several jobs:
+`./.github/actions/setup-android-sdk` (writable SDK root, license acceptance,
+the pinned SDK packages from `android/r47-defaults.properties`, and their
+cache, whose key covers every input the install step reads) and
+`./.github/actions/setup-xlsxio-toolchain` (builds the pinned xlsxio commit
+with a fixed CMake recipe and caches it on the source URL, the commit, and the
+action file's hash). `.github/dependabot.yml` opens weekly grouped update pull
+requests for GitHub Actions, Gradle, and uv.
+
 ## Reproducing or re-releasing a past build
 
 Every published build records the exact upstream core revision it was built from
@@ -731,7 +764,7 @@ and the docs together.
 
 ## Artifacts And Logs
 
-The workflow publishes three main artifact classes:
+The Android workflows publish these artifact classes:
 
 - Android build logs from the packaging lane
 - signed dev-prerelease APK packaging evidence and compliance outputs
@@ -743,7 +776,7 @@ The workflow publishes three main artifact classes:
 - protected-release workflow artifact bundles for the signed AAB and the signed
   APK, plus the versioned GitHub release assets published from those bundles
 - the unsigned `*-unsigned` hand-off bundles each build job uploads for its
-  signing job, kept for seven days
+  signing job, on a short retention (`retention-days` in each upload step)
 
 Android artifact names use the two-commit Android identity
 `upstream short + Android short`. Linux and Windows simulator package workflows
