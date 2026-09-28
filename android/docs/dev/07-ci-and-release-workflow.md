@@ -186,10 +186,13 @@ reaches upstream code through a name it does not list passes it; the signing
 jobs stay short so a reviewer can read them whole. A signing job still runs the
 pinned third-party `android-actions/setup-android` inside the SDK composite
 before the key is decoded. And the environment only gates what it holds: a
-repository-scoped secret is readable by every job in every workflow, so store
-the four `R47_RELEASE_*` secrets in the `production-release` environment, not
-at repository scope, and delete the repository copies.
-`gh api repos/<owner>/<repo>/actions/secrets` must not list them.
+repository-scoped secret is readable by every job in every workflow. The four
+`R47_RELEASE_*` secrets therefore live in the `production-release` environment
+alone, and no repository copy may exist;
+`gh api repos/ppigazzini/r47zen/actions/secrets` must list only the
+`R47_PRERELEASE_*` secrets. Those stay repository-scoped, so the prerelease key
+is held to `sign-dev-prerelease` only by the signing-scope contract, not by
+GitHub.
 
 ## Job graph
 
@@ -603,11 +606,17 @@ that do not live in the Gradle workflow itself:
 - any account-level testing or production-access prerequisites enforced by the
   Play developer account type
 
-Configure the `production-release` environment with a required reviewer, a
-`main`-only deployment branch policy, and the four `R47_RELEASE_*` secrets, not
-repository-scoped copies (see [Signing isolation](#signing-isolation)). Only
-`sign-production-release` uses it, so the reviewer approves use of the key
-after the build succeeds, not the whole run.
+The `production-release` environment holds the four `R47_RELEASE_*` secrets
+(see [Signing isolation](#signing-isolation)) and admits only `main`, through a
+custom deployment branch policy that names it. "Protected branches only" is
+not an option here: `main` has no branch protection, so that setting would
+refuse every deployment. The environment has no required reviewer, by
+maintainer decision: anyone who can dispatch the workflow on `main` gets a
+signed release without an approval. Adding one would pause every release at
+`sign-production-release`, the only job that uses the environment, until
+approved; self-review must stay allowed while there is one maintainer.
+`gh api repos/ppigazzini/r47zen/environments/production-release` shows the
+live configuration.
 
 Enable the repository's **Immutable Releases** setting (Settings -> General ->
 Releases). It locks a published release's tag and assets against
