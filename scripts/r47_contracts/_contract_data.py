@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal, NotRequired
 
 import annotated_types as at
 from typing_extensions import TypedDict
-from valgebra import Regex, ValidationError, Validator
+from valgebra import Regex, ValidationError, Validator, complement
 
 from r47_contracts._repo_paths import (
     R47_ANDROID_UI_CONTRACT_PATH,
@@ -33,14 +33,15 @@ class ContractDataError(ValueError):
     """Raised when a canonical contract JSON does not have its declared shape."""
 
 
-def _is_not_bool(value: object) -> bool:
-    return not isinstance(value, bool)
-
-
-# JSON `true` is an `int` to Python; a measurement is never a flag.
-type Integer = Annotated[int, at.Predicate(_is_not_bool)]
-type Positive = Annotated[int, at.Gt(0), at.Predicate(_is_not_bool)]
-type Number = Annotated[int | float, at.Predicate(_is_not_bool)]
+# JSON `true` is an `int` to Python; a measurement is never a flag. A validator
+# in `Annotated` metadata is the set the base is met with, so each alias below
+# denotes `intersection(int, complement(bool))` and the exclusion runs in the
+# Rust walk, where a `Predicate` would call back into Python per value. A
+# static checker reads the base alone, which is the type the derivers hold.
+_NOT_BOOL: Final = complement(bool)
+type Integer = Annotated[int, _NOT_BOOL]
+type Positive = Annotated[int, at.Gt(0), _NOT_BOOL]
+type Number = Annotated[int | float, _NOT_BOOL]
 type Name = Annotated[str, at.MinLen(1)]
 type Argb = Annotated[str, Regex(r"#[0-9A-Fa-f]{8}")]
 

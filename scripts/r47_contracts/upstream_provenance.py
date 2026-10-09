@@ -53,7 +53,7 @@ LEDGER_PATH: Final = DATA_ROOT / "upstream_provenance.json"
 UPSTREAM_LOCK_PATH: Final = REPO_ROOT / "upstream.lock"
 UPSTREAM_SOURCE_PATH: Final = REPO_ROOT / "upstream.source"
 SCHEMA_VERSION: Final = 1
-UNKNOWN_COMMIT: Final = "unknown"
+UNKNOWN_COMMIT: Final = "unknown"  # `RecordedSnapshot.upstream_commit` spells it too
 
 _UPSTREAM_PATH_PREFIX: Final = "UPSTREAM_R47_"
 _UPSTREAM_PATH_SUFFIX: Final = "_PATH"
@@ -88,7 +88,7 @@ class InputRecord(TypedDict, closed=True):
     path: str
     # `hash_file` writes "" for an input the tree does not hold, so a ledger
     # recorded on an unhydrated tree still reads back.
-    sha256: Annotated[str, Regex(r"[0-9a-f]{64}|")]
+    sha256: Literal[""] | Annotated[str, Regex(r"[0-9a-f]{64}")]
     derivers: list[str]
     contracts: list[str]
 
@@ -97,7 +97,7 @@ class RecordedSnapshot(TypedDict, closed=True):
     """The upstream watermark the ledger was recorded against."""
 
     upstream_url: str
-    upstream_commit: Annotated[str, Regex(rf"[0-9a-f]{{40}}|{UNKNOWN_COMMIT}")]
+    upstream_commit: Literal["unknown"] | Annotated[str, Regex(r"[0-9a-f]{40}")]
     recorded_on: Annotated[str, Regex(r"\d{4}-\d{2}-\d{2}")]
 
 
