@@ -6,14 +6,14 @@ requires-python = ">=3.14"
 [dependency-groups]
 dev = [
     "pre-commit>=4.6.2",
-    "ruff>=0.16.9",
-    "ty>=0.0.84",
-    "fontTools>=4.66.0",
+    "ruff>=0.16.10",
+    "ty>=0.0.85",
+    "fontTools>=4.66.1",
     # The contract-data schemas: valgebra validates each JSON input against its
     # declared shape at load, annotated-types spells the refinements, and
     # typing_extensions provides the PEP 728 `closed=True` TypedDict that
     # `typing` only ships from 3.15.
-    "valgebra>=0.0.14",
+    "valgebra>=0.0.17",
     "annotated-types>=0.8.0",
     "typing-extensions>=4.16.0",
 ]

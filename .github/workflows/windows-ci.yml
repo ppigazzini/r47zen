@@ -276,7 +276,7 @@ jobs:
           bash ./scripts/windows/bundle_stripped_runtime.sh 2>&1 | tee -a "$log_file"
 
       - name: Upload Windows simulator artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: r47-windows-${{ matrix.artifact_suffix }}-${{ needs.resolve-upstream-core.outputs.upstream_short }}
           path: ${{ steps.bundle.outputs.artifact_path }}
@@ -285,7 +285,7 @@ jobs:
 
       - name: Upload Windows build log
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: r47-windows-${{ matrix.artifact_suffix }}-${{ needs.resolve-upstream-core.outputs.upstream_short }}-build-log
           path: ci-artifacts/logs/build-windows-${{ matrix.artifact_suffix }}.log

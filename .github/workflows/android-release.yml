@@ -200,7 +200,7 @@ jobs:
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           cache-provider: basic
 
@@ -391,7 +391,7 @@ jobs:
 
       - name: Upload release build logs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.meta.outputs.artifact_name }}-logs
           path: |
@@ -405,7 +405,7 @@ jobs:
 
       - name: Upload host-core PGO artifact
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.meta.outputs.artifact_name }}-host-core-pgo
           path: |
@@ -415,7 +415,7 @@ jobs:
           retention-days: 30
 
       - name: Upload unsigned release assets
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.meta.outputs.unsigned_artifact_name }}
           path: ci-artifacts/release-unsigned/
@@ -478,7 +478,7 @@ jobs:
           ndk-version: ${{ steps.defaults.outputs.ndk_version }}
 
       - name: Download unsigned release assets
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.build-production-release-bundle.outputs.unsigned_artifact_name }}
           path: ci-artifacts/release-unsigned
@@ -633,7 +633,7 @@ jobs:
             --native-symbols "$native_symbols_path"
 
       - name: Upload signed release AAB artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
           path: ci-artifacts/release-aab/
@@ -641,7 +641,7 @@ jobs:
           retention-days: 30
 
       - name: Upload signed release APK artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
           path: ci-artifacts/release-apk/
@@ -711,7 +711,7 @@ jobs:
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           cache-provider: basic
 
@@ -931,13 +931,13 @@ jobs:
           chmod +x scripts/android/verify_published_release_artifacts.sh
 
       - name: Download published release APK artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
           path: release-apk
 
       - name: Download published release AAB artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
           path: release-aab
@@ -990,13 +990,13 @@ jobs:
       attestations: write
     steps:
       - name: Download release AAB artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
           path: release-aab
 
       - name: Download release APK artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
           path: release-apk

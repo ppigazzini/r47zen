@@ -468,7 +468,7 @@ jobs:
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/github_ci' }}
@@ -667,7 +667,7 @@ jobs:
 
       - name: Upload Android build log
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.meta.outputs.artifact_name }}-build-log
           path: ci-artifacts/logs/build-android.log
@@ -697,7 +697,7 @@ jobs:
           cp "$apk_dir/$apk_file" ci-artifacts/dev-unsigned/app-release-unsigned.apk
 
       - name: Upload the unsigned dev prerelease APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.meta.outputs.unsigned_artifact_name }}
           path: ci-artifacts/dev-unsigned/
@@ -706,7 +706,7 @@ jobs:
 
       - name: Upload host-core PGO artifact
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.meta.outputs.artifact_name }}-host-core-pgo
           path: |
@@ -771,7 +771,7 @@ jobs:
           ndk-version: ${{ steps.defaults.outputs.ndk_version }}
 
       - name: Download the unsigned dev prerelease APK
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.android-build-test-package.outputs.unsigned_artifact_name }}
           path: ci-artifacts/dev-unsigned
@@ -869,7 +869,7 @@ jobs:
             --run-attempt "${GITHUB_RUN_ATTEMPT}"
 
       - name: Upload Android build artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ needs.android-build-test-package.outputs.artifact_name }}
           path: ci-artifacts/release/
@@ -939,7 +939,7 @@ jobs:
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/github_ci' }}
@@ -1148,7 +1148,7 @@ jobs:
 
       - name: Upload Android test reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
           path: |
@@ -1187,7 +1187,7 @@ jobs:
       contents: write
     steps:
       - name: Download Android build artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.android-build-test-package.outputs.artifact_name }}
           path: release-assets
