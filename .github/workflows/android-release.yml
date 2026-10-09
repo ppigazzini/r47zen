@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version_code:
-        description: Monotonic Android versionCode for the Play upload (YYYYMMDDVV)
+        description: Play versionCode, a plain counter, exactly one above the previous production release (1 for the first Play upload); never a date
         required: true
         type: string
       version_name:
@@ -53,6 +53,7 @@ jobs:
           R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
           R47_ALLOW_OVERWRITE: ${{ inputs.allow_overwrite }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -71,6 +72,35 @@ jobs:
             echo "version_code must be greater than zero." >&2
             exit 1
           fi
+
+          # The versionCode is a counter, not a date. Play's ceiling is
+          # 2100000000 and a code can never be lowered or reused, so a
+          # date-shaped value (2026100903 was uploaded once, and that app
+          # entry had to be deleted) burns the range in one dispatch. Cap
+          # the value far below the ceiling and require exactly the previous
+          # production release's code plus one, read from the release body
+          # line this workflow writes ("Android version <name> (<code>)").
+          # Codes above the cap in older releases belong to the retired
+          # date scheme and are ignored; the first counter release is 1.
+          version_code_cap=100000
+          if [[ "$version_code" -gt "$version_code_cap" ]]; then
+            echo "version_code $version_code is above $version_code_cap; it must be a small counter (previous production release plus one), not a date." >&2
+            exit 1
+          fi
+          previous_code=$(
+            gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+              --jq '.[] | select(.draft | not) | select(.prerelease | not) | .body' |
+              sed -n 's/^- Android version [^ ]* (\([0-9]*\))\r\{0,1\}$/\1/p' |
+              awk -v cap="$version_code_cap" '$1 <= cap && $1 > max { max = $1 } END { print max + 0 }'
+          )
+          expected_code=$((previous_code + 1))
+          if [[ "$R47_ALLOW_OVERWRITE" == "true" && "$version_code" -eq "$previous_code" ]]; then
+            echo "allow_overwrite=true: re-cutting version_code $version_code." >&2
+          elif [[ "$version_code" -ne "$expected_code" ]]; then
+            echo "version_code must be $expected_code (previous production release used $previous_code), got $version_code." >&2
+            exit 1
+          fi
+          echo "version_code $version_code follows previous production release $previous_code." >&2
 
           # Strict format: major.minor.patch-signed.YYYYMMDD[VV], matching every
           # published signed tag. This rejects the typo class that already

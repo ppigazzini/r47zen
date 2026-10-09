@@ -538,8 +538,14 @@ This workflow:
 - holds no signing input: no environment, no secret, no keystore (see
   [Signing isolation](#signing-isolation))
 - resolves `version_code` and `version_name` from manual workflow inputs
-- uses a monotonic positive-integer `version_code` for Play uploads; the
-  maintainer pattern is `YYYYMMDDVV`
+- uses a plain counter as the `version_code` for Play uploads: exactly the
+  previous production release's code plus one, 1 for the first Play upload.
+  The job reads the previous code from the latest production release body
+  (the `Android version <name> (<code>)` line this workflow writes), refuses
+  any other value, and caps the code at 100000. Play's ceiling is 2100000000
+  and a code can never be lowered or reused, which is why the retired
+  `YYYYMMDDVV` pattern is rejected: it sat at 96% of the ceiling on the first
+  upload. Codes above the cap in older releases are ignored by the check
 - uses `version_name` as the user-facing release label and the derived GitHub
   tag basis; keep it semver-shaped with a signed date suffix:
   `major.minor.patch-signed.YYYYMMDDVV`
@@ -738,13 +744,13 @@ from a specific upstream revision instead of the latest HEAD.
    the overlay (see the caveat below).
 2. **Re-release the signed production build.** Dispatch
    `.github/workflows/android-release.yml` from `main` with the recorded commit
-   as `upstream_commit`, plus a fresh monotonic `version_code` and a
-   `version_name`:
+   as `upstream_commit`, plus the next `version_code` (previous production
+   release plus one) and a `version_name`:
 
    ```sh
    gh workflow run android-release.yml --ref main \
      -f upstream_commit=<recorded-sha> \
-     -f version_code=<YYYYMMDDVV> \
+     -f version_code=<previous+1> \
      -f version_name=<major.minor.patch-signed.YYYYMMDDVV>
    ```
 
