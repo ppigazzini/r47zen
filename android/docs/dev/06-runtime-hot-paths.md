@@ -200,10 +200,10 @@ if it were visible LCD state.
 - PiP mode changes stay UI-side as well. The PiP callback must route through
   `ReplicaOverlayController` so PiP exit reuses the pending geometry replay
   path for the current keypad snapshot instead of forcing a native redraw.
-- `r47_force_refresh()` remains the explicit redraw path for real state-change
-  owners such as runtime init, state load, and test-owned refresh seams.
+- `r47_force_refresh()` is the explicit redraw path for runtime init and the
+  test-owned refresh seam; state load runs the same refresh sequence inline.
 - A live direct stop is not a passive lifecycle transition, but it is also not
-  a UI-thread `forceRefreshNative()` call. `requestStopProgramNative()` only
+  a UI-thread redraw. `requestStopProgramNative()` only
   sets up the pending stop-refresh request, and `tick()` or
   `yieldToAndroidWithMs()` consume it later under `screenMutex` so the first
   post-stop LCD matches an explicit refresh without corrupting the hot path.

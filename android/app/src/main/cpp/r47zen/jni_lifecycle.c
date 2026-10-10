@@ -258,14 +258,6 @@ Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env,
   pthread_mutex_unlock(&screenMutex);
 }
 
-JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_forceRefreshNative(
-    JNIEnv *env, jobject thiz) {
-  (void)env;
-  (void)thiz;
-  r47_force_refresh();
-}
-
 void r47_save_background_state_locked(void) {
   saveCalc();
 }

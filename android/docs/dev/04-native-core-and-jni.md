@@ -337,7 +337,7 @@ supports that model by keeping shared synchronization in native code:
   pending stop-refresh request. They re-arm `SCRUPD_AUTO`, set
   `reDraw = true`, run `refreshScreen(190)`, `refreshLcd(NULL)`, and
   `lcd_refresh()`, then push `nextScreenRefresh` forward so the first direct
-  stop on a staged `SPIRALk` graph already matches `forceRefreshNative()`
+  stop on a staged `SPIRALk` graph already matches `r47_force_refresh()`
   without moving redraw work onto the UI thread.
 - Android's official ANR guidance explicitly calls out main-thread lock
   contention as a foreground input-dispatch failure mode. The whole-snapshot
@@ -406,9 +406,10 @@ share the same contract.
   under `screenMutex` (via the `backgroundSaveKeepsInjectedDisplayBuffer` bridge),
   with no program run, so the assertion does not depend on an emergent graph
   render.
-- `forceRefreshNative()` routes to `r47_force_refresh()`, which is the explicit
-  native redraw path for real state-change owners such as runtime init,
-  `loadStateNative()`, and test-owned refresh seams.
+- `r47_force_refresh()` is the explicit native redraw for runtime init and the
+  test-owned `ProgramLoadTestBridge.forceRefresh()`. `loadStateNative()` runs
+  the same `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` sequence
+  inline after `restoreCalc()`, without setting `reDraw`.
 - runtime init and `loadStateNative()` sanitize restored graph bounds before
   that first redraw so a corrupted auto-save cannot carry non-finite,
   collapsed, or out-of-range windows into the first graph refresh.
@@ -416,7 +417,7 @@ share the same contract.
   `requestStopProgramNative()` publishes only the request; `tick()` and
   `yieldToAndroidWithMs()` later consume it under `screenMutex`, so first-stop
   cleanup stays off the UI thread and shares the same full-refresh primitives
-  as `forceRefreshNative()`.
+  as `r47_force_refresh()`.
 
 The key distinction is whether the calculator state changed.
 
@@ -424,9 +425,9 @@ The key distinction is whether the calculator state changed.
 - `saveStateNative()` must not redraw because persistence alone should not alter
   the visible LCD snapshot.
 
-Do not reintroduce `requestForceRefresh()` or `forceRefreshNative()` into a
-passive activity lifecycle callback such as a normal Settings return unless the
-owner path can prove that calculator state really changed.
+`MainActivity` exposes no redraw entry point. Do not add one for a passive
+activity lifecycle callback such as a normal Settings return unless the owner
+path can prove that calculator state really changed.
 
 ## File I/O boundary
 

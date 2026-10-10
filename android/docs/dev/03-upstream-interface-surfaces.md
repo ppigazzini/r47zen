@@ -18,7 +18,7 @@ verification surfaces.
 | Surface | Android side | Native bridge | Shared-core side | Sensitive detail |
 | --- | --- | --- | --- | --- |
 | runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and, on reattach, `updateNativeActivityRef()` then `resendLcdRowsNative()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `r47_init_runtime()` holds `screenMutex` throughout and publishes `r47_runtime_ready()` last, and the UI-thread entry points return early until it is true; `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach resends the rows already in `lcd_buffer` but never redraws |
-| lifecycle save, load, and explicit refresh | `saveStateNative()`, `loadStateNative()`, `forceRefreshNative()` | `jni_lifecycle.c` | `saveCalc()`, `restoreCalc()`, `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` | `saveStateNative()` must stay display-passive for background save; redraw belongs only to real state loads or explicit refresh owners |
+| lifecycle save and load | `saveStateNative()`, `loadStateNative()` | `jni_lifecycle.c` | `saveCalc()`, `restoreCalc()`, `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` | `saveStateNative()` must stay display-passive for background save; redraw belongs only to real state loads |
 | direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `resendLcdRowsNative()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy; `resendLcdRowsNative()` runs on the core thread under `screenMutex` |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
@@ -76,14 +76,16 @@ flowchart LR
   `r47_save_background_state_locked()`, which performs only `saveCalc()`.
   That path must stay display-passive for a normal background save or
   Settings-entry transition.
-- `MainActivity.onResume()` must not request `forceRefreshNative()` for a normal
+- `MainActivity.onResume()` must not trigger a native redraw for a normal
   Settings return: the display loop and the overlay resume hook already preserve
   the current snapshot, so a redraw there is redundant.
 - `loadStateNative()` remains a redraw owner because it reconstructs calculator
   state through `restoreCalc()` and then refreshes the LCD.
-- `forceRefreshNative()` remains an explicit redraw seam for runtime init and
-  test-controlled refresh owners. Do not reintroduce it into passive lifecycle
-  callbacks that do not replace calculator state.
+- `r47_force_refresh()` is the native redraw for runtime init, which calls it
+  directly, and for instrumentation, which reaches it through
+  `ProgramLoadTestBridge.forceRefresh()`. `MainActivity` has no redraw entry
+  point; a passive lifecycle callback that does not replace calculator state
+  must not gain one.
 
 ## Input Dispatch Contract
 
@@ -275,6 +277,6 @@ when the app still launches.
   `jmethodID`s, and native implementations aligned in one change.
 - Keep lock release and reacquire boundaries explicit on storage, refresh, and
   pause or wait paths.
-- Do not reintroduce `forceRefreshNative()` or other synthetic redraw work into
-  a passive lifecycle callback such as a normal Settings return.
+- Do not add a `MainActivity` redraw entry point or other synthetic redraw work
+  to a passive lifecycle callback such as a normal Settings return.
 - Do not hand-edit the build-only staged native tree as a lasting fix.

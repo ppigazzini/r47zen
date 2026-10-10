@@ -277,9 +277,6 @@ Java_com_example_r47_MainActivity_saveStateNative(JNIEnv *env,
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env,
                                                          jobject thiz);
-JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_forceRefreshNative(JNIEnv *env,
-                                                            jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_setSlotNative(
     JNIEnv *env, jobject thiz, jint slot);
 JNIEXPORT jstring JNICALL

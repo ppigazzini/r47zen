@@ -409,7 +409,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             updateNativeActivityRef = ::updateNativeActivityRef,
             tick = ::tick,
             saveStateNative = ::saveStateNative,
-            forceRefreshNative = ::forceRefreshNative,
             resendLcdRowsNative = ::resendLcdRowsNative,
             getPackedDisplayGeneration = ::getPackedDisplayGeneration,
             getPackedDisplayBuffer = ::getPackedDisplayBuffer,
@@ -554,7 +553,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun resetGraphNative(): Boolean
     private external fun saveStateNative()
     private external fun loadStateNative()
-    private external fun forceRefreshNative()
     private external fun setSlotNative(slot: Int)
     private external fun getClipboardXRegisterNative(): String
     private external fun getClipboardStackRegistersNative(): String

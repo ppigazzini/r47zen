@@ -78,8 +78,6 @@ int register_main_activity_natives(JNIEnv *env) {
         (void *)Java_com_example_r47_MainActivity_saveStateNative},
       {"loadStateNative", "()V",
         (void *)Java_com_example_r47_MainActivity_loadStateNative},
-      {"forceRefreshNative", "()V",
-        (void *)Java_com_example_r47_MainActivity_forceRefreshNative},
       {"setSlotNative", "(I)V",
         (void *)Java_com_example_r47_MainActivity_setSlotNative},
       {"getClipboardXRegisterNative", "()Ljava/lang/String;",

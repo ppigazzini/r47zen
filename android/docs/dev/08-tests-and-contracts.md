@@ -493,7 +493,7 @@ Important files include:
 - `FactorsInstrumentedTest.kt`: asserts that the `FACTORS` runtime path runs to
   completion and leaves X in the expected result type
 - `GraphRedrawInstrumentedTest.kt`: locks the redraw-gate contract behind
-  `forceRefreshNative()`
+  `ProgramLoadTestBridge.forceRefresh()`, which runs `r47_force_refresh()`
 - `StorageAccessCoordinatorInstrumentedTest.kt`: locks detached-fd handoff and
   cancellation behavior through the Android file-descriptor seam
 - `SystemBarInsetsInstrumentedTest.kt`: with fullscreen off, requires the main

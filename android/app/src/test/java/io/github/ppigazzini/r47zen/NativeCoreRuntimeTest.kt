@@ -292,7 +292,6 @@ class NativeCoreRuntimeTest {
                 { System.identityHashCode(captured); tickDelayMillis }
             } ?: { tickDelayMillis },
             saveStateNative = onSaveState,
-            forceRefreshNative = {},
             resendLcdRowsNative = onResendLcdRows,
             getPackedDisplayGeneration = { 0 },
             getPackedDisplayBuffer = { true },

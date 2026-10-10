@@ -13,7 +13,6 @@ internal class NativeCoreRuntime(
     private val updateNativeActivityRef: () -> Unit,
     private val tick: () -> Int,
     private val saveStateNative: () -> Unit,
-    private val forceRefreshNative: () -> Unit,
     private val resendLcdRowsNative: () -> Unit,
     private val getPackedDisplayGeneration: () -> Int,
     private val getPackedDisplayBuffer: (ByteArray) -> Boolean,
@@ -238,12 +237,6 @@ internal class NativeCoreRuntime(
 
     fun processCoreTasks() {
         drainCoreTasks()
-    }
-
-    fun requestForceRefresh() {
-        if (isNativeInitializedShared) {
-            offerTask(Runnable { forceRefreshNative() })
-        }
     }
 
     fun saveStateOnPause(autoSaveEnabled: Boolean, timeoutMillis: Long = SAVE_ON_PAUSE_FENCE_MILLIS) {
