@@ -1,20 +1,23 @@
 #!/bin/bash
 
-# Contract: a job that reads a signing secret (secrets.R47_RELEASE_* or
-# secrets.R47_PRERELEASE_*) never syncs, builds, compiles, tests, or emulates
-# the upstream core. Those steps execute unreviewed upstream code, and a compile
-# step alone can embed any readable file (a decoded keystore,
-# /proc/self/environ) into the shipped library, so a key on that runner is a
-# key an upstream commit can read. A signing job signs bytes that a
-# secret-free job built, and nothing else. A secret in workflow-level env
-# reaches every job, so it fails too.
+# Contract: a job that holds a release credential never syncs, builds,
+# compiles, tests, or emulates the upstream core. The credentials are the two
+# signing keys (secrets.R47_RELEASE_*, secrets.R47_PRERELEASE_*) and the Play
+# upload identity (vars.R47_PLAY_*, which a job exchanges through
+# google-github-actions/auth for a token that can release to Play). Those steps
+# execute unreviewed upstream code, and a compile step alone can embed any
+# readable file (a decoded keystore, the auth action's credentials file,
+# /proc/self/environ) into the shipped library, so a credential on that runner
+# is one an upstream commit can read. A credential job signs or uploads bytes
+# that a credential-free job built, and nothing else. A credential in
+# workflow-level env reaches every job, so it fails too.
 #
 # The checker first proves it can fail: every seeded fixture below must be
 # flagged and the clean fixture must pass. Then it scans the real workflows.
 # It matches command names, so it states a floor, not a proof: a step that
 # reaches upstream code through a name this list does not know passes. Keep a
-# signing job to checkout, defaults, JDK, SDK, download, sign, evidence, and
-# upload. Pure host test, no SDK needed.
+# credential job to checkout, defaults, JDK, SDK, download, verify, sign or
+# upload, evidence, and artifact upload. Pure host test, no SDK needed.
 
 set -Eeuo pipefail
 
@@ -29,7 +32,7 @@ find_signing_isolation_violations() {
         function report(    i) {
             if (job != "" && has_secret) {
                 for (i = 1; i <= nhits; i++) {
-                    printf "%s: job=%s holds a signing secret and runs upstream-facing work at line %s\n", short, job, hits[i]
+                    printf "%s: job=%s holds a release credential and runs upstream-facing work at line %s\n", short, job, hits[i]
                 }
             }
         }
@@ -57,9 +60,9 @@ find_signing_isolation_violations() {
             nhits = 0
             next
         }
-        /secrets\.R47_(RELEASE|PRERELEASE)_/ {
+        /secrets\.R47_(RELEASE|PRERELEASE)_|vars\.R47_PLAY_|google-github-actions\/auth@/ {
             if (!injobs || job == "") {
-                printf "%s: workflow-level signing secret reaches every job at line %d: %s\n", short, FNR, $0
+                printf "%s: workflow-level release credential reaches every job at line %d: %s\n", short, FNR, $0
             } else {
                 has_secret = 1
             }
@@ -112,6 +115,25 @@ jobs:
       - run: echo hi
 EOF
 
+cat >"$fixture_dir/play-gradle.yml" <<'EOF'
+jobs:
+  upload:
+    steps:
+      - run: ./gradlew :app:bundleRelease
+      - uses: google-github-actions/auth@0000000000000000000000000000000000000000 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.R47_PLAY_WIF_PROVIDER }}
+EOF
+
+cat >"$fixture_dir/play-workflow-env.yml" <<'EOF'
+env:
+  PROVIDER: ${{ vars.R47_PLAY_WIF_PROVIDER }}
+jobs:
+  build:
+    steps:
+      - run: echo hi
+EOF
+
 cat >"$fixture_dir/clean.yml" <<'EOF'
 jobs:
   build:
@@ -127,9 +149,15 @@ jobs:
       - run: bash ./scripts/android/sign_android_artifacts.sh --keystore k
         env:
           PW: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+  upload:
+    steps:
+      - run: gh attestation verify release-aab/app.aab --repo o/r
+      - uses: google-github-actions/auth@0000000000000000000000000000000000000000 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.R47_PLAY_WIF_PROVIDER }}
 EOF
 
-for fixture in release-gradle prerelease-sync release-make workflow-env; do
+for fixture in release-gradle prerelease-sync release-make workflow-env play-gradle play-workflow-env; do
     if [ -z "$(find_signing_isolation_violations "$fixture_dir/$fixture.yml")" ]; then
         contract_fail "signing isolation checker missed the seeded violation in fixture $fixture.yml."
     fi
@@ -147,8 +175,8 @@ shopt -u nullglob
 violations="$(find_signing_isolation_violations "${workflows[@]}")"
 if [ -n "$violations" ]; then
     contract_fail \
-        "a job that holds a signing secret also builds or runs upstream code:" \
+        "a job that holds a release credential also builds or runs upstream code:" \
         "$violations"
 fi
 
-contract_pass "no job that holds a signing secret builds or runs upstream code (${#workflows[@]} workflows)."
+contract_pass "no job that holds a release credential builds or runs upstream code (${#workflows[@]} workflows)."

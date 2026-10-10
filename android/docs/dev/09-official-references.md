@@ -338,6 +338,16 @@ Current repository icon surfaces:
 - [App testing requirements for new personal developer accounts](https://support.google.com/googleplay/android-developer/answer/14151465):
   closed-test and production-access gate that can block first release even when
   the bundle is otherwise ready.
+- [Google Play Developer API: Getting Started](https://developers.google.com/android-publisher/getting_started):
+  the Cloud project, API enablement, and Play Console service-account invite
+  that `upload-to-play` relies on.
+- [APKs and Tracks](https://developers.google.com/android-publisher/tracks):
+  the edits flow, track names, and release status values the upload uses.
+- [google-github-actions/auth](https://github.com/google-github-actions/auth):
+  Workload Identity Federation through a service account, and its security
+  considerations for numeric repository and owner ids in attribute conditions.
+- [r0adkll/upload-google-play](https://github.com/r0adkll/upload-google-play):
+  the upload action, its inputs, and its federated-credentials-file usage.
 
 ## Storage and file access
 

@@ -20,6 +20,20 @@ on:
         required: false
         default: false
         type: boolean
+      play_track:
+        description: Google Play track that receives the signed AAB after the GitHub release (internal testing, the closed Alpha track, or none to skip)
+        required: false
+        default: internal
+        type: choice
+        options:
+          - internal
+          - alpha
+          - none
+      play_release_notes:
+        description: Play release notes in en-US, at most 500 characters (blank = the version and upstream commit)
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -1201,3 +1215,118 @@ jobs:
           prerelease: false
           draft: false
           make_latest: true
+
+  upload-to-play:
+    name: Upload signed AAB to Google Play
+    if: github.ref == 'refs/heads/main' && inputs.play_track != 'none'
+    needs:
+      - resolve-release-inputs
+      - build-production-release-bundle
+      - publish-production-release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # The only job bound to play-upload. The Google Cloud provider admits a
+    # token from this environment of this workflow on main and nothing else,
+    # and the job holds no secret: it signs nothing and exchanges its OIDC
+    # token for a short-lived token of the Play upload service account.
+    environment: play-upload
+    permissions:
+      contents: read
+      id-token: write
+      attestations: read
+    steps:
+      # The auth action writes its credentials file into the workspace, which
+      # exists only after a checkout.
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download signed release AAB artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
+          path: release-aab
+
+      - name: Verify the AAB is the attested release bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/android-release.yml
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Send Play only the bytes publish-production-release attested.
+          shopt -s nullglob
+          bundles=(release-aab/*.aab)
+          if [[ "${#bundles[@]}" -ne 1 ]]; then
+            echo "Expected exactly one AAB in the release artifact, found ${#bundles[@]}." >&2
+            exit 1
+          fi
+          gh attestation verify "${bundles[0]}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --signer-workflow "${SIGNER_WORKFLOW}"
+
+      - name: Prepare the Play release
+        id: play
+        shell: bash
+        env:
+          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
+          R47_PLAY_RELEASE_NOTES: ${{ inputs.play_release_notes }}
+          R47_PLAY_WIF_PROVIDER: ${{ vars.R47_PLAY_WIF_PROVIDER }}
+          R47_PLAY_SERVICE_ACCOUNT: ${{ vars.R47_PLAY_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$R47_PLAY_WIF_PROVIDER" || -z "$R47_PLAY_SERVICE_ACCOUNT" ]]; then
+            echo "The play-upload environment lacks R47_PLAY_WIF_PROVIDER or R47_PLAY_SERVICE_ACCOUNT; scripts/android/setup_play_upload_identity.sh prints both." >&2
+            exit 1
+          fi
+
+          . ./android/r47-defaults.properties
+          version_name=$(sed -n 's/^version_name=//p' release-aab/BUILD-METADATA.txt)
+          version_code=$(sed -n 's/^version_code=//p' release-aab/BUILD-METADATA.txt)
+          upstream_commit=$(sed -n 's/^upstream_commit=//p' release-aab/BUILD-METADATA.txt)
+          if [[ "$version_code" != "$R47_VERSION_CODE_INPUT" ]]; then
+            echo "The AAB records version_code '$version_code', the run resolved '$R47_VERSION_CODE_INPUT'." >&2
+            exit 1
+          fi
+
+          notes="$R47_PLAY_RELEASE_NOTES"
+          if [[ -z "$notes" ]]; then
+            notes="R47 Zen ${version_name}, built from upstream C47 commit ${upstream_commit:0:8}."
+          fi
+          # Play refuses release notes over 500 characters per language.
+          if [[ "${#notes}" -gt 500 ]]; then
+            echo "play_release_notes is ${#notes} characters; Play accepts at most 500." >&2
+            exit 1
+          fi
+          mkdir -p play-whatsnew
+          printf '%s\n' "$notes" > play-whatsnew/whatsnew-en-US
+
+          bundles=(release-aab/*.aab)
+          {
+            echo "package_name=${R47_DEFAULT_ANDROID_APPLICATION_ID}"
+            echo "release_name=${version_name} (${version_code})"
+            echo "bundle_path=${bundles[0]}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.R47_PLAY_WIF_PROVIDER }}
+          service_account: ${{ vars.R47_PLAY_SERVICE_ACCOUNT }}
+
+      - name: Upload AAB to Google Play
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJson: ${{ steps.auth.outputs.credentials_file_path }}
+          packageName: ${{ steps.play.outputs.package_name }}
+          releaseFiles: ${{ steps.play.outputs.bundle_path }}
+          tracks: ${{ inputs.play_track }}
+          releaseName: ${{ steps.play.outputs.release_name }}
+          status: completed
+          whatsNewDirectory: play-whatsnew
+          mappingFile: release-aab/mapping.txt
+          debugSymbols: release-aab/native-debug-symbols.zip

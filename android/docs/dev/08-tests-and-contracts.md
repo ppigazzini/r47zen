@@ -781,10 +781,11 @@ Android compatibility layer.
   signs the outputs before it publishes release evidence
 - `scripts/android/run_production_signing_scope_contract.sh` and
   `scripts/android/run_signing_isolation_contract.sh`, in the
-  `run_workflow_contracts.sh` host group, lock the signing isolation: each key
-  is named by one signing job only, and no job that names a key syncs, builds,
-  compiles, or emulates the upstream core. Each first proves it fails on seeded
-  fixtures. The group runs as a `pre-commit` hook, in the `python-contracts`
+  `run_workflow_contracts.sh` host group, lock the release-credential
+  isolation: each signing key and the Play upload identity is named by one job
+  only, no file stores a key for that identity, and no job that names a
+  credential syncs, builds, compiles, or emulates the upstream core. Each first
+  proves it fails on seeded fixtures. The group runs as a `pre-commit` hook, in the `python-contracts`
   job of `android-ci.yml` (where `ci-required` depends on it), and in the
   `host-workload-regressions` job of
   `linux-ci.yml`. `scripts/android/sign_android_artifacts.sh` verifies its own
@@ -813,8 +814,8 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_ndk_resolution_contract.sh` | `resolve_android_ndk_version.sh`: a missing pinned NDK is fatal, never a silent fallback | yes, fake SDK trees |
 | `run_release_abi_single_source_contract.sh` | no workflow hardcodes `--expected-abis`; they read `R47_DEFAULT_ANDROID_ABI_FILTERS` | text |
 | `run_published_artifacts_verifier_contract.sh` | `verify_published_release_artifacts.sh` accepts a valid release and rejects tampered bytes, a wrong version, a leaked ABI, a wrong signing mode, an unsigned APK, and signer mismatches | yes, synthetic evidence |
-| `run_production_signing_scope_contract.sh` | each signing key is named only by its signing job | yes, fixtures |
-| `run_signing_isolation_contract.sh` | no job that names a signing key builds or runs upstream code | yes, fixtures |
+| `run_production_signing_scope_contract.sh` | each signing key is named only by its signing job, and the Play upload identity only by `upload-to-play`, with no stored service-account key | yes, fixtures |
+| `run_signing_isolation_contract.sh` | no job that names a signing key or the Play upload identity builds or runs upstream code | yes, fixtures |
 | `run_release_provenance_contract.sh` | `publish-production-release` attests and verifies SLSA provenance for the APK, the AAB, and both packaging-evidence zips, with the permissions that needs; live lines only, so a commented-out step fails it | text |
 | `run_privileged_remote_script_contract.sh` | no workflow or script pipes a network fetch into a shell | text |
 | `run_llvm_toolchain_install_contract.sh` | every user of `llvm-config-<major>` installs `llvm-<major>`, which ships `llvm-profdata`; live lines only | text |

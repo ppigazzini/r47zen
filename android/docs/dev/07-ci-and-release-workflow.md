@@ -174,12 +174,16 @@ Two host contracts in the `run_workflow_contracts.sh` group, which
 it can fail on seeded fixtures:
 
 - `scripts/android/run_production_signing_scope_contract.sh` fails when a
-  signing secret is named outside its owning job, scanning every workflow and
-  composite action;
+  signing secret or the Play upload identity is named outside its owning job,
+  or when any file hands the upload action a stored service-account key,
+  scanning every workflow and composite action;
 - `scripts/android/run_signing_isolation_contract.sh` fails when a job that
-  names a signing secret also runs the upstream sync, the build wrapper,
-  Gradle, a compiler, the simulator build, or the emulator, or when a secret
-  sits in workflow-level `env`.
+  names a signing secret or the Play upload identity also runs the upstream
+  sync, the build wrapper, Gradle, a compiler, the simulator build, or the
+  emulator, or when either sits in workflow-level `env`.
+
+The Play upload identity is the third release credential: a token from it can
+release to a Play track. [`upload-to-play`](#upload-to-play) owns it.
 
 The limits. The isolation contract matches command names, so a step that
 reaches upstream code through a name it does not list passes it; the signing
@@ -493,6 +497,8 @@ flowchart TD
   W[verify-published-artifacts]
   I[publish-production-release]
   J[versioned GitHub release]
+  P[upload-to-play<br/>play-upload environment, keyless]
+  K[Google Play testing track]
 
   A --> B
   A --> C
@@ -506,6 +512,8 @@ flowchart TD
   V --> I
   W --> I
   I --> J
+  I --> P
+  P --> K
 ```
 
 ### `build-production-release-bundle`
@@ -605,16 +613,15 @@ This workflow job:
   the maintained semver-shaped signed-release pattern
 - attaches the signed installable APK, the signed Play upload AAB, and both
   packaging-evidence archives to that GitHub release
-- keeps Play Console upload manual after review; this workflow does not push to
-  Google Play
+- hands the signed AAB to [`upload-to-play`](#upload-to-play), which sends it
+  to a Play testing track
 - writes release notes that state what was checked against which bytes: the
   published APK and AAB for signer, version, ABIs, and checksums; lint, the
   JVM tests, and the instrumentation tests against the non-minified,
   throwaway-signed rebuild that `verify-production-release` makes of the same
   commit
 
-The manual Play handoff still requires the maintainer-owned publication inputs
-that do not live in the Gradle workflow itself:
+Play Console still owns the publication inputs that no workflow holds:
 
 - a stable privacy-policy URL and the in-app privacy-policy surface
 - a reviewed Data safety declaration
@@ -622,6 +629,7 @@ that do not live in the Gradle workflow itself:
 - final store title, description, screenshots, and feature graphic
 - any account-level testing or production-access prerequisites enforced by the
   Play developer account type
+- every promotion between tracks, production included
 
 The `production-release` environment holds the four `R47_RELEASE_*` secrets
 (see [Signing isolation](#signing-isolation)) and admits only `main`, through a
@@ -634,6 +642,75 @@ signed release without an approval. Adding one would pause every release at
 approved; self-review must stay allowed while there is one maintainer.
 `gh api repos/ppigazzini/r47zen/environments/production-release` shows the
 live configuration.
+
+### `upload-to-play`
+
+Runs on `main` after `publish-production-release` unless the dispatch sets
+`play_track` to `none`. It is the only job bound to the `play-upload`
+environment and the only job that can release to Google Play. It:
+
+- checks out this repository only, downloads the signed AAB artifact bundle,
+  and verifies the AAB's provenance attestation with `gh attestation verify`
+  against this workflow, so Play receives only the bytes the GitHub release
+  attested
+- fails unless the AAB's `BUILD-METADATA.txt` records the run's
+  `version_code`, and fails before any network call when either `play-upload`
+  variable is empty
+- writes the `play_release_notes` input, or by default the version and the
+  upstream short commit, as the en-US release notes; Play refuses more than
+  500 characters per language, and so does the job
+- exchanges the job's GitHub OIDC token for a short-lived token of the Play
+  upload service account through `google-github-actions/auth`. No key exists
+  and the job names no secret
+- uploads the AAB, `mapping.txt`, and `native-debug-symbols.zip` with
+  `r0adkll/upload-google-play` to the `play_track` track as a `completed`
+  release named `<version_name> (<version_code>)`. `internal` is internal
+  testing and `alpha` the default closed track
+
+Production is not a `play_track` value: a release reaches production only by a
+promotion in Play Console. A release on a closed track still goes through Play
+review; the API does not skip it.
+
+`scripts/android/setup_play_upload_identity.sh <project>` builds the Google
+Cloud half in one run, from Google Cloud Shell or any shell where `gcloud` is
+logged in as the project owner, and converges on a rerun:
+
+- the service account `r47zen-play-upload`, with no Cloud role
+- the Workload Identity pool `github` and its GitHub OIDC provider `r47zen`.
+  The provider's attribute condition admits only a token that carries this
+  repository's and its owner's numeric ids, the `play-upload` environment,
+  `refs/heads/main`, and this workflow's `workflow_ref`. GitHub never reuses a
+  numeric id, so a repository re-registered under the same name cannot pass it
+- `roles/iam.workloadIdentityUser` on the account for that repository id
+
+Federation impersonates a service account instead of granting the federated
+principal directly, because Play Console grants access only to an email
+address. The account reaches Play through Play Console, Users and permissions,
+with the R47 Zen app permission "Release apps to testing tracks" and no account
+permission. Releasing to production through the API would need a further
+permission, which the job has no use for.
+
+The `play-upload` environment admits only `main` through a custom deployment
+branch policy, as `production-release` does, and holds two variables:
+`R47_PLAY_WIF_PROVIDER`, the provider's full resource name, and
+`R47_PLAY_SERVICE_ACCOUNT`, the account's email. They are variables, not
+secrets: neither grants anything without a token the provider admits. The
+script prints both. `gh api repos/ppigazzini/r47zen/environments/play-upload`
+shows the live configuration and
+`gh variable list --env play-upload --repo ppigazzini/r47zen` the values.
+
+The limits:
+
+- The Play Developer API edits only an app that exists. A new Play app entry
+  takes its first bundle by hand in Play Console; this job serves every upload
+  after that.
+- Google's tracks reference names the internal testing track `qa`, while the
+  upload action's documentation, and a public project's working release on
+  2026-10-05, use `internal`. If Play answers that the track does not exist,
+  this is the first value to check.
+- An edit open in Play Console while the job commits its own can fail the job
+  with "Precondition check failed". The GitHub release is already published by
+  then, so rerun the failed job alone; its artifacts are still there.
 
 ### `verify-production-release`
 
@@ -919,6 +996,9 @@ the full build script over isolated Gradle invocations.
   then sign in a job that checks out only this repository. The signing scope
   and isolation contracts fail a change that moves a key back; move the work,
   not the contract.
+- Keep the Play upload keyless and in `upload-to-play`. A stored
+  service-account key would be a long-lived copy of a credential that
+  federation issues for minutes; the signing scope contract fails one.
 - Keep the Android artifact identity separate from the upstream-only simulator
   package identity.
 - Update this page when job names, release gating, artifact names, or local

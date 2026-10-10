@@ -20,6 +20,8 @@ __DEV/
 *.jks
 *.keystore
 google-services.json
+# Credentials file google-github-actions/auth writes into the workspace
+gha-creds-*.json
 **/.lint-run.log
 **/.assemble-run.log
 **/.help-run.log
