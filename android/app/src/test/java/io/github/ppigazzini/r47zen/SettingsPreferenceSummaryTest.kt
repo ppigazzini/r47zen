@@ -179,6 +179,23 @@ class SettingsPreferenceSummaryTest {
     }
 
     @Test
+    fun lcdPreferences_declareTheControllerLimitsAndDefaults() {
+        // Hold root_preferences.xml to the controller: Settings shows the XML
+        // values while nothing is stored, and the controller applies its own,
+        // so a drift shows one LCD setting and draws another.
+        val settings = launchSettings()
+        val luminance = requireNotNull(settings.findPreference<SeekBarPreference>("lcd_luminance"))
+        val theme = requireNotNull(settings.findPreference<ListPreference>("lcd_theme"))
+        val negative = requireNotNull(settings.findPreference<SwitchPreferenceCompat>("lcd_negative"))
+
+        assertEquals(MainActivityPreferenceController.MIN_LCD_LUMINANCE, luminance.min)
+        assertEquals(MainActivityPreferenceController.MAX_LCD_LUMINANCE, luminance.max)
+        assertEquals(MainActivityPreferenceController.DEFAULT_LCD_LUMINANCE, luminance.value)
+        assertEquals(MainActivityPreferenceController.DEFAULT_LCD_THEME, theme.value)
+        assertEquals(MainActivityPreferenceController.DEFAULT_LCD_NEGATIVE, negative.isChecked)
+    }
+
+    @Test
     fun lcdLuminancePreference_usesTitleWithoutRedundantSummary() {
         val preference = launchSettingsAndFindSeekBar("lcd_luminance")
 
@@ -356,30 +373,20 @@ class SettingsPreferenceSummaryTest {
         assertTrue(preference.isEnabled)
     }
 
-    private fun launchSettingsAndFindSwitch(key: String): SwitchPreferenceCompat {
+    private fun launchSettingsAndFindSwitch(key: String): SwitchPreferenceCompat =
+        requireNotNull(launchSettings().findPreference(key))
+
+    private fun launchSettingsAndFindList(key: String): ListPreference =
+        requireNotNull(launchSettings().findPreference(key))
+
+    private fun launchSettingsAndFindSeekBar(key: String): SeekBarPreference =
+        requireNotNull(launchSettings().findPreference(key))
+
+    private fun launchSettings(): SettingsFragment {
         val activity = Robolectric.buildActivity(SettingsActivity::class.java)
             .setup()
             .get()
 
-        val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
-        return requireNotNull(fragment.findPreference(key))
-    }
-
-    private fun launchSettingsAndFindList(key: String): ListPreference {
-        val activity = Robolectric.buildActivity(SettingsActivity::class.java)
-            .setup()
-            .get()
-
-        val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
-        return requireNotNull(fragment.findPreference(key))
-    }
-
-    private fun launchSettingsAndFindSeekBar(key: String): SeekBarPreference {
-        val activity = Robolectric.buildActivity(SettingsActivity::class.java)
-            .setup()
-            .get()
-
-        val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
-        return requireNotNull(fragment.findPreference(key))
+        return activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
     }
 }

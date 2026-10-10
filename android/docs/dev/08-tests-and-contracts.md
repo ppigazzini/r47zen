@@ -367,7 +367,10 @@ Important contract files include:
   preferences inside a bounded Material panel
 - `SettingsPreferenceSummaryTest.kt`: locks fixed settings copy, including the
   developer performance HUD summary and sample-window slider range, without
-  depending on runtime on/off state
+  depending on runtime on/off state, and holds the `lcd_luminance` range and
+  the `lcd_luminance`, `lcd_theme`, and `lcd_negative` defaults in
+  `root_preferences.xml` to the `MainActivityPreferenceController` constants
+  (`lcdPreferences_declareTheControllerLimitsAndDefaults`)
 - `HapticFeedbackControllerTest.kt` and `ReplicaKeypadLayoutHapticsTest.kt`:
   lock the `haptic_enabled` gate, the `haptic_use_android_default` toggle, the
   `haptic_keypress_duration_ms` `0..100` clamp, the Android-default versus
@@ -382,9 +385,9 @@ Important contract files include:
 - `MainActivityPreferenceControllerTest.kt`: locks persisted `beeper_volume`
   normalization against the XML-declared `0..100` range, plus `lcd_theme`
   fallback to the supported display-theme set, legacy `lcd_mode` migration,
-  `lcd_luminance` clamp to the XML-declared `20..120` range, `lcd_negative`
-  dispatch, `show_developer_performance_hud` dispatch, and deferred overlay
-  apply and preference-change dispatch
+  `lcd_luminance` clamp to `MIN_LCD_LUMINANCE..MAX_LCD_LUMINANCE`,
+  `lcd_negative` dispatch, `show_developer_performance_hud` dispatch, and
+  deferred overlay apply and preference-change dispatch
 - `GraphGestureAccumulatorTest.kt`: locks the Android-owned graph-touch queue
   accumulator so non-finite pan input is dropped, queued pinch scale stays
   clamped to `0.4f..2.5f`, and oversized queued pan is split into bounded

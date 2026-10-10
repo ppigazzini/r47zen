@@ -328,9 +328,10 @@ while matching the desktop simulator's stop-key parity during an active run.
   `ReplicaOverlay` projects the calculator into whatever size that leaves
 - LCD appearance stays on a curated Android-local theme list owned by
   `LcdThemePolicy.kt`; `MainActivityPreferenceController.kt` normalizes stored
-  `lcd_theme` values, clamps `lcd_luminance` to the XML-declared `20..120`
-  range, and routes the optional `lcd_negative` inverse-display toggle before
-  `MainActivity.kt` applies the selected palette
+  `lcd_theme` values, clamps `lcd_luminance` to
+  `MIN_LCD_LUMINANCE..MAX_LCD_LUMINANCE`, and routes the optional
+  `lcd_negative` inverse-display toggle before `MainActivity.kt` applies the
+  selected palette
 - `show_developer_performance_hud` is a developer-only Android setting.
   `MainActivityPreferenceController.kt` reads that toggle plus the companion
   `developer_performance_hud_window_millis` slider and dispatches them
