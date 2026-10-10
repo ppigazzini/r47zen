@@ -44,11 +44,15 @@ internal object R47AndroidChromeGeometry {
     const val NON_SOFTKEY_VIEW_HEIGHT = 236f
 }
 
+// Index packed rows by position. Each row is a dirty byte, the DMCP row id, and
+// the pixel bytes, and native LCD_write_line stores it at the display row its id
+// names, so the id carries nothing Kotlin needs.
 internal object R47LcdContract {
     const val PIXEL_WIDTH = 400
     const val PIXEL_HEIGHT = 240
     const val PIXEL_COUNT = PIXEL_WIDTH * PIXEL_HEIGHT
     const val PACKED_PIXEL_BYTES_PER_ROW = 50
     const val PACKED_ROW_SIZE_BYTES = 52
+    const val PACKED_PIXEL_OFFSET = PACKED_ROW_SIZE_BYTES - PACKED_PIXEL_BYTES_PER_ROW
     const val PACKED_BUFFER_SIZE = PIXEL_HEIGHT * PACKED_ROW_SIZE_BYTES
 }

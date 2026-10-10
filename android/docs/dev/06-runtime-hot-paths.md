@@ -161,9 +161,11 @@ That would duplicate the most expensive JNI reads in the shell.
   packed transport buffer. That dirty flag is transport bookkeeping, not part of
   the visible LCD contract.
 - `ReplicaOverlay.updatePackedLcd(...)` decodes only rows whose packed byte `0`
-  is dirty and whose bytes differ from `lastPackedLcd`, copies those rows into
-  `lastPackedLcd`, repaints the changed rows into the bitmap, and invalidates
-  the full LCD width across the touched row span.
+  is dirty and whose pixel bytes differ from `lastPackedLcd`, copies those
+  rows into `lastPackedLcd`, repaints the changed rows into the bitmap, and
+  invalidates the full LCD width across the touched row span. It takes each
+  row's display position from its index: native `LCD_write_line` already
+  stores a row at the index its DMCP row id names.
 - That skip trusts the bitmap to show what `lastPackedLcd` decodes to, so
   the live path writes the bitmap only by decoding `lastPackedLcd`, and
   `ReplicaOverlay.redrawPackedSnapshot()` is the one full repaint: the

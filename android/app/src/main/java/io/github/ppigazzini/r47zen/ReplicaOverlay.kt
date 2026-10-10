@@ -228,10 +228,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         clipChildren = false
         clipToPadding = false
 
-        for (bufferRow in 0 until R47LcdContract.PIXEL_HEIGHT) {
-            val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
-            lastPackedLcd[rowOffset + 1] = (R47LcdContract.PIXEL_HEIGHT - bufferRow - 1).toByte()
-        }
         // Decode the blank lastPackedLcd before any frame arrives:
         // updatePackedLcd skips every row that matches lastPackedLcd, so a
         // bitmap left transparent by createBitmap keeps the blank rows of the
@@ -481,8 +477,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         var minRow = R47LcdContract.PIXEL_HEIGHT
         var maxRow = -1
 
-        for (bufferRow in 0 until R47LcdContract.PIXEL_HEIGHT) {
-            val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
+        for (row in 0 until R47LcdContract.PIXEL_HEIGHT) {
+            val rowOffset = row * R47LcdContract.PACKED_ROW_SIZE_BYTES
             if ((buffer[rowOffset].toInt() and 0xFF) == 0) {
                 continue
             }
@@ -500,14 +496,10 @@ class ReplicaOverlay @JvmOverloads constructor(
                 R47LcdContract.PACKED_ROW_SIZE_BYTES,
             )
 
-            val rowId = buffer[rowOffset + 1].toInt() and 0xFF
-            val displayRow = (R47LcdContract.PIXEL_HEIGHT - rowId - 1)
-                .coerceIn(0, R47LcdContract.PIXEL_HEIGHT - 1)
-
-            decodePackedRow(buffer, rowOffset, displayRow)
+            decodePackedRow(buffer, row)
             buffer[rowOffset] = 0
-            if (displayRow < minRow) minRow = displayRow
-            if (displayRow > maxRow) maxRow = displayRow
+            if (row < minRow) minRow = row
+            if (row > maxRow) maxRow = row
         }
 
         if (maxRow < minRow) {
@@ -526,8 +518,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
 
     private fun isPackedRowUnchanged(buffer: ByteArray, rowOffset: Int): Boolean {
-        // Compare row id + payload and ignore the transport dirty byte.
-        for (index in 1 until R47LcdContract.PACKED_ROW_SIZE_BYTES) {
+        for (index in R47LcdContract.PACKED_PIXEL_OFFSET until R47LcdContract.PACKED_ROW_SIZE_BYTES) {
             if (buffer[rowOffset + index] != lastPackedLcd[rowOffset + index]) {
                 return false
             }
@@ -536,12 +527,8 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
 
     private fun redrawPackedSnapshot() {
-        for (bufferRow in 0 until R47LcdContract.PIXEL_HEIGHT) {
-            val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
-            val rowId = lastPackedLcd[rowOffset + 1].toInt() and 0xFF
-            val displayRow = (R47LcdContract.PIXEL_HEIGHT - rowId - 1)
-                .coerceIn(0, R47LcdContract.PIXEL_HEIGHT - 1)
-            decodePackedRow(lastPackedLcd, rowOffset, displayRow)
+        for (row in 0 until R47LcdContract.PIXEL_HEIGHT) {
+            decodePackedRow(lastPackedLcd, row)
         }
 
         invalidateLcdRegion(
@@ -554,10 +541,11 @@ class ReplicaOverlay @JvmOverloads constructor(
         )
     }
 
-    private fun decodePackedRow(buffer: ByteArray, rowOffset: Int, displayRow: Int) {
+    private fun decodePackedRow(buffer: ByteArray, row: Int) {
         val (text, background) = lcdPalette
+        val pixelOffset = row * R47LcdContract.PACKED_ROW_SIZE_BYTES + R47LcdContract.PACKED_PIXEL_OFFSET
         for (byteIndex in 0 until R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW) {
-            val packedByte = buffer[rowOffset + 2 + byteIndex].toInt() and 0xFF
+            val packedByte = buffer[pixelOffset + byteIndex].toInt() and 0xFF
             val destX = (R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW - 1 - byteIndex) * 8
             for (bit in 0 until 8) {
                 linePixels[destX + bit] = if ((packedByte and (1 shl (7 - bit))) != 0) {
@@ -573,7 +561,7 @@ class ReplicaOverlay @JvmOverloads constructor(
             0,
             R47LcdContract.PIXEL_WIDTH,
             0,
-            displayRow,
+            row,
             R47LcdContract.PIXEL_WIDTH,
             1,
         )

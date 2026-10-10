@@ -101,7 +101,7 @@ keypad all look correct locally but are globally misplaced together.
   Change that geometry there instead of branching the draw path in
   `ReplicaOverlay`.
 - `ReplicaOverlay.updatePackedLcd(...)` is the live LCD handoff. It skips each
-  packed row whose transport dirty byte is clear or whose bytes match the
+  packed row whose transport dirty byte is clear or whose pixel bytes match the
   cached `lastPackedLcd`, decodes only the changed rows into the backing
   `Bitmap`, and invalidates the changed row band across the full LCD width.
   `ReplicaOverlay.updateLcd(IntArray)` is a test-only seam that
