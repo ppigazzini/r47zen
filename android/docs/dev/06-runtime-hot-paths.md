@@ -161,11 +161,23 @@ That would duplicate the most expensive JNI reads in the shell.
   packed transport buffer. That dirty flag is transport bookkeeping, not part of
   the visible LCD contract.
 - `ReplicaOverlay.updatePackedLcd(...)` decodes only rows whose packed byte `0`
-  is dirty, copies those rows into `lastPackedLcd`, repaints the changed rows
-  into the bitmap, and invalidates the full LCD width across the touched row
-  span.
-- `ReplicaOverlay.redrawPackedSnapshot()` repaints the cached packed snapshot
-  for palette changes without inventing a new native redraw path.
+  is dirty and whose bytes differ from `lastPackedLcd`, copies those rows into
+  `lastPackedLcd`, repaints the changed rows into the bitmap, and invalidates
+  the full LCD width across the touched row span.
+- That skip trusts the bitmap to show what `lastPackedLcd` decodes to, so
+  the live path writes the bitmap only by decoding `lastPackedLcd`, and
+  `ReplicaOverlay.redrawPackedSnapshot()` is the one full repaint: the
+  constructor runs it on the blank `lastPackedLcd`, and `setLcdPalette` runs
+  it on every call. A bitmap left at `createBitmap`'s transparent fill keeps
+  the blank rows of the first frame transparent, and the black view background
+  shows through them as stripes.
+  `ReplicaOverlayGoldenTest.packedLcd_firstFrameOnFreshOverlay_paintsBlankRows`
+  locks it.
+- A palette change stays on the UI thread: `MainActivity.applyLcdTheme`
+  resolves the palette through `LcdThemePolicy` and hands it to
+  `setLcdPalette`, and native never sees it. A host that attaches to a live
+  runtime gets the frame from `NativeCoreRuntime.rebindHost()`, which runs
+  `resendLcdRowsNative()` on the core thread.
 - the animated settings-discovery hint in `ReplicaOverlay` keeps its
   `StaticLayout` and card geometry in a cache rebuilt only on a real size or
   layout change, so the pulse animation allocates no text-layout objects per
@@ -272,8 +284,9 @@ program, a save or load operation, or a progress or pause loop.
 ## Regression And Evidence Surfaces
 
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/NativeCoreRuntimeTest.kt` covers
-  one-time initialization, task execution, state-save behavior, and native-
-  deadline waiting on the core thread.
+  one-time initialization, task execution, state-save behavior, native-
+  deadline waiting on the core thread, and the activity-ref swap followed by
+  the LCD row resend on both reattach paths.
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/NativeDisplayRefreshLoopTest.kt`
   covers generation gating and retry-after-failed-copy behavior for the packed
   LCD observer loop.

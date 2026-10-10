@@ -9,18 +9,20 @@
 // under a data-race adversary.
 //
 // Two phases. The startup phase races the UI entry points against
-// r47_init_runtime itself: MainActivity posts a keypad refresh and an LCD theme
-// apply after first layout, while the core thread is still initializing, so
-// the UI-thread keypad copy (r47_try_copy_app_keypad_snapshot, the function
-// copyKeypadSnapshotNative calls), the packed-display copy, and the setLcdColors
-// entry point must be safe against an init in flight. The steady-state phase
+// r47_init_runtime itself: MainActivity posts a keypad refresh after first
+// layout, while the core thread is still initializing, so the UI-thread keypad
+// copy (r47_try_copy_app_keypad_snapshot, the function copyKeypadSnapshotNative
+// calls) and the packed-display copy must be safe against an init in flight.
+// resendLcdRowsNative runs on the core thread in the app, after init; the
+// harness calls it from the reader anyway, to hold its r47_runtime_ready gate
+// and its screenMutex section to the same standard. The steady-state phase
 // races a producer thread (the live sendKey input path plus r47_force_refresh,
 // exactly as the core runtime drives the screen) against a consumer thread that
 // reproduces the UI read path: it samples the volatile generation counters the
 // way getKeypadSnapshotGeneration / getPackedDisplayGeneration do, reads the
 // keypad snapshot under screenMutex via the real r47_get_keypad_meta entry
 // point, runs the packed-display trylock-copy-clear sequence the way
-// getPackedDisplayBuffer does, and calls setLcdColors. Built under
+// getPackedDisplayBuffer does, and calls resendLcdRowsNative. Built under
 // -fsanitize=thread by build_bridge_tsan_harness.sh, a missing acquire on a
 // generation counter, a torn read across the trylock fast path, or a lock-order
 // inversion between the two display mutexes fails the harness instead of passing
@@ -51,11 +53,10 @@ extern void r47_init_runtime(int slotId);
 // fixtures in jni_program_load_test.c already do.
 extern void Java_com_example_r47_MainActivity_sendKey(void *env, void *thiz,
                                                       int32_t keyCode);
-// The LCD theme entry point. It ignores all four arguments (jni_display.c).
-extern void Java_com_example_r47_MainActivity_setLcdColors(void *env,
-                                                           void *thiz,
-                                                           int32_t text,
-                                                           int32_t bg);
+// The LCD row resend for a newly attached host. It ignores both arguments
+// (jni_display.c).
+extern void Java_com_example_r47_MainActivity_resendLcdRowsNative(void *env,
+                                                                  void *thiz);
 
 // The lock-free signals the UI thread samples without holding a display mutex.
 // Match hal/lcd.c's C11 atomic definitions so the consumer's relaxed loads are
@@ -142,7 +143,7 @@ static void *startup_reader_main(void *arg) {
       copies++;
     }
     consumer_read_packed_display();
-    Java_com_example_r47_MainActivity_setLcdColors(NULL, NULL, 0, 0);
+    Java_com_example_r47_MainActivity_resendLcdRowsNative(NULL, NULL);
     spins++;
   }
   fprintf(stderr, "startup reader: %ld spins, %ld keypad copies during init\n",
@@ -169,7 +170,7 @@ static void *consumer_main(void *arg) {
 
     consumer_read_packed_display();
     if ((spins & 63) == 0) {
-      Java_com_example_r47_MainActivity_setLcdColors(NULL, NULL, 0, 0);
+      Java_com_example_r47_MainActivity_resendLcdRowsNative(NULL, NULL);
     }
     spins++;
   }

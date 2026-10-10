@@ -193,8 +193,8 @@ extern void lcd_clear_buf(void);
 extern void lcd_refresh(void);
 extern void refreshScreen(uint16_t reason);
 
-extern void JNICALL Java_com_example_r47_MainActivity_setLcdColors(
-    JNIEnv *env, jobject thiz, jint text, jint bg);
+extern void JNICALL Java_com_example_r47_MainActivity_resendLcdRowsNative(
+    JNIEnv *env, jobject thiz);
 
 void onUIActivity(void);
 gint64 g_get_monotonic_time(void);

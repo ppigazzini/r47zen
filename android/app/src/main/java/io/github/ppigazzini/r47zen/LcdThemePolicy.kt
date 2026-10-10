@@ -68,6 +68,12 @@ internal object LcdThemePolicy {
     private const val INVERSE_TEXT_MIN_LUMINANCE = 0.68
     private const val INVERSE_TEXT_MAX_LUMINANCE = 0.94
 
+    val DEFAULT_PALETTE = resolve(
+        DEFAULT_LCD_THEME_STORAGE_VALUE,
+        MainActivityPreferenceController.DEFAULT_LCD_LUMINANCE,
+        MainActivityPreferenceController.DEFAULT_LCD_NEGATIVE,
+    )
+
     fun normalizeStorageValue(value: String?): String {
         return LcdTheme.fromStorageValue(value).storageValue
     }

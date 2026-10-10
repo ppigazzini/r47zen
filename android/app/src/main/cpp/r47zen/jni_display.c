@@ -1633,19 +1633,18 @@ Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
              : JNI_FALSE;
 }
 
-// Re-transport every LCD row so Kotlin repaints in the new palette. The colors
-// themselves live in Kotlin (ReplicaOverlay), so text and bg are unused here.
-// MainActivity calls this on the core thread; it still takes screenMutex,
+// Copy every lcd_buffer row into the packed snapshot again, without redrawing,
+// so a host that attaches to a live runtime receives the whole current frame:
+// its ReplicaOverlay starts blank, and the core sends only rows that change.
+// NativeCoreRuntime calls this on the core thread; it still takes screenMutex,
 // because it writes lcd_buffer's dirty bytes and runs the same row copy as the
 // core's own refresh, and an unlocked caller loses rows the core is mid-way
 // through drawing.
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_setLcdColors(JNIEnv *env, jobject thiz,
-                                               jint text, jint bg) {
+Java_com_example_r47_MainActivity_resendLcdRowsNative(JNIEnv *env,
+                                                      jobject thiz) {
   (void)env;
   (void)thiz;
-  (void)text;
-  (void)bg;
   if (!r47_runtime_ready()) {
     return;
   }

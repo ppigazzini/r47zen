@@ -171,8 +171,7 @@ class ReplicaOverlay @JvmOverloads constructor(
             DeveloperPerformanceHudVisualPolicy.SHADOW_COLOR_ARGB,
         )
     }
-    private var lcdTextColor = 0xFF303030.toInt()
-    private var lcdBackgroundColor = 0xFFDFF5CC.toInt()
+    private var lcdPalette = LcdThemePolicy.DEFAULT_PALETTE
     private var showDeveloperPerformanceHud = false
     private var showSettingsDiscoveryHint = false
     private var lcdGraphTouchEnabled = true
@@ -233,6 +232,11 @@ class ReplicaOverlay @JvmOverloads constructor(
             val rowOffset = bufferRow * R47LcdContract.PACKED_ROW_SIZE_BYTES
             lastPackedLcd[rowOffset + 1] = (R47LcdContract.PIXEL_HEIGHT - bufferRow - 1).toByte()
         }
+        // Decode the blank lastPackedLcd before any frame arrives:
+        // updatePackedLcd skips every row that matches lastPackedLcd, so a
+        // bitmap left transparent by createBitmap keeps the blank rows of the
+        // first frame transparent, and the black view background shows through.
+        redrawPackedSnapshot()
 
         scaleGestureDetector = ScaleGestureDetector(
             context,
@@ -413,12 +417,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         onSettingsDiscoveryCompleted?.invoke()
     }
 
-    fun setLcdColors(text: Int, background: Int) {
-        if (lcdTextColor == text && lcdBackgroundColor == background) {
-            return
-        }
-        lcdTextColor = text
-        lcdBackgroundColor = background
+    internal fun setLcdPalette(palette: LcdPalette) {
+        lcdPalette = palette
         redrawPackedSnapshot()
     }
 
@@ -555,14 +555,15 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
 
     private fun decodePackedRow(buffer: ByteArray, rowOffset: Int, displayRow: Int) {
+        val (text, background) = lcdPalette
         for (byteIndex in 0 until R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW) {
             val packedByte = buffer[rowOffset + 2 + byteIndex].toInt() and 0xFF
             val destX = (R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW - 1 - byteIndex) * 8
             for (bit in 0 until 8) {
                 linePixels[destX + bit] = if ((packedByte and (1 shl (7 - bit))) != 0) {
-                    lcdTextColor
+                    text
                 } else {
-                    lcdBackgroundColor
+                    background
                 }
             }
         }

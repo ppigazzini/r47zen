@@ -14,6 +14,7 @@ internal class NativeCoreRuntime(
     private val tick: () -> Int,
     private val saveStateNative: () -> Unit,
     private val forceRefreshNative: () -> Unit,
+    private val resendLcdRowsNative: () -> Unit,
     private val getPackedDisplayGeneration: () -> Int,
     private val getPackedDisplayBuffer: (ByteArray) -> Boolean,
     private val getKeypadSnapshotGeneration: () -> Int,
@@ -159,7 +160,7 @@ internal class NativeCoreRuntime(
                 runtime.initNative(runtime.filesDirPath, runtime.currentSlotIdProvider())
                 isNativeInitializedShared = true
             } else {
-                runtime.updateNativeActivityRef()
+                runtime.rebindHost()
             }
             return true
         }
@@ -275,11 +276,20 @@ internal class NativeCoreRuntime(
             isCoreThreadStarted = true
             startCoreThread(coreLoop)
         } else {
-            Log.i(TAG, "Core thread already running; updating activity ref on the core thread")
+            Log.i(TAG, "Core thread already running; rebinding the host on the core thread")
             // Run the ref swap on the core thread, serialized with the native
             // readers of the activity globals, instead of mutating them from the
             // main thread while the core thread is using them.
-            offerTask(Runnable { updateNativeActivityRef() })
+            offerTask(Runnable { rebindHost() })
         }
+    }
+
+    // Hand every host after the first both the activity ref and the frame. The
+    // core sends only rows that change, and the new host's ReplicaOverlay starts
+    // blank, so without the resend a recreated Activity shows a blank LCD until
+    // the calculator next draws.
+    private fun rebindHost() {
+        updateNativeActivityRef()
+        resendLcdRowsNative()
     }
 }

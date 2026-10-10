@@ -50,7 +50,7 @@ flowchart TD
 | developer performance HUD preference, configurable sample-window slider, snapshot transport, and shell visibility | `DeveloperPerformanceSnapshot.kt`, `NativeDisplayRefreshLoop.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml` | `NativeDisplayRefreshLoopTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `ReplicaOverlayGoldenTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.NativeDisplayRefreshLoopTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest` |
 | graph LCD touch gate (proven `CM_GRAPH` path with `-MNU_PLOT_FUNC` and `-MNU_GRAPHS`), multi-touch pointer continuity, post-start continuation deadband for stationary-finger jitter, bounded queued-pan backlog capping (`<= 4.0f` normalized backlog per axis), bounded per-apply pan splitting (`<= 1.0f` normalized per native apply), widened pinch queue clamp (`0.4f..2.5f`), native oversized-input rejection, transactional finite graph-bounds commit checks (`+/-1.0e38f`), restore-time graph-bounds sanitization after `restoreCalc()`, and LCD graph-touch settings copy | `ReplicaOverlay.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `GraphGestureAccumulator.kt`, `android/app/src/main/cpp/r47zen/jni_input.c`, `android/app/src/main/cpp/r47zen/jni_lifecycle.c`, `android/app/src/main/cpp/r47zen/jni_program_load_test.c`, `android/app/src/main/res/values/strings.xml` | `GraphGestureAccumulatorTest.kt`, `ReplicaOverlayGoldenTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `GraphTouchStressInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.GraphGestureAccumulatorTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest && ./gradlew :app:assembleDebugAndroidTest :app:connectedDebugAndroidTest --tests io.github.ppigazzini.r47zen.GraphTouchStressInstrumentedTest` |
 | stop delivery and first-stop LCD cleanup during long-running program execution | `MainActivity.kt`, `LiveProgramStopKeyPolicy.kt`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, `ReplicaOverlayController.kt`, `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `NativeCoreRuntime.kt`, `jni_display.c`, `jni_input.c`, `jni_lifecycle.c`, `android_runtime.c` | `LiveProgramStopKeyPolicyTest.kt`, `NativeDisplayRefreshLoopTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt`, `ProgramFixtureInstrumentedTest.kt`, `DisplayLifecycleInstrumentedTest.kt`, `scripts/workload-regressions/run_workload_regressions.sh`, and focused JVM stop-routing checks | rerun `LiveProgramStopKeyPolicyTest` first, then the host workload lane, then `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest` when the Android-owned stop or first-stop refresh seam moved |
-| settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh`; on the JVM, `NativeCoreRuntimeTest.kt` (a recreated host is released), `NativeFileRequestGateTest.kt`, and `FactoryResetControllerTest.kt` | `:app:testDebugUnitTest` first, then `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
+| settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh`; on the JVM, `NativeCoreRuntimeTest.kt` (a recreated host is released and receives every LCD row), `NativeFileRequestGateTest.kt`, and `FactoryResetControllerTest.kt` | `:app:testDebugUnitTest` first, then `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
 | settings behavior copy, main-shell menu copy, follow-up copy-popup parity, developer performance HUD copy, fixed dark shell and popup theme invariants, the explicit checked settings-switch orange-track and blue-thumb tint mapping, adaptive settings host layout, and dependent keypress haptic default-toggle plus custom-duration copy | `SettingsActivity.kt`, `SettingsSwitchPreference.kt`, `MainActivity.kt`, `DisplayActionController.kt`, `android/app/src/main/cpp/r47zen/jni_display.c`, `android/app/src/main/cpp/r47zen/android_helpers.c`, `android/app/src/main/res/layout/settings_activity.xml`, `android/app/src/main/res/layout-w600dp/settings_activity.xml`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `SettingsActivityThemeTest.kt`, `SettingsPreferenceSummaryTest.kt`, `MainShellThemeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.SettingsActivityThemeTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest` |
 | keypad haptic gate, Android-default toggle versus custom `0..100 ms` override, and press-only keypad cadence | `HapticFeedbackController.kt`, `ReplicaKeypadLayout.kt`, `MainActivity.kt`, `SettingsActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml` | `HapticFeedbackControllerTest.kt`, `ReplicaKeypadLayoutHapticsTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest --tests io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
 | beeper volume normalization and audio settings dispatch | `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `MainActivityPreferenceControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest` |
@@ -310,16 +310,19 @@ Important contract files include:
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable. The
   LCD raster is locked pixel-for-pixel against an independently decoded reference
   (`packedLcd_matchesArgbRendering`) and by a structural colour oracle
-  (`nativeChrome_compositesLcdRasterColours`); the overall chrome is locked by
-  `nativeChrome_matchesTextGolden`, a **code-only** ASCII-luminance downsample of
-  the render held in `CHROME_TEXT_GOLDEN`. A text golden is deliberate here: its
-  `assertEquals` diff shows the visual change as a grid a reviewer can confirm,
-  where a SHA hash only says "differs" and invites a blind re-bless, and it adds
-  no binary reference image to the repository. It also locks the absence of
-  full-width top-bezel interception, covers developer-performance HUD visibility
-  when the setting is enabled, and verifies LCD graph-touch setting gating,
-  accumulated-slop pan start, post-start jitter deadband, plus multi-touch
-  pointer replacement continuity after primary-pointer release
+  (`nativeChrome_compositesLcdRasterColours`), and a fresh overlay must paint
+  the blank rows of its first frame in the default palette
+  (`packedLcd_firstFrameOnFreshOverlay_paintsBlankRows`). The overall chrome
+  is locked by `nativeChrome_matchesTextGolden`, a **code-only** ASCII-luminance
+  downsample of the render held in `CHROME_TEXT_GOLDEN`. A text golden is
+  deliberate here: its `assertEquals` diff shows the visual change as a grid a
+  reviewer can confirm, where a SHA hash only says "differs" and invites a blind
+  re-bless, and it adds no binary reference image to the repository. It also
+  locks the absence of full-width top-bezel interception, covers
+  developer-performance HUD visibility when the setting is enabled, and verifies
+  LCD graph-touch setting gating, accumulated-slop pan start, post-start jitter
+  deadband, plus multi-touch pointer replacement continuity after
+  primary-pointer release
 - `MainShellThemeTest.kt`: locks the `WindowModeController` PiP request to the
   native LCD `400 x 240` aspect ratio, the fixed shell-menu copy, and the
   retained dark settings-discovery hint surfaces in light system mode
@@ -346,7 +349,9 @@ Important contract files include:
   including `FOCUS_BLOCK_DESCENDANTS`, so the first DPAD event is routed to the
   calculator instead of Android focus search
 - `NativeCoreRuntimeTest.kt`: locks single-init, queued-task,
-  save-on-pause, and native-deadline waiting behavior on the core thread
+  save-on-pause, and native-deadline waiting behavior on the core thread, and
+  that every reattach, from the live or a restarted core thread, swaps the
+  activity ref and then resends every LCD row, while the first attach does not
 - `NativeDisplayRefreshLoopTest.kt`: locks packed-display generation gating,
   unchanged-frame skip behavior, keypad-generation retry-after-busy-copy,
   cached-snapshot reuse, no-synthetic-empty refresh behavior, and the default
@@ -661,12 +666,14 @@ Android compatibility layer.
   against the core, the one concurrency surface the single-threaded ASan/UBSan
   lanes never exercise. A startup phase runs the UI entry points -- the keypad
   copy through `r47_try_copy_app_keypad_snapshot`, the packed-display copy, and
-  `setLcdColors` -- while `r47_init_runtime` runs, which is what locks the init
+  `resendLcdRowsNative`, which the app runs on the core thread after init but
+  which keeps the same ready gate -- while `r47_init_runtime` runs, which is
+  what locks the init
   lock and the `r47_runtime_ready()` gate. A steady-state phase then has a
   producer thread drive `sendKey` plus `r47_force_refresh` while a consumer
   thread samples the generation counters, runs the `pthread_mutex_trylock` read
   path the way `getPackedDisplayBuffer` and `r47_get_keypad_meta` do, and calls
-  `setLcdColors`. A data race or
+  `resendLcdRowsNative`. A data race or
   lock-order inversion in the Android-owned bridge is the hard gate and aborts
   the run; `bridge_tsan_suppressions.txt` is the upstream-core-only escape hatch
   (currently empty -- the bridge's `screenMutex`/`packedDisplayMutex` fully

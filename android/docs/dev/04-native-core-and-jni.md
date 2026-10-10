@@ -200,11 +200,12 @@ supports that model by keeping shared synchronization in native code:
 - `r47_init_runtime(...)` holds `screenMutex` for the whole init and sets
   `r47_runtime_ready()` last (a release store, read with acquire). Every
   UI-thread entry point that touches core state -- `copyKeypadSnapshotNative`,
-  `getPackedDisplayBuffer`, `setLcdColors`, `requestStopProgramNative` --
-  returns early until it is true, because the UI thread is live before init
-  finishes: `MainActivity` posts a keypad refresh and an LCD theme after first
-  layout. The startup phase of `build_bridge_tsan_harness.sh` races those entry
-  points against init and fails on any unsynchronized access
+  `getPackedDisplayBuffer`, `requestStopProgramNative` -- returns early until
+  it is true, because the UI thread is live before init finishes: `MainActivity`
+  posts a keypad refresh after first layout. `resendLcdRowsNative` runs on the
+  core thread after init and keeps the same gate. The startup phase of
+  `build_bridge_tsan_harness.sh` races those entry points against init and
+  fails on any unsynchronized access
 - `Java_com_example_r47_MainActivity_tick(...)` keeps
   `pthread_mutex_trylock(&screenMutex)` semantics, advances due timer and LCD
   work, and returns the next required wake delay through
@@ -358,9 +359,12 @@ Practical rule:
 
 Final app shutdown uses `releaseNativeRuntime()` to delete the global
 `MainActivity` reference and clear the cached method IDs. Activity recreation
-continues to use `updateNativeActivityRef()` without tearing down the native
-core. That reattach helper refreshes JNI references and cached method IDs only;
-it must stay display-passive and must not synthesize a redraw. The core
+rebinds the new host without tearing down the native core:
+`NativeCoreRuntime.rebindHost()` calls `updateNativeActivityRef()`, which
+refreshes JNI references and cached method IDs only, then
+`resendLcdRowsNative()`, which re-copies the rows already in `lcd_buffer` so
+the new `ReplicaOverlay`, blank at construction, receives the whole frame.
+Neither may synthesize a redraw. The core
 thread outlives each Activity, so its loop lives in `NativeCoreRuntime`'s
 companion and reaches its host only through the runtime the latest `attach()`
 published; the predecessor, with its view tree, becomes collectable once the

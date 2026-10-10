@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -31,12 +32,12 @@ class ReplicaOverlayGoldenTest {
         val expectedPixels = decodePackedBuffer(packedBuffer, textColor, backgroundColor)
 
         val packedOverlay = configuredOverlay().apply {
-            setLcdColors(textColor, backgroundColor)
+            setLcdPalette(LcdPalette(textColor, backgroundColor))
         }
         assertTrue(packedOverlay.updatePackedLcd(packedBuffer.copyOf()))
 
         val argbOverlay = configuredOverlay().apply {
-            setLcdColors(textColor, backgroundColor)
+            setLcdPalette(LcdPalette(textColor, backgroundColor))
             updateLcd(expectedPixels)
         }
 
@@ -52,16 +53,32 @@ class ReplicaOverlayGoldenTest {
         val packedBuffer = samplePackedBuffer()
 
         val overlay = configuredOverlay().apply {
-            setLcdColors(initialText, initialBackground)
+            setLcdPalette(LcdPalette(initialText, initialBackground))
         }
         assertTrue(overlay.updatePackedLcd(packedBuffer.copyOf()))
-        overlay.setLcdColors(recolorText, recolorBackground)
+        overlay.setLcdPalette(LcdPalette(recolorText, recolorBackground))
 
         val expectedOverlay = configuredOverlay().apply {
             updateLcd(decodePackedBuffer(packedBuffer, recolorText, recolorBackground))
         }
 
         assertEquals(renderHash(expectedOverlay), renderHash(overlay))
+    }
+
+    @Test
+    fun packedLcd_firstFrameOnFreshOverlay_paintsBlankRows() {
+        // Leave the palette at its default: the core's first frame can arrive
+        // before MainActivity applies the stored theme, and setLcdPalette would
+        // repaint every row and hide a bitmap that disagrees with lastPackedLcd.
+        val packedBuffer = firstFramePackedBuffer()
+        val overlay = configuredOverlay()
+        assertTrue(overlay.updatePackedLcd(packedBuffer.copyOf()))
+
+        val (text, background) = LcdThemePolicy.DEFAULT_PALETTE
+        assertArrayEquals(
+            decodePackedBuffer(packedBuffer, text, background),
+            lcdBitmapPixels(overlay),
+        )
     }
 
     @Test
@@ -710,6 +727,32 @@ class ReplicaOverlayGoldenTest {
         setPackedPixel(buffer, x = 399, y = 120)
         setPackedPixel(buffer, x = 121, y = 239)
         return buffer
+    }
+
+    // Build the frame native sends once it starts: every row dirty and carrying
+    // its row id, most rows blank.
+    private fun firstFramePackedBuffer(): ByteArray {
+        val buffer = samplePackedBuffer()
+        for (y in 0 until R47LcdContract.PIXEL_HEIGHT) {
+            val rowOffset = y * R47LcdContract.PACKED_ROW_SIZE_BYTES
+            buffer[rowOffset] = 1
+            buffer[rowOffset + 1] = (R47LcdContract.PIXEL_HEIGHT - y - 1).toByte()
+        }
+        return buffer
+    }
+
+    private fun lcdBitmapPixels(overlay: ReplicaOverlay): IntArray {
+        val pixels = IntArray(R47LcdContract.PIXEL_COUNT)
+        readPrivateField<Bitmap>(overlay, "lcdBitmap").getPixels(
+            pixels,
+            0,
+            R47LcdContract.PIXEL_WIDTH,
+            0,
+            0,
+            R47LcdContract.PIXEL_WIDTH,
+            R47LcdContract.PIXEL_HEIGHT,
+        )
+        return pixels
     }
 
     private fun setPackedPixel(buffer: ByteArray, x: Int, y: Int) {

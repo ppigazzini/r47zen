@@ -97,14 +97,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun applyLcdTheme(theme: String, luminancePercent: Int, isNegative: Boolean) {
-        val palette = LcdThemePolicy.resolve(theme, luminancePercent, isNegative)
-        replicaOverlay.setLcdColors(palette.text, palette.background)
-        // Re-transport the LCD rows on the core thread, which owns lcd_buffer. A
-        // call before the runtime exists has nothing to re-transport: native init
-        // sends every row once it runs.
-        if (::coreRuntime.isInitialized) {
-            coreRuntime.offerTask(Runnable { setLcdColors(palette.text, palette.background) })
-        }
+        replicaOverlay.setLcdPalette(LcdThemePolicy.resolve(theme, luminancePercent, isNegative))
     }
 
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
@@ -417,6 +410,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             tick = ::tick,
             saveStateNative = ::saveStateNative,
             forceRefreshNative = ::forceRefreshNative,
+            resendLcdRowsNative = ::resendLcdRowsNative,
             getPackedDisplayGeneration = ::getPackedDisplayGeneration,
             getPackedDisplayBuffer = ::getPackedDisplayBuffer,
             getKeypadSnapshotGeneration = ::getKeypadSnapshotGeneration,
@@ -574,7 +568,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         labelsBuffer: Array<String>,
     ): Boolean
     private external fun requestStopProgramNative(): Boolean
-    private external fun setLcdColors(text: Int, bg: Int)
+    private external fun resendLcdRowsNative()
 
     @Keep fun onFileSelected(fd: Int) { onFileSelectedNative(fd) }
     @Keep fun onFileCancelled() { onFileCancelledNative() }
