@@ -1633,13 +1633,9 @@ Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
              : JNI_FALSE;
 }
 
-// Copy every lcd_buffer row into the packed snapshot again, without redrawing,
-// so a host that attaches to a live runtime receives the whole current frame:
+// Resend the whole current frame to a host that attaches to a live runtime:
 // its ReplicaOverlay starts blank, and the core sends only rows that change.
-// NativeCoreRuntime calls this on the core thread; it still takes screenMutex,
-// because it writes lcd_buffer's dirty bytes and runs the same row copy as the
-// core's own refresh, and an unlocked caller loses rows the core is mid-way
-// through drawing.
+// The ready gate's acquire load publishes the packedDisplayBuffer pointer.
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_resendLcdRowsNative(JNIEnv *env,
                                                       jobject thiz) {
@@ -1648,10 +1644,7 @@ Java_com_example_r47_MainActivity_resendLcdRowsNative(JNIEnv *env,
   if (!r47_runtime_ready()) {
     return;
   }
-  pthread_mutex_lock(&screenMutex);
-  lcd_mark_all_rows_dirty();
-  lcd_refresh();
-  pthread_mutex_unlock(&screenMutex);
+  lcd_mark_packed_rows_dirty();
 }
 
 JNIEXPORT jint JNICALL

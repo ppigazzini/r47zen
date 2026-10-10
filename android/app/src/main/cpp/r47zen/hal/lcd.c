@@ -46,14 +46,18 @@ void r47_reset_host_lcd_refresh_count(void) {
   hostLcdRefreshCount = 0;
 }
 
-void lcd_mark_all_rows_dirty(void) {
-  if (!lcd_buffer) {
+void lcd_mark_packed_rows_dirty(void) {
+  if (!packedDisplayBuffer) {
     return;
   }
 
-  for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
-    lcd_buffer[row * LCD_ROW_SIZE_BYTES] = 1u;
+  pthread_mutex_lock(&packedDisplayMutex);
+  for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
+    packedDisplayBuffer[row * LCD_ROW_SIZE_BYTES] = 1u;
   }
+  atomic_store_explicit(&lcdBufferDirty, true, memory_order_relaxed);
+  atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
+  pthread_mutex_unlock(&packedDisplayMutex);
 }
 
 void init_lcd_buffers() {
@@ -112,14 +116,23 @@ void LCD_write_line(uint8_t *line_buf) {
   // is a white pixel, while the packed snapshot keeps a 1 bit as a dark one,
   // which is what ReplicaOverlay.decodePackedRow paints. Invert on the copy so
   // the JNI transport contract stays where it was.
-  snapshot_line[0] = 1u;
-  snapshot_line[1] = row_id;
+  bool changed = false;
   for (size_t column = 2; column < LCD_ROW_SIZE_BYTES; column++) {
-    snapshot_line[column] = (uint8_t)~line_buf[column];
+    const uint8_t packed = (uint8_t)~line_buf[column];
+    changed |= snapshot_line[column] != packed;
+    snapshot_line[column] = packed;
   }
+  snapshot_line[1] = row_id;
   line_buf[0] = 0u;
-  atomic_store_explicit(&lcdBufferDirty, true, memory_order_relaxed);
-  atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
+  // Flag only a row whose pixels changed. The core rewrites rows it did not
+  // change -- bitblt24 and lcd_line_addr mark a row dirty on every write -- and
+  // this is the one place that tells the two apart, so neither the JNI copy nor
+  // ReplicaOverlay compares rows again.
+  if (changed) {
+    snapshot_line[0] = 1u;
+    atomic_store_explicit(&lcdBufferDirty, true, memory_order_relaxed);
+    atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
+  }
   // The keypad snapshot generation MUST bump on every screen refresh, not only
   // on input. Dynamic softmenus (notably the EQN editor, MNU_EQN) rebuild their
   // softkey labels on the refresh path (refreshScreen -> LCD_write_line), with

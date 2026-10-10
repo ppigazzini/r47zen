@@ -1,6 +1,7 @@
 // Host regression guard for the hal/lcd.c contracts: the keypad-snapshot
-// generation bump, the bitblt24 blit semantics the upstream core relies on, and
-// the lcd_buffer polarity those semantics are stated in.
+// generation bump, the bitblt24 blit semantics the upstream core relies on, the
+// lcd_buffer polarity those semantics are stated in, and the packed-row change
+// detection the Kotlin consumer trusts.
 //
 // The Android display loop re-reads the keypad/softkey snapshot only when
 // keypadSnapshotGeneration changes. Dynamic softmenus -- notably the EQN editor
@@ -83,6 +84,11 @@ extern void lcd_fill_rect(uint32_t x, uint32_t y, uint32_t dx, uint32_t dy,
 extern void lcd_clear_buf(void);
 extern bool lcd_buffer_pixel_on(uint32_t x, uint32_t y);
 extern uint8_t *packedDisplayBuffer;
+extern _Atomic bool lcdBufferDirty;
+extern _Atomic uint32_t packedDisplayGeneration;
+extern void lcd_mark_packed_rows_dirty(void);
+
+#define ROW_STRIDE (ROW_DATA_OFFSET + ROW_DATA_BYTES)
 
 // Row 0 only; the dirty flag and row-index header bytes are left untouched.
 static void fill_row(uint8_t value) {
@@ -221,6 +227,84 @@ static int check_polarity(void) {
   return failures;
 }
 
+// --- packed-row change detection ---------------------------------------------
+//
+// LCD_write_line alone tells a changed row from one the core rewrote unchanged,
+// so it alone sets a packed row's flag and bumps packedDisplayGeneration;
+// ReplicaOverlay decodes every flagged row without comparing. A flag on an
+// unchanged row costs a JNI copy and a decode, a missing flag on a changed row
+// leaves the LCD stale, and a first frame without every row flagged leaves a
+// fresh ReplicaOverlay showing rows it never received.
+
+static bool all_packed_rows_flagged(void) {
+  for (unsigned int row = 0; row < SCREEN_HEIGHT_PX; row++) {
+    if (packedDisplayBuffer[row * ROW_STRIDE] != 1u) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static void consume_packed_rows(void) {
+  for (unsigned int row = 0; row < SCREEN_HEIGHT_PX; row++) {
+    packedDisplayBuffer[row * ROW_STRIDE] = 0u;
+  }
+  lcdBufferDirty = false;
+}
+
+// Run straight after init_lcd_buffers, before any row is written.
+static int check_first_frame_flags(void) {
+  if (!all_packed_rows_flagged() || !lcdBufferDirty) {
+    fprintf(stderr, "FAIL: init_lcd_buffers did not flag every packed row\n");
+    return 1;
+  }
+  printf("OK: init_lcd_buffers flags every packed row for the first copy\n");
+  return 0;
+}
+
+// Run after check_polarity, which leaves lcd_buffer row 0 published.
+static int check_packed_change_detection(void) {
+  int failures = 0;
+
+  consume_packed_rows();
+  uint32_t before = packedDisplayGeneration;
+  lcd_buffer[0] = 1u;
+  LCD_write_line(lcd_buffer);
+  if (packedDisplayBuffer[0] != 0u || lcdBufferDirty ||
+      packedDisplayGeneration != before) {
+    fprintf(stderr,
+            "FAIL: LCD_write_line flagged a row whose pixels did not change\n");
+    failures |= 1;
+  } else {
+    printf("OK: an unchanged row stays unflagged\n");
+  }
+
+  lcd_buffer[ROW_DATA_OFFSET] ^= 0x01u;
+  lcd_buffer[0] = 1u;
+  LCD_write_line(lcd_buffer);
+  if (packedDisplayBuffer[0] != 1u || !lcdBufferDirty ||
+      packedDisplayGeneration == before) {
+    fprintf(stderr, "FAIL: LCD_write_line did not flag a changed row\n");
+    failures |= 1;
+  } else {
+    printf("OK: a changed row is flagged and bumps packedDisplayGeneration\n");
+  }
+
+  consume_packed_rows();
+  before = packedDisplayGeneration;
+  lcd_mark_packed_rows_dirty();
+  if (!all_packed_rows_flagged() || !lcdBufferDirty ||
+      packedDisplayGeneration == before) {
+    fprintf(stderr,
+            "FAIL: lcd_mark_packed_rows_dirty did not flag every packed row\n");
+    failures |= 1;
+  } else {
+    printf("OK: lcd_mark_packed_rows_dirty flags every packed row\n");
+  }
+
+  return failures;
+}
+
 int main(void) {
   init_lcd_buffers();
   if (lcd_buffer == NULL) {
@@ -241,6 +325,10 @@ int main(void) {
   }
   printf("OK: screenData left unallocated (no dead framebuffer)\n");
 
+  if (check_first_frame_flags() != 0) {
+    return 1;
+  }
+
   const uint32_t before = keypadSnapshotGeneration;
 
   // Refresh one row, exactly as the upstream refresh path does for a changed
@@ -259,5 +347,6 @@ int main(void) {
   printf("OK: LCD_write_line bumped keypadSnapshotGeneration %u -> %u\n",
          (unsigned int)before, (unsigned int)keypadSnapshotGeneration);
 
-  return check_bitblt24_fill_semantics() | check_polarity();
+  return check_bitblt24_fill_semantics() | check_polarity() |
+         check_packed_change_detection();
 }

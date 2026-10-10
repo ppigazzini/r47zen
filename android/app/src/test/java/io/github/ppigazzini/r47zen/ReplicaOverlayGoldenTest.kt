@@ -52,17 +52,12 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
-    fun packedLcd_firstFrameOnFreshOverlay_paintsBlankRows() {
-        // Leave the palette at its default: the core's first frame can arrive
-        // before MainActivity applies the stored theme, and setLcdPalette would
-        // repaint every row and hide a bitmap that disagrees with lastPackedLcd.
-        val packedBuffer = firstFramePackedBuffer()
-        val overlay = configuredOverlay()
-        assertTrue(overlay.updatePackedLcd(packedBuffer.copyOf()))
-
+    fun packedLcd_freshOverlay_showsBlankFrame() {
+        // Take no frame and no palette: both repaint, and the constructor must
+        // already have replaced createBitmap's transparent fill.
         assertArrayEquals(
-            decodePackedBuffer(packedBuffer, LcdThemePolicy.DEFAULT_PALETTE),
-            lcdBitmapPixels(overlay),
+            decodePackedBuffer(ByteArray(R47LcdContract.PACKED_BUFFER_SIZE), LcdThemePolicy.DEFAULT_PALETTE),
+            lcdBitmapPixels(configuredOverlay()),
         )
     }
 
@@ -116,19 +111,6 @@ class ReplicaOverlayGoldenTest {
         val fullLcdHeight = ceil(lcdBottom).toInt() - lcdTop.toInt()
 
         assertTrue("dirty rect should be row-band sized, not full LCD height", dirtyRect.height() < fullLcdHeight)
-    }
-
-    @Test
-    fun packedLcd_unchangedDirtyRow_isSkipped() {
-        val overlay = configuredOverlay()
-        val firstBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
-        setPackedPixel(firstBuffer, x = 24, y = 33)
-        assertTrue(overlay.updatePackedLcd(firstBuffer))
-
-        val unchangedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
-        setPackedPixel(unchangedBuffer, x = 24, y = 33)
-
-        assertFalse(overlay.updatePackedLcd(unchangedBuffer))
     }
 
     @Test
@@ -704,18 +686,6 @@ class ReplicaOverlayGoldenTest {
         setPackedPixel(buffer, x = 215, y = 60)
         setPackedPixel(buffer, x = 399, y = 120)
         setPackedPixel(buffer, x = 121, y = 239)
-        return buffer
-    }
-
-    // Build the frame native sends once it starts: every row dirty and carrying
-    // its row id, most rows blank.
-    private fun firstFramePackedBuffer(): ByteArray {
-        val buffer = samplePackedBuffer()
-        for (y in 0 until R47LcdContract.PIXEL_HEIGHT) {
-            val rowOffset = y * R47LcdContract.PACKED_ROW_SIZE_BYTES
-            buffer[rowOffset] = 1
-            buffer[rowOffset + 1] = (R47LcdContract.PIXEL_HEIGHT - y - 1).toByte()
-        }
         return buffer
     }
 

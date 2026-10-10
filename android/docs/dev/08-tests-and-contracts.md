@@ -310,9 +310,9 @@ Important contract files include:
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable. The
   LCD raster is locked pixel-for-pixel against an independently decoded reference
   (`packedLcd_matchesIndependentDecode`) and by a structural colour oracle
-  (`nativeChrome_compositesLcdRasterColours`), and a fresh overlay must paint
-  the blank rows of its first frame in the default palette
-  (`packedLcd_firstFrameOnFreshOverlay_paintsBlankRows`). The overall chrome
+  (`nativeChrome_compositesLcdRasterColours`), and a fresh overlay must show a
+  blank frame in the default palette before any frame arrives
+  (`packedLcd_freshOverlay_showsBlankFrame`). The overall chrome
   is locked by `nativeChrome_matchesTextGolden`, a **code-only** ASCII-luminance
   downsample of the render of a packed sample frame, held in
   `CHROME_TEXT_GOLDEN`. A text golden is
@@ -638,7 +638,7 @@ Android compatibility layer.
   aborts on an overrun, and nothing checks the dumped text itself.
 - `scripts/android/run_keypad_generation_contract.sh` links `hal/lcd.c` alone on
   the host -- no emulator, no device -- and runs
-  `scripts/android/keypad_generation_contract_test.c`. It asserts four
+  `scripts/android/keypad_generation_contract_test.c`. It asserts five
   `hal/lcd.c` contracts. First, `LCD_write_line` must bump
   `keypadSnapshotGeneration`, the signal the display loop uses to re-read dynamic
   softkeys such as the EQN editor. Second, `init_lcd_buffers` must leave the
@@ -663,8 +663,13 @@ Android compatibility layer.
   show that: swapping the two ops and the reader cancels out, which is why the
   BinetV4 hash did not move when the HAL did. The assertions count dark pixels
   over a whole row, so they stay valid independently of the column mirroring
-  inside the Android `bitblt24`. It runs in the `host-workload-regressions` lane
-  of `linux-ci.yml`.
+  inside the Android `bitblt24`. Fifth, `LCD_write_line` flags a packed row and
+  bumps `packedDisplayGeneration` only when the row's pixels changed,
+  `init_lcd_buffers` flags every packed row for the first copy, and
+  `lcd_mark_packed_rows_dirty` flags them all again for a newly attached host;
+  `ReplicaOverlay` decodes every flagged row without comparing, so a wrong
+  flag either way reaches the screen. It runs in the
+  `host-workload-regressions` lane of `linux-ci.yml`.
 - `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds the staged
   core and Android bridge under ThreadSanitizer and races the UI read path
   against the core, the one concurrency surface the single-threaded ASan/UBSan

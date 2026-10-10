@@ -116,8 +116,10 @@ Changes here affect the full runtime even when the Android UI code is untouched.
   hardware refresh rate.
 - `LCD Hz` counts accepted non-empty `getPackedDisplayBuffer(...)` copies in
   that same active sample window.
-- `DR` is the average dirty-row count per accepted snapshot in that window,
-  normalized by the `240` LCD rows and shown as a percent.
+- `DR` is the average count of flagged rows per accepted snapshot in that
+  window, normalized by the `240` LCD rows and shown as a percent. Native flags
+  only rows whose pixels changed, so `DR` measures real repaint, not how many
+  rows the core rewrote.
 - `Copy` is the average successful packed-buffer copy duration for those
   accepted snapshots in the same window.
 - If a sample window finishes with no accepted packed copy, the HUD leaves
@@ -153,33 +155,35 @@ That would duplicate the most expensive JNI reads in the shell.
   a fresh packed snapshot on unchanged frames.
 - `hal/lcd.c::LCD_write_line(...)` copies the row into the packed snapshot
   inverted, one pass over its 50 pixel bytes, because `lcd_buffer` stores a
-  dark pixel as a 0 bit and the snapshot as a 1 bit. It increments
-  `packedDisplayGeneration` once per dirty-row write. That means multiple native row writes can collapse into one
-  accepted Kotlin snapshot before the next UI frame, which is why the HUD's
-  `LCD Hz` field is snapshot cadence rather than raw row-write frequency.
+  dark pixel as a 0 bit and the snapshot as a 1 bit. It flags the packed row
+  and increments `packedDisplayGeneration` only when a pixel byte changed: the
+  core rewrites rows it did not change, since `bitblt24` and `lcd_line_addr`
+  mark a row dirty on every write, and this is the one place the transport
+  compares rows. `init_lcd_buffers` flags every packed row, so the first copy
+  carries a whole frame. Several changed rows can collapse into one accepted
+  Kotlin snapshot before the next UI frame, which is why the HUD's `LCD Hz`
+  field is snapshot cadence rather than raw row-write frequency.
 - After a successful copy, the JNI export clears each row's dirty flag in the
   packed transport buffer. That dirty flag is transport bookkeeping, not part of
   the visible LCD contract.
-- `ReplicaOverlay.updatePackedLcd(...)` decodes only rows whose packed byte `0`
-  is dirty and whose pixel bytes differ from `lastPackedLcd`, copies those
-  rows into `lastPackedLcd`, repaints the changed rows into the bitmap, and
+- `ReplicaOverlay.updatePackedLcd(...)` decodes every row whose packed byte `0`
+  is set, without comparing it again, copies those rows into
+  `lastPackedLcd`, repaints them into the bitmap, and
   invalidates the full LCD width across the touched row span. It takes each
   row's display position from its index: native `LCD_write_line` already
   stores a row at the index its DMCP row id names.
-- That skip trusts the bitmap to show what `lastPackedLcd` decodes to, so
-  the bitmap is written only by decoding `lastPackedLcd`, and
+- The bitmap is written only by decoding `lastPackedLcd`, and
   `ReplicaOverlay.redrawPackedSnapshot()` is the one full repaint: the
-  constructor runs it on the blank `lastPackedLcd`, and `setLcdPalette` runs
-  it on every call. A bitmap left at `createBitmap`'s transparent fill keeps
-  the blank rows of the first frame transparent, and the black view background
-  shows through them as stripes.
-  `ReplicaOverlayGoldenTest.packedLcd_firstFrameOnFreshOverlay_paintsBlankRows`
-  locks it.
+  constructor runs it on the blank `lastPackedLcd`, so the LCD is never
+  `createBitmap`'s transparent fill with the black view background showing
+  through, and `setLcdPalette` runs it on every call.
+  `ReplicaOverlayGoldenTest.packedLcd_freshOverlay_showsBlankFrame` locks the
+  constructor half; `run_keypad_generation_contract.sh` locks the native flags.
 - A palette change stays on the UI thread: `MainActivity.applyLcdTheme`
   resolves the palette through `LcdThemePolicy` and hands it to
   `setLcdPalette`, and native never sees it. A host that attaches to a live
   runtime gets the frame from `NativeCoreRuntime.rebindHost()`, which runs
-  `resendLcdRowsNative()` on the core thread.
+  `resendLcdRowsNative()` on the core thread to flag every packed row.
 - the animated settings-discovery hint in `ReplicaOverlay` keeps its
   `StaticLayout` and card geometry in a cache rebuilt only on a real size or
   layout change, so the pulse animation allocates no text-layout objects per

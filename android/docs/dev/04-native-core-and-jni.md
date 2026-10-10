@@ -362,8 +362,8 @@ Final app shutdown uses `releaseNativeRuntime()` to delete the global
 rebinds the new host without tearing down the native core:
 `NativeCoreRuntime.rebindHost()` calls `updateNativeActivityRef()`, which
 refreshes JNI references and cached method IDs only, then
-`resendLcdRowsNative()`, which re-copies the rows already in `lcd_buffer` so
-the new `ReplicaOverlay`, blank at construction, receives the whole frame.
+`resendLcdRowsNative()`, which flags every packed snapshot row so the new
+`ReplicaOverlay`, blank at construction, receives the whole frame.
 Neither may synthesize a redraw. The core
 thread outlives each Activity, so its loop lives in `NativeCoreRuntime`'s
 companion and reaches its host only through the runtime the latest `attach()`

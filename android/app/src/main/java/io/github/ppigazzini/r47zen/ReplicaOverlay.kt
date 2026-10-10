@@ -227,10 +227,9 @@ class ReplicaOverlay @JvmOverloads constructor(
         clipChildren = false
         clipToPadding = false
 
-        // Decode the blank lastPackedLcd before any frame arrives:
-        // updatePackedLcd skips every row that matches lastPackedLcd, so a
-        // bitmap left transparent by createBitmap keeps the blank rows of the
-        // first frame transparent, and the black view background shows through.
+        // Decode the blank lastPackedLcd, so the bitmap shows what lastPackedLcd
+        // holds from the start: createBitmap leaves it transparent, and until
+        // the first frame arrives the black view background would show through.
         redrawPackedSnapshot()
 
         scaleGestureDetector = ScaleGestureDetector(
@@ -445,11 +444,6 @@ class ReplicaOverlay @JvmOverloads constructor(
                 continue
             }
 
-            if (isPackedRowUnchanged(buffer, rowOffset)) {
-                buffer[rowOffset] = 0
-                continue
-            }
-
             System.arraycopy(
                 buffer,
                 rowOffset,
@@ -469,15 +463,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         }
 
         invalidateLcdRows(minRow, maxRow)
-        return true
-    }
-
-    private fun isPackedRowUnchanged(buffer: ByteArray, rowOffset: Int): Boolean {
-        for (index in R47LcdContract.PACKED_PIXEL_OFFSET until R47LcdContract.PACKED_ROW_SIZE_BYTES) {
-            if (buffer[rowOffset + index] != lastPackedLcd[rowOffset + index]) {
-                return false
-            }
-        }
         return true
     }
 
