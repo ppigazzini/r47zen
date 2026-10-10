@@ -49,8 +49,8 @@ static void *r47_program_load_key_worker_main(void *arg) {
   r47_program_load_key_sequence_t *request =
       (r47_program_load_key_sequence_t *)arg;
 
-  Java_com_example_r47_MainActivity_sendKey(NULL, NULL, request->key_code);
-  Java_com_example_r47_MainActivity_sendKey(NULL, NULL, 0);
+  Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, request->key_code);
+  Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, 0);
   free(request);
 
   pthread_mutex_lock(&r47_program_load_worker_mutex);
@@ -538,7 +538,7 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_requestStopProgramNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
 
-  return Java_com_example_r47_MainActivity_requestStopProgramNative(env, NULL);
+  return Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(env, NULL);
 }
 
 // Pure, side-effect-free probe of the out-of-band direct-stop run-state gate, so

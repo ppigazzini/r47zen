@@ -1516,7 +1516,7 @@ void r47_get_keypad_labels(
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getClipboardXRegisterNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
   if (!ram || isCoreBlockingForIo) {
@@ -1534,7 +1534,7 @@ Java_com_example_r47_MainActivity_getClipboardXRegisterNative(
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getClipboardStackRegistersNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
   if (!ram || isCoreBlockingForIo) {
@@ -1552,7 +1552,7 @@ Java_com_example_r47_MainActivity_getClipboardStackRegistersNative(
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getClipboardAllRegistersNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
   if (!ram || isCoreBlockingForIo) {
@@ -1570,8 +1570,8 @@ Java_com_example_r47_MainActivity_getClipboardAllRegistersNative(
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_r47_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
-                                                              jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
+                                                                          jobject thiz) {
   (void)env;
   (void)thiz;
   extern _Atomic uint32_t keypadSnapshotGeneration;
@@ -1600,7 +1600,7 @@ bool r47_try_copy_app_keypad_snapshot(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative(
     JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
     jobjectArray labelsBuffer) {
   (void)thiz;
@@ -1637,8 +1637,8 @@ Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
 // its ReplicaOverlay starts blank, and the core sends only rows that change.
 // The ready gate's acquire load publishes the packedDisplayBuffer pointer.
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_resendLcdRowsNative(JNIEnv *env,
-                                                      jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(JNIEnv *env,
+                                                                  jobject thiz) {
   (void)env;
   (void)thiz;
   if (!r47_runtime_ready()) {
@@ -1648,7 +1648,7 @@ Java_com_example_r47_MainActivity_resendLcdRowsNative(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_r47_MainActivity_getPackedDisplayGeneration(
+Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -1659,7 +1659,7 @@ Java_com_example_r47_MainActivity_getPackedDisplayGeneration(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_getPackedDisplayBuffer(
+Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(
     JNIEnv *env, jobject thiz, jbyteArray buffer) {
   (void)thiz;
   extern uint8_t *packedDisplayBuffer;

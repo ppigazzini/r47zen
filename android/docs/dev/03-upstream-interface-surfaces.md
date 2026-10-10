@@ -61,10 +61,11 @@ flowchart LR
   finishes, so every UI-thread entry point that touches core state gates on that
   flag; `scripts/workload-regressions/build_bridge_tsan_harness.sh` races those
   entry points against init.
-- `Java_com_example_r47_MainActivity_tick(...)` is the steady-state entry point
-  from the Kotlin core thread. It uses `pthread_mutex_trylock(&screenMutex)`,
-  advances timers every 5 ms, refreshes the LCD every 100 ms when the lock is
-  available, and returns the next wake delay in milliseconds through
+- `Java_io_github_ppigazzini_r47zen_MainActivity_tick(...)` is the
+  steady-state entry point from the Kotlin core thread. It uses
+  `pthread_mutex_trylock(&screenMutex)`, advances timers every 5 ms, refreshes
+  the LCD every 100 ms when the lock is available, and returns the next wake
+  delay in milliseconds through
   `r47_next_tick_delay_ms(sys_current_ms())`.
 
 ## Lifecycle Save, Load, And Explicit Refresh Contract
@@ -229,10 +230,10 @@ yield behavior.
   `screenMutex`, marks `isCoreBlockingForIo = true`, calls back into
   `MainActivity.requestFile(...)`, waits on `fileCond`, then reacquires
   `screenMutex` exactly as many times as it was previously held.
-- `Java_com_example_r47_MainActivity_onFileSelectedNative(...)` and
-  `Java_com_example_r47_MainActivity_onFileCancelledNative(...)` wake that wait
-  by updating `fileDescriptor`, `fileReady`, and `fileCancelled` under
-  `fileMutex`.
+- `Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(...)`
+  and `Java_io_github_ppigazzini_r47zen_MainActivity_onFileCancelledNative(...)`
+  wake that wait by updating `fileDescriptor`, `fileReady`, and
+  `fileCancelled` under `fileMutex`.
 - `yieldToAndroidWithMs(...)` in `android_runtime.c` uses the same release,
   process, sleep, and reacquire pattern for long-running native work. It also
   advances timers every 5 ms, refreshes the LCD, and calls

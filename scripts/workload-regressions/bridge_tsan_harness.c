@@ -51,12 +51,12 @@ extern void r47_init_runtime(int slotId);
 // The live fixed-width key input path. It ignores its JNIEnv/jobject arguments
 // (jni_input.c), so the harness drives it with NULL the way the instrumentation
 // fixtures in jni_program_load_test.c already do.
-extern void Java_com_example_r47_MainActivity_sendKey(void *env, void *thiz,
-                                                      int32_t keyCode);
+extern void Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(void *env, void *thiz,
+                                                                  int32_t keyCode);
 // The LCD row resend for a newly attached host. It ignores both arguments
 // (jni_display.c).
-extern void Java_com_example_r47_MainActivity_resendLcdRowsNative(void *env,
-                                                                  void *thiz);
+extern void Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(void *env,
+                                                                              void *thiz);
 
 // The lock-free signals the UI thread samples without holding a display mutex.
 // Match hal/lcd.c's C11 atomic definitions so the consumer's relaxed loads are
@@ -94,8 +94,8 @@ static void *producer_main(void *arg) {
   long iterations = *(const long *)arg;
   for (long i = 0; i < iterations; i++) {
     int keyCode = 1 + (int)(i % 37);
-    Java_com_example_r47_MainActivity_sendKey(NULL, NULL, keyCode);
-    Java_com_example_r47_MainActivity_sendKey(NULL, NULL, 0);
+    Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, keyCode);
+    Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, 0);
     r47_force_refresh();
   }
   atomic_store_explicit(&g_producer_done, true, memory_order_relaxed);
@@ -143,7 +143,7 @@ static void *startup_reader_main(void *arg) {
       copies++;
     }
     consumer_read_packed_display();
-    Java_com_example_r47_MainActivity_resendLcdRowsNative(NULL, NULL);
+    Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(NULL, NULL);
     spins++;
   }
   fprintf(stderr, "startup reader: %ld spins, %ld keypad copies during init\n",
@@ -170,7 +170,7 @@ static void *consumer_main(void *arg) {
 
     consumer_read_packed_display();
     if ((spins & 63) == 0) {
-      Java_com_example_r47_MainActivity_resendLcdRowsNative(NULL, NULL);
+      Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(NULL, NULL);
     }
     spins++;
   }

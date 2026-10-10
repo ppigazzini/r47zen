@@ -206,7 +206,7 @@ supports that model by keeping shared synchronization in native code:
   core thread after init and keeps the same gate. The startup phase of
   `build_bridge_tsan_harness.sh` races those entry points against init and
   fails on any unsynchronized access
-- `Java_com_example_r47_MainActivity_tick(...)` keeps
+- `Java_io_github_ppigazzini_r47zen_MainActivity_tick(...)` keeps
   `pthread_mutex_trylock(&screenMutex)` semantics, advances due timer and LCD
   work, and returns the next required wake delay through
   `r47_next_tick_delay_ms(...)`; when the lock is busy it returns `1` so the

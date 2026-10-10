@@ -193,7 +193,7 @@ extern void lcd_clear_buf(void);
 extern void lcd_refresh(void);
 extern void refreshScreen(uint16_t reason);
 
-extern void JNICALL Java_com_example_r47_MainActivity_resendLcdRowsNative(
+extern void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(
     JNIEnv *env, jobject thiz);
 
 void onUIActivity(void);
@@ -227,87 +227,87 @@ int register_main_activity_natives(JNIEnv *env);
 void releaseNativeActivityReferences(JNIEnv *env);
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
-                                                                 jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(JNIEnv *env,
+                                                                      jobject thiz);
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_releaseNativeRuntime(JNIEnv *env,
-                                                              jobject thiz);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_nativePreInit(
+Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime(JNIEnv *env,
+                                                                   jobject thiz);
+JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(
     JNIEnv *env, jobject thiz, jstring path_obj);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(
+JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
     JNIEnv *env, jobject thiz, jstring pathObj, jint slotId);
-JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
+JNIEXPORT jint JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_tick(
     JNIEnv *env, jobject thiz);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
+JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
     JNIEnv *env, jobject thiz, jint keyCode);
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_applyGraphPanNative(JNIEnv *env,
-                                                     jobject thiz,
-                                                     jfloat dxNorm,
-                                                     jfloat dyNorm);
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative(JNIEnv *env,
+                                                                  jobject thiz,
+                                                                  jfloat dxNorm,
+                                                                  jfloat dyNorm);
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
-                                                            jobject thiz,
-                                                            jfloat scaleFactor);
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
+                                                                        jobject thiz,
+                                                                        jfloat scaleFactor);
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_applyGraphPanZoomNative(JNIEnv *env,
-                                                          jobject thiz,
-                                                          jfloat dxNorm,
-                                                          jfloat dyNorm,
-                                                          jfloat scaleFactor);
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative(JNIEnv *env,
+                                                                      jobject thiz,
+                                                                      jfloat dxNorm,
+                                                                      jfloat dyNorm,
+                                                                      jfloat scaleFactor);
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz);
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
-                                                           jobject thiz);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimKeyNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(JNIEnv *env,
+                                                                       jobject thiz);
+JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease);
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_sendSimMenuNative(JNIEnv *env,
-                                                           jobject thiz,
-                                                           jint menuId);
+Java_io_github_ppigazzini_r47zen_MainActivity_sendSimMenuNative(JNIEnv *env,
+                                                                jobject thiz,
+                                                                jint menuId);
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_sendSimFuncNative(JNIEnv *env,
-                                                           jobject thiz,
-                                                           jint funcId);
+Java_io_github_ppigazzini_r47zen_MainActivity_sendSimFuncNative(JNIEnv *env,
+                                                                jobject thiz,
+                                                                jint funcId);
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_saveStateNative(JNIEnv *env,
-                                                         jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative(JNIEnv *env,
+                                                              jobject thiz);
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env,
-                                                         jobject thiz);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_setSlotNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative(JNIEnv *env,
+                                                              jobject thiz);
+JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative(
     JNIEnv *env, jobject thiz, jint slot);
 JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getClipboardXRegisterNative(JNIEnv *env,
-                                                                     jobject thiz);
-JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getClipboardStackRegistersNative(JNIEnv *env,
+Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative(JNIEnv *env,
                                                                           jobject thiz);
 JNIEXPORT jstring JNICALL
-Java_com_example_r47_MainActivity_getClipboardAllRegistersNative(JNIEnv *env,
-                                                                        jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative(JNIEnv *env,
+                                                                               jobject thiz);
+JNIEXPORT jstring JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative(JNIEnv *env,
+                                                                             jobject thiz);
 JNIEXPORT jint JNICALL
-Java_com_example_r47_MainActivity_getPackedDisplayGeneration(JNIEnv *env,
-                                                                    jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration(JNIEnv *env,
+                                                                         jobject thiz);
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_getPackedDisplayBuffer(JNIEnv *env,
-                                                                jobject thiz,
-                                                                jbyteArray buffer);
+Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(JNIEnv *env,
+                                                                     jobject thiz,
+                                                                     jbyteArray buffer);
 JNIEXPORT jint JNICALL
-Java_com_example_r47_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
-                                                              jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
+                                                                          jobject thiz);
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_copyKeypadSnapshotNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative(
     JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
     jobjectArray labelsBuffer);
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_onFileSelectedNative(JNIEnv *env,
-                                                              jobject thiz,
-                                                              jint fd);
+Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(JNIEnv *env,
+                                                                   jobject thiz,
+                                                                   jint fd);
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_onFileCancelledNative(JNIEnv *env,
-                                                               jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_onFileCancelledNative(JNIEnv *env,
+                                                                    jobject thiz);
 
 #endif

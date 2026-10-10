@@ -91,7 +91,7 @@ race:android/.staged-native/cpp/decNumberICU/
 TXT
 [ -z "$(tsan_suppression_gaps "$fixtures/good-suppressions.txt")" ] ||
     fail "TSan suppression checker flagged the upstream-scoped fixture."
-for bad in 'race:jni_display' 'race:Java_com_example_r47_MainActivity_sendKey' \
+for bad in 'race:jni_display' 'race:Java_io_github_ppigazzini_r47zen_MainActivity_sendKey' \
     'race:android/app/src/main/cpp/r47zen/' 'race:*' 'race:android/.staged-native/cpp/'; do
     printf '%s\n' "$bad" >"$fixtures/bad-suppressions.txt"
     [ -n "$(tsan_suppression_gaps "$fixtures/bad-suppressions.txt")" ] ||

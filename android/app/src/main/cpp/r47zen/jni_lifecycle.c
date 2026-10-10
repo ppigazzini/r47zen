@@ -39,8 +39,8 @@ void releaseNativeActivityReferences(JNIEnv *env) {
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
-                                                                 jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(JNIEnv *env,
+                                                                      jobject thiz) {
   LOGI("updateNativeActivityRef called");
 
   releaseNativeActivityReferences(env);
@@ -85,14 +85,14 @@ Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_releaseNativeRuntime(JNIEnv *env,
-                                                              jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime(JNIEnv *env,
+                                                                   jobject thiz) {
   (void)thiz;
   LOGI("releaseNativeRuntime called");
   releaseNativeActivityReferences(env);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_nativePreInit(
+JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(
     JNIEnv *env, jobject thiz, jstring path_obj) {
   (void)thiz;
   const char *path = (*env)->GetStringUTFChars(env, path_obj, NULL);
@@ -156,10 +156,10 @@ void r47_init_runtime(int slotId) {
   pthread_mutex_unlock(&screenMutex);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(
+JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
     JNIEnv *env, jobject thiz, jstring pathObj, jint slotId) {
   (void)pathObj;
-  Java_com_example_r47_MainActivity_updateNativeActivityRef(env, thiz);
+  Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(env, thiz);
   r47_init_runtime(slotId);
 }
 
@@ -174,7 +174,7 @@ static jint r47_next_tick_delay_ms(uint32_t now) {
   return (jint)r47_ms_until_deadline(now, next_due);
 }
 
-JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
+JNIEXPORT jint JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_tick(
   JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
@@ -201,8 +201,8 @@ JNIEXPORT jint JNICALL Java_com_example_r47_MainActivity_tick(
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_saveStateNative(JNIEnv *env,
-                                                         jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative(JNIEnv *env,
+                                                              jobject thiz) {
   (void)env;
   (void)thiz;
   LOGI("saveStateNative triggered");
@@ -218,8 +218,8 @@ Java_com_example_r47_MainActivity_saveStateNative(JNIEnv *env,
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env,
-                                                         jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative(JNIEnv *env,
+                                                              jobject thiz) {
   (void)env;
   (void)thiz;
   LOGI("loadStateNative triggered");
@@ -275,7 +275,7 @@ void r47_force_refresh(void) {
   pthread_mutex_unlock(&screenMutex);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_setSlotNative(
+JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative(
     JNIEnv *env, jobject thiz, jint slot) {
   (void)env;
   (void)thiz;

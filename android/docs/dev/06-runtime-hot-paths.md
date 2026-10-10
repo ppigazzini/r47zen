@@ -77,8 +77,9 @@ out, or the app behaves as if work is happening on multiple native threads.
 
 ## Native Tick And Timer Path
 
-- `Java_com_example_r47_MainActivity_tick(...)` in `jni_lifecycle.c` is the
-  native heartbeat reached from the Kotlin core thread.
+- `Java_io_github_ppigazzini_r47zen_MainActivity_tick(...)` in
+  `jni_lifecycle.c` is the native heartbeat reached from the Kotlin core
+  thread.
 - It exits immediately when `pthread_mutex_trylock(&screenMutex)` fails. That
   is intentional: a busy native critical section skips one tick instead of
   blocking the core thread behind the lock.

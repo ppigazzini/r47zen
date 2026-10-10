@@ -457,7 +457,7 @@ static int r47_shell_menu_item(int shellMenu) {
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_sendSimFuncNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_sendSimFuncNative(
     JNIEnv *env, jobject thiz, jint shellFunc) {
   (void)env;
   (void)thiz;
@@ -470,9 +470,9 @@ Java_com_example_r47_MainActivity_sendSimFuncNative(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_applyGraphPanNative(JNIEnv *env, jobject thiz,
-                                                      jfloat dxNorm,
-                                                      jfloat dyNorm) {
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative(JNIEnv *env, jobject thiz,
+                                                                  jfloat dxNorm,
+                                                                  jfloat dyNorm) {
   (void)env;
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
@@ -482,9 +482,9 @@ Java_com_example_r47_MainActivity_applyGraphPanNative(JNIEnv *env, jobject thiz,
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
-                                                            jobject thiz,
-                                                            jfloat scaleFactor) {
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
+                                                                        jobject thiz,
+                                                                        jfloat scaleFactor) {
   (void)env;
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
@@ -494,11 +494,11 @@ Java_com_example_r47_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_applyGraphPanZoomNative(JNIEnv *env,
-                                                          jobject thiz,
-                                                          jfloat dxNorm,
-                                                          jfloat dyNorm,
-                                                          jfloat scaleFactor) {
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative(JNIEnv *env,
+                                                                      jobject thiz,
+                                                                      jfloat dxNorm,
+                                                                      jfloat dyNorm,
+                                                                      jfloat scaleFactor) {
   (void)env;
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
@@ -509,7 +509,7 @@ Java_com_example_r47_MainActivity_applyGraphPanZoomNative(JNIEnv *env,
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
@@ -519,7 +519,7 @@ Java_com_example_r47_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz) {
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_sendSimMenuNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_sendSimMenuNative(
     JNIEnv *env, jobject thiz, jint shellMenu) {
   (void)env;
   (void)thiz;
@@ -532,7 +532,7 @@ Java_com_example_r47_MainActivity_sendSimMenuNative(
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_sendSimKeyNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease) {
   (void)thiz;
@@ -556,7 +556,7 @@ Java_com_example_r47_MainActivity_sendSimKeyNative(
   (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
+JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
     JNIEnv *env, jobject thiz, jint keyCode) {
   (void)env;
   (void)thiz;
@@ -613,8 +613,8 @@ bool r47_direct_stop_allowed(uint16_t runState) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_requestStopProgramNative(JNIEnv *env,
-                                                           jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(JNIEnv *env,
+                                                                       jobject thiz) {
   (void)env;
   (void)thiz;
   if (!r47_runtime_ready()) {
