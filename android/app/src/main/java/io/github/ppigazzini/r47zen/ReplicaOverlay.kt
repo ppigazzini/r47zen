@@ -116,7 +116,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         R47LcdContract.PIXEL_HEIGHT,
         Bitmap.Config.ARGB_8888,
     )
-    private val lastLcdPixels = IntArray(R47LcdContract.PIXEL_COUNT)
     private val lastPackedLcd = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
     private val linePixels = IntArray(R47LcdContract.PIXEL_WIDTH)
     private val lcdRect = Rect(0, 0, R47LcdContract.PIXEL_WIDTH, R47LcdContract.PIXEL_HEIGHT)
@@ -436,43 +435,6 @@ class ReplicaOverlay @JvmOverloads constructor(
             localY <= spec.lcdWindowTop + spec.lcdWindowHeight
     }
 
-    fun updateLcd(pixels: IntArray) {
-        val pixelWidth = R47LcdContract.PIXEL_WIDTH
-        val pixelHeight = R47LcdContract.PIXEL_HEIGHT
-
-        var minX = pixelWidth
-        var maxX = 0
-        var minY = pixelHeight
-        var maxY = 0
-        var changed = false
-
-        for (i in pixels.indices) {
-            if (pixels[i] != lastLcdPixels[i]) {
-                val x = i % pixelWidth
-                val y = i / pixelWidth
-                if (x < minX) minX = x
-                if (x > maxX) maxX = x
-                if (y < minY) minY = y
-                if (y > maxY) maxY = y
-                lastLcdPixels[i] = pixels[i]
-                changed = true
-            }
-        }
-
-        if (!changed) return
-
-        lcdBitmap.setPixels(pixels, 0, pixelWidth, 0, 0, pixelWidth, pixelHeight)
-
-        invalidateLcdRegion(
-            minX = minX,
-            maxX = maxX,
-            minY = minY,
-            maxY = maxY,
-            pixelWidthF = pixelWidth.toFloat(),
-            pixelHeightF = pixelHeight.toFloat(),
-        )
-    }
-
     fun updatePackedLcd(buffer: ByteArray): Boolean {
         var minRow = R47LcdContract.PIXEL_HEIGHT
         var maxRow = -1
@@ -506,14 +468,7 @@ class ReplicaOverlay @JvmOverloads constructor(
             return false
         }
 
-        invalidateLcdRegion(
-            minX = 0,
-            maxX = R47LcdContract.PIXEL_WIDTH - 1,
-            minY = minRow,
-            maxY = maxRow,
-            pixelWidthF = R47LcdContract.PIXEL_WIDTH.toFloat(),
-            pixelHeightF = R47LcdContract.PIXEL_HEIGHT.toFloat(),
-        )
+        invalidateLcdRows(minRow, maxRow)
         return true
     }
 
@@ -531,14 +486,7 @@ class ReplicaOverlay @JvmOverloads constructor(
             decodePackedRow(lastPackedLcd, row)
         }
 
-        invalidateLcdRegion(
-            minX = 0,
-            maxX = R47LcdContract.PIXEL_WIDTH - 1,
-            minY = 0,
-            maxY = R47LcdContract.PIXEL_HEIGHT - 1,
-            pixelWidthF = R47LcdContract.PIXEL_WIDTH.toFloat(),
-            pixelHeightF = R47LcdContract.PIXEL_HEIGHT.toFloat(),
-        )
+        invalidateLcdRows(0, R47LcdContract.PIXEL_HEIGHT - 1)
     }
 
     private fun decodePackedRow(buffer: ByteArray, row: Int) {
@@ -567,14 +515,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         )
     }
 
-    private fun invalidateLcdRegion(
-        minX: Int,
-        maxX: Int,
-        minY: Int,
-        maxY: Int,
-        pixelWidthF: Float,
-        pixelHeightF: Float,
-    ) {
+    private fun invalidateLcdRows(minRow: Int, maxRow: Int) {
         if (width <= 0 || height <= 0) {
             invalidate()
             return
@@ -583,9 +524,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         val spec = currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, width.toFloat(), height.toFloat())
 
-        val clampedMinY = minY.coerceIn(0, R47LcdContract.PIXEL_HEIGHT - 1)
-        val clampedMaxY = maxY.coerceIn(clampedMinY, R47LcdContract.PIXEL_HEIGHT - 1)
-
         // Keep horizontal invalidation wide for scaled bitmap sampling, but
         // only invalidate touched LCD rows to avoid repaint churn on static rows.
         val left = projection.offsetX + spec.lcdWindowLeft * projection.scale
@@ -593,8 +531,9 @@ class ReplicaOverlay @JvmOverloads constructor(
         val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
         val lcdHeight = spec.lcdWindowHeight * projection.scale
         val lcdBottom = lcdTop + lcdHeight
-        val top = lcdTop + lcdHeight * (clampedMinY.toFloat() / pixelHeightF)
-        val bottom = lcdTop + lcdHeight * ((clampedMaxY + 1).toFloat() / pixelHeightF)
+        val pixelHeight = R47LcdContract.PIXEL_HEIGHT.toFloat()
+        val top = lcdTop + lcdHeight * (minRow.toFloat() / pixelHeight)
+        val bottom = lcdTop + lcdHeight * ((maxRow + 1).toFloat() / pixelHeight)
 
         // Filtered bitmap sampling can blend across the dirty-band edge,
         // so expand invalidation by one display pixel vertically.

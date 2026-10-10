@@ -309,12 +309,13 @@ Important contract files include:
   softkey renderer owner
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable. The
   LCD raster is locked pixel-for-pixel against an independently decoded reference
-  (`packedLcd_matchesArgbRendering`) and by a structural colour oracle
+  (`packedLcd_matchesIndependentDecode`) and by a structural colour oracle
   (`nativeChrome_compositesLcdRasterColours`), and a fresh overlay must paint
   the blank rows of its first frame in the default palette
   (`packedLcd_firstFrameOnFreshOverlay_paintsBlankRows`). The overall chrome
   is locked by `nativeChrome_matchesTextGolden`, a **code-only** ASCII-luminance
-  downsample of the render held in `CHROME_TEXT_GOLDEN`. A text golden is
+  downsample of the render of a packed sample frame, held in
+  `CHROME_TEXT_GOLDEN`. A text golden is
   deliberate here: its `assertEquals` diff shows the visual change as a grid a
   reviewer can confirm, where a SHA hash only says "differs" and invites a blind
   re-bless, and it adds no binary reference image to the repository. It also

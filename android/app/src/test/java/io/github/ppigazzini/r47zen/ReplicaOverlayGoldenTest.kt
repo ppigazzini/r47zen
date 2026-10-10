@@ -25,44 +25,30 @@ import kotlin.math.abs
 @Config(sdk = [34], qualifiers = "xxhdpi")
 class ReplicaOverlayGoldenTest {
     @Test
-    fun packedLcd_matchesArgbRendering() {
-        val textColor = 0xFF20313D.toInt()
-        val backgroundColor = 0xFFDCECD0.toInt()
+    fun packedLcd_matchesIndependentDecode() {
+        val palette = LcdPalette(text = 0xFF20313D.toInt(), background = 0xFFDCECD0.toInt())
         val packedBuffer = samplePackedBuffer()
-        val expectedPixels = decodePackedBuffer(packedBuffer, textColor, backgroundColor)
 
-        val packedOverlay = configuredOverlay().apply {
-            setLcdPalette(LcdPalette(textColor, backgroundColor))
+        val overlay = configuredOverlay().apply {
+            setLcdPalette(palette)
         }
-        assertTrue(packedOverlay.updatePackedLcd(packedBuffer.copyOf()))
+        assertTrue(overlay.updatePackedLcd(packedBuffer.copyOf()))
 
-        val argbOverlay = configuredOverlay().apply {
-            setLcdPalette(LcdPalette(textColor, backgroundColor))
-            updateLcd(expectedPixels)
-        }
-
-        assertEquals(renderHash(argbOverlay), renderHash(packedOverlay))
+        assertArrayEquals(decodePackedBuffer(packedBuffer, palette), lcdBitmapPixels(overlay))
     }
 
     @Test
     fun packedLcd_recolorsExistingSnapshot() {
-        val initialText = 0xFF20313D.toInt()
-        val initialBackground = 0xFFDCECD0.toInt()
-        val recolorText = 0xFF112A4A.toInt()
-        val recolorBackground = 0xFFF1E6C5.toInt()
+        val recolor = LcdPalette(text = 0xFF112A4A.toInt(), background = 0xFFF1E6C5.toInt())
         val packedBuffer = samplePackedBuffer()
 
         val overlay = configuredOverlay().apply {
-            setLcdPalette(LcdPalette(initialText, initialBackground))
+            setLcdPalette(LcdPalette(text = 0xFF20313D.toInt(), background = 0xFFDCECD0.toInt()))
         }
         assertTrue(overlay.updatePackedLcd(packedBuffer.copyOf()))
-        overlay.setLcdPalette(LcdPalette(recolorText, recolorBackground))
+        overlay.setLcdPalette(recolor)
 
-        val expectedOverlay = configuredOverlay().apply {
-            updateLcd(decodePackedBuffer(packedBuffer, recolorText, recolorBackground))
-        }
-
-        assertEquals(renderHash(expectedOverlay), renderHash(overlay))
+        assertArrayEquals(decodePackedBuffer(packedBuffer, recolor), lcdBitmapPixels(overlay))
     }
 
     @Test
@@ -74,9 +60,8 @@ class ReplicaOverlayGoldenTest {
         val overlay = configuredOverlay()
         assertTrue(overlay.updatePackedLcd(packedBuffer.copyOf()))
 
-        val (text, background) = LcdThemePolicy.DEFAULT_PALETTE
         assertArrayEquals(
-            decodePackedBuffer(packedBuffer, text, background),
+            decodePackedBuffer(packedBuffer, LcdThemePolicy.DEFAULT_PALETTE),
             lcdBitmapPixels(overlay),
         )
     }
@@ -195,25 +180,22 @@ class ReplicaOverlayGoldenTest {
     fun nativeChrome_compositesLcdRasterColours() {
         // Semantic oracle: prove the LCD raster is actually
         // composited into the frame, instead of a re-blessable whole-frame hash
-        // that proves nothing about correctness. The two most distinctive LCD
-        // content colours -- the top status band and the checker highlight -- must
-        // both appear in the render. A regression that blanks or drops the LCD
+        // that proves nothing about correctness. Both palette colours of the
+        // sample frame -- the lit status band and the unlit checker cells -- must
+        // appear in the render. A regression that blanks or drops the LCD
         // fails here, without depending on exact (letterboxed) projection math; the
-        // existing packedLcd_matchesArgbRendering test already locks the precise
-        // LCD rendering pixel-for-pixel.
-        val overlay = configuredOverlay()
-        overlay.updateLcd(sampleLcdPixels())
-        val rendered = sampledColors(renderToBitmap(overlay))
+        // existing packedLcd_matchesIndependentDecode test already locks the
+        // precise LCD rendering pixel-for-pixel.
+        val rendered = sampledColors(renderToBitmap(overlayShowingSampleFrame()))
 
-        val topBand = 0xFF1E3A5F.toInt()
-        val checkerHighlight = 0xFFE7F2E4.toInt()
+        val (text, background) = SAMPLE_PALETTE
         assertTrue(
-            "LCD top status band colour ${hex(topBand)} must appear in the render",
-            rendered.any { colorDistance(it, topBand) <= LCD_COLOUR_TOLERANCE },
+            "LCD text colour ${hex(text)} must appear in the render",
+            rendered.any { colorDistance(it, text) <= LCD_COLOUR_TOLERANCE },
         )
         assertTrue(
-            "LCD checker highlight colour ${hex(checkerHighlight)} must appear in the render",
-            rendered.any { colorDistance(it, checkerHighlight) <= LCD_COLOUR_TOLERANCE },
+            "LCD background colour ${hex(background)} must appear in the render",
+            rendered.any { colorDistance(it, background) <= LCD_COLOUR_TOLERANCE },
         )
     }
 
@@ -226,9 +208,8 @@ class ReplicaOverlayGoldenTest {
         // *reviewable* diff: an intended visual change shows up as a visible shape
         // change in the grid, which a reviewer confirms before updating
         // CHROME_TEXT_GOLDEN. The exact LCD colours are separately locked by
-        // nativeChrome_compositesLcdRasterColours and packedLcd_matchesArgbRendering.
-        val overlay = configuredOverlay()
-        overlay.updateLcd(sampleLcdPixels())
+        // nativeChrome_compositesLcdRasterColours and packedLcd_matchesIndependentDecode.
+        val overlay = overlayShowingSampleFrame()
 
         assertEquals(
             "ReplicaOverlay chrome golden changed. Compare the grids in this diff; " +
@@ -242,11 +223,8 @@ class ReplicaOverlayGoldenTest {
 
     @Test
     fun developerPerformanceHud_changesRenderedChromeWhenEnabled() {
-        val baseOverlay = configuredOverlay().apply {
-            updateLcd(sampleLcdPixels())
-        }
-        val performanceOverlay = configuredOverlay().apply {
-            updateLcd(sampleLcdPixels())
+        val baseOverlay = overlayShowingSampleFrame()
+        val performanceOverlay = overlayShowingSampleFrame().apply {
             setShowDeveloperPerformanceHud(true)
             updateDeveloperPerformanceSnapshot(
                 DeveloperPerformanceSnapshot(
@@ -765,7 +743,8 @@ class ReplicaOverlayGoldenTest {
             (buffer[rowOffset + R47LcdContract.PACKED_PIXEL_OFFSET + byteIndex].toInt() or bitMask).toByte()
     }
 
-    private fun decodePackedBuffer(buffer: ByteArray, textColor: Int, backgroundColor: Int): IntArray {
+    private fun decodePackedBuffer(buffer: ByteArray, palette: LcdPalette): IntArray {
+        val (textColor, backgroundColor) = palette
         val pixels = IntArray(R47LcdContract.PIXEL_COUNT) { backgroundColor }
         for (row in 0 until R47LcdContract.PIXEL_HEIGHT) {
             val pixelOffset = row * R47LcdContract.PACKED_ROW_SIZE_BYTES + R47LcdContract.PACKED_PIXEL_OFFSET
@@ -786,17 +765,25 @@ class ReplicaOverlayGoldenTest {
         return pixels
     }
 
-    private fun sampleLcdPixels(): IntArray {
-        return IntArray(R47LcdContract.PIXEL_COUNT) { index ->
-            val x = index % R47LcdContract.PIXEL_WIDTH
-            val y = index / R47LcdContract.PIXEL_WIDTH
-            when {
-                y < 80 -> 0xFF1E3A5F.toInt()
-                x < 133 -> 0xFF89A8B2.toInt()
-                ((x / 24) + (y / 24)) % 2 == 0 -> 0xFFE7F2E4.toInt()
-                else -> 0xFF2B3A33.toInt()
+    private fun overlayShowingSampleFrame(): ReplicaOverlay {
+        return configuredOverlay().apply {
+            setLcdPalette(SAMPLE_PALETTE)
+            assertTrue(updatePackedLcd(samplePackedFrame()))
+        }
+    }
+
+    // Build features large enough to survive the sampled render: a lit status
+    // band, an unlit left column, and a 24 px checker.
+    private fun samplePackedFrame(): ByteArray {
+        val buffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        for (y in 0 until R47LcdContract.PIXEL_HEIGHT) {
+            for (x in 0 until R47LcdContract.PIXEL_WIDTH) {
+                if (y < 80 || (x >= 133 && ((x / 24) + (y / 24)) % 2 == 1)) {
+                    setPackedPixel(buffer, x, y)
+                }
             }
         }
+        return buffer
     }
 
     private fun pngSha256(bitmap: Bitmap): String {
@@ -814,6 +801,8 @@ class ReplicaOverlayGoldenTest {
     }
 
     private companion object {
+        private val SAMPLE_PALETTE = LcdPalette(text = 0xFF1E3A5F.toInt(), background = 0xFFE7F2E4.toInt())
+
         // Allow for scaling/filtering when the 400x240 LCD raster is upscaled into
         // the projected window; the sampled centre sits inside a uniform colour
         // block, so a small per-channel sum tolerance is enough.
@@ -837,14 +826,14 @@ class ReplicaOverlayGoldenTest {
             "....................",
             "....................",
             "....................",
-            "-++++++==+=*-*=++=*:",
-            "-++++++++=*:#-*==*-+",
-            "-+++++*==*-%.#-++-#.",
-            "-++++++*+=*:%:*==*:+",
-            "-++++++==+=*-*=++=*:",
-            "-++++++++=+=*=+==+==",
-            "-+++++++++++=++++++-",
-            ":------:-=:+.+:--:+ ",
+            "=%%%%%%==+=*-*=++=*:",
+            "=%%%%%#++=*:#-*==*-+",
+            "=%%%%%%==*-%.#-++-#.",
+            "=%%%%%#*+=*:%:*==*:+",
+            "=%%%%%%==+=*-*=++=*:",
+            "=%%%%%#++=+=*=+==+==",
+            "=%%%%%#++++++++++++-",
+            "-++++++:-=:+.+:--:+ ",
             "                    ",
             "                    ",
             "                    ",

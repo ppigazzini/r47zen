@@ -167,7 +167,7 @@ That would duplicate the most expensive JNI reads in the shell.
   row's display position from its index: native `LCD_write_line` already
   stores a row at the index its DMCP row id names.
 - That skip trusts the bitmap to show what `lastPackedLcd` decodes to, so
-  the live path writes the bitmap only by decoding `lastPackedLcd`, and
+  the bitmap is written only by decoding `lastPackedLcd`, and
   `ReplicaOverlay.redrawPackedSnapshot()` is the one full repaint: the
   constructor runs it on the blank `lastPackedLcd`, and `setLcdPalette` runs
   it on every call. A bitmap left at `createBitmap`'s transparent fill keeps

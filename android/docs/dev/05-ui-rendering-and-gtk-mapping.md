@@ -104,8 +104,8 @@ keypad all look correct locally but are globally misplaced together.
   packed row whose transport dirty byte is clear or whose pixel bytes match the
   cached `lastPackedLcd`, decodes only the changed rows into the backing
   `Bitmap`, and invalidates the changed row band across the full LCD width.
-  `ReplicaOverlay.updateLcd(IntArray)` is a test-only seam that
-  `ReplicaOverlayGoldenTest` drives with ARGB pixels
+  It is the only way a frame reaches the bitmap; the tests drive it with
+  packed frames too
 - the animated settings-discovery hint stays Android-owned in `ReplicaOverlay`,
   but its banner geometry and `StaticLayout` are cached and rebuilt only on a
   real size or layout change, so `dispatchDraw()` updates the pulse stroke and
