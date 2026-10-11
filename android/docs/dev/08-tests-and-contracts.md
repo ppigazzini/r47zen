@@ -220,11 +220,13 @@ than in Android runtime glue.
 
 `scripts/r47_contracts/data/upstream_provenance.json` records which upstream
 bytes the committed goldens were derived from: one entry per upstream input,
-carrying its `sha256` plus the derivers and contract surfaces that depend on it.
-`scripts/r47_contracts/upstream_provenance.py` reads it, through a closed
-valgebra schema (`Ledger`): a ledger with an unknown key, a non-list `derivers`,
-or a `sha256` that is neither 64 hex digits nor the empty string an unhydrated
-input records is refused as a `ProvenanceError` rather than read leniently.
+carrying its path and `sha256`. The derivers that read each input and the
+goldens and test modules it feeds are the surface map in
+`scripts/r47_contracts/upstream_provenance.py`, kept in code only.
+`upstream_provenance.py` reads the ledger through a closed valgebra schema
+(`Ledger`): a ledger with an unknown key, another schema version, or a
+`sha256` that is neither 64 hex digits nor the empty string an unhydrated input
+records is refused as a `ProvenanceError` rather than read leniently.
 
 This exists because the freshness guard is circular. The goldens re-derive from
 live inputs that arrive with no commit here, so re-running a deriver re-blesses

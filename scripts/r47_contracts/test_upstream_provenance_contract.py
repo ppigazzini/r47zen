@@ -1,13 +1,13 @@
 """Lock the upstream provenance ledger against the inputs the suite really reads.
 
 The ledger only earns trust if it cannot quietly fall behind the suite. These
-tests hold the halves of that: the committed ledger covers exactly the upstream
-inputs the contract modules declare, every module that names an input is listed
-against it, the evaluator still sorts a tampered ledger into the right buckets,
-and `--record-if-unaffected` refuses every move that changed a golden or a
-contract. The drift cases run against synthetic ledgers on purpose - a test that
-asserted "nothing drifted" would fail every time upstream moved, which is the
-normal state for a repo tracking HEAD.
+tests hold the halves of that: the committed ledger and the surface map cover
+exactly the upstream inputs the contract modules declare, every module that
+names an input is listed against it, the evaluator still sorts a tampered
+ledger into the right buckets, and `--record-if-unaffected` refuses every move
+that changed a golden or a contract. The drift cases run against synthetic
+ledgers on purpose - a test that asserted "nothing drifted" would fail every
+time upstream moved, which is the normal state for a repo tracking HEAD.
 """
 
 from __future__ import annotations
@@ -127,27 +127,18 @@ class UpstreamProvenanceLedgerTest(unittest.TestCase):
         """The committed ledger is in sync with the suite, so coverage is clean."""
         _assert_equal(coverage_failures(evaluate(self.ledger)), [])
 
-    def test_every_entry_names_a_contract_surface(self) -> None:
-        """No entry is recorded without saying which surface it puts at risk."""
-        orphans = [
-            entry["path"] for entry in self.ledger["inputs"] if not entry["contracts"]
-        ]
-        _assert_equal(orphans, [])
+    def test_surface_map_covers_exactly_the_declared_inputs(self) -> None:
+        """Every input the suite reads has surfaces listed, and no other does."""
+        _assert_equal(set(input_surfaces()), declared_upstream_inputs())
 
-    def test_every_entry_names_a_deriver(self) -> None:
-        """No entry is recorded without saying which module reads the bytes."""
-        orphans = [
-            entry["path"] for entry in self.ledger["inputs"] if not entry["derivers"]
-        ]
+    def test_every_input_names_a_deriver_and_a_contract(self) -> None:
+        """No input is listed without the module that reads it and what it feeds."""
+        orphans = sorted(
+            path
+            for path, (derivers, contracts) in input_surfaces().items()
+            if not derivers or not contracts
+        )
         _assert_equal(orphans, [])
-
-    def test_ledger_records_the_live_surface_map(self) -> None:
-        """The ledger's derivers and contracts are the ones the tool reports."""
-        recorded = {
-            entry["path"]: (tuple(entry["derivers"]), tuple(entry["contracts"]))
-            for entry in self.ledger["inputs"]
-        }
-        _assert_equal(recorded, input_surfaces())
 
     def test_every_listed_surface_exists(self) -> None:
         """A deriver or contract listed against an input is a file in the repo."""
@@ -200,12 +191,7 @@ class UpstreamProvenanceEvaluatorTest(unittest.TestCase):
         """A ledger entry nothing reads any more is a coverage gap, not drift."""
         ledger = _synthetic_ledger(
             [
-                InputRecord(
-                    path="src/c47/retired.c",
-                    sha256="0" * 64,
-                    derivers=["scripts/r47_contracts/derive_gone.py"],
-                    contracts=["scripts/r47_contracts/data/gone.json"],
-                ),
+                InputRecord(path="src/c47/retired.c", sha256="0" * 64),
             ],
         )
         findings = evaluate(ledger)
@@ -215,12 +201,7 @@ class UpstreamProvenanceEvaluatorTest(unittest.TestCase):
     def test_wrong_hash_is_drift_not_coverage(self) -> None:
         """A recorded hash that no longer matches is drift, and never a coverage gap."""
         entries = [
-            InputRecord(
-                path=path,
-                sha256="0" * 64,
-                derivers=["scripts/r47_contracts/derive_placeholder.py"],
-                contracts=["scripts/r47_contracts/data/placeholder.json"],
-            )
+            InputRecord(path=path, sha256="0" * 64)
             for path in sorted(declared_upstream_inputs())
         ]
         findings = evaluate(_synthetic_ledger(entries))

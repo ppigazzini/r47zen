@@ -62,7 +62,7 @@ if TYPE_CHECKING:
 LEDGER_PATH: Final = DATA_ROOT / "upstream_provenance.json"
 UPSTREAM_LOCK_PATH: Final = REPO_ROOT / "upstream.lock"
 UPSTREAM_SOURCE_PATH: Final = REPO_ROOT / "upstream.source"
-SCHEMA_VERSION: Final = 1
+SCHEMA_VERSION: Final = 2
 UNKNOWN_COMMIT: Final = "unknown"  # `RecordedSnapshot.upstream_commit` spells it too
 
 _UPSTREAM_PATH_PREFIX: Final = "UPSTREAM_R47_"
@@ -93,14 +93,16 @@ class ProvenanceError(RuntimeError):
 
 
 class InputRecord(TypedDict, closed=True):
-    """One upstream input and the contract surfaces that derive from it."""
+    """One upstream input and the bytes it held when the ledger was recorded.
+
+    What reads each input, and what to re-examine when it moves, is the surface
+    map in this module, not a copy in the ledger.
+    """
 
     path: str
     # `hash_file` writes "" for an input the tree does not hold, so a ledger
     # recorded on an unhydrated tree still reads back.
     sha256: Literal[""] | Annotated[str, Regex(r"[0-9a-f]{64}")]
-    derivers: list[str]
-    contracts: list[str]
 
 
 class RecordedSnapshot(TypedDict, closed=True):
@@ -267,17 +269,10 @@ def load_ledger(path: Path = LEDGER_PATH) -> Ledger:
 
 def build_ledger(upstream_url: str, upstream_commit: str) -> Ledger:
     """Build a ledger from the currently hydrated upstream tree."""
-    inputs: list[InputRecord] = []
-    for path in sorted(declared_upstream_inputs()):
-        derivers, contracts = _INPUT_SURFACES.get(path, ((), ()))
-        inputs.append(
-            InputRecord(
-                path=path,
-                sha256=hash_file(REPO_ROOT / path),
-                derivers=list(derivers),
-                contracts=list(contracts),
-            ),
-        )
+    inputs = [
+        InputRecord(path=path, sha256=hash_file(REPO_ROOT / path))
+        for path in sorted(declared_upstream_inputs())
+    ]
     return Ledger(
         schema=SCHEMA_VERSION,
         recorded=RecordedSnapshot(
@@ -308,20 +303,15 @@ def evaluate(ledger: Ledger) -> list[Finding]:
             status = "unchanged"
         else:
             status = "moved"
-        # The live surface map names what to re-examine; the ledger's copy is
-        # only a record of it, and a retired input has no live entry.
-        surfaces = _INPUT_SURFACES.get(path)
-        if surfaces is not None:
-            contracts = list(surfaces[1])
-        else:
-            contracts = list(entry["contracts"]) if entry else []
+        # A retired input has no surface left to re-examine.
+        _, contracts = _INPUT_SURFACES.get(path, ((), ()))
         findings.append(
             Finding(
                 path=path,
                 status=status,
                 recorded_sha256=entry["sha256"] if entry else "",
                 current_sha256=current,
-                contracts=contracts,
+                contracts=list(contracts),
             ),
         )
     return findings
