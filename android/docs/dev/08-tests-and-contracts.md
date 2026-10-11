@@ -267,6 +267,13 @@ The focused JVM suite under `android/app/src/test/java/io/github/ppigazzini/r47z
 main parity surface for Kotlin-side decoder, renderer, lifecycle, and input
 contracts.
 
+Beside it, `scripts/android/run_detekt.sh` runs detekt's default rule set over
+the main and test Kotlin sources. `android/app/detekt-baseline.xml` lists the
+findings the code carried when detekt was adopted; a new finding fails, and so
+does an entry no finding matches anymore. It is a static check, not a test: it
+bounds function and class size, complexity, and magic numbers in new code, and
+proves nothing about behaviour.
+
 Important contract files include:
 
 - `KeypadFixtureContractTest.kt`: asserts that the exported keypad-fixture

@@ -1,5 +1,9 @@
 [versions]
 agp = "9.4.1"
+# 2.0 alpha: detekt 1.23.8, the stable line, cannot run on the build JDK 25
+# (its Kotlin rejects the JVM target, and its compiler cannot parse the JDK
+# version string).
+detekt = "2.0.0-alpha.6"
 androidxActivityKtx = "1.13.0"
 androidxAppcompat = "1.8.0"
 androidxConstraintlayout = "2.2.2"
@@ -17,6 +21,7 @@ robolectric = "4.17"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }
 kotlinx-kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 
 [libraries]

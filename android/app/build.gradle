@@ -7,6 +7,7 @@ import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.detekt)
     alias(libs.plugins.kotlinx.kover)
     id 'com.google.android.gms.oss-licenses-plugin'
 }
@@ -859,4 +860,14 @@ tasks.named('preBuild').configure {
     dependsOn tasks.named('generateThirdPartySpdx')
     dependsOn tasks.named('generateXlsxioLicense')
     dependsOn tasks.named('generateSourceManifest')
+}
+
+// detekt runs its default rule set over the Kotlin sources. The baseline holds
+// the findings the code carried when detekt was adopted; any new finding fails
+// :app:detekt. scripts/android/run_detekt.sh also fails when a baseline entry
+// no longer matches a finding, so fixing one forces its removal and the
+// baseline only shrinks.
+detekt {
+    buildUponDefaultConfig = true
+    baseline = file('detekt-baseline.xml')
 }

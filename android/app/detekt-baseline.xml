@@ -1,0 +1,158 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:ReplicaOverlay.kt:ReplicaOverlay$!showSettingsDiscoveryHint || isPiPMode || width &lt;= 0 || height &lt;= 0</ID>
+    <ID>ComplexCondition:TopLabelLaneLayout.kt:TopLabelLaneLayout$gapShortage &lt;= EPSILON &amp;&amp; leftNeighborOverrun &lt;= EPSILON &amp;&amp; rightNeighborOverrun &lt;= EPSILON &amp;&amp; leftScreenOverrun &lt;= EPSILON &amp;&amp; rightScreenOverrun &lt;= EPSILON</ID>
+    <ID>CyclomaticComplexMethod:AudioEngine.kt:AudioEngine$@Synchronized fun start</ID>
+    <ID>CyclomaticComplexMethod:CalculatorKeyView.kt:CalculatorKeyView$private fun buildMainKeyRenderSpec: KeyRenderSpec?</ID>
+    <ID>CyclomaticComplexMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
+    <ID>CyclomaticComplexMethod:DisplayActionController.kt:DisplayActionController$private fun pasteFromClipboard</ID>
+    <ID>CyclomaticComplexMethod:KeypadFixtureResources.kt:KeypadFixtureResources.SimpleJsonParser$private fun parseNumber: Number</ID>
+    <ID>CyclomaticComplexMethod:MainActivityPreferenceController.kt:MainActivityPreferenceController$fun onPreferenceChanged: Boolean</ID>
+    <ID>CyclomaticComplexMethod:NativeDisplayRefreshLoop.kt:NativeDisplayRefreshLoop$internal fun refreshFrame</ID>
+    <ID>CyclomaticComplexMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>
+    <ID>CyclomaticComplexMethod:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$private fun addDynamicKeypad</ID>
+    <ID>CyclomaticComplexMethod:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
+    <ID>CyclomaticComplexMethod:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun resolvePositions: List&lt;TopLabelLaneConflict&gt;</ID>
+    <ID>EmptyFunctionBlock:NativeCoreRuntimeTest.kt:NativeCoreRuntimeTest.&lt;no name provided&gt;${}</ID>
+    <ID>LargeClass:CalculatorKeyView.kt:CalculatorKeyView : ConstraintLayout</ID>
+    <ID>LargeClass:DynamicKeypadParityFixtureTest.kt:DynamicKeypadParityFixtureTest</ID>
+    <ID>LargeClass:ReplicaOverlay.kt:ReplicaOverlay : ViewGroup</ID>
+    <ID>LongMethod:AudioEngine.kt:AudioEngine$@Synchronized fun start</ID>
+    <ID>LongMethod:CalculatorKeyView.kt:CalculatorKeyView$private fun buildMainKeyRenderSpec: KeyRenderSpec?</ID>
+    <ID>LongMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
+    <ID>LongMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildSoftkeyOverlaySpec: SoftkeyOverlayAdornmentSpec</ID>
+    <ID>LongMethod:DynamicKeypadParityFixtureTest.kt:DynamicKeypadParityFixtureTest$@Test fun iteration77_mainKeyModeMatrixKeepsNumericMatrixFontWhenPreviewIsDisabled</ID>
+    <ID>LongMethod:KeypadSnapshotDecoderTest.kt:KeypadSnapshotDecoderTest$@Test fun fromNativeDecodesKeyboardWideAndPerKeyMetadataLanes</ID>
+    <ID>LongMethod:MainShellThemeTest.kt:MainShellThemeTest$private fun computeHintSamplePoints: HintSamplePoints</ID>
+    <ID>LongMethod:NativeCoreRuntimeTest.kt:NativeCoreRuntimeTest$private fun createRuntime: NativeCoreRuntime</ID>
+    <ID>LongMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>
+    <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
+    <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$override fun dispatchDraw</ID>
+    <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$private fun updateSettingsHintLayoutCache</ID>
+    <ID>LongMethod:ReplicaOverlayControllerLabelModeTest.kt:ReplicaOverlayControllerLabelModeTest$@Test fun userModeKeepsStaticPrimaryAndOverlaysTopLabels</ID>
+    <ID>LongMethod:ReplicaOverlayGoldenTest.kt:ReplicaOverlayGoldenTest$@Test fun postStartMicroPanNoiseIsIgnoredUntilMovementReaccumulates</ID>
+    <ID>LongMethod:ReplicaOverlayVisualPolicyTest.kt:ReplicaOverlayVisualPolicyTest$@Test fun settingsDiscoveryHintLayoutCache_usesContractedCardAndGlyphMetrics</ID>
+    <ID>LongMethod:SettingsActivity.kt:SettingsFragment$override fun onCreatePreferences</ID>
+    <ID>LongMethod:SoftkeyOverlayPainter.kt:SoftkeyOverlayPainter$fun draw</ID>
+    <ID>LongMethod:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun resolvePositions: List&lt;TopLabelLaneConflict&gt;</ID>
+    <ID>LoopWithTooManyJumpStatements:ReplicaOverlay.kt:ReplicaOverlay$for</ID>
+    <ID>LoopWithTooManyJumpStatements:SettingsActivityThemeTest.kt:SettingsActivityThemeTest$for</ID>
+    <ID>LoopWithTooManyJumpStatements:TopLabelLaneLayout.kt:TopLabelLaneLayout$for</ID>
+    <ID>MagicNumber:AudioEngine.kt:AudioEngine$100</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$0.45f</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$1.5f</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$11</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$112</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$12</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$128</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$18</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$2.2f</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$2.8f</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$224</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$244</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$255</ID>
+    <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$8</ID>
+    <ID>MagicNumber:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$127</ID>
+    <ID>MagicNumber:DisplayActionController.kt:DisplayActionController$3</ID>
+    <ID>MagicNumber:DisplayActionController.kt:DisplayActionController$50</ID>
+    <ID>MagicNumber:KeyboardStateSnapshot.kt:KeyboardStateSnapshot.Companion$5</ID>
+    <ID>MagicNumber:KeypadLabelModes.kt:37</ID>
+    <ID>MagicNumber:KeypadSnapshot.kt:KeypadSceneContract$4</ID>
+    <ID>MagicNumber:KeypadTopology.kt:KeypadLane.ENTER_ROW$3</ID>
+    <ID>MagicNumber:KeypadTopology.kt:KeypadLane.MATRIX_ROW_4$3</ID>
+    <ID>MagicNumber:LcdThemePolicy.kt:LcdThemePolicy$0.05</ID>
+    <ID>MagicNumber:LcdThemePolicy.kt:LcdThemePolicy$18</ID>
+    <ID>MagicNumber:LcdThemePolicy.kt:LcdThemePolicy$20</ID>
+    <ID>MagicNumber:NativeDisplayRefreshLoop.kt:NativeDisplayRefreshLoop$0xFF</ID>
+    <ID>MagicNumber:PackedLcdRaster.kt:PackedLcdRaster$0xFF</ID>
+    <ID>MagicNumber:PackedLcdRaster.kt:PackedLcdRaster$7</ID>
+    <ID>MagicNumber:PackedLcdRaster.kt:PackedLcdRaster$8</ID>
+    <ID>MagicNumber:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$37</ID>
+    <ID>MagicNumber:ReplicaOverlay.kt:ReplicaOverlay$0.5</ID>
+    <ID>MagicNumber:SettingsSwitchPreference.kt:SettingsSwitchPreference$110</ID>
+    <ID>MagicNumber:SettingsSwitchPreference.kt:SettingsSwitchPreference$140</ID>
+    <ID>MagicNumber:WorkDirectory.kt:WorkDirectory$3</ID>
+    <ID>MaxLineLength:CalculatorKeyViewCanvasTest.kt:CalculatorKeyViewCanvasTest$return</ID>
+    <ID>MaxLineLength:KeyboardLayoutContractResources.kt:KeyboardLayoutContractResources$val loader = Thread.currentThread().contextClassLoader ?: KeyboardLayoutContractResources::class.java.classLoader</ID>
+    <ID>MaxLineLength:KeypadFixtureContractTest.kt:KeypadFixtureContractTest$fixture.labels[(KeypadSnapshot.KEY_COUNT - 1) * KeypadSnapshot.LABELS_PER_KEY + KeypadSceneContract.LABEL_AUX]</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$if</ID>
+    <ID>MaxLineLength:MainActivityPreferenceController.kt:MainActivityPreferenceController$val needsWriteBack = !hasCurrentKey || storedTheme != normalizedTheme || preferences.contains(LEGACY_KEY_LCD_MODE)</ID>
+    <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$"Welcome to R47 Zen\nTap the orange and blue rectangles at top right to open the menu for Settings, Copy Actions, and Paste Number.\nSet Keypad Layout and Working Directory there."</ID>
+    <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$(R47AndroidChromeGeometry.MAIN_MENU_BUTTON_LEFT + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_WIDTH) * projection.scale</ID>
+    <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$(R47AndroidChromeGeometry.MAIN_MENU_BUTTON_TOP + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_HEIGHT) * projection.scale</ID>
+    <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)</ID>
+    <ID>MaxLineLength:PhysicalKeyboardInputParityTest.kt:PhysicalKeyboardInputParityTest$assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, keyEvent(KeyEvent.KEYCODE_DPAD_UP, KeyEvent.META_CTRL_ON)))</ID>
+    <ID>MaxLineLength:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$KeypadKeyFamily.BASE_OPERATOR</ID>
+    <ID>MaxLineLength:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$maxRightEdge = if (slotIndex == laneSlots.lastIndex) overlay.width.toFloat() else Float.POSITIVE_INFINITY</ID>
+    <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$developerPerformanceTextPaint.textSize</ID>
+    <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$return (((sin((nowMillis % periodMillis) / periodMillis.toDouble() * SettingsDiscoveryHintVisualPolicy.FULL_PULSE_RADIANS) + 1.0) * 0.5)).toFloat()</ID>
+    <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$val</ID>
+    <ID>MaxLineLength:ReplicaOverlayGoldenTest.kt:ReplicaOverlayGoldenTest$val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext&lt;android.content.Context&gt;().resources)</ID>
+    <ID>MaxLineLength:SettingsActivity.kt:SettingsFragment$val softkeyPreference = findPreference&lt;ListPreference&gt;(MainActivityPreferenceController.KEY_SOFTKEY_DYNAMIC_MODE) ?: return</ID>
+    <ID>MaxLineLength:TopLabelLaneLayout.kt:TopLabelLaneLayout$compareBy&lt;Pair&lt;TopLabelLaneShiftTarget, Int&gt;&gt;({ it.first.overrun }, { it.second }, { it.first.offenderIndex })</ID>
+    <ID>MaxLineLength:TopLabelLaneLayout.kt:TopLabelLaneLayout$if</ID>
+    <ID>ReturnCount:C47TextRenderer.kt:C47TextRenderer$fun fittedTextSize: Float</ID>
+    <ID>ReturnCount:C47TypefacePolicy.kt:C47TypefacePolicy$fun standardFirst: Typeface?</ID>
+    <ID>ReturnCount:CalculatorKeyView.kt:CalculatorKeyView$internal fun buildTopLabelLaneInput: TopLabelLaneGroupInput?</ID>
+    <ID>ReturnCount:CalculatorKeyView.kt:CalculatorKeyView$internal fun currentMainKeyBodyHorizontalBounds: Pair&lt;Float, Float&gt;?</ID>
+    <ID>ReturnCount:CalculatorKeyView.kt:CalculatorKeyView$internal fun currentMainKeyBodyWidthForTest: Float</ID>
+    <ID>ReturnCount:CalculatorKeyView.kt:CalculatorKeyView$private fun buildMainKeyRenderSpec: KeyRenderSpec?</ID>
+    <ID>ReturnCount:CalculatorKeyView.kt:CalculatorKeyView$private fun normalizedTextSizePx: Float</ID>
+    <ID>ReturnCount:DisplayActionController.kt:DisplayActionController$private fun pasteFromClipboard</ID>
+    <ID>ReturnCount:GraphGestureAccumulator.kt:GraphGestureAccumulator$private fun consumePanStep: Float</ID>
+    <ID>ReturnCount:GraphGestureAccumulator.kt:GraphGestureAccumulator$private fun sanitizePendingPanComponent: Float</ID>
+    <ID>ReturnCount:GraphGestureAccumulator.kt:GraphGestureAccumulator$private fun takePanStep: Float</ID>
+    <ID>ReturnCount:HapticFeedbackController.kt:HapticFeedbackController$@SuppressLint("InlinedApi") fun performClick: Boolean</ID>
+    <ID>ReturnCount:HapticFeedbackController.kt:HapticFeedbackController$fun onPreferenceChanged: Boolean</ID>
+    <ID>ReturnCount:HapticFeedbackController.kt:HapticFeedbackController$private fun performFallbackFeedback: Boolean</ID>
+    <ID>ReturnCount:LcdThemePolicy.kt:LcdThemePolicy$private fun ensureTextContrast: Int</ID>
+    <ID>ReturnCount:MainActivityPreferenceController.kt:MainActivityPreferenceController$fun onPreferenceChanged: Boolean</ID>
+    <ID>ReturnCount:NativeCoreRuntime.kt:NativeCoreRuntime.Companion$private fun runCoreIteration: Boolean</ID>
+    <ID>ReturnCount:NativeKeypadSnapshotStore.kt:NativeKeypadSnapshotStore$fun refreshSnapshot: NativeKeypadSnapshotRefreshResult</ID>
+    <ID>ReturnCount:PhysicalKeyboardInput.kt:PhysicalKeyboardMapper$fun resolve: PhysicalKeyboardAction?</ID>
+    <ID>ReturnCount:PhysicalKeyboardInputController.kt:PhysicalKeyboardInputController$fun onKeyDown: Boolean</ID>
+    <ID>ReturnCount:PhysicalKeyboardInputController.kt:PhysicalKeyboardInputController$fun onKeyUp: Boolean</ID>
+    <ID>ReturnCount:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
+    <ID>ReturnCount:ReplicaOverlay.kt:ReplicaOverlay$override fun onInterceptTouchEvent: Boolean</ID>
+    <ID>ReturnCount:ReplicaOverlay.kt:ReplicaOverlay.&lt;no name provided&gt;$override fun onScale: Boolean</ID>
+    <ID>ReturnCount:ReplicaOverlayController.kt:KeypadSnapshotRefreshGate$fun shouldApply: Boolean</ID>
+    <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$fun solve: Map&lt;Int, TopLabelLanePlacement&gt;</ID>
+    <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun relaxRow: List&lt;TopLabelLaneConflict&gt;</ID>
+    <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun scaleCandidateLabel: TopLabelLaneLabel?</ID>
+    <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun scaleUntilResolved: List&lt;TopLabelLaneConflict&gt;</ID>
+    <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun scalingCandidatesForConflict: List&lt;TopLabelLaneScaleCandidate&gt;</ID>
+    <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun selectedOffender: TopLabelLaneShiftTarget?</ID>
+    <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun tryLocalOffenderTranslation: Boolean</ID>
+    <ID>ReturnCount:WorkDirectory.kt:WorkDirectory$fun isAccessible: Boolean</ID>
+    <ID>ReturnCount:WorkDirectory.kt:WorkDirectory$fun resolveSubfolder: Uri?</ID>
+    <ID>SwallowedException:NoticeAssetActivity.kt:NoticeAssetActivity$e: IOException</ID>
+    <ID>SwallowedException:RepoNoticeIndexActivity.kt:RepoNoticeIndexActivity$e: IOException</ID>
+    <ID>TooGenericExceptionCaught:AudioEngine.kt:AudioEngine$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:DisplayActionController.kt:DisplayActionController$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:NativeCoreRuntime.kt:NativeCoreRuntime.Companion$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:NativeCoreRuntime.kt:NativeCoreRuntime.Companion$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SlotSessionController.kt:SlotSessionController$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:StorageAccessCoordinator.kt:StorageAccessCoordinator$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:WindowModeController.kt:WindowModeController$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:WorkDirectory.kt:WorkDirectory$error: Exception</ID>
+    <ID>TooGenericExceptionThrown:NativeCoreRuntimeTest.kt:NativeCoreRuntimeTest$throw RuntimeException("simulated native core failure")</ID>
+    <ID>TooManyFunctions:C47TextRenderer.kt:C47TextRenderer</ID>
+    <ID>TooManyFunctions:CalculatorKeyView.kt:CalculatorKeyView : ConstraintLayout</ID>
+    <ID>TooManyFunctions:MainActivity.kt:MainActivity : AppCompatActivityOnSharedPreferenceChangeListener</ID>
+    <ID>TooManyFunctions:NativeCoreRuntime.kt:NativeCoreRuntime$Companion</ID>
+    <ID>TooManyFunctions:ReplicaOverlay.kt:ReplicaOverlay : ViewGroup</ID>
+    <ID>TooManyFunctions:ReplicaOverlayController.kt:ReplicaOverlayController</ID>
+    <ID>TooManyFunctions:TopLabelLaneLayout.kt:TopLabelLaneLayout</ID>
+    <ID>UnusedParameter:C47TypefacePolicy.kt:C47TypefacePolicy$text: CharSequence</ID>
+    <ID>UnusedParameter:ReplicaChromeLayout.kt:ReplicaChromeLayout$canvas: Canvas</ID>
+    <ID>UnusedParameter:ReplicaChromeLayout.kt:ReplicaChromeLayout$projectionScale: Float</ID>
+    <ID>UnusedParameter:ReplicaChromeLayout.kt:ReplicaChromeLayout$rect: RectF</ID>
+    <ID>UnusedParameter:ReplicaChromeLayout.kt:ReplicaChromeLayout$spec: ReplicaChromeSpec</ID>
+    <ID>VariableNaming:MainActivity.kt:MainActivity$private val TAG = "R47Activity"</ID>
+    <ID>WildcardImport:MainActivity.kt:import android.os.*</ID>
+    <ID>WildcardImport:MainActivity.kt:import android.view.*</ID>
+    <ID>WildcardImport:ReplicaOverlay.kt:import android.graphics.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

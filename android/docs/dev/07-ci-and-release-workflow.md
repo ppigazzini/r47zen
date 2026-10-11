@@ -270,6 +270,9 @@ It:
   writable-and-executable segment, and no text relocations
 - runs `cd android && ./gradlew lint` explicitly because normal Gradle builds do
   not run lint automatically
+- runs `scripts/android/run_detekt.sh`: detekt's default rule set over the
+  Kotlin sources against `android/app/detekt-baseline.xml`, failing on a new
+  finding and on a baseline entry the code no longer matches
 - verifies that retired app-module native snapshot paths stay absent and that
   staging remains build-only under `android/.staged-native/cpp`
 - builds the dev-prerelease APK unsigned: the job holds no prerelease signing

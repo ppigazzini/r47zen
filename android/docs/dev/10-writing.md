@@ -230,6 +230,12 @@ The mechanical checks that exist today:
   goldens.
 - `cd android && ./gradlew lint` is mandatory when Kotlin, manifest, resource,
   or Android Gradle surfaces change.
+- `bash scripts/android/run_detekt.sh` holds the Kotlin sources to detekt's
+  default rule set (function and class size, complexity, magic numbers, and
+  the rest) against a baseline that only shrinks: a new finding fails, and so
+  does a baseline entry the code no longer has, so a fix removes its entry in
+  the same commit. Adding an entry by hand is a decision a reviewer sees in
+  the diff, never a way to pass.
 - `scripts/docs/check_commit_message.sh` holds the mechanical half of the
   [commit rules](#commit-messages): the subject shape and length, the blank
   second line, the body width, and no co-author or agent attribution. It is an

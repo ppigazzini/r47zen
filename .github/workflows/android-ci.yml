@@ -632,6 +632,17 @@ jobs:
             -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
             2>&1 | tee ../ci-artifacts/logs/android-lint.log
 
+      - name: Run detekt
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # New Kotlin findings fail; so does a baseline entry the code no
+          # longer matches, which keeps the baseline shrinking.
+          bash scripts/android/run_detekt.sh \
+            --max-workers "${{ steps.jobs.outputs.jobs }}" --stacktrace \
+            2>&1 | tee ci-artifacts/logs/detekt.log
+
       - name: Verify Android staging stays build-only
         shell: bash
         run: |
