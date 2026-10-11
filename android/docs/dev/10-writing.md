@@ -89,7 +89,7 @@ thoroughness; it is where rot hides.
 ## Doc pages
 
 `README.md` is the index; GitHub renders it for the folder, so it is what a
-reader lands on. The numbered pages `00-` to `10-` go by **reading order**, not
+reader lands on. The numbered pages `00-` to `11-` go by **reading order**, not
 importance: a contributor works down from the project boundary into the
 build, out through the shell and the native core into the runtime, CI, and
 tests. The prefix is
@@ -148,6 +148,7 @@ better than the person who broke it.
 | [08-tests-and-contracts.md](08-tests-and-contracts.md) | verification surfaces, contract owners, focused suites, rerun lanes | hot - tracks this repo |
 | [09-official-references.md](09-official-references.md) | external links | cold |
 | this page | the rules | cold |
+| [11-reviewing-a-change.md](11-reviewing-a-change.md) | the four checks for a change that crosses a seam, and where each seam's inventory lives | cold |
 
 The rows that track upstream describe a tree **this repo does not control**. No
 tracked file pins an upstream commit: CI resolves the newest commit on every
@@ -229,7 +230,6 @@ The mechanical checks that exist today:
   goldens.
 - `cd android && ./gradlew lint` is mandatory when Kotlin, manifest, resource,
   or Android Gradle surfaces change.
-
 - `scripts/docs/check_commit_message.sh` holds the mechanical half of the
   [commit rules](#commit-messages): the subject shape and length, the blank
   second line, the body width, and no co-author or agent attribution. It is an
@@ -239,6 +239,7 @@ The mechanical checks that exist today:
   `scripts/android/run_commit_message_contract.sh` proves it on seeded
   messages. It cannot tell whether a subject is imperative or a body carries
   evidence.
+
 `bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook `docs-lint`, CI lane
 `Docs Lint`) gates the prose. It needs no upstream clone and no toolchain, so it
 runs in seconds on every push, and it settles these mechanical rot classes:

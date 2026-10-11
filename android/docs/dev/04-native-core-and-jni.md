@@ -390,6 +390,34 @@ render is byte-identical whether or not `onResume` itself redraws. The local
 16 KB runtime smoke script reuses the recreation probe on a connected 16 KB
 target.
 
+### Activity reference writers and readers
+
+Native code reaches the current `MainActivity` through four globals in
+`jni_activity_bridge.c`: `g_mainActivityObj` and the cached method IDs
+`g_requestFileId`, `g_playToneId`, and `g_processCoreTasksId`. This table is
+their state inventory for the checks in
+[11-reviewing-a-change.md](11-reviewing-a-change.md#the-four-checks).
+
+| access | function | thread |
+|---|---|---|
+| write | `updateNativeActivityRef`, from `initNative` and from `NativeCoreRuntime.rebindHost()` | core |
+| write | `releaseNativeRuntime`, from `MainActivity.handleFactoryResetFinish` and `handleFactoryResetDestroy` | main |
+| read | `processCoreTasksNative` (`jni_activity_bridge.c`), `_Buzz` (`hal/audio.c`), `requestAndroidFile` (`jni_storage.c`), `triggerQuit` (`jni_display.c`) | core |
+
+No lock covers the four globals. A reader checks a global for `NULL` and then
+calls through it; `releaseNativeActivityReferences` deletes the global
+reference first and stores `NULL` after. The two writers stay apart only when
+the core thread has stopped before `releaseNativeRuntime` runs. On a finishing
+`MainActivity.onDestroy`, `dispose(stopApp = true)` joins the core thread for
+at most `DISPOSE_JOIN_FENCE_MILLIS`, then `FactoryResetController.handleDestroy`
+reaches `releaseNativeRuntime` through `handleFactoryResetFinish` whether or
+not the join succeeded; only `handleFactoryResetDestroy` is reached with the
+core thread stopped. So a program that outlasts the fence leaves a core thread
+that can read a global the main thread is deleting. No test covers that window.
+ART aborts on a call through a deleted global reference (documented JNI
+behaviour, not reproduced here), so the gap costs a crash on exit, together
+with any save still queued on the core thread.
+
 ## Lifecycle Save And Explicit Refresh Contract
 
 `jni_lifecycle.c` owns two different display-affecting paths and they do not

@@ -80,6 +80,7 @@ R47 calculator variant implemented in the upstream C47 core.
 | find what locks a contract, or which lane to rerun | [08-tests-and-contracts.md](android/docs/dev/08-tests-and-contracts.md) |
 | find an authoritative external reference | [09-official-references.md](android/docs/dev/09-official-references.md) |
 | write a doc, a code comment, or a commit message | [10-writing.md](android/docs/dev/10-writing.md) |
+| review a change or audit a seam | [11-reviewing-a-change.md](android/docs/dev/11-reviewing-a-change.md) |
 
 ## This file, and CLAUDE.md
 

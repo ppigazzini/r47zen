@@ -24,6 +24,7 @@ flowchart TD
   I[08 tests and contracts]
   J[09 official references]
   K[10 writing]
+  L[11 reviewing a change]
 
   A --> B
   B --> C
@@ -37,6 +38,7 @@ flowchart TD
   H --> I
   I --> J
   J --> K
+  K --> L
 ```
 
 ## Read In Order
@@ -68,6 +70,9 @@ flowchart TD
   NDK, Gradle, Kotlin, GitHub Actions, and upstream reference surfaces.
 - [10-writing.md](10-writing.md): the rules for the doc pages, the code
   comments, and the commit messages, plus which pages run hot.
+- [11-reviewing-a-change.md](11-reviewing-a-change.md): the four checks for a
+  change or an audit that crosses a seam, and where each seam's state
+  inventory lives.
 
 ## By Task
 
@@ -92,6 +97,8 @@ flowchart TD
   [09-official-references.md](09-official-references.md)
 - writing a page, a code comment, or a commit message:
   [10-writing.md](10-writing.md)
+- reviewing a change, or auditing code, where state crosses a thread, the JNI
+  boundary, or a cache: [11-reviewing-a-change.md](11-reviewing-a-change.md)
 
 ## Maintainer Update Workflow
 

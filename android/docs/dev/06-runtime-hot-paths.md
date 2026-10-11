@@ -173,18 +173,11 @@ That would duplicate the most expensive JNI reads in the shell.
   invalidates the full LCD width across the touched row span. It takes each
   row's display position from its index: native `LCD_write_line` already
   stores a row at the index its DMCP row id names.
-- The bitmap is written only by decoding `lastPackedLcd`, and
-  `ReplicaOverlay.redrawPackedSnapshot()` is the one full repaint: the
-  constructor runs it on the blank `lastPackedLcd`, so the LCD is never
-  `createBitmap`'s transparent fill with the black view background showing
-  through, and `setLcdPalette` runs it on every call.
-  `ReplicaOverlayGoldenTest.packedLcd_freshOverlay_showsBlankFrame` locks the
-  constructor half; `run_keypad_generation_contract.sh` locks the native flags.
 - A palette change stays on the UI thread: `MainActivity.applyLcdTheme`
   resolves the palette through `LcdThemePolicy` and hands it to
-  `setLcdPalette`, and native never sees it. A host that attaches to a live
-  runtime gets the frame from `NativeCoreRuntime.rebindHost()`, which runs
-  `resendLcdRowsNative()` on the core thread to flag every packed row.
+  `setLcdPalette`, and native never sees it. Who writes the bitmap, the row
+  cache, and the palette is in the
+  [inventory below](#lcd-frame-state-inventory).
 - the animated settings-discovery hint in `ReplicaOverlay` keeps its
   `StaticLayout` and card geometry in a cache rebuilt only on a real size or
   layout change, so the pulse animation allocates no text-layout objects per
@@ -193,6 +186,64 @@ That would duplicate the most expensive JNI reads in the shell.
 This path is sensitive because it runs on the UI thread, owns the live packed
 snapshot cache, and is the easiest place to reintroduce transport-level work as
 if it were visible LCD state.
+
+## LCD Frame State Inventory
+
+One LCD frame lives in five copies between the core and the screen. This table
+is the state inventory that the first check in
+[11-reviewing-a-change.md](11-reviewing-a-change.md#the-four-checks) starts
+from: a change to any copy is reviewed against all five, and a change that adds
+a copy adds a row here in the same commit.
+
+| copy | owner | written by (thread) | read by (thread) | change signal |
+|---|---|---|---|---|
+| `lcd_buffer` | `hal/lcd.c`, drawn by the upstream core | upstream drawing through `lcd_line_addr`, `bitblt24` (and `lcd_fill_rect` on top of it), and `lcd_clear_buf` (core) | `LCD_write_line` through `lcd_refresh`, `lcd_refresh_lines`, and `lcd_clear_buf`; `lcd_buffer_pixel_on` (core) | row byte 0, set on every write, cleared by `LCD_write_line` |
+| `packedDisplayBuffer` | `hal/lcd.c`, under `packedDisplayMutex` | `LCD_write_line` and `lcd_mark_packed_rows_dirty` (core) | `getPackedDisplayBuffer`, with a trylock (main) | row byte 0, set when the row's pixels changed or by `lcd_mark_packed_rows_dirty` and cleared after a copy; `lcdBufferDirty`; `packedDisplayGeneration` |
+| `packedLcdBuffer` | `NativeDisplayRefreshLoop` | `getPackedDisplayBuffer`, every byte of every row (main) | `ReplicaOverlay.updatePackedLcd` (main) | row byte 0 as copied |
+| `lastPackedLcd` | `ReplicaOverlay` | `updatePackedLcd`, one flagged row at a time (main) | `redrawPackedSnapshot` (main) | none |
+| `lcdBitmap` | `ReplicaOverlay` | `decodePackedRow`, from `updatePackedLcd` and `redrawPackedSnapshot` (main) | `dispatchDraw` (main) | `invalidateLcdRows` |
+
+The palette, `ReplicaOverlay.lcdPalette`, is decoded into every bitmap row, so
+it is part of the same state.
+
+What each rule rests on:
+
+- **A row reaches Kotlin only when its pixels changed, or when the whole frame
+  is re-flagged.** `LCD_write_line` compares before it flags;
+  `init_lcd_buffers` and `lcd_mark_packed_rows_dirty` flag every row.
+  `run_keypad_generation_contract.sh` locks all three.
+- **A host that attaches to a live runtime receives the whole frame.**
+  `NativeCoreRuntime.rebindHost()` runs `resendLcdRowsNative()` on the core
+  thread, which re-flags every packed row although no pixel changed: the
+  transport has no request for "send the current frame", so the resend is
+  expressed as a change. The reattach tests in `NativeCoreRuntimeTest` lock the
+  call. `DisplayLifecycleInstrumentedTest` hashes native state, not the
+  overlay, so no test checks a recreated overlay's pixels.
+- **The bitmap shows the decode of `lastPackedLcd` in `lcdPalette`.** Three
+  sites keep this, by convention and not by construction: the constructor runs
+  `redrawPackedSnapshot()` on the blank `lastPackedLcd`, so the bitmap never
+  shows `createBitmap`'s transparent fill; `setLcdPalette` runs it on every
+  call; `updatePackedLcd` copies each flagged row into `lastPackedLcd` and
+  decodes the same bytes. A new path that writes the bitmap must be one of the
+  three. `ReplicaOverlayGoldenTest` locks each site
+  (`packedLcd_freshOverlay_showsBlankFrame`, `packedLcd_recolorsExistingSnapshot`,
+  `packedLcd_matchesIndependentDecode`,
+  `packedLcd_dirtyRowUpdate_preservesUntouchedRowPixels`), but its expected
+  pixels come from `decodePackedBuffer`, a second copy of the production row
+  decode, so a bit-order or polarity error made in both copies passes.
+- **The palette has one source and two writers.** `LcdThemePolicy.resolve`
+  computes every palette. The overlay starts from
+  `LcdThemePolicy.DEFAULT_PALETTE` and paints it in its constructor; the stored
+  theme replaces it when `MainActivity.initializeOverlayAndPreferences` posts
+  `MainActivityPreferenceController.applyDeferredOverlayPreferences` to the
+  overlay. Whether
+  a default-palette frame reaches the screen first under another stored theme
+  is not measured, and no test inflates the overlay under a non-default stored
+  theme. The luminance bounds and defaults `resolve` works from are constants
+  of `MainActivityPreferenceController`, not of the policy.
+- **`updatePackedLcd` zeroes row byte 0 in the buffer it is handed.** Nothing
+  reads that zero: `getPackedDisplayBuffer` overwrites every byte of
+  `packedLcdBuffer` before the next decode, and no test passes one array twice.
 
 ## Lifecycle Save And Explicit Refresh Path
 
