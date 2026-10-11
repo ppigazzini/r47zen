@@ -309,10 +309,12 @@ Important contract files include:
   metadata length, key count, and labels-per-key
 - `KeypadSnapshotDecoderTest.kt`: asserts the fixed metadata-lane decode and
   label fallback behavior of `KeypadSnapshot.fromNative(...)`
-- `KeypadSnapshotDecoderPropertyTest.kt`: a seeded Kotest property test that
-  proves `KeypadSnapshot.fromNative(...)` stays total for an arbitrary, possibly
-  malformed, `meta`/`labels` pair -- never throws, falls back to `EMPTY` on
-  short `meta`, and never indexes out of bounds for any key code
+- `KeypadSnapshotDecoderPropertyTest.kt`: a Kotest `checkAll` property test
+  from a fixed seed that proves `KeypadSnapshot.fromNative(...)` stays total for
+  an arbitrary, possibly malformed, `meta`/`labels` pair -- never throws, falls
+  back to `EMPTY` on short `meta`, and never indexes out of bounds for any key
+  code; a failure is shrunk to the smallest failing input before it is
+  reported
 - `DynamicKeypadParityFixtureTest.kt`: locks unchanged-snapshot skip behavior,
   alpha-layout behavior, layout-class-sensitive keypad rendering,
   render-spec stability for rejected snapshots, and controller-owned
@@ -465,9 +467,10 @@ Important contract files include:
   locks that deltas coalesce into one queued flush, that a flush applies one
   batch even when deltas arrive during it, that flushes keep the minimum
   interval, and that no motion is lost across flushes
-- `GraphGestureAccumulatorPropertyTest.kt`: a seeded Kotest property test that
-  proves the same clamp, split, drop, and bounded-drain invariants hold across a
-  randomized finite and non-finite input space, not just the example endpoints
+- `GraphGestureAccumulatorPropertyTest.kt`: a Kotest `checkAll` property test
+  from a fixed seed that proves the same clamp, split, drop, and bounded-drain
+  invariants hold across a randomized finite and non-finite input space, not
+  just the example endpoints, and shrinks a failure before reporting it
 - `LcdThemePolicyTest.kt`: locks unknown theme fallback to the default display
   theme and keeps every shipped normal and inverse LCD palette above its
   declared contrast floor across the supported luminance range

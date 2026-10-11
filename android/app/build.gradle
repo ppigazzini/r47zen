@@ -482,6 +482,8 @@ dependencies {
     // Property-based testing for the pure clamp/decode seams: used only by the
     // seeded *PropertyTest JVM classes.
     testImplementation libs.kotest.property
+    // Reads the keypad fixtures and contract goldens in the JVM tests.
+    testImplementation libs.kotlinx.serialization.json
 
     androidTestImplementation libs.androidx.test.core
     androidTestImplementation libs.androidx.test.ext.junit

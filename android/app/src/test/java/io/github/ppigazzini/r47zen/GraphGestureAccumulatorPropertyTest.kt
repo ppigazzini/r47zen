@@ -1,10 +1,15 @@
 package io.github.ppigazzini.r47zen
 
 import io.kotest.property.Arb
-import io.kotest.property.RandomSource
+import io.kotest.property.PropTestConfig
 import io.kotest.property.arbitrary.int
+import io.kotest.property.arbitrary.list
 import io.kotest.property.arbitrary.map
 import io.kotest.property.arbitrary.of
+import io.kotest.property.arbitrary.pair
+import io.kotest.property.arbitrary.triple
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -17,126 +22,120 @@ import kotlin.math.abs
 // example-based GraphGestureAccumulatorTest pins specific
 // boundary cases; these properties assert the clamp, split, drop, and
 // termination invariants hold across a wide randomized input space the examples
-// only sample at the endpoints. The random source is seeded so any failure
-// reproduces deterministically. Pure Kotlin, so this runs on the plain JVM with
-// no Robolectric.
+// only sample at the endpoints. Kotest's checkAll runs each property from a
+// fixed seed, so a failure reproduces, and shrinks a failing input to the
+// smallest one that still fails before reporting it. Pure Kotlin, so this runs
+// on the plain JVM with no Robolectric.
 class GraphGestureAccumulatorPropertyTest {
     @Test
     fun pan_clampsEveryAppliedStepAndKeepsBoundedTotalForArbitraryFiniteInput() {
-        val rs = RandomSource.seeded(SEED)
         val finitePan = Arb.int(-2_000_000..2_000_000).map { it / 1000f } // [-2000f, 2000f]
 
-        repeat(ITERATIONS) {
-            val accumulator = createAccumulator()
-            val pans = (0 until rs.random.nextInt(1, 16)).map {
-                finitePan.sample(rs).value to finitePan.sample(rs).value
-            }
-            pans.forEach { (dx, dy) -> accumulator.addPan(dx, dy) }
+        runBlocking {
+            checkAll(CONFIG, Arb.list(Arb.pair(finitePan, finitePan), 1..15)) { pans ->
+                val accumulator = createAccumulator()
+                pans.forEach { (dx, dy) -> accumulator.addPan(dx, dy) }
 
-            var totalDx = 0f
-            var totalDy = 0f
-            var drains = 0
-            while (accumulator.hasPending()) {
-                val batch = accumulator.drainBatch() ?: break
+                var totalDx = 0f
+                var totalDy = 0f
+                var drains = 0
+                while (accumulator.hasPending()) {
+                    val batch = accumulator.drainBatch() ?: break
+                    assertTrue(
+                        "applied pan step exceeds the per-apply limit: $batch",
+                        abs(batch.panDxNorm) <= PAN_APPLY_LIMIT + TOLERANCE &&
+                            abs(batch.panDyNorm) <= PAN_APPLY_LIMIT + TOLERANCE,
+                    )
+                    totalDx += batch.panDxNorm
+                    totalDy += batch.panDyNorm
+                    drains++
+                    assertTrue("drain did not terminate within the bounded step budget", drains <= MAX_DRAINS)
+                }
+
+                // The pending backlog is capped to panPendingLimit per axis, so the
+                // total distance the accumulator can ever emit is bounded by it.
                 assertTrue(
-                    "applied pan step exceeds the per-apply limit: $batch (seed=$SEED, input=$pans)",
-                    abs(batch.panDxNorm) <= PAN_APPLY_LIMIT + TOLERANCE &&
-                        abs(batch.panDyNorm) <= PAN_APPLY_LIMIT + TOLERANCE,
-                )
-                totalDx += batch.panDxNorm
-                totalDy += batch.panDyNorm
-                drains++
-                assertTrue(
-                    "drain did not terminate within the bounded step budget " +
-                        "(seed=$SEED, input=$pans)",
-                    drains <= MAX_DRAINS,
+                    "total applied pan exceeds the pending backlog cap: ($totalDx, $totalDy)",
+                    abs(totalDx) <= PAN_PENDING_LIMIT + TOLERANCE &&
+                        abs(totalDy) <= PAN_PENDING_LIMIT + TOLERANCE,
                 )
             }
-
-            // The pending backlog is capped to panPendingLimit per axis, so the
-            // total distance the accumulator can ever emit is bounded by it.
-            assertTrue(
-                "total applied pan exceeds the pending backlog cap: " +
-                    "($totalDx, $totalDy) (seed=$SEED, input=$pans)",
-                abs(totalDx) <= PAN_PENDING_LIMIT + TOLERANCE &&
-                    abs(totalDy) <= PAN_PENDING_LIMIT + TOLERANCE,
-            )
         }
     }
 
     @Test
     fun scale_drainedFactorStaysWithinClampOrIsNeutralForArbitraryInput() {
-        val rs = RandomSource.seeded(SEED)
         // [-0.1f, 200.0f]: spans non-positive (dropped), in-range, and oversized
         // (clamped) factors.
         val scale = Arb.int(-100..200_000).map { it / 1000f }
 
-        repeat(ITERATIONS) {
-            val accumulator = createAccumulator()
-            val factors = (0 until rs.random.nextInt(1, 12)).map { scale.sample(rs).value }
-            factors.forEach { accumulator.addScale(it) }
+        runBlocking {
+            checkAll(CONFIG, Arb.list(scale, 1..11)) { factors ->
+                val accumulator = createAccumulator()
+                factors.forEach { accumulator.addScale(it) }
 
-            val batch = accumulator.drainBatch()
-            if (batch != null) {
-                val factor = batch.scaleFactor
-                assertTrue(
-                    "drained scale factor outside clamp and not neutral: " +
-                        "$factor (seed=$SEED, input=$factors)",
-                    factor == 1f || factor in SCALE_FACTOR_MIN..SCALE_FACTOR_MAX,
-                )
+                val batch = accumulator.drainBatch()
+                if (batch != null) {
+                    val factor = batch.scaleFactor
+                    assertTrue(
+                        "drained scale factor outside clamp and not neutral: $factor",
+                        factor == 1f || factor in SCALE_FACTOR_MIN..SCALE_FACTOR_MAX,
+                    )
+                }
             }
         }
     }
 
     @Test
     fun scale_inRangeFactorsDrainAsTheirProduct() {
-        val rs = RandomSource.seeded(SEED)
         // [0.8, 1.25]: up to three of them multiply to [0.512, 1.953], inside
         // the clamp, so the drained factor must be the plain product. The clamp
         // test above accepts any in-range value, including a pinch that was
         // pinned or dropped; this is the oracle for the value itself.
         val factor = Arb.int(800..1250).map { it / 1000f }
 
-        repeat(ITERATIONS) {
-            val accumulator = createAccumulator()
-            val factors = (0 until rs.random.nextInt(1, 4)).map { factor.sample(rs).value }
-            factors.forEach { accumulator.addScale(it) }
-            val product = factors.fold(1f) { total, next -> total * next }
+        runBlocking {
+            checkAll(CONFIG, Arb.list(factor, 1..3)) { factors ->
+                val accumulator = createAccumulator()
+                factors.forEach { accumulator.addScale(it) }
+                val product = factors.fold(1f) { total, next -> total * next }
 
-            val batch = accumulator.drainBatch()
-            if (abs(product - 1f) <= SCALE_FLUSH_EPSILON) {
-                assertNull("a neutral pinch produced a batch (seed=$SEED, input=$factors)", batch)
-            } else {
-                assertNotNull("an in-range pinch was dropped (seed=$SEED, input=$factors)", batch)
-                assertEquals(
-                    "drained pinch is not the product of its factors (seed=$SEED, input=$factors)",
-                    product,
-                    batch!!.scaleFactor,
-                    PRODUCT_TOLERANCE,
-                )
+                val batch = accumulator.drainBatch()
+                if (abs(product - 1f) <= SCALE_FLUSH_EPSILON) {
+                    assertNull("a neutral pinch produced a batch", batch)
+                } else {
+                    assertNotNull("an in-range pinch was dropped", batch)
+                    assertEquals(
+                        "drained pinch is not the product of its factors",
+                        product,
+                        batch!!.scaleFactor,
+                        PRODUCT_TOLERANCE,
+                    )
+                }
+                assertFalse("a drained pinch left pending state", accumulator.hasPending())
             }
-            assertFalse("a drained pinch left pending state (seed=$SEED)", accumulator.hasPending())
         }
     }
 
     @Test
     fun nonFiniteInputIsAlwaysDroppedAndNeverThrows() {
-        val rs = RandomSource.seeded(SEED)
         val nonFinite = Arb.of(
             Float.NaN,
             Float.POSITIVE_INFINITY,
             Float.NEGATIVE_INFINITY,
         )
 
-        repeat(ITERATIONS) {
-            val accumulator = createAccumulator()
-            repeat(rs.random.nextInt(1, 8)) {
-                accumulator.addPan(nonFinite.sample(rs).value, nonFinite.sample(rs).value)
-                accumulator.addScale(nonFinite.sample(rs).value)
-            }
+        runBlocking {
+            checkAll(CONFIG, Arb.list(Arb.triple(nonFinite, nonFinite, nonFinite), 1..7)) { inputs ->
+                val accumulator = createAccumulator()
+                inputs.forEach { (dx, dy, scale) ->
+                    accumulator.addPan(dx, dy)
+                    accumulator.addScale(scale)
+                }
 
-            assertFalse("non-finite input left pending state (seed=$SEED)", accumulator.hasPending())
-            assertNull("non-finite input produced a batch (seed=$SEED)", accumulator.drainBatch())
+                assertFalse("non-finite input left pending state", accumulator.hasPending())
+                assertNull("non-finite input produced a batch", accumulator.drainBatch())
+            }
         }
     }
 
@@ -154,6 +153,7 @@ class GraphGestureAccumulatorPropertyTest {
     private companion object {
         const val SEED = 0x5234375AL // "R47Z"
         const val ITERATIONS = 2000
+        val CONFIG = PropTestConfig(seed = SEED, iterations = ITERATIONS)
         const val TOLERANCE = 0.0005f
         const val PAN_FLUSH_EPSILON = 0.0005f
         const val PAN_APPLY_LIMIT = 1f

@@ -8,7 +8,6 @@
     <ID>CyclomaticComplexMethod:CalculatorKeyView.kt:CalculatorKeyView$private fun buildMainKeyRenderSpec: KeyRenderSpec?</ID>
     <ID>CyclomaticComplexMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
     <ID>CyclomaticComplexMethod:DisplayActionController.kt:DisplayActionController$private fun pasteFromClipboard</ID>
-    <ID>CyclomaticComplexMethod:KeypadFixtureResources.kt:KeypadFixtureResources.SimpleJsonParser$private fun parseNumber: Number</ID>
     <ID>CyclomaticComplexMethod:MainActivityPreferenceController.kt:MainActivityPreferenceController$fun onPreferenceChanged: Boolean</ID>
     <ID>CyclomaticComplexMethod:NativeDisplayRefreshLoop.kt:NativeDisplayRefreshLoop$internal fun refreshFrame</ID>
     <ID>CyclomaticComplexMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>
@@ -73,7 +72,6 @@
     <ID>MagicNumber:SettingsSwitchPreference.kt:SettingsSwitchPreference$140</ID>
     <ID>MagicNumber:WorkDirectory.kt:WorkDirectory$3</ID>
     <ID>MaxLineLength:CalculatorKeyViewCanvasTest.kt:CalculatorKeyViewCanvasTest$return</ID>
-    <ID>MaxLineLength:KeyboardLayoutContractResources.kt:KeyboardLayoutContractResources$val loader = Thread.currentThread().contextClassLoader ?: KeyboardLayoutContractResources::class.java.classLoader</ID>
     <ID>MaxLineLength:KeypadFixtureContractTest.kt:KeypadFixtureContractTest$fixture.labels[(KeypadSnapshot.KEY_COUNT - 1) * KeypadSnapshot.LABELS_PER_KEY + KeypadSceneContract.LABEL_AUX]</ID>
     <ID>MaxLineLength:MainActivity.kt:MainActivity$if</ID>
     <ID>MaxLineLength:MainActivityPreferenceController.kt:MainActivityPreferenceController$val needsWriteBack = !hasCurrentKey || storedTheme != normalizedTheme || preferences.contains(LEGACY_KEY_LCD_MODE)</ID>
