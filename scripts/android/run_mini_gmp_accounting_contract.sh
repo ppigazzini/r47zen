@@ -1,44 +1,60 @@
 #!/bin/bash
 
-# Contract: the vendored Android mini-gmp fallback keeps the size-prefix header
-# that makes the c47 GMP accounting hooks (freeGmp / reallocGmp) receive the real
-# block size. Upstream mini-gmp passes size 0 to those hooks, which leaves the
-# core's gmpMemInBytes counter monotonically increasing; on the Android build
-# that defines PC_BUILD the upstream items.c "gmpMemInBytes should be 0"
-# self-check then fires (sprintf + fprintf + fflush) on every operation in the
-# shipping app. A mini-gmp re-vendor that drops the header would silently bring
-# the per-operation diagnostic spam back, so this guards both that the broken
-# size-0 free is gone and that the header accounting is present.
+# Contract: the mini-gmp the Android build ships hands the core's GMP accounting
+# hooks the real block size. Upstream mini-gmp passes size 0 to the free and
+# realloc hooks, which leaves the core's gmpMemInBytes counter growing; on the
+# Android build, which defines PC_BUILD, upstream items.c then reports
+# "gmpMemInBytes should be 0" (sprintf, fprintf, fflush) after every operation.
 #
-# Pure-host text check: no SDK, no staged native tree, no build.
+# The contract compiles mini_gmp_accounting_contract_test.c against
+# android/compat/mini-gmp-fallback/mini-gmp.c, the file
+# stage_native_sources.sh stages, with counting hooks, and runs it under
+# AddressSanitizer and UBSan. It first proves the test fails on a copy whose
+# free hands the hook size 0, the upstream form.
+#
+# Pure host: no SDK, no staged native tree.
 
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-MINI_GMP="$PROJECT_ROOT/android/compat/mini-gmp-fallback/mini-gmp.c"
+MINI_GMP_DIR="$PROJECT_ROOT/android/compat/mini-gmp-fallback"
+BUILD_DIR="${R47_MINI_GMP_CONTRACT_BUILD_DIR:-$PROJECT_ROOT/android/build/mini-gmp-accounting-contract}"
+CC_BIN="${CC:-cc}"
 
 fail() {
     echo "FAIL: $1" >&2
     exit 1
 }
 
-[ -f "$MINI_GMP" ] || fail "missing required file: ${MINI_GMP#"$PROJECT_ROOT/"}"
+[ -f "$MINI_GMP_DIR/mini-gmp.c" ] ||
+    fail "missing required file: ${MINI_GMP_DIR#"$PROJECT_ROOT/"}/mini-gmp.c"
 
-# The broken upstream form must not return: a free that hands size 0 to the hook.
-if grep -Eq 'gmp_free_func\)[[:space:]]*\(\([^,]*\),[[:space:]]*0[[:space:]]*\)' "$MINI_GMP"; then
-    fail "mini-gmp.c free hook passes size 0 again (breaks gmpMemInBytes accounting)."
+mkdir -p "$BUILD_DIR"
+
+SANITIZE=("-fsanitize=address,undefined" -fno-sanitize-recover=all)
+
+# build_contract_test MINI_GMP_C OUTPUT. The warning gate covers the test, not
+# the vendored mini-gmp.
+build_contract_test() {
+    "$CC_BIN" -std=gnu17 -O1 -g "${SANITIZE[@]}" -I"$MINI_GMP_DIR" \
+        -c "$1" -o "$2.mini-gmp.o"
+    "$CC_BIN" -std=gnu17 -O1 -g -Wall -Wextra -Werror "${SANITIZE[@]}" -I"$MINI_GMP_DIR" \
+        "$SCRIPT_DIR/mini_gmp_accounting_contract_test.c" "$2.mini-gmp.o" \
+        -o "$2"
+}
+
+# The upstream form: the free hook is handed size 0.
+size_zero_copy="$BUILD_DIR/mini-gmp-size-zero-free.c"
+sed 's/(\*gmp_free_func) (base, total);/(*gmp_free_func) (base, 0);/' \
+    "$MINI_GMP_DIR/mini-gmp.c" >"$size_zero_copy"
+cmp -s "$MINI_GMP_DIR/mini-gmp.c" "$size_zero_copy" &&
+    fail "could not seed the size-0 free into a copy of mini-gmp.c; the free hook call changed shape."
+build_contract_test "$size_zero_copy" "$BUILD_DIR/size-zero-free"
+if "$BUILD_DIR/size-zero-free" >"$BUILD_DIR/size-zero-free.log" 2>&1; then
+    fail "the accounting test passed on a mini-gmp whose free hands the hook size 0; it cannot see the defect it exists for."
 fi
 
-# The realloc hook must not pass old size 0 either.
-if grep -Eq 'gmp_reallocate_func\)[[:space:]]*\([^,]*,[[:space:]]*0[[:space:]]*,' "$MINI_GMP"; then
-    fail "mini-gmp.c realloc hook passes old size 0 again (breaks gmpMemInBytes accounting)."
-fi
-
-# The size-prefix header accounting must be present.
-grep -q 'R47_GMP_HDR' "$MINI_GMP" ||
-    fail "mini-gmp.c lost the R47_GMP_HDR size-prefix accounting header."
-grep -Eq 'old_total|new_total' "$MINI_GMP" ||
-    fail "mini-gmp.c realloc no longer carries the real old/new block size."
-
-echo "OK: mini-gmp keeps the size-prefix accounting header (no size-0 free/realloc)."
+echo "--- Running the mini-gmp accounting contract test ---"
+build_contract_test "$MINI_GMP_DIR/mini-gmp.c" "$BUILD_DIR/mini-gmp-accounting-contract"
+"$BUILD_DIR/mini-gmp-accounting-contract"

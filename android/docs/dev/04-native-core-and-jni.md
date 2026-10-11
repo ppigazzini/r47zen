@@ -100,7 +100,8 @@ The Android core links the vendored mini-gmp fallback, so
 and hand the real block size to the c47 `freeGmp`/`reallocGmp` accounting hooks;
 a stock mini-gmp passes size 0 there and fires the self-check on every
 operation. `run_mini_gmp_accounting_contract.sh` is the host contract that
-guards the header against a re-vendor.
+compiles that file with counting hooks and fails when a free or a realloc names
+a size other than its block's, so a re-vendor cannot drop the header.
 
 That `PC_BUILD` choice also makes the Android HAL responsible for any desktop-
 side helper symbols that upstream starts exporting through `src/c47/hal/*.h`.

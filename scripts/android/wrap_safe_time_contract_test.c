@@ -19,9 +19,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static int cases = 0;
 static int failures = 0;
 
 static void expect_bool(const char *label, bool actual, bool expected) {
+  cases++;
   if (actual != expected) {
     fprintf(stderr, "FAIL: %s: got %s, want %s\n", label,
             actual ? "true" : "false", expected ? "true" : "false");
@@ -30,6 +32,7 @@ static void expect_bool(const char *label, bool actual, bool expected) {
 }
 
 static void expect_u32(const char *label, uint32_t actual, uint32_t expected) {
+  cases++;
   if (actual != expected) {
     fprintf(stderr, "FAIL: %s: got %" PRIu32 ", want %" PRIu32 "\n", label,
             actual, expected);
@@ -100,10 +103,11 @@ int main(void) {
               false);
 
   if (failures != 0) {
-    fprintf(stderr, "FAIL: %d wrap-safe time case(s) failed\n", failures);
+    fprintf(stderr, "FAIL: %d of %d wrap-safe time cases failed\n", failures,
+            cases);
     return EXIT_FAILURE;
   }
 
-  printf("OK: wrap-safe time helpers satisfy all %d contract cases.\n", 21);
+  printf("OK: wrap-safe time helpers satisfy all %d contract cases.\n", cases);
   return EXIT_SUCCESS;
 }
