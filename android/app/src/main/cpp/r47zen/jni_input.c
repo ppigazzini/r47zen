@@ -129,9 +129,8 @@ bool r47_sanitize_graph_bounds_locked(void) {
   float ly = r47_graph_bound_to_float(y_min);
   float uy = r47_graph_bound_to_float(y_max);
 
-  if (!isfinite(lx) || !isfinite(ux) || !isfinite(ly) ||
-      !isfinite(uy) || fabsf(ux - lx) < 1.0e-6f ||
-      fabsf(uy - ly) < 1.0e-6f ||
+  if (!isfinite(lx) || !isfinite(ux) || !isfinite(ly) || !isfinite(uy) ||
+      fabsf(ux - lx) < 1.0e-6f || fabsf(uy - ly) < 1.0e-6f ||
       lx <= -r47_graph_bounds_limit || lx >= r47_graph_bounds_limit ||
       ux <= -r47_graph_bounds_limit || ux >= r47_graph_bounds_limit ||
       ly <= -r47_graph_bounds_limit || ly >= r47_graph_bounds_limit ||
@@ -169,9 +168,12 @@ static bool r47_graph_bounds_in_range(float nextXMin, float nextXMax,
                                       float nextYMin, float nextYMax) {
   return isfinite(nextXMin) && isfinite(nextXMax) && isfinite(nextYMin) &&
          isfinite(nextYMax) && nextXMin > -r47_graph_bounds_limit &&
-         nextXMin < r47_graph_bounds_limit && nextXMax > -r47_graph_bounds_limit &&
-         nextXMax < r47_graph_bounds_limit && nextYMin > -r47_graph_bounds_limit &&
-         nextYMin < r47_graph_bounds_limit && nextYMax > -r47_graph_bounds_limit &&
+         nextXMin < r47_graph_bounds_limit &&
+         nextXMax > -r47_graph_bounds_limit &&
+         nextXMax < r47_graph_bounds_limit &&
+         nextYMin > -r47_graph_bounds_limit &&
+         nextYMin < r47_graph_bounds_limit &&
+         nextYMax > -r47_graph_bounds_limit &&
          nextYMax < r47_graph_bounds_limit;
 }
 
@@ -228,8 +230,7 @@ static bool r47_zoom_update_bounds_locked(float scaleFactor) {
     return false;
   }
 
-  const float adjustedScale =
-      1.0f + (scaleFactor - 1.0f) * r47_graph_zoom_gain;
+  const float adjustedScale = 1.0f + (scaleFactor - 1.0f) * r47_graph_zoom_gain;
   if (!isfinite(adjustedScale) ||
       fabsf(adjustedScale - 1.0f) < r47_graph_scale_epsilon ||
       adjustedScale <= 0.0f) {
@@ -368,9 +369,12 @@ bool r47_graph_touch_no_nan_stress_locked(int iterations) {
 
     if (!isfinite(afterXMin) || !isfinite(afterXMax) || !isfinite(afterYMin) ||
         !isfinite(afterYMax) || afterXMin <= -r47_graph_bounds_limit ||
-        afterXMin >= r47_graph_bounds_limit || afterXMax <= -r47_graph_bounds_limit ||
-        afterXMax >= r47_graph_bounds_limit || afterYMin <= -r47_graph_bounds_limit ||
-        afterYMin >= r47_graph_bounds_limit || afterYMax <= -r47_graph_bounds_limit ||
+        afterXMin >= r47_graph_bounds_limit ||
+        afterXMax <= -r47_graph_bounds_limit ||
+        afterXMax >= r47_graph_bounds_limit ||
+        afterYMin <= -r47_graph_bounds_limit ||
+        afterYMin >= r47_graph_bounds_limit ||
+        afterYMax <= -r47_graph_bounds_limit ||
         afterYMax >= r47_graph_bounds_limit) {
       ok = false;
       break;
@@ -470,9 +474,8 @@ Java_io_github_ppigazzini_r47zen_MainActivity_sendSimFuncNative(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative(JNIEnv *env, jobject thiz,
-                                                                  jfloat dxNorm,
-                                                                  jfloat dyNorm) {
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative(
+    JNIEnv *env, jobject thiz, jfloat dxNorm, jfloat dyNorm) {
   (void)env;
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
@@ -482,9 +485,8 @@ Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative(JNIEnv *env, j
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
-                                                                        jobject thiz,
-                                                                        jfloat scaleFactor) {
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative(
+    JNIEnv *env, jobject thiz, jfloat scaleFactor) {
   (void)env;
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
@@ -494,11 +496,9 @@ Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative(JNIEnv *
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative(JNIEnv *env,
-                                                                      jobject thiz,
-                                                                      jfloat dxNorm,
-                                                                      jfloat dyNorm,
-                                                                      jfloat scaleFactor) {
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative(
+    JNIEnv *env, jobject thiz, jfloat dxNorm, jfloat dyNorm,
+    jfloat scaleFactor) {
   (void)env;
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
@@ -509,7 +509,8 @@ Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative(JNIEnv *en
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative(JNIEnv *env,
+                                                               jobject thiz) {
   (void)env;
   (void)thiz;
   pthread_mutex_lock(&screenMutex);
@@ -613,8 +614,8 @@ bool r47_direct_stop_allowed(uint16_t runState) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(JNIEnv *env,
-                                                                       jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(
+    JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
   if (!r47_runtime_ready()) {

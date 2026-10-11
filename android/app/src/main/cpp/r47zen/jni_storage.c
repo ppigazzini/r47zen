@@ -100,9 +100,8 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   fileDescriptor = -1;
   pthread_mutex_unlock(&fileMutex);
 
-  jstring nameObj =
-      jni_new_string_utf(env, defaultName ? defaultName : "", "",
-                         "requestAndroidFile NewStringUTF");
+  jstring nameObj = jni_new_string_utf(env, defaultName ? defaultName : "", "",
+                                       "requestAndroidFile NewStringUTF");
   if (nameObj == NULL) {
     jni_release_env(&scope, "requestAndroidFile");
     return failAndroidFileRequest(lockCount);
@@ -114,8 +113,7 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
     (*env)->DeleteLocalRef(env, nameObj);
   }
 
-  if (jni_check_and_clear_exception(env,
-                                    "requestAndroidFile CallVoidMethod")) {
+  if (jni_check_and_clear_exception(env, "requestAndroidFile CallVoidMethod")) {
     jni_release_env(&scope, "requestAndroidFile");
     return failAndroidFileRequest(lockCount);
   }
@@ -136,8 +134,9 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(
-    JNIEnv *env, jobject thiz, jint fd) {
+Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(JNIEnv *env,
+                                                                   jobject thiz,
+                                                                   jint fd) {
   (void)env;
   (void)thiz;
   LOGI("onFileSelectedNative(fd=%d)", fd);

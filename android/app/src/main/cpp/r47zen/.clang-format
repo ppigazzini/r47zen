@@ -1,0 +1,8 @@
+# Format for the Android-owned native glue (this directory and below). The
+# staged upstream core is not formatted here; upstream owns its style.
+BasedOnStyle: LLVM
+# Include order is meaning here: android_mocks.h is force-included, and several
+# files include upstream headers before the glue's own.
+SortIncludes: Never
+# Keep hand-laid comments, aligned tables and ASCII diagrams as written.
+ReflowComments: false

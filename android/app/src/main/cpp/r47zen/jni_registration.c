@@ -50,55 +50,72 @@ int register_main_activity_natives(JNIEnv *env) {
    */
   static const JNINativeMethod methods[] = {
       {"updateNativeActivityRef", "()V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef},
       {"releaseNativeRuntime", "()V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime},
       {"nativePreInit", "(Ljava/lang/String;)V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit},
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit},
       {"initNative", "(Ljava/lang/String;I)V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_initNative},
-       {"tick", "()I", (void *)Java_io_github_ppigazzini_r47zen_MainActivity_tick},
-       {"sendKey", "(I)V", (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendKey},
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_initNative},
+      {"tick", "()I",
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_tick},
+      {"sendKey", "(I)V",
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendKey},
       {"requestStopProgramNative", "()Z",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative},
       {"sendSimKeyNative", "(Ljava/lang/String;ZZ)V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative},
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative},
       {"sendSimMenuNative", "(I)V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimMenuNative},
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimMenuNative},
       {"sendSimFuncNative", "(I)V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimFuncNative},
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimFuncNative},
       {"applyGraphPanNative", "(FF)Z",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative},
       {"applyGraphPinchZoomNative", "(F)Z",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative},
       {"applyGraphPanZoomNative", "(FFF)Z",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative},
       {"resetGraphNative", "()Z",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative},
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative},
       {"saveStateNative", "()V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative},
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative},
       {"loadStateNative", "()V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative},
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative},
       {"setSlotNative", "(I)V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative},
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative},
       {"getClipboardXRegisterNative", "()Ljava/lang/String;",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative},
       {"getClipboardStackRegistersNative", "()Ljava/lang/String;",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative},
       {"getClipboardAllRegistersNative", "()Ljava/lang/String;",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative},
       {"getPackedDisplayGeneration", "()I",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration},
       {"getPackedDisplayBuffer", "([B)Z",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer},
       {"getKeypadSnapshotGeneration", "()I",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration},
       {"copyKeypadSnapshotNative", "(I[I[Ljava/lang/String;)Z",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative},
       {"onFileSelectedNative", "(I)V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative},
       {"onFileCancelledNative", "()V",
-        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_onFileCancelledNative},
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_onFileCancelledNative},
   };
 
   jclass clazz = (*env)->FindClass(env, MAIN_ACTIVITY_CLASS);

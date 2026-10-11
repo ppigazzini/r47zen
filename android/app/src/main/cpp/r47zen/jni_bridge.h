@@ -14,23 +14,23 @@
 #if defined(HOST_TOOL_BUILD)
 #define LOG_TAG "R47Native"
 #define LOGI(...)                                                              \
-    do {                                                                         \
-        fprintf(stderr, "I/%s: ", LOG_TAG);                                       \
-        fprintf(stderr, __VA_ARGS__);                                              \
-        fputc('\n', stderr);                                                      \
-    } while (0)
+  do {                                                                         \
+    fprintf(stderr, "I/%s: ", LOG_TAG);                                        \
+    fprintf(stderr, __VA_ARGS__);                                              \
+    fputc('\n', stderr);                                                       \
+  } while (0)
 #define LOGE(...)                                                              \
-    do {                                                                         \
-        fprintf(stderr, "E/%s: ", LOG_TAG);                                       \
-        fprintf(stderr, __VA_ARGS__);                                              \
-        fputc('\n', stderr);                                                      \
-    } while (0)
+  do {                                                                         \
+    fprintf(stderr, "E/%s: ", LOG_TAG);                                        \
+    fprintf(stderr, __VA_ARGS__);                                              \
+    fputc('\n', stderr);                                                       \
+  } while (0)
 #define LOGD(...)                                                              \
-    do {                                                                         \
-        fprintf(stderr, "D/%s: ", LOG_TAG);                                       \
-        fprintf(stderr, __VA_ARGS__);                                              \
-        fputc('\n', stderr);                                                      \
-    } while (0)
+  do {                                                                         \
+    fprintf(stderr, "D/%s: ", LOG_TAG);                                        \
+    fprintf(stderr, __VA_ARGS__);                                              \
+    fputc('\n', stderr);                                                       \
+  } while (0)
 #else
 #include <android/log.h>
 
@@ -61,114 +61,114 @@ extern jmethodID g_processCoreTasksId;
 extern jmethodID g_fileWriteFailedId;
 
 typedef struct {
-    JNIEnv *env;
-    bool attached_here;
+  JNIEnv *env;
+  bool attached_here;
 } jni_env_scope_t;
 
 static inline bool jni_check_and_clear_exception(JNIEnv *env,
-                                                                                                 const char *context) {
-    if (!env || !(*env)->ExceptionCheck(env)) {
-        return false;
-    }
+                                                 const char *context) {
+  if (!env || !(*env)->ExceptionCheck(env)) {
+    return false;
+  }
 
-    LOGE("%s: pending Java exception", context);
-    (*env)->ExceptionDescribe(env);
-    (*env)->ExceptionClear(env);
-    return true;
+  LOGE("%s: pending Java exception", context);
+  (*env)->ExceptionDescribe(env);
+  (*env)->ExceptionClear(env);
+  return true;
 }
 
 static inline bool jni_result_ok(JNIEnv *env, const void *result,
-                                                                 const char *context) {
-    if (result == NULL) {
-        LOGE("%s returned NULL", context);
-    }
-    if (jni_check_and_clear_exception(env, context)) {
-        return false;
-    }
-    return result != NULL;
+                                 const char *context) {
+  if (result == NULL) {
+    LOGE("%s returned NULL", context);
+  }
+  if (jni_check_and_clear_exception(env, context)) {
+    return false;
+  }
+  return result != NULL;
 }
 
 static inline bool jni_acquire_env(jni_env_scope_t *scope,
-                                                                     const char *context) {
-    if (scope == NULL) {
-        LOGE("%s: scope is NULL", context);
-        return false;
-    }
+                                   const char *context) {
+  if (scope == NULL) {
+    LOGE("%s: scope is NULL", context);
+    return false;
+  }
 
-    scope->env = NULL;
-    scope->attached_here = false;
-    if (g_jvm == NULL) {
-        LOGE("%s: JVM reference is NULL", context);
-        return false;
-    }
+  scope->env = NULL;
+  scope->attached_here = false;
+  if (g_jvm == NULL) {
+    LOGE("%s: JVM reference is NULL", context);
+    return false;
+  }
 
-    jint result = (*g_jvm)->GetEnv(g_jvm, (void **)&scope->env, JNI_VERSION_1_6);
-    if (result == JNI_OK && scope->env != NULL) {
-        return true;
-    }
-
-    if (result != JNI_EDETACHED) {
-        LOGE("%s: GetEnv failed (%d)", context, result);
-        return false;
-    }
-
-    // The two jni.h copies disagree on this out parameter: the NDK declares
-    // AttachCurrentThread(JavaVM*, JNIEnv**, void*) while the host JDK declares
-    // (JavaVM*, void**, void*), and the host workload lane compiles this header
-    // against the JDK copy. void * converts to either without a diagnostic; a
-    // void ** cast would be right for only one of them, and passing &scope->env
-    // bare is right for only the other -- which is why the JDK build warned here
-    // on GCC 13 and failed outright on GCC 14. GetEnv needs no such care: both
-    // headers declare its out parameter void **.
-    jint attach_result =
-        (*g_jvm)->AttachCurrentThread(g_jvm, (void *)&scope->env, NULL);
-    if (attach_result != JNI_OK || scope->env == NULL) {
-        LOGE("%s: AttachCurrentThread failed (%d)", context, attach_result);
-        scope->env = NULL;
-        return false;
-    }
-
-    scope->attached_here = true;
+  jint result = (*g_jvm)->GetEnv(g_jvm, (void **)&scope->env, JNI_VERSION_1_6);
+  if (result == JNI_OK && scope->env != NULL) {
     return true;
+  }
+
+  if (result != JNI_EDETACHED) {
+    LOGE("%s: GetEnv failed (%d)", context, result);
+    return false;
+  }
+
+  // The two jni.h copies disagree on this out parameter: the NDK declares
+  // AttachCurrentThread(JavaVM*, JNIEnv**, void*) while the host JDK declares
+  // (JavaVM*, void**, void*), and the host workload lane compiles this header
+  // against the JDK copy. void * converts to either without a diagnostic; a
+  // void ** cast would be right for only one of them, and passing &scope->env
+  // bare is right for only the other -- which is why the JDK build warned here
+  // on GCC 13 and failed outright on GCC 14. GetEnv needs no such care: both
+  // headers declare its out parameter void **.
+  jint attach_result =
+      (*g_jvm)->AttachCurrentThread(g_jvm, (void *)&scope->env, NULL);
+  if (attach_result != JNI_OK || scope->env == NULL) {
+    LOGE("%s: AttachCurrentThread failed (%d)", context, attach_result);
+    scope->env = NULL;
+    return false;
+  }
+
+  scope->attached_here = true;
+  return true;
 }
 
 static inline void jni_release_env(jni_env_scope_t *scope,
-                                                                     const char *context) {
-    if (scope == NULL) {
-        return;
-    }
+                                   const char *context) {
+  if (scope == NULL) {
+    return;
+  }
 
-    if (scope->attached_here && g_jvm != NULL) {
-        jint detach_result = (*g_jvm)->DetachCurrentThread(g_jvm);
-        if (detach_result != JNI_OK) {
-            LOGE("%s: DetachCurrentThread failed (%d)", context, detach_result);
-        }
+  if (scope->attached_here && g_jvm != NULL) {
+    jint detach_result = (*g_jvm)->DetachCurrentThread(g_jvm);
+    if (detach_result != JNI_OK) {
+      LOGE("%s: DetachCurrentThread failed (%d)", context, detach_result);
     }
+  }
 
-    scope->env = NULL;
-    scope->attached_here = false;
+  scope->env = NULL;
+  scope->attached_here = false;
 }
 
 static inline jstring jni_new_string_utf(JNIEnv *env, const char *value,
-                                                                                 const char *fallback,
-                                                                                 const char *context) {
-    jstring result = (*env)->NewStringUTF(env, value ? value : "");
-    if (result != NULL && !jni_check_and_clear_exception(env, context)) {
-        return result;
-    }
+                                         const char *fallback,
+                                         const char *context) {
+  jstring result = (*env)->NewStringUTF(env, value ? value : "");
+  if (result != NULL && !jni_check_and_clear_exception(env, context)) {
+    return result;
+  }
 
-    if (fallback == NULL) {
-        return NULL;
-    }
-
-    LOGE("%s: falling back to a default Java string", context);
-    result = (*env)->NewStringUTF(env, fallback);
-    if (result != NULL &&
-            !jni_check_and_clear_exception(env, "jni_new_string_utf fallback")) {
-        return result;
-    }
-
+  if (fallback == NULL) {
     return NULL;
+  }
+
+  LOGE("%s: falling back to a default Java string", context);
+  result = (*env)->NewStringUTF(env, fallback);
+  if (result != NULL &&
+      !jni_check_and_clear_exception(env, "jni_new_string_utf fallback")) {
+    return result;
+  }
+
+  return NULL;
 }
 
 extern pthread_mutex_t fileMutex;
@@ -225,40 +225,39 @@ int register_main_activity_natives(JNIEnv *env);
 void releaseNativeActivityReferences(JNIEnv *env);
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(JNIEnv *env,
-                                                                      jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(
+    JNIEnv *env, jobject thiz);
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime(JNIEnv *env,
-                                                                   jobject thiz);
-JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(
-    JNIEnv *env, jobject thiz, jstring path_obj);
+Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime(
+    JNIEnv *env, jobject thiz);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(JNIEnv *env,
+                                                            jobject thiz,
+                                                            jstring path_obj);
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
     JNIEnv *env, jobject thiz, jstring pathObj, jint slotId);
-JNIEXPORT jint JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_tick(
-    JNIEnv *env, jobject thiz);
+JNIEXPORT jint JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_tick(JNIEnv *env, jobject thiz);
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
     JNIEnv *env, jobject thiz, jint keyCode);
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative(JNIEnv *env,
-                                                                  jobject thiz,
-                                                                  jfloat dxNorm,
-                                                                  jfloat dyNorm);
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative(
+    JNIEnv *env, jobject thiz, jfloat dxNorm, jfloat dyNorm);
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative(JNIEnv *env,
-                                                                        jobject thiz,
-                                                                        jfloat scaleFactor);
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative(
+    JNIEnv *env, jobject thiz, jfloat scaleFactor);
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative(JNIEnv *env,
-                                                                      jobject thiz,
-                                                                      jfloat dxNorm,
-                                                                      jfloat dyNorm,
-                                                                      jfloat scaleFactor);
+Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative(
+    JNIEnv *env, jobject thiz, jfloat dxNorm, jfloat dyNorm,
+    jfloat scaleFactor);
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative(JNIEnv *env, jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative(JNIEnv *env,
+                                                               jobject thiz);
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(JNIEnv *env,
-                                                                       jobject thiz);
-JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(
+    JNIEnv *env, jobject thiz);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease);
 JNIEXPORT void JNICALL
@@ -275,27 +274,28 @@ Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative(JNIEnv *env,
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative(JNIEnv *env,
                                                               jobject thiz);
-JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative(
-    JNIEnv *env, jobject thiz, jint slot);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative(JNIEnv *env,
+                                                            jobject thiz,
+                                                            jint slot);
 JNIEXPORT jstring JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative(JNIEnv *env,
-                                                                          jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative(
+    JNIEnv *env, jobject thiz);
 JNIEXPORT jstring JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative(JNIEnv *env,
-                                                                               jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative(
+    JNIEnv *env, jobject thiz);
 JNIEXPORT jstring JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative(JNIEnv *env,
-                                                                             jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative(
+    JNIEnv *env, jobject thiz);
 JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration(JNIEnv *env,
-                                                                         jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration(
+    JNIEnv *env, jobject thiz);
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(JNIEnv *env,
-                                                                     jobject thiz,
-                                                                     jbyteArray buffer);
+Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(
+    JNIEnv *env, jobject thiz, jbyteArray buffer);
 JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
-                                                                          jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration(
+    JNIEnv *env, jobject thiz);
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative(
     JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
@@ -305,7 +305,7 @@ Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(JNIEnv *env,
                                                                    jobject thiz,
                                                                    jint fd);
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_onFileCancelledNative(JNIEnv *env,
-                                                                    jobject thiz);
+Java_io_github_ppigazzini_r47zen_MainActivity_onFileCancelledNative(
+    JNIEnv *env, jobject thiz);
 
 #endif

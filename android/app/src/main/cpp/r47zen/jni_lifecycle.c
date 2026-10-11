@@ -40,8 +40,8 @@ void releaseNativeActivityReferences(JNIEnv *env) {
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(JNIEnv *env,
-                                                                      jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(
+    JNIEnv *env, jobject thiz) {
   LOGI("updateNativeActivityRef called");
 
   releaseNativeActivityReferences(env);
@@ -95,18 +95,21 @@ Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(JNIEnv *en
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime(JNIEnv *env,
-                                                                   jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime(
+    JNIEnv *env, jobject thiz) {
   (void)thiz;
   LOGI("releaseNativeRuntime called");
   releaseNativeActivityReferences(env);
 }
 
-JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(
-    JNIEnv *env, jobject thiz, jstring path_obj) {
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(JNIEnv *env,
+                                                            jobject thiz,
+                                                            jstring path_obj) {
   (void)thiz;
   const char *path = (*env)->GetStringUTFChars(env, path_obj, NULL);
-  if (!jni_result_ok(env, (const void *)path, "GetStringUTFChars(nativePreInit path)")) {
+  if (!jni_result_ok(env, (const void *)path,
+                     "GetStringUTFChars(nativePreInit path)")) {
     return;
   }
   r47_native_preinit_path(path);
@@ -169,7 +172,8 @@ void r47_init_runtime(int slotId) {
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
     JNIEnv *env, jobject thiz, jstring pathObj, jint slotId) {
   (void)pathObj;
-  Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(env, thiz);
+  Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(env,
+                                                                        thiz);
   r47_init_runtime(slotId);
 }
 
@@ -184,8 +188,8 @@ static jint r47_next_tick_delay_ms(uint32_t now) {
   return (jint)r47_ms_until_deadline(now, next_due);
 }
 
-JNIEXPORT jint JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_tick(
-  JNIEnv *env, jobject thiz) {
+JNIEXPORT jint JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_tick(JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
   uint32_t now = sys_current_ms();
@@ -244,7 +248,8 @@ Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative(JNIEnv *env,
     LOGI("loadStateNative: sanitized restored graph bounds");
   }
   extern void scanLabelsAndPrograms(void);
-  extern void defineCurrentProgramFromGlobalStepNumber(int16_t globalStepNumber);
+  extern void defineCurrentProgramFromGlobalStepNumber(
+      int16_t globalStepNumber);
   extern void defineCurrentStep(void);
   extern void defineFirstDisplayedStep(void);
   extern void defineCurrentProgramFromCurrentStep(void);
@@ -268,9 +273,7 @@ Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative(JNIEnv *env,
   pthread_mutex_unlock(&screenMutex);
 }
 
-void r47_save_background_state_locked(void) {
-  saveCalc();
-}
+void r47_save_background_state_locked(void) { saveCalc(); }
 
 void r47_force_refresh(void) {
   if (!ram) {
@@ -285,8 +288,10 @@ void r47_force_refresh(void) {
   pthread_mutex_unlock(&screenMutex);
 }
 
-JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative(
-    JNIEnv *env, jobject thiz, jint slot) {
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative(JNIEnv *env,
+                                                            jobject thiz,
+                                                            jint slot) {
   (void)env;
   (void)thiz;
   extern int current_slot_id;

@@ -55,7 +55,8 @@ static gboolean androidMockTimeoutReady(void) {
 }
 
 static gboolean pumpAndroidMockTimeout(void) {
-  if (!g_android_mock_timeout.active || g_android_mock_timeout.callback == NULL) {
+  if (!g_android_mock_timeout.active ||
+      g_android_mock_timeout.callback == NULL) {
     return FALSE;
   }
 
@@ -122,11 +123,13 @@ uint32_t sys_current_ms(void) {
   clock_gettime(CLOCK_MONOTONIC, &ts);
   // Widen before multiplying: a 32-bit time_t overflows tv_sec * 1000 after
   // 24.8 days of uptime. The uint32_t result wraps by design (r47_time.h).
-  return (uint32_t)((uint64_t)ts.tv_sec * 1000u + (uint64_t)ts.tv_nsec / 1000000u);
+  return (uint32_t)((uint64_t)ts.tv_sec * 1000u +
+                    (uint64_t)ts.tv_nsec / 1000000u);
 }
 
 void r47_request_stop_refresh(void) {
-  atomic_store_explicit(&g_r47_stop_refresh_pending, true, memory_order_relaxed);
+  atomic_store_explicit(&g_r47_stop_refresh_pending, true,
+                        memory_order_relaxed);
 }
 
 bool r47_apply_pending_stop_refresh_locked(void) {

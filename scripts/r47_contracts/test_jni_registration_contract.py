@@ -30,7 +30,7 @@ _JNI_REGISTRATION: Final = ANDROID_CPP_ROOT / "jni_registration.c"
 _MAIN_ACTIVITY: Final = KOTLIN_R47ZEN_ROOT / "MainActivity.kt"
 _NATIVE_METHOD: Final = re.compile(r'\{"(\w+)",\s*"\(')
 _NATIVE_BINDING: Final = re.compile(
-    r'\{"(?P<name>\w+)",\s*"[^"]+",\s*\(void \*\)'
+    r'\{"(?P<name>\w+)",\s*"[^"]+",\s*\(void \*\)\s*'
     r"Java_io_github_ppigazzini_r47zen_MainActivity_(?P<impl>\w+)\}",
 )
 _KOTLIN_EXTERNAL_FUN: Final = re.compile(r"external fun (\w+)")

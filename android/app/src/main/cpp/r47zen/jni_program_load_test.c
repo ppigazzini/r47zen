@@ -18,7 +18,8 @@ enum {
   R47_PROGRAM_LOAD_LCD_REFRESH_INDEX = 6,
 };
 
-static pthread_mutex_t r47_program_load_worker_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t r47_program_load_worker_mutex =
+    PTHREAD_MUTEX_INITIALIZER;
 static bool_t r47_program_load_worker_running = false;
 
 typedef struct {
@@ -26,7 +27,7 @@ typedef struct {
 } r47_program_load_key_sequence_t;
 
 static const char *const kR47LargeFactorsInput =
-  "5424563354566542698521412502251020304050";
+    "5424563354566542698521412502251020304050";
 
 extern char *getXRegisterString(void);
 
@@ -49,7 +50,8 @@ static void *r47_program_load_key_worker_main(void *arg) {
   r47_program_load_key_sequence_t *request =
       (r47_program_load_key_sequence_t *)arg;
 
-  Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, request->key_code);
+  Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL,
+                                                        request->key_code);
   Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, 0);
   free(request);
 
@@ -91,7 +93,8 @@ static uint64_t r47_capture_display_hash_locked(void) {
   uint64_t hash = 1469598103934665603ULL;
   pthread_mutex_lock(&packedDisplayMutex);
   for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
-    const uint8_t *snapshot_line = packedDisplayBuffer + row * LCD_ROW_SIZE_BYTES;
+    const uint8_t *snapshot_line =
+        packedDisplayBuffer + row * LCD_ROW_SIZE_BYTES;
     for (size_t byte_index = 2; byte_index < LCD_ROW_SIZE_BYTES; byte_index++) {
       hash ^= snapshot_line[byte_index];
       hash *= 1099511628211ULL;
@@ -101,8 +104,8 @@ static uint64_t r47_capture_display_hash_locked(void) {
   return hash;
 }
 
-static void r47_fill_program_load_state_values(
-    jint values[R47_PROGRAM_LOAD_STATE_LENGTH]) {
+static void
+r47_fill_program_load_state_values(jint values[R47_PROGRAM_LOAD_STATE_LENGTH]) {
   values[R47_PROGRAM_LOAD_LAST_ERROR_INDEX] = (jint)lastErrorCode;
   values[R47_PROGRAM_LOAD_TEMP_INFO_INDEX] = (jint)temporaryInformation;
   values[R47_PROGRAM_LOAD_RUN_STOP_INDEX] = (jint)programRunStop;
@@ -117,15 +120,14 @@ static jintArray r47_new_program_load_state_array(
     JNIEnv *env, const jint values[R47_PROGRAM_LOAD_STATE_LENGTH]) {
   jintArray result = (*env)->NewIntArray(env, R47_PROGRAM_LOAD_STATE_LENGTH);
   if (result == NULL ||
-      jni_check_and_clear_exception(env,
-                                    "ProgramLoadTestBridge.NewIntArray")) {
+      jni_check_and_clear_exception(env, "ProgramLoadTestBridge.NewIntArray")) {
     return NULL;
   }
 
   (*env)->SetIntArrayRegion(env, result, 0, R47_PROGRAM_LOAD_STATE_LENGTH,
                             values);
-  if (jni_check_and_clear_exception(env,
-                                    "ProgramLoadTestBridge.SetIntArrayRegion")) {
+  if (jni_check_and_clear_exception(
+          env, "ProgramLoadTestBridge.SetIntArrayRegion")) {
     return NULL;
   }
 
@@ -272,7 +274,8 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_backgroundSaveKeepsInject
   uint64_t after_save = r47_capture_display_hash_locked();
   pthread_mutex_unlock(&screenMutex);
 
-  return (before_save == after_save && before_save != 0u) ? JNI_TRUE : JNI_FALSE;
+  return (before_save == after_save && before_save != 0u) ? JNI_TRUE
+                                                          : JNI_FALSE;
 }
 
 // Injects the deterministic non-trivial framebuffer pattern and returns its hash,
@@ -538,7 +541,8 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_requestStopProgramNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
 
-  return Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(env, NULL);
+  return Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(
+      env, NULL);
 }
 
 // Pure, side-effect-free probe of the out-of-band direct-stop run-state gate, so

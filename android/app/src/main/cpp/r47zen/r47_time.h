@@ -42,8 +42,7 @@ static inline bool r47_ms_deadline_reached(uint32_t now_ms,
 static inline uint32_t r47_ms_until_deadline(uint32_t now_ms,
                                              uint32_t deadline_ms) {
   uint32_t remaining = deadline_ms - now_ms;
-  if (deadline_ms == 0u || remaining == 0u ||
-      remaining >= R47_MS_HALF_RANGE) {
+  if (deadline_ms == 0u || remaining == 0u || remaining >= R47_MS_HALF_RANGE) {
     return 0u;
   }
   return remaining;

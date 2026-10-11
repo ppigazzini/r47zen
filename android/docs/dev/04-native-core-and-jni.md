@@ -36,7 +36,10 @@ shipping builds on the optimized shared-library path while debug builds stay on
 the normal non-LTO lane.
 
 The Android-owned glue (`ANDROID_SOURCES`: `r47zen/*.c` and `r47zen/hal/*.c`)
-compiles with `-Wall -Wextra`; the staged upstream sources keep upstream's
+follows `r47zen/.clang-format` (LLVM style, includes kept in their order,
+comments as written); `scripts/android/check_native_format.sh` checks it with
+the pinned NDK's `clang-format`, and `--fix` applies it. The glue compiles
+with `-Wall -Wextra`; the staged upstream sources keep upstream's
 warning level. The flags stop short of `-Werror` because the glue includes
 upstream headers, so a new warning from an upstream commit would otherwise break
 the build with no commit here. `r47zen/android_mocks.h` reaches every

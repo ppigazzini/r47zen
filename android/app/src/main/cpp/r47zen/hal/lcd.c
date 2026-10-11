@@ -37,13 +37,9 @@ _Atomic uint32_t keypadSnapshotGeneration = 0;
 
 static uint64_t hostLcdRefreshCount = 0;
 
-uint64_t r47_get_host_lcd_refresh_count(void) {
-  return hostLcdRefreshCount;
-}
+uint64_t r47_get_host_lcd_refresh_count(void) { return hostLcdRefreshCount; }
 
-void r47_reset_host_lcd_refresh_count(void) {
-  hostLcdRefreshCount = 0;
-}
+void r47_reset_host_lcd_refresh_count(void) { hostLcdRefreshCount = 0; }
 
 bool lcd_try_take_packed_snapshot(uint8_t *dst) {
   if (!packedDisplayBuffer || !dst) {
@@ -89,11 +85,13 @@ void init_lcd_buffers() {
   }
 
   atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
-  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u, memory_order_relaxed);
+  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u,
+                            memory_order_relaxed);
 }
 
 uint8_t *lcd_line_addr(int row) {
-  if (!lcd_buffer) return NULL;
+  if (!lcd_buffer)
+    return NULL;
   lcd_buffer[LCD_ROW_SIZE_BYTES * row] = 1u;
   return lcd_buffer + row * LCD_ROW_SIZE_BYTES + 2;
 }
@@ -110,7 +108,8 @@ void LCD_write_line(uint8_t *line_buf) {
 
   const size_t buffer_row = (size_t)(SCREEN_HEIGHT - row_id - 1u);
   pthread_mutex_lock(&packedDisplayMutex);
-  uint8_t *snapshot_line = packedDisplayBuffer + buffer_row * LCD_ROW_SIZE_BYTES;
+  uint8_t *snapshot_line =
+      packedDisplayBuffer + buffer_row * LCD_ROW_SIZE_BYTES;
   // lcd_buffer follows the DMCP polarity upstream adopted in 1560394c, a 1 bit
   // is a white pixel, while the packed snapshot keeps a 1 bit as a dark one,
   // which is what PackedLcdRaster paints as text. Invert on the copy, so the
@@ -129,7 +128,8 @@ void LCD_write_line(uint8_t *line_buf) {
   // ReplicaOverlay compares rows again.
   if (changed) {
     snapshot_line[0] = 1u;
-    atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
+    atomic_fetch_add_explicit(&packedDisplayGeneration, 1u,
+                              memory_order_relaxed);
   }
   // The keypad snapshot generation MUST bump on every screen refresh, not only
   // on input. Dynamic softmenus (notably the EQN editor, MNU_EQN) rebuild their
@@ -138,12 +138,14 @@ void LCD_write_line(uint8_t *line_buf) {
   // EQN softkeys stale (wrong buttons) until the display loop's 500 ms fallback.
   // Keep this coupled to the refresh so the consumer re-reads the keypad whenever
   // the screen -- and therefore possibly the softkeys -- changes.
-  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u, memory_order_relaxed);
+  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u,
+                            memory_order_relaxed);
   pthread_mutex_unlock(&packedDisplayMutex);
 }
 
 void lcd_clear_buf() {
-  if (!lcd_buffer) return;
+  if (!lcd_buffer)
+    return;
   for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
     uint8_t *line_buf = lcd_buffer + LCD_ROW_SIZE_BYTES * row;
     for (uint8_t column = 2; column < LCD_ROW_SIZE_BYTES; column++) {
@@ -156,7 +158,8 @@ void lcd_clear_buf() {
 }
 
 void lcd_refresh() {
-  if (!lcd_buffer) return;
+  if (!lcd_buffer)
+    return;
   hostLcdRefreshCount++;
   for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
     if (lcd_buffer[LCD_ROW_SIZE_BYTES * row]) {
@@ -166,17 +169,23 @@ void lcd_refresh() {
 }
 
 void lcd_refresh_lines(uint8_t ln, uint8_t cnt) {
-  if (!lcd_buffer) return;
+  if (!lcd_buffer)
+    return;
   for (uint8_t row = ln; row < ln + cnt && row < SCREEN_HEIGHT; row++) {
     LCD_write_line(&lcd_buffer[LCD_ROW_SIZE_BYTES * row]);
   }
 }
 
-void bitblt24(uint32_t x, uint32_t dx, uint32_t y, uint32_t val, int blt_op, int fill) {
-  if (!lcd_buffer) return;
-  if (dx < 1 || dx > 24) return;
-  if (x >= SCREEN_WIDTH || x + dx > SCREEN_WIDTH) return;
-  if (y >= SCREEN_HEIGHT) return; // guard the row like the column above
+void bitblt24(uint32_t x, uint32_t dx, uint32_t y, uint32_t val, int blt_op,
+              int fill) {
+  if (!lcd_buffer)
+    return;
+  if (dx < 1 || dx > 24)
+    return;
+  if (x >= SCREEN_WIDTH || x + dx > SCREEN_WIDTH)
+    return;
+  if (y >= SCREEN_HEIGHT)
+    return; // guard the row like the column above
   x = SCREEN_WIDTH - dx - x;
   const uint32_t byte_i = x >> 3;
   const uint32_t bit_off = x & 7u;
@@ -205,24 +214,28 @@ void bitblt24(uint32_t x, uint32_t dx, uint32_t y, uint32_t val, int blt_op, int
   };
   uint8_t *j = &lcd_buffer[y * LCD_ROW_SIZE_BYTES + byte_i + 2];
   switch (blt_op) {
-    case BLT_OR:
-      for (uint32_t i = 0; i < bytes_needed; i++) j[i] = (j[i] | fillbytes[i]) & ~srcbytes[i];
-      break;
-    case BLT_XOR:
-      for (uint32_t i = 0; i < bytes_needed; i++) j[i] ^= srcbytes[i];
-      break;
-    case BLT_ANDN:
-      for (uint32_t i = 0; i < bytes_needed; i++) j[i] = (j[i] & ~fillbytes[i]) | srcbytes[i];
-      break;
-    default:
-      return;
+  case BLT_OR:
+    for (uint32_t i = 0; i < bytes_needed; i++)
+      j[i] = (j[i] | fillbytes[i]) & ~srcbytes[i];
+    break;
+  case BLT_XOR:
+    for (uint32_t i = 0; i < bytes_needed; i++)
+      j[i] ^= srcbytes[i];
+    break;
+  case BLT_ANDN:
+    for (uint32_t i = 0; i < bytes_needed; i++)
+      j[i] = (j[i] & ~fillbytes[i]) | srcbytes[i];
+    break;
+  default:
+    return;
   }
   lcd_buffer[y * LCD_ROW_SIZE_BYTES] = 1u;
 }
 
 void lcd_fill_rect(uint32_t x, uint32_t y, uint32_t dx, uint32_t dy, int val) {
   uint32_t line, col, cols, endX = x + dx, endY = y + dy;
-  if (endX > SCREEN_WIDTH || endY > SCREEN_HEIGHT) return;
+  if (endX > SCREEN_WIDTH || endY > SCREEN_HEIGHT)
+    return;
   int blt_op = val ? BLT_OR : BLT_ANDN;
   for (col = x; col < endX; col += 24) {
     cols = (24 < endX - col) ? 24 : (endX - col);
@@ -233,7 +246,11 @@ void lcd_fill_rect(uint32_t x, uint32_t y, uint32_t dx, uint32_t dy, int val) {
 }
 
 void _lcdRefresh(void) { lcd_refresh(); }
-void _lcdBandRefresh(uint32_t y, uint32_t dy) { (void)y; (void)dy; lcd_refresh(); }
+void _lcdBandRefresh(uint32_t y, uint32_t dy) {
+  (void)y;
+  (void)dy;
+  lcd_refresh();
+}
 void _lcdSBRefresh(void) { lcd_refresh(); }
 void refresh_gui(void) {}
 

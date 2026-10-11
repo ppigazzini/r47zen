@@ -611,6 +611,12 @@ jobs:
           done
           exit "$status"
 
+      - name: Check native glue formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/android/check_native_format.sh
+
       - name: Run Android lint
         shell: bash
         run: |

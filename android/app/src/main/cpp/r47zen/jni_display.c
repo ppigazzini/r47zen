@@ -50,45 +50,45 @@ enum {
   KEYPAD_META_SHOW_VALUE_OFFSET = R47_KEYPAD_META_SHOW_VALUE_OFFSET,
   KEYPAD_META_LENGTH = R47_KEYPAD_META_LENGTH,
 
-    KEYPAD_STYLE_DEFAULT = 0,
-    KEYPAD_STYLE_SOFTKEY = 1,
-    KEYPAD_STYLE_SHIFT_F = 2,
-    KEYPAD_STYLE_SHIFT_G = 3,
-    KEYPAD_STYLE_SHIFT_FG = 4,
-    KEYPAD_STYLE_NUMERIC = 5,
-    KEYPAD_STYLE_ALPHA = 6,
+  KEYPAD_STYLE_DEFAULT = 0,
+  KEYPAD_STYLE_SOFTKEY = 1,
+  KEYPAD_STYLE_SHIFT_F = 2,
+  KEYPAD_STYLE_SHIFT_G = 3,
+  KEYPAD_STYLE_SHIFT_FG = 4,
+  KEYPAD_STYLE_NUMERIC = 5,
+  KEYPAD_STYLE_ALPHA = 6,
 
-    KEYPAD_TEXT_ROLE_NONE = 0,
-    KEYPAD_TEXT_ROLE_PRIMARY = 1,
-    KEYPAD_TEXT_ROLE_F = 2,
-    KEYPAD_TEXT_ROLE_G = 3,
-    KEYPAD_TEXT_ROLE_LETTER = 4,
-    KEYPAD_TEXT_ROLE_F_UNDERLINE = 5,
-    KEYPAD_TEXT_ROLE_G_UNDERLINE = 6,
-    KEYPAD_TEXT_ROLE_LONGPRESS = 7,
-    KEYPAD_TEXT_ROLE_SOFTKEY = 8,
+  KEYPAD_TEXT_ROLE_NONE = 0,
+  KEYPAD_TEXT_ROLE_PRIMARY = 1,
+  KEYPAD_TEXT_ROLE_F = 2,
+  KEYPAD_TEXT_ROLE_G = 3,
+  KEYPAD_TEXT_ROLE_LETTER = 4,
+  KEYPAD_TEXT_ROLE_F_UNDERLINE = 5,
+  KEYPAD_TEXT_ROLE_G_UNDERLINE = 6,
+  KEYPAD_TEXT_ROLE_LONGPRESS = 7,
+  KEYPAD_TEXT_ROLE_SOFTKEY = 8,
 
-    KEYPAD_LAYOUT_CLASS_DEFAULT = 0,
-    KEYPAD_LAYOUT_CLASS_PACKED = 1,
-    KEYPAD_LAYOUT_CLASS_OFFSET = 2,
-    KEYPAD_LAYOUT_CLASS_EDGE = 3,
-    KEYPAD_LAYOUT_CLASS_ALPHA = 4,
-    KEYPAD_LAYOUT_CLASS_TAM = 5,
-    KEYPAD_LAYOUT_CLASS_STATIC_SINGLE = 6,
-    KEYPAD_LAYOUT_CLASS_SOFTKEY = 7,
+  KEYPAD_LAYOUT_CLASS_DEFAULT = 0,
+  KEYPAD_LAYOUT_CLASS_PACKED = 1,
+  KEYPAD_LAYOUT_CLASS_OFFSET = 2,
+  KEYPAD_LAYOUT_CLASS_EDGE = 3,
+  KEYPAD_LAYOUT_CLASS_ALPHA = 4,
+  KEYPAD_LAYOUT_CLASS_TAM = 5,
+  KEYPAD_LAYOUT_CLASS_STATIC_SINGLE = 6,
+  KEYPAD_LAYOUT_CLASS_SOFTKEY = 7,
 
-    KEYPAD_SCENE_FLAG_SOFTKEY = 1 << 0,
-    KEYPAD_SCENE_FLAG_REVERSE_VIDEO = 1 << 1,
-    KEYPAD_SCENE_FLAG_TOP_LINE = 1 << 2,
-    KEYPAD_SCENE_FLAG_BOTTOM_LINE = 1 << 3,
-    KEYPAD_SCENE_FLAG_SHOW_CB = 1 << 4,
-    KEYPAD_SCENE_FLAG_SHOW_TEXT = 1 << 5,
-    KEYPAD_SCENE_FLAG_SHOW_VALUE = 1 << 6,
-    KEYPAD_SCENE_FLAG_STRIKE_OUT = 1 << 7,
-    KEYPAD_SCENE_FLAG_STRIKE_THROUGH = 1 << 8,
-    KEYPAD_SCENE_FLAG_MENU = 1 << 9,
-    KEYPAD_SCENE_FLAG_PREVIEW_TARGET = 1 << 10,
-    KEYPAD_SCENE_FLAG_DOTTED_ROW = 1 << 11,
+  KEYPAD_SCENE_FLAG_SOFTKEY = 1 << 0,
+  KEYPAD_SCENE_FLAG_REVERSE_VIDEO = 1 << 1,
+  KEYPAD_SCENE_FLAG_TOP_LINE = 1 << 2,
+  KEYPAD_SCENE_FLAG_BOTTOM_LINE = 1 << 3,
+  KEYPAD_SCENE_FLAG_SHOW_CB = 1 << 4,
+  KEYPAD_SCENE_FLAG_SHOW_TEXT = 1 << 5,
+  KEYPAD_SCENE_FLAG_SHOW_VALUE = 1 << 6,
+  KEYPAD_SCENE_FLAG_STRIKE_OUT = 1 << 7,
+  KEYPAD_SCENE_FLAG_STRIKE_THROUGH = 1 << 8,
+  KEYPAD_SCENE_FLAG_MENU = 1 << 9,
+  KEYPAD_SCENE_FLAG_PREVIEW_TARGET = 1 << 10,
+  KEYPAD_SCENE_FLAG_DOTTED_ROW = 1 << 11,
 };
 
 // Upstream's softkey-label resolver changeSoftKey() became a file-local static at
@@ -105,8 +105,8 @@ extern int16_t fnItemShowValue(int16_t item);
 extern char *figlabel(const char *label, const char *showText,
                       int16_t showValue);
 extern bool_t itemNotAvail(int16_t itemNr);
-  extern void itemToBeCoded(uint16_t unusedButMandatoryParameter);
-  extern bool_t savedspace(int16_t itemNr);
+extern void itemToBeCoded(uint16_t unusedButMandatoryParameter);
+extern bool_t savedspace(int16_t itemNr);
 
 typedef struct {
   const char *name;
@@ -129,21 +129,21 @@ typedef struct {
   bool_t allowDynamicUserText;
 } keypadMainLabelPresentation_t;
 
-static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
-                                                 jint keyCode, jint type,
-                                                 const keypadMainLabelPresentation_t *presentation);
+static keypadMainLabel_t
+resolveMainKeyLabelInfo(const calcKey_t *key, jint keyCode, jint type,
+                        const keypadMainLabelPresentation_t *presentation);
 static int16_t findSoftmenuIndexByItem(int16_t item);
 static void fillStaticSoftkeyMenuLabel(int16_t item, char *label,
                                        size_t labelSize);
 
-  typedef struct {
-    char primaryLabel[64];
-    char auxLabel[32];
-    bool_t enabled;
-    jint sceneFlags;
-    jint overlayState;
-    jint showValue;
-  } keypadSoftkeyScene_t;
+typedef struct {
+  char primaryLabel[64];
+  char auxLabel[32];
+  bool_t enabled;
+  jint sceneFlags;
+  jint overlayState;
+  jint showValue;
+} keypadSoftkeyScene_t;
 
 static int16_t calculateKeyLogicalId(int16_t keyId) {
   if (keyId < 30)
@@ -178,20 +178,21 @@ static bool_t isAlphaKeyboardActive(void) {
          (calcMode == CM_PEM && alphaFlag);
 }
 
-static keypadMainLabelPresentation_t makeMainLabelPresentation(
-    bool_t showAlphaLabels, bool_t showTamLabels, bool_t enableShiftPreview,
-    bool_t useUserKeyboard, bool_t allowDynamicUserText) {
+static keypadMainLabelPresentation_t
+makeMainLabelPresentation(bool_t showAlphaLabels, bool_t showTamLabels,
+                          bool_t enableShiftPreview, bool_t useUserKeyboard,
+                          bool_t allowDynamicUserText) {
   keypadMainLabelPresentation_t presentation = {
       showAlphaLabels, showTamLabels, enableShiftPreview, useUserKeyboard,
       allowDynamicUserText};
   return presentation;
 }
 
-static keypadMainLabelPresentation_t buildLegacyMainLabelPresentation(
-    bool_t isDynamic, bool_t alphaOn, bool_t userKeyboardEnabled) {
+static keypadMainLabelPresentation_t
+buildLegacyMainLabelPresentation(bool_t isDynamic, bool_t alphaOn,
+                                 bool_t userKeyboardEnabled) {
   return makeMainLabelPresentation(alphaOn, tam.mode && !alphaOn, isDynamic,
-                                   isDynamic && userKeyboardEnabled,
-                                   isDynamic);
+                                   isDynamic && userKeyboardEnabled, isDynamic);
 }
 
 static keypadMainLabelMode_t normalizeMainLabelMode(jint mainLabelMode) {
@@ -206,8 +207,9 @@ static keypadMainLabelMode_t normalizeMainLabelMode(jint mainLabelMode) {
   }
 }
 
-static keypadMainLabelPresentation_t buildAppMainLabelPresentation(
-    jint mainLabelMode, bool_t alphaOn, bool_t userKeyboardEnabled) {
+static keypadMainLabelPresentation_t
+buildAppMainLabelPresentation(jint mainLabelMode, bool_t alphaOn,
+                              bool_t userKeyboardEnabled) {
   keypadMainLabelMode_t normalizedMode = normalizeMainLabelMode(mainLabelMode);
   bool_t dynamicGate = false;
 
@@ -227,15 +229,13 @@ static keypadMainLabelPresentation_t buildAppMainLabelPresentation(
     break;
   }
 
-  return makeMainLabelPresentation(alphaOn && dynamicGate,
-                                   tam.mode && !alphaOn && dynamicGate,
-                                   dynamicGate,
-                                   userKeyboardEnabled && dynamicGate,
-                                   dynamicGate);
+  return makeMainLabelPresentation(
+      alphaOn && dynamicGate, tam.mode && !alphaOn && dynamicGate, dynamicGate,
+      userKeyboardEnabled && dynamicGate, dynamicGate);
 }
 
-static const calcKey_t *getVisibleKeyTable(
-    const keypadMainLabelPresentation_t *presentation) {
+static const calcKey_t *
+getVisibleKeyTable(const keypadMainLabelPresentation_t *presentation) {
   return presentation->useUserKeyboard ? kbd_usr : kbd_std;
 }
 
@@ -278,9 +278,7 @@ static bool_t isSystemFlagSet(int32_t flag) {
   return getSystemFlag(flag);
 }
 
-static int16_t mainLabelItemId(int16_t item) {
-  return item < 0 ? -item : item;
-}
+static int16_t mainLabelItemId(int16_t item) { return item < 0 ? -item : item; }
 
 static bool_t replaceInternalGlyph(char *label, const char *from,
                                    const char *to) {
@@ -294,8 +292,7 @@ static bool_t replaceInternalGlyph(char *label, const char *from,
 }
 
 static const char *resolveCpxJMainKeyLabel(const keypadMainLabel_t *label,
-                                           char *mapped,
-                                           size_t mappedSize) {
+                                           char *mapped, size_t mappedSize) {
   if (!label || !label->name || label->name[0] == 0 || label->userText ||
       !isSystemFlagSet(FLAG_CPXj) || mappedSize == 0) {
     return label ? label->name : "";
@@ -359,8 +356,7 @@ static bool_t isLatinAlphaCasePair(int16_t upperItem, int16_t lowerItem) {
   const char *upper = indexOfItems[upperItem].itemSoftmenuName;
   const char *lower = indexOfItems[lowerItem].itemSoftmenuName;
   return upper && lower && upper[0] >= 'A' && upper[0] <= 'Z' &&
-         upper[1] == 0 && lower[0] == (upper[0] - 'A' + 'a') &&
-         lower[1] == 0;
+         upper[1] == 0 && lower[0] == (upper[0] - 'A' + 'a') && lower[1] == 0;
 }
 
 static bool_t isLowercaseAlphaSelected(void) {
@@ -368,11 +364,11 @@ static bool_t isLowercaseAlphaSelected(void) {
          (alphaCase == AC_UPPER && shiftF);
 }
 
-static void projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
-                                    const keypadMainLabel_t *label,
-                                    const keypadMainLabelPresentation_t *presentation,
-                                    char *utf8,
-                                    size_t utf8Size) {
+static void
+projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
+                        const keypadMainLabel_t *label,
+                        const keypadMainLabelPresentation_t *presentation,
+                        char *utf8, size_t utf8Size) {
   if (!label || label->userText || utf8[0] == 0) {
     return;
   }
@@ -394,43 +390,37 @@ static void projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
     return;
   }
 
-  if (presentation->showTamLabels && labelType == KEYPAD_LABEL_PRIMARY &&
-      key && key->keyId == 55 &&
-      strcmp(utf8, "/") == 0) {
+  if (presentation->showTamLabels && labelType == KEYPAD_LABEL_PRIMARY && key &&
+      key->keyId == 55 && strcmp(utf8, "/") == 0) {
     setUtf8Label(utf8, utf8Size, "\xC3\xB7");
   }
 }
 
-static void encodeMainKeypadLabel(const calcKey_t *key, jint labelType,
-                                  const keypadMainLabel_t *label,
-                                  const keypadMainLabelPresentation_t *presentation,
-                                  char *utf8,
-                                  size_t utf8Size) {
+static void
+encodeMainKeypadLabel(const calcKey_t *key, jint labelType,
+                      const keypadMainLabel_t *label,
+                      const keypadMainLabelPresentation_t *presentation,
+                      char *utf8, size_t utf8Size) {
   char mapped[64];
-  const char *displayName = resolveCpxJMainKeyLabel(label, mapped,
-                                                    sizeof(mapped));
+  const char *displayName =
+      resolveCpxJMainKeyLabel(label, mapped, sizeof(mapped));
   displayName = resolveMainFaceplateGlyphLabel(labelType, displayName, mapped,
                                                sizeof(mapped));
   encodeUtf8Label(displayName, utf8, utf8Size);
-  projectUtf8MainKeyLabel(key, labelType, label, presentation, utf8,
-                          utf8Size);
+  projectUtf8MainKeyLabel(key, labelType, label, presentation, utf8, utf8Size);
 }
 
-static jint packLabelRole(jint slot, jint role) {
-  return role << (slot * 4);
-}
+static jint packLabelRole(jint slot, jint role) { return role << (slot * 4); }
 
-static jint labelRoleMask(jint slot) {
-  return 0xF << (slot * 4);
-}
+static jint labelRoleMask(jint slot) { return 0xF << (slot * 4); }
 
 static int keypadMetaIndex(int offset, int keyCode) {
   return offset + keyCode - 1;
 }
 
-static int16_t resolveVisibleMainStyleItem(
-    const calcKey_t *key,
-    const keypadMainLabelPresentation_t *presentation) {
+static int16_t
+resolveVisibleMainStyleItem(const calcKey_t *key,
+                            const keypadMainLabelPresentation_t *presentation) {
   if (presentation->showAlphaLabels) {
     return key->keyLblAim;
   }
@@ -442,9 +432,9 @@ static int16_t resolveVisibleMainStyleItem(
       (calcMode == CM_NORMAL || calcMode == CM_NIM || calcMode == CM_PEM ||
        calcMode == CM_TIMER || calcMode == CM_ASSIGN) &&
       !tam.alpha && tam.mode != TM_STORCL && tam.mode != TM_LABEL &&
-      (!catalog || (Norm_Key_00.func != ITM_SHIFTg &&
-                    Norm_Key_00.func != ITM_SHIFTf &&
-                    Norm_Key_00.func != KEY_fg)) &&
+      (!catalog ||
+       (Norm_Key_00.func != ITM_SHIFTg && Norm_Key_00.func != ITM_SHIFTf &&
+        Norm_Key_00.func != KEY_fg)) &&
       !(lastIntegerBase >= 2 && isSystemFlagSet(FLAG_TOPHEX)) &&
       ((!shiftF && !shiftG) || isR47FAM || Norm_Key_00.func == KEY_fg) &&
       key->primary == kbd_std[Norm_Key_00_key].primary) {
@@ -453,14 +443,16 @@ static int16_t resolveVisibleMainStyleItem(
   return key->primary;
 }
 
-static bool_t isNumericStyleKey(const calcKey_t *key, int16_t visibleItem,
-                                const keypadMainLabelPresentation_t *presentation) {
+static bool_t
+isNumericStyleKey(const calcKey_t *key, int16_t visibleItem,
+                  const keypadMainLabelPresentation_t *presentation) {
   if (presentation->showAlphaLabels || presentation->showTamLabels ||
       (presentation->enableShiftPreview && (shiftF || shiftG))) {
     return false;
   }
 
-  if ((visibleItem >= ITM_0 && visibleItem <= ITM_9) || visibleItem == ITM_PERIOD) {
+  if ((visibleItem >= ITM_0 && visibleItem <= ITM_9) ||
+      visibleItem == ITM_PERIOD) {
     return true;
   }
 
@@ -468,8 +460,9 @@ static bool_t isNumericStyleKey(const calcKey_t *key, int16_t visibleItem,
          key->keyId == 85;
 }
 
-static jint resolveMainStyleRole(const calcKey_t *key,
-                                 const keypadMainLabelPresentation_t *presentation) {
+static jint
+resolveMainStyleRole(const calcKey_t *key,
+                     const keypadMainLabelPresentation_t *presentation) {
   int16_t visibleItem = resolveVisibleMainStyleItem(key, presentation);
 
   if (visibleItem == ITM_SHIFTf) {
@@ -490,9 +483,9 @@ static jint resolveMainStyleRole(const calcKey_t *key,
   return KEYPAD_STYLE_DEFAULT;
 }
 
-static bool_t usesLongpressAccentF(
-    const calcKey_t *key,
-    const keypadMainLabelPresentation_t *presentation) {
+static bool_t
+usesLongpressAccentF(const calcKey_t *key,
+                     const keypadMainLabelPresentation_t *presentation) {
   int16_t visiblePrimary =
       presentation->showAlphaLabels ? key->primaryAim : key->primary;
   return isR47FAM &&
@@ -500,54 +493,55 @@ static bool_t usesLongpressAccentF(
           (presentation->showAlphaLabels && visiblePrimary == ITM_SHIFTg));
 }
 
-static bool_t usesLongpressAccentG(
-    const calcKey_t *key,
-    const keypadMainLabelPresentation_t *presentation) {
+static bool_t
+usesLongpressAccentG(const calcKey_t *key,
+                     const keypadMainLabelPresentation_t *presentation) {
   int16_t visiblePrimary =
       presentation->showAlphaLabels ? key->primaryAim : key->primary;
   return isR47FAM && (visiblePrimary == ITM_SHIFTg || visiblePrimary == KEY_fg);
 }
 
-static jint resolveMainLabelRoles(const calcKey_t *key, jint keyCode,
-                                  const keypadMainLabelPresentation_t *presentation) {
+static jint
+resolveMainLabelRoles(const calcKey_t *key, jint keyCode,
+                      const keypadMainLabelPresentation_t *presentation) {
   jint roles = 0;
 
-  keypadMainLabel_t primaryLabel = resolveMainKeyLabelInfo(
-      key, keyCode, KEYPAD_LABEL_PRIMARY, presentation);
+  keypadMainLabel_t primaryLabel =
+      resolveMainKeyLabelInfo(key, keyCode, KEYPAD_LABEL_PRIMARY, presentation);
   if (primaryLabel.name[0] != 0) {
     roles |= packLabelRole(KEYPAD_LABEL_PRIMARY, KEYPAD_TEXT_ROLE_PRIMARY);
   }
 
-  keypadMainLabel_t fLabel = resolveMainKeyLabelInfo(
-      key, keyCode, KEYPAD_LABEL_F, presentation);
+  keypadMainLabel_t fLabel =
+      resolveMainKeyLabelInfo(key, keyCode, KEYPAD_LABEL_F, presentation);
   if (fLabel.name[0] != 0) {
     jint role = KEYPAD_TEXT_ROLE_F;
     if (usesLongpressAccentF(key, presentation)) {
       role = KEYPAD_TEXT_ROLE_LONGPRESS;
     } else if ((presentation->showAlphaLabels && key->primary < 0) ||
-               (!presentation->showAlphaLabels && !presentation->showTamLabels &&
-                key->fShifted < 0)) {
+               (!presentation->showAlphaLabels &&
+                !presentation->showTamLabels && key->fShifted < 0)) {
       role = KEYPAD_TEXT_ROLE_F_UNDERLINE;
     }
     roles |= packLabelRole(KEYPAD_LABEL_F, role);
   }
 
-  keypadMainLabel_t gLabel = resolveMainKeyLabelInfo(
-      key, keyCode, KEYPAD_LABEL_G, presentation);
+  keypadMainLabel_t gLabel =
+      resolveMainKeyLabelInfo(key, keyCode, KEYPAD_LABEL_G, presentation);
   if (gLabel.name[0] != 0) {
     jint role = KEYPAD_TEXT_ROLE_G;
     if (usesLongpressAccentG(key, presentation)) {
       role = KEYPAD_TEXT_ROLE_LONGPRESS;
     } else if ((presentation->showAlphaLabels && key->gShiftedAim < 0) ||
-               (!presentation->showAlphaLabels && !presentation->showTamLabels &&
-                key->gShifted < 0)) {
+               (!presentation->showAlphaLabels &&
+                !presentation->showTamLabels && key->gShifted < 0)) {
       role = KEYPAD_TEXT_ROLE_G_UNDERLINE;
     }
     roles |= packLabelRole(KEYPAD_LABEL_G, role);
   }
 
-  keypadMainLabel_t letterLabel = resolveMainKeyLabelInfo(
-      key, keyCode, KEYPAD_LABEL_LETTER, presentation);
+  keypadMainLabel_t letterLabel =
+      resolveMainKeyLabelInfo(key, keyCode, KEYPAD_LABEL_LETTER, presentation);
   if (letterLabel.name[0] != 0) {
     roles |= packLabelRole(KEYPAD_LABEL_LETTER, KEYPAD_TEXT_ROLE_LETTER);
   }
@@ -555,9 +549,9 @@ static jint resolveMainLabelRoles(const calcKey_t *key, jint keyCode,
   return roles;
 }
 
-static jint resolveMainLayoutClass(
-    jint keyCode,
-    const keypadMainLabelPresentation_t *presentation) {
+static jint
+resolveMainLayoutClass(jint keyCode,
+                       const keypadMainLabelPresentation_t *presentation) {
   if (keyCode >= 38) {
     return KEYPAD_LAYOUT_CLASS_SOFTKEY;
   }
@@ -614,7 +608,8 @@ static bool_t isSoftkeyStrikeOut(int16_t itemNr) {
   }
 
   if (itemNr > 0) {
-    return indexOfItems[itemNr % 10000].func == itemToBeCoded || savedspace(itemNr);
+    return indexOfItems[itemNr % 10000].func == itemToBeCoded ||
+           savedspace(itemNr);
   }
 
   if (itemNr < 0) {
@@ -642,7 +637,9 @@ static int16_t getSoftmenuDottedRow(int16_t softmenuId, int16_t itemCount,
   }
 
   int16_t dottedRow =
-      min(3, (itemCount + modulo(firstItem - itemCount, 6)) / 6 - firstItem / 6) - 1;
+      min(3,
+          (itemCount + modulo(firstItem - itemCount, 6)) / 6 - firstItem / 6) -
+      1;
 
   if (softmenuId >= NUMBER_OF_DYNAMIC_SOFTMENUS) {
     for (int pass = 0; pass < 3 && dottedRow >= 0; pass++) {
@@ -709,20 +706,17 @@ static bool_t usesSplitSoftkeyLayout(int16_t menuItem) {
   }
 }
 
-static bool_t shouldComposeSoftkeyLabel(int16_t menuItem,
-                                        const char *showText,
+static bool_t shouldComposeSoftkeyLabel(int16_t menuItem, const char *showText,
                                         int16_t showValue) {
   return !usesSplitSoftkeyLayout(menuItem) &&
          (showText[0] != 0 || showValue != NOVAL);
 }
 
 static bool_t composeSoftkeyInlineLabel(keypadSoftkeyScene_t *scene,
-                                        const char *label,
-                                        const char *showText,
+                                        const char *label, const char *showText,
                                         int16_t showValue) {
-  const char *composed = figlabel(label ? label : "",
-                                  showText ? showText : "",
-                                  showValue);
+  const char *composed =
+      figlabel(label ? label : "", showText ? showText : "", showValue);
   if (!composed || composed[0] == 0) {
     return false;
   }
@@ -742,8 +736,9 @@ static void resolveSoftkeyMeta(int16_t itemNr, char *itemName,
                                char *showText) {
   int16_t functionItem = (int16_t)(abs(itemNr) % 10000);
 
-  *vm = (itemNr < 0) || isFunctionItemAMenu((int16_t)(itemNr % 10000)) ? vmReverse
-                                                                       : vmNormal;
+  *vm = (itemNr < 0) || isFunctionItemAMenu((int16_t)(itemNr % 10000))
+            ? vmReverse
+            : vmNormal;
   *showCb = NOVAL;
   *showValue = NOVAL;
   showText[0] = 0;
@@ -762,7 +757,8 @@ static void resolveSoftkeyMeta(int16_t itemNr, char *itemName,
            indexOfItems[functionItem].itemSoftmenuName);
 }
 
-static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene) {
+static void resolveSoftkeyScene(int16_t fnKeyIndex,
+                                keypadSoftkeyScene_t *scene) {
   clearSoftkeyScene(scene);
 
   if (fnKeyIndex < 1 || fnKeyIndex > 6) {
@@ -788,8 +784,8 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
       return;
     }
 
-    char *labelName =
-        (char *)getNthString(dynamicSoftmenu[softmenuId].menuContent, absoluteIndex);
+    char *labelName = (char *)getNthString(
+        dynamicSoftmenu[softmenuId].menuContent, absoluteIndex);
     if (!labelName || labelName[0] == 0) {
       return;
     }
@@ -805,52 +801,53 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
     switch (-softmenu[softmenuId].menuItem) {
     case MNU_MENU:
     case MNU_MENUS:
-      scene->sceneFlags |= KEYPAD_SCENE_FLAG_REVERSE_VIDEO |
-                           KEYPAD_SCENE_FLAG_MENU;
+      scene->sceneFlags |=
+          KEYPAD_SCENE_FLAG_REVERSE_VIDEO | KEYPAD_SCENE_FLAG_MENU;
       break;
     case MNU_MyMenu:
       sceneItem = userMenuItems[visibleIndex].item;
       if (sceneItem < 0) {
-        scene->sceneFlags |= KEYPAD_SCENE_FLAG_REVERSE_VIDEO |
-                             KEYPAD_SCENE_FLAG_MENU;
+        scene->sceneFlags |=
+            KEYPAD_SCENE_FLAG_REVERSE_VIDEO | KEYPAD_SCENE_FLAG_MENU;
       } else if (userMenuItems[visibleIndex].argumentName[0] == 0) {
         resolveSoftkeyMeta(sceneItem, itemName, sizeof(itemName), &videoMode,
-                         &showCb, &showValue, showText);
-        if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem,
-                                      showText,
+                           &showCb, &showValue, showText);
+        if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem, showText,
                                       showValue) &&
             composeSoftkeyInlineLabel(scene, itemName, showText, showValue)) {
           showText[0] = 0;
           showValue = NOVAL;
         } else {
-          snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", itemName);
+          snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s",
+                   itemName);
         }
       }
       break;
     case MNU_MyAlpha:
       sceneItem = userAlphaItems[visibleIndex].item;
       if (sceneItem < 0) {
-        scene->sceneFlags |= KEYPAD_SCENE_FLAG_REVERSE_VIDEO |
-                             KEYPAD_SCENE_FLAG_MENU;
+        scene->sceneFlags |=
+            KEYPAD_SCENE_FLAG_REVERSE_VIDEO | KEYPAD_SCENE_FLAG_MENU;
       }
       break;
     case MNU_DYNAMIC:
       sceneItem = userMenus[currentUserMenu].menuItem[visibleIndex].item;
       if (sceneItem < 0) {
-        scene->sceneFlags |= KEYPAD_SCENE_FLAG_REVERSE_VIDEO |
-                             KEYPAD_SCENE_FLAG_MENU;
-      } else if (userMenus[currentUserMenu].menuItem[visibleIndex].argumentName[0] ==
-                 0) {
+        scene->sceneFlags |=
+            KEYPAD_SCENE_FLAG_REVERSE_VIDEO | KEYPAD_SCENE_FLAG_MENU;
+      } else if (userMenus[currentUserMenu]
+                     .menuItem[visibleIndex]
+                     .argumentName[0] == 0) {
         resolveSoftkeyMeta(sceneItem, itemName, sizeof(itemName), &videoMode,
-                         &showCb, &showValue, showText);
-        if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem,
-                                      showText,
+                           &showCb, &showValue, showText);
+        if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem, showText,
                                       showValue) &&
             composeSoftkeyInlineLabel(scene, itemName, showText, showValue)) {
           showText[0] = 0;
           showValue = NOVAL;
         } else {
-          snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", itemName);
+          snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s",
+                   itemName);
         }
       }
       break;
@@ -887,8 +884,8 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
     if (item < 0) {
       fillStaticSoftkeyMenuLabel(item, scene->primaryLabel,
                                  sizeof(scene->primaryLabel));
-      scene->sceneFlags |= KEYPAD_SCENE_FLAG_REVERSE_VIDEO |
-               KEYPAD_SCENE_FLAG_MENU;
+      scene->sceneFlags |=
+          KEYPAD_SCENE_FLAG_REVERSE_VIDEO | KEYPAD_SCENE_FLAG_MENU;
     } else {
       videoMode_t videoMode = vmNormal;
       int8_t showCb = NOVAL;
@@ -897,15 +894,15 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
       char itemName[32] = {0};
 
       resolveSoftkeyMeta(item, itemName, sizeof(itemName), &videoMode, &showCb,
-                       &showValue, showText);
-      if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem,
-                                    showText,
+                         &showValue, showText);
+      if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem, showText,
                                     showValue) &&
           composeSoftkeyInlineLabel(scene, itemName, showText, showValue)) {
         showText[0] = 0;
         showValue = NOVAL;
       } else {
-        snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", itemName);
+        snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s",
+                 itemName);
       }
 
       if (videoMode == vmReverse) {
@@ -937,19 +934,20 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
     scene->enabled = false;
   }
 
-  if (scene->primaryLabel[0] != 0 && scene->enabled == false && strikeItem <= 0) {
+  if (scene->primaryLabel[0] != 0 && scene->enabled == false &&
+      strikeItem <= 0) {
     scene->enabled = true;
   }
 }
 
-static int16_t resolveMainKeyItem(const calcKey_t *key, jint type,
-                                  const keypadMainLabelPresentation_t *presentation) {
+static int16_t
+resolveMainKeyItem(const calcKey_t *key, jint type,
+                   const keypadMainLabelPresentation_t *presentation) {
   if (presentation->showAlphaLabels) {
     bool_t previewF = presentation->enableShiftPreview && shiftF;
     bool_t previewG = presentation->enableShiftPreview && shiftG;
     bool_t lowercaseSelected = isLowercaseAlphaSelected();
-    bool_t casePair =
-        isLatinAlphaCasePair(key->primaryAim, key->fShiftedAim);
+    bool_t casePair = isLatinAlphaCasePair(key->primaryAim, key->fShiftedAim);
     switch (type) {
     case KEYPAD_LABEL_PRIMARY:
       if (previewF) {
@@ -1012,9 +1010,9 @@ static bool_t canUseNormKey00Label(const calcKey_t *key, int16_t item) {
          (calcMode == CM_NORMAL || calcMode == CM_NIM || calcMode == CM_PEM ||
           calcMode == CM_TIMER || calcMode == CM_ASSIGN) &&
          !tam.alpha && tam.mode != TM_STORCL && tam.mode != TM_LABEL &&
-         (!catalog || (Norm_Key_00.func != ITM_SHIFTg &&
-                       Norm_Key_00.func != ITM_SHIFTf &&
-                       Norm_Key_00.func != KEY_fg)) &&
+         (!catalog ||
+          (Norm_Key_00.func != ITM_SHIFTg && Norm_Key_00.func != ITM_SHIFTf &&
+           Norm_Key_00.func != KEY_fg)) &&
          !(lastIntegerBase >= 2 && isSystemFlagSet(FLAG_TOPHEX)) &&
          ((!shiftF && !shiftG) || isR47FAM || Norm_Key_00.func == KEY_fg) &&
          item == kbd_std[Norm_Key_00_key].primary;
@@ -1100,15 +1098,16 @@ static bool_t resolveExplicitAndroidMainLabelOverride(
   return false;
 }
 
-static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
-                                                 jint keyCode, jint type,
-                                                 const keypadMainLabelPresentation_t *presentation) {
+static keypadMainLabel_t
+resolveMainKeyLabelInfo(const calcKey_t *key, jint keyCode, jint type,
+                        const keypadMainLabelPresentation_t *presentation) {
   keypadMainLabel_t explicitOverride = makeMainLabel("", 0, false);
 
   if (presentation->showAlphaLabels && type == KEYPAD_LABEL_PRIMARY) {
     if (key->keyLblAim == ITM_SHIFTf || key->keyLblAim == ITM_SHIFTg ||
         key->keyLblAim == KEY_fg) {
-      const char *shiftLabel = indexOfItems[abs(key->keyLblAim)].itemSoftmenuName;
+      const char *shiftLabel =
+          indexOfItems[abs(key->keyLblAim)].itemSoftmenuName;
       return makeMainLabel(shiftLabel, key->keyLblAim, false);
     }
   }
@@ -1121,19 +1120,14 @@ static keypadMainLabel_t resolveMainKeyLabelInfo(const calcKey_t *key,
     }
   }
 
-  if (resolveExplicitAndroidMainLabelOverride(
-      key,
-          keyCode,
-          type,
-          presentation,
-          &explicitOverride)) {
+  if (resolveExplicitAndroidMainLabelOverride(key, keyCode, type, presentation,
+                                              &explicitOverride)) {
     return explicitOverride;
   }
 
   int16_t item = resolveMainKeyItem(key, type, presentation);
   if (!presentation->showAlphaLabels && !presentation->showTamLabels &&
-      type == KEYPAD_LABEL_PRIMARY &&
-      canUseNormKey00Label(key, item)) {
+      type == KEYPAD_LABEL_PRIMARY && canUseNormKey00Label(key, item)) {
     return resolveNormKey00Label();
   }
 
@@ -1266,7 +1260,8 @@ static void fillKeypadMetaForPresentation(
       sceneFlags |= KEYPAD_SCENE_FLAG_DOTTED_ROW;
     }
 
-    fill[keypadMetaIndex(KEYPAD_META_KEY_ENABLED_OFFSET, keyCode)] = scene.enabled;
+    fill[keypadMetaIndex(KEYPAD_META_KEY_ENABLED_OFFSET, keyCode)] =
+        scene.enabled;
     fill[keypadMetaIndex(KEYPAD_META_STYLE_ROLE_OFFSET, keyCode)] =
         KEYPAD_STYLE_SOFTKEY;
     fill[keypadMetaIndex(KEYPAD_META_LABEL_ROLE_OFFSET, keyCode)] =
@@ -1389,13 +1384,15 @@ static void fillAppKeypadSnapshotLocked(
       normalizeMainLabelMode(mainKeyDynamicMode);
 
   if (normalizedMode == KEYPAD_MAIN_LABEL_MODE_USER && userKeyboardEnabled) {
-    keypadMainLabelPresentation_t offPresentation = buildAppMainLabelPresentation(
-        KEYPAD_MAIN_LABEL_MODE_OFF, alphaOn, userKeyboardEnabled);
+    keypadMainLabelPresentation_t offPresentation =
+        buildAppMainLabelPresentation(KEYPAD_MAIN_LABEL_MODE_OFF, alphaOn,
+                                      userKeyboardEnabled);
     fillKeypadMetaForPresentation(fill, &offPresentation);
     fillExportedKeypadLabelsForPresentation(labels, &offPresentation);
 
-    keypadMainLabelPresentation_t userPresentation = buildAppMainLabelPresentation(
-        KEYPAD_MAIN_LABEL_MODE_USER, alphaOn, userKeyboardEnabled);
+    keypadMainLabelPresentation_t userPresentation =
+        buildAppMainLabelPresentation(KEYPAD_MAIN_LABEL_MODE_USER, alphaOn,
+                                      userKeyboardEnabled);
     overlayUserModeKeypadSnapshot(fill, labels, &userPresentation);
     return;
   }
@@ -1410,15 +1407,15 @@ static bool writeExportedKeypadLabelsToArray(
     JNIEnv *env, jobjectArray labels,
     char nativeLabels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
                      [R47_KEYPAD_LABEL_CAPACITY]) {
-  jstring empty = jni_new_string_utf(env, "", NULL,
-                                     "copyKeypadSnapshotNative empty NewStringUTF");
+  jstring empty = jni_new_string_utf(
+      env, "", NULL, "copyKeypadSnapshotNative empty NewStringUTF");
   if (empty == NULL) {
     return false;
   }
 
   bool success = true;
-  for (int index = 0;
-       index < R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY; index++) {
+  for (int index = 0; index < R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY;
+       index++) {
     jstring value = empty;
     if (nativeLabels[index][0] != 0) {
       value = jni_new_string_utf(env, nativeLabels[index], "",
@@ -1508,7 +1505,7 @@ void r47_get_keypad_labels(
     int keyCode = 37 + fnKeyIndex;
     resolveSoftkeyScene(fnKeyIndex, &scene);
     setExportedKeypadLabel(labels, keyCode, KEYPAD_LABEL_PRIMARY,
-                          scene.primaryLabel);
+                           scene.primaryLabel);
     setExportedKeypadLabel(labels, keyCode, KEYPAD_LABEL_AUX, scene.auxLabel);
   }
 
@@ -1520,15 +1517,16 @@ Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
   if (!ram || isCoreBlockingForIo) {
-    return jni_new_string_utf(env, "", NULL,
-                              "getClipboardXRegisterNative default NewStringUTF");
+    return jni_new_string_utf(
+        env, "", NULL, "getClipboardXRegisterNative default NewStringUTF");
   }
 
   pthread_mutex_lock(&screenMutex);
   extern char *getClipboardXRegisterString(void);
   char *registerText = getClipboardXRegisterString();
-  jstring result = jni_new_string_utf(env, registerText ? registerText : "",
-                                      "", "getClipboardXRegisterNative NewStringUTF");
+  jstring result =
+      jni_new_string_utf(env, registerText ? registerText : "", "",
+                         "getClipboardXRegisterNative NewStringUTF");
   pthread_mutex_unlock(&screenMutex);
   return result;
 }
@@ -1538,15 +1536,16 @@ Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
   if (!ram || isCoreBlockingForIo) {
-    return jni_new_string_utf(env, "", NULL,
-                              "getClipboardStackRegistersNative default NewStringUTF");
+    return jni_new_string_utf(
+        env, "", NULL, "getClipboardStackRegistersNative default NewStringUTF");
   }
 
   pthread_mutex_lock(&screenMutex);
   extern char *getClipboardStackRegistersString(void);
   char *registerText = getClipboardStackRegistersString();
-  jstring result = jni_new_string_utf(env, registerText ? registerText : "",
-                                      "", "getClipboardStackRegistersNative NewStringUTF");
+  jstring result =
+      jni_new_string_utf(env, registerText ? registerText : "", "",
+                         "getClipboardStackRegistersNative NewStringUTF");
   pthread_mutex_unlock(&screenMutex);
   return result;
 }
@@ -1556,22 +1555,23 @@ Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
   if (!ram || isCoreBlockingForIo) {
-    return jni_new_string_utf(env, "", NULL,
-                              "getClipboardAllRegistersNative default NewStringUTF");
+    return jni_new_string_utf(
+        env, "", NULL, "getClipboardAllRegistersNative default NewStringUTF");
   }
 
   pthread_mutex_lock(&screenMutex);
   extern char *getClipboardAllRegistersString(void);
   char *registerText = getClipboardAllRegistersString();
-  jstring result = jni_new_string_utf(env, registerText ? registerText : "",
-                                      "", "getClipboardAllRegistersNative NewStringUTF");
+  jstring result =
+      jni_new_string_utf(env, registerText ? registerText : "", "",
+                         "getClipboardAllRegistersNative NewStringUTF");
   pthread_mutex_unlock(&screenMutex);
   return result;
 }
 
 JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration(JNIEnv *env,
-                                                                          jobject thiz) {
+Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration(
+    JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
   extern _Atomic uint32_t keypadSnapshotGeneration;
@@ -1623,8 +1623,8 @@ Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative(
   }
 
   (*env)->SetIntArrayRegion(env, metaBuffer, 0, KEYPAD_META_LENGTH, fill);
-  if (jni_check_and_clear_exception(env,
-                                    "SetIntArrayRegion(copyKeypadSnapshotNative)")) {
+  if (jni_check_and_clear_exception(
+          env, "SetIntArrayRegion(copyKeypadSnapshotNative)")) {
     return JNI_FALSE;
   }
 
@@ -1667,11 +1667,13 @@ Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(
   }
 
   jbyte *dst = (jbyte *)(*env)->GetPrimitiveArrayCritical(env, buffer, NULL);
-  if (!jni_result_ok(env, dst, "GetPrimitiveArrayCritical(getPackedDisplayBuffer)")) {
+  if (!jni_result_ok(env, dst,
+                     "GetPrimitiveArrayCritical(getPackedDisplayBuffer)")) {
     return JNI_FALSE;
   }
   const bool taken = r47_try_take_packed_display((uint8_t *)dst);
-  (*env)->ReleasePrimitiveArrayCritical(env, buffer, dst, taken ? 0 : JNI_ABORT);
+  (*env)->ReleasePrimitiveArrayCritical(env, buffer, dst,
+                                        taken ? 0 : JNI_ABORT);
   return taken ? JNI_TRUE : JNI_FALSE;
 }
 

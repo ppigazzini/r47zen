@@ -17,8 +17,8 @@ void processCoreTasksNative(void) {
     return;
   }
 
-  (*scope.env)->CallVoidMethod(scope.env, g_mainActivityObj,
-                               g_processCoreTasksId);
+  (*scope.env)
+      ->CallVoidMethod(scope.env, g_mainActivityObj, g_processCoreTasksId);
   jni_check_and_clear_exception(scope.env,
                                 "processCoreTasksNative CallVoidMethod");
   jni_release_env(&scope, "processCoreTasksNative");
@@ -36,8 +36,8 @@ void r47_report_file_write_failure(void) {
     return;
   }
 
-  (*scope.env)->CallVoidMethod(scope.env, g_mainActivityObj,
-                               g_fileWriteFailedId);
+  (*scope.env)
+      ->CallVoidMethod(scope.env, g_mainActivityObj, g_fileWriteFailedId);
   jni_check_and_clear_exception(scope.env,
                                 "r47_report_file_write_failure CallVoidMethod");
   jni_release_env(&scope, "r47_report_file_write_failure");

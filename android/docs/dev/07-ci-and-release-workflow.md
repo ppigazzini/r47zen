@@ -268,6 +268,9 @@ It:
   `libr47zen.so` and fails the job when a mitigation is missing: AArch64
   branch protection (BTI/PAC), full RELRO, a non-executable stack, no
   writable-and-executable segment, and no text relocations
+- runs `scripts/android/check_native_format.sh`, which checks the Android-owned
+  glue against `android/app/src/main/cpp/r47zen/.clang-format` with the pinned
+  NDK's `clang-format`
 - runs `cd android && ./gradlew lint` explicitly because normal Gradle builds do
   not run lint automatically
 - runs `scripts/android/run_detekt.sh`: detekt's default rule set over the

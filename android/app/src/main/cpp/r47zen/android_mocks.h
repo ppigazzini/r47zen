@@ -17,21 +17,21 @@
 #if defined(HOST_TOOL_BUILD)
 #define LOGI(...)                                                              \
   do {                                                                         \
-    fprintf(stderr, "I/%s: ", LOG_TAG);                                       \
+    fprintf(stderr, "I/%s: ", LOG_TAG);                                        \
     fprintf(stderr, __VA_ARGS__);                                              \
-    fputc('\n', stderr);                                                      \
+    fputc('\n', stderr);                                                       \
   } while (0)
 #define LOGE(...)                                                              \
   do {                                                                         \
-    fprintf(stderr, "E/%s: ", LOG_TAG);                                       \
+    fprintf(stderr, "E/%s: ", LOG_TAG);                                        \
     fprintf(stderr, __VA_ARGS__);                                              \
-    fputc('\n', stderr);                                                      \
+    fputc('\n', stderr);                                                       \
   } while (0)
 #define LOGD(...)                                                              \
   do {                                                                         \
-    fprintf(stderr, "D/%s: ", LOG_TAG);                                       \
+    fprintf(stderr, "D/%s: ", LOG_TAG);                                        \
     fprintf(stderr, __VA_ARGS__);                                              \
-    fputc('\n', stderr);                                                      \
+    fputc('\n', stderr);                                                       \
   } while (0)
 #else
 #include <android/log.h>
@@ -43,11 +43,13 @@
 #if defined(NDEBUG)
 #define LOGI(...)                                                              \
   do {                                                                         \
-    if (0) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__);       \
+    if (0)                                                                     \
+      __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__);             \
   } while (0)
 #define LOGD(...)                                                              \
   do {                                                                         \
-    if (0) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__);      \
+    if (0)                                                                     \
+      __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__);            \
   } while (0)
 #else
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -67,43 +69,56 @@
 #endif
 
 static inline void mpz_nextprime(mpz_ptr r, mpz_srcptr n) {
-    mpz_add_ui(r, n, 1);
-    while (mpz_probab_prime_p(r, 10) == 0) mpz_add_ui(r, r, 1);
+  mpz_add_ui(r, n, 1);
+  while (mpz_probab_prime_p(r, 10) == 0)
+    mpz_add_ui(r, r, 1);
 }
 static inline void mpz_fib_ui(mpz_ptr r, unsigned long n) {
-    if (n == 0) { mpz_set_ui(r, 0); return; }
-    if (n == 1) { mpz_set_ui(r, 1); return; }
-    mpz_t a, b;
-    mpz_init_set_ui(a, 0); mpz_init_set_ui(b, 1);
-    for (unsigned long i = 2; i <= n; i++) { mpz_add(a, a, b); mpz_swap(a, b); }
-    mpz_set(r, b); mpz_clear(a); mpz_clear(b);
+  if (n == 0) {
+    mpz_set_ui(r, 0);
+    return;
+  }
+  if (n == 1) {
+    mpz_set_ui(r, 1);
+    return;
+  }
+  mpz_t a, b;
+  mpz_init_set_ui(a, 0);
+  mpz_init_set_ui(b, 1);
+  for (unsigned long i = 2; i <= n; i++) {
+    mpz_add(a, a, b);
+    mpz_swap(a, b);
+  }
+  mpz_set(r, b);
+  mpz_clear(a);
+  mpz_clear(b);
 }
 
 // GTK/GDK/Cairo Mocks
 typedef void GtkWidget;
 typedef struct {
-    int type;
-    struct {
-        int button;
-        double x;
-        double y;
-    } button;
+  int type;
+  struct {
+    int button;
+    double x;
+    double y;
+  } button;
 } GdkEvent;
 typedef void cairo_t;
 typedef void cairo_surface_t;
 typedef void GtkClipboard;
-typedef void* gpointer;
+typedef void *gpointer;
 typedef int gboolean;
 typedef unsigned int guint;
 typedef long long gint64;
 typedef gboolean (*GSourceFunc)(gpointer);
-typedef void* GMainContext;
+typedef void *GMainContext;
 
 #ifndef TRUE
-  #define TRUE 1
+#define TRUE 1
 #endif
 #ifndef FALSE
-  #define FALSE 0
+#define FALSE 0
 #endif
 
 // GDK Enums
@@ -157,14 +172,15 @@ extern void yieldToAndroidWithMs(int ms);
 extern uint32_t sys_current_ms(void);
 extern gint64 g_get_monotonic_time(void);
 extern gint64 g_get_real_time(void);
-extern int requestAndroidFile(int isSave, const char* defaultName, int fileType);
+extern int requestAndroidFile(int isSave, const char *defaultName,
+                              int fileType);
 extern pthread_mutex_t screenMutex;
 
 // Globals needed by core - MATCHING TYPES IN c47.h
 extern int16_t debugWindow;
 extern int16_t screenStride;
-extern bool    debugMemAllocation;
-extern bool    forceTamAlpha;
+extern bool debugMemAllocation;
+extern bool forceTamAlpha;
 extern uint32_t deadKey;
 extern uint32_t *screenData;
 
