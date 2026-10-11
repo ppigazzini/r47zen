@@ -23,16 +23,15 @@ pthread_mutex_t packedDisplayMutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Lock-free display-change signals. The core thread writes them under
 // packedDisplayMutex (LCD_write_line) while the Android UI thread samples them
-// with no display mutex held (getPackedDisplayBuffer, getPackedDisplayGeneration
-// and getKeypadSnapshotGeneration in jni_display.c). The mutex carries the
-// happens-before for the packed buffer payload itself; these three are only the
+// with no display mutex held (getPackedDisplayGeneration and
+// getKeypadSnapshotGeneration in jni_display.c). The mutex carries the
+// happens-before for the packed buffer payload itself; these two are only the
 // "something changed" hints the reader polls, so a stale sample at most skips or
 // repeats one copy and self-corrects. Plain volatile leaves that concurrent
 // access a data race under the C memory model (ThreadSanitizer flags it via
 // build_bridge_tsan_harness.sh); C11 relaxed atomics make every access
 // well-defined at identical arm64 codegen without imposing any ordering the
 // mutex does not already provide.
-_Atomic bool lcdBufferDirty = false;
 _Atomic uint32_t packedDisplayGeneration = 0;
 _Atomic uint32_t keypadSnapshotGeneration = 0;
 
@@ -46,18 +45,19 @@ void r47_reset_host_lcd_refresh_count(void) {
   hostLcdRefreshCount = 0;
 }
 
-void lcd_mark_packed_rows_dirty(void) {
-  if (!packedDisplayBuffer) {
-    return;
+bool lcd_try_take_packed_snapshot(uint8_t *dst) {
+  if (!packedDisplayBuffer || !dst) {
+    return false;
   }
-
-  pthread_mutex_lock(&packedDisplayMutex);
+  if (pthread_mutex_trylock(&packedDisplayMutex) != 0) {
+    return false;
+  }
+  memcpy(dst, packedDisplayBuffer, SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
   for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
-    packedDisplayBuffer[row * LCD_ROW_SIZE_BYTES] = 1u;
+    packedDisplayBuffer[row * LCD_ROW_SIZE_BYTES] = 0u;
   }
-  atomic_store_explicit(&lcdBufferDirty, true, memory_order_relaxed);
-  atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
   pthread_mutex_unlock(&packedDisplayMutex);
+  return true;
 }
 
 void init_lcd_buffers() {
@@ -88,7 +88,6 @@ void init_lcd_buffers() {
     }
   }
 
-  atomic_store_explicit(&lcdBufferDirty, true, memory_order_relaxed);
   atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
   atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u, memory_order_relaxed);
 }
@@ -114,8 +113,8 @@ void LCD_write_line(uint8_t *line_buf) {
   uint8_t *snapshot_line = packedDisplayBuffer + buffer_row * LCD_ROW_SIZE_BYTES;
   // lcd_buffer follows the DMCP polarity upstream adopted in 1560394c, a 1 bit
   // is a white pixel, while the packed snapshot keeps a 1 bit as a dark one,
-  // which is what ReplicaOverlay.decodePackedRow paints. Invert on the copy so
-  // the JNI transport contract stays where it was.
+  // which is what PackedLcdRaster paints as text. Invert on the copy, so the
+  // JNI transport keeps its own polarity whatever upstream stores.
   bool changed = false;
   for (size_t column = 2; column < LCD_ROW_SIZE_BYTES; column++) {
     const uint8_t packed = (uint8_t)~line_buf[column];
@@ -130,7 +129,6 @@ void LCD_write_line(uint8_t *line_buf) {
   // ReplicaOverlay compares rows again.
   if (changed) {
     snapshot_line[0] = 1u;
-    atomic_store_explicit(&lcdBufferDirty, true, memory_order_relaxed);
     atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
   }
   // The keypad snapshot generation MUST bump on every screen refresh, not only

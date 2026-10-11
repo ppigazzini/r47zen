@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Mutation spot-check for the hardened pure seams: the live stop-key policy and
-# router, the keypad decoder, the LCD theme, and the graph-gesture accumulator.
+# router, the keypad decoder, the LCD theme and raster, and the graph-gesture
+# accumulator.
 # It applies a small set of compile-clean semantic mutations to those seams and
 # asserts each one is KILLED by the JVM unit tests: an empirical measure of
 # assertion strength -- do the tests actually fail when the production logic is
@@ -26,6 +27,7 @@ ROUTER_FILE="$KOTLIN_ROOT/LiveKeyRouter.kt"
 DECODER_FILE="$KOTLIN_ROOT/KeypadSnapshot.kt"
 THEME_FILE="$KOTLIN_ROOT/LcdThemePolicy.kt"
 GESTURE_FILE="$KOTLIN_ROOT/GraphGestureAccumulator.kt"
+RASTER_FILE="$KOTLIN_ROOT/PackedLcdRaster.kt"
 POLICY_TEST="io.github.ppigazzini.r47zen.LiveProgramStopKeyPolicyTest"
 ROUTER_TEST="io.github.ppigazzini.r47zen.LiveKeyRouterTest"
 DECODER_TEST="io.github.ppigazzini.r47zen.KeypadSnapshotDecoderTest"
@@ -33,6 +35,7 @@ THEME_TEST="io.github.ppigazzini.r47zen.LcdThemePolicyTest"
 GESTURE_TEST="io.github.ppigazzini.r47zen.GraphGestureAccumulatorTest"
 GESTURE_PROPERTY_TEST="io.github.ppigazzini.r47zen.GraphGestureAccumulatorPropertyTest"
 DECODER_PROPERTY_TEST="io.github.ppigazzini.r47zen.KeypadSnapshotDecoderPropertyTest"
+RASTER_TEST="io.github.ppigazzini.r47zen.PackedLcdRasterTest"
 
 # Parallel mutation records: file, exact unique old text, mutated text, the test
 # class that must catch it, and a human description.
@@ -50,6 +53,8 @@ MUT_FILES=(
     "$GESTURE_FILE"
     "$GESTURE_FILE"
     "$DECODER_FILE"
+    "$RASTER_FILE"
+    "$RASTER_FILE"
 )
 MUT_OLD=(
     "const val EXIT_KEY_CODE = 33"
@@ -65,6 +70,8 @@ MUT_OLD=(
     "val updatedScale = pendingScaleFactor * scaleFactor"
     "updatedScale.coerceIn(scaleFactorMin, scaleFactorMax)"
     "return keyStates[code - 1]"
+    "val wholeFrame = !hasNativeFrame"
+    "linePixels[destX + bit] = if ((packedByte and (1 shl (7 - bit))) != 0) {"
 )
 MUT_NEW=(
     "const val EXIT_KEY_CODE = 34"
@@ -80,6 +87,8 @@ MUT_NEW=(
     "val updatedScale = pendingScaleFactor + scaleFactor - 1f"
     "scaleFactorMax"
     "return KeypadKeySnapshot.EMPTY"
+    "val wholeFrame = false"
+    "linePixels[destX + bit] = if ((packedByte and (1 shl bit)) != 0) {"
 )
 MUT_TESTS=(
     "$POLICY_TEST"
@@ -95,6 +104,8 @@ MUT_TESTS=(
     "$GESTURE_PROPERTY_TEST"
     "$GESTURE_PROPERTY_TEST"
     "$DECODER_PROPERTY_TEST"
+    "$RASTER_TEST"
+    "$RASTER_TEST"
 )
 MUT_DESC=(
     "LiveProgramStopKeyPolicy: EXIT key code 33 -> 34"
@@ -110,6 +121,8 @@ MUT_DESC=(
     "GraphGestureAccumulator: compose pinch factors by adding, not multiplying"
     "GraphGestureAccumulator: drain every pinch at the maximum factor"
     "KeypadSnapshot: decode every in-range key as the empty key"
+    "PackedLcdRaster: decode only flagged rows of a host's first frame"
+    "PackedLcdRaster: read each pixel byte least significant bit first"
 )
 
 fail() {

@@ -14,11 +14,16 @@
 // Built and run on the Linux host by run_keypad_generation_contract.sh; no
 // emulator or device is required.
 
+#include <pthread.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+// The repo-owned HAL header, by a path relative to this file: the staged
+// upstream tree also has a hal/lcd.h, and it comes first on the include path.
+#include "../../android/app/src/main/cpp/r47zen/hal/lcd.h"
 
 // hal/lcd.c defines this as a C11 relaxed atomic (the lock-free display-change
 // signal); match the type so the bare reads below are valid atomic loads.
@@ -58,14 +63,17 @@ uint8_t *lcd_buffer = NULL;
 // Asserted by dark-pixel population over the whole row, so the checks stay
 // valid independently of the Android column mirroring inside bitblt24.
 
-// Row 0's pixel bytes: LCD_ROW_SIZE_BYTES (52) in
-// android/app/src/main/cpp/r47zen/hal/lcd.h is two header bytes plus these 50,
-// and SCREEN_WIDTH comes from the upstream src/c47/defines.h. Kept local so this
-// test links against hal/lcd.c alone, like the externs above.
+// A row's pixel bytes: two header bytes, then these 50. SCREEN_WIDTH comes
+// from the upstream src/c47/defines.h, so the widths are kept local and checked
+// against LCD_ROW_SIZE_BYTES, the stride hal/lcd.h owns.
 #define ROW_DATA_OFFSET 2u
 #define ROW_DATA_BYTES 50u
 #define SCREEN_WIDTH_PX 400
 #define SCREEN_HEIGHT_PX 240
+_Static_assert(ROW_DATA_OFFSET + ROW_DATA_BYTES == LCD_ROW_SIZE_BYTES,
+               "a packed row is two header bytes and the pixel bytes");
+_Static_assert(ROW_DATA_BYTES * 8u == SCREEN_WIDTH_PX,
+               "a packed row holds one bit per pixel of a scanline");
 
 // Upstream src/c47/hal/lcd.h: blt_op_t, blt_fill_t, and the two lcd_fill_rect
 // values, whose names say the opposite of what they fill.
@@ -84,11 +92,10 @@ extern void lcd_fill_rect(uint32_t x, uint32_t y, uint32_t dx, uint32_t dy,
 extern void lcd_clear_buf(void);
 extern bool lcd_buffer_pixel_on(uint32_t x, uint32_t y);
 extern uint8_t *packedDisplayBuffer;
-extern _Atomic bool lcdBufferDirty;
+extern pthread_mutex_t packedDisplayMutex;
 extern _Atomic uint32_t packedDisplayGeneration;
-extern void lcd_mark_packed_rows_dirty(void);
 
-#define ROW_STRIDE (ROW_DATA_OFFSET + ROW_DATA_BYTES)
+#define ROW_STRIDE LCD_ROW_SIZE_BYTES
 
 // Row 0 only; the dirty flag and row-index header bytes are left untouched.
 static void fill_row(uint8_t value) {
@@ -205,7 +212,7 @@ static int check_polarity(void) {
   }
 
   // The packed snapshot handed to Kotlin keeps a 1 bit as a dark pixel, which
-  // is what ReplicaOverlay.decodePackedRow paints, so LCD_write_line inverts.
+  // is what PackedLcdRaster paints as text, so LCD_write_line inverts.
   // lcd_buffer row 0 carries row id SCREEN_HEIGHT - 1 and lands in snapshot
   // row 0.
   bitblt24(0u, 24u, 0u, 0xFFFFFFu, BLT_OR, BLT_NONE);
@@ -227,14 +234,16 @@ static int check_polarity(void) {
   return failures;
 }
 
-// --- packed-row change detection ---------------------------------------------
+// --- packed-row change detection and the snapshot take ----------------------
 //
 // LCD_write_line alone tells a changed row from one the core rewrote unchanged,
 // so it alone sets a packed row's flag and bumps packedDisplayGeneration;
-// ReplicaOverlay decodes every flagged row without comparing. A flag on an
-// unchanged row costs a JNI copy and a decode, a missing flag on a changed row
-// leaves the LCD stale, and a first frame without every row flagged leaves a
-// fresh ReplicaOverlay showing rows it never received.
+// PackedLcdRaster decodes every flagged row without comparing. A flag on an
+// unchanged row costs a JNI copy and a decode, and a missing flag on a changed
+// row leaves the LCD stale. lcd_try_take_packed_snapshot is the consumer's half:
+// it hands over every row, flagged or not, and clears the flags it delivered.
+
+static uint8_t taken[SCREEN_HEIGHT_PX * ROW_STRIDE];
 
 static bool all_packed_rows_flagged(void) {
   for (unsigned int row = 0; row < SCREEN_HEIGHT_PX; row++) {
@@ -245,16 +254,18 @@ static bool all_packed_rows_flagged(void) {
   return true;
 }
 
-static void consume_packed_rows(void) {
+static bool any_packed_row_flagged(void) {
   for (unsigned int row = 0; row < SCREEN_HEIGHT_PX; row++) {
-    packedDisplayBuffer[row * ROW_STRIDE] = 0u;
+    if (packedDisplayBuffer[row * ROW_STRIDE] != 0u) {
+      return true;
+    }
   }
-  lcdBufferDirty = false;
+  return false;
 }
 
 // Run straight after init_lcd_buffers, before any row is written.
 static int check_first_frame_flags(void) {
-  if (!all_packed_rows_flagged() || !lcdBufferDirty) {
+  if (!all_packed_rows_flagged()) {
     fprintf(stderr, "FAIL: init_lcd_buffers did not flag every packed row\n");
     return 1;
   }
@@ -266,12 +277,14 @@ static int check_first_frame_flags(void) {
 static int check_packed_change_detection(void) {
   int failures = 0;
 
-  consume_packed_rows();
+  if (!lcd_try_take_packed_snapshot(taken)) {
+    fprintf(stderr, "FAIL: lcd_try_take_packed_snapshot refused a free lock\n");
+    return 1;
+  }
   uint32_t before = packedDisplayGeneration;
   lcd_buffer[0] = 1u;
   LCD_write_line(lcd_buffer);
-  if (packedDisplayBuffer[0] != 0u || lcdBufferDirty ||
-      packedDisplayGeneration != before) {
+  if (packedDisplayBuffer[0] != 0u || packedDisplayGeneration != before) {
     fprintf(stderr,
             "FAIL: LCD_write_line flagged a row whose pixels did not change\n");
     failures |= 1;
@@ -282,26 +295,99 @@ static int check_packed_change_detection(void) {
   lcd_buffer[ROW_DATA_OFFSET] ^= 0x01u;
   lcd_buffer[0] = 1u;
   LCD_write_line(lcd_buffer);
-  if (packedDisplayBuffer[0] != 1u || !lcdBufferDirty ||
-      packedDisplayGeneration == before) {
+  if (packedDisplayBuffer[0] != 1u || packedDisplayGeneration == before) {
     fprintf(stderr, "FAIL: LCD_write_line did not flag a changed row\n");
     failures |= 1;
   } else {
     printf("OK: a changed row is flagged and bumps packedDisplayGeneration\n");
   }
 
-  consume_packed_rows();
-  before = packedDisplayGeneration;
-  lcd_mark_packed_rows_dirty();
-  if (!all_packed_rows_flagged() || !lcdBufferDirty ||
-      packedDisplayGeneration == before) {
+  return failures;
+}
+
+static int check_snapshot_take(void) {
+  int failures = 0;
+
+  // A held lock refuses the take and leaves both buffers alone.
+  memset(taken, 0xA5, sizeof(taken));
+  pthread_mutex_lock(&packedDisplayMutex);
+  const bool took_while_held = lcd_try_take_packed_snapshot(taken);
+  pthread_mutex_unlock(&packedDisplayMutex);
+  if (took_while_held || taken[0] != 0xA5u || !any_packed_row_flagged()) {
     fprintf(stderr,
-            "FAIL: lcd_mark_packed_rows_dirty did not flag every packed row\n");
+            "FAIL: lcd_try_take_packed_snapshot copied or cleared while the "
+            "core held packedDisplayMutex\n");
     failures |= 1;
   } else {
-    printf("OK: lcd_mark_packed_rows_dirty flags every packed row\n");
+    printf("OK: a held snapshot lock refuses the take\n");
   }
 
+  // A free lock hands over every row, flagged or not, then clears the flags.
+  uint8_t expected[sizeof(taken)];
+  memcpy(expected, packedDisplayBuffer, sizeof(expected));
+  if (!lcd_try_take_packed_snapshot(taken) ||
+      memcmp(taken, expected, sizeof(taken)) != 0 ||
+      any_packed_row_flagged()) {
+    fprintf(stderr,
+            "FAIL: lcd_try_take_packed_snapshot did not copy the whole "
+            "snapshot and clear every row flag\n");
+    failures |= 1;
+  } else {
+    printf("OK: the take copies every row and clears every flag\n");
+  }
+
+  if (lcd_try_take_packed_snapshot(NULL)) {
+    fprintf(stderr, "FAIL: lcd_try_take_packed_snapshot accepted a NULL dst\n");
+    failures |= 1;
+  }
+
+  return failures;
+}
+
+// --- packed wire format ------------------------------------------------------
+//
+// One dark pixel drawn at (x, y) through bitblt24 must reach the packed
+// snapshot at row y, pixel byte (ROW_DATA_BYTES - 1 - x / 8), bit mask
+// (0x80 >> x % 8), and nowhere else in that row. PackedLcdRaster decodes by the
+// same rule (R47LcdContract on the Kotlin side), so a change to either half
+// fails here or in PackedLcdRasterTest, never in neither.
+
+static int check_packed_pixel_position(void) {
+  static const uint32_t xs[] = {0u, 1u, 7u, 8u, 199u, 392u, 399u};
+  static const uint32_t ys[] = {0u, 137u, 239u};
+  int failures = 0;
+  for (size_t yi = 0; yi < sizeof(ys) / sizeof(ys[0]); yi++) {
+    const uint32_t y = ys[yi];
+    uint8_t *line = lcd_buffer + y * ROW_STRIDE;
+    for (size_t xi = 0; xi < sizeof(xs) / sizeof(xs[0]); xi++) {
+      const uint32_t x = xs[xi];
+      memset(line + ROW_DATA_OFFSET, 0xFF, ROW_DATA_BYTES);
+      bitblt24(x, 1u, y, 1u, BLT_OR, BLT_NONE);
+      LCD_write_line(line);
+      const uint8_t *packed = packedDisplayBuffer + y * ROW_STRIDE + ROW_DATA_OFFSET;
+      const unsigned int byte_index = ROW_DATA_BYTES - 1u - x / 8u;
+      const uint8_t mask = (uint8_t)(0x80u >> (x % 8u));
+      int stray = 0;
+      for (unsigned int b = 0; b < ROW_DATA_BYTES; b++) {
+        const uint8_t want = (b == byte_index) ? mask : 0u;
+        stray += packed[b] != want;
+      }
+      if (!lcd_buffer_pixel_on(x, y) || stray != 0) {
+        fprintf(stderr,
+                "FAIL: a dark pixel at (%u, %u) is not alone at packed byte %u "
+                "mask 0x%02x\n",
+                (unsigned int)x, (unsigned int)y, byte_index, mask);
+        failures |= 1;
+      }
+    }
+    memset(line + ROW_DATA_OFFSET, 0xFF, ROW_DATA_BYTES);
+    LCD_write_line(line);
+  }
+  if (failures == 0) {
+    printf("OK: a dark pixel at (x, y) packs to byte %u - x / 8, mask 0x80 >> "
+           "x %% 8, of row y\n",
+           ROW_DATA_BYTES - 1u);
+  }
   return failures;
 }
 
@@ -348,5 +434,6 @@ int main(void) {
          (unsigned int)before, (unsigned int)keypadSnapshotGeneration);
 
   return check_bitblt24_fill_semantics() | check_polarity() |
-         check_packed_change_detection();
+         check_packed_change_detection() | check_snapshot_take() |
+         check_packed_pixel_position();
 }

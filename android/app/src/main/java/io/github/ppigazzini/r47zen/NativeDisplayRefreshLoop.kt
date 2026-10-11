@@ -89,9 +89,12 @@ internal class NativeDisplayRefreshLoop(
                 } else {
                     0
                 }
-                onPackedLcd(packedLcdBuffer)
+                val changedRows = onPackedLcd(packedLcdBuffer)
                 lastDisplayGeneration = currentDisplayGeneration
-                if (isPerformanceSnapshotEnabled) {
+                // A copy can carry no changed row: the previous copy may already
+                // have taken a change that bumped this generation. Count only the
+                // copies that repainted the LCD, so "LCD Hz" stays repaints.
+                if (changedRows && isPerformanceSnapshotEnabled) {
                     performanceLcdUpdateCount += 1
                     performanceLcdUpdateNanos +=
                         (measureNanos() - updateStartNanos).coerceAtLeast(0L)

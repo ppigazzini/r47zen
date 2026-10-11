@@ -202,8 +202,7 @@ supports that model by keeping shared synchronization in native code:
   UI-thread entry point that touches core state -- `copyKeypadSnapshotNative`,
   `getPackedDisplayBuffer`, `requestStopProgramNative` -- returns early until
   it is true, because the UI thread is live before init finishes: `MainActivity`
-  posts a keypad refresh after first layout. `resendLcdRowsNative` runs on the
-  core thread after init and keeps the same gate. The startup phase of
+  posts a keypad refresh after first layout. The startup phase of
   `build_bridge_tsan_harness.sh` races those entry points against init and
   fails on any unsynchronized access
 - `Java_io_github_ppigazzini_r47zen_MainActivity_tick(...)` keeps
@@ -227,15 +226,14 @@ supports that model by keeping shared synchronization in native code:
 - `ReplicaOverlayController` consumes that same cached whole-snapshot store for
   overlay replay and dynamic-key refresh, which keeps the UI thread from
   building one logical keypad scene through multiple blocking JNI calls
-- the three lock-free display-change signals the UI thread polls without a
-  display mutex held -- `packedDisplayGeneration`, `keypadSnapshotGeneration`,
-  and `lcdBufferDirty` in `hal/lcd.c` -- are C11 relaxed atomics, not plain
-  `volatile`. The core thread writes them under `packedDisplayMutex` and the
-  reader samples them with no lock; `packedDisplayMutex` carries the
-  happens-before for the packed buffer payload, so these stay relaxed hints with
-  identical arm64 codegen to the old `volatile`. Plain `volatile` left that
-  concurrent access a data race under the C memory model, which
-  `build_bridge_tsan_harness.sh` flags and the atomics resolve
+- the two lock-free display-change signals the UI thread polls without a
+  display mutex held -- `packedDisplayGeneration` and
+  `keypadSnapshotGeneration` in `hal/lcd.c` -- are C11 relaxed atomics, not
+  plain `volatile`. The core thread writes them under `packedDisplayMutex` and
+  the reader samples them with no lock; `packedDisplayMutex` carries the
+  happens-before for the packed buffer payload, so these stay relaxed hints.
+  Plain `volatile` would leave that concurrent access a data race under the C
+  memory model, which `build_bridge_tsan_harness.sh` flags
 - `android_runtime.c` also supplies Android-backed `PC_BUILD` event-loop shims
   for `g_main_context_iteration()`, `g_timeout_add()`,
   `gtk_events_pending()`, and `gtk_main_iteration()` so staged upstream pause
@@ -359,12 +357,11 @@ Practical rule:
 
 Final app shutdown uses `releaseNativeRuntime()` to delete the global
 `MainActivity` reference and clear the cached method IDs. Activity recreation
-rebinds the new host without tearing down the native core:
-`NativeCoreRuntime.rebindHost()` calls `updateNativeActivityRef()`, which
-refreshes JNI references and cached method IDs only, then
-`resendLcdRowsNative()`, which flags every packed snapshot row so the new
-`ReplicaOverlay`, blank at construction, receives the whole frame.
-Neither may synthesize a redraw. The core
+rebinds the new host without tearing down the native core: the core thread
+runs `updateNativeActivityRef()`, which refreshes JNI references and cached
+method IDs only and must not synthesize a redraw. The new `ReplicaOverlay`
+gets the frame from its first packed copy, which it decodes whole
+([06](06-runtime-hot-paths.md#lcd-frame-state-inventory)). The core
 thread outlives each Activity, so its loop lives in `NativeCoreRuntime`'s
 companion and reaches its host only through the runtime the latest `attach()`
 published; the predecessor, with its view tree, becomes collectable once the
@@ -400,7 +397,7 @@ their state inventory for the checks in
 
 | access | function | thread |
 |---|---|---|
-| write | `updateNativeActivityRef`, from `initNative` and from `NativeCoreRuntime.rebindHost()` | core |
+| write | `updateNativeActivityRef`, from `initNative` and, on reattach, from `NativeCoreRuntime`'s core-thread attach | core |
 | write | `releaseNativeRuntime`, from `MainActivity.handleFactoryResetFinish` and `handleFactoryResetDestroy` | main |
 | read | `processCoreTasksNative` (`jni_activity_bridge.c`), `_Buzz` (`hal/audio.c`), `requestAndroidFile` (`jni_storage.c`), `triggerQuit` (`jni_display.c`) | core |
 

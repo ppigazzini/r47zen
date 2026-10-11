@@ -170,7 +170,11 @@ expect_fixture_status "HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE on a bounded-stop 
 seam_rel="app/src/main/java/io/github/ppigazzini/r47zen"
 sandbox="$tmp/mutation-sandbox"
 mkdir -p "$sandbox/android/$seam_rel" "$sandbox/originals"
-for seam in LiveProgramStopKeyPolicy LiveKeyRouter KeypadSnapshot LcdThemePolicy GraphGestureAccumulator; do
+# The seams are the *_FILE sources the spot-check names, read from the script so
+# a seam added there is sandboxed here too.
+mapfile -t seams < <(sed -n 's|^[A-Z_]*_FILE="\$KOTLIN_ROOT/\([A-Za-z0-9]*\)\.kt"$|\1|p' "$MUTATION")
+[ "${#seams[@]}" -gt 0 ] || fail "found no *_FILE seam in $MUTATION"
+for seam in "${seams[@]}"; do
     cp "$PROJECT_ROOT/android/$seam_rel/$seam.kt" "$sandbox/android/$seam_rel/"
     cp "$PROJECT_ROOT/android/$seam_rel/$seam.kt" "$sandbox/originals/"
 done

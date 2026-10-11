@@ -51,8 +51,11 @@ not only on the diff, and run them before reading for smells.
    ([10-writing.md](10-writing.md#the-rules), "describe a gap as a gap").
 
    Example: "the bitmap shows the decode of the cached frame in the current
-   palette" is kept at three sites by convention. A fix that adds a fourth
-   repaint has added a site, not restored the invariant.
+   palette", kept by three call sites that each remember to repaint, holds by
+   convention, and a fix that adds a fourth repaint has added a site. One class
+   that owns the frame, the palette, and the bitmap and offers no other write
+   path holds it by construction
+   ([06](06-runtime-hot-paths.md#lcd-frame-state-inventory)).
 
 ## Where the inventories live
 

@@ -1633,20 +1633,6 @@ Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative(
              : JNI_FALSE;
 }
 
-// Resend the whole current frame to a host that attaches to a live runtime:
-// its ReplicaOverlay starts blank, and the core sends only rows that change.
-// The ready gate's acquire load publishes the packedDisplayBuffer pointer.
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(JNIEnv *env,
-                                                                  jobject thiz) {
-  (void)env;
-  (void)thiz;
-  if (!r47_runtime_ready()) {
-    return;
-  }
-  lcd_mark_packed_rows_dirty();
-}
-
 JNIEXPORT jint JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration(
     JNIEnv *env, jobject thiz) {
@@ -1658,46 +1644,35 @@ Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration(
                                     memory_order_relaxed);
 }
 
+// The UI-thread copy behind getPackedDisplayBuffer, and the one the TSan
+// harness races against the core: the ready gate's acquire load publishes the
+// packedDisplayBuffer pointer that init_lcd_buffers writes on the core thread.
+bool r47_try_take_packed_display(uint8_t *dst) {
+  if (!r47_runtime_ready()) {
+    return false;
+  }
+  return lcd_try_take_packed_snapshot(dst);
+}
+
+// Copy straight into the Java array: between the critical get and release this
+// does a trylock, a memcpy and a flag clear, never a JNI call or a blocking
+// wait, which is what a critical region allows.
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(
     JNIEnv *env, jobject thiz, jbyteArray buffer) {
   (void)thiz;
-  extern uint8_t *packedDisplayBuffer;
-  extern pthread_mutex_t packedDisplayMutex;
-  // The ready gate's acquire load is what makes the packedDisplayBuffer pointer
-  // (written once by init_lcd_buffers on the core thread) safe to read here.
-  if (!r47_runtime_ready()) {
-    return JNI_FALSE;
-  }
-
-  extern _Atomic bool lcdBufferDirty;
-  if (!atomic_load_explicit(&lcdBufferDirty, memory_order_relaxed)) {
-    return JNI_FALSE;
-  }
-
   const jsize packedBytes = (jsize)(SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
   if ((*env)->GetArrayLength(env, buffer) < packedBytes) {
     return JNI_FALSE;
   }
 
-  if (pthread_mutex_trylock(&packedDisplayMutex) != 0) {
+  jbyte *dst = (jbyte *)(*env)->GetPrimitiveArrayCritical(env, buffer, NULL);
+  if (!jni_result_ok(env, dst, "GetPrimitiveArrayCritical(getPackedDisplayBuffer)")) {
     return JNI_FALSE;
   }
-
-  jboolean copied = JNI_FALSE;
-  (*env)->SetByteArrayRegion(env, buffer, 0, packedBytes,
-                             (jbyte *)packedDisplayBuffer);
-  if (!jni_check_and_clear_exception(env,
-                                     "SetByteArrayRegion(getPackedDisplayBuffer)")) {
-    for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
-      packedDisplayBuffer[LCD_ROW_SIZE_BYTES * row] = 0u;
-    }
-    atomic_store_explicit(&lcdBufferDirty, false, memory_order_relaxed);
-    copied = JNI_TRUE;
-  }
-  pthread_mutex_unlock(&packedDisplayMutex);
-
-  return copied;
+  const bool taken = r47_try_take_packed_display((uint8_t *)dst);
+  (*env)->ReleasePrimitiveArrayCritical(env, buffer, dst, taken ? 0 : JNI_ABORT);
+  return taken ? JNI_TRUE : JNI_FALSE;
 }
 
 void dmcpResetAutoOff() {}

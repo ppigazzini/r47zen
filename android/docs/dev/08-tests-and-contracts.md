@@ -54,7 +54,7 @@ flowchart TD
 | settings behavior copy, main-shell menu copy, follow-up copy-popup parity, developer performance HUD copy, fixed dark shell and popup theme invariants, the explicit checked settings-switch orange-track and blue-thumb tint mapping, adaptive settings host layout, and dependent keypress haptic default-toggle plus custom-duration copy | `SettingsActivity.kt`, `SettingsSwitchPreference.kt`, `MainActivity.kt`, `DisplayActionController.kt`, `android/app/src/main/cpp/r47zen/jni_display.c`, `android/app/src/main/cpp/r47zen/android_helpers.c`, `android/app/src/main/res/layout/settings_activity.xml`, `android/app/src/main/res/layout-w600dp/settings_activity.xml`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `SettingsActivityThemeTest.kt`, `SettingsPreferenceSummaryTest.kt`, `MainShellThemeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.SettingsActivityThemeTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest` |
 | keypad haptic gate, Android-default toggle versus custom `0..100 ms` override, and press-only keypad cadence | `HapticFeedbackController.kt`, `ReplicaKeypadLayout.kt`, `MainActivity.kt`, `SettingsActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml` | `HapticFeedbackControllerTest.kt`, `ReplicaKeypadLayoutHapticsTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest --tests io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
 | beeper volume normalization and audio settings dispatch | `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `MainActivityPreferenceControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest` |
-| LCD display theme normalization, inverse polarity, palette contrast, and palette ownership | `LcdThemePolicy.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `scripts/r47_contracts/test_lcd_palette_owner_contract.py` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest`, then the grouped `scripts/r47_contracts` lane |
+| LCD display theme normalization, inverse polarity, palette contrast, palette ownership, and the LCD raster | `LcdThemePolicy.kt`, `PackedLcdRaster.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `PackedLcdRasterTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `scripts/r47_contracts/test_lcd_palette_owner_contract.py` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.PackedLcdRasterTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest`, then the grouped `scripts/r47_contracts` lane |
 | system-bar and cutout insets on every screen, fixed shell-menu copy, orange-blue touch-target placement, copy-popup shape, first-touch discovery-hint dismissal, and any retained discovery-hint surfaces | `MainActivity.kt`, `DisplayActionController.kt`, `WindowModeController.kt`, `SystemBarInsets.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/strings.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `MainShellThemeTest.kt`, `ReplicaOverlayVisualPolicyTest.kt`, `SystemBarInsetsTest.kt`, `WindowModeControllerTest.kt`, `SystemBarInsetsInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest --tests io.github.ppigazzini.r47zen.SystemBarInsetsTest --tests io.github.ppigazzini.r47zen.WindowModeControllerTest`, then the `SystemBarInsetsInstrumentedTest` connected selection |
 | SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `requestedProgramFixtureNames`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
@@ -313,12 +313,17 @@ Important contract files include:
 - `SoftkeyOverlayPainterTest.kt`: locks the extracted overlay-painter stage for
   the menu-badge label and underline path without routing through the larger
   softkey renderer owner
+- `PackedLcdRasterTest.kt`: locks the LCD raster pixel-for-pixel against
+  expected pixels built from the coordinates each test lit, never from a second
+  row decoder: a new raster paints every pixel the background for every theme,
+  polarity, and luminance bound; a host's first frame decodes every row,
+  flagged or not; a later frame decodes only its flagged rows; and a palette
+  change, even to the same palette, repaints the held frame
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable. The
-  LCD raster is locked pixel-for-pixel against an independently decoded reference
-  (`packedLcd_matchesIndependentDecode`) and by a structural colour oracle
-  (`nativeChrome_compositesLcdRasterColours`), and a fresh overlay must show a
-  blank frame in the default palette before any frame arrives
-  (`packedLcd_freshOverlay_showsBlankFrame`). The overall chrome
+  LCD raster's composition into the frame is locked by a structural colour
+  oracle (`nativeChrome_compositesLcdRasterColours`), and a fresh overlay
+  decodes its first frame whole and invalidates the whole LCD
+  (`packedLcd_firstFrame_isDecodedWhole_andInvalidatesTheWholeLcd`). The overall chrome
   is locked by `nativeChrome_matchesTextGolden`, a **code-only** ASCII-luminance
   downsample of the render of a packed sample frame, held in
   `CHROME_TEXT_GOLDEN`. A text golden is
@@ -358,10 +363,12 @@ Important contract files include:
 - `NativeCoreRuntimeTest.kt`: locks single-init, queued-task,
   save-on-pause, and native-deadline waiting behavior on the core thread, and
   that every reattach, from the live or a restarted core thread, swaps the
-  activity ref and then resends every LCD row, while the first attach does not
+  activity ref on the core thread, while the first attach leaves it to
+  `initNative`
 - `NativeDisplayRefreshLoopTest.kt`: locks packed-display generation gating,
   unchanged-frame skip behavior, keypad-generation retry-after-busy-copy,
-  cached-snapshot reuse, no-synthetic-empty refresh behavior, and the default
+  cached-snapshot reuse, no-synthetic-empty refresh behavior, that a copy which
+  changed no row is consumed without counting an LCD update, and the default
   `500 ms` plus configurable `100..1000 ms` developer-performance HUD window
   semantics on the UI observer loop
 - `StorageAccessCoordinatorTest.kt` and `WorkDirectoryTest.kt`: lock the
@@ -644,7 +651,7 @@ Android compatibility layer.
   aborts on an overrun, and nothing checks the dumped text itself.
 - `scripts/android/run_keypad_generation_contract.sh` links `hal/lcd.c` alone on
   the host -- no emulator, no device -- and runs
-  `scripts/android/keypad_generation_contract_test.c`. It asserts five
+  `scripts/android/keypad_generation_contract_test.c`. It asserts six
   `hal/lcd.c` contracts. First, `LCD_write_line` must bump
   `keypadSnapshotGeneration`, the signal the display loop uses to re-read dynamic
   softkeys such as the EQN editor. Second, `init_lcd_buffers` must leave the
@@ -667,35 +674,37 @@ Android compatibility layer.
   writes `lcd_buffer` bytes itself, the function-name box in `screen.c`, which
   drew inverted on the older polarity. Nothing drawn through `bitblt24` alone can
   show that: swapping the two ops and the reader cancels out, which is why the
-  BinetV4 hash did not move when the HAL did. The assertions count dark pixels
-  over a whole row, so they stay valid independently of the column mirroring
-  inside the Android `bitblt24`. Fifth, `LCD_write_line` flags a packed row and
-  bumps `packedDisplayGeneration` only when the row's pixels changed,
-  `init_lcd_buffers` flags every packed row for the first copy, and
-  `lcd_mark_packed_rows_dirty` flags them all again for a newly attached host;
-  `ReplicaOverlay` decodes every flagged row without comparing, so a wrong
-  flag either way reaches the screen. It runs in the
+  BinetV4 hash did not move when the HAL did. The polarity assertions count
+  dark pixels over a whole row, so they stay valid independently of the column
+  mirroring inside the Android `bitblt24`. Fifth, `LCD_write_line` flags a
+  packed row and bumps `packedDisplayGeneration` only when the row's pixels
+  changed, `init_lcd_buffers` flags every packed row, and
+  `lcd_try_take_packed_snapshot` copies every row, clears every flag, and
+  refuses while the core holds `packedDisplayMutex`; `PackedLcdRaster` decodes
+  every flagged row without comparing, so a wrong flag either way reaches the
+  screen. Sixth, a dark pixel drawn at `(x, y)` lands alone at pixel byte
+  `49 - x / 8`, mask `0x80 >> x % 8`, of packed row `y`: the mirroring, pinned,
+  and the rule `PackedLcdRaster` decodes by. It runs in the
   `host-workload-regressions` lane of `linux-ci.yml`.
 - `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds the staged
   core and Android bridge under ThreadSanitizer and races the UI read path
   against the core, the one concurrency surface the single-threaded ASan/UBSan
   lanes never exercise. A startup phase runs the UI entry points -- the keypad
-  copy through `r47_try_copy_app_keypad_snapshot`, the packed-display copy, and
-  `resendLcdRowsNative`, which the app runs on the core thread after init but
-  which keeps the same ready gate -- while `r47_init_runtime` runs, which is
-  what locks the init
-  lock and the `r47_runtime_ready()` gate. A steady-state phase then has a
-  producer thread drive `sendKey` plus `r47_force_refresh` while a consumer
-  thread samples the generation counters, runs the `pthread_mutex_trylock` read
-  path the way `getPackedDisplayBuffer` and `r47_get_keypad_meta` do, and calls
-  `resendLcdRowsNative`. A data race or
+  copy through `r47_try_copy_app_keypad_snapshot` and the packed-display copy
+  through `r47_try_take_packed_display`, the native half of
+  `getPackedDisplayBuffer` -- while `r47_init_runtime` runs, which is what locks
+  the init lock and the `r47_runtime_ready()` gate. A steady-state phase then
+  has a producer thread drive `sendKey` plus `r47_force_refresh` while a
+  consumer thread samples the generation counters, reads the keypad through
+  `r47_get_keypad_meta`, and takes the packed display through
+  `r47_try_take_packed_display`. A data race or
   lock-order inversion in the Android-owned bridge is the hard gate and aborts
   the run; `bridge_tsan_suppressions.txt` is the upstream-core-only escape hatch
   (currently empty -- the bridge's `screenMutex`/`packedDisplayMutex` fully
   serialize the core, so no upstream race surfaces), matching how the sanitized
   workload lane defers un-ownable upstream undefined behavior. The harness is
-  what proves the `hal/lcd.c` display-change signals (`lcdBufferDirty`,
-  `packedDisplayGeneration`, `keypadSnapshotGeneration`) are race-free under
+  what proves the `hal/lcd.c` display-change signals
+  (`packedDisplayGeneration`, `keypadSnapshotGeneration`) are race-free under
   their lock-free read path; those are C11 relaxed atomics, not plain `volatile`,
   because plain `volatile` leaves the concurrent access a data race the harness
   flags. It runs in the `host-workload-regressions` lane beside the ASan/UBSan
@@ -712,10 +721,11 @@ Android compatibility layer.
 - `scripts/android/mutation_spot_check.sh` measures assertion strength on the
   hardened pure seams: it applies known compile-clean semantic mutations to
   `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `KeypadSnapshot.kt`,
-  `LcdThemePolicy.kt`, and `GraphGestureAccumulator.kt` and asserts each is
-  killed by the matching JVM test (`LiveProgramStopKeyPolicyTest`,
-  `LiveKeyRouterTest`, `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
-  `GraphGestureAccumulatorTest`). A surviving mutant marks an assertion gap and
+  `LcdThemePolicy.kt`, `GraphGestureAccumulator.kt`, and `PackedLcdRaster.kt`
+  and asserts each is killed by the matching JVM test
+  (`LiveProgramStopKeyPolicyTest`, `LiveKeyRouterTest`,
+  `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
+  `GraphGestureAccumulatorTest`, `PackedLcdRasterTest`). A surviving mutant marks an assertion gap and
   fails the run. The `android-tests` job in `android-ci.yml` runs it on every
   event, so the push that weakens a seam test is the run that fails; run it
   locally after changing one of those seams or its tests. The mutant list is

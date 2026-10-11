@@ -150,29 +150,29 @@ That would duplicate the most expensive JNI reads in the shell.
 
 ## Packed LCD Row Decode Path
 
-- `jni_display.c::getPackedDisplayBuffer(...)` short-circuits when
-  `lcdBufferDirty` is false, and `NativeDisplayRefreshLoop` only attempts the
-  copy after `getPackedDisplayGeneration()` changes, so Kotlin does not receive
-  a fresh packed snapshot on unchanged frames.
+- `NativeDisplayRefreshLoop` attempts a copy only after
+  `getPackedDisplayGeneration()` changes, and once after each `start()`, so
+  Kotlin does not receive a fresh packed snapshot on unchanged frames.
 - `hal/lcd.c::LCD_write_line(...)` copies the row into the packed snapshot
   inverted, one pass over its 50 pixel bytes, because `lcd_buffer` stores a
   dark pixel as a 0 bit and the snapshot as a 1 bit. It flags the packed row
   and increments `packedDisplayGeneration` only when a pixel byte changed: the
   core rewrites rows it did not change, since `bitblt24` and `lcd_line_addr`
   mark a row dirty on every write, and this is the one place the transport
-  compares rows. `init_lcd_buffers` flags every packed row, so the first copy
-  carries a whole frame. Several changed rows can collapse into one accepted
+  compares rows. `init_lcd_buffers` flags every packed row. Several changed
+  rows can collapse into one accepted
   Kotlin snapshot before the next UI frame, which is why the HUD's `LCD Hz`
   field is snapshot cadence rather than raw row-write frequency.
-- After a successful copy, the JNI export clears each row's dirty flag in the
-  packed transport buffer. That dirty flag is transport bookkeeping, not part of
-  the visible LCD contract.
-- `ReplicaOverlay.updatePackedLcd(...)` decodes every row whose packed byte `0`
-  is set, without comparing it again, copies those rows into
-  `lastPackedLcd`, repaints them into the bitmap, and
-  invalidates the full LCD width across the touched row span. It takes each
-  row's display position from its index: native `LCD_write_line` already
-  stores a row at the index its DMCP row id names.
+- `hal/lcd.c::lcd_try_take_packed_snapshot(...)` copies every row and clears
+  every row's flag in one trylock section. The flag is transport bookkeeping,
+  not part of the visible LCD contract: every row in a copy carries its current
+  pixels.
+- `ReplicaOverlay.updatePackedLcd(...)` hands the copy to its
+  `PackedLcdRaster`, which decodes every row whose packed byte `0` is set,
+  without comparing it again, or every row of the first frame it receives, and
+  the overlay invalidates the full LCD width across the decoded row span. A row's
+  display position is its index: native `LCD_write_line` already stores a row
+  at the index its DMCP row id names.
 - A palette change stays on the UI thread: `MainActivity.applyLcdTheme`
   resolves the palette through `LcdThemePolicy` and hands it to
   `setLcdPalette`, and native never sees it. Who writes the bitmap, the row
@@ -198,39 +198,38 @@ a copy adds a row here in the same commit.
 | copy | owner | written by (thread) | read by (thread) | change signal |
 |---|---|---|---|---|
 | `lcd_buffer` | `hal/lcd.c`, drawn by the upstream core | upstream drawing through `lcd_line_addr`, `bitblt24` (and `lcd_fill_rect` on top of it), and `lcd_clear_buf` (core) | `LCD_write_line` through `lcd_refresh`, `lcd_refresh_lines`, and `lcd_clear_buf`; `lcd_buffer_pixel_on` (core) | row byte 0, set on every write, cleared by `LCD_write_line` |
-| `packedDisplayBuffer` | `hal/lcd.c`, under `packedDisplayMutex` | `LCD_write_line` and `lcd_mark_packed_rows_dirty` (core) | `getPackedDisplayBuffer`, with a trylock (main) | row byte 0, set when the row's pixels changed or by `lcd_mark_packed_rows_dirty` and cleared after a copy; `lcdBufferDirty`; `packedDisplayGeneration` |
+| `packedDisplayBuffer` | `hal/lcd.c`, under `packedDisplayMutex` | `LCD_write_line` (core) | `lcd_try_take_packed_snapshot`, through `getPackedDisplayBuffer`, with a trylock (main) | row byte 0, set when the row's pixels changed and cleared by the take; `packedDisplayGeneration` |
 | `packedLcdBuffer` | `NativeDisplayRefreshLoop` | `getPackedDisplayBuffer`, every byte of every row (main) | `ReplicaOverlay.updatePackedLcd` (main) | row byte 0 as copied |
-| `lastPackedLcd` | `ReplicaOverlay` | `updatePackedLcd`, one flagged row at a time (main) | `redrawPackedSnapshot` (main) | none |
-| `lcdBitmap` | `ReplicaOverlay` | `decodePackedRow`, from `updatePackedLcd` and `redrawPackedSnapshot` (main) | `dispatchDraw` (main) | `invalidateLcdRows` |
+| the frame in `PackedLcdRaster` | `PackedLcdRaster`, held by `ReplicaOverlay` | `applyFrame`, the flagged rows or every row of the first frame (main) | `decodeRow` (main) | none |
+| `PackedLcdRaster.bitmap` | `PackedLcdRaster` | `decodeRow`, from the constructor, `applyFrame`, and `setPalette` (main) | `ReplicaOverlay.dispatchDraw` (main) | `firstChangedRow` to `lastChangedRow`, which the overlay invalidates |
 
-The palette, `ReplicaOverlay.lcdPalette`, is decoded into every bitmap row, so
-it is part of the same state.
+The palette, held by `PackedLcdRaster`, is decoded into every bitmap row, so it
+is part of the same state.
 
 What each rule rests on:
 
-- **A row reaches Kotlin only when its pixels changed, or when the whole frame
-  is re-flagged.** `LCD_write_line` compares before it flags;
-  `init_lcd_buffers` and `lcd_mark_packed_rows_dirty` flag every row.
-  `run_keypad_generation_contract.sh` locks all three.
-- **A host that attaches to a live runtime receives the whole frame.**
-  `NativeCoreRuntime.rebindHost()` runs `resendLcdRowsNative()` on the core
-  thread, which re-flags every packed row although no pixel changed: the
-  transport has no request for "send the current frame", so the resend is
-  expressed as a change. The reattach tests in `NativeCoreRuntimeTest` lock the
-  call. `DisplayLifecycleInstrumentedTest` hashes native state, not the
-  overlay, so no test checks a recreated overlay's pixels.
-- **The bitmap shows the decode of `lastPackedLcd` in `lcdPalette`.** Three
-  sites keep this, by convention and not by construction: the constructor runs
-  `redrawPackedSnapshot()` on the blank `lastPackedLcd`, so the bitmap never
-  shows `createBitmap`'s transparent fill; `setLcdPalette` runs it on every
-  call; `updatePackedLcd` copies each flagged row into `lastPackedLcd` and
-  decodes the same bytes. A new path that writes the bitmap must be one of the
-  three. `ReplicaOverlayGoldenTest` locks each site
-  (`packedLcd_freshOverlay_showsBlankFrame`, `packedLcd_recolorsExistingSnapshot`,
-  `packedLcd_matchesIndependentDecode`,
-  `packedLcd_dirtyRowUpdate_preservesUntouchedRowPixels`), but its expected
-  pixels come from `decodePackedBuffer`, a second copy of the production row
-  decode, so a bit-order or polarity error made in both copies passes.
+- **A row is flagged only when its pixels changed.** `LCD_write_line`
+  compares before it flags, and `init_lcd_buffers` flags every row once.
+  `run_keypad_generation_contract.sh` locks both.
+- **Every copy carries the whole current frame, and the take clears the
+  flags.** `run_keypad_generation_contract.sh` locks the copy, the clear, the
+  refusal while the core holds the lock, and the packed byte and bit a pixel
+  lands in. `PackedLcdRasterTest` decodes by the same rule and takes its
+  expected pixels from the coordinates it lit, not from a second decoder.
+- **A host that attaches to a live runtime receives the whole frame.** Its
+  raster decodes the first frame it receives whole, flagged or not, because the
+  previous host may have taken the flags; nothing native runs for it on
+  reattach. `PackedLcdRasterTest.firstFrame_decodesEveryRow_evenWithNoRowFlagged`
+  and `ReplicaOverlayGoldenTest.packedLcd_firstFrame_isDecodedWhole_andInvalidatesTheWholeLcd`
+  lock it. `DisplayLifecycleInstrumentedTest` hashes native state, not the
+  overlay, so no device test checks a recreated overlay's pixels.
+- **The bitmap shows the frame in the palette, by construction.**
+  `PackedLcdRaster` owns the frame, the palette, and the bitmap, offers no other
+  write path, decodes only from its frame, and decodes the blank frame in its
+  constructor, so the bitmap is never `createBitmap`'s transparent fill.
+  `setPalette` repaints every row, with no equality guard.
+  `PackedLcdRasterTest` locks each path, and `mutation_spot_check.sh` carries
+  two raster mutants.
 - **The palette has one source, and one writer before the first draw.** The
   `LcdTheme` entries in `LcdThemePolicy.kt` hold every base colour, in one
   notation; `test_lcd_palette_owner_contract.py` fails on a copy of one in any
@@ -242,9 +241,6 @@ What each rule rests on:
   (`MainActivityPreferenceControllerTest.applyInitialPreferences_appliesTheStoredLcdTheme_beforeTheDeferredOverlayPass`).
   The policy owns the luminance range and defaults; the controller's constants
   refer to it.
-- **`updatePackedLcd` zeroes row byte 0 in the buffer it is handed.** Nothing
-  reads that zero: `getPackedDisplayBuffer` overwrites every byte of
-  `packedLcdBuffer` before the next decode, and no test passes one array twice.
 
 ## Lifecycle Save And Explicit Refresh Path
 

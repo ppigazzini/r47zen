@@ -32,10 +32,9 @@ class NativeCoreRuntimeTest {
     }
 
     @Test
-    fun attach_initializesOnce_processesTasks_andRefreshesOnReattach() {
+    fun attach_initializesOnce_processesTasks_andUpdatesTheActivityRefOnReattach() {
         val initCalls = AtomicInteger(0)
         val updateCalls = AtomicInteger(0)
-        val resendCalls = AtomicInteger(0)
         val initLatch = CountDownLatch(1)
         val taskLatch = CountDownLatch(1)
         val runtime = createRuntime(
@@ -46,9 +45,6 @@ class NativeCoreRuntimeTest {
             onUpdateActivityRef = {
                 updateCalls.incrementAndGet()
             },
-            onResendLcdRows = {
-                resendCalls.incrementAndGet()
-            },
         )
 
         runtime.attach()
@@ -56,23 +52,22 @@ class NativeCoreRuntimeTest {
 
         runtime.offerTask(Runnable { taskLatch.countDown() })
         assertTrue(taskLatch.await(2, TimeUnit.SECONDS))
-        // Native init sends every row itself, so the first host needs no resend.
-        assertEquals(0, resendCalls.get())
+        // initNative binds the first host itself.
+        assertEquals(0, updateCalls.get())
 
         runtime.attach()
-        waitUntil("core reattach resend", 2_000) { resendCalls.get() == 1 }
+        waitUntil("core reattach activity ref", 2_000) { updateCalls.get() == 1 }
 
         runtime.dispose(stopApp = true)
         waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
 
         assertEquals(1, initCalls.get())
         assertEquals(1, updateCalls.get())
-        assertEquals(1, resendCalls.get())
         assertFalse(NativeCoreRuntime.isAppRunning())
     }
 
     @Test
-    fun reattach_afterCoreThreadRestart_resendsLcdRowsAfterActivityRef() {
+    fun reattach_afterCoreThreadRestart_updatesTheActivityRefInsteadOfInit() {
         val initLatch = CountDownLatch(1)
         val first = createRuntime(onInit = { initLatch.countDown() })
         first.attach()
@@ -86,11 +81,14 @@ class NativeCoreRuntimeTest {
         val second = createRuntime(
             onInit = { calls += "init" },
             onUpdateActivityRef = { calls += "activityRef" },
-            onResendLcdRows = { calls += "resendLcdRows" },
         )
         second.attach()
-        waitUntil("restart rebind", 2_000) { calls.size == 2 }
-        assertEquals(listOf("activityRef", "resendLcdRows"), calls.toList())
+        waitUntil("restart rebind", 2_000) { calls.isNotEmpty() }
+        // A task round trip after the rebind, so a late init would be seen.
+        val drained = CountDownLatch(1)
+        second.offerTask(Runnable { drained.countDown() })
+        assertTrue(drained.await(2, TimeUnit.SECONDS))
+        assertEquals(listOf("activityRef"), calls.toList())
 
         second.dispose(stopApp = true)
         waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
@@ -270,7 +268,6 @@ class NativeCoreRuntimeTest {
     private fun createRuntime(
         onInit: () -> Unit = {},
         onUpdateActivityRef: () -> Unit = {},
-        onResendLcdRows: () -> Unit = {},
         onSaveState: () -> Unit = {},
         tickDelayMillis: Int = 10,
         tickOverride: (() -> Int)? = null,
@@ -292,7 +289,6 @@ class NativeCoreRuntimeTest {
                 { System.identityHashCode(captured); tickDelayMillis }
             } ?: { tickDelayMillis },
             saveStateNative = onSaveState,
-            resendLcdRowsNative = onResendLcdRows,
             getPackedDisplayGeneration = { 0 },
             getPackedDisplayBuffer = { true },
             getKeypadSnapshotGeneration = { 0 },

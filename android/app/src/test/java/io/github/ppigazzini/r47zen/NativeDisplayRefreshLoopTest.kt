@@ -251,6 +251,42 @@ class NativeDisplayRefreshLoopTest {
     }
 
     @Test
+    fun refreshFrame_consumesACopyThatChangedNoRow_withoutCountingAnLcdUpdate() {
+        val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
+        val performanceSnapshots = mutableListOf<DeveloperPerformanceSnapshot>()
+        val packedBufferPulls = AtomicInteger(0)
+        val loop = NativeDisplayRefreshLoop(
+            isAppRunning = { true },
+            isNativeInitialized = { true },
+            getPackedDisplayGeneration = { 21 },
+            getPackedDisplayBuffer = {
+                packedBufferPulls.incrementAndGet()
+                true
+            },
+            getKeypadSnapshotGeneration = { 3 },
+            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(
+                    observedGeneration = 3,
+                    snapshot = snapshot,
+                    isUpToDate = true,
+                )
+            },
+            onPackedLcd = { false },
+            onDynamicRefresh = {},
+            onPerformanceSnapshot = { performanceSnapshots += it },
+            measureNanos = { 0L },
+        )
+
+        loop.refreshFrame(nowMillis = 1_000L)
+        loop.refreshFrame(nowMillis = 1_250L)
+        loop.refreshFrame(nowMillis = 1_500L)
+
+        assertEquals("the generation is consumed once", 1, packedBufferPulls.get())
+        assertEquals(0.0f, performanceSnapshots.single().lcdUpdatesPerSecond)
+    }
+
+    @Test
     fun refreshFrame_retriesSameGeneration_untilPackedBufferCopySucceeds() {
         val snapshot = KeypadFixtureResources.load("static-single-scene").snapshot()
         val packedBufferPulls = AtomicInteger(0)

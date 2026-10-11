@@ -16,7 +16,6 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.util.Log
-import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withTranslation
 import kotlin.math.PI
 import kotlin.math.abs
@@ -111,13 +110,9 @@ class ReplicaOverlay @JvmOverloads constructor(
     private var showTouchZones = false
     private val chromeLayout = ReplicaChromeLayout(resources)
 
-    private val lcdBitmap = createBitmap(
-        R47LcdContract.PIXEL_WIDTH,
-        R47LcdContract.PIXEL_HEIGHT,
-        Bitmap.Config.ARGB_8888,
-    )
-    private val lastPackedLcd = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
-    private val linePixels = IntArray(R47LcdContract.PIXEL_WIDTH)
+    // Starts in the policy's default palette; MainActivity sets the stored
+    // theme in onCreate, before the first draw.
+    private val lcd = PackedLcdRaster(LcdThemePolicy.DEFAULT_PALETTE)
     private val lcdRect = Rect(0, 0, R47LcdContract.PIXEL_WIDTH, R47LcdContract.PIXEL_HEIGHT)
     private val lcdDestRect = RectF()
     private val dirtyRect = Rect()
@@ -170,7 +165,6 @@ class ReplicaOverlay @JvmOverloads constructor(
             DeveloperPerformanceHudVisualPolicy.SHADOW_COLOR_ARGB,
         )
     }
-    private var lcdPalette = LcdThemePolicy.DEFAULT_PALETTE
     private var showDeveloperPerformanceHud = false
     private var showSettingsDiscoveryHint = false
     private var lcdGraphTouchEnabled = true
@@ -226,11 +220,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         // Allow drawing outside individual key boundaries
         clipChildren = false
         clipToPadding = false
-
-        // Decode the blank lastPackedLcd, so the bitmap shows what lastPackedLcd
-        // holds from the start: createBitmap leaves it transparent, and until
-        // the first frame arrives the black view background would show through.
-        redrawPackedSnapshot()
 
         scaleGestureDetector = ScaleGestureDetector(
             context,
@@ -412,8 +401,8 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
 
     internal fun setLcdPalette(palette: LcdPalette) {
-        lcdPalette = palette
-        redrawPackedSnapshot()
+        lcd.setPalette(palette)
+        invalidateLcdRows(lcd.firstChangedRow, lcd.lastChangedRow)
     }
 
     private fun currentChromeSpec(): ReplicaChromeSpec = chromeLayout.currentChromeSpec()
@@ -435,69 +424,11 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
 
     fun updatePackedLcd(buffer: ByteArray): Boolean {
-        var minRow = R47LcdContract.PIXEL_HEIGHT
-        var maxRow = -1
-
-        for (row in 0 until R47LcdContract.PIXEL_HEIGHT) {
-            val rowOffset = row * R47LcdContract.PACKED_ROW_SIZE_BYTES
-            if ((buffer[rowOffset].toInt() and 0xFF) == 0) {
-                continue
-            }
-
-            System.arraycopy(
-                buffer,
-                rowOffset,
-                lastPackedLcd,
-                rowOffset,
-                R47LcdContract.PACKED_ROW_SIZE_BYTES,
-            )
-
-            decodePackedRow(buffer, row)
-            buffer[rowOffset] = 0
-            if (row < minRow) minRow = row
-            if (row > maxRow) maxRow = row
-        }
-
-        if (maxRow < minRow) {
+        if (!lcd.applyFrame(buffer)) {
             return false
         }
-
-        invalidateLcdRows(minRow, maxRow)
+        invalidateLcdRows(lcd.firstChangedRow, lcd.lastChangedRow)
         return true
-    }
-
-    private fun redrawPackedSnapshot() {
-        for (row in 0 until R47LcdContract.PIXEL_HEIGHT) {
-            decodePackedRow(lastPackedLcd, row)
-        }
-
-        invalidateLcdRows(0, R47LcdContract.PIXEL_HEIGHT - 1)
-    }
-
-    private fun decodePackedRow(buffer: ByteArray, row: Int) {
-        val (text, background) = lcdPalette
-        val pixelOffset = row * R47LcdContract.PACKED_ROW_SIZE_BYTES + R47LcdContract.PACKED_PIXEL_OFFSET
-        for (byteIndex in 0 until R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW) {
-            val packedByte = buffer[pixelOffset + byteIndex].toInt() and 0xFF
-            val destX = (R47LcdContract.PACKED_PIXEL_BYTES_PER_ROW - 1 - byteIndex) * 8
-            for (bit in 0 until 8) {
-                linePixels[destX + bit] = if ((packedByte and (1 shl (7 - bit))) != 0) {
-                    text
-                } else {
-                    background
-                }
-            }
-        }
-
-        lcdBitmap.setPixels(
-            linePixels,
-            0,
-            R47LcdContract.PIXEL_WIDTH,
-            0,
-            row,
-            R47LcdContract.PIXEL_WIDTH,
-            1,
-        )
     }
 
     private fun invalidateLcdRows(minRow: Int, maxRow: Int) {
@@ -904,7 +835,7 @@ class ReplicaOverlay @JvmOverloads constructor(
 
         if (isPiPMode) {
             lcdDestRect.set(0f, 0f, w, h)
-            canvas.drawBitmap(lcdBitmap, lcdRect, lcdDestRect, paint)
+            canvas.drawBitmap(lcd.bitmap, lcdRect, lcdDestRect, paint)
             return
         }
 
@@ -930,7 +861,7 @@ class ReplicaOverlay @JvmOverloads constructor(
             projection.offsetX + (layoutSpec.lcdWindowLeft + layoutSpec.lcdWindowWidth) * projection.scale,
             projection.offsetY + (layoutSpec.lcdWindowTop + layoutSpec.lcdWindowHeight) * projection.scale
         )
-        canvas.drawBitmap(lcdBitmap, lcdRect, lcdDestRect, paint)
+        canvas.drawBitmap(lcd.bitmap, lcdRect, lcdDestRect, paint)
 
         if (showTouchZones) {
             canvas.drawRect(lcdDestRect, zonePaint)

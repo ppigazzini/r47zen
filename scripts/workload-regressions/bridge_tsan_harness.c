@@ -3,7 +3,7 @@
 // "R47CoreRuntime" thread (NativeCoreRuntime.kt) that mutates screen and packed
 // -display state under screenMutex and packedDisplayMutex, while the Android UI
 // thread reads that state behind matching pthread_mutex_trylock fast paths and
-// volatile generation counters (jni_display.c). Both existing sanitizer lanes
+// relaxed atomic generation counters (jni_display.c). Both existing sanitizer lanes
 // (build_graph_crash_harness.sh, run_workload_regressions_sanitized.sh) drive
 // the core single-threaded, so that producer/consumer protocol has never run
 // under a data-race adversary.
@@ -12,17 +12,15 @@
 // r47_init_runtime itself: MainActivity posts a keypad refresh after first
 // layout, while the core thread is still initializing, so the UI-thread keypad
 // copy (r47_try_copy_app_keypad_snapshot, the function copyKeypadSnapshotNative
-// calls) and the packed-display copy must be safe against an init in flight.
-// resendLcdRowsNative runs on the core thread in the app, after init; the
-// harness calls it from the reader anyway, to hold its r47_runtime_ready gate
-// and its screenMutex section to the same standard. The steady-state phase
-// races a producer thread (the live sendKey input path plus r47_force_refresh,
-// exactly as the core runtime drives the screen) against a consumer thread that
-// reproduces the UI read path: it samples the volatile generation counters the
-// way getKeypadSnapshotGeneration / getPackedDisplayGeneration do, reads the
-// keypad snapshot under screenMutex via the real r47_get_keypad_meta entry
-// point, runs the packed-display trylock-copy-clear sequence the way
-// getPackedDisplayBuffer does, and calls resendLcdRowsNative. Built under
+// calls) and the packed-display copy (r47_try_take_packed_display, the native
+// half of getPackedDisplayBuffer) must be safe against an init in flight. The
+// steady-state phase races a producer thread (the live sendKey input path plus
+// r47_force_refresh, exactly as the core runtime drives the screen) against a
+// consumer thread that reproduces the UI read path: it samples the generation
+// counters the way getKeypadSnapshotGeneration / getPackedDisplayGeneration do,
+// reads the keypad snapshot under screenMutex via the real r47_get_keypad_meta
+// entry point, and takes the packed display through
+// r47_try_take_packed_display. Built under
 // -fsanitize=thread by build_bridge_tsan_harness.sh, a missing acquire on a
 // generation counter, a torn read across the trylock fast path, or a lock-order
 // inversion between the two display mutexes fails the harness instead of passing
@@ -42,7 +40,9 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#define LCD_ROW_SIZE_BYTES 52u
+// The repo-owned HAL header, by a path relative to this file: the staged
+// upstream tree also has a hal/lcd.h, and it comes first on the include path.
+#include "../../android/app/src/main/cpp/r47zen/hal/lcd.h"
 
 extern void r47_initialize_native_bridge_state(void);
 extern void r47_native_preinit_path(const char *path);
@@ -53,19 +53,11 @@ extern void r47_init_runtime(int slotId);
 // fixtures in jni_program_load_test.c already do.
 extern void Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(void *env, void *thiz,
                                                                   int32_t keyCode);
-// The LCD row resend for a newly attached host. It ignores both arguments
-// (jni_display.c).
-extern void Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(void *env,
-                                                                              void *thiz);
-
 // The lock-free signals the UI thread samples without holding a display mutex.
 // Match hal/lcd.c's C11 atomic definitions so the consumer's relaxed loads are
 // exactly the production access, not a stronger-typed stand-in.
 extern _Atomic uint32_t packedDisplayGeneration;
 extern _Atomic uint32_t keypadSnapshotGeneration;
-extern _Atomic bool lcdBufferDirty;
-extern uint8_t *packedDisplayBuffer;
-extern pthread_mutex_t packedDisplayMutex;
 
 // Sink to keep the consumer reads from being optimized away.
 static volatile uint32_t g_consumer_sink = 0;
@@ -102,30 +94,18 @@ static void *producer_main(void *arg) {
   return NULL;
 }
 
-// Consumer: the UI read side. Mirrors the three production read paths exactly.
+// Consumer: the UI read side. Takes the packed display through the same native
+// function getPackedDisplayBuffer calls, gate and trylock included; only the
+// JNI array pinning around it is left out.
 static void consumer_read_packed_display(void) {
-  // The production gate: an acquire load that publishes packedDisplayBuffer.
-  if (!r47_runtime_ready()) {
-    return;
-  }
-  // Unsynchronized fast-path dirty check (jni_display.c getPackedDisplayBuffer):
-  // a relaxed atomic load, no display mutex held.
-  if (!atomic_load_explicit(&lcdBufferDirty, memory_order_relaxed)) {
-    return;
-  }
-  if (pthread_mutex_trylock(&packedDisplayMutex) != 0) {
+  static uint8_t snapshot[SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES];
+  if (!r47_try_take_packed_display(snapshot)) {
     return;
   }
   uint8_t acc = 0;
   for (int row = 0; row < SCREEN_HEIGHT; row++) {
-    acc = (uint8_t)(acc ^ packedDisplayBuffer[LCD_ROW_SIZE_BYTES * row + 2]);
+    acc = (uint8_t)(acc ^ snapshot[LCD_ROW_SIZE_BYTES * row + 2]);
   }
-  for (int row = 0; row < SCREEN_HEIGHT; row++) {
-    packedDisplayBuffer[LCD_ROW_SIZE_BYTES * row] = 0u;
-  }
-  // Cleared under the lock, as the JNI reader does.
-  atomic_store_explicit(&lcdBufferDirty, false, memory_order_relaxed);
-  pthread_mutex_unlock(&packedDisplayMutex);
   g_consumer_sink ^= acc;
 }
 
@@ -143,7 +123,6 @@ static void *startup_reader_main(void *arg) {
       copies++;
     }
     consumer_read_packed_display();
-    Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(NULL, NULL);
     spins++;
   }
   fprintf(stderr, "startup reader: %ld spins, %ld keypad copies during init\n",
@@ -169,9 +148,6 @@ static void *consumer_main(void *arg) {
     g_consumer_sink ^= (uint32_t)meta[R47_KEYPAD_META_CALC_MODE];
 
     consumer_read_packed_display();
-    if ((spins & 63) == 0) {
-      Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(NULL, NULL);
-    }
     spins++;
   }
   fprintf(stderr, "consumer: %ld read spins\n", spins);

@@ -409,7 +409,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             updateNativeActivityRef = ::updateNativeActivityRef,
             tick = ::tick,
             saveStateNative = ::saveStateNative,
-            resendLcdRowsNative = ::resendLcdRowsNative,
             getPackedDisplayGeneration = ::getPackedDisplayGeneration,
             getPackedDisplayBuffer = ::getPackedDisplayBuffer,
             getKeypadSnapshotGeneration = ::getKeypadSnapshotGeneration,
@@ -566,7 +565,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         labelsBuffer: Array<String>,
     ): Boolean
     private external fun requestStopProgramNative(): Boolean
-    private external fun resendLcdRowsNative()
 
     @Keep fun onFileSelected(fd: Int) { onFileSelectedNative(fd) }
     @Keep fun onFileCancelled() { onFileCancelledNative() }

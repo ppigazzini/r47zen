@@ -31,7 +31,6 @@ fail() {
 
 # The lock-free signals, and the file that defines each.
 declare -A SIGNAL_HOME=(
-    [lcdBufferDirty]="$LCD_C"
     [packedDisplayGeneration]="$LCD_C"
     [keypadSnapshotGeneration]="$LCD_C"
     [g_r47_stop_refresh_pending]="$RUNTIME_C"

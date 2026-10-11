@@ -17,10 +17,10 @@ verification surfaces.
 
 | Surface | Android side | Native bridge | Shared-core side | Sensitive detail |
 | --- | --- | --- | --- | --- |
-| runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and, on reattach, `updateNativeActivityRef()` then `resendLcdRowsNative()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `r47_init_runtime()` holds `screenMutex` throughout and publishes `r47_runtime_ready()` last, and the UI-thread entry points return early until it is true; `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach re-flags the packed snapshot but never redraws |
+| runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and, on reattach, `updateNativeActivityRef()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `r47_init_runtime()` holds `screenMutex` throughout and publishes `r47_runtime_ready()` last, and the UI-thread entry points return early until it is true; `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach neither redraws nor touches the packed snapshot |
 | lifecycle save and load | `saveStateNative()`, `loadStateNative()` | `jni_lifecycle.c` | `saveCalc()`, `restoreCalc()`, `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` | `saveStateNative()` must stay display-passive for background save; redraw belongs only to real state loads |
 | direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
-| LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `resendLcdRowsNative()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy; `resendLcdRowsNative()` runs on the core thread under `packedDisplayMutex` |
+| LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c` plus `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned, and reattach must not redraw the LCD |
 | storage and yield boundary | `StorageAccessCoordinator` returns detached file descriptors through `onFileSelectedNative()` or `onFileCancelledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
@@ -49,8 +49,10 @@ flowchart LR
 - `NativeCoreRuntime.startOrAttachCoreThread()` initializes native state only
   once. The first attach calls `nativePreInit(...)` and `initNative(...)`; a
   later attach, from either the live or a restarted core thread, runs
-  `NativeCoreRuntime.rebindHost()`: `updateNativeActivityRef()`, then
-  `resendLcdRowsNative()`. Reattach never redraws.
+  `updateNativeActivityRef()` on the core thread. Reattach never redraws and
+  never touches the packed snapshot: the new `ReplicaOverlay` decodes the first
+  frame it receives whole
+  ([06](06-runtime-hot-paths.md#lcd-frame-state-inventory)).
 - `r47_native_preinit_path(...)` sets the Android base path used by
   `hal/io.c` and installs the GMP allocator hooks before the shared core starts.
 - `r47_init_runtime(...)` holds `screenMutex` for its whole body. It sets the
@@ -135,12 +137,15 @@ flowchart LR
   Android side. It reads `getPackedDisplayGeneration()` first and only attempts
   a packed-LCD copy when the generation changed; keypad metadata and labels are
   still polled while the app is active.
-- `getPackedDisplayBuffer(...)` returns `false` until `r47_runtime_ready()`,
-  whose acquire load is what makes the `packedDisplayBuffer` pointer safe to
-  read, then copies the packed LCD snapshot only when `lcdBufferDirty` is true
-  and returns `true` only after a successful copy. It uses
-  `pthread_mutex_trylock`, so a busy native section simply skips one frame
-  instead of blocking the UI thread.
+- `getPackedDisplayBuffer(...)` pins the Java array and hands it to
+  `r47_try_take_packed_display(...)`, which returns `false` until
+  `r47_runtime_ready()`, whose acquire load is what makes the
+  `packedDisplayBuffer` pointer safe to read, and then
+  `lcd_try_take_packed_snapshot(...)` copies every row and clears the row
+  flags under `pthread_mutex_trylock`, so a busy native section skips one frame
+  instead of blocking the UI thread. The TSan harness calls
+  `r47_try_take_packed_display(...)` directly, so it races the production
+  gate and copy.
 - `getKeypadSnapshotGeneration()` exposes the native keypad snapshot generation
   used by the UI-side refresh loop.
 - `copyKeypadSnapshotNative(mainKeyDynamicMode, metaBuffer, labelBuffer)` is
@@ -157,21 +162,14 @@ flowchart LR
 - USER-mode composition happens inside `copyKeypadSnapshotNative(...)`, so the
   UI assembles one logical keypad scene from a single JNI read rather than
   several.
-- After a successful copy, the JNI export clears the packed-row dirty flag in
-  each copied row. That flag is transport bookkeeping, not part of the visible
-  LCD contract.
+- A copy carries every row's current pixels; the row flag only says which rows
+  changed since the previous copy. That flag is transport bookkeeping, not part
+  of the visible LCD contract.
 - `screenData` is a NULL symbol in `hal/lcd.c`, kept only so the compiled
   upstream `PC_BUILD` screenshot and clipboard helpers link; nothing on Android
   allocates, writes, or reads it.
-- `resendLcdRowsNative()` flags every packed snapshot row through
-  `lcd_mark_packed_rows_dirty()` without redrawing, so a host that attaches to
-  a live runtime receives the whole frame: its `ReplicaOverlay` starts blank,
-  and `LCD_write_line` flags only rows whose pixels change. A theme change
-  never reaches native: the palette lives only in `ReplicaOverlay`, which
-  recolors its own cached packed snapshot. `NativeCoreRuntime.rebindHost()`
-  runs the call on the core thread. It touches only the snapshot, so it takes
-  `packedDisplayMutex` rather than `screenMutex`, and it returns before
-  `r47_runtime_ready()`, whose acquire load publishes the buffer pointer.
+- A theme change never reaches native: the palette lives only in the
+  overlay's `PackedLcdRaster`, which recolors the frame it holds.
 - the legacy `r47_get_keypad_meta(..., bool isDynamic)` and
   `r47_get_keypad_labels(..., bool isDynamic)` functions remain the
   bool-based fixture-export contract used by repo tooling and keep the older

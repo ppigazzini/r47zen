@@ -193,9 +193,6 @@ extern void lcd_clear_buf(void);
 extern void lcd_refresh(void);
 extern void refreshScreen(uint16_t reason);
 
-extern void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_resendLcdRowsNative(
-    JNIEnv *env, jobject thiz);
-
 void onUIActivity(void);
 gint64 g_get_monotonic_time(void);
 gint64 g_get_real_time(void);

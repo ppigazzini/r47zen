@@ -100,12 +100,12 @@ keypad all look correct locally but are globally misplaced together.
 - `ReplicaChromeLayout` owns the native LCD rectangle and shell projection.
   Change that geometry there instead of branching the draw path in
   `ReplicaOverlay`.
-- `ReplicaOverlay.updatePackedLcd(...)` is the live LCD handoff. It decodes
-  each packed row whose transport flag is set -- native sets it only on rows
-  whose pixels changed -- into the backing `Bitmap`, and invalidates the
-  changed row band across the full LCD width.
-  It is the only way a frame reaches the bitmap; the tests drive it with
-  packed frames too
+- `ReplicaOverlay.updatePackedLcd(...)` is the live LCD handoff. Its
+  `PackedLcdRaster` decodes each packed row whose transport flag is set --
+  native sets it only on rows whose pixels changed -- or every row of the
+  first frame it receives, into the backing `Bitmap`, and the overlay
+  invalidates the changed row band across the full LCD width. It is the only
+  way a frame reaches the bitmap; the tests drive it with packed frames too
 - the animated settings-discovery hint stays Android-owned in `ReplicaOverlay`,
   but its banner geometry and `StaticLayout` are cached and rebuilt only on a
   real size or layout change, so `dispatchDraw()` updates the pulse stroke and

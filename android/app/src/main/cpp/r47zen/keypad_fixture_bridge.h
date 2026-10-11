@@ -78,6 +78,10 @@ void r47_get_keypad_labels(
     char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
                [R47_KEYPAD_LABEL_CAPACITY],
     bool isDynamic);
+// Copy the packed LCD snapshot into dst, SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES
+// bytes, and clear its row flags; false before r47_runtime_ready() or while the
+// core holds the snapshot lock. getPackedDisplayBuffer's whole native half.
+bool r47_try_take_packed_display(uint8_t *dst);
 uint64_t r47_get_host_lcd_refresh_count(void);
 void r47_reset_host_lcd_refresh_count(void);
 
