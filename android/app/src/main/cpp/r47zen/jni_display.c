@@ -418,6 +418,14 @@ static int keypadMetaIndex(int offset, int keyCode) {
   return offset + keyCode - 1;
 }
 
+// Whether the standard layout puts item on the Norm_Key_00 key. Upstream's
+// Norm_Key_00_key and kbd_std are macros that each read calcModel again, so the
+// slot is read once and kbd_std is indexed with the value the guard checked.
+static bool_t normKey00PrimaryIs(int16_t item) {
+  const int16_t keySlot = Norm_Key_00_key;
+  return keySlot >= 0 && kbd_std[keySlot].primary == item;
+}
+
 static int16_t
 resolveVisibleMainStyleItem(const calcKey_t *key,
                             const keypadMainLabelPresentation_t *presentation) {
@@ -427,8 +435,8 @@ resolveVisibleMainStyleItem(const calcKey_t *key,
   if (presentation->showTamLabels) {
     return key->primaryTam;
   }
-  if (!isSystemFlagSet(FLAG_USER) && Norm_Key_00_key != -1 &&
-      key->keyId == Norm_Key_00_keyID && Norm_Key_00.used &&
+  if (!isSystemFlagSet(FLAG_USER) && key->keyId == Norm_Key_00_keyID &&
+      Norm_Key_00.used &&
       (calcMode == CM_NORMAL || calcMode == CM_NIM || calcMode == CM_PEM ||
        calcMode == CM_TIMER || calcMode == CM_ASSIGN) &&
       !tam.alpha && tam.mode != TM_STORCL && tam.mode != TM_LABEL &&
@@ -437,7 +445,7 @@ resolveVisibleMainStyleItem(const calcKey_t *key,
         Norm_Key_00.func != KEY_fg)) &&
       !(lastIntegerBase >= 2 && isSystemFlagSet(FLAG_TOPHEX)) &&
       ((!shiftF && !shiftG) || isR47FAM || Norm_Key_00.func == KEY_fg) &&
-      key->primary == kbd_std[Norm_Key_00_key].primary) {
+      normKey00PrimaryIs(key->primary)) {
     return Norm_Key_00.func;
   }
   return key->primary;
@@ -1005,8 +1013,8 @@ static keypadMainLabel_t makeMainLabel(const char *name, int16_t item,
 }
 
 static bool_t canUseNormKey00Label(const calcKey_t *key, int16_t item) {
-  return !isSystemFlagSet(FLAG_USER) && Norm_Key_00_key != -1 &&
-         key->keyId == Norm_Key_00_keyID && Norm_Key_00.used &&
+  return !isSystemFlagSet(FLAG_USER) && key->keyId == Norm_Key_00_keyID &&
+         Norm_Key_00.used &&
          (calcMode == CM_NORMAL || calcMode == CM_NIM || calcMode == CM_PEM ||
           calcMode == CM_TIMER || calcMode == CM_ASSIGN) &&
          !tam.alpha && tam.mode != TM_STORCL && tam.mode != TM_LABEL &&
@@ -1015,7 +1023,7 @@ static bool_t canUseNormKey00Label(const calcKey_t *key, int16_t item) {
            Norm_Key_00.func != KEY_fg)) &&
          !(lastIntegerBase >= 2 && isSystemFlagSet(FLAG_TOPHEX)) &&
          ((!shiftF && !shiftG) || isR47FAM || Norm_Key_00.func == KEY_fg) &&
-         item == kbd_std[Norm_Key_00_key].primary;
+         normKey00PrimaryIs(item);
 }
 
 static keypadMainLabel_t resolveNormKey00Label(void) {
@@ -1169,7 +1177,7 @@ static int16_t findSoftmenuIndexByItem(int16_t item) {
 static void fillStaticSoftkeyMenuLabel(int16_t item, char *label,
                                        size_t labelSize) {
   int16_t menu = findSoftmenuIndexByItem(item);
-  const char *labelName = "";
+  const char *labelName;
 
   if (item == -MNU_ASN_N && calcModel == USER_C47) {
     labelName = STD_SIGMA "+ KEY";

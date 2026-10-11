@@ -38,7 +38,13 @@ the normal non-LTO lane.
 The Android-owned glue (`ANDROID_SOURCES`: `r47zen/*.c` and `r47zen/hal/*.c`)
 follows `r47zen/.clang-format` (LLVM style, includes kept in their order,
 comments as written); `scripts/android/check_native_format.sh` checks it with
-the pinned NDK's `clang-format`, and `--fix` applies it. The glue compiles
+the pinned NDK's `clang-format`, and `--fix` applies it.
+`scripts/android/run_native_clang_tidy.sh` runs the pinned NDK's `clang-tidy`
+with `r47zen/.clang-tidy`, which enables the static analyzer and the bugprone
+checks and says why each check it turns off is noise here, and fails on any
+finding. The whole library builds as gnu17, set on the target: upstream's meson
+build names no C standard, so the core compiles as the compiler default, and
+the host harnesses build the same sources as gnu17 too. The glue compiles
 with `-Wall -Wextra`; the staged upstream sources keep upstream's
 warning level. The flags stop short of `-Werror` because the glue includes
 upstream headers, so a new warning from an upstream commit would otherwise break

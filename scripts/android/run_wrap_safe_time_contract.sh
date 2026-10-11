@@ -38,7 +38,7 @@ fail() {
 mkdir -p "$BUILD_DIR"
 output="$BUILD_DIR/wrap-safe-time-contract"
 
-"$CC_BIN" -std=c99 -O0 -g -Wall -Werror \
+"$CC_BIN" -std=gnu17 -O0 -g -Wall -Werror \
     -I"$TRACKED_CPP_DIR" \
     "$SCRIPT_DIR/wrap_safe_time_contract_test.c" \
     -o "$output"

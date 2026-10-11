@@ -201,9 +201,9 @@ Java_io_github_ppigazzini_r47zen_MainActivity_tick(JNIEnv *env, jobject thiz) {
     refreshTimer(NULL);
     nextTimerRefresh = now + 5;
   }
-  if (r47_apply_pending_stop_refresh_locked()) {
-    now = sys_current_ms();
-  } else if (r47_ms_deadline_reached(now, nextScreenRefresh)) {
+  // A pending stop refresh redraws in full and replaces the scheduled one.
+  if (!r47_apply_pending_stop_refresh_locked() &&
+      r47_ms_deadline_reached(now, nextScreenRefresh)) {
     refreshLcd(NULL);
     lcd_refresh();
     nextScreenRefresh = now + 100;

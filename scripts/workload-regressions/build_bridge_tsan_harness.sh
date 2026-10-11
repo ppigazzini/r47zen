@@ -68,7 +68,7 @@ ANDROID_BRIDGE_SOURCES=(
 # pointers for readable race reports; the bridge's own locks serialize the core,
 # so the core's single-threaded UB (handled by the ASan/UBSan lane) is not
 # exercised here.
-"$CC_BIN" -std=gnu11 -O1 -g -pthread \
+"$CC_BIN" -std=gnu17 -O1 -g -pthread \
     -fsanitize=thread \
     -fno-omit-frame-pointer \
     -D_GNU_SOURCE -D_DEFAULT_SOURCE \

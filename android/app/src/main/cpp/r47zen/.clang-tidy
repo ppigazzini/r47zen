@@ -1,0 +1,36 @@
+# clang-tidy for the Android-owned native glue, run by
+# scripts/android/run_native_clang_tidy.sh with the pinned NDK's clang-tidy.
+# Every finding fails the run. The analyzer and the bugprone checks are on;
+# each check turned off below was measured on the glue and is noise here.
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-*,
+  -clang-analyzer-security.insecureAPI.*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-reserved-identifier,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-branch-clone,
+  -bugprone-signed-char-misuse,
+  -bugprone-multi-level-implicit-pointer-conversion
+# Why each is off, with the count it reported when adopted:
+# - security.insecureAPI (87): it asks for C11 Annex K (snprintf_s, ...),
+#   which bionic does not provide; every flagged call is already bounded.
+# - easily-swappable-parameters (40): adjacent same-type parameters are the
+#   JNI and HAL signatures, which this repo does not choose.
+# - reserved-identifier (2): _Buzz and friends are names upstream's HAL
+#   requires.
+# - narrowing-conversions (33): int to upstream's int16_t item and register
+#   types after integer promotion; not triaged one by one.
+# - implicit-widening-of-multiplication-result (15): row times stride, at most
+#   240 * 52, far from overflow.
+# - branch-clone (3): the UTF-8 glyph map gives two glyphs the same output.
+# - signed-char-misuse (2): showCb is a signed flag, not a character; the
+#   suggested unsigned cast would turn NOVAL into 255.
+# - multi-level-implicit-pointer-conversion (8): the JNI AttachCurrentThread
+#   and GetEnv void ** handoff.
+# cert-* is not enabled: its err33-c (unchecked returns of snprintf and
+# friends, 65) duplicates nothing above and is noise for truncating calls.
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/cpp/r47zen/.*'

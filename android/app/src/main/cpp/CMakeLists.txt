@@ -16,9 +16,9 @@ set(R47_RESOLVED_PGO_PROFILE_PATH "")
 set(R47_ANDROID_BITNESS_DEFINE "")
 
 if(ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
-    set(R47_ANDROID_BITNESS_DEFINE -DOS64BIT)
+    set(R47_ANDROID_BITNESS_DEFINE OS64BIT)
 elseif(ANDROID_ABI STREQUAL "armeabi-v7a" OR ANDROID_ABI STREQUAL "x86")
-    set(R47_ANDROID_BITNESS_DEFINE -DOS32BIT)
+    set(R47_ANDROID_BITNESS_DEFINE OS32BIT)
 else()
     message(FATAL_ERROR "Unsupported Android ABI for R47 shared-core bitness selection: ${ANDROID_ABI}")
 endif()
@@ -30,44 +30,6 @@ if(NOT "${R47_PGO_PROFILE_PATH}" STREQUAL "")
     endif()
     message(STATUS "Using host-collected PGO profile for Android release-native builds: ${R47_RESOLVED_PGO_PROFILE_PATH}")
 endif()
-
-# Android Build Definitions
-add_definitions(
-    -DANDROID_BUILD
-    -DPC_BUILD          # Reusing PC logic where applicable (sim)
-    -DLINUX             # closest platform match
-    ${R47_ANDROID_BITNESS_DEFINE}
-    -DCALCMODEL=USER_R47
-)
-
-# Global GMP renames
-add_definitions(-Dmpz_div_2exp=mpz_tdiv_q_2exp)
-add_definitions(-Dmpz_fits_uint_p=mpz_fits_ulong_p)
-
-# Forced include of mocks to ensure they are seen everywhere
-add_compile_options("-include" "${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_mocks.h")
-
-# Android stub headers satisfy upstream GTK/GDK/Cairo includes without
-# rewriting the staged native tree during scripts/build_android.sh.
-# Include directories
-include_directories(
-    r47zen/stubs
-    ${R47_STAGED_C47_DIR}
-    ${R47_STAGED_C47_DIR}/core
-    ${R47_STAGED_C47_DIR}/hal
-    ${R47_STAGED_C47_DIR}/ui
-    ${R47_STAGED_C47_DIR}/logicalOps
-    ${R47_STAGED_C47_DIR}/mathematics
-    ${R47_STAGED_C47_DIR}/programming
-    ${R47_STAGED_C47_DIR}/solver
-    ${R47_STAGED_C47_DIR}/browsers
-    ${R47_STAGED_C47_DIR}/distributions
-    ${R47_STAGED_C47_DIR}/c47Extensions
-    ${R47_STAGED_DECNUMBER_DIR}
-    ${R47_STAGED_GENERATED_DIR}
-    r47zen
-    ${R47_STAGED_GMP_DIR}
-)
 
 set(R47_STAGED_METADATA_SCRIPT
     "${R47_TRACKED_CPP_DIR}/../../../../../scripts/android/generate_staged_native_metadata.sh"
@@ -138,6 +100,53 @@ add_library(r47zen SHARED
     ${R47_STAGED_GMP_SOURCES}
 )
 
+# The C dialect upstream builds the core in: its meson.build sets no c_std,
+# so the core compiles as the compiler's default, gnu17. Stating it keeps an
+# NDK whose default moves from changing the language under the core.
+set_target_properties(r47zen PROPERTIES
+    C_STANDARD 17
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS ON
+)
+
+target_compile_definitions(r47zen PRIVATE
+    ANDROID_BUILD
+    PC_BUILD                    # reuse the simulator's PC logic where it applies
+    LINUX                       # the closest upstream platform
+    ${R47_ANDROID_BITNESS_DEFINE}
+    CALCMODEL=USER_R47
+    # GMP names the staged core uses, mapped onto mini-gmp's
+    mpz_div_2exp=mpz_tdiv_q_2exp
+    mpz_fits_uint_p=mpz_fits_ulong_p
+)
+
+# Every translation unit sees the Android mocks first, the core included.
+target_compile_options(r47zen PRIVATE
+    "SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_mocks.h"
+)
+
+# r47zen/stubs comes first: its GTK, GDK and cairo stand-ins satisfy upstream's
+# includes without rewriting the staged tree. Its android/log.h defers to the
+# NDK's own on Android.
+target_include_directories(r47zen PRIVATE
+    r47zen/stubs
+    ${R47_STAGED_C47_DIR}
+    ${R47_STAGED_C47_DIR}/core
+    ${R47_STAGED_C47_DIR}/hal
+    ${R47_STAGED_C47_DIR}/ui
+    ${R47_STAGED_C47_DIR}/logicalOps
+    ${R47_STAGED_C47_DIR}/mathematics
+    ${R47_STAGED_C47_DIR}/programming
+    ${R47_STAGED_C47_DIR}/solver
+    ${R47_STAGED_C47_DIR}/browsers
+    ${R47_STAGED_C47_DIR}/distributions
+    ${R47_STAGED_C47_DIR}/c47Extensions
+    ${R47_STAGED_DECNUMBER_DIR}
+    ${R47_STAGED_GENERATED_DIR}
+    r47zen
+    ${R47_STAGED_GMP_DIR}
+)
+
 # Keep ThinLTO as explicit flags on the shared-library target, scoped to the
 # native shipping configs, rather than CMake's INTERPROCEDURAL_OPTIMIZATION:
 # the flags pin the linker to lld, which the NDK ships, whatever CMake's IPO
@@ -188,14 +197,14 @@ if(ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
     target_compile_options(r47zen PRIVATE "-fstack-clash-protection")
 endif()
 
-# Link libraries
-find_library(log-lib log)
-find_library(m-lib m)
+target_link_libraries(r47zen PRIVATE log m)
 
-target_link_libraries(r47zen
-    ${log-lib}
-    ${m-lib}
-)
+# Hardening this file does not set: the NDK toolchain adds
+# -fstack-protector-strong, -D_FORTIFY_SOURCE=2, -Wformat
+# -Werror=format-security and -fPIC to every compile, and links with full
+# RELRO and a non-executable stack. scripts/security/check_native_hardening.sh
+# verifies the link-time half, and the BTI/PAC this file adds, on the packaged
+# library. This file adds stack-clash protection and AArch64 BTI/PAC above.
 
 # The Android module enables 16 KB support through the NDK toolchain argument
 # in app/build.gradle rather than a project-local raw linker flag.

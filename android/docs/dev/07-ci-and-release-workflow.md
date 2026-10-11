@@ -270,7 +270,10 @@ It:
   writable-and-executable segment, and no text relocations
 - runs `scripts/android/check_native_format.sh`, which checks the Android-owned
   glue against `android/app/src/main/cpp/r47zen/.clang-format` with the pinned
-  NDK's `clang-format`
+  NDK's `clang-format`, and `scripts/android/run_native_clang_tidy.sh`, which
+  runs the pinned NDK's `clang-tidy` with
+  `android/app/src/main/cpp/r47zen/.clang-tidy` over the glue, reading the
+  compile commands the build wrote, and fails on any finding
 - runs `cd android && ./gradlew lint` explicitly because normal Gradle builds do
   not run lint automatically
 - runs `scripts/android/run_detekt.sh`: detekt's default rule set over the

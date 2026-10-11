@@ -231,8 +231,11 @@ The mechanical checks that exist today:
 - `cd android && ./gradlew lint` is mandatory when Kotlin, manifest, resource,
   or Android Gradle surfaces change.
 - `bash scripts/android/check_native_format.sh` holds the native glue to its
-  `.clang-format`; `--fix` formats it. It needs the Android SDK, so it runs in
-  CI's Android build job rather than as a pre-commit hook.
+  `.clang-format`; `--fix` formats it. `bash
+  scripts/android/run_native_clang_tidy.sh` fails on any finding of the
+  checks `.clang-tidy` enables, the clang static analyzer and most of
+  bugprone, after a native build. Both need the Android SDK, so they run in
+  CI's Android build job rather than as pre-commit hooks.
 - `bash scripts/android/run_detekt.sh` holds the Kotlin sources to detekt's
   default rule set (function and class size, complexity, magic numbers, and
   the rest) against a baseline that only shrinks: a new finding fails, and so

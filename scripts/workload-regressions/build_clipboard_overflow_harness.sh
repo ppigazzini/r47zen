@@ -56,7 +56,7 @@ ANDROID_BRIDGE_SOURCES=(
 # without turning the lane red on un-ownable upstream UB. The alignment check is
 # dropped outright because the core's single RAM blob casts unaligned offsets to
 # programList_t on every program scan, which is pure host-layout noise.
-"$CC_BIN" -std=gnu11 -O1 -g -pthread \
+"$CC_BIN" -std=gnu17 -O1 -g -pthread \
     -fsanitize=address,undefined -fno-sanitize=alignment \
     -fno-omit-frame-pointer \
     -D_GNU_SOURCE -D_DEFAULT_SOURCE \

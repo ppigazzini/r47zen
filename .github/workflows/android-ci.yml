@@ -617,6 +617,13 @@ jobs:
           set -euo pipefail
           bash scripts/android/check_native_format.sh
 
+      - name: Run clang-tidy on the native glue
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Reads the compile commands the native build above wrote.
+          bash scripts/android/run_native_clang_tidy.sh
+
       - name: Run Android lint
         shell: bash
         run: |
