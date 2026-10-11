@@ -854,7 +854,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 
 | contract | locks | can fail on its own |
 |---|---|---|
-| `run_ci_contract_lib_meta_test.sh` | the comment-safe grep helpers in `scripts/lib/ci_contract.sh` treat a commented directive as absent | yes, fixtures |
+| `run_ci_contract_lib_meta_test.sh` | the comment-safe helpers in `scripts/lib/ci_contract.sh` treat a commented directive as absent, and `strip_c_comments` blanks C, Kotlin, and Groovy comments while keeping the live code beside them | yes, fixtures |
 | `run_ndk_resolution_contract.sh` | `resolve_android_ndk_version.sh`: a missing pinned NDK is fatal, never a silent fallback | yes, fake SDK trees |
 | `run_release_abi_single_source_contract.sh` | no workflow hardcodes `--expected-abis`; they read `R47_DEFAULT_ANDROID_ABI_FILTERS` | text |
 | `run_published_artifacts_verifier_contract.sh` | `verify_published_release_artifacts.sh` accepts a valid release and rejects tampered bytes, a wrong version, a leaked ABI, a wrong signing mode, an unsigned APK, and signer mismatches | yes, synthetic evidence |
@@ -865,15 +865,15 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_llvm_toolchain_install_contract.sh` | every user of `llvm-config-<major>` installs `llvm-<major>`, which ships `llvm-profdata`; live lines only | text |
 | `run_build_deps_single_source_contract.sh` | Linux build dependencies come only from `install_linux_build_deps.sh`; live lines only | text |
 | `run_toolchain_pin_coherence_contract.sh` | the documentary Gradle and AGP pins in `r47-defaults.properties` match the wrapper and the version catalog | text |
-| `run_build_jdk_pin_coherence_contract.sh` | the Gradle toolchain, every `setup-java`, and the doctor read the build JDK pin | text, with a vacuity guard |
+| `run_build_jdk_pin_coherence_contract.sh` | the Gradle toolchain, every `setup-java`, and the doctor read the build JDK pin: the pin is read into `buildJdkVersion` once and never reassigned, every `JavaLanguageVersion.of` takes it, and no `jvmToolchain` sets a second one; live code only | yes, seeded copies of the Gradle file and the doctor |
 | `run_action_pin_consistency_contract.sh` | one SHA and tag per action, shfmt, shellcheck, ruff, and Python pinned alike in CI, pre-commit, `uv.lock`, and `pyproject.toml`, and no `-latest` runner label (see [07](07-ci-and-release-workflow.md#pins-that-live-in-more-than-one-file)) | yes, fixtures |
-| `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely, and every deadline site uses the helpers with no raw comparison in either operand order | yes, compiles and runs a C test; the patterns prove themselves on seeded lines |
+| `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely, and every deadline site includes and calls the helpers, comments aside, with no raw comparison in either operand order | yes, compiles and runs a C test; the patterns prove themselves on seeded lines |
 | `run_setup_android_packages_contract.sh` | every `setup-android` use passes explicit `packages:` without the legacy `tools` package | text |
-| `run_setup_android_composite_contract.sh` | SDK setup lives only in the composite, its actions are SHA-pinned, and each cache key covers every input its install step reads | yes, cache-key fixtures |
+| `run_setup_android_composite_contract.sh` | SDK setup lives only in the composite, its actions are SHA-pinned on live lines, and each cache key covers every input its install step reads | yes, cache-key fixtures |
 | `run_bridge_tsan_lane_contract.sh` | the TSan lane keeps `halt_on_error=1` and upstream-only suppressions (see above) | yes, fixtures |
-| `run_lock_free_signal_atomicity_contract.sh` | the lock-free display and refresh signals stay C11 atomics, never plain `volatile`, and every use in the glue is an `atomic_*(&signal, ...)` call | yes, fixtures |
+| `run_lock_free_signal_atomicity_contract.sh` | the lock-free display and refresh signals are defined C11 atomics, never plain `volatile`, comments aside, and every use in the glue is an `atomic_*(&signal, ...)` call | yes, fixtures |
 | `run_mini_gmp_accounting_contract.sh` | the vendored mini-gmp fallback keeps the size-prefix header the GMP accounting hooks need | text |
-| `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on; live lines only | text |
+| `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on; live code only | text |
 | `run_test_integrity_contract.sh` | the workload fixture-exit policy, the mutation spot-check, and the connected lane's zero-test count (see above) | yes, runs them |
 | `run_privacy_policy_parity_contract.sh` | the markdown and shipped-HTML privacy policies share section headings and a last-updated date | text |
 | `run_commit_message_contract.sh` | `scripts/docs/check_commit_message.sh` accepts and rejects seeded messages on both sides of each commit rule it holds, for a message file and for `--range` | yes, seeded messages and a scratch repository |

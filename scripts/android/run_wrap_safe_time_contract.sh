@@ -18,7 +18,8 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/ci_contract.sh
+source "$SCRIPT_DIR/../lib/ci_contract.sh"
 TRACKED_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp/r47zen"
 BUILD_DIR="${R47_WRAP_TIME_CONTRACT_BUILD_DIR:-$PROJECT_ROOT/android/build/wrap-safe-time-contract}"
 CC_BIN="${CC:-cc}"
@@ -89,10 +90,12 @@ done
 for source_file in "${deadline_sources[@]}"; do
     [ -f "$source_file" ] || fail "missing deadline source $source_file"
 
-    grep -q '#include "r47_time.h"' "$source_file" ||
+    # A commented-out include or a helper named only in a comment does not count.
+    live_source="$(strip_c_comments "$source_file")"
+    grep -q '#include "r47_time.h"' <<<"$live_source" ||
         fail "$source_file does not include r47_time.h."
 
-    grep -Eq 'r47_ms_(deadline_reached|until_deadline|before)' "$source_file" ||
+    grep -Eq 'r47_ms_(deadline_reached|until_deadline|before)\(' <<<"$live_source" ||
         fail "$source_file does not use the wrap-safe deadline helpers."
 
     for pattern in "${raw_patterns[@]}"; do

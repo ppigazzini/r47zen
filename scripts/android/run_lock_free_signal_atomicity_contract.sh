@@ -8,18 +8,19 @@
 # (ThreadSanitizer flags it via build_bridge_tsan_harness.sh).
 #
 # For each signal:
-# - its definition is _Atomic, never volatile;
+# - its definition, comments aside, is _Atomic, never volatile;
 # - every use in the Android-owned glue (r47zen/**/*.c, *.h), comments aside, is
 #   a declaration or an atomic_*(&signal, ...) call, so neither `if (signal)`
 #   nor `signal = true` nor `++signal` passes.
 #
-# The use-site checker first proves it fails on seeded fixtures, then reads the
-# real sources. Pure host, no SDK, no staged native tree, no sanitizer build.
+# Both checkers first prove they fail on seeded fixtures, then read the real
+# sources. Pure host, no SDK, no staged native tree, no sanitizer build.
 
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/ci_contract.sh
+source "$SCRIPT_DIR/../lib/ci_contract.sh"
 CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp/r47zen"
 LCD_C="$CPP_DIR/hal/lcd.c"
 RUNTIME_C="$CPP_DIR/android_runtime.c"
@@ -36,28 +37,6 @@ declare -A SIGNAL_HOME=(
     [g_r47_stop_refresh_pending]="$RUNTIME_C"
 )
 
-# Print FILE with C comments removed, keeping line numbers ("N:text").
-strip_c_comments() {
-    awk '
-        {
-            line = $0; out = ""
-            while (line != "") {
-                if (in_block) {
-                    end = index(line, "*/")
-                    if (end == 0) { line = ""; break }
-                    line = substr(line, end + 2); in_block = 0
-                    continue
-                }
-                open = index(line, "/*"); slash = index(line, "//")
-                if (slash && (!open || slash < open)) { out = out substr(line, 1, slash - 1); line = ""; break }
-                if (open) { out = out substr(line, 1, open - 1); line = substr(line, open + 2); in_block = 1; continue }
-                out = out line; line = ""
-            }
-            print NR ":" out
-        }
-    ' "$1"
-}
-
 # Print "file:line: text" for each use of SIGNAL in FILE that is neither a
 # declaration nor the &SIGNAL argument of an atomic_* call.
 plain_signal_uses() {
@@ -65,15 +44,27 @@ plain_signal_uses() {
     strip_c_comments "$file" | awk -v sig="$sig" -v file="${file#"$PROJECT_ROOT/"}" '
         function count(text, re,    n) { n = 0; while (match(text, re)) { n++; text = substr(text, RSTART + RLENGTH) } return n }
         {
-            sep = index($0, ":"); text = substr($0, sep + 1)
+            text = $0
             word = "(^|[^A-Za-z0-9_])" sig "([^A-Za-z0-9_]|$)"
             if (text !~ word) next
             if (text ~ ("_Atomic[ \t]+[A-Za-z0-9_]+[ \t]+" sig "([^A-Za-z0-9_]|$)")) next
             uses = count(text, word)
             atomic = count(text, "atomic_[a-z_]+\\([ \t]*&[ \t]*" sig "([^A-Za-z0-9_]|$)")
-            if (uses != atomic) print file ":" substr($0, 1, sep - 1) ": " text
+            if (uses != atomic) print file ":" NR ": " text
         }
     '
+}
+
+# Print why FILE, comments aside, does not define SIGNAL as an _Atomic that is
+# never volatile; print nothing when it does.
+signal_definition_problem() {
+    local file="$1" sig="$2" live
+    live="$(strip_c_comments "$file")"
+    if ! grep -Eq "_Atomic[[:space:]]+[A-Za-z0-9_]+[[:space:]]+$sig\\b" <<<"$live"; then
+        echo "lock-free signal '$sig' is not declared _Atomic."
+    elif grep -Eq "volatile[[:space:]]+[A-Za-z0-9_]+[[:space:]]+$sig\\b" <<<"$live"; then
+        echo "lock-free signal '$sig' regressed to volatile."
+    fi
 }
 
 # --- seeded fixtures ------------------------------------------------------------
@@ -92,6 +83,14 @@ void f(void) {
 C
 [ -z "$(plain_signal_uses "$fixtures/good.c" flagSig)" ] ||
     fail "the use-site checker flagged the atomic-only fixture: $(plain_signal_uses "$fixtures/good.c" flagSig)"
+[ -z "$(signal_definition_problem "$fixtures/good.c" flagSig)" ] ||
+    fail "the definition checker rejected the _Atomic fixture: $(signal_definition_problem "$fixtures/good.c" flagSig)"
+printf 'bool flagSig = false; // _Atomic bool flagSig\n' >"$fixtures/plain.c"
+[ -n "$(signal_definition_problem "$fixtures/plain.c" flagSig)" ] ||
+    fail "the definition checker accepted a plain definition that only a comment calls _Atomic."
+printf '_Atomic bool flagSig;\nvolatile bool flagSig;\n' >"$fixtures/volatile.c"
+[ -n "$(signal_definition_problem "$fixtures/volatile.c" flagSig)" ] ||
+    fail "the definition checker accepted a volatile definition."
 for bad in 'if (flagSig) {}' 'flagSig = true;' '++flagSig;' 'x = flagSig + 1;' \
     'atomic_store_explicit(&flagSig, flagSig, memory_order_relaxed);' 'volatile_reader(flagSig);'; do
     printf 'void g(void) {\n  %s\n}\n' "$bad" >"$fixtures/bad.c"
@@ -103,11 +102,8 @@ done
 for sig in "${!SIGNAL_HOME[@]}"; do
     home="${SIGNAL_HOME[$sig]}"
     [ -f "$home" ] || fail "missing required file: ${home#"$PROJECT_ROOT/"}"
-    grep -Eq "_Atomic[[:space:]]+[A-Za-z0-9_]+[[:space:]]+$sig\\b" "$home" ||
-        fail "${home#"$PROJECT_ROOT/"}: lock-free signal '$sig' is not declared _Atomic."
-    if grep -Eq "volatile[[:space:]]+[A-Za-z0-9_]+[[:space:]]+$sig\\b" "$home"; then
-        fail "${home#"$PROJECT_ROOT/"}: lock-free signal '$sig' regressed to volatile."
-    fi
+    problem="$(signal_definition_problem "$home" "$sig")"
+    [ -z "$problem" ] || fail "${home#"$PROJECT_ROOT/"}: $problem"
 done
 
 plain=""

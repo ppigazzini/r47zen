@@ -15,7 +15,8 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/ci_contract.sh
+source "$SCRIPT_DIR/../lib/ci_contract.sh"
 BUILD_GRADLE="$PROJECT_ROOT/android/app/build.gradle"
 RELEASE_WORKFLOW="$PROJECT_ROOT/.github/workflows/android-release.yml"
 
@@ -27,15 +28,16 @@ fail() {
 [ -f "$BUILD_GRADLE" ] || fail "missing required file: ${BUILD_GRADLE#"$PROJECT_ROOT/"}"
 [ -f "$RELEASE_WORKFLOW" ] || fail "missing required file: ${RELEASE_WORKFLOW#"$PROJECT_ROOT/"}"
 
-# Live lines only: a `//` or `#` comment must not satisfy or violate a check.
-# The Gradle default must resolve to false.
-if ! grep -vE '^[[:space:]]*//' "$BUILD_GRADLE" |
-    grep -Eq "readBooleanProperty\('r47\.includeProgramLoadTestBridge',[[:space:]]*false\)"; then
+# Live code only: a `//`, `/* */`, or `#` comment must not satisfy or violate a
+# check. The Gradle default must resolve to false.
+live_gradle="$(strip_c_comments "$BUILD_GRADLE")"
+if ! grep -Eq "readBooleanProperty\('r47\.includeProgramLoadTestBridge',[[:space:]]*false\)" <<<"$live_gradle"; then
     fail "build.gradle no longer defaults includeProgramLoadTestBridge to false (the bridge would ship by default)."
 fi
 
 # The published release workflow must never opt the bridge in.
-if grep -vE '^[[:space:]]*#' "$RELEASE_WORKFLOW" | grep -Eq 'includeProgramLoadTestBridge=true'; then
+live_release="$(strip_hash_comments <"$RELEASE_WORKFLOW")"
+if grep -Eq 'includeProgramLoadTestBridge=true' <<<"$live_release"; then
     fail "android-release.yml enables the program-load bridge in a published release build."
 fi
 

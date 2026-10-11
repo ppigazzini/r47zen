@@ -18,13 +18,13 @@ source "$SCRIPT_DIR/../lib/ci_contract.sh"
 block="$(workflow_job_block "$WORKFLOW_DIR/android-release.yml" publish-production-release)"
 
 # Live lines only: a commented-out permission or step must not satisfy a check.
-live="$(strip_yaml_comments <<<"$block")"
+live="$(strip_hash_comments <<<"$block")"
 missing=""
 grep -q 'id-token: write' <<<"$live" || missing="$missing id-token:write"
 grep -q 'attestations: write' <<<"$live" || missing="$missing attestations:write"
 grep -q 'uses: actions/attest-build-provenance@' <<<"$live" || missing="$missing actions/attest-build-provenance"
 # Require a real `gh attestation verify` command, not just a mention in a
-# comment (strip_yaml_comments), so the attestation is re-verified in the run.
+# comment (strip_hash_comments), so the attestation is re-verified in the run.
 grep -q 'gh attestation verify' <<<"$live" ||
     missing="$missing gh-attestation-verify"
 # The packaging-evidence archives ship on the release too, so each is attested

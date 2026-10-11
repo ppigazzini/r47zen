@@ -18,8 +18,12 @@
 # here: it moves with AGP, and the Kotlin compiler already rejects an
 # out-of-range value with its own explicit error.
 #
-# Pure host test, no SDK needed. File paths are env-overridable so the contract
-# can be negative-proven against a drifted copy without touching the live tree.
+# Every check reads live code: a comment that names the pin satisfies nothing.
+# The Gradle and doctor checks first prove they reject seeded copies of the
+# live files, among them the copy with both live lines commented out and a
+# literal toolchain added. Pure host test, no SDK needed. File paths are
+# env-overridable so the contract can be run against a drifted copy without
+# touching the live tree.
 
 set -Eeuo pipefail
 
@@ -67,23 +71,81 @@ fi
 
 # --- Gradle toolchain reads the pin ------------------------------------------
 
-if ! grep -q "readDefaultInteger('R47_DEFAULT_ANDROID_BUILD_JDK_VERSION')" "$app_gradle_file"; then
-    contract_fail \
-        "${app_gradle_file} does not read R47_DEFAULT_ANDROID_BUILD_JDK_VERSION." \
-        "The Gradle Java toolchain must be configured from the pin, not from a literal or from whatever JDK launched Gradle."
-fi
+# Print each way FILE, comments aside, fails to take the toolchain from the pin;
+# print nothing when it takes it. The pin must be read into buildJdkVersion
+# exactly once and never reassigned, every JavaLanguageVersion.of must take
+# buildJdkVersion, and Kotlin's jvmToolchain, which sets the same toolchain,
+# must not appear.
+gradle_toolchain_problems() {
+    local live reads assignments calls
+    live="$(strip_c_comments "$1")"
+    reads="$(grep -cE "^[[:space:]]*def[[:space:]]+buildJdkVersion[[:space:]]*=[[:space:]]*readDefaultInteger\('R47_DEFAULT_ANDROID_BUILD_JDK_VERSION'\)[[:space:]]*$" <<<"$live" || true)"
+    [ "$reads" = 1 ] ||
+        echo "reads R47_DEFAULT_ANDROID_BUILD_JDK_VERSION into buildJdkVersion ${reads} time(s), not once"
+    assignments="$(grep -vE '^[[:space:]]*def[[:space:]]+buildJdkVersion' <<<"$live" || true)"
+    if grep -qE '(^|[^A-Za-z0-9_])buildJdkVersion[[:space:]]*=[^=]' <<<"$assignments"; then
+        echo "reassigns buildJdkVersion"
+    fi
+    grep -qF 'JavaLanguageVersion.of(buildJdkVersion)' <<<"$live" ||
+        echo "never feeds buildJdkVersion to JavaLanguageVersion.of"
+    calls="$(grep -oE 'JavaLanguageVersion\.of\([^)]*\)' <<<"$live" || true)"
+    if grep -qvx 'JavaLanguageVersion.of(buildJdkVersion)' <<<"$calls"; then
+        echo "passes JavaLanguageVersion.of something other than buildJdkVersion"
+    fi
+    if grep -qE '(^|[^A-Za-z0-9_])jvmToolchain[[:space:]]*[({]' <<<"$live"; then
+        echo "sets jvmToolchain, a second owner of the toolchain"
+    fi
+}
 
-if ! grep -q 'JavaLanguageVersion.of(buildJdkVersion)' "$app_gradle_file"; then
+seeds="$(mktemp -d)"
+trap 'rm -rf "$seeds"' EXIT
+
+# The checker must reject each seeded drift before its verdict on the live file
+# means anything. The first seed is the copy that passed the old grep: both live
+# lines commented out and a literal toolchain added.
+sed -e "s|^def buildJdkVersion = |// &|" \
+    -e "s|^\([[:space:]]*\)languageVersion = JavaLanguageVersion.of(buildJdkVersion)|\1// languageVersion = JavaLanguageVersion.of(buildJdkVersion)\n\1languageVersion = JavaLanguageVersion.of(17)|" \
+    "$app_gradle_file" >"$seeds/commented.gradle"
+sed -e "s|^def buildJdkVersion = .*|/* & */ def buildJdkVersion = 17|" \
+    "$app_gradle_file" >"$seeds/block-commented.gradle"
+{
+    cat "$app_gradle_file"
+    printf 'kotlin {\n    jvmToolchain(17)\n}\n'
+} >"$seeds/kotlin-toolchain.gradle"
+{
+    cat "$app_gradle_file"
+    printf 'buildJdkVersion = 17\n'
+} >"$seeds/reassigned.gradle"
+for seed in commented block-commented kotlin-toolchain reassigned; do
+    [ -n "$(gradle_toolchain_problems "$seeds/$seed.gradle")" ] ||
+        contract_fail "the Gradle toolchain check accepted the seeded '${seed}' drift; it would pass a literal toolchain."
+done
+
+problems="$(gradle_toolchain_problems "$app_gradle_file")"
+if [ -n "$problems" ]; then
     contract_fail \
-        "${app_gradle_file} does not feed the pinned build JDK into a Java toolchain." \
-        "Expected: java { toolchain { languageVersion = JavaLanguageVersion.of(buildJdkVersion) } }"
+        "${app_gradle_file} does not take the Java toolchain from the pin:" \
+        "$problems" \
+        "Expected: def buildJdkVersion = readDefaultInteger('R47_DEFAULT_ANDROID_BUILD_JDK_VERSION'), then java { toolchain { languageVersion = JavaLanguageVersion.of(buildJdkVersion) } }"
 fi
 
 # --- The doctor reads the pin ------------------------------------------------
 
-if ! grep -q 'R47_DEFAULT_ANDROID_BUILD_JDK_VERSION' "$doctor_file"; then
+doctor_reads_pin() {
+    local live
+    live="$(strip_hash_comments <"$1")"
+    grep -qF 'find_jdk_home_for_major "$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION"' <<<"$live"
+}
+
+sed -e 's|^\([[:space:]]*\)\(.*find_jdk_home_for_major "\$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION".*\)|\1# \2|' \
+    "$doctor_file" >"$seeds/doctor.sh"
+if doctor_reads_pin "$seeds/doctor.sh"; then
+    contract_fail "the doctor check accepted a copy whose JDK lookup is commented out."
+fi
+
+if ! doctor_reads_pin "$doctor_file"; then
     contract_fail \
-        "${doctor_file} does not read R47_DEFAULT_ANDROID_BUILD_JDK_VERSION." \
+        "${doctor_file} does not look up the JDK the pin names." \
         "The doctor must report the host JDK against the pin, so a mismatch is named before Gradle fails on a missing toolchain."
 fi
 
@@ -104,7 +166,7 @@ for workflow in "$WORKFLOW_DIR"/*.yml; do
     [ -f "$workflow" ] || continue
 
     while IFS= read -r job; do
-        block="$(workflow_job_block "$workflow" "$job" | strip_yaml_comments)"
+        block="$(workflow_job_block "$workflow" "$job" | strip_hash_comments)"
         case "$block" in
             *actions/setup-java*) ;;
             *) continue ;;

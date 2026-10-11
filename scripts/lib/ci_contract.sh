@@ -63,10 +63,37 @@ workflow_job_block() {
     ' "$file"
 }
 
-# Drop YAML comment lines from stdin -- for filtering an in-memory job block the
-# same comment-safe way as workflow_grep.
-strip_yaml_comments() {
+# Drop YAML and shell comment lines from stdin -- for filtering an in-memory job
+# block or a script the same comment-safe way as workflow_grep.
+strip_hash_comments() {
     grep -vE '^[[:space:]]*#'
+}
+
+# Print FILE with its C-family comments blanked: // to the end of the line and
+# /* ... */ across lines, for C, Kotlin, and Groovy sources. Output line N is
+# line N of FILE, so a caller can still report line numbers. A // or /* inside
+# a string literal reads as a comment too, so do not match a line that holds a
+# URL. Capture the output before a grep -q: under pipefail, grep -q exiting at
+# its first match kills this awk with SIGPIPE and fails the pipeline.
+strip_c_comments() {
+    awk '
+        {
+            line = $0; out = ""
+            while (line != "") {
+                if (in_block) {
+                    end = index(line, "*/")
+                    if (end == 0) { line = ""; break }
+                    line = substr(line, end + 2); in_block = 0
+                    continue
+                }
+                open = index(line, "/*"); slash = index(line, "//")
+                if (slash && (!open || slash < open)) { out = out substr(line, 1, slash - 1); line = ""; break }
+                if (open) { out = out substr(line, 1, open - 1); line = substr(line, open + 2); in_block = 1; continue }
+                out = out line; line = ""
+            }
+            print out
+        }
+    ' "$1"
 }
 
 # Standard reporters. contract_fail prints "FAIL: <msg>" plus any extra detail

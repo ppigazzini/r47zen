@@ -25,10 +25,12 @@ ACTION_FILE="$PROJECT_ROOT/.github/actions/setup-android-sdk/action.yml"
 [ -f "$ACTION_FILE" ] ||
     contract_fail "missing the setup-android-sdk composite action: $ACTION_FILE"
 
-# The composite must SHA-pin its third-party actions, matching repo policy.
-grep -qE 'uses:[[:space:]]*android-actions/setup-android@[0-9a-f]{40}' "$ACTION_FILE" ||
+# The composite must SHA-pin its third-party actions, matching repo policy. A
+# pinned line that is only a comment does not count.
+live_action="$(strip_hash_comments <"$ACTION_FILE")"
+grep -qE 'uses:[[:space:]]*android-actions/setup-android@[0-9a-f]{40}' <<<"$live_action" ||
     contract_fail "setup-android-sdk must SHA-pin android-actions/setup-android"
-grep -qE 'uses:[[:space:]]*actions/cache@[0-9a-f]{40}' "$ACTION_FILE" ||
+grep -qE 'uses:[[:space:]]*actions/cache@[0-9a-f]{40}' <<<"$live_action" ||
     contract_fail "setup-android-sdk must SHA-pin actions/cache"
 
 # A workflow job must provision the SDK through the composite, never inline.

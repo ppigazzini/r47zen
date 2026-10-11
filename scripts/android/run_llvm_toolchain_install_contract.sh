@@ -18,10 +18,10 @@ source "$SCRIPT_DIR/../lib/ci_contract.sh"
 
 status=0
 for f in "$WORKFLOW_DIR"/*.yml "$PROJECT_ROOT/scripts/android/install_host_llvm_toolchain.sh"; do
-    # Only files that actually invoke llvm-config-<major> (strip_yaml_comments
+    # Only files that actually invoke llvm-config-<major> (strip_hash_comments
     # ignores comment lines that merely mention it, e.g. a contract step's own
     # description).
-    live="$(strip_yaml_comments <"$f")"
+    live="$(strip_hash_comments <"$f")"
     grep -qF 'llvm-config-' <<<"$live" || continue
     if ! grep -qF '"llvm-${llvm_major}"' <<<"$live"; then
         echo "FAIL: $(basename "$f") uses llvm-config-<major> but never installs the llvm-\${llvm_major} package that provides it (and llvm-profdata)." >&2
