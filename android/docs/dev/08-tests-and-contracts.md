@@ -819,7 +819,10 @@ Android compatibility layer.
   selection of its own and report results for exactly that class, a later
   selection that runs nothing must fail even after earlier ones ran tests, a
   stale result file must never count, and each selection's results must
-  survive for the artifact upload.
+  survive for the artifact upload. Last, it holds the runner's class list to
+  the androidTest tree: every file whose live code declares a `@Test` must be
+  a selection, and every selection must be such a file, so a new
+  instrumented class cannot sit on disk and never run.
 - The maintained PGO collector uses a separate merged profile surface: the
   `broad-ci` `testSuite` base of `programs`, `tvm`, `jacobi_audit`,
   `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the generated
@@ -908,7 +911,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_lock_free_signal_atomicity_contract.sh` | the lock-free display and refresh signals are defined C11 atomics, never plain `volatile`, comments aside, and every use in the glue is an `atomic_*(&signal, ...)` call | yes, fixtures |
 | `run_mini_gmp_accounting_contract.sh` | the shipped mini-gmp hands the GMP accounting hooks the size of every block it frees or reallocates, so the count returns to zero | yes, compiles and runs a C test under AddressSanitizer and UBSan, after it fails on a copy whose free passes size 0 |
 | `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on; live code only | text |
-| `run_test_integrity_contract.sh` | the workload fixture-exit policy, the mutation spot-check, and the connected lane's zero-test count (see above) | yes, runs them |
+| `run_test_integrity_contract.sh` | the workload fixture-exit policy, the mutation spot-check, the connected lane's zero-test count, and that its selections are exactly the androidTest classes on disk (see above) | yes, runs them; the selection check on a seeded tree first |
 | `run_privacy_policy_parity_contract.sh` | the markdown and shipped-HTML privacy policies share section headings and a last-updated date | text |
 | `run_commit_message_contract.sh` | `scripts/docs/check_commit_message.sh` accepts and rejects seeded messages on both sides of each commit rule it holds, for a message file and for `--range` | yes, seeded messages and a scratch repository |
 

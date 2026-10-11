@@ -27,6 +27,10 @@
 #    selection that runs nothing fails even after earlier ones ran tests; a
 #    stale result file never counts; each selection's results survive for the
 #    artifact upload.
+# 5. The connected runner's class list is the androidTest classes on disk:
+#    every androidTest file whose live code declares a @Test is a selection,
+#    and every selection is such a file. Both directions first prove they fail
+#    on a seeded tree.
 #
 # Pure-host check: no SDK, no staged native tree, no build.
 
@@ -36,6 +40,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/lib/common.sh
 source "$SCRIPT_DIR/../lib/common.sh"
+# shellcheck source=scripts/lib/ci_contract.sh
+source "$SCRIPT_DIR/../lib/ci_contract.sh"
 
 WORKLOAD_RUNNER="$PROJECT_ROOT/scripts/workload-regressions/run_workload_regressions.sh"
 MUTATION="$PROJECT_ROOT/scripts/android/mutation_spot_check.sh"
@@ -348,4 +354,59 @@ expect_connected_failure "a stale result file for a first selection that ran not
     "FactorsInstrumentedTest reported success but executed 0 tests" \
     FAKE_EMPTY_SELECTION=FactorsInstrumentedTest
 
-echo "OK: test-integrity guards hold when run: androidTest count, workload fixture-exit policy, mutation spot-check scoring, one connected selection per class."
+# --- 5. the connected selections are the androidTest classes on disk -----------
+# Print, one per line, the class each androidTest file under DIR declares when
+# its live code holds a @Test; a helper with no test is not a class to run.
+instrumented_classes() {
+    local file package live
+    while IFS= read -r -d '' file; do
+        live="$(strip_c_comments "$file")"
+        grep -qE '(^|[^A-Za-z0-9_])@Test([^A-Za-z0-9_]|$)' <<<"$live" || continue
+        package="$(sed -n 's/^package[[:space:]]\{1,\}\([A-Za-z0-9_.]*\).*/\1/p' <<<"$live" | head -n 1)"
+        [ -n "$package" ] || fail "$file declares a @Test but no package."
+        printf '%s.%s\n' "$package" "$(basename "$file" .kt)"
+    done < <(find "$1" -type f -name '*.kt' -print0) | sort
+}
+
+# Print, one per line, every class the connected runner FILE selects.
+connected_selections() {
+    {
+        sed -n '/^NON_FIXTURE_TEST_CLASSES=(/,/^)/p' "$1" |
+            sed -n 's/^[[:space:]]*"\(io\.github\.[^"]*\)"$/\1/p'
+        sed -n 's/^PROGRAM_FIXTURE_TEST_CLASS="\([^"]*\)"$/\1/p' "$1"
+    } | sort
+}
+
+# Print why the selections in RUNNER and the classes under DIR differ, or
+# nothing when they match.
+selection_mismatch() {
+    local on_disk selected
+    on_disk="$(instrumented_classes "$2")"
+    selected="$(connected_selections "$1")"
+    [ -n "$on_disk" ] || {
+        echo "no androidTest class declares a @Test under $2"
+        return
+    }
+    comm -23 <(printf '%s\n' "$on_disk") <(printf '%s\n' "$selected") |
+        sed 's/^/never selected: /'
+    comm -13 <(printf '%s\n' "$on_disk") <(printf '%s\n' "$selected") |
+        sed 's/^/selected, not on disk: /'
+}
+
+android_test_dir="$PROJECT_ROOT/android/app/src/androidTest"
+seeded_tests="$tmp/seeded-androidTest"
+cp -r "$android_test_dir" "$seeded_tests"
+seeded_dir="$(dirname "$(find "$seeded_tests" -name 'FactorsInstrumentedTest.kt' -print -quit)")"
+printf 'package io.github.ppigazzini.r47zen\n\nclass NewInstrumentedTest {\n    @Test\n    fun runs() {}\n}\n' \
+    >"$seeded_dir/NewInstrumentedTest.kt"
+grep -q 'never selected: io.github.ppigazzini.r47zen.NewInstrumentedTest' <<<"$(selection_mismatch "$CONNECTED" "$seeded_tests")" ||
+    fail "the selection check accepted an androidTest class the connected runner never selects."
+rm "$seeded_dir/NewInstrumentedTest.kt" "$seeded_dir/FactorsInstrumentedTest.kt"
+grep -q 'selected, not on disk: io.github.ppigazzini.r47zen.FactorsInstrumentedTest' <<<"$(selection_mismatch "$CONNECTED" "$seeded_tests")" ||
+    fail "the selection check accepted a selection with no androidTest class on disk."
+
+mismatch="$(selection_mismatch "$CONNECTED" "$android_test_dir")"
+[ -z "$mismatch" ] ||
+    fail "run_connected_android_tests.sh and the androidTest classes disagree: $mismatch"
+
+echo "OK: test-integrity guards hold when run: androidTest count, workload fixture-exit policy, mutation spot-check scoring, one connected selection per class, and every androidTest class selected."
