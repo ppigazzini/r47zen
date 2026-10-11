@@ -59,7 +59,7 @@ flowchart TD
 | SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `requestedProgramFixtureNames`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
 | pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
-| Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved. A signature change fails the build, but a changed *meaning* behind an unchanged signature does not: `scripts/android/run_keypad_generation_contract.sh` is the behavioral half, and locks the `bitblt24` blit semantics documented in `src/c47/hal/lcd.h` | rerun the narrow native Gradle build first, then `run_keypad_generation_contract.sh`, then the latest-upstream Android build lane when new upstream HAL symbols appear |
+| Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved. A signature change fails the build, but a changed *meaning* behind an unchanged signature does not: `scripts/android/run_keypad_generation_contract.sh` is the behavioral half for `hal/lcd.c`, and locks the `bitblt24` blit semantics documented in `src/c47/hal/lcd.h`; `scripts/android/run_hal_io_contract.sh` locks the write-failure report of `hal/io.c` | rerun the narrow native Gradle build first, then `run_keypad_generation_contract.sh` and `run_hal_io_contract.sh`, then the latest-upstream Android build lane when new upstream HAL symbols appear |
 | upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
 | which upstream bytes the derived goldens came from | `scripts/r47_contracts/data/upstream_provenance.json`, `scripts/r47_contracts/upstream_provenance.py`, the `UPSTREAM_R47_*_PATH` constants in `scripts/r47_contracts/_repo_paths.py` | `scripts/r47_contracts/test_upstream_provenance_contract.py` | grouped `scripts/r47_contracts` validation lane; coverage fails there, drift only reports |
 
@@ -200,7 +200,9 @@ runs. What each one locks:
   exported fixture manifest
 - `test_jni_registration_contract.py`: the `RegisterNatives` table in
   `jni_registration.c` and `MainActivity`'s `external fun` set are equal, and
-  each entry binds the implementation with the same name suffix; the
+  each entry binds the implementation with the same name suffix; every
+  `GetMethodID` in the glue names a `@Keep` `MainActivity` method with the same
+  JNI signature, checked on a seeded drift first; the
   `R47_SHELL_*` codes in `jni_bridge.h` equal `NativeShellCodes.kt`, and
   `jni_input.c` resolves each to an `items.h` symbol, never a number
 - `test_upstream_provenance_contract.py`: the provenance ledger covers exactly
@@ -698,6 +700,13 @@ Android compatibility layer.
   `49 - x / 8`, mask `0x80 >> x % 8`, of packed row `y`: the mirroring, pinned,
   and the rule `PackedLcdRaster` decodes by. It runs in the
   `host-workload-regressions` lane of `linux-ci.yml`.
+- `scripts/android/run_hal_io_contract.sh` links `hal/io.c` alone on the host,
+  with the host build flag that compiles out the SAF branch, and runs
+  `scripts/android/hal_io_contract_test.c`. The autosave file is made a link to
+  the device under test: a write `/dev/full` refuses is reported once per file,
+  whether the flush or the writes themselves find it, and a regular file, a
+  read, and `/dev/null`, whose `fsync` answers `EINVAL`, are not reported. It
+  runs in the `host-workload-regressions` lane of `linux-ci.yml`.
 - `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds the staged
   core and Android bridge under ThreadSanitizer and races the UI read path
   against the core, the one concurrency surface the single-threaded ASan/UBSan

@@ -511,14 +511,25 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Assert two hal/lcd.c invariants: a screen refresh bumps
-          # keypadSnapshotGeneration (the signal the display loop uses to re-read
-          # dynamic softkeys such as the EQN editor), and init_lcd_buffers leaves
-          # the unused screenData compatibility framebuffer NULL (no dead 384 KB).
-          # Reuses the staged native inputs the workload step just produced. No
-          # emulator required.
+          # Assert the hal/lcd.c contracts keypad_generation_contract_test.c
+          # lists: the keypad-generation bump on a screen refresh, the NULL
+          # screenData, the bitblt24 fill semantics and polarity, the packed-row
+          # change flags and the snapshot take, and where a pixel lands in a
+          # packed row. Reuses the staged native inputs the workload step just
+          # produced. No emulator required.
           bash ./scripts/android/run_keypad_generation_contract.sh 2>&1 \
             | tee ci-artifacts/logs/keypad-generation-contract.log
+
+      - name: Run io HAL contract test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Assert that hal/io.c reports a write the file system did not take
+          # once per file, at ioFileClose, and reports nothing else. Reuses the
+          # staged native inputs. No emulator required.
+          bash ./scripts/android/run_hal_io_contract.sh 2>&1 \
+            | tee ci-artifacts/logs/hal-io-contract.log
 
       - name: Upload host workload regression log
         if: always()
@@ -532,6 +543,7 @@ jobs:
             ci-artifacts/logs/clipboard-overflow-harness.log
             ci-artifacts/logs/graph-crash-harness.log
             ci-artifacts/logs/keypad-generation-contract.log
+            ci-artifacts/logs/hal-io-contract.log
           if-no-files-found: warn
           retention-days: 14
 

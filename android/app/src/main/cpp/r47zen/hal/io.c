@@ -37,7 +37,14 @@ static int android_base_path_ready = 0;
 int current_slot_id = 0; // Linked via JNI
 
 static FILE *openedFile = NULL;
+// Whether openedFile was opened for writing, and whether a write to it has
+// come up short. Upstream's HAL signatures return nothing, and upstream reports
+// only a failed open, so ioFileClose is where a lost write is noticed and
+// reported, once per file, through r47_report_file_write_failure.
+static bool openedFileWritable = false;
+static bool openedFileWriteFailed = false;
 extern int requestAndroidFile(int isSave, const char* defaultName, int fileType);
+extern void r47_report_file_write_failure(void);
 
 static void ensure_android_subdir(const char *subdir) {
     char buf[1024];
@@ -146,6 +153,8 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
             close(fd);
             return FILE_ERROR;
         }
+        openedFileWritable = isSave;
+        openedFileWriteFailed = false;
         return FILE_OK;
     }
 #endif
@@ -201,11 +210,19 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     }
 
     openedFile = fopen(fullpath, modeStr);
+    openedFileWritable = openedFile != NULL && mode != ioModeRead;
+    openedFileWriteFailed = false;
     return openedFile ? FILE_OK : FILE_ERROR;
 }
 
 void ioFileWrite(const void *buffer, uint32_t size) {
-    if (openedFile) fwrite(buffer, 1, size, openedFile);
+    if (!openedFile) {
+        return;
+    }
+    if (fwrite(buffer, 1, size, openedFile) != size && !openedFileWriteFailed) {
+        LOGE("ioFileWrite: short write: %s", strerror(errno));
+        openedFileWriteFailed = true;
+    }
 }
 
 uint32_t ioFileRead(void *buffer, uint32_t size) {
@@ -218,12 +235,32 @@ void ioFileSeek(uint32_t position) {
 }
 
 void ioFileClose(void) {
-    if (openedFile) {
-        fflush(openedFile);
-        // On Android, fsync ensures the SAF file is actually written
-        fsync(fileno(openedFile));
-        fclose(openedFile);
-        openedFile = NULL;
+    if (!openedFile) {
+        return;
+    }
+    bool failed = openedFileWriteFailed;
+    if (openedFileWritable) {
+        if (fflush(openedFile) != 0) {
+            LOGE("ioFileClose: flush failed: %s", strerror(errno));
+            failed = true;
+        }
+        // fsync makes a SAF document durable before the provider sees the close.
+        // A pipe or a character device cannot be synced and answers EINVAL,
+        // which loses nothing.
+        if (fsync(fileno(openedFile)) != 0 && errno != EINVAL) {
+            LOGE("ioFileClose: fsync failed: %s", strerror(errno));
+            failed = true;
+        }
+    }
+    if (fclose(openedFile) != 0 && openedFileWritable) {
+        LOGE("ioFileClose: close failed: %s", strerror(errno));
+        failed = true;
+    }
+    openedFile = NULL;
+    openedFileWritable = false;
+    openedFileWriteFailed = false;
+    if (failed) {
+        r47_report_file_write_failure();
     }
 }
 

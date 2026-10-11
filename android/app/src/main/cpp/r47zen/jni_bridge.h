@@ -58,6 +58,7 @@ extern jobject g_mainActivityObj;
 extern jmethodID g_requestFileId;
 extern jmethodID g_playToneId;
 extern jmethodID g_processCoreTasksId;
+extern jmethodID g_fileWriteFailedId;
 
 typedef struct {
     JNIEnv *env;

@@ -101,4 +101,5 @@ Distributors of APKs must also provide the exact corresponding source for the bu
     <string name="gpl_license_dialog_close" translatable="false">Close</string>
     <string name="slot_switched" translatable="false">Switched to %1$s</string>
     <string name="settings_no_app_for_link" translatable="false">No app on this device can open the link.</string>
+    <string name="file_write_failed" translatable="false">The file could not be written completely. It may be cut short.</string>
 </resources>

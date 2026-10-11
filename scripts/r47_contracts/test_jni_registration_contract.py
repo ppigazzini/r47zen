@@ -6,8 +6,14 @@ If the two sets drift -- a method registered with no Kotlin declaration, or an
 `external fun` with no registered binding -- RegisterNatives fails and the app
 crashes at startup. This parses both sides and proves the name sets are equal.
 
+The calls the other way, native into MainActivity, are a third agreement: every
+`GetMethodID` the glue performs must name a `@Keep` MainActivity method with the
+same JNI signature. `updateNativeActivityRef` drops every cached callback when a
+single lookup fails, so one renamed callback silently cuts off file requests,
+tones, and the yield into queued Android work.
+
 The shell codes Kotlin passes to sendSimMenuNative and sendSimFuncNative are the
-other JNI-level agreement: `jni_bridge.h` defines them, `NativeShellCodes.kt`
+remaining JNI-level agreement: `jni_bridge.h` defines them, `NativeShellCodes.kt`
 mirrors them, and `jni_input.c` resolves each to an upstream item symbol, never
 a number, since items.h renumbers between upstream revisions.
 """
@@ -28,6 +34,21 @@ _NATIVE_BINDING: Final = re.compile(
     r"Java_io_github_ppigazzini_r47zen_MainActivity_(?P<impl>\w+)\}",
 )
 _KOTLIN_EXTERNAL_FUN: Final = re.compile(r"external fun (\w+)")
+_NATIVE_METHOD_LOOKUP: Final = re.compile(
+    r'GetMethodID\(\s*env,\s*clazz,\s*"(?P<name>\w+)",\s*"(?P<sig>[^"]+)"\)',
+)
+_KOTLIN_KEEP_FUN: Final = re.compile(
+    r"@Keep\s+fun\s+(?P<name>\w+)\((?P<params>[^)]*)\)(?:\s*:\s*(?P<ret>\w+))?",
+)
+_JNI_TYPE: Final = {
+    "Boolean": "Z",
+    "Int": "I",
+    "Long": "J",
+    "Float": "F",
+    "Double": "D",
+    "String": "Ljava/lang/String;",
+    "Unit": "V",
+}
 _JNI_BRIDGE: Final = ANDROID_CPP_ROOT / "jni_bridge.h"
 _JNI_INPUT: Final = ANDROID_CPP_ROOT / "jni_input.c"
 _NATIVE_SHELL_CODES: Final = KOTLIN_R47ZEN_ROOT / "NativeShellCodes.kt"
@@ -56,6 +77,42 @@ def _native_bindings() -> list[tuple[str, str]]:
     return [
         (match.group("name"), match.group("impl"))
         for match in _NATIVE_BINDING.finditer(text)
+    ]
+
+
+def _native_method_lookups() -> dict[str, str]:
+    """Return {method name: JNI signature} for every GetMethodID in the glue."""
+    lookups: dict[str, str] = {}
+    for source in sorted(ANDROID_CPP_ROOT.glob("*.c")):
+        text = source.read_text(encoding="utf-8")
+        for match in _NATIVE_METHOD_LOOKUP.finditer(text):
+            lookups[match.group("name")] = match.group("sig")
+    return lookups
+
+
+def kotlin_keep_signatures(text: str) -> dict[str, str]:
+    """Return {method name: JNI signature} for the `@Keep fun`s in `text`.
+
+    A parameter or return type outside the JNI mapping yields `?`, so it can
+    never equal a native signature by accident.
+    """
+    signatures: dict[str, str] = {}
+    for match in _KOTLIN_KEEP_FUN.finditer(text):
+        params = [p for p in match.group("params").split(",") if p.strip()]
+        types = [p.split(":", 1)[1].strip() if ":" in p else "?" for p in params]
+        args = "".join(_JNI_TYPE.get(kind, "?") for kind in types)
+        ret = _JNI_TYPE.get(match.group("ret") or "Unit", "?")
+        signatures[match.group("name")] = f"({args}){ret}"
+    return signatures
+
+
+def callback_mismatches(lookups: dict[str, str], kotlin: dict[str, str]) -> list[str]:
+    """Return one line per native lookup with no matching Kotlin method."""
+    return [
+        f"{name}{signature}: MainActivity has "
+        + (f"{name}{kotlin[name]}" if name in kotlin else "no @Keep fun of that name")
+        for name, signature in sorted(lookups.items())
+        if kotlin.get(name) != signature
     ]
 
 
@@ -111,6 +168,35 @@ class JniRegistrationContractTest(unittest.TestCase):
         mismatched = [(name, impl) for name, impl in bindings if name != impl]
         if mismatched:
             message = f"JNI methods bound to a mismatched implementation: {mismatched}"
+            raise AssertionError(message)
+
+
+class NativeCallbackContractTest(unittest.TestCase):
+    """Verify every method native looks up exists in MainActivity as declared."""
+
+    def test_native_callbacks_match_keep_methods(self) -> None:
+        """Each GetMethodID must name a @Keep fun with the same JNI signature."""
+        lookups = _native_method_lookups()
+        if not lookups:
+            message = f"no GetMethodID parsed under {ANDROID_CPP_ROOT}"
+            raise AssertionError(message)
+        mismatches = callback_mismatches(
+            lookups,
+            kotlin_keep_signatures(_MAIN_ACTIVITY.read_text(encoding="utf-8")),
+        )
+        if mismatches:
+            raise AssertionError("\n".join(mismatches))
+
+    def test_a_renamed_or_retyped_callback_is_caught(self) -> None:
+        """The checker flags a missing method and a changed parameter type."""
+        lookups = {"requestFile": "(ZLjava/lang/String;I)V", "quitApp": "()V"}
+        seeded = (
+            "@Keep\n    fun requestFile(isSave: Boolean, defaultName: String, "
+            "fileType: Long) {}\n@Keep fun quitApplication() {}"
+        )
+        mismatches = callback_mismatches(lookups, kotlin_keep_signatures(seeded))
+        if len(mismatches) != len(lookups):
+            message = f"the checker missed a seeded drift: {mismatches}"
             raise AssertionError(message)
 
 

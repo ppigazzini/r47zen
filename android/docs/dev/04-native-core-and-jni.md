@@ -390,19 +390,19 @@ target.
 
 ### Activity reference writers and readers
 
-Native code reaches the current `MainActivity` through four globals in
+Native code reaches the current `MainActivity` through five globals in
 `jni_activity_bridge.c`: `g_mainActivityObj` and the cached method IDs
-`g_requestFileId`, `g_playToneId`, and `g_processCoreTasksId`. This table is
-their state inventory for the checks in
+`g_requestFileId`, `g_playToneId`, `g_processCoreTasksId`, and
+`g_fileWriteFailedId`. This table is their state inventory for the checks in
 [11-reviewing-a-change.md](11-reviewing-a-change.md#the-four-checks).
 
 | access | function | thread |
 |---|---|---|
 | write | `updateNativeActivityRef`, from `initNative` and, on reattach, from `NativeCoreRuntime`'s core-thread attach | core |
 | write | `releaseNativeRuntime`, from `NativeCoreRuntime.releaseFinishedHost` as the core thread leaves its loop with no host attached | core |
-| read | `processCoreTasksNative` (`jni_activity_bridge.c`), `_Buzz` (`hal/audio.c`), `requestAndroidFile` (`jni_storage.c`), `triggerQuit` (`jni_display.c`) | core |
+| read | `processCoreTasksNative` (`jni_activity_bridge.c`), `r47_report_file_write_failure` (`jni_activity_bridge.c`), `_Buzz` (`hal/audio.c`), `requestAndroidFile` (`jni_storage.c`), `triggerQuit` (`jni_display.c`) | core |
 
-No lock covers the four globals, and none is needed: every reader and both
+No lock covers the five globals, and none is needed: every reader and both
 writers run on the core thread, so a reader never sees a reference half
 deleted. The main thread never calls `releaseNativeRuntime`; a Kotlin path that
 did would be the race this table exists to rule out. `NativeCoreRuntimeTest`
@@ -474,6 +474,18 @@ The SAF path works as follows:
    `ParcelFileDescriptor` and returned to native code.
 4. Native code wraps the descriptor with `fdopen(...)` and continues using
    standard file I/O.
+
+Upstream's HAL write and close return nothing, and upstream reports only a
+failed open, so `hal/io.c` checks every write, the flush, `fsync`, and the
+close of a file opened for writing, on both paths, and reports a loss once per
+file at `ioFileClose` through `r47_report_file_write_failure()`. That calls
+`MainActivity.onFileWriteFailed()`, which shows a toast. An `fsync` that answers
+`EINVAL`, as a pipe or a character device does, loses nothing and is not
+reported. A program save still shows upstream's own saved message
+(`TI_SAVED`, set after the close), which the HAL cannot withdraw, so the toast
+is the signal. `scripts/android/run_hal_io_contract.sh`
+links `hal/io.c` alone on the host and locks the report against `/dev/full` and
+its absence against a regular file, a read, and `/dev/null`.
 
 Android instrumentation uses a one-shot detached-fd override in
 `jni_storage.c` so `ProgramFixtureInstrumentedTest` can drive `READP` through

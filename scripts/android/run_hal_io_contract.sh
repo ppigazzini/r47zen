@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Build and run the host contract test for hal/io.c on Linux: a write the file
+# system did not take is reported once per file at ioFileClose, and nothing
+# else is. Links hal/io.c alone, with the host build flag that compiles out the
+# SAF branch. No emulator or device is required. See
+# scripts/android/hal_io_contract_test.c.
+
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
+TRACKED_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp/r47zen"
+STAGED_CPP_DIR="${R47_ANDROID_STAGED_CPP_DIR:-$PROJECT_ROOT/android/.staged-native/cpp}"
+BUILD_DIR="${R47_HAL_IO_CONTRACT_BUILD_DIR:-$PROJECT_ROOT/android/build/hal-io-contract}"
+CC_BIN="${CC:-cc}"
+
+if [ ! -f "$STAGED_CPP_DIR/c47/defines.h" ]; then
+    echo "ERROR: Missing staged native inputs at $STAGED_CPP_DIR." >&2
+    echo "Run ./scripts/android/build_android.sh or scripts/android/stage_native_sources.sh first." >&2
+    exit 1
+fi
+
+jdk_home="$(resolve_jdk_home)"
+
+mkdir -p "$BUILD_DIR"
+output="$BUILD_DIR/hal-io-contract"
+
+"$CC_BIN" -std=gnu11 -O0 -g -pthread \
+    -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47 \
+    -Dmpz_div_2exp=mpz_tdiv_q_2exp -Dmpz_fits_uint_p=mpz_fits_ulong_p \
+    -I"$jdk_home/include" \
+    -I"$jdk_home/include/linux" \
+    -I"$TRACKED_CPP_DIR/stubs" \
+    -I"$STAGED_CPP_DIR/c47" \
+    -I"$STAGED_CPP_DIR/c47/core" \
+    -I"$STAGED_CPP_DIR/c47/hal" \
+    -I"$STAGED_CPP_DIR/c47/ui" \
+    -I"$STAGED_CPP_DIR/decNumberICU" \
+    -I"$STAGED_CPP_DIR/generated" \
+    -I"$TRACKED_CPP_DIR" \
+    -I"$STAGED_CPP_DIR/gmp" \
+    -include "$TRACKED_CPP_DIR/android_mocks.h" \
+    "$SCRIPT_DIR/hal_io_contract_test.c" \
+    "$TRACKED_CPP_DIR/hal/io.c" \
+    -lm \
+    -o "$output"
+
+echo "--- Running host hal/io.c write-failure contract test ---"
+"$output"

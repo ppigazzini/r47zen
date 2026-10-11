@@ -9,6 +9,7 @@ import android.os.*
 import android.util.Log
 import android.view.View
 import android.view.*
+import android.widget.Toast
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.TooltipCompat
@@ -94,6 +95,16 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     @Keep
     fun playTone(milliHz: Int, durationMs: Int) {
         AudioEngine.playTone(milliHz, durationMs)
+    }
+
+    // Called from the core thread when hal/io.c could not write a file in full.
+    // Upstream reports only a failed open, so this is the one signal a user
+    // gets that a save or an autosave is truncated.
+    @Keep
+    fun onFileWriteFailed() {
+        mainHandler.post {
+            Toast.makeText(applicationContext, R.string.file_write_failed, Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun applyLcdTheme(theme: String, luminancePercent: Int, isNegative: Boolean) {

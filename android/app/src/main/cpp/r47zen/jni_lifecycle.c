@@ -36,6 +36,7 @@ void releaseNativeActivityReferences(JNIEnv *env) {
   g_requestFileId = NULL;
   g_playToneId = NULL;
   g_processCoreTasksId = NULL;
+  g_fileWriteFailedId = NULL;
 }
 
 JNIEXPORT void JNICALL
@@ -77,6 +78,15 @@ Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(JNIEnv *en
       (*env)->GetMethodID(env, clazz, "processCoreTasks", "()V");
   if (!jni_result_ok(env, (const void *)g_processCoreTasksId,
                      "GetMethodID(processCoreTasks)")) {
+    (*env)->DeleteLocalRef(env, clazz);
+    releaseNativeActivityReferences(env);
+    return;
+  }
+
+  g_fileWriteFailedId =
+      (*env)->GetMethodID(env, clazz, "onFileWriteFailed", "()V");
+  if (!jni_result_ok(env, (const void *)g_fileWriteFailedId,
+                     "GetMethodID(onFileWriteFailed)")) {
     (*env)->DeleteLocalRef(env, clazz);
     releaseNativeActivityReferences(env);
     return;
