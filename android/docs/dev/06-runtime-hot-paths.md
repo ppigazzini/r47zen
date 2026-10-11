@@ -349,8 +349,8 @@ program, a save or load operation, or a progress or pause loop.
 
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/NativeCoreRuntimeTest.kt` covers
   one-time initialization, task execution, state-save behavior, native-
-  deadline waiting on the core thread, and the activity-ref swap followed by
-  the LCD row resend on both reattach paths.
+  deadline waiting on the core thread, and the activity-ref swap on both
+  reattach paths.
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/NativeDisplayRefreshLoopTest.kt`
   covers generation gating and retry-after-failed-copy behavior for the packed
   LCD observer loop.

@@ -360,13 +360,18 @@ Important contract files include:
   LCD raster's composition into the frame is locked by a structural colour
   oracle (`nativeChrome_compositesLcdRasterColours`), and a fresh overlay
   decodes its first frame whole and invalidates the whole LCD
-  (`packedLcd_firstFrame_isDecodedWhole_andInvalidatesTheWholeLcd`). The overall chrome
-  is locked by `nativeChrome_matchesTextGolden`, a **code-only** ASCII-luminance
-  downsample of the render of a packed sample frame, held in
-  `CHROME_TEXT_GOLDEN`. A text golden is
-  deliberate here: its `assertEquals` diff shows the visual change as a grid a
-  reviewer can confirm, where a SHA hash only says "differs" and invites a blind
-  re-bless, and it adds no binary reference image to the repository. It also
+  (`packedLcd_firstFrame_isDecodedWhole_andInvalidatesTheWholeLcd`). Native-only
+  chrome draws no shell, so outside the LCD window every pixel is the overlay's
+  black background, which
+  `nativeChrome_isTheBlackBackgroundOutsideTheLcdWindow` holds exactly. Where
+  the LCD window sits and the coarse shape of the frame in it are locked by
+  `lcdWindow_matchesTextGolden`, a **code-only** ASCII-luminance downsample of
+  the render of a packed sample frame, held in `LCD_WINDOW_TEXT_GOLDEN`. Its
+  ramp maps every luminance up to 28 to one blank, so it cannot tell black
+  from a dark grey; the exact test can. A text golden is deliberate here: its
+  `assertEquals` diff shows the visual change as a grid a reviewer can confirm,
+  where a SHA hash only says "differs" and invites a blind re-bless, and it adds
+  no binary reference image to the repository. It also
   locks the absence of full-width top-bezel interception, covers
   developer-performance HUD visibility when the setting is enabled, and verifies
   LCD graph-touch setting gating, accumulated-slop pan start, post-start jitter
@@ -399,6 +404,7 @@ Important contract files include:
   calculator instead of Android focus search
 - `NativeCoreRuntimeTest.kt`: locks single-init, queued-task,
   save-on-pause, and native-deadline waiting behavior on the core thread; that
+  a save queued before dispose stops the loop runs in the shutdown drain; that
   every reattach, from the live or a restarted core thread, swaps the activity
   ref on the core thread, while the first attach leaves it to `initNative`;
   that a dispose releases the activity globals on the core thread and never

@@ -41,15 +41,7 @@ internal class NativeCoreRuntime(
     private val startCoreThread: (Runnable) -> Unit = { runnable ->
         Thread(runnable, CORE_THREAD_NAME).also { coreThread = it }.start()
     },
-    private val joinCoreThread: (Long) -> Unit = { timeoutMillis ->
-        val thread = coreThread
-        // Never join from the core thread itself: a dispose() issued on the core
-        // thread (see the awaitCoreTask deadline test) would otherwise deadlock,
-        // and that thread is already unwinding its own loop.
-        if (thread != null && thread !== Thread.currentThread()) {
-            thread.join(timeoutMillis)
-        }
-    },
+    private val joinCoreThread: (Long) -> Unit = { timeoutMillis -> joinRunningCoreThread(timeoutMillis) },
     private val awaitCoreTask: (Long) -> Runnable? = { timeoutMillis ->
         try {
             coreTasks.poll(timeoutMillis, TimeUnit.MILLISECONDS)
@@ -137,6 +129,16 @@ internal class NativeCoreRuntime(
         fun isCoreThreadRunning(): Boolean = isCoreThreadStarted
 
         internal fun isCoreThreadStartedForTest(): Boolean = isCoreThreadStarted
+
+        // Never joins from the core thread itself: a dispose() issued on the
+        // core thread (see the awaitCoreTask deadline test) would otherwise
+        // deadlock, and that thread is already unwinding its own loop.
+        internal fun joinRunningCoreThread(timeoutMillis: Long) {
+            val thread = coreThread
+            if (thread != null && thread !== Thread.currentThread()) {
+                thread.join(timeoutMillis)
+            }
+        }
 
         internal fun isNativeInitializedForTest(): Boolean = isNativeInitializedShared
 

@@ -543,7 +543,8 @@ The verification surface for this text-rendering split is:
 - `C47TextRendererTest.kt` for shared paint flags, fit-floor behavior, and
   resolved fitted-label bounds equivalence
 - `CalculatorKeyViewCanvasTest.kt` for main-key primary, top-label, and fourth-
-  label canvas output
+  label canvas output: each lane must draw its exact text colour, which the
+  same render before the lane is given that colour must not hold
 - `CalculatorSoftkeyPainterCanvasTest.kt` and
   `CalculatorSoftkeyPainterContractTest.kt` for softkey text, chrome output,
   and the empty-versus-populated capsule split

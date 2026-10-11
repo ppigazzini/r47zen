@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
+import android.graphics.RectF
 import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
@@ -143,23 +144,54 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
-    fun nativeChrome_matchesTextGolden() {
-        // Code-only golden render oracle: assert the
-        // render against an ASCII-luminance fingerprint held in code -- no binary
-        // reference image (the Roborazzi alternative the maintainer ruled out) and
-        // no opaque SHA. assertEquals on the two multi-line grids yields a
-        // *reviewable* diff: an intended visual change shows up as a visible shape
-        // change in the grid, which a reviewer confirms before updating
-        // CHROME_TEXT_GOLDEN. The exact LCD colours are separately locked by
-        // nativeChrome_compositesLcdRasterColours and PackedLcdRasterTest.
+    fun nativeChrome_isTheBlackBackgroundOutsideTheLcdWindow() {
+        // Native-only chrome draws no shell, so with no child, hint, or HUD the
+        // overlay paints its black background and the LCD bitmap, nothing
+        // else: every pixel more than one pixel outside the LCD window, the
+        // filtering margin, is opaque black. The text golden cannot see this,
+        // since its ramp maps every luminance up to 28 to the same blank.
+        val overlay = overlayShowingSampleFrame()
+        val bitmap = renderToBitmap(overlay)
+        val window = readPrivateField<RectF>(overlay, "lcdDestRect")
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val notBlack = pixels.indices.count { index ->
+            val x = index % bitmap.width
+            val y = index / bitmap.width
+            val inMargin = x >= window.left - 1f && x < window.right + 1f &&
+                y >= window.top - 1f && y < window.bottom + 1f
+            !inMargin && pixels[index] != Color.BLACK
+        }
+
+        assertFalse("the LCD window must not be empty", window.isEmpty)
+        assertEquals(
+            "pixels outside the LCD window that are not the black background",
+            0,
+            notBlack,
+        )
+    }
+
+    @Test
+    fun lcdWindow_matchesTextGolden() {
+        // Code-only golden: an ASCII-luminance fingerprint held in code, no
+        // binary reference image (the Roborazzi alternative the maintainer ruled
+        // out) and no opaque SHA. It locks where the LCD window sits in the
+        // render and the coarse shape of the sample frame in it; the blank rows
+        // are the black background that
+        // nativeChrome_isTheBlackBackgroundOutsideTheLcdWindow holds exactly.
+        // assertEquals on the two grids yields a reviewable diff: an intended
+        // change shows up as a shape change a reviewer confirms before
+        // updating LCD_WINDOW_TEXT_GOLDEN. The exact LCD colours are
+        // locked by nativeChrome_compositesLcdRasterColours and
+        // PackedLcdRasterTest.
         val overlay = overlayShowingSampleFrame()
 
         assertEquals(
-            "ReplicaOverlay chrome golden changed. Compare the grids in this diff; " +
-                "if the visual change is intended, regenerate CHROME_TEXT_GOLDEN " +
+            "LCD window golden changed. Compare the grids in this diff; " +
+                "if the change is intended, regenerate LCD_WINDOW_TEXT_GOLDEN " +
                 "after a review. This is a code-only ASCII fingerprint -- there is " +
                 "no binary reference image to commit.",
-            CHROME_TEXT_GOLDEN,
+            LCD_WINDOW_TEXT_GOLDEN,
             renderTextGolden(overlay),
         )
     }
@@ -707,10 +739,10 @@ class ReplicaOverlayGoldenTest {
         private const val GOLDEN_SUBSAMPLE = 6
         private const val GOLDEN_RAMP = " .:-=+*#%@"
 
-        // Reviewable code-only golden for the rendered replica chrome + LCD: the
-        // calculator's LCD window (rows 3-14) over the dark body. Regenerate by
-        // re-running the capture path and reviewing the visible shape diff.
-        private val CHROME_TEXT_GOLDEN = listOf(
+        // Reviewable code-only golden of the render: the LCD window in rows
+        // 3-14 over the black background. Regenerate by re-running the
+        // capture path and reviewing the visible shape diff.
+        private val LCD_WINDOW_TEXT_GOLDEN = listOf(
             "                    ",
             "                    ",
             "                    ",

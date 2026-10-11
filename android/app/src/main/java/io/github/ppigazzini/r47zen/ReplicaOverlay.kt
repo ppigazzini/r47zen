@@ -842,17 +842,13 @@ class ReplicaOverlay @JvmOverloads constructor(
         val layoutSpec = currentChromeSpec()
         val projection = chromeLayout.computeProjection(layoutSpec, w, h)
 
+        // Native-only chrome paints no shell: the shell rect only anchors the
+        // LCD, the touch strip, and the discovery hint.
         shellRect.set(
             projection.offsetX,
             projection.offsetY,
             projection.offsetX + layoutSpec.shellWidth * projection.scale,
             projection.offsetY + layoutSpec.shellHeight * projection.scale,
-        )
-        chromeLayout.drawShellBackground(
-            canvas,
-            layoutSpec,
-            shellRect,
-            projection.scale,
         )
 
         lcdDestRect.set(

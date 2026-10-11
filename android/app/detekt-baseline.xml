@@ -15,7 +15,6 @@
     <ID>CyclomaticComplexMethod:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$private fun addDynamicKeypad</ID>
     <ID>CyclomaticComplexMethod:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
     <ID>CyclomaticComplexMethod:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun resolvePositions: List&lt;TopLabelLaneConflict&gt;</ID>
-    <ID>EmptyFunctionBlock:NativeCoreRuntimeTest.kt:NativeCoreRuntimeTest.&lt;no name provided&gt;${}</ID>
     <ID>LargeClass:CalculatorKeyView.kt:CalculatorKeyView : ConstraintLayout</ID>
     <ID>LargeClass:DynamicKeypadParityFixtureTest.kt:DynamicKeypadParityFixtureTest</ID>
     <ID>LargeClass:ReplicaOverlay.kt:ReplicaOverlay : ViewGroup</ID>
@@ -26,7 +25,6 @@
     <ID>LongMethod:DynamicKeypadParityFixtureTest.kt:DynamicKeypadParityFixtureTest$@Test fun iteration77_mainKeyModeMatrixKeepsNumericMatrixFontWhenPreviewIsDisabled</ID>
     <ID>LongMethod:KeypadSnapshotDecoderTest.kt:KeypadSnapshotDecoderTest$@Test fun fromNativeDecodesKeyboardWideAndPerKeyMetadataLanes</ID>
     <ID>LongMethod:MainShellThemeTest.kt:MainShellThemeTest$private fun computeHintSamplePoints: HintSamplePoints</ID>
-    <ID>LongMethod:NativeCoreRuntimeTest.kt:NativeCoreRuntimeTest$private fun createRuntime: NativeCoreRuntime</ID>
     <ID>LongMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>
     <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
     <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$override fun dispatchDraw</ID>
@@ -146,10 +144,6 @@
     <ID>TooManyFunctions:ReplicaOverlayController.kt:ReplicaOverlayController</ID>
     <ID>TooManyFunctions:TopLabelLaneLayout.kt:TopLabelLaneLayout</ID>
     <ID>UnusedParameter:C47TypefacePolicy.kt:C47TypefacePolicy$text: CharSequence</ID>
-    <ID>UnusedParameter:ReplicaChromeLayout.kt:ReplicaChromeLayout$canvas: Canvas</ID>
-    <ID>UnusedParameter:ReplicaChromeLayout.kt:ReplicaChromeLayout$projectionScale: Float</ID>
-    <ID>UnusedParameter:ReplicaChromeLayout.kt:ReplicaChromeLayout$rect: RectF</ID>
-    <ID>UnusedParameter:ReplicaChromeLayout.kt:ReplicaChromeLayout$spec: ReplicaChromeSpec</ID>
     <ID>VariableNaming:MainActivity.kt:MainActivity$private val TAG = "R47Activity"</ID>
     <ID>WildcardImport:MainActivity.kt:import android.os.*</ID>
     <ID>WildcardImport:MainActivity.kt:import android.view.*</ID>

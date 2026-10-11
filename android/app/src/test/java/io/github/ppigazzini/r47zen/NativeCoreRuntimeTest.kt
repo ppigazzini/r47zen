@@ -178,35 +178,33 @@ class NativeCoreRuntimeTest {
             onInit = { initLatch.countDown() },
             onSaveState = { saveRan.countDown() },
             tickOverride = {
-                // Park the core thread inside tick on the first call so a queued
-                // save cannot be drained by the poll loop before dispose runs.
+                // Park the core thread inside its first tick, so the save is
+                // queued and dispose has stopped the loop before the loop can
+                // reach its own drain.
                 if (parkedOnce.compareAndSet(false, true)) {
                     tickParked.countDown()
                     tickGate.await()
                 }
                 10
             },
+            // Return at once: the core thread is parked in tick, and dispose
+            // must finish before it is released.
+            joinCoreThread = {},
         )
 
         runtime.attach()
         assertTrue(initLatch.await(2, TimeUnit.SECONDS))
-        waitUntil("native init", 2_000) { NativeCoreRuntime.isNativeInitializedForTest() }
         assertTrue(tickParked.await(2, TimeUnit.SECONDS))
 
-        // Queue the save while the core thread is parked in tick; a short fence
-        // lets saveStateOnPause return without waiting.
+        // Queue the save; a short fence lets saveStateOnPause return without it.
         runtime.saveStateOnPause(autoSaveEnabled = true, timeoutMillis = 50)
+        runtime.dispose(stopApp = true)
+        assertEquals("the parked core thread must not have saved yet", 1L, saveRan.count)
 
-        // Dispose on a separate thread (it joins the core thread) so this thread
-        // can release the park.
-        val disposeThread = Thread { runtime.dispose(stopApp = true) }
-        disposeThread.start()
-        Thread.sleep(100)
+        // The tick returns into a stopped loop, which exits without another
+        // iteration: only the shutdown drain can run the queued save.
         tickGate.countDown()
-
-        // The queued save must run during shutdown drain, not be dropped.
         assertTrue("queued save must be flushed on shutdown", saveRan.await(2, TimeUnit.SECONDS))
-        disposeThread.join(2_000)
         waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
     }
 
@@ -428,76 +426,40 @@ class NativeCoreRuntimeTest {
         onSaveState: () -> Unit = {},
         tickDelayMillis: Int = 10,
         tickOverride: (() -> Int)? = null,
-        awaitCoreTask: ((Long) -> Runnable?)? = null,
-        // Replaces the production join, which waits on the real core thread;
-        // null keeps it.
-        joinCoreThread: ((Long) -> Unit)? = null,
+        awaitCoreTask: (Long) -> Runnable? = { null },
+        joinCoreThread: (Long) -> Unit = { NativeCoreRuntime.joinRunningCoreThread(it) },
         // Stands in for the Activity whose bound member references the production
         // runtime's lambdas capture.
         host: Any? = null,
     ): NativeCoreRuntime {
-        val initNative: (String, Int) -> Unit = { _, slotId ->
-            assertEquals(7, slotId)
-            onInit()
-        }
         val tick: () -> Int = tickOverride ?: host?.let { captured ->
             { System.identityHashCode(captured); tickDelayMillis }
         } ?: { tickDelayMillis }
-        val refreshKeypadSnapshot: (Int) -> NativeKeypadSnapshotRefreshResult = {
-            NativeKeypadSnapshotRefreshResult(
-                observedGeneration = 0,
-                snapshot = null,
-                isUpToDate = true,
-            )
-        }
-        val displayRefreshLoop = object : DisplayRefreshLoop {
-            override fun start() {}
-
-            override fun stop() {}
-        }
-        val await = awaitCoreTask ?: { null }
-        return if (joinCoreThread == null) {
-            NativeCoreRuntime(
-                filesDirPath = "/tmp/r47-tests",
-                currentSlotIdProvider = { 7 },
-                nativePreInit = {},
-                initNative = initNative,
-                updateNativeActivityRef = onUpdateActivityRef,
-                releaseNativeRuntime = onRelease,
-                tick = tick,
-                saveStateNative = onSaveState,
-                getPackedDisplayGeneration = { 0 },
-                getPackedDisplayBuffer = { true },
-                getKeypadSnapshotGeneration = { 0 },
-                getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
-                refreshKeypadSnapshot = refreshKeypadSnapshot,
-                onPackedLcd = { false },
-                onDynamicRefresh = {},
-                displayRefreshLoop = displayRefreshLoop,
-                awaitCoreTask = await,
-            )
-        } else {
-            NativeCoreRuntime(
-                filesDirPath = "/tmp/r47-tests",
-                currentSlotIdProvider = { 7 },
-                nativePreInit = {},
-                initNative = initNative,
-                updateNativeActivityRef = onUpdateActivityRef,
-                releaseNativeRuntime = onRelease,
-                tick = tick,
-                saveStateNative = onSaveState,
-                getPackedDisplayGeneration = { 0 },
-                getPackedDisplayBuffer = { true },
-                getKeypadSnapshotGeneration = { 0 },
-                getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
-                refreshKeypadSnapshot = refreshKeypadSnapshot,
-                onPackedLcd = { false },
-                onDynamicRefresh = {},
-                displayRefreshLoop = displayRefreshLoop,
-                joinCoreThread = joinCoreThread,
-                awaitCoreTask = await,
-            )
-        }
+        return NativeCoreRuntime(
+            filesDirPath = "/tmp/r47-tests",
+            currentSlotIdProvider = { 7 },
+            nativePreInit = {},
+            initNative = { _, slotId ->
+                assertEquals(7, slotId)
+                onInit()
+            },
+            updateNativeActivityRef = onUpdateActivityRef,
+            releaseNativeRuntime = onRelease,
+            tick = tick,
+            saveStateNative = onSaveState,
+            getPackedDisplayGeneration = { 0 },
+            getPackedDisplayBuffer = { true },
+            getKeypadSnapshotGeneration = { 0 },
+            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+            refreshKeypadSnapshot = {
+                NativeKeypadSnapshotRefreshResult(observedGeneration = 0, snapshot = null, isUpToDate = true)
+            },
+            onPackedLcd = { false },
+            onDynamicRefresh = {},
+            displayRefreshLoop = IdleDisplayRefreshLoop,
+            joinCoreThread = joinCoreThread,
+            awaitCoreTask = awaitCoreTask,
+        )
     }
 
     private fun waitUntil(label: String, timeoutMillis: Long, condition: () -> Boolean) {
@@ -509,5 +471,11 @@ class NativeCoreRuntimeTest {
             Thread.sleep(10)
         }
         assertTrue(label, condition())
+    }
+
+    private object IdleDisplayRefreshLoop : DisplayRefreshLoop {
+        override fun start() = Unit
+
+        override fun stop() = Unit
     }
 }

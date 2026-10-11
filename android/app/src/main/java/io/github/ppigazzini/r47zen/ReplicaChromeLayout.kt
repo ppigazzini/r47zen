@@ -1,9 +1,6 @@
 package io.github.ppigazzini.r47zen
 
 import android.content.res.Resources
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.RectF
 import kotlin.math.min
 
 internal data class ReplicaProjection(val scale: Float, val offsetX: Float, val offsetY: Float)
@@ -62,13 +59,4 @@ internal class ReplicaChromeLayout(
         return ReplicaProjection(fitScale, offsetX, offsetY)
     }
 
-    fun drawShellBackground(
-        canvas: Canvas,
-        spec: ReplicaChromeSpec,
-        rect: RectF,
-        projectionScale: Float,
-    ) {
-        // Native-only chrome keeps the calculator surface borderless. The
-        // shell rect still anchors the LCD, touch strip, and discovery hint.
-    }
 }
