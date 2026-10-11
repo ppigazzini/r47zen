@@ -76,3 +76,12 @@ repos:
         language: script
         files: ^(\.github/|scripts/|android/|\.pre-commit-config\.yaml$|pyproject\.toml$|uv\.lock$)
         pass_filenames: false
+      - id: commit-message
+        # The commit rules in android/docs/dev/10-writing.md that a script can
+        # check. Opt-in: this file sets no default_install_hook_types, so a
+        # plain `pre-commit install` leaves it off, and it runs only after
+        # `pre-commit install --hook-type commit-msg`.
+        name: commit message rules
+        entry: scripts/docs/check_commit_message.sh
+        language: script
+        stages: [commit-msg]

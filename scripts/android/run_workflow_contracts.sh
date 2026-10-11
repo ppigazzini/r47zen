@@ -37,6 +37,7 @@ CONTRACTS=(
     run_program_load_bridge_default_contract.sh
     run_test_integrity_contract.sh
     run_privacy_policy_parity_contract.sh
+    run_commit_message_contract.sh
 )
 
 failed=()

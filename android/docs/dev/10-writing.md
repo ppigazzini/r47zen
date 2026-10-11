@@ -195,7 +195,9 @@ contradicts the other side is worse than none.
 The commit is the durable record of *why*, and the only place history belongs.
 
 - Conventional subject, imperative, <= 72 chars: `type(scope): summary`. The
-  scope is a **single token**: `fix(sync)`, never `fix(upstream sync)`.
+  scope is a **single token**: `fix(sync)`, never `fix(upstream sync)`. The
+  type is a Conventional Commits type; `scripts/docs/check_commit_message.sh`
+  holds the list.
 - Blank line, then a body wrapped at **80 columns** with real newlines.
 - The body carries the **evidence**: the command that ran, its output, and its
   exit code, not "should work".
@@ -228,6 +230,15 @@ The mechanical checks that exist today:
 - `cd android && ./gradlew lint` is mandatory when Kotlin, manifest, resource,
   or Android Gradle surfaces change.
 
+- `scripts/docs/check_commit_message.sh` holds the mechanical half of the
+  [commit rules](#commit-messages): the subject shape and length, the blank
+  second line, the body width, and no co-author or agent attribution. It is an
+  opt-in `commit-msg` hook that a plain `pre-commit install` leaves off;
+  `pre-commit install --hook-type commit-msg` turns it on, and
+  `--range origin/main..HEAD` checks commits already made.
+  `scripts/android/run_commit_message_contract.sh` proves it on seeded
+  messages. It cannot tell whether a subject is imperative or a body carries
+  evidence.
 `bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook `docs-lint`, CI lane
 `Docs Lint`) gates the prose. It needs no upstream clone and no toolchain, so it
 runs in seconds on every push, and it settles these mechanical rot classes:

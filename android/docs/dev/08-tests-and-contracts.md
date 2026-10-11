@@ -832,6 +832,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on; live lines only | text |
 | `run_test_integrity_contract.sh` | the workload fixture-exit policy, the mutation spot-check, and the connected lane's zero-test count (see above) | yes, runs them |
 | `run_privacy_policy_parity_contract.sh` | the markdown and shipped-HTML privacy policies share section headings and a last-updated date | text |
+| `run_commit_message_contract.sh` | `scripts/docs/check_commit_message.sh` accepts and rejects seeded messages on both sides of each commit rule it holds, for a message file and for `--range` | yes, seeded messages and a scratch repository |
 
 "Text" contracts are a floor: they catch the drift they name, and a later
 edit that keeps the matched tokens can pass them. Prefer an executing check
