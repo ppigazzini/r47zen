@@ -100,4 +100,5 @@ A verbatim copy of the GPL is packaged in this APK below.
 Distributors of APKs must also provide the exact corresponding source for the build they ship. Use the Android source repository entry in Settings to reach the public Android fork for this build. The packaged SOURCE manifest also records the synchronized upstream core revision when the build provides one.</string>
     <string name="gpl_license_dialog_close" translatable="false">Close</string>
     <string name="slot_switched" translatable="false">Switched to %1$s</string>
+    <string name="settings_no_app_for_link" translatable="false">No app on this device can open the link.</string>
 </resources>

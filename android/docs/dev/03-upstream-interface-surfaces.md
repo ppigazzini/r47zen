@@ -206,10 +206,11 @@ flowchart LR
   `yieldToAndroidWithMs(...)`. It calls back into `MainActivity.processCoreTasks()`
   so queued Android-side work can run while the native core is yielding.
 - `requestFile(...)` hands the request to `NativeFileRequestGate`, which posts
-  it onto the main handler exactly once: the posted launch runs, or
-  `MainActivity.onDestroy` cancels the request whose launch it dropped, so the
-  core thread parked in `requestAndroidFile` always gets a result or a cancel
-  (`NativeFileRequestGateTest`). The launch hands control to
+  it onto the main handler exactly once and forwards the picker's answer: the
+  posted launch runs, or `MainActivity.onDestroy` cancels the request whose
+  launch it dropped, and a finishing `onDestroy` cancels a launched picker that
+  never answered, so the core thread parked in `requestAndroidFile` always gets
+  a result or a cancel (`NativeFileRequestGateTest`). The launch hands control to
   `StorageAccessCoordinator`, which owns the SAF launcher registration and the
   detached file-descriptor handoff. The same coordinator also owns the
   first-run welcome-dialog handoff into the direct work-directory tree picker

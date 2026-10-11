@@ -69,13 +69,6 @@ internal class StorageAccessCoordinator(
         }
     }
 
-    fun handleResume() {
-        val treeUriString = readWorkDirectoryTreeUri()
-        if (treeUriString != null && !isWorkDirectoryAccessible(treeUriString)) {
-            Log.w(TAG, "Saved work directory is unavailable; falling back to system picker defaults")
-        }
-    }
-
     fun requestNativeFile(isSave: Boolean, defaultName: String, fileType: Int) {
         val launcher = if (isSave) {
             checkNotNull(saveIntentLauncher) {

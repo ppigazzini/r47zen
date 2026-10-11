@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47zen
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -7,6 +8,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.preference.ListPreference
 import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
@@ -62,8 +64,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val workDirectorySummary: String,
     )
 
+    // A device or profile with no browser has nothing to resolve ACTION_VIEW, and
+    // startActivity then throws instead of failing quietly.
     private fun openUrl(url: String) {
-        startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(requireContext(), R.string.settings_no_app_for_link, Toast.LENGTH_LONG).show()
+        }
     }
 
     private val treeLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->

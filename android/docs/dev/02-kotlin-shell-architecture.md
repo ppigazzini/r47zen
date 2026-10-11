@@ -176,8 +176,9 @@ callbacks.
   visible. While it is not, the core thread parks: it still runs every queued
   task, including the background save, but stops the 5 ms tick. A running
   program is unaffected, because it runs inside a task.
-- `onResume()` revalidates the work-directory contract and lets the overlay-side
-  resume path run without forcing a native LCD redraw. On first run,
+- `onResume()` lets the overlay-side resume path run without forcing a native
+  LCD redraw, and queries no document provider: the work directory is checked
+  when a file request needs it. On first run,
   `StorageAccessCoordinator` may show the welcome dialog and launch
   `OpenDocumentTree()` directly from the activity-result registry instead of
   routing that startup picker through `SettingsActivity`. A normal Settings
@@ -187,9 +188,11 @@ callbacks.
   save is lifecycle-passive from the LCD point of view and must not rebuild the
   visible screen.
 - `onDestroy()` cancels a native file request whose posted launch it just
-  dropped (`NativeFileRequestGate`), stops the shared runtime when the activity
-  is actually finishing, never touches the native activity globals (the core
-  thread releases them), and on the factory-reset path clears internal app data
+  dropped (`NativeFileRequestGate`), and, when the activity is finishing, also
+  a launched picker that has not answered, since its result will never arrive.
+  It stops the shared runtime when the activity is actually finishing, never
+  touches the native activity globals (the core thread releases them), and on
+  the factory-reset path clears internal app data
   only once the core thread has stopped. When the thread outlived the dispose
   join fence, `FactoryResetController` keeps the data and the shared runtime
   state: a live thread would autosave into a wiped directory, and a reset

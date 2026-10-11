@@ -146,25 +146,6 @@ class StorageAccessCoordinatorTest {
     }
 
     @Test
-    fun handleResume_doesNotPromptWhenWorkDirectoryIsUnset() {
-        val activity = buildActivity()
-        var launchCount = 0
-
-        val coordinator = StorageAccessCoordinator(
-            activity = activity,
-            onNativeFileSelected = {},
-            onNativeFileCancelled = {},
-            readWorkDirectoryTreeUri = { null },
-            providedSaveIntentLauncher = { launchCount += 1 },
-            providedLoadIntentLauncher = { launchCount += 1 },
-        )
-
-        coordinator.handleResume()
-
-        assertEquals(0, launchCount)
-    }
-
-    @Test
     fun deliverNativeFileResult_cancelsWhenDescriptorOpenFails() {
         val activity = buildActivity()
         var cancelCount = 0

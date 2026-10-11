@@ -181,6 +181,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         nativeFileRequestGate = NativeFileRequestGate(
             post = { mainHandler.post(it) },
             launch = storageAccessCoordinator::requestNativeFile,
+            selectNative = ::onFileSelectedNative,
             cancelNative = ::onFileCancelledNative,
         )
         displayActionController = createDisplayActionController()
@@ -234,8 +235,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun createStorageAccessCoordinator(): StorageAccessCoordinator {
         return StorageAccessCoordinator(
             activity = this,
-            onNativeFileSelected = ::onFileSelectedNative,
-            onNativeFileCancelled = ::onFileCancelledNative,
+            onNativeFileSelected = { fd -> nativeFileRequestGate.deliverSelected(fd) },
+            onNativeFileCancelled = { nativeFileRequestGate.deliverCancelled() },
         ).also { coordinator ->
             coordinator.registerLaunchers()
         }
@@ -445,11 +446,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         // Drop any delayed callbacks (e.g. the graph-gesture flush) so they cannot
         // fire against a destroyed activity.
         mainHandler.removeCallbacksAndMessages(null)
-        // The core thread may be parked in requestAndroidFile on a request whose
-        // posted launch was just dropped; release it with a cancel.
-        if (::nativeFileRequestGate.isInitialized) {
-            nativeFileRequestGate.cancelPending()
-        }
         // Guard the lateinit controllers: if onCreate threw before startCoreRuntime
         // assigned them, onDestroy still runs, and an unguarded access would mask
         // the original crash with an UninitializedPropertyAccessException.
@@ -457,6 +453,17 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             ::factoryResetController.isInitialized && factoryResetController.isResetInProgress
         Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=$resetInProgress")
         val shouldStopApp = isFinishing || resetInProgress
+        // The core thread may be parked in requestAndroidFile. A request whose
+        // posted launch was just dropped is cancelled always. A launched picker
+        // whose result has not arrived is cancelled only when the app stops: a
+        // recreated Activity still receives that result, but a finishing one
+        // never does, and the core thread would wait out the dispose fence.
+        if (::nativeFileRequestGate.isInitialized) {
+            nativeFileRequestGate.cancelPending()
+            if (shouldStopApp) {
+                nativeFileRequestGate.cancelUnanswered()
+            }
+        }
         if (::coreRuntime.isInitialized) {
             coreRuntime.dispose(stopApp = shouldStopApp)
         }
@@ -483,7 +490,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     override fun onResume() {
         super.onResume()
         replicaOverlayController.onHostResumed()
-        storageAccessCoordinator.handleResume()
         maybeShowSettingsDiscoveryHint()
     }
 
