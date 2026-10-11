@@ -148,6 +148,10 @@ runs. What each one locks:
   `chrome.lcd_windows` exposes only the native LCD window
 - `derive_touch_grid.py`: shared touch-grid payload derivation from measured key
   centers
+- `derive_shell_geometry.py`, `derive_key_label_geometry.py`, and
+  `derive_key_visual_policy.py`: the payloads the three tests below compare
+  with the Kotlin constants; each runs on its own first, so a deriver that
+  raises fails the lane before its test does
 - `test_shell_geometry_contract.py`: logical canvas, the visible main-menu
   button rectangle, the native LCD rectangle, the native LCD aspect-ratio and
   centered integer-bounds contract, and shell constants against
@@ -864,6 +868,15 @@ Android compatibility layer.
   surfaces, and also when a tracked root file is missing from that allowlist
   (the overlay would then replace it with upstream's copy); `sync` runs that
   same guard before it restores tracked paths
+- `scripts/upstream-sync/test_resolver_policy.sh` runs `upstream.sh` against
+  a throwaway local repository standing in for upstream: with no pin, `--auto`
+  and `--latest` resolve the latest HEAD; a pin in `upstream.lock` is honoured
+  by `--auto` and `--locked` and ignored by `--latest`; `--locked` with no pin
+  fails; and `verify-source-policy` fails on a pin in `upstream.source`.
+  `scripts/upstream-sync/test_fetch_retry.sh` drives `retry_with_backoff` in
+  `scripts/lib/common.sh` with a command that fails a set number of times, so
+  a transient fetch error retries instead of failing the lane. Both need no
+  network and run in the `upstream-resolver-policy` job of `linux-ci.yml`
 - `android-ci.yml` keeps its verification jobs distinct --
   `upstream-simulator-sanity`, `python-contracts`,
   `android-build-test-package`, `sign-dev-prerelease`, and `android-tests` --
