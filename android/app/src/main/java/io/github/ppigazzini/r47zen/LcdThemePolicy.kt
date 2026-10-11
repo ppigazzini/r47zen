@@ -22,14 +22,14 @@ internal enum class LcdTheme(
     HIGH_CONTRAST(
         storageValue = DEFAULT_LCD_THEME_STORAGE_VALUE,
         minimumContrast = 5.0,
-        lightTextBase = Color.BLACK,
+        lightTextBase = "#000000".toColorInt(),
         lightBackgroundBase = "#E0E0E0".toColorInt(),
     ),
     VINTAGE(
         storageValue = LCD_THEME_VINTAGE_STORAGE_VALUE,
         minimumContrast = 4.5,
-        lightTextBase = 0xFF303030.toInt(),
-        lightBackgroundBase = 0xFFDFF5CC.toInt(),
+        lightTextBase = "#303030".toColorInt(),
+        lightBackgroundBase = "#DFF5CC".toColorInt(),
     ),
     AMBER(
         storageValue = LCD_THEME_AMBER_STORAGE_VALUE,
@@ -61,7 +61,16 @@ internal enum class LcdTheme(
     }
 }
 
+// The palettes, and the luminance range and defaults they are resolved over.
+// The LCD preferences and MainActivityPreferenceController read these; every
+// palette value is written once, in LcdTheme, in one notation, and
+// test_lcd_palette_owner_contract.py fails on a copy anywhere else.
 internal object LcdThemePolicy {
+    const val MIN_LUMINANCE_PERCENT = 20
+    const val MAX_LUMINANCE_PERCENT = 120
+    const val DEFAULT_LUMINANCE_PERCENT = 100
+    const val DEFAULT_NEGATIVE = false
+
     private const val LIGHT_BACKGROUND_MAX_LUMINANCE = 0.99
     private const val INVERSE_BACKGROUND_MIN_LUMINANCE = 0.02
     private const val INVERSE_BACKGROUND_MAX_LUMINANCE = 0.16
@@ -70,8 +79,8 @@ internal object LcdThemePolicy {
 
     val DEFAULT_PALETTE = resolve(
         DEFAULT_LCD_THEME_STORAGE_VALUE,
-        MainActivityPreferenceController.DEFAULT_LCD_LUMINANCE,
-        MainActivityPreferenceController.DEFAULT_LCD_NEGATIVE,
+        DEFAULT_LUMINANCE_PERCENT,
+        DEFAULT_NEGATIVE,
     )
 
     fun normalizeStorageValue(value: String?): String {
@@ -81,8 +90,8 @@ internal object LcdThemePolicy {
     fun resolve(storageValue: String, luminancePercent: Int, isNegative: Boolean): LcdPalette {
         val theme = LcdTheme.fromStorageValue(storageValue)
         val normalizedLuminance = luminancePercent.coerceIn(
-            MainActivityPreferenceController.MIN_LCD_LUMINANCE,
-            MainActivityPreferenceController.MAX_LCD_LUMINANCE,
+            MIN_LUMINANCE_PERCENT,
+            MAX_LUMINANCE_PERCENT,
         )
         return if (isNegative) {
             resolveInversePalette(theme, normalizedLuminance)
@@ -137,8 +146,8 @@ internal object LcdThemePolicy {
         minimumLuminance: Double,
         maximumLuminance: Double,
     ): Double {
-        val minLuminance = MainActivityPreferenceController.MIN_LCD_LUMINANCE.toFloat()
-        val maxLuminance = MainActivityPreferenceController.MAX_LCD_LUMINANCE.toFloat()
+        val minLuminance = MIN_LUMINANCE_PERCENT.toFloat()
+        val maxLuminance = MAX_LUMINANCE_PERCENT.toFloat()
         val fraction = ((luminancePercent - minLuminance) / (maxLuminance - minLuminance))
             .coerceIn(0f, 1f)
         return minimumLuminance + ((maximumLuminance - minimumLuminance) * fraction)

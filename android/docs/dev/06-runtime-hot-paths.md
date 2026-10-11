@@ -231,16 +231,17 @@ What each rule rests on:
   `packedLcd_dirtyRowUpdate_preservesUntouchedRowPixels`), but its expected
   pixels come from `decodePackedBuffer`, a second copy of the production row
   decode, so a bit-order or polarity error made in both copies passes.
-- **The palette has one source and two writers.** `LcdThemePolicy.resolve`
-  computes every palette. The overlay starts from
-  `LcdThemePolicy.DEFAULT_PALETTE` and paints it in its constructor; the stored
-  theme replaces it when `MainActivity.initializeOverlayAndPreferences` posts
-  `MainActivityPreferenceController.applyDeferredOverlayPreferences` to the
-  overlay. Whether
-  a default-palette frame reaches the screen first under another stored theme
-  is not measured, and no test inflates the overlay under a non-default stored
-  theme. The luminance bounds and defaults `resolve` works from are constants
-  of `MainActivityPreferenceController`, not of the policy.
+- **The palette has one source, and one writer before the first draw.** The
+  `LcdTheme` entries in `LcdThemePolicy.kt` hold every base colour, in one
+  notation; `test_lcd_palette_owner_contract.py` fails on a copy of one in any
+  other `src/main` Kotlin file or resource, and on a second notation. It cannot
+  see a copy of a resolved palette, which `resolve` computes at run time. The
+  overlay starts from `LcdThemePolicy.DEFAULT_PALETTE`, and
+  `MainActivityPreferenceController.applyInitialPreferences` applies the
+  stored theme in `onCreate`, before the overlay's first draw
+  (`MainActivityPreferenceControllerTest.applyInitialPreferences_appliesTheStoredLcdTheme_beforeTheDeferredOverlayPass`).
+  The policy owns the luminance range and defaults; the controller's constants
+  refer to it.
 - **`updatePackedLcd` zeroes row byte 0 in the buffer it is handed.** Nothing
   reads that zero: `getPackedDisplayBuffer` overwrites every byte of
   `packedLcdBuffer` before the next decode, and no test passes one array twice.

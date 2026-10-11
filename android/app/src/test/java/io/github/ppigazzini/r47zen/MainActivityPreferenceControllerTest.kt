@@ -73,6 +73,34 @@ class MainActivityPreferenceControllerTest {
     }
 
     @Test
+    fun applyInitialPreferences_appliesTheStoredLcdTheme_beforeTheDeferredOverlayPass() {
+        // MainActivity runs the initial pass in onCreate and posts the deferred
+        // one, which runs after the overlay's first draw: a palette applied only
+        // there leaves that first frame in the default palette.
+        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        preferences.edit()
+            .putString("lcd_theme", LcdTheme.VINTAGE.storageValue)
+            .putInt("lcd_luminance", 60)
+            .putBoolean("lcd_negative", true)
+            .commit()
+
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+        assertEquals(
+            listOf(LcdThemeCall(LcdTheme.VINTAGE.storageValue, 60, true)),
+            controllerState.lcdThemeCalls,
+        )
+
+        controllerState.controller.applyDeferredOverlayPreferences()
+        assertEquals(
+            "the deferred pass must not apply the palette a second time",
+            1,
+            controllerState.lcdThemeCalls.size,
+        )
+    }
+
+    @Test
     fun applyInitialPreferences_normalizesUnknownLcdThemeBeforeDeferredOverlayDispatch() {
         val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
         preferences.edit()

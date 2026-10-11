@@ -163,8 +163,10 @@ callbacks.
   `StorageAccessCoordinator`, `DisplayActionController`,
   `PhysicalKeyboardInputController`, and `SlotSessionController`;
   `initializeOverlayAndPreferences(...)` binds `ReplicaOverlay`,
-  `ReplicaOverlayController`, `MainActivityPreferenceController`, deferred
-  overlay preference application, and the settings-discovery tap handler;
+  `ReplicaOverlayController`, `MainActivityPreferenceController` with its
+  initial pass, which applies the stored LCD palette before the overlay's first
+  draw, deferred overlay preference application, and the settings-discovery
+  tap handler;
   `startCoreRuntime()` creates `NativeCoreRuntime`, attaches it, and starts
   `AudioEngine`; `handleInitialIntent()` routes factory-reset intents after the
   shell and runtime are ready.

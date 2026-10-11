@@ -21,16 +21,16 @@ internal class MainActivityPreferenceController(
         const val DEFAULT_BEEPER_VOLUME = 20
         const val MIN_BEEPER_VOLUME = 0
         const val MAX_BEEPER_VOLUME = 100
-        const val DEFAULT_LCD_NEGATIVE = false
+        const val DEFAULT_LCD_NEGATIVE = LcdThemePolicy.DEFAULT_NEGATIVE
         const val DEFAULT_LCD_THEME = DEFAULT_LCD_THEME_STORAGE_VALUE
-        const val DEFAULT_LCD_LUMINANCE = 100
+        const val DEFAULT_LCD_LUMINANCE = LcdThemePolicy.DEFAULT_LUMINANCE_PERCENT
         const val DEFAULT_LCD_GRAPH_TOUCH_ENABLED = true
         const val DEFAULT_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = 500
         val DEFAULT_MAIN_KEY_DYNAMIC_MODE = MainKeyDynamicMode.DEFAULT
         const val MIN_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = 100
-        const val MIN_LCD_LUMINANCE = 20
+        const val MIN_LCD_LUMINANCE = LcdThemePolicy.MIN_LUMINANCE_PERCENT
         const val MAX_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = 1000
-        const val MAX_LCD_LUMINANCE = 120
+        const val MAX_LCD_LUMINANCE = LcdThemePolicy.MAX_LUMINANCE_PERCENT
         val DEFAULT_SOFTKEY_DYNAMIC_MODE = SoftkeyDynamicMode.DEFAULT
 
         internal const val KEY_AUTO_SAVE_MINIMIZE = "auto_save_minimize"
@@ -104,12 +104,15 @@ internal class MainActivityPreferenceController(
         windowModeController.applyFullscreenMode(preferences.getBoolean(KEY_FULLSCREEN_MODE, true))
         syncAudioSettings(isBeeperEnabled, beeperVolume)
         applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
+        // Here, not in the deferred overlay pass: MainActivity runs this before
+        // the overlay's first draw, so no frame shows the default palette under
+        // another stored theme.
+        applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
     }
 
     fun applyDeferredOverlayPreferences() {
         applyShowTouchZones(showTouchZones)
         applyShowDeveloperPerformanceHud(showDeveloperPerformanceHud)
-        applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
         applyLcdGraphTouchEnabled(isLcdGraphTouchEnabled)
     }
 
