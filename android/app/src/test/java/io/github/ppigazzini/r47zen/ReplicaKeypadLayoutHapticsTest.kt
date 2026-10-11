@@ -14,7 +14,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "xxhdpi")
+@Config(qualifiers = "xxhdpi")
 class ReplicaKeypadLayoutHapticsTest {
 
     private val context = ApplicationProvider.getApplicationContext<Context>()

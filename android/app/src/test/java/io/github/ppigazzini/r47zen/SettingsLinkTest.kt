@@ -13,7 +13,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowToast
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "notnight")
+@Config(qualifiers = "notnight")
 class SettingsLinkTest {
     @Test
     fun externalLinks_withNoAppToOpenThem_showAToastInsteadOfCrashing() {

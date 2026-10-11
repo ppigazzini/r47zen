@@ -435,10 +435,17 @@ android {
         // now and keeps the lane working when the block lands. The flag does
         // not exist before JDK 24, so it is gated on the pinned build JDK
         // rather than passed unconditionally.
+        //
+        // Robolectric runs each test at the targetSdk in the merged manifest.
+        // From API 36 its sandbox setup writes a FileDescriptor's raw int
+        // through jdk.internal.access.SharedSecrets, which java.base does not
+        // export; without the export every Robolectric test fails before it
+        // starts with "Failed to interact with raw FileDescriptor internals".
         unitTests.all { test ->
             if (buildJdkVersion >= 24) {
                 test.jvmArgs '--enable-native-access=ALL-UNNAMED'
             }
+            test.jvmArgs '--add-exports=java.base/jdk.internal.access=ALL-UNNAMED'
         }
     }
 

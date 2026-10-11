@@ -32,7 +32,7 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "notnight")
+@Config(qualifiers = "notnight")
 class MainShellThemeTest {
 
     companion object {

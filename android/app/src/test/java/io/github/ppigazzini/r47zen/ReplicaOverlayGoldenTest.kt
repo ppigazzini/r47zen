@@ -21,7 +21,7 @@ import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "xxhdpi")
+@Config(qualifiers = "xxhdpi")
 class ReplicaOverlayGoldenTest {
     @Test
     fun packedLcd_firstFrame_isDecodedWhole_andInvalidatesTheWholeLcd() {

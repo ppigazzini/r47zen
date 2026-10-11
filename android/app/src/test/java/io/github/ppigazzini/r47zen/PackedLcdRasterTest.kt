@@ -7,7 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 // The expected pixels come from the set of lit coordinates, never from a second
@@ -16,7 +15,6 @@ import org.robolectric.annotation.GraphicsMode
 // keypad_generation_contract_test.c pins on the native side.
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34])
 class PackedLcdRasterTest {
     @Test
     fun newRaster_paintsEveryPixelTheBackground_forEveryThemePolarityAndLuminanceBound() {

@@ -14,7 +14,7 @@ import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "xxhdpi")
+@Config(qualifiers = "xxhdpi")
 class SoftkeyOverlayPainterTest {
     @Test
     fun drawRendersMenuBadgeLabelAndUnderline() {

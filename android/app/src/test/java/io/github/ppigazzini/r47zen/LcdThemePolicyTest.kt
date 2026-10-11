@@ -10,7 +10,7 @@ import org.robolectric.annotation.Config
 import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "notnight")
+@Config(qualifiers = "notnight")
 class LcdThemePolicyTest {
 
     @Test

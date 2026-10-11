@@ -205,6 +205,10 @@ runs. What each one locks:
   JNI signature, checked on a seeded drift first; the
   `R47_SHELL_*` codes in `jni_bridge.h` equal `NativeShellCodes.kt`, and
   `jni_input.c` resolves each to an `items.h` symbol, never a number
+- `test_robolectric_sdk_owner_contract.py`: no JVM test `@Config` and no
+  `robolectric.properties` sets `sdk`, `minSdk`, or `maxSdk`, so every
+  Robolectric class runs at the targetSdk; it proves its scanner on seeded
+  text first
 - `test_upstream_provenance_contract.py`: the provenance ledger covers exactly
   the upstream inputs the contract modules declare (see below)
 
@@ -280,6 +284,16 @@ gate a lane on it.
 The focused JVM suite under `android/app/src/test/java/io/github/ppigazzini/r47zen/` is the
 main parity surface for Kotlin-side decoder, renderer, lifecycle, and input
 contracts.
+
+Its Robolectric classes run at the SDK the app targets, and only there: no
+class names an `sdk` in `@Config`, so Robolectric takes the targetSdkVersion of
+the merged manifest, which `R47_DEFAULT_ANDROID_TARGET_SDK` sets.
+`RobolectricSdkTest.kt` fails when the framework under test is any other level,
+and `test_robolectric_sdk_owner_contract.py` fails on a class or a
+`robolectric.properties` that pins one. From API 36 Robolectric's sandbox
+needs `java.base/jdk.internal.access` exported, which `app/build.gradle` passes
+to every unit-test JVM. A targetSdk newer than the pinned Robolectric supports
+fails every Robolectric class, which is the signal to bump Robolectric with it.
 
 Beside it, `scripts/android/run_detekt.sh` runs detekt's default rule set over
 the main and test Kotlin sources. `android/app/detekt-baseline.xml` lists the

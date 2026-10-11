@@ -28,7 +28,7 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "xxhdpi")
+@Config(qualifiers = "xxhdpi")
 class ReplicaOverlayVisualPolicyTest {
     @Test
     fun settingsDiscoveryHintLayoutCache_usesContractedCardAndGlyphMetrics() {

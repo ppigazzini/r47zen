@@ -16,7 +16,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "notnight")
+@Config(qualifiers = "notnight")
 class MainActivityPreferenceControllerTest {
 
     private val context = ApplicationProvider.getApplicationContext<Context>()

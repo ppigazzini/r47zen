@@ -22,7 +22,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "notnight")
+@Config(qualifiers = "notnight")
 class DisplayActionControllerTest {
 
     private val context = ApplicationProvider.getApplicationContext<Context>()

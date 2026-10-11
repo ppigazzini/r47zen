@@ -23,7 +23,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "notnight")
+@Config(qualifiers = "notnight")
 class SettingsActivityThemeTest {
 
     @Test
@@ -137,7 +137,7 @@ class SettingsActivityThemeTest {
     }
 
     @Test
-    @Config(sdk = [34], qualifiers = "w720dp-h1024dp-notnight")
+    @Config(qualifiers = "w720dp-h1024dp-notnight")
     fun settingsActivity_usesCenteredCardPanelOnWideWindows() {
         val activity = Robolectric.buildActivity(SettingsActivity::class.java)
             .setup()
