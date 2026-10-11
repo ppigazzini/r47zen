@@ -244,20 +244,34 @@ Two findings, gated differently on purpose:
   cannot enter the suite without the ledger noticing.
 - **drift** - a recorded input moved. Normal under a tracks-latest-HEAD policy,
   so it is reported and never fails a lane by itself. The report names the
-  goldens the moved bytes put in question.
+  goldens and test modules the moved bytes put in question, from the surface
+  map in `upstream_provenance.py`; the contract test holds that every module
+  of the suite that names an input is listed against it, and that every input
+  has a test module.
 
 ```bash
 # report drift and coverage (exit 0); the contract suite runs this last
 PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance
 
-# re-record after root-causing the drift - a deliberate act, not a refresh
+# re-record in the commit that re-blesses a golden - a deliberate act
 PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance \
     --record --upstream-commit <sha>
+
+# re-record a move that changed no golden; refuses otherwise
+PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance \
+    --record-if-unaffected
 ```
 
 Re-recording erases the evidence that something moved, so do it only after the
 independent correctness tests pass and the drift is root-caused, and name the
 upstream commit in the commit body. Regenerating without that is laundering.
+`--record-if-unaffected` is the root cause for the common case, an upstream
+edit that changed nothing a golden reads: it refuses when a golden a moved
+input feeds differs from HEAD, so a golden re-blessed in the working tree
+cannot pass as unaffected, and when a test module guarding a moved input
+fails, and it prints each moved input with the goldens it found unchanged and
+the tests it ran. Without it the same `moved` lines print on every run until a
+real change arrives, and that change then looks like the others.
 `--check-drift` exits non-zero on drift for deliberate maintainer use; do not
 gate a lane on it.
 

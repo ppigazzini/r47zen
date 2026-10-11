@@ -138,7 +138,10 @@ cannot run, say why and record what was checked instead.
    golden moves because upstream moved, name the upstream commit and show what
    changed. Regenerating without that is laundering. Re-record the provenance
    ledger (`--record --upstream-commit <sha>`) in the same commit that
-   re-blesses a golden, never on its own.
+   re-blesses a golden. When the inputs moved and no golden did,
+   `--record-if-unaffected` re-records it on its own, and refuses unless every
+   golden a moved input feeds matches HEAD and every test module that guards
+   one passes; its output is the commit's evidence.
 4. **Verify against a live tree, not memory.** When a local note and upstream
    disagree, upstream wins.
 5. **Retract what you cannot prove.** Say which claims are measured, which are

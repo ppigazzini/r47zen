@@ -2,7 +2,8 @@
   "inputs": [
     {
       "contracts": [
-        "scripts/r47_contracts/data/r47_key_font_policy_contract.json"
+        "scripts/r47_contracts/data/r47_key_font_policy_contract.json",
+        "scripts/r47_contracts/test_key_font_policy_contract.py"
       ],
       "derivers": [
         "scripts/r47_contracts/derive_key_font_policy.py"
@@ -12,7 +13,10 @@
     },
     {
       "contracts": [
-        "scripts/r47_contracts/data/r47_key_font_policy_contract.json"
+        "scripts/r47_contracts/data/r47_key_font_policy_contract.json",
+        "scripts/r47_contracts/test_key_font_policy_contract.py",
+        "scripts/r47_contracts/test_key_visual_policy_contract.py",
+        "scripts/r47_contracts/test_top_label_lane_layout_contract.py"
       ],
       "derivers": [
         "scripts/r47_contracts/derive_key_font_policy.py",
@@ -24,7 +28,8 @@
     },
     {
       "contracts": [
-        "scripts/r47_contracts/data/r47_key_font_policy_contract.json"
+        "scripts/r47_contracts/data/r47_key_font_policy_contract.json",
+        "scripts/r47_contracts/test_key_font_policy_contract.py"
       ],
       "derivers": [
         "scripts/r47_contracts/derive_key_font_policy.py"
@@ -34,23 +39,27 @@
     },
     {
       "contracts": [
-        "scripts/r47_contracts/data/r47_keyboard_layout_contract.json"
+        "scripts/r47_contracts/data/r47_keyboard_layout_contract.json",
+        "scripts/r47_contracts/test_alpha_case_export_contract.py",
+        "scripts/r47_contracts/test_keyboard_layout_contract.py"
       ],
       "derivers": [
         "scripts/r47_contracts/derive_keyboard_layout_contract.py"
       ],
       "path": "src/c47/assign.c",
-      "sha256": "f8d18ffd3ce9b14eefb704dc3134114932ac83423483b370acfc5d80b013cf8a"
+      "sha256": "5d7631055a53ef5156d9f23c07fa0e2e900b16f94582958ebb277fe6097e0f3d"
     },
     {
       "contracts": [
-        "scripts/r47_contracts/data/r47_keyboard_layout_contract.json"
+        "scripts/r47_contracts/data/r47_keyboard_layout_contract.json",
+        "scripts/r47_contracts/test_alpha_case_export_contract.py",
+        "scripts/r47_contracts/test_keyboard_layout_contract.py"
       ],
       "derivers": [
         "scripts/r47_contracts/derive_keyboard_layout_contract.py"
       ],
       "path": "src/c47/items.c",
-      "sha256": "e9286a4b6e2f00ef09d04ba40f4b8b603272ceef41110355494fbda6efb98b97"
+      "sha256": "cc5f08afa8fc05eed5104fcda27f3026131e30939c2b7fde03ca6a46d036d377"
     },
     {
       "contracts": [
@@ -60,12 +69,12 @@
         "scripts/r47_contracts/derive_live_stop_key_policy.py"
       ],
       "path": "src/c47/programming/input.c",
-      "sha256": "17fb6075ec62827ed4ef751c37538cc87a72f912adcb0a86395c99b13c34506c"
+      "sha256": "7032cb423014c90c1ef5bbc3ad342cbe7b1ca42f3c3a4b696d7e9fa4cc11726d"
     }
   ],
   "recorded": {
-    "recorded_on": "2026-09-19",
-    "upstream_commit": "492298ff54a753bdaacacb09725aabdf65f2f853",
+    "recorded_on": "2026-10-11",
+    "upstream_commit": "3244db3bdc82e1351d0075c4f525841eef9966e3",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 1

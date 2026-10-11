@@ -28,6 +28,13 @@ Two failure classes live here and they are deliberately NOT gated the same way:
             the ledger lists one nothing reads any more. That is a repo-side
             mistake, fully deterministic, and it FAILS - otherwise the ledger
             silently rots into a comforting but incomplete list.
+
+Drift is cleared one of two ways. `--record` rewrites the ledger in the commit
+that re-blesses a golden. `--record-if-unaffected` rewrites it on its own, and
+only when the move changed nothing: every golden a moved input feeds still
+matches HEAD, and every contract that guards a moved input passes on the live
+tree. Without it the same `moved` lines print until a real change arrives, and
+then that change looks like all the others.
 """
 
 from __future__ import annotations
@@ -35,7 +42,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
+import subprocess
 import sys
+import unittest
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Final, Literal
 
@@ -46,7 +56,7 @@ from r47_contracts import _repo_paths
 from r47_contracts._repo_paths import DATA_ROOT, REPO_ROOT
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from pathlib import Path
 
 LEDGER_PATH: Final = DATA_ROOT / "upstream_provenance.json"
@@ -123,18 +133,30 @@ class Finding(TypedDict):
 
 
 # The contract surfaces each upstream input feeds. Keyed by repo-relative path.
-# `derivers` is what reads the bytes; `contracts` is what a maintainer must
-# re-examine when those bytes move. Both are repo-relative so the report is
-# copy-pasteable into a shell.
+# `derivers` read the bytes. `contracts` are the committed goldens derived from
+# them and the test modules a maintainer must re-examine when they move; a test
+# module that reads the bytes itself is listed there. Every module of the suite
+# that names an input is listed against it, which
+# test_upstream_provenance_contract.py holds. All paths are repo-relative so the
+# report is copy-pasteable into a shell.
+_KEYBOARD_LAYOUT_SURFACES: Final = (
+    ("scripts/r47_contracts/derive_keyboard_layout_contract.py",),
+    (
+        "scripts/r47_contracts/data/r47_keyboard_layout_contract.json",
+        "scripts/r47_contracts/test_alpha_case_export_contract.py",
+        "scripts/r47_contracts/test_keyboard_layout_contract.py",
+    ),
+)
+_FONT_POLICY_SURFACES: Final = (
+    ("scripts/r47_contracts/derive_key_font_policy.py",),
+    (
+        "scripts/r47_contracts/data/r47_key_font_policy_contract.json",
+        "scripts/r47_contracts/test_key_font_policy_contract.py",
+    ),
+)
 _INPUT_SURFACES: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {
-    "src/c47/assign.c": (
-        ("scripts/r47_contracts/derive_keyboard_layout_contract.py",),
-        ("scripts/r47_contracts/data/r47_keyboard_layout_contract.json",),
-    ),
-    "src/c47/items.c": (
-        ("scripts/r47_contracts/derive_keyboard_layout_contract.py",),
-        ("scripts/r47_contracts/data/r47_keyboard_layout_contract.json",),
-    ),
+    "src/c47/assign.c": _KEYBOARD_LAYOUT_SURFACES,
+    "src/c47/items.c": _KEYBOARD_LAYOUT_SURFACES,
     "src/c47/programming/input.c": (
         ("scripts/r47_contracts/derive_live_stop_key_policy.py",),
         ("scripts/r47_contracts/test_live_stop_key_policy_contract.py",),
@@ -145,17 +167,23 @@ _INPUT_SURFACES: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {
             "scripts/r47_contracts/derive_key_visual_policy.py",
             "scripts/r47_contracts/derive_top_label_lane_layout.py",
         ),
-        ("scripts/r47_contracts/data/r47_key_font_policy_contract.json",),
+        (
+            "scripts/r47_contracts/data/r47_key_font_policy_contract.json",
+            "scripts/r47_contracts/test_key_font_policy_contract.py",
+            "scripts/r47_contracts/test_key_visual_policy_contract.py",
+            "scripts/r47_contracts/test_top_label_lane_layout_contract.py",
+        ),
     ),
-    "res/fonts/C47__NumericFont.ttf": (
-        ("scripts/r47_contracts/derive_key_font_policy.py",),
-        ("scripts/r47_contracts/data/r47_key_font_policy_contract.json",),
-    ),
-    "res/fonts/C47__TinyFont.ttf": (
-        ("scripts/r47_contracts/derive_key_font_policy.py",),
-        ("scripts/r47_contracts/data/r47_key_font_policy_contract.json",),
-    ),
+    "res/fonts/C47__NumericFont.ttf": _FONT_POLICY_SURFACES,
+    "res/fonts/C47__TinyFont.ttf": _FONT_POLICY_SURFACES,
 }
+_GOLDEN_SUFFIX: Final = ".json"
+_TEST_MODULE_SUFFIX: Final = ".py"
+
+
+def input_surfaces() -> dict[str, tuple[tuple[str, ...], tuple[str, ...]]]:
+    """Return the derivers and contracts listed against each upstream input."""
+    return dict(_INPUT_SURFACES)
 
 
 def _declared_source_inputs() -> set[str]:
@@ -280,13 +308,20 @@ def evaluate(ledger: Ledger) -> list[Finding]:
             status = "unchanged"
         else:
             status = "moved"
+        # The live surface map names what to re-examine; the ledger's copy is
+        # only a record of it, and a retired input has no live entry.
+        surfaces = _INPUT_SURFACES.get(path)
+        if surfaces is not None:
+            contracts = list(surfaces[1])
+        else:
+            contracts = list(entry["contracts"]) if entry else []
         findings.append(
             Finding(
                 path=path,
                 status=status,
                 recorded_sha256=entry["sha256"] if entry else "",
                 current_sha256=current,
-                contracts=list(entry["contracts"]) if entry else [],
+                contracts=contracts,
             ),
         )
     return findings
@@ -304,6 +339,78 @@ def coverage_failures(findings: Sequence[Finding]) -> list[Finding]:
 def drift_failures(findings: Sequence[Finding]) -> list[Finding]:
     """Return findings whose upstream bytes moved since the ledger was recorded."""
     return [finding for finding in findings if finding["status"] == "moved"]
+
+
+def unaffected_record_refusal(
+    findings: Sequence[Finding],
+    *,
+    golden_changed: Callable[[str], bool],
+    contracts_pass: Callable[[Sequence[str]], bool],
+) -> str | None:
+    """Return why the moved inputs cannot be re-recorded as harmless, or None.
+
+    A move is harmless when every golden it feeds is still the one HEAD holds
+    and every test module that guards it passes on the live tree, which runs
+    each golden's freshness guard against the moved bytes.
+    """
+    if coverage_failures(findings):
+        return (
+            "the ledger and the suite disagree about which upstream inputs exist;"
+            " fix the coverage, then re-record with --record"
+        )
+    moved = drift_failures(findings)
+    if not moved:
+        return None
+    unguarded = [
+        finding["path"]
+        for finding in moved
+        if not any(c.endswith(_TEST_MODULE_SUFFIX) for c in finding["contracts"])
+    ]
+    if unguarded:
+        return f"no test module guards {', '.join(unguarded)}"
+    goldens = sorted(
+        {c for f in moved for c in f["contracts"] if c.endswith(_GOLDEN_SUFFIX)},
+    )
+    changed = [golden for golden in goldens if golden_changed(golden)]
+    if changed:
+        return (
+            f"{', '.join(changed)} differ from HEAD; record a re-blessed golden"
+            " with --record in the commit that changes it"
+        )
+    tests = sorted(
+        {c for f in moved for c in f["contracts"] if c.endswith(_TEST_MODULE_SUFFIX)},
+    )
+    if not contracts_pass(tests):
+        return "a contract that guards a moved input fails on the live tree"
+    return None
+
+
+def _golden_differs_from_head(path: str) -> bool:
+    git = shutil.which("git")
+    if git is None:
+        return True
+    # Fixed arguments; the path comes from this module's own surface map.
+    committed = subprocess.run(  # noqa: S603
+        [git, "-C", str(REPO_ROOT), "show", f"HEAD:{path}"],
+        capture_output=True,
+        check=False,
+    )
+    current = REPO_ROOT / path
+    return (
+        committed.returncode != 0
+        or not current.is_file()
+        or current.read_bytes() != committed.stdout
+    )
+
+
+def _run_test_modules(paths: Sequence[str]) -> bool:
+    names = [
+        "r47_contracts." + path.rsplit("/", 1)[-1].removesuffix(_TEST_MODULE_SUFFIX)
+        for path in paths
+    ]
+    suite = unittest.defaultTestLoader.loadTestsFromNames(names)
+    result = unittest.TextTestRunner(stream=sys.stderr, verbosity=1).run(suite)
+    return result.wasSuccessful() and result.testsRun > 0
 
 
 def _hydrated(findings: Sequence[Finding]) -> bool:
@@ -378,12 +485,23 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             "R47 contract goldens derive from."
         ),
     )
-    parser.add_argument(
+    record = parser.add_mutually_exclusive_group()
+    record.add_argument(
         "--record",
         action="store_true",
         help=(
             "Rewrite the ledger from the hydrated tree. A deliberate maintainer "
-            "act: do it only after root-causing the drift it erases."
+            "act: do it only after root-causing the drift it erases, in the "
+            "commit that re-blesses the golden it moved."
+        ),
+    )
+    record.add_argument(
+        "--record-if-unaffected",
+        action="store_true",
+        help=(
+            "Rewrite the ledger only when the drift changed nothing: every "
+            "golden a moved input feeds matches HEAD and every test module "
+            "that guards one passes. Prints the evidence for the commit body."
         ),
     )
     parser.add_argument(
@@ -406,8 +524,8 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         "--upstream-commit",
         default="",
         help=(
-            "Upstream commit to stamp with --record. Defaults to the pin in the "
-            "git-ignored upstream.lock."
+            "Upstream commit to stamp with --record or --record-if-unaffected. "
+            "Defaults to the pin in the git-ignored upstream.lock."
         ),
     )
     return parser.parse_args(argv)
@@ -426,6 +544,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
 
+    if args.record_if_unaffected:
+        return _record_if_unaffected(args.upstream_commit)
+
     ledger = load_ledger()
     findings = evaluate(ledger)
     sys.stdout.write(format_report(ledger, findings))
@@ -434,6 +555,44 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     if args.check_drift and drift_failures(findings):
         return 1
+    return 0
+
+
+def _record_if_unaffected(upstream_commit: str) -> int:
+    ledger = load_ledger()
+    findings = evaluate(ledger)
+    moved = drift_failures(findings)
+    if not moved and not coverage_failures(findings):
+        sys.stdout.write("Nothing moved; the ledger is unchanged.\n")
+        return 0
+    commit = upstream_commit or read_locked_upstream_commit()
+    if commit == UNKNOWN_COMMIT:
+        sys.stderr.write(
+            "Refusing: no upstream commit to stamp. Pin upstream.lock or pass"
+            " --upstream-commit.\n",
+        )
+        return 1
+    refusal = unaffected_record_refusal(
+        findings,
+        golden_changed=_golden_differs_from_head,
+        contracts_pass=_run_test_modules,
+    )
+    if refusal is not None:
+        sys.stderr.write(f"Refusing: {refusal}.\n")
+        return 1
+    write_ledger(build_ledger(read_upstream_url(), commit))
+    recorded = ledger["recorded"]["upstream_commit"]
+    lines = [f"Re-recorded at {commit}; moved since {recorded}, goldens unchanged:"]
+    for finding in moved:
+        lines.append(
+            f"  {finding['path']}: {finding['recorded_sha256'][:12]}"
+            f" -> {finding['current_sha256'][:12]}",
+        )
+        lines.extend(
+            f"    {'unchanged' if c.endswith(_GOLDEN_SUFFIX) else 'passed'} {c}"
+            for c in finding["contracts"]
+        )
+    sys.stdout.write("\n".join(lines) + "\n")
     return 0
 
 
