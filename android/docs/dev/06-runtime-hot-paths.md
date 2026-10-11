@@ -354,8 +354,9 @@ program, a save or load operation, or a progress or pause loop.
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/NativeDisplayRefreshLoopTest.kt`
   covers generation gating and retry-after-failed-copy behavior for the packed
   LCD observer loop.
-- `android/app/src/test/java/io/github/ppigazzini/r47zen/DynamicKeypadParityFixtureTest.kt`
-  covers the unchanged-snapshot skip gate and keypad parity behavior.
+- `android/app/src/test/java/io/github/ppigazzini/r47zen/KeypadSnapshotRefreshGateTest.kt`
+  covers the unchanged-snapshot skip gate, and `MainKeySnapshotRenderTest.kt`
+  how main-key views apply keypad snapshots.
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/ReplicaOverlayGoldenTest.kt`
   covers renderer stability for the borderless native shell and the retained
   top settings-strip interaction.

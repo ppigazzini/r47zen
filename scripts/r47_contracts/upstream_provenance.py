@@ -167,13 +167,11 @@ _INPUT_SURFACES: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {
         (
             "scripts/r47_contracts/derive_key_font_policy.py",
             "scripts/r47_contracts/derive_key_visual_policy.py",
-            "scripts/r47_contracts/derive_top_label_lane_layout.py",
         ),
         (
             "scripts/r47_contracts/data/r47_key_font_policy_contract.json",
             "scripts/r47_contracts/test_key_font_policy_contract.py",
             "scripts/r47_contracts/test_key_visual_policy_contract.py",
-            "scripts/r47_contracts/test_top_label_lane_layout_contract.py",
         ),
     ),
     "res/fonts/C47__NumericFont.ttf": _FONT_POLICY_SURFACES,

@@ -15,13 +15,11 @@
     <ID>CyclomaticComplexMethod:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
     <ID>CyclomaticComplexMethod:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun resolvePositions: List&lt;TopLabelLaneConflict&gt;</ID>
     <ID>LargeClass:CalculatorKeyView.kt:CalculatorKeyView : ConstraintLayout</ID>
-    <ID>LargeClass:DynamicKeypadParityFixtureTest.kt:DynamicKeypadParityFixtureTest</ID>
     <ID>LargeClass:ReplicaOverlay.kt:ReplicaOverlay : ViewGroup</ID>
     <ID>LongMethod:AudioEngine.kt:AudioEngine$@Synchronized fun start</ID>
     <ID>LongMethod:CalculatorKeyView.kt:CalculatorKeyView$private fun buildMainKeyRenderSpec: KeyRenderSpec?</ID>
     <ID>LongMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
     <ID>LongMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildSoftkeyOverlaySpec: SoftkeyOverlayAdornmentSpec</ID>
-    <ID>LongMethod:DynamicKeypadParityFixtureTest.kt:DynamicKeypadParityFixtureTest$@Test fun iteration77_mainKeyModeMatrixKeepsNumericMatrixFontWhenPreviewIsDisabled</ID>
     <ID>LongMethod:KeypadSnapshotDecoderTest.kt:KeypadSnapshotDecoderTest$@Test fun fromNativeDecodesKeyboardWideAndPerKeyMetadataLanes</ID>
     <ID>LongMethod:MainShellThemeTest.kt:MainShellThemeTest$private fun computeHintSamplePoints: HintSamplePoints</ID>
     <ID>LongMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>

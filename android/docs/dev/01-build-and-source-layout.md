@@ -65,8 +65,7 @@ repo root
 |  |  |- derive_touch_grid.py
 |  |  |- derive_shell_geometry.py
 |  |  |- derive_key_label_geometry.py
-|  |  |- derive_key_visual_policy.py
-|  |  `- derive_top_label_lane_layout.py
+|  |  `- derive_key_visual_policy.py
 |  `- upstream-sync/upstream.sh
 `- android/
   |- app/src/main/java/io/github/ppigazzini/r47zen/
