@@ -41,7 +41,15 @@ warning level. The flags stop short of `-Werror` because the glue includes
 upstream headers, so a new warning from an upstream commit would otherwise break
 the build with no commit here. `r47zen/android_mocks.h` reaches every
 translation unit through `-include`, so its `LOG_TAG` (`R47Native`) is the one
-native log tag.
+native log tag. Its `LOGE`, `LOGI` and `LOGD` reach logcat through the NDK's
+`__android_log_print`: `r47zen/stubs/android/log.h`, the host tools' stand-in,
+defers to the NDK header with `#include_next` on Android, because the stub
+directory comes first on the Android include path for the GTK and cairo
+stubs. A release build (`NDEBUG`) keeps `LOGE` only; `LOGI` and `LOGD` compile
+to nothing. On the Kotlin side `proguard-rules.pro` lets R8 remove
+`Log.v`, `Log.d` and `Log.i` from a minified release. To check a build, look
+for `__android_log_print` among the library's dynamic symbols
+(`llvm-readelf --dyn-syms`).
 
 When a reviewed indexed LLVM profile is available, the Android build also
 consumes it through Gradle property `r47.pgoProfilePath` or environment

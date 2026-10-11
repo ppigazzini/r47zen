@@ -36,9 +36,23 @@
 #else
 #include <android/log.h>
 
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+// Release builds (CMake defines NDEBUG for RelWithDebInfo and Release) keep
+// errors only: debug and info logging is per key press and names user data
+// such as program labels. The if (0) keeps the arguments type-checked and used.
+#if defined(NDEBUG)
+#define LOGI(...)                                                              \
+  do {                                                                         \
+    if (0) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__);       \
+  } while (0)
+#define LOGD(...)                                                              \
+  do {                                                                         \
+    if (0) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__);      \
+  } while (0)
+#else
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#endif
 #endif
 
 // GMP needs to be here for stubs to be visible

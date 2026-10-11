@@ -1,6 +1,14 @@
 #ifndef R47_ANDROID_LOG_STUB_H
 #define R47_ANDROID_LOG_STUB_H
 
+// A host-tool stand-in for the NDK header. The stub directory comes first on
+// the Android include path too, for the GTK and cairo stubs, so on Android
+// this defers to the NDK's own header: the stub writes to stderr, which an app
+// process discards, and every native log would be lost.
+#if defined(__ANDROID__)
+#include_next <android/log.h>
+#else
+
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -28,4 +36,6 @@ static inline int __android_log_print(int priority, const char *tag,
   return written;
 }
 
-#endif
+#endif // __ANDROID__
+
+#endif // R47_ANDROID_LOG_STUB_H
