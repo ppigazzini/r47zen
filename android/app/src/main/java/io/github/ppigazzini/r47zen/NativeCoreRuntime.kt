@@ -11,6 +11,7 @@ internal class NativeCoreRuntime(
     private val nativePreInit: (String) -> Unit,
     private val initNative: (String, Int) -> Unit,
     private val updateNativeActivityRef: () -> Unit,
+    private val releaseNativeRuntime: () -> Unit,
     private val tick: () -> Int,
     private val saveStateNative: () -> Unit,
     private val getPackedDisplayGeneration: () -> Int,
@@ -69,11 +70,14 @@ internal class NativeCoreRuntime(
         private const val SAVE_ON_PAUSE_FENCE_MILLIS = 750L
 
         // Upper bound on how long dispose(stopApp=true) blocks the main thread
-        // joining the core thread. The join guarantees the core thread has
-        // stopped reading the native activity globals before onDestroy releases
-        // them, and before a factory reset resets shared state. Generous enough
-        // for a normal tick to finish; a timeout logs loudly rather than hangs.
+        // joining the core thread, so a factory reset that follows sees the
+        // thread stopped. Generous enough for a normal tick to finish; a timeout
+        // logs loudly rather than hangs, and the thread finishes on its own.
         private const val DISPOSE_JOIN_FENCE_MILLIS = 1_500L
+
+        // How long a parked core thread waits for a task before it looks at the
+        // running flag again. A task, dispose, or onHostStarted wakes it sooner.
+        private const val PARKED_WAIT_MILLIS = 60_000L
 
         private val coreTasks = LinkedBlockingQueue<Runnable>()
 
@@ -89,6 +93,18 @@ internal class NativeCoreRuntime(
         @Volatile
         private var isNativeInitializedShared = false
 
+        // True while no host is visible (between onStop and onStart): the loop
+        // then waits for tasks instead of ticking every 5 ms. Upstream's timers
+        // are deadlines against the clock, so a tick after the park fires every
+        // one that came due during it.
+        @Volatile
+        private var isHostStopped = false
+
+        // Orders attach() against the core thread's exit, so a host that
+        // attaches while the thread is leaving its loop either finds it running
+        // or gets a fresh one from it, never neither.
+        private val lifecycleLock = Any()
+
         // The runtime the core thread calls into, republished by every attach().
         // The core thread outlives each Activity, and every runtime's lambdas are
         // bound member references to the Activity that built it, so the thread
@@ -101,6 +117,17 @@ internal class NativeCoreRuntime(
         private val coreLoop = Runnable { runCoreLoop() }
 
         fun isAppRunning(): Boolean = isAppRunningShared
+
+        // The calculator host is invisible; let the core thread stop ticking.
+        fun onHostStopped() {
+            isHostStopped = true
+        }
+
+        // The calculator host is visible again; wake a parked core thread.
+        fun onHostStarted() {
+            isHostStopped = false
+            coreTasks.offer(Runnable {})
+        }
 
         // True once initNative has returned on the core thread; native gates its
         // UI-thread entry points on the same point (r47_runtime_ready).
@@ -118,10 +145,12 @@ internal class NativeCoreRuntime(
             isCoreThreadStarted = false
             isAppRunningShared = false
             isNativeInitializedShared = false
+            isHostStopped = false
             activeRuntime = null
         }
 
         private fun runCoreLoop() {
+            var crashed = false
             try {
                 if (!initializeOrReattach()) {
                     return
@@ -132,19 +161,48 @@ internal class NativeCoreRuntime(
                     }
                 }
                 Log.i(TAG, "Core thread exiting")
+                releaseFinishedHost()
                 // Flush tasks queued during shutdown (e.g. a pending onPause
                 // save) so dispose() cannot drop them.
                 drainCoreTasks()
-            } catch (error: Exception) {
-                // A native-core exception means corrupted state that cannot
-                // be safely recovered in place. Stop the runtime and surface
-                // the failure loudly instead of leaving an interactive UI
-                // over a dead core.
+            } catch (error: Throwable) {
+                // Any throwable here, an Error included, leaves the native core
+                // in a state that cannot be recovered in place. Stop the runtime
+                // and surface the failure loudly instead of leaving an
+                // interactive UI over a dead core.
+                crashed = true
                 Log.e(TAG, "Native core thread crashed; stopping the runtime", error)
                 isAppRunningShared = false
                 throw error
             } finally {
-                isCoreThreadStarted = false
+                finishCoreThread(restartIfAttached = !crashed)
+            }
+        }
+
+        // The core thread is the only reader of the native activity globals,
+        // so it is also their only releaser: a release from the main thread can
+        // delete a reference this thread is about to call through. It releases
+        // only when no host is attached. When dispose's join fence gave up on
+        // this thread, activeRuntime is already null and the globals keep the
+        // finished host until the next attach replaces them.
+        private fun releaseFinishedHost() {
+            val finishedHost = synchronized(lifecycleLock) {
+                if (isAppRunningShared) null else activeRuntime
+            }
+            finishedHost?.releaseNativeRuntime()
+        }
+
+        private fun finishCoreThread(restartIfAttached: Boolean) {
+            synchronized(lifecycleLock) {
+                val host = activeRuntime
+                if (restartIfAttached && isAppRunningShared && host != null) {
+                    // A host attached after this thread left its loop and saw it
+                    // still started. Hand it a fresh thread instead of none.
+                    Log.i(TAG, "A host attached while the core thread exited; restarting it")
+                    host.startCoreThread(coreLoop)
+                } else {
+                    isCoreThreadStarted = false
+                }
             }
         }
 
@@ -166,6 +224,12 @@ internal class NativeCoreRuntime(
         private fun runCoreIteration(): Boolean {
             drainCoreTasks()
             val runtime = activeRuntime ?: return false
+            if (isHostStopped) {
+                // A running program never reaches here: it runs inside a task
+                // and yields through processCoreTasks. Only the idle loop parks.
+                runtime.awaitCoreTask(PARKED_WAIT_MILLIS)?.let { drainCoreTasks(it) }
+                return true
+            }
             val nextTickDelayMillis = runtime.tick().coerceAtLeast(0).toLong()
             if (nextTickDelayMillis == 0L) {
                 return true
@@ -199,9 +263,11 @@ internal class NativeCoreRuntime(
     }
 
     fun attach() {
-        activeRuntime = this
-        isAppRunningShared = true
-        startOrAttachCoreThread()
+        synchronized(lifecycleLock) {
+            activeRuntime = this
+            isAppRunningShared = true
+            startOrAttachCoreThread()
+        }
         displayRefreshLoop.start()
     }
 

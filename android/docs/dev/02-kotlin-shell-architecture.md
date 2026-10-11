@@ -172,6 +172,10 @@ callbacks.
   shell and runtime are ready.
 - `onNewIntent()` is the reuse path for root-activity actions such as the
   controlled factory-reset request.
+- `onStart()` and `onStop()` tell `NativeCoreRuntime` whether the calculator is
+  visible. While it is not, the core thread parks: it still runs every queued
+  task, including the background save, but stops the 5 ms tick. A running
+  program is unaffected, because it runs inside a task.
 - `onResume()` revalidates the work-directory contract and lets the overlay-side
   resume path run without forcing a native LCD redraw. On first run,
   `StorageAccessCoordinator` may show the welcome dialog and launch
@@ -184,7 +188,8 @@ callbacks.
   visible screen.
 - `onDestroy()` cancels a native file request whose posted launch it just
   dropped (`NativeFileRequestGate`), stops the shared runtime when the activity
-  is actually finishing, and on the factory-reset path clears internal app data
+  is actually finishing, never touches the native activity globals (the core
+  thread releases them), and on the factory-reset path clears internal app data
   only once the core thread has stopped. When the thread outlived the dispose
   join fence, `FactoryResetController` keeps the data and the shared runtime
   state: a live thread would autosave into a wiped directory, and a reset

@@ -21,6 +21,10 @@ import java.util.concurrent.atomic.AtomicReference
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class NativeCoreRuntimeTest {
+    private companion object {
+        const val CORE_THREAD_NAME = "R47CoreRuntime"
+    }
+
     @Before
     fun setUp() {
         NativeCoreRuntime.resetSharedStateForTest()
@@ -265,52 +269,237 @@ class NativeCoreRuntimeTest {
         return WeakReference(host)
     }
 
+    @Test
+    fun dispose_releasesTheActivityGlobals_onTheCoreThread() {
+        val initLatch = CountDownLatch(1)
+        val releaseThreads = CopyOnWriteArrayList<String>()
+        val runtime = createRuntime(
+            onInit = { initLatch.countDown() },
+            onRelease = { releaseThreads += Thread.currentThread().name },
+        )
+        runtime.attach()
+        assertTrue(initLatch.await(2, TimeUnit.SECONDS))
+
+        runtime.dispose(stopApp = true)
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+
+        assertEquals(listOf(CORE_THREAD_NAME), releaseThreads.toList())
+    }
+
+    @Test
+    fun dispose_pastTheJoinFence_neverReleasesFromTheCallingThread() {
+        val initLatch = CountDownLatch(1)
+        val taskEntered = CountDownLatch(1)
+        val taskGate = CountDownLatch(1)
+        val releaseThreads = CopyOnWriteArrayList<String>()
+        val runtime = createRuntime(
+            onInit = { initLatch.countDown() },
+            onRelease = { releaseThreads += Thread.currentThread().name },
+            // Gives up at once, as the production fence does on a long program.
+            joinCoreThread = {},
+        )
+        runtime.attach()
+        assertTrue(initLatch.await(2, TimeUnit.SECONDS))
+        runtime.offerTask(
+            Runnable {
+                taskEntered.countDown()
+                taskGate.await(2, TimeUnit.SECONDS)
+            },
+        )
+        assertTrue(taskEntered.await(2, TimeUnit.SECONDS))
+
+        runtime.dispose(stopApp = true)
+        assertTrue("the core thread is still busy", NativeCoreRuntime.isCoreThreadStartedForTest())
+        taskGate.countDown()
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+
+        // dispose cleared the host before the thread left its loop, so nothing
+        // released the globals: the next attach replaces them on the core thread.
+        assertEquals(emptyList<String>(), releaseThreads.toList())
+    }
+
+    @Test
+    fun attach_whileTheCoreThreadExits_restartsTheCoreThreadForTheNewHost() {
+        val initLatch = CountDownLatch(1)
+        val releaseEntered = CountDownLatch(1)
+        val releaseGate = CountDownLatch(1)
+        val joinGate = CountDownLatch(1)
+        val first = createRuntime(
+            onInit = { initLatch.countDown() },
+            onRelease = {
+                releaseEntered.countDown()
+                releaseGate.await(2, TimeUnit.SECONDS)
+            },
+            joinCoreThread = { joinGate.await(2, TimeUnit.SECONDS) },
+        )
+        first.attach()
+        assertTrue(initLatch.await(2, TimeUnit.SECONDS))
+
+        // dispose waits in its join, so the core thread, past its loop, finds
+        // the first host and stops inside the release: the exit window a new
+        // host can attach into.
+        val disposer = Thread { first.dispose(stopApp = true) }.apply { start() }
+        assertTrue(releaseEntered.await(2, TimeUnit.SECONDS))
+
+        val secondTicks = AtomicInteger(0)
+        val secondRefUpdates = AtomicInteger(0)
+        val second = createRuntime(
+            onUpdateActivityRef = { secondRefUpdates.incrementAndGet() },
+            tickOverride = {
+                secondTicks.incrementAndGet()
+                10
+            },
+        )
+        second.attach()
+        releaseGate.countDown()
+        joinGate.countDown()
+        disposer.join(2_000)
+
+        waitUntil("the new host's core thread ticks", 2_000) { secondTicks.get() > 0 }
+        assertTrue(NativeCoreRuntime.isCoreThreadStartedForTest())
+        assertTrue("the new host's activity ref is set", secondRefUpdates.get() >= 1)
+
+        second.dispose(stopApp = true)
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+    }
+
+    @Test
+    fun hostStopped_runsTasksWithoutTicking_andHostStartedResumesTicking() {
+        val initLatch = CountDownLatch(1)
+        val ticks = AtomicInteger(0)
+        val runtime = createRuntime(
+            onInit = { initLatch.countDown() },
+            tickOverride = {
+                ticks.incrementAndGet()
+                5
+            },
+        )
+        runtime.attach()
+        assertTrue(initLatch.await(2, TimeUnit.SECONDS))
+        waitUntil("ticks before the park", 2_000) { ticks.get() > 0 }
+
+        NativeCoreRuntime.onHostStopped()
+        // The iteration that runs this task checks the park after it, so no
+        // tick follows; a tick already in flight finished before it.
+        roundTrip(runtime)
+        val parkedTicks = ticks.get()
+        roundTrip(runtime)
+        roundTrip(runtime)
+        assertEquals("a parked core thread runs tasks but never ticks", parkedTicks, ticks.get())
+
+        NativeCoreRuntime.onHostStarted()
+        waitUntil("ticks after the park", 2_000) { ticks.get() > parkedTicks }
+
+        runtime.dispose(stopApp = true)
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+    }
+
+    @Test
+    fun coreThreadError_stopsTheRuntimeLikeAnException() {
+        val initLatch = CountDownLatch(1)
+        val errorArmed = AtomicBoolean(false)
+        val runtime = createRuntime(
+            onInit = { initLatch.countDown() },
+            tickOverride = {
+                if (errorArmed.compareAndSet(false, true)) {
+                    throw StackOverflowError("simulated native core stack overflow")
+                }
+                10
+            },
+        )
+
+        runtime.attach()
+        assertTrue(initLatch.await(2, TimeUnit.SECONDS))
+        waitUntil("core thread stops after the error", 2_000) {
+            !NativeCoreRuntime.isCoreThreadStartedForTest()
+        }
+
+        assertFalse("an Error must clear the running flag too", NativeCoreRuntime.isAppRunning())
+    }
+
+    private fun roundTrip(runtime: NativeCoreRuntime) {
+        val ran = CountDownLatch(1)
+        runtime.offerTask(Runnable { ran.countDown() })
+        assertTrue("the core thread ran a task", ran.await(2, TimeUnit.SECONDS))
+    }
+
     private fun createRuntime(
         onInit: () -> Unit = {},
         onUpdateActivityRef: () -> Unit = {},
+        onRelease: () -> Unit = {},
         onSaveState: () -> Unit = {},
         tickDelayMillis: Int = 10,
         tickOverride: (() -> Int)? = null,
         awaitCoreTask: ((Long) -> Runnable?)? = null,
+        // Replaces the production join, which waits on the real core thread;
+        // null keeps it.
+        joinCoreThread: ((Long) -> Unit)? = null,
         // Stands in for the Activity whose bound member references the production
         // runtime's lambdas capture.
         host: Any? = null,
     ): NativeCoreRuntime {
-        return NativeCoreRuntime(
-            filesDirPath = "/tmp/r47-tests",
-            currentSlotIdProvider = { 7 },
-            nativePreInit = {},
-            initNative = { _, slotId ->
-                assertEquals(7, slotId)
-                onInit()
-            },
-            updateNativeActivityRef = onUpdateActivityRef,
-            tick = tickOverride ?: host?.let { captured ->
-                { System.identityHashCode(captured); tickDelayMillis }
-            } ?: { tickDelayMillis },
-            saveStateNative = onSaveState,
-            getPackedDisplayGeneration = { 0 },
-            getPackedDisplayBuffer = { true },
-            getKeypadSnapshotGeneration = { 0 },
-            getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
-            refreshKeypadSnapshot = {
-                NativeKeypadSnapshotRefreshResult(
-                    observedGeneration = 0,
-                    snapshot = null,
-                    isUpToDate = true,
-                )
-            },
-            onPackedLcd = { false },
-            onDynamicRefresh = {},
-            isPerformanceSnapshotEnabled = { true },
-            onPerformanceSnapshot = {},
-            displayRefreshLoop = object : DisplayRefreshLoop {
-                override fun start() {}
+        val initNative: (String, Int) -> Unit = { _, slotId ->
+            assertEquals(7, slotId)
+            onInit()
+        }
+        val tick: () -> Int = tickOverride ?: host?.let { captured ->
+            { System.identityHashCode(captured); tickDelayMillis }
+        } ?: { tickDelayMillis }
+        val refreshKeypadSnapshot: (Int) -> NativeKeypadSnapshotRefreshResult = {
+            NativeKeypadSnapshotRefreshResult(
+                observedGeneration = 0,
+                snapshot = null,
+                isUpToDate = true,
+            )
+        }
+        val displayRefreshLoop = object : DisplayRefreshLoop {
+            override fun start() {}
 
-                override fun stop() {}
-            },
-            awaitCoreTask = awaitCoreTask ?: { null },
-        )
+            override fun stop() {}
+        }
+        val await = awaitCoreTask ?: { null }
+        return if (joinCoreThread == null) {
+            NativeCoreRuntime(
+                filesDirPath = "/tmp/r47-tests",
+                currentSlotIdProvider = { 7 },
+                nativePreInit = {},
+                initNative = initNative,
+                updateNativeActivityRef = onUpdateActivityRef,
+                releaseNativeRuntime = onRelease,
+                tick = tick,
+                saveStateNative = onSaveState,
+                getPackedDisplayGeneration = { 0 },
+                getPackedDisplayBuffer = { true },
+                getKeypadSnapshotGeneration = { 0 },
+                getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+                refreshKeypadSnapshot = refreshKeypadSnapshot,
+                onPackedLcd = { false },
+                onDynamicRefresh = {},
+                displayRefreshLoop = displayRefreshLoop,
+                awaitCoreTask = await,
+            )
+        } else {
+            NativeCoreRuntime(
+                filesDirPath = "/tmp/r47-tests",
+                currentSlotIdProvider = { 7 },
+                nativePreInit = {},
+                initNative = initNative,
+                updateNativeActivityRef = onUpdateActivityRef,
+                releaseNativeRuntime = onRelease,
+                tick = tick,
+                saveStateNative = onSaveState,
+                getPackedDisplayGeneration = { 0 },
+                getPackedDisplayBuffer = { true },
+                getKeypadSnapshotGeneration = { 0 },
+                getMainKeyDynamicModeCode = { MainKeyDynamicMode.DEFAULT.nativeCode },
+                refreshKeypadSnapshot = refreshKeypadSnapshot,
+                onPackedLcd = { false },
+                onDynamicRefresh = {},
+                displayRefreshLoop = displayRefreshLoop,
+                joinCoreThread = joinCoreThread,
+                awaitCoreTask = await,
+            )
+        }
     }
 
     private fun waitUntil(label: String, timeoutMillis: Long, condition: () -> Boolean) {

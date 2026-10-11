@@ -51,14 +51,23 @@ flowchart LR
   `coreTasks`.
 - `attach()` starts the core thread once, marks the app as running, and starts
   the display refresh loop.
-- The thread body in `startOrAttachCoreThread()` does three things in order:
-  drain queued work, call `tick()`, then wait on `coreTasks.poll(...)` for the
-  returned delay.
+- The thread body, `runCoreLoop()` in the companion, does three things in
+  order: drain queued work, call `tick()`, then wait on `coreTasks.poll(...)`
+  for the returned delay.
+- While no host is visible (`MainActivity.onStop` to `onStart`), the loop
+  parks: it drains tasks and waits up to a minute for the next one, and calls
+  no `tick()`. Upstream's timers are deadlines against the clock, so the first
+  tick after `onStart` fires every one that came due. A running program never
+  parks, because it runs inside a task. Before the park the loop wakes about
+  every 5 ms, for upstream's timer pump.
 - `saveStateOnPause(...)` is also routed through this queue and waits on a
   `CountDownLatch`, which means blocking or slow native save work is visible at
   the activity lifecycle boundary.
-- `dispose(stopApp = true)` clears the queue and offers a sentinel runnable so
-  a blocked wait wakes promptly during shutdown.
+- `dispose(stopApp = true)` keeps the queue, so a pending save still runs, and
+  offers a sentinel runnable so a blocked or parked wait wakes promptly. The
+  thread drains the queue on its way out, and releases the native activity
+  globals there when no host is attached
+  ([04](04-native-core-and-jni.md#activity-reference-writers-and-readers)).
 - The same queue still carries normal keypad input from touch, PiP, and
   physical keyboard controllers.
 - LCD graph pan and pinch reach it through `GraphGestureFlusher`: one flush

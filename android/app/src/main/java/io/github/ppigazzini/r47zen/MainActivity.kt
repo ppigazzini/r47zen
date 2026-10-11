@@ -220,15 +220,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         AudioEngine.stop()
     }
 
+    // Neither destroy path touches the native activity globals: the core thread
+    // releases them on its way out (NativeCoreRuntime.releaseFinishedHost).
     private fun handleFactoryResetDestroy() {
         AudioEngine.stop()
-        releaseNativeRuntime()
         NativeCoreRuntime.resetSharedState()
     }
 
     private fun handleFactoryResetFinish() {
         AudioEngine.stop()
-        releaseNativeRuntime()
     }
 
     private fun createStorageAccessCoordinator(): StorageAccessCoordinator {
@@ -407,6 +407,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             nativePreInit = ::nativePreInit,
             initNative = ::initNative,
             updateNativeActivityRef = ::updateNativeActivityRef,
+            releaseNativeRuntime = ::releaseNativeRuntime,
             tick = ::tick,
             saveStateNative = ::saveStateNative,
             getPackedDisplayGeneration = ::getPackedDisplayGeneration,
@@ -474,6 +475,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        NativeCoreRuntime.onHostStarted()
+    }
+
     override fun onResume() {
         super.onResume()
         replicaOverlayController.onHostResumed()
@@ -508,6 +514,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             Log.i(TAG, "Auto-saving state on pause (synchronous via core thread)...")
             coreRuntime.saveStateOnPause(autoSaveEnabled = true)
         }
+    }
+
+    override fun onStop() {
+        // After onPause, so the background save has already been queued: the
+        // parked core thread still runs every task, it only stops ticking.
+        NativeCoreRuntime.onHostStopped()
+        super.onStop()
     }
 
     @Keep

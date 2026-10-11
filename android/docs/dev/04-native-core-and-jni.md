@@ -356,7 +356,8 @@ Practical rule:
   boundaries explicit before changing behavior
 
 Final app shutdown uses `releaseNativeRuntime()` to delete the global
-`MainActivity` reference and clear the cached method IDs. Activity recreation
+`MainActivity` reference and clear the cached method IDs, on the core thread as
+it leaves its loop (inventory below). Activity recreation
 rebinds the new host without tearing down the native core: the core thread
 runs `updateNativeActivityRef()`, which refreshes JNI references and cached
 method IDs only and must not synthesize a redraw. The new `ReplicaOverlay`
@@ -398,22 +399,23 @@ their state inventory for the checks in
 | access | function | thread |
 |---|---|---|
 | write | `updateNativeActivityRef`, from `initNative` and, on reattach, from `NativeCoreRuntime`'s core-thread attach | core |
-| write | `releaseNativeRuntime`, from `MainActivity.handleFactoryResetFinish` and `handleFactoryResetDestroy` | main |
+| write | `releaseNativeRuntime`, from `NativeCoreRuntime.releaseFinishedHost` as the core thread leaves its loop with no host attached | core |
 | read | `processCoreTasksNative` (`jni_activity_bridge.c`), `_Buzz` (`hal/audio.c`), `requestAndroidFile` (`jni_storage.c`), `triggerQuit` (`jni_display.c`) | core |
 
-No lock covers the four globals. A reader checks a global for `NULL` and then
-calls through it; `releaseNativeActivityReferences` deletes the global
-reference first and stores `NULL` after. The two writers stay apart only when
-the core thread has stopped before `releaseNativeRuntime` runs. On a finishing
-`MainActivity.onDestroy`, `dispose(stopApp = true)` joins the core thread for
-at most `DISPOSE_JOIN_FENCE_MILLIS`, then `FactoryResetController.handleDestroy`
-reaches `releaseNativeRuntime` through `handleFactoryResetFinish` whether or
-not the join succeeded; only `handleFactoryResetDestroy` is reached with the
-core thread stopped. So a program that outlasts the fence leaves a core thread
-that can read a global the main thread is deleting. No test covers that window.
-ART aborts on a call through a deleted global reference (documented JNI
-behaviour, not reproduced here), so the gap costs a crash on exit, together
-with any save still queued on the core thread.
+No lock covers the four globals, and none is needed: every reader and both
+writers run on the core thread, so a reader never sees a reference half
+deleted. The main thread never calls `releaseNativeRuntime`; a Kotlin path that
+did would be the race this table exists to rule out. `NativeCoreRuntimeTest`
+holds the rule: a dispose releases on the core thread, and a dispose whose join
+fence gives up while the core thread is busy releases nothing from the calling
+thread. The cost of that rule: when a program outlasts the fence, `dispose`
+clears the active host before the core thread leaves its loop, so the globals
+keep the finished Activity until the next attach replaces them.
+
+`NativeCoreRuntime` also orders `attach()` against the core thread's exit under
+one lock: a host that attaches after the thread left its loop, while it still
+counted as started, gets a fresh core thread from the exiting one instead of
+none (`NativeCoreRuntimeTest.attach_whileTheCoreThreadExits_restartsTheCoreThreadForTheNewHost`).
 
 ## Lifecycle Save And Explicit Refresh Contract
 
