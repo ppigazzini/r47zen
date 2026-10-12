@@ -293,8 +293,9 @@ It:
   [Signing isolation](#signing-isolation))
 - derives the Linux host LLVM major from the pinned NDK `clang`, then installs
   matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
-  `libclang-rt-<major>-dev` packages so the host PGO runtime shim does not
-  drift onto the runner-default LLVM toolchain
+  `libclang-rt-<major>-dev` packages with
+  `scripts/android/install_host_llvm_toolchain.sh` so the host PGO runtime
+  shim does not drift onto the runner-default LLVM toolchain
 - syncs the authoritative upstream tree
 - runs `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
 - runs `scripts/security/check_native_hardening.sh` on every packaged arm64
@@ -817,7 +818,7 @@ The rest, and what each one gates:
 |---|---|---|---|
 | `resolve-upstream-core.yml` | `workflow_call` from `android-ci.yml`, `android-release.yml`, `linux-ci.yml`, and `windows-ci.yml`, the lanes that build upstream code | resolves one upstream URL and commit per run through `upstream.sh resolve`, refusing any mode but `latest` unless a commit pin is passed | -- (a callee) |
 | `linux-ci.yml` | push to `main` and `github_ci`, pull request, nightly schedule | `upstream-resolver-policy` runs `test_resolver_policy.sh` and `test_fetch_retry.sh`; `linux-simulator` builds `make dist_linux`; `host-workload-regressions` runs the host harnesses and `run_workflow_contracts.sh` (see [08-tests-and-contracts.md](08-tests-and-contracts.md)); a green schedule or `main` push records the nightly marker | nothing requires it; it reports |
-| `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`; same nightly marker as Linux | nothing requires it; it reports |
+| `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`, adding the `c47.cmd` and `r47.cmd` launchers from `.github/project/windows-launchers/`; same nightly marker as Linux | nothing requires it; it reports |
 | `shell-lint.yml` | push to `main` and `github_ci`, pull request | `shellcheck` and `shfmt -i 4 -ci -d` over `scripts/**/*.sh`, then `actionlint` and `zizmor --no-online-audits --min-severity=medium` over the workflows, the composite actions, and `.github/dependabot.yml`; both jobs download the one `shellcheck` release the workflow-level `SHELLCHECK_VERSION` pins, never the runner image's copy | nothing requires it; it reports |
 | `docs-lint.yml` | push to `main` and `github_ci`, pull request | `scripts/docs/run_docs_lint.sh` (see [10-writing.md](10-writing.md#the-gates)) | nothing requires it; it reports |
 | `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL `c-cpp` with `build-mode: none` over repo-owned C, ignoring `src`, `dep`, and the staged tree; findings go to the Security tab. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
@@ -999,7 +1000,9 @@ The Android workflows publish these artifact classes:
   signing job, on a short retention (`retention-days` in each upload step)
 
 Android artifact names use the two-commit Android identity
-`upstream short + Android short`. Linux and Windows simulator package workflows
+`upstream short + Android short`, which
+`scripts/android/resolve_android_artifact_metadata.sh` derives for both
+Android workflows and `build_android.sh`. Linux and Windows simulator package workflows
 stay upstream-only because they ship the synced core without the Android
 overlay. The public production GitHub release tag uses the sanitized
 `version_name` instead so user-facing version discovery does not depend on the

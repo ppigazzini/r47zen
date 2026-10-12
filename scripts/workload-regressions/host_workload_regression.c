@@ -49,7 +49,7 @@ extern bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y);
 // everything from it rightwards is calculator state. The date can start at
 // X_DATE (25, or 1 once the time or WoY shares the row) and the time at
 // X_TIME_WOY (12 or 17), so masking from column 0 covers every flag
-// combination rather than today's.
+// combination rather than one.
 #define STATUS_BAR_CLOCK_COLUMNS ((uint32_t)X_REAL_COMPLEX)
 
 // Fail the build if a row stops packing into whole octets. compute_display_hash

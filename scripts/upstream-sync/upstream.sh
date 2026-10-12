@@ -1,4 +1,26 @@
 #!/bin/bash
+# scripts/upstream-sync/upstream.sh
+#
+# Resolve and hydrate the upstream C47 core this repo builds, and hold the line
+# between upstream-owned and repo-owned paths.
+#
+#   resolve  picks one upstream URL and commit. --auto, the default, takes
+#            --commit, then an upstream_commit pin in the git-ignored
+#            upstream.lock, then the newest commit on upstream_ref; --latest
+#            ignores any pin; --locked requires one.
+#   sync     overlays that commit's tree onto the working tree, then restores
+#            every path in REPO_OWNED_RESTORE_PATHS from HEAD, so upstream never
+#            keeps a file this repo tracks. It refuses a dirty tracked worktree
+#            unless --force.
+#   verify-restore-boundary  fails when the restore list would re-own an
+#            upstream root surface, or misses a tracked root path.
+#   verify-source-policy     fails when the tracked upstream.source pins an
+#            upstream_commit: the repo tracks upstream HEAD.
+#
+# test_resolver_policy.sh locks resolve's mode rules, and test_fetch_retry.sh
+# the retry_with_backoff every fetch goes through; the restore-boundary and
+# source-policy pre-commit hooks run the two verify commands.
+# android/docs/dev/00-project-and-upstream.md owns the policy.
 
 set -Eeuo pipefail
 
@@ -40,9 +62,9 @@ UPSTREAM_REQUIRED_FILES=(
 # Every Git-tracked root file this repo owns, plus the repo-owned directories.
 # The upstream overlay writes whatever upstream ships at its own root, so a root
 # file missing from this list is silently replaced by the upstream copy on the
-# next sync. Upstream added AGENTS.md and CLAUDE.md at its root, which is how
-# that gap first became visible; keep this list equal to the tracked root set in
-# AGENTS.md so the next upstream root file cannot repeat it.
+# next sync. Upstream ships its own AGENTS.md and CLAUDE.md, so those two are
+# the live case. verify-restore-boundary fails when a tracked root path is
+# missing here; the tracked root set in AGENTS.md is a copy no check holds.
 REPO_OWNED_RESTORE_PATHS=(
     .gitignore
     .pre-commit-config.yaml

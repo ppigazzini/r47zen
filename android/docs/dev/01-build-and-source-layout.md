@@ -436,7 +436,9 @@ Internal helpers:
   the androidTest assets. The host PGO collector and the workload harness read
   the hydrated `res/PROGRAMS` instead.
 - `scripts/keypad-fixtures/export_upstream_keypad_fixtures.sh` owns the grouped
-  keypad-fixture exporter implementation.
+  keypad-fixture exporter implementation; it compiles
+  `scripts/keypad-fixtures/keypad_fixture_exporter.c` with the glue and the
+  staged core and runs it.
 - `scripts/android/run_connected_android_tests.sh` owns the grouped hosted
   emulator instrumentation wrapper. It runs each non-fixture Android test class
   as a selection of its own and the whole `ProgramFixtureInstrumentedTest`

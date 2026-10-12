@@ -106,6 +106,13 @@ runtime fallback arrays.
 To check an external GIMP export, pass its JSON path to
 `validate_geometry_dataset.py`; no GIMP dataset is tracked in this repository.
 
+Two helper modules serve the suite and assert nothing themselves:
+`scripts/r47_contracts/_kotlin_consts.py` reads `const val` expressions out of
+the Kotlin sources the tests compare against, and
+`scripts/r47_contracts/runtime_fonts.py` finds the font files the font and
+visual-policy derivers read, hydrated `res/fonts` first, then the app's
+assets.
+
 The two hand-maintained inputs have a declared shape, and the loader is the
 gate. `scripts/r47_contracts/_contract_data.py` owns a valgebra schema for each:
 `PhysicalGeometry`, a closed `TypedDict` the geometry derivers read with static
@@ -706,8 +713,8 @@ Android compatibility layer.
   ASan, so it is bounded by the outer timeout and degraded to coverage while the
   other four fixtures must complete. It runs in the `host-workload-regressions`
   lane beside the plain run.
-- `scripts/workload-regressions/build_graph_crash_harness.sh` builds the same
-  tree under AddressSanitizer and UndefinedBehaviorSanitizer and hammers the
+- `scripts/workload-regressions/build_graph_crash_harness.sh` builds
+  `graph_crash_harness.c` with the same tree under AddressSanitizer and UndefinedBehaviorSanitizer and hammers the
   graph re-solve path the way a fast pan/zoom does. It exits 1 when the
   upstream solver leaks the RAM free-memory-region list:
   `numberOfFreeMemoryRegions` must stay within `R47_GRAPH_HARNESS_REGION_SLACK`
@@ -716,8 +723,8 @@ Android compatibility layer.
   table on a device. A negative slack forces the failure path, which is how to
   check the assertion still fires. `R47_GRAPH_HARNESS_ITERS` bounds the run;
   the `host-workload-regressions` job of `linux-ci.yml` runs 4000 re-solves.
-- `scripts/workload-regressions/build_clipboard_overflow_harness.sh` builds the
-  same tree under AddressSanitizer and drives the clipboard register dumps past
+- `scripts/workload-regressions/build_clipboard_overflow_harness.sh` builds
+  `clipboard_overflow_harness.c` with the same tree under AddressSanitizer and drives the clipboard register dumps past
   their buffer caps in the same CI job. It is a memory-safety probe: AddressSanitizer
   aborts on an overrun, and nothing checks the dumped text itself.
 - `scripts/android/run_keypad_generation_contract.sh` links `hal/lcd.c` alone on
@@ -764,8 +771,9 @@ Android compatibility layer.
   whether the flush or the writes themselves find it, and a regular file, a
   read, and `/dev/null`, whose `fsync` answers `EINVAL`, are not reported. It
   runs in the `host-workload-regressions` lane of `linux-ci.yml`.
-- `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds the staged
-  core and Android bridge under ThreadSanitizer and races the UI read path
+- `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds
+  `bridge_tsan_harness.c` with the staged core and Android bridge under
+  ThreadSanitizer and races the UI read path
   against the core, the one concurrency surface the single-threaded ASan/UBSan
   lanes never exercise. A startup phase runs the UI entry points -- the keypad
   copy through `r47_try_copy_app_keypad_snapshot` and the packed-display copy
@@ -933,12 +941,12 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_toolchain_pin_coherence_contract.sh` | the documentary Gradle and AGP pins in `r47-defaults.properties` match the wrapper and the version catalog, and the release-notes links on [09-official-references.md](09-official-references.md) name the same AGP line and Gradle version | text |
 | `run_build_jdk_pin_coherence_contract.sh` | the Gradle toolchain, every `setup-java`, and the doctor read the build JDK pin: the pin is read into `buildJdkVersion` once and never reassigned, every `JavaLanguageVersion.of` takes it, and no `jvmToolchain` sets a second one; live code only | yes, seeded copies of the Gradle file and the doctor |
 | `run_action_pin_consistency_contract.sh` | one SHA and tag per action, shfmt, shellcheck, actionlint, zizmor, ruff, and Python pinned alike in CI, pre-commit, `uv.lock`, and `pyproject.toml`, and no `-latest` runner label (see [07](07-ci-and-release-workflow.md#pins-that-live-in-more-than-one-file)) | yes, fixtures |
-| `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely, and every deadline site includes and calls the helpers, comments aside, with no raw comparison in either operand order | yes, compiles and runs a C test; the patterns prove themselves on seeded lines |
+| `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely (it compiles `scripts/android/wrap_safe_time_contract_test.c` against `r47_time.h`), and every deadline site includes and calls the helpers, comments aside, with no raw comparison in either operand order | yes, compiles and runs a C test; the patterns prove themselves on seeded lines |
 | `run_setup_android_packages_contract.sh` | every `setup-android` use passes explicit `packages:` without the legacy `tools` package | text |
 | `run_setup_android_composite_contract.sh` | SDK setup lives only in the composite, its actions are SHA-pinned on live lines, each cache key covers every input its install step reads, the composite saves its cache itself with `actions/cache/save` (never `actions/cache`, which saves after the job's upstream steps), and each save names its restore's paths and key | yes, cache-key and save fixtures |
 | `run_bridge_tsan_lane_contract.sh` | the TSan lane keeps `halt_on_error=1` and upstream-only suppressions (see above) | yes, fixtures |
 | `run_lock_free_signal_atomicity_contract.sh` | the lock-free display and refresh signals are defined C11 atomics, never plain `volatile`, comments aside, and every use in the glue is an `atomic_*(&signal, ...)` call | yes, fixtures |
-| `run_mini_gmp_accounting_contract.sh` | the shipped mini-gmp hands the GMP accounting hooks the size of every block it frees or reallocates, so the count returns to zero | yes, compiles and runs a C test under AddressSanitizer and UBSan, after it fails on a copy whose free passes size 0 |
+| `run_mini_gmp_accounting_contract.sh` | the shipped mini-gmp hands the GMP accounting hooks the size of every block it frees or reallocates, so the count returns to zero (`scripts/android/mini_gmp_accounting_contract_test.c`) | yes, compiles and runs a C test under AddressSanitizer and UBSan, after it fails on a copy whose free passes size 0 |
 | `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on; the test host activity (`r47.includeInstrumentationHost`) defaults off and `build-production-release-bundle` never turns it on; live code only | text |
 | `run_test_integrity_contract.sh` | the workload fixture-exit policy, the mutation spot-check, the connected lane's zero-test count, and that its selections are exactly the androidTest classes on disk (see above) | yes, runs them; the selection check on a seeded tree first |
 | `run_privacy_policy_parity_contract.sh` | the markdown and shipped-HTML privacy policies share section headings and a last-updated date | text |

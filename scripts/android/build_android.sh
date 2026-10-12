@@ -1,4 +1,28 @@
 #!/bin/bash
+# scripts/android/build_android.sh
+#
+# The canonical Android debug build, from a checkout that may hold no upstream
+# core yet to android/app/build/outputs/apk/debug/app-debug.apk.
+#
+# It resolves one upstream commit through scripts/upstream-sync/upstream.sh and
+# hydrates it when the root inputs are missing, builds build.sim, stages the
+# native inputs into android/.staged-native/cpp, and runs Gradle through the
+# tracked wrapper, every stage from that one commit. What it holds to:
+#
+#   * --android-only builds only while android/.staged-native/cpp/
+#     STAGED-INPUTS.properties still matches the canonical sources, the
+#     generated outputs, the mini-gmp fallback, and the fonts; a stale staged
+#     tree is refused, never reused.
+#   * A missing Gradle wrapper is a repo-integrity failure, never a reason to
+#     run a host gradle.
+#   * --doctor reports the host toolchain and the staged tree, and exits
+#     before any build step.
+#
+# NOT done here: Android lint, and the release APK and bundle, which CI's
+# release lanes build with Gradle directly; --validate-release-pgo builds only
+# the release native library, to check it consumes the profile.
+# android/docs/dev/01-build-and-source-layout.md owns each flag; --help lists
+# them.
 
 set -Eeuo pipefail
 
@@ -49,6 +73,11 @@ Modes:
     --run-sim-tests        Run the simulator/native Meson test suite from the Android full-build path.
     --collect-host-pgo     Collect a host-core PGO profile through the Android build wrapper.
     --validate-release-pgo Validate :app:externalNativeBuildRelease against a collected or provided .profdata file.
+
+Options:
+    --host-pgo-output-dir <dir>   Write the collected profile to <dir>; implies --collect-host-pgo.
+    --verify-packaging            Write the packaging evidence CI publishes for an APK.
+    --verify-packaging-dir <dir>  Write that evidence to <dir>; implies --verify-packaging.
 EOF
 }
 
@@ -291,6 +320,7 @@ while [ "$#" -gt 0 ]; do
             ;;
         --verify-packaging-dir)
             VERIFY_PACKAGING=true
+            [ "$#" -ge 2 ] || fail "Missing value for --verify-packaging-dir"
             VERIFY_PACKAGING_DIR="$2"
             shift 2
             ;;
