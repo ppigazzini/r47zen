@@ -865,11 +865,11 @@ Android compatibility layer.
   focused debugging.
 - `scripts/upstream-sync/upstream.sh verify-restore-boundary` fails when the
   repo-owned restore allowlist would re-own authoritative upstream root
-  surfaces, and also when a tracked root file is missing from that allowlist
-  (the overlay would then replace it with upstream's copy); `sync` runs that
-  same guard before it restores tracked paths, and the `restore-boundary`
-  pre-commit hook runs it when a root file or `upstream.sh` changes. It reads
-  the index, so it sees a root file the commit adds
+  surfaces, and also when a tracked root entry, a file or a directory, is
+  missing from that allowlist (the overlay would then replace it, or a file in
+  it, with upstream's copy); `sync` runs that same guard before it restores
+  tracked paths, and the `restore-boundary` pre-commit hook runs it on every
+  commit. It reads the index, so it sees what the commit adds
 - `scripts/upstream-sync/test_resolver_policy.sh` runs `upstream.sh` against
   a throwaway local repository standing in for upstream: with no pin, `--auto`
   and `--latest` resolve the latest HEAD; a pin in `upstream.lock` is honoured

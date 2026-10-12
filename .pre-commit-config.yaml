@@ -96,13 +96,14 @@ repos:
         files: ^(\.github/|scripts/|android/|\.pre-commit-config\.yaml$|pyproject\.toml$|uv\.lock$)
         pass_filenames: false
       - id: restore-boundary
-        # Every tracked root file must be in upstream.sh's restore set, or the
-        # next sync replaces it with upstream's copy. The check reads the
-        # index, so it sees a root file this commit adds.
+        # Every tracked root entry, file or directory, must be in upstream.sh's
+        # restore set, or the next sync replaces it with upstream's copy. The
+        # check reads the index, so it sees what this commit adds, at any depth;
+        # it takes milliseconds, so it runs on every commit.
         name: upstream sync restore boundary
         entry: scripts/upstream-sync/upstream.sh verify-restore-boundary
         language: script
-        files: ^([^/]+|scripts/upstream-sync/upstream\.sh)$
+        always_run: true
         pass_filenames: false
       - id: commit-message
         # The commit rules in android/docs/dev/10-writing.md that a script can

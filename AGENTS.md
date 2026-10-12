@@ -181,7 +181,7 @@ make sim && make test                                # upstream simulator core
   source, and Kotlin, JNI, and native signatures still agree.
 - The sync contract was checked if the task adds or moves local-only files
   (`scripts/upstream-sync/upstream.sh verify-restore-boundary`; the
-  `restore-boundary` pre-commit hook runs it on a root-file change).
+  `restore-boundary` pre-commit hook runs it on every commit).
 - Every page whose claims the change touched was updated in the same commit.
 - Tracked docs are ASCII and do not reference `__DEV/`.
 - Residual risks are explicit.

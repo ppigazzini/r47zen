@@ -274,12 +274,13 @@ verify_source_policy() {
     fi
 }
 
-# Every Git-tracked file at the repo root must be in the restore set. The
-# overlay writes upstream's root over ours, so a root file left out is replaced
-# by upstream's copy on the next sync, silently and without a diff to review.
-# Directories are covered by their own entries, so only depth-1 files are checked.
-# Read the index, not HEAD: a sync refuses staged changes, so the two agree
-# there, and the pre-commit hook needs the file being added, which HEAD lacks.
+# Every Git-tracked entry at the repo root, file or directory, must be in the
+# restore set, a directory as `name/`. The overlay writes upstream's tree over
+# ours, so a root file left out, or a file in a directory left out whose name
+# upstream also uses, is replaced by upstream's copy on the next sync, silently
+# and without a diff to review. Read the index, not HEAD: a sync refuses staged
+# changes, so the two agree there, and the pre-commit hook needs the entry
+# being added, which HEAD lacks.
 verify_restore_root_coverage() {
     local root_file=""
     local restore_path=""
@@ -298,11 +299,15 @@ verify_restore_root_coverage() {
         [ -n "$covered" ] || missing+=("$root_file")
     done < <(git -C "$PROJECT_ROOT" ls-files |
         while IFS= read -r entry; do
-            [[ "$entry" != */* && -f "$PROJECT_ROOT/$entry" ]] && printf '%s\n' "$entry"
-        done)
+            if [[ "$entry" == */* ]]; then
+                printf '%s/\n' "${entry%%/*}"
+            elif [ -f "$PROJECT_ROOT/$entry" ]; then
+                printf '%s\n' "$entry"
+            fi
+        done | LC_ALL=C sort -u)
 
     if [ "${#missing[@]}" -gt 0 ]; then
-        fail "Restore coverage gap: tracked root file(s) missing from REPO_OWNED_RESTORE_PATHS: ${missing[*]}. The upstream overlay would replace them with upstream's copies. Add each one to the list in $(basename "${BASH_SOURCE[0]}")."
+        fail "Restore coverage gap: tracked root entries missing from REPO_OWNED_RESTORE_PATHS: ${missing[*]}. The upstream overlay would replace them with upstream's copies. Add each one to the list in $(basename "${BASH_SOURCE[0]}")."
     fi
 }
 

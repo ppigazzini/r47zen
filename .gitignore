@@ -54,6 +54,10 @@ gha-creds-*.json
 
 # GitLab C43 upstream overlay
 # Ignore every root-level upstream payload, then reopen only repo-owned paths.
+# A path reopened here and tracked must also be in REPO_OWNED_RESTORE_PATHS in
+# scripts/upstream-sync/upstream.sh, or a sync overwrites it with upstream's
+# copy; `upstream.sh verify-restore-boundary` (a pre-commit hook) fails until
+# it is.
 /*
 !/.github/
 !/.gitignore
