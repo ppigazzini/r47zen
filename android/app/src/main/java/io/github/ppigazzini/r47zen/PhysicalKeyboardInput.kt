@@ -12,6 +12,14 @@ internal sealed interface PhysicalKeyboardAction {
     data class Shortcut(val id: PhysicalKeyboardShortcutId) : PhysicalKeyboardAction
 }
 
+// The core's ids for the keys the shortcut sequences press most: the f and g
+// shift keys, and EEX, the exponent key.
+internal object SimKeyIds {
+    const val F_SHIFT = "10"
+    const val G_SHIFT = "11"
+    const val EEX = "15"
+}
+
 internal object PhysicalKeyboardMapper {
     private val ignoredModifierKeyCodes = setOf(
         KeyEvent.KEYCODE_SHIFT_LEFT,
@@ -76,31 +84,31 @@ internal object PhysicalKeyboardShortcuts {
         enqueueMenu: (Int) -> Unit,
     ): Unit = when (id) {
         PhysicalKeyboardShortcutId.PERCENT -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "07")
         }
         PhysicalKeyboardShortcutId.FACTORIAL -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "02")
         }
         PhysicalKeyboardShortcutId.DOTD -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "03")
         }
         PhysicalKeyboardShortcutId.HASH -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "05")
         }
         PhysicalKeyboardShortcutId.MS -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "02")
         }
         PhysicalKeyboardShortcutId.LASTX -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "13")
         }
         PhysicalKeyboardShortcutId.ECONST -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "36", pauseAfterReleaseMs = LONG_PAUSE_MS)
             tap(
                 enqueueKey,
@@ -108,172 +116,172 @@ internal object PhysicalKeyboardShortcuts {
                 isFunctionKey = true,
                 pauseAfterReleaseMs = LONG_PAUSE_MS,
             )
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "2", isFunctionKey = true)
         }
         PhysicalKeyboardShortcutId.TO_REC -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "00")
         }
         PhysicalKeyboardShortcutId.TAN -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "20")
         }
         PhysicalKeyboardShortcutId.ATAN -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "20")
         }
         PhysicalKeyboardShortcutId.XTHROOT -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "03")
         }
         PhysicalKeyboardShortcutId.UNDO -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "16")
         }
         PhysicalKeyboardShortcutId.USER -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "09")
         }
         PhysicalKeyboardShortcutId.IMAG_J -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "00")
         }
         PhysicalKeyboardShortcutId.DISP -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "14")
         }
         PhysicalKeyboardShortcutId.TEN_TO_X -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "04")
         }
         PhysicalKeyboardShortcutId.PI -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "08")
         }
         PhysicalKeyboardShortcutId.TO_I -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "04")
         }
         PhysicalKeyboardShortcutId.HOME -> enqueueMenu(NativeShellCodes.MENU_HOME)
         PhysicalKeyboardShortcutId.MYMENU -> enqueueMenu(NativeShellCodes.MENU_MY_MENU)
         PhysicalKeyboardShortcutId.TO_POL -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "01")
         }
         PhysicalKeyboardShortcutId.IMAG_POL -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "01")
         }
         PhysicalKeyboardShortcutId.ALPHA,
         PhysicalKeyboardShortcutId.AIM -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "17")
         }
         PhysicalKeyboardShortcutId.SIGMAP -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "21", pauseAfterReleaseMs = LONG_PAUSE_MS)
             tap(enqueueKey, "1", isFunctionKey = true)
         }
         PhysicalKeyboardShortcutId.ANGLE -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "06")
         }
         PhysicalKeyboardShortcutId.SIN -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "18")
         }
         PhysicalKeyboardShortcutId.ASIN -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "18")
         }
         PhysicalKeyboardShortcutId.RUP -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "08")
         }
         PhysicalKeyboardShortcutId.PREFIX -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-            tap(enqueueKey, "15")
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.EEX)
         }
         PhysicalKeyboardShortcutId.GTO -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "17")
         }
         PhysicalKeyboardShortcutId.EXP -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-            tap(enqueueKey, "15")
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.EEX)
         }
         PhysicalKeyboardShortcutId.COMPLEX -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "12")
         }
         PhysicalKeyboardShortcutId.STK -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "13")
         }
         PhysicalKeyboardShortcutId.EXP_E -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "05")
         }
         PhysicalKeyboardShortcutId.COS -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "19")
         }
         PhysicalKeyboardShortcutId.ACOS -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "19")
         }
         PhysicalKeyboardShortcutId.LBL -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "05")
         }
         PhysicalKeyboardShortcutId.PRGM -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "35")
         }
         PhysicalKeyboardShortcutId.PREF -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "28")
         }
         PhysicalKeyboardShortcutId.RTN -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "35")
         }
         PhysicalKeyboardShortcutId.DRG -> press(enqueueKey, "09")
         PhysicalKeyboardShortcutId.SI_N -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.EEX, pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "3", isFunctionKey = true)
         }
         PhysicalKeyboardShortcutId.SI_U -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.EEX, pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "2", isFunctionKey = true)
         }
         PhysicalKeyboardShortcutId.SI_M -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.EEX, pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "1", isFunctionKey = true)
         }
         PhysicalKeyboardShortcutId.SI_K -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.EEX, pauseAfterReleaseMs = LONG_PAUSE_MS)
             tap(enqueueKey, "1", isFunctionKey = true)
         }
         PhysicalKeyboardShortcutId.SI_MEGA -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-            tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.EEX, pauseAfterReleaseMs = LONG_PAUSE_MS)
             tap(enqueueKey, "2", isFunctionKey = true)
         }
         PhysicalKeyboardShortcutId.TGLFRT -> {
-            tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.G_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "34")
         }
         PhysicalKeyboardShortcutId.ABS -> {
-            tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+            tap(enqueueKey, SimKeyIds.F_SHIFT, pauseAfterReleaseMs = TAP_DELAY_MS)
             tap(enqueueKey, "06")
         }
     }

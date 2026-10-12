@@ -128,8 +128,6 @@ internal class NativeCoreRuntime(
         // True until the core thread has left its loop and drained its queue.
         fun isCoreThreadRunning(): Boolean = isCoreThreadStarted
 
-        internal fun isCoreThreadStartedForTest(): Boolean = isCoreThreadStarted
-
         // Never joins from the core thread itself: a dispose() issued on the
         // core thread (see the awaitCoreTask deadline test) would otherwise
         // deadlock, and that thread is already unwinding its own loop.
@@ -139,8 +137,6 @@ internal class NativeCoreRuntime(
                 thread.join(timeoutMillis)
             }
         }
-
-        internal fun isNativeInitializedForTest(): Boolean = isNativeInitializedShared
 
         internal fun resetSharedState() {
             coreTasks.clear()
@@ -257,10 +253,6 @@ internal class NativeCoreRuntime(
             } catch (error: Exception) {
                 Log.e(TAG, "Core task failed", error)
             }
-        }
-
-        internal fun resetSharedStateForTest() {
-            resetSharedState()
         }
     }
 

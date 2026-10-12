@@ -8,16 +8,10 @@ internal object KeypadRefreshPolicy {
     const val ENABLE_UNCHANGED_SNAPSHOT_SKIP = true
 }
 
-internal class KeypadSnapshotRefreshGate {
+internal class KeypadSnapshotRefreshGate(
+    private val enabled: Boolean = KeypadRefreshPolicy.ENABLE_UNCHANGED_SNAPSHOT_SKIP,
+) {
     private var lastAppliedSnapshot: KeypadSnapshot? = null
-
-    constructor(
-        enabled: Boolean = KeypadRefreshPolicy.ENABLE_UNCHANGED_SNAPSHOT_SKIP,
-    ) {
-        this.enabled = enabled
-    }
-
-    private val enabled: Boolean
 
     fun reset() {
         lastAppliedSnapshot = null

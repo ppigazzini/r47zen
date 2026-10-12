@@ -35,7 +35,6 @@
     <ID>LoopWithTooManyJumpStatements:ReplicaOverlay.kt:ReplicaOverlay$for</ID>
     <ID>LoopWithTooManyJumpStatements:SettingsActivityThemeTest.kt:SettingsActivityThemeTest$for</ID>
     <ID>LoopWithTooManyJumpStatements:TopLabelLaneLayout.kt:TopLabelLaneLayout$for</ID>
-    <ID>MagicNumber:AudioEngine.kt:AudioEngine$100</ID>
     <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$0.45f</ID>
     <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$1.5f</ID>
     <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$11</ID>
@@ -83,7 +82,6 @@
     <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$developerPerformanceTextPaint.textSize</ID>
     <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$return (((sin((nowMillis % periodMillis) / periodMillis.toDouble() * SettingsDiscoveryHintVisualPolicy.FULL_PULSE_RADIANS) + 1.0) * 0.5)).toFloat()</ID>
     <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$val</ID>
-    <ID>MaxLineLength:ReplicaOverlayGoldenTest.kt:ReplicaOverlayGoldenTest$val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext&lt;android.content.Context&gt;().resources)</ID>
     <ID>MaxLineLength:SettingsActivity.kt:SettingsFragment$val softkeyPreference = findPreference&lt;ListPreference&gt;(MainActivityPreferenceController.KEY_SOFTKEY_DYNAMIC_MODE) ?: return</ID>
     <ID>MaxLineLength:TopLabelLaneLayout.kt:TopLabelLaneLayout$compareBy&lt;Pair&lt;TopLabelLaneShiftTarget, Int&gt;&gt;({ it.first.overrun }, { it.second }, { it.first.offenderIndex })</ID>
     <ID>MaxLineLength:TopLabelLaneLayout.kt:TopLabelLaneLayout$if</ID>
@@ -141,8 +139,6 @@
     <ID>TooManyFunctions:TopLabelLaneLayout.kt:TopLabelLaneLayout</ID>
     <ID>UnusedParameter:C47TypefacePolicy.kt:C47TypefacePolicy$text: CharSequence</ID>
     <ID>VariableNaming:MainActivity.kt:MainActivity$private val TAG = "R47Activity"</ID>
-    <ID>WildcardImport:MainActivity.kt:import android.os.*</ID>
-    <ID>WildcardImport:MainActivity.kt:import android.view.*</ID>
     <ID>WildcardImport:ReplicaOverlay.kt:import android.graphics.*</ID>
   </CurrentIssues>
 </SmellBaseline>

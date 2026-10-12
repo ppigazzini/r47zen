@@ -1,6 +1,5 @@
 package io.github.ppigazzini.r47zen
 
-import android.content.res.Resources
 import kotlin.math.min
 
 internal data class ReplicaProjection(val scale: Float, val offsetX: Float, val offsetY: Float)
@@ -19,9 +18,7 @@ internal data class ReplicaChromeSpec(
     val scaledModeFitTrimBottom: Float = 0f,
 )
 
-internal class ReplicaChromeLayout(
-    @Suppress("UNUSED_PARAMETER") resources: Resources,
-) {
+internal class ReplicaChromeLayout {
     private val nativeChromeSpec = ReplicaChromeSpec(
         shellWidth = R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH,
         shellHeight = R47ReferenceGeometry.LOGICAL_CANVAS_HEIGHT,

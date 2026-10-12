@@ -25,12 +25,12 @@ class NativeCoreRuntimeTest {
 
     @Before
     fun setUp() {
-        NativeCoreRuntime.resetSharedStateForTest()
+        NativeCoreRuntime.resetSharedState()
     }
 
     @After
     fun tearDown() {
-        NativeCoreRuntime.resetSharedStateForTest()
+        NativeCoreRuntime.resetSharedState()
     }
 
     @Test
@@ -61,7 +61,7 @@ class NativeCoreRuntimeTest {
         waitUntil("core reattach activity ref", 2_000) { updateCalls.get() == 1 }
 
         runtime.dispose(stopApp = true)
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
 
         assertEquals(1, initCalls.get())
         assertEquals(1, updateCalls.get())
@@ -75,7 +75,7 @@ class NativeCoreRuntimeTest {
         first.attach()
         assertTrue(initLatch.await(2, TimeUnit.SECONDS))
         first.dispose(stopApp = true)
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
 
         // The native runtime outlives the stopped thread, so the restarted thread
         // rebinds the new host instead of initializing it.
@@ -93,7 +93,7 @@ class NativeCoreRuntimeTest {
         assertEquals(listOf("activityRef"), calls.toList())
 
         second.dispose(stopApp = true)
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
     }
 
     @Test
@@ -108,13 +108,13 @@ class NativeCoreRuntimeTest {
 
         runtime.attach()
         assertTrue(initLatch.await(2, TimeUnit.SECONDS))
-        waitUntil("native init", 2_000) { NativeCoreRuntime.isNativeInitializedForTest() }
+        waitUntil("native init", 2_000) { NativeCoreRuntime.isNativeInitialized() }
 
         runtime.saveStateOnPause(autoSaveEnabled = true, timeoutMillis = 1_000)
         assertEquals(1, saveCalls.get())
 
         runtime.dispose(stopApp = true)
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
 
         runtime.offerTask(Runnable { taskLatch.countDown() })
         assertFalse(taskLatch.await(200, TimeUnit.MILLISECONDS))
@@ -140,7 +140,7 @@ class NativeCoreRuntimeTest {
         runtime.attach()
 
         assertTrue(waitLatch.await(2, TimeUnit.SECONDS))
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
         assertEquals(37L, waitObserved.get())
     }
 
@@ -164,7 +164,7 @@ class NativeCoreRuntimeTest {
         assertEquals("R47CoreRuntime", updateThreadName.get())
 
         runtime.dispose(stopApp = true)
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
     }
 
     @Test
@@ -205,7 +205,7 @@ class NativeCoreRuntimeTest {
         // iteration: only the shutdown drain can run the queued save.
         tickGate.countDown()
         assertTrue("queued save must be flushed on shutdown", saveRan.await(2, TimeUnit.SECONDS))
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
     }
 
     @Test
@@ -225,7 +225,7 @@ class NativeCoreRuntimeTest {
         runtime.attach()
         assertTrue(initLatch.await(2, TimeUnit.SECONDS))
         waitUntil("core thread stops after crash", 2_000) {
-            !NativeCoreRuntime.isCoreThreadStartedForTest()
+            !NativeCoreRuntime.isCoreThreadRunning()
         }
 
         // A crashed core must clear the running flag, not leave an interactive
@@ -251,7 +251,7 @@ class NativeCoreRuntimeTest {
         }
 
         second.dispose(stopApp = true)
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
     }
 
     // A separate frame, so no local in the test method keeps the first host alive.
@@ -277,7 +277,7 @@ class NativeCoreRuntimeTest {
         assertTrue(initLatch.await(2, TimeUnit.SECONDS))
 
         runtime.dispose(stopApp = true)
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
 
         assertEquals(listOf(CORE_THREAD_NAME), releaseThreads.toList())
     }
@@ -305,9 +305,9 @@ class NativeCoreRuntimeTest {
         assertTrue(taskEntered.await(2, TimeUnit.SECONDS))
 
         runtime.dispose(stopApp = true)
-        assertTrue("the core thread is still busy", NativeCoreRuntime.isCoreThreadStartedForTest())
+        assertTrue("the core thread is still busy", NativeCoreRuntime.isCoreThreadRunning())
         taskGate.countDown()
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
 
         // dispose cleared the host before the thread left its loop, so nothing
         // released the globals: the next attach replaces them on the core thread.
@@ -352,11 +352,11 @@ class NativeCoreRuntimeTest {
         disposer.join(2_000)
 
         waitUntil("the new host's core thread ticks", 2_000) { secondTicks.get() > 0 }
-        assertTrue(NativeCoreRuntime.isCoreThreadStartedForTest())
+        assertTrue(NativeCoreRuntime.isCoreThreadRunning())
         assertTrue("the new host's activity ref is set", secondRefUpdates.get() >= 1)
 
         second.dispose(stopApp = true)
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
     }
 
     @Test
@@ -387,7 +387,7 @@ class NativeCoreRuntimeTest {
         waitUntil("ticks after the park", 2_000) { ticks.get() > parkedTicks }
 
         runtime.dispose(stopApp = true)
-        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadStartedForTest() }
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
     }
 
     @Test
@@ -407,7 +407,7 @@ class NativeCoreRuntimeTest {
         runtime.attach()
         assertTrue(initLatch.await(2, TimeUnit.SECONDS))
         waitUntil("core thread stops after the error", 2_000) {
-            !NativeCoreRuntime.isCoreThreadStartedForTest()
+            !NativeCoreRuntime.isCoreThreadRunning()
         }
 
         assertFalse("an Error must clear the running flag too", NativeCoreRuntime.isAppRunning())

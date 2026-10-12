@@ -76,7 +76,7 @@ internal class PhysicalKeyboardInputController(
 
         if (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
             if (!interceptedWhileHeld) {
-                tapModifier("10")
+                tapModifier(SimKeyIds.F_SHIFT)
             }
             isPhysicalShiftHeld = false
             return true
@@ -84,7 +84,7 @@ internal class PhysicalKeyboardInputController(
 
         if (keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT) {
             if (!interceptedWhileHeld) {
-                tapModifier("11")
+                tapModifier(SimKeyIds.G_SHIFT)
             }
             isPhysicalCtrlHeld = false
             return true

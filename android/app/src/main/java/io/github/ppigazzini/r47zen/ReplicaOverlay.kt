@@ -123,7 +123,7 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     private var isPiPMode = false
     private var showTouchZones = false
-    private val chromeLayout = ReplicaChromeLayout(resources)
+    private val chromeLayout = ReplicaChromeLayout()
 
     // Starts in the policy's default palette; MainActivity sets the stored
     // theme in onCreate, before the first draw.

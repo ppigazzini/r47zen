@@ -36,7 +36,7 @@ class ReplicaOverlayGoldenTest {
         assertTrue(overlay.updatePackedLcd(packedBuffer))
 
         val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
-        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val chromeLayout = ReplicaChromeLayout()
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
         val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
@@ -55,7 +55,7 @@ class ReplicaOverlayGoldenTest {
         assertTrue(overlay.updatePackedLcd(packedBuffer))
 
         val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
-        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val chromeLayout = ReplicaChromeLayout()
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
         val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
@@ -87,7 +87,7 @@ class ReplicaOverlayGoldenTest {
         assertTrue(overlay.updatePackedLcd(packedBuffer))
 
         val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
-        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val chromeLayout = ReplicaChromeLayout()
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
         val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
@@ -106,7 +106,7 @@ class ReplicaOverlayGoldenTest {
         assertTrue(overlay.updatePackedLcd(packedBuffer))
 
         val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
-        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val chromeLayout = ReplicaChromeLayout()
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
         val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
@@ -231,7 +231,7 @@ class ReplicaOverlayGoldenTest {
     @Test
     fun touchBelowSettingsStripIsIntercepted() {
         val overlay = configuredOverlay()
-        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val chromeLayout = ReplicaChromeLayout()
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(overlay.width.toFloat(), overlay.height.toFloat())
         val touchY = projection.offsetY + (spec.topBezelSettingsTapHeight + 24f) * projection.scale
@@ -523,7 +523,7 @@ class ReplicaOverlayGoldenTest {
     }
 
     private fun lcdWindowCenter(overlay: ReplicaOverlay): Pair<Float, Float> {
-        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val chromeLayout = ReplicaChromeLayout()
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(overlay.width.toFloat(), overlay.height.toFloat())
         val x = projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth * 0.5f) * projection.scale
@@ -591,7 +591,7 @@ class ReplicaOverlayGoldenTest {
     }
 
     private fun settingsStripTapPoint(overlay: ReplicaOverlay): Pair<Float, Float> {
-        val chromeLayout = ReplicaChromeLayout(ApplicationProvider.getApplicationContext<android.content.Context>().resources)
+        val chromeLayout = ReplicaChromeLayout()
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(overlay.width.toFloat(), overlay.height.toFloat())
         return Pair(

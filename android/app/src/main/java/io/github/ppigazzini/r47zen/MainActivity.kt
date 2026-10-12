@@ -5,10 +5,15 @@ import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.media.AudioManager
-import android.os.*
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
+import android.view.KeyEvent
 import android.view.View
-import android.view.*
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatActivity

@@ -9,6 +9,11 @@ import java.util.concurrent.LinkedBlockingQueue
 object AudioEngine {
     private const val TAG = "R47Audio"
 
+    // beeperVolume runs 0 to 100, and a full-volume beep peaks at 16384, half
+    // of Short's range, so the square wave never clips.
+    private const val MAX_BEEPER_VOLUME = 100
+    private const val FULL_VOLUME_AMPLITUDE = 16384
+
     private val audioQueue = LinkedBlockingQueue<Long>()
 
     @Volatile
@@ -25,7 +30,7 @@ object AudioEngine {
 
     fun updateSettings(enabled: Boolean, volume: Int) {
         isBeeperEnabled = enabled
-        beeperVolume = volume.coerceIn(0, 100)
+        beeperVolume = volume.coerceIn(0, MAX_BEEPER_VOLUME)
     }
 
     @Synchronized
@@ -84,7 +89,8 @@ object AudioEngine {
 
                     val frequency = (packed shr 32).toInt()
                     val durationMs = (packed and 0xFFFFFFFF).toInt()
-                    val amplitude: Short = (beeperVolume * 163.84).toInt().toShort()
+                    val amplitude: Short =
+                        (beeperVolume * FULL_VOLUME_AMPLITUDE / MAX_BEEPER_VOLUME).toShort()
                     val totalSamples = (durationMs + 20) * sampleRate / 1000
                     val noteSamples = durationMs * sampleRate / 1000
                     val actualSamples = minOf(totalSamples, bufferSize)
