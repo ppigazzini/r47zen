@@ -535,7 +535,7 @@ flowchart TD
   E[build-production-release-bundle<br/>unsigned, no secrets]
   S[sign-production-release<br/>production-release environment]
   V[verify-production-release<br/>emulator, throwaway key]
-  W[verify-published-artifacts]
+  W[verify-signed-artifacts<br/>before publication]
   I[publish-production-release]
   J[versioned GitHub release]
   P[upload-to-play<br/>play-upload environment, keyless]
@@ -647,7 +647,7 @@ This workflow job:
 
 - downloads the signed AAB and APK workflow artifact bundles after
   `sign-production-release`, `verify-production-release`, and
-  `verify-published-artifacts` succeed
+  `verify-signed-artifacts` succeed
 - repacks maintainers' packaging-evidence zips for the AAB and APK from the
   collected compliance assets, provenance, mapping, symbols, and packaging
   reports
@@ -780,15 +780,17 @@ release-only regression is caught before the store handoff rather than after
 publication. It does not test the published bytes: those are minified and
 signed by `sign-production-release`.
 
-### `verify-published-artifacts`
+### `verify-signed-artifacts`
 
-Runs on `main` after `sign-production-release`. It downloads the
-published release APK and AAB and verifies they match the recorded packaging
-evidence (signing mode, ABIs, version, checksums, and the signer certificate
-SHA-256) via `scripts/android/verify_published_release_artifacts.sh`, so a
-mismatch between what was built and what was attached to the release fails the
-lane. This is the post-publish integrity gate that complements the SLSA
-provenance attestation.
+Runs on `main` after `sign-production-release` and before anything is
+published. It downloads the signed APK and AAB workflow artifacts and checks
+each against its recorded packaging evidence (signing mode, ABIs, version,
+checksums, and the signer certificate SHA-256) with
+`scripts/android/verify_published_release_artifacts.sh`.
+`publish-production-release` needs this job and downloads the same two
+artifacts, so the bytes it checks are the bytes the release attaches and the
+attestation covers. It does not read the GitHub release: a release edited after
+publication is outside what it proves.
 
 The signer certificate is derived cryptographically in
 `sign-production-release` by `collect_packaging_evidence.sh` (`apksigner` for

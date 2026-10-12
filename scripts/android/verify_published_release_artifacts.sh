@@ -1,12 +1,14 @@
 #!/bin/bash
 
-# Verify the exact production artifacts that the release lane publishes.
+# Verify the exact production artifacts the release lane is about to publish.
 #
-# The signed APK and AAB that get attached to the GitHub release are produced by
-# build-production-release-bundle and uploaded as evidence bundles. This script
-# runs against those downloaded bundles and asserts that the published bytes
-# match their recorded digest and carry the requested identity, so the release
-# gate verifies the artifact that ships rather than a separately rebuilt one.
+# sign-production-release signs the APK and AAB build-production-release-bundle
+# built, and uploads each with its evidence as a workflow artifact. The release
+# lane's verify-signed-artifacts job runs this script on those bundles before
+# publish-production-release, which downloads the same two artifacts, so the
+# gate checks the bytes that ship rather than a separately rebuilt copy. It
+# asserts each artifact matches its recorded digest and carries the requested
+# identity.
 #
 # It needs no Android SDK and no signing key: it reads the evidence each bundle
 # already carries (BUILD-METADATA.txt, SHA256SUMS.txt, abis.txt) and recomputes
