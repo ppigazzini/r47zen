@@ -642,6 +642,13 @@ Android compatibility layer.
   framework. It runs as the dedicated `host-workload-regressions` lane in
   `linux-ci.yml` on every pull request (no emulator), in addition to remaining
   the focused host compatibility rerun surface
+- Every fixture must end with `gmpMemInBytes` at 0, the invariant upstream's
+  own `items.c` self-check holds after each operation: a fixture that leaves a
+  long integer allocated fails the lane. The vendored mini-gmp reports each
+  block's real size to the core's hooks, which
+  `run_mini_gmp_accounting_contract.sh` holds, so the count is exact.
+  `R47_WORKLOAD_SEED_GMP_LEAK=1` leaks one long integer per fixture, to prove
+  the check fires.
 - `host_workload_regression.c` reads the X register after each fixture and
   logs it (`INFO: <fixture> X register = <type>:<value>`), so a changed result
   is visible. `NQueens.p47` is a per-fixture numeric oracle: seeded with `N = 8`

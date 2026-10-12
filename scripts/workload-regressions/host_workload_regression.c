@@ -28,6 +28,9 @@ extern uint16_t numberOfPrograms;
 extern void runFunction(int16_t func);
 extern void reallyRunFunction(int16_t func, uint16_t param);
 extern void fnLoadProgram(uint16_t unusedButMandatoryParameter);
+// Bytes of GMP memory the core holds, counted by the allocGmp / reallocGmp /
+// freeGmp hooks it installs with mp_set_memory_functions.
+extern size_t gmpMemInBytes;
 extern int16_t dynamicMenuItem;
 extern calcRegister_t findNamedLabel(const char *labelName, uint8_t labelType);
 extern void reallocateRegister(calcRegister_t regist, uint32_t dataType,
@@ -635,13 +638,24 @@ static workload_result_t run_program_fixture_workload(
             scenario->program_name);
     return WORKLOAD_RESULT_FAIL;
   }
-  // No gmpMemInBytes leak check: this host build links the Android mini-gmp
-  // fallback (android/compat/mini-gmp-fallback), whose gmp_free / gmp_xrealloc_
-  // limbs pass size 0 to the core's freeGmp / reallocGmp accounting hooks. The
-  // core's gmpMemInBytes counter therefore only ever increments and is monotonic
-  // under mini-gmp, so a positive delta is an accounting artifact, not a leak
-  // (the memory is freed correctly). Real allocation leaks are caught by the
-  // ASan/UBSan sanitized workload lane, not by this counter.
+  // Every long integer the core allocates through GMP must be freed by the time
+  // a program ends: upstream's own self-check in items.c holds gmpMemInBytes at
+  // 0 after each operation. The vendored mini-gmp hands the hooks each block's
+  // real size (run_mini_gmp_accounting_contract.sh holds it so), so a non-zero
+  // count is a leaked long integer, which ASan would report only at exit.
+  // R47_WORKLOAD_SEED_GMP_LEAK=1 leaks one on purpose, to prove this fires.
+  const char *seed_gmp_leak = getenv("R47_WORKLOAD_SEED_GMP_LEAK");
+  if (seed_gmp_leak != NULL && strcmp(seed_gmp_leak, "1") == 0) {
+    mpz_t leaked;
+    mpz_init_set_ui(leaked, 1u);
+  }
+  if (gmpMemInBytes != 0u) {
+    fprintf(stderr,
+            "ERROR: %s left %zu bytes of GMP memory allocated; a long integer "
+            "was not freed\n",
+            scenario->program_name, gmpMemInBytes);
+    return WORKLOAD_RESULT_FAIL;
+  }
 
   char x_value[3200];
   read_x_register_value_string(x_value, sizeof(x_value));
