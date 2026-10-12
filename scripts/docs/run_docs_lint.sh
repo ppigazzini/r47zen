@@ -31,6 +31,8 @@
 #
 # NOT checked, deliberately: whether a sentence is true. A fluent invented
 # rationale parses, links, and names no dead path. Only a reader catches that.
+# External links are checked weekly by scripts/docs/check_external_links.sh,
+# since an external page moves with no commit here.
 #
 # Usage:  bash scripts/docs/run_docs_lint.sh     # from anywhere
 # Exit:   0 all checks pass, 1 a tracked doc contradicts the repo.

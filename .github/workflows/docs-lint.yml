@@ -7,6 +7,10 @@ on:
       - github_ci
       - main
   pull_request:
+  # Weekly, for the external-links job: an external page moves on its owner's
+  # schedule, with no commit here to trigger a check.
+  schedule:
+    - cron: '17 5 * * 1'
 
 permissions:
   contents: read
@@ -32,3 +36,21 @@ jobs:
         # git ls-files, so it settles the mechanical rot classes in seconds. It
         # cannot tell whether a sentence is true; that stays a reader's job.
         run: bash ./scripts/docs/run_docs_lint.sh
+
+  external-links:
+    name: External links in tracked markdown
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check external links
+        shell: bash
+        # Fails on a 404, a 410, or a host that does not resolve; any other
+        # non-success is printed as unjudged and passes, so someone else's
+        # outage does not turn the job red.
+        run: bash ./scripts/docs/check_external_links.sh

@@ -285,6 +285,13 @@ runs in seconds on every push, and it settles these mechanical rot classes:
    from the file that defines it, and it checks that the page names the
    member, not that the page says anything true about it.
 
+External links are not in it: a page outside this repo moves with no commit
+here, so `scripts/docs/check_external_links.sh` checks every one weekly in the
+`Docs Lint` workflow. It fails only on a 404, a 410, or a host that does not
+resolve; any other non-success prints as unjudged and passes, so another
+site's outage does not turn it red. It cannot tell whether the page still says
+what the doc cites it for.
+
 **No gate can tell you a sentence is false.** A fluent, technical, invented
 rationale parses, links, and pins nothing, and survives review precisely because
 it reads like someone checked. No grep finds that; only reading does. The gate
