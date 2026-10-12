@@ -343,8 +343,11 @@ Public maintainer entrypoints:
   and fixture-backed Android JVM suite when the build-only staged native tree
   is already current.
 - `cd android && ./gradlew :app:assembleDebugAndroidTest` compiles and
-  packages the instrumentation suite and stages generated
-  `program-fixtures/PROGRAMS` assets through `generateProgramFixtureAssets`.
+  packages the instrumentation suite, and `stageProgramFixtureAssets` stages
+  the upstream `PROGRAMS` fixtures into the test APK's assets under
+  `program-fixtures/PROGRAMS`. The app APK never carries them, and a lint,
+  unit-test, or assemble run never stages them; the tests read them through
+  the instrumentation context.
   `:app:connectedDebugAndroidTest` requires a device or emulator, and
   `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
   emulator is `x86_64`. The current required emulator-backed coverage includes
@@ -414,9 +417,10 @@ Internal helpers:
   generated, calculator-font, and mini-gmp inputs behind `--android-only`
   freshness checks and writes `STAGED-INPUTS.properties` during staging.
 - `scripts/android/stage_program_fixture_assets.sh` stages canonical upstream
-  `res/PROGRAMS` fixtures into generated Android runtime assets for
-  instrumentation coverage and is invoked by `generateProgramFixtureAssets` in
-  `android/app/build.gradle`.
+  `res/PROGRAMS` fixtures for instrumentation coverage; the
+  `stageProgramFixtureAssets` task in `android/app/build.gradle` runs it into
+  the androidTest assets. The host PGO collector and the workload harness read
+  the hydrated `res/PROGRAMS` instead.
 - `scripts/keypad-fixtures/export_upstream_keypad_fixtures.sh` owns the grouped
   keypad-fixture exporter implementation.
 - `scripts/android/run_connected_android_tests.sh` owns the grouped hosted

@@ -9,7 +9,6 @@ source "$SCRIPT_DIR/../lib/common.sh"
 STAGED_CPP_DIR="$PROJECT_ROOT/android/.staged-native/cpp"
 BUILD_DIR="${HOST_WORKLOAD_BUILD_DIR:-$PROJECT_ROOT/android/build/workload-regressions-host}"
 TRACKED_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp"
-DEFAULT_GENERATED_PROGRAM_ROOT="$PROJECT_ROOT/android/app/build/generated/assets/runtime/program-fixtures/PROGRAMS"
 DEFAULT_UPSTREAM_PROGRAM_ROOT="$PROJECT_ROOT/res/PROGRAMS"
 PROGRAM_ROOT="${PROGRAM_ROOT:-}"
 PREPARE_NATIVE_INPUTS_SCRIPT="$PROJECT_ROOT/scripts/android/prepare_native_build_inputs.sh"
@@ -204,11 +203,6 @@ run_host_workload_fixture() {
 resolve_program_root() {
     if [[ -n "$PROGRAM_ROOT" ]]; then
         printf '%s\n' "$PROGRAM_ROOT"
-        return 0
-    fi
-
-    if [[ -d "$DEFAULT_GENERATED_PROGRAM_ROOT" ]]; then
-        printf '%s\n' "$DEFAULT_GENERATED_PROGRAM_ROOT"
         return 0
     fi
 

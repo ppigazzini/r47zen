@@ -396,6 +396,12 @@ if [[ "$artifact_type" == "apk" ]]; then
 
     extract_packaged_compliance_assets "$unpack_dir" "assets" "$output_dir"
 
+    # The instrumented tests' PROGRAMS fixtures belong to the test APK alone.
+    if [[ -e "$unpack_dir/assets/program-fixtures" ]]; then
+        echo "The APK carries assets/program-fixtures; test data must stay in the androidTest APK." >&2
+        exit 1
+    fi
+
     if [[ -n "$expected_abis" ]]; then
         expected_file="$tmp_dir/expected-abis.txt"
         actual_file="$output_dir/abis.txt"

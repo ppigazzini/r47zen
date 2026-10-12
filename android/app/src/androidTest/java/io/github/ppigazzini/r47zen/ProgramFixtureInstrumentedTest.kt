@@ -41,7 +41,7 @@ class ProgramFixtureInstrumentedTest {
 
     private fun runRequestedProgramFixture(fileName: String) {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
-        val fixture = loadProgramFixture(targetContext.assets, requireProgramFixtureScenario(fileName))
+        val fixture = loadProgramFixture(testAssets(), requireProgramFixtureScenario(fileName))
         val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
         var failure: String? = null
 

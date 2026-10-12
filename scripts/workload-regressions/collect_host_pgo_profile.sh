@@ -26,7 +26,6 @@ MESON_BUILD_TYPE="release"
 EXPECTED_RELEASE_OPT_FLAG="-O3"
 PROGRAM_FIXTURE_OUTPUT_NAME="r47-workload-regression-pgo"
 PROGRAM_FIXTURE_STAGING_SCRIPT="$PROJECT_ROOT/scripts/android/stage_program_fixture_assets.sh"
-PROGRAM_FIXTURE_GENERATED_ROOT="$PROJECT_ROOT/android/app/build/generated/assets/runtime/program-fixtures/PROGRAMS"
 PROGRAM_FIXTURE_UPSTREAM_ROOT="$PROJECT_ROOT/res/PROGRAMS"
 
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
@@ -526,12 +525,6 @@ resolve_program_fixture_overlay_root() {
     if [[ -n "$PROGRAM_ROOT_OVERRIDE" ]]; then
         out_root_ref="$PROGRAM_ROOT_OVERRIDE"
         out_source_ref="override"
-        return 0
-    fi
-
-    if [[ -d "$PROGRAM_FIXTURE_GENERATED_ROOT" ]]; then
-        out_root_ref="$PROGRAM_FIXTURE_GENERATED_ROOT"
-        out_source_ref="generated-assets"
         return 0
     fi
 

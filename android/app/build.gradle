@@ -3,6 +3,7 @@ import java.util.Locale
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.xml.XmlSlurper
+import javax.inject.Inject
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 
 plugins {
@@ -38,14 +39,6 @@ def runtimeFontAssetNames = [
     'C47__NumericFont.ttf',
     'C47__TinyFont.ttf'
 ]
-def requestedProgramFixtureNames = [
-    'BinetV4.p47',
-    'GudrmPL.p47',
-    'MANSLV2.p47',
-    'NQueens.p47',
-    'SPIRALk.p47'
-]
-def programFixtureStagingScript = rootProject.file('../scripts/android/stage_program_fixture_assets.sh').absolutePath
 
 if (!runtimeFontSourceDir.isDirectory()) {
     throw new GradleException("Missing runtime font directory. Checked ${canonicalRuntimeFontDir} and ${generatedRuntimeFontDir}")
@@ -578,32 +571,75 @@ tasks.register('generateRuntimeFontAssets') {
     }
 }
 
-tasks.register('generateProgramFixtureAssets', Exec) {
-    description = 'Stage canonical upstream PROGRAMS fixtures into generated runtime assets for Android instrumentation.'
-    inputs.file(rootProject.file('../upstream.source'))
-    inputs.file(rootProject.file('../scripts/upstream-sync/upstream.sh'))
-    inputs.file(rootProject.file('../scripts/android/stage_program_fixture_assets.sh'))
-    inputs.property('upstreamSourceRepositoryUrl', upstreamSourceRepositoryUrl ?: '')
-    inputs.property('upstreamSourceCommit', upstreamSourceCommit ?: '')
-    outputs.dir("${generatedRuntimeAssetsDir}/program-fixtures")
-    outputs.upToDateWhen { false }
+// Stages the upstream PROGRAMS fixtures the instrumented tests load into
+// program-fixtures/PROGRAMS. The output joins the androidTest assets only (see
+// androidComponents below), so no app APK carries the fixtures and a lint,
+// unit-test, or assemble run never stages them. Without an explicit commit the
+// script reads upstream.lock, or resolves the latest upstream and writes the
+// lock, so the lock is an input.
+abstract class StageProgramFixtureAssets extends DefaultTask {
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getStagingInputs()
 
-    workingDir rootProject.file('..')
-    def fixtureCommand = [
-        'bash',
-        programFixtureStagingScript,
-        '--output-dir',
-        "${generatedRuntimeAssetsDir}/program-fixtures"
-    ]
-    if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
-        fixtureCommand += [
-            '--upstream-source-repository-url',
-            upstreamSourceRepositoryUrl,
-            '--upstream-source-commit',
-            upstreamSourceCommit,
+    @Input
+    abstract Property<String> getUpstreamUrl()
+
+    @Input
+    abstract Property<String> getUpstreamCommit()
+
+    @Internal
+    abstract DirectoryProperty getRepositoryRoot()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDir()
+
+    @Inject
+    abstract ExecOperations getExecOperations()
+
+    @TaskAction
+    void stage() {
+        def root = repositoryRoot.get().asFile
+        def command = [
+            'bash',
+            new File(root, 'scripts/android/stage_program_fixture_assets.sh').absolutePath,
+            '--output-dir',
+            outputDir.dir('program-fixtures').get().asFile.absolutePath,
         ]
+        if (upstreamUrl.get() && upstreamCommit.get()) {
+            command += [
+                '--upstream-source-repository-url',
+                upstreamUrl.get(),
+                '--upstream-source-commit',
+                upstreamCommit.get(),
+            ]
+        }
+        execOperations.exec { spec ->
+            spec.workingDir(root)
+            spec.commandLine(command)
+        }
     }
-    commandLine fixtureCommand
+}
+
+def stageProgramFixtureAssets = tasks.register('stageProgramFixtureAssets', StageProgramFixtureAssets) { task ->
+    task.description = 'Stage the canonical upstream PROGRAMS fixtures into the androidTest assets.'
+    task.stagingInputs.from(
+        new File(repositoryRootDir, 'upstream.source'),
+        new File(repositoryRootDir, 'upstream.lock'),
+        new File(repositoryRootDir, 'scripts/upstream-sync/upstream.sh'),
+        new File(repositoryRootDir, 'scripts/android/stage_program_fixture_assets.sh'),
+    )
+    task.upstreamUrl.set(upstreamSourceRepositoryUrl ?: '')
+    task.upstreamCommit.set(upstreamSourceCommit ?: '')
+    task.repositoryRoot.set(repositoryRootDir)
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.deviceTests.values().each { deviceTest ->
+            deviceTest.sources.assets?.addGeneratedSourceDirectory(stageProgramFixtureAssets) { it.outputDir }
+        }
+    }
 }
 
 tasks.register('generateRepoNoticeAssets') {
@@ -864,7 +900,6 @@ tasks.register('generateSourceManifest') {
 tasks.named('preBuild').configure {
     dependsOn tasks.named('copyGplLicense')
     dependsOn tasks.named('generateRuntimeFontAssets')
-    dependsOn tasks.named('generateProgramFixtureAssets')
     dependsOn tasks.named('generateRepoNoticeAssets')
     dependsOn tasks.named('generateThirdPartySpdx')
     dependsOn tasks.named('generateXlsxioLicense')

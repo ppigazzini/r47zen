@@ -77,7 +77,7 @@ class DisplayLifecycleInstrumentedTest {
         // screenMutex-guarded render so the comparison cannot race an async redraw.
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
-        val spiralkFixture = targetContext.assets.open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
+        val spiralkFixture = testAssets().open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             assertTrue(
@@ -119,7 +119,7 @@ class DisplayLifecycleInstrumentedTest {
     fun activityRecreationPreservesSpiralkGraphSnapshot() {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
-        val spiralkFixture = targetContext.assets.open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
+        val spiralkFixture = testAssets().open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             assertTrue(
