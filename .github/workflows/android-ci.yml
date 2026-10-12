@@ -773,13 +773,7 @@ jobs:
           . ./android/r47-defaults.properties
 
           echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
-          echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
-          echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
-          echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
 
       - name: Set up the pinned build JDK
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -810,6 +804,13 @@ jobs:
           BUILD_TOOLS_VERSION: ${{ steps.defaults.outputs.build_tools_version }}
         run: |
           set -euo pipefail
+
+          # The name comes from a job that ran upstream code; take it as a
+          # plain file name or not at all.
+          if [[ ! "$DEV_APK_NAME" =~ ^[A-Za-z0-9._-]+\.apk$ ]]; then
+            echo "Refusing the dev APK name '${DEV_APK_NAME}' from android-build-test-package." >&2
+            exit 1
+          fi
 
           # The decoded key lives for this step only: the trap removes it on
           # success or failure, and the next step repeats the removal in case
@@ -863,27 +864,35 @@ jobs:
 
       - name: Collect packaging evidence
         shell: bash
+        env:
+          DEV_APK_NAME: ${{ needs.android-build-test-package.outputs.dev_apk_name }}
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          DEV_VERSION_CODE: ${{ needs.upstream-release-gate.outputs.dev_version_code }}
+          DEV_VERSION_NAME: ${{ needs.upstream-release-gate.outputs.dev_version_name }}
         run: |
           set -euo pipefail
 
+          . ./android/r47-defaults.properties
+
           bash ./scripts/android/collect_packaging_evidence.sh \
             --variant release \
-            --apk "ci-artifacts/dev-signed/${{ needs.android-build-test-package.outputs.dev_apk_name }}" \
+            --apk "ci-artifacts/dev-signed/${DEV_APK_NAME}" \
             --output-dir ci-artifacts/release \
-            --artifact-name "${{ needs.android-build-test-package.outputs.dev_apk_name }}" \
-            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
+            --artifact-name "$DEV_APK_NAME" \
+            --expected-abis "$R47_DEFAULT_ANDROID_ABI_FILTERS" \
             --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
-            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
-            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
-            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
+            --ndk-version "$R47_DEFAULT_ANDROID_NDK_VERSION" \
+            --compile-sdk "$R47_DEFAULT_ANDROID_COMPILE_SDK" \
+            --cmake-version "$R47_DEFAULT_ANDROID_CMAKE_VERSION" \
             --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --android-source-commit "${GITHUB_SHA}" \
-            --upstream-source-repository-url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
-            --upstream-source-commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
-            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
-            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
-            --version-code "${{ needs.upstream-release-gate.outputs.dev_version_code }}" \
-            --version-name "${{ needs.upstream-release-gate.outputs.dev_version_name }}" \
+            --upstream-source-repository-url "$UPSTREAM_URL" \
+            --upstream-source-commit "$UPSTREAM_COMMIT" \
+            --xlsxio-source-repository-url "$R47_DEFAULT_XLSXIO_URL" \
+            --xlsxio-source-commit "$R47_DEFAULT_XLSXIO_COMMIT" \
+            --version-code "$DEV_VERSION_CODE" \
+            --version-name "$DEV_VERSION_NAME" \
             --signing-mode prerelease \
             --ref "${GITHUB_REF}" \
             --sha "${GITHUB_SHA}" \
@@ -1244,6 +1253,8 @@ jobs:
 
       - name: Write release notes
         shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.android-build-test-package.outputs.release_tag }}
         run: |
           set -euo pipefail
 
@@ -1253,7 +1264,7 @@ jobs:
           xlsxio_commit=$(sed -n 's/^xlsxio_commit=//p' release-assets/BUILD-METADATA.txt)
           xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-assets/BUILD-METADATA.txt)
           dev_apk_name=$(sed -n 's/^artifact_name=//p' release-assets/BUILD-METADATA.txt)
-          release_tag="${{ needs.android-build-test-package.outputs.release_tag }}"
+          release_tag="$RELEASE_TAG"
           if [[ -z "$dev_apk_name" ]]; then
             echo "BUILD-METADATA.txt did not contain artifact_name." >&2
             exit 1

@@ -533,14 +533,7 @@ jobs:
           . ./android/r47-defaults.properties
 
           echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
-          echo "application_id=$R47_DEFAULT_ANDROID_APPLICATION_ID" >> "$GITHUB_OUTPUT"
-          echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
-          echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
-          echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
 
       - name: Set up the pinned build JDK
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -571,6 +564,14 @@ jobs:
           BUILD_TOOLS_VERSION: ${{ steps.defaults.outputs.build_tools_version }}
         run: |
           set -euo pipefail
+
+          # The names come from a job that ran upstream code; take them as
+          # plain file names or not at all.
+          if [[ ! "$RELEASE_APK_NAME" =~ ^[A-Za-z0-9._-]+\.apk$ ||
+            ! "$RELEASE_BUNDLE_NAME" =~ ^[A-Za-z0-9._-]+\.aab$ ]]; then
+            echo "Refusing the release asset names '${RELEASE_APK_NAME}' and '${RELEASE_BUNDLE_NAME}' from build-production-release-bundle." >&2
+            exit 1
+          fi
 
           for secret_name in \
             R47_RELEASE_STORE_FILE_BASE64 \
@@ -625,13 +626,19 @@ jobs:
         env:
           R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
+          RELEASE_APK_NAME: ${{ needs.build-production-release-bundle.outputs.release_apk_name }}
+          RELEASE_BUNDLE_NAME: ${{ needs.build-production-release-bundle.outputs.release_bundle_name }}
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
         run: |
           set -euo pipefail
 
+          . ./android/r47-defaults.properties
+
           bundle_output_dir='ci-artifacts/release-aab'
           apk_output_dir='ci-artifacts/release-apk'
-          bundle_path="ci-artifacts/release-signed/${{ needs.build-production-release-bundle.outputs.release_bundle_name }}"
-          release_apk_path="ci-artifacts/release-signed/${{ needs.build-production-release-bundle.outputs.release_apk_name }}"
+          bundle_path="ci-artifacts/release-signed/${RELEASE_BUNDLE_NAME}"
+          release_apk_path="ci-artifacts/release-signed/${RELEASE_APK_NAME}"
           mapping_path='ci-artifacts/release-unsigned/mapping.txt'
           native_symbols_path="$PWD/ci-artifacts/release-unsigned/native-debug-symbols.zip"
 
@@ -654,59 +661,43 @@ jobs:
 
           mkdir -p "$bundle_output_dir" "$apk_output_dir"
 
-          bash ./scripts/android/collect_packaging_evidence.sh \
-            --variant release \
-            --bundle "$bundle_path" \
-            --output-dir "$bundle_output_dir" \
-            --artifact-name "${{ needs.build-production-release-bundle.outputs.release_bundle_name }}" \
-            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
-            --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
-            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
-            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
-            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
-            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --android-source-commit "${GITHUB_SHA}" \
-            --upstream-source-repository-url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
-            --upstream-source-commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
-            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
-            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
-            --application-id "${{ steps.defaults.outputs.application_id }}" \
-            --version-code "$R47_VERSION_CODE_INPUT" \
-            --version-name "$R47_VERSION_NAME_INPUT" \
-            --signing-mode release \
-            --ref "${GITHUB_REF}" \
-            --sha "${GITHUB_SHA}" \
-            --run-id "${GITHUB_RUN_ID}" \
-            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
-            --mapping-file "$mapping_path" \
+          # Everything but the artifact itself is the same for both.
+          evidence_args=(
+            --variant release
+            --expected-abis "$R47_DEFAULT_ANDROID_ABI_FILTERS"
+            --android-sdk-root "${ANDROID_SDK_ROOT:?}"
+            --ndk-version "$R47_DEFAULT_ANDROID_NDK_VERSION"
+            --compile-sdk "$R47_DEFAULT_ANDROID_COMPILE_SDK"
+            --cmake-version "$R47_DEFAULT_ANDROID_CMAKE_VERSION"
+            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+            --android-source-commit "${GITHUB_SHA}"
+            --upstream-source-repository-url "$UPSTREAM_URL"
+            --upstream-source-commit "$UPSTREAM_COMMIT"
+            --xlsxio-source-repository-url "$R47_DEFAULT_XLSXIO_URL"
+            --xlsxio-source-commit "$R47_DEFAULT_XLSXIO_COMMIT"
+            --application-id "$R47_DEFAULT_ANDROID_APPLICATION_ID"
+            --version-code "$R47_VERSION_CODE_INPUT"
+            --version-name "$R47_VERSION_NAME_INPUT"
+            --signing-mode release
+            --ref "${GITHUB_REF}"
+            --sha "${GITHUB_SHA}"
+            --run-id "${GITHUB_RUN_ID}"
+            --run-attempt "${GITHUB_RUN_ATTEMPT}"
+            --mapping-file "$mapping_path"
             --native-symbols "$native_symbols_path"
+          )
 
           bash ./scripts/android/collect_packaging_evidence.sh \
-            --variant release \
+            --bundle "$bundle_path" \
+            --output-dir "$bundle_output_dir" \
+            --artifact-name "$RELEASE_BUNDLE_NAME" \
+            "${evidence_args[@]}"
+
+          bash ./scripts/android/collect_packaging_evidence.sh \
             --apk "$release_apk_path" \
             --output-dir "$apk_output_dir" \
-            --artifact-name "${{ needs.build-production-release-bundle.outputs.release_apk_name }}" \
-            --expected-abis "${{ steps.defaults.outputs.abi_filters }}" \
-            --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
-            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
-            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
-            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
-            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --android-source-commit "${GITHUB_SHA}" \
-            --upstream-source-repository-url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
-            --upstream-source-commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
-            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
-            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
-            --application-id "${{ steps.defaults.outputs.application_id }}" \
-            --version-code "$R47_VERSION_CODE_INPUT" \
-            --version-name "$R47_VERSION_NAME_INPUT" \
-            --signing-mode release \
-            --ref "${GITHUB_REF}" \
-            --sha "${GITHUB_SHA}" \
-            --run-id "${GITHUB_RUN_ID}" \
-            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
-            --mapping-file "$mapping_path" \
-            --native-symbols "$native_symbols_path"
+            --artifact-name "$RELEASE_APK_NAME" \
+            "${evidence_args[@]}"
 
       - name: Upload signed release AAB artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -1142,6 +1133,8 @@ jobs:
           R47_RELEASE_TAG: ${{ needs.resolve-release-inputs.outputs.release_tag }}
           R47_PREVIOUS_RELEASE_TAG: ${{ needs.resolve-release-inputs.outputs.previous_release_tag }}
           R47_PREVIOUS_SIGNING_CERT: ${{ needs.resolve-release-inputs.outputs.previous_signing_cert_sha256 }}
+          APK_EVIDENCE_ARCHIVE_NAME: ${{ steps.evidence.outputs.apk_evidence_archive_name }}
+          AAB_EVIDENCE_ARCHIVE_NAME: ${{ steps.evidence.outputs.aab_evidence_archive_name }}
         run: |
           set -euo pipefail
 
@@ -1202,8 +1195,8 @@ jobs:
           Included assets:
           - ${apk_name}
           - ${aab_name}
-          - ${{ steps.evidence.outputs.apk_evidence_archive_name }}
-          - ${{ steps.evidence.outputs.aab_evidence_archive_name }}
+          - ${APK_EVIDENCE_ARCHIVE_NAME}
+          - ${AAB_EVIDENCE_ARCHIVE_NAME}
 
           Notes:
           - This GitHub release was published from the ${R47_RELEASE_MODE} signed

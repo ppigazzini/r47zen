@@ -2,9 +2,11 @@
 
 # Contract: a job that holds a release credential never syncs, builds,
 # compiles, tests, or emulates the upstream core. The credentials are the two
-# signing keys (secrets.R47_RELEASE_*, secrets.R47_PRERELEASE_*) and the Play
+# signing keys (secrets.R47_RELEASE_*, secrets.R47_PRERELEASE_*), the Play
 # upload identity (vars.R47_PLAY_*, which a job exchanges through
-# google-github-actions/auth for a token that can release to Play). Those steps
+# google-github-actions/auth for a token that can release to Play), and a
+# workflow token with contents, id-token, or attestations write, which can
+# publish a release or sign an attestation. Those steps
 # execute unreviewed upstream code, and a compile step alone can embed any
 # readable file (a decoded keystore, the auth action's credentials file,
 # /proc/self/environ) into the shipped library, so a credential on that runner
@@ -12,13 +14,19 @@
 # that a credential-free job built, and nothing else. A credential in
 # workflow-level env reaches every job, so it fails too.
 #
+# A credential job's run scripts hold no ${{ }} expression. GitHub pastes the
+# value into the script before the shell parses it, so an output of a job that
+# ran upstream code (an artifact name, a tag) would run as code in the job that
+# holds the key, comment lines included; a value passed through env: is data.
+#
 # A credential job also restores no Actions cache. Any job on the branch can
 # write a cache entry, and the build jobs that write the SDK cache run upstream
 # code before the entry is saved, so a cached binary is one an upstream commit
 # could have replaced; a signing job runs apksigner with the key on disk. The
 # actions a credential job uses are therefore an allowlist, not a denylist:
 # checkout, setup-java without a cache, artifact download and upload, the
-# setup-signing-tools composite, and the two Play upload actions. Anything else,
+# setup-signing-tools composite, the two Play upload actions, and the release
+# publish and attestation actions. Anything else,
 # the SDK composite or actions/cache among them, fails, and so does a `cache:`
 # input. The setup-signing-tools composite itself may use setup-android only.
 #
@@ -48,7 +56,7 @@ find_signing_isolation_violations() {
             }
         }
         BEGIN {
-            split("actions/checkout actions/setup-java actions/download-artifact actions/upload-artifact ./.github/actions/setup-signing-tools google-github-actions/auth r0adkll/upload-google-play", names, " ")
+            split("actions/checkout actions/setup-java actions/download-artifact actions/upload-artifact ./.github/actions/setup-signing-tools google-github-actions/auth r0adkll/upload-google-play actions/attest-build-provenance softprops/action-gh-release", names, " ")
             for (i in names) {
                 allowed[names[i]] = 1
             }
@@ -63,6 +71,22 @@ find_signing_isolation_violations() {
             job = ""
             has_secret = 0
             nhits = 0
+            run_indent = -1
+        }
+        # Inside a run: block scalar, every line is script, a shell comment
+        # too: an expression in it is expanded all the same.
+        run_indent >= 0 {
+            match($0, /^ */)
+            if ($0 ~ /^[[:space:]]*$/ || RLENGTH > run_indent) {
+                if ($0 ~ /secrets\.R47_(RELEASE|PRERELEASE)_|vars\.R47_PLAY_/) {
+                    has_secret = 1
+                }
+                if ($0 ~ /\$\{\{/) {
+                    hits[++nhits] = "pastes an expression into its run script at line " FNR ": " $0
+                }
+                next
+            }
+            run_indent = -1
         }
         /^[[:space:]]*#/ { next }
         /^jobs:/ {
@@ -77,7 +101,7 @@ find_signing_isolation_violations() {
             nhits = 0
             next
         }
-        /secrets\.R47_(RELEASE|PRERELEASE)_|vars\.R47_PLAY_|google-github-actions\/auth@/ {
+        /secrets\.R47_(RELEASE|PRERELEASE)_|vars\.R47_PLAY_|google-github-actions\/auth@|^[[:space:]]+(contents|id-token|attestations):[[:space:]]*write/ {
             if (!injobs || job == "") {
                 printf "%s: workflow-level release credential reaches every job at line %d: %s\n", short, FNR, $0
             } else {
@@ -96,6 +120,14 @@ find_signing_isolation_violations() {
             if (!(action in allowed)) {
                 hits[++nhits] = "uses " action ", which is not on the credential-job allowlist, at line " FNR ": " $0
             }
+        }
+        injobs && job != "" && /^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*[|>][-+]?[[:space:]]*(#.*)?$/ {
+            match($0, /^[[:space:]]*(-[[:space:]]+)?/)
+            run_indent = RLENGTH
+            next
+        }
+        injobs && job != "" && /^[[:space:]]*(-[[:space:]]+)?run:/ && /\$\{\{/ {
+            hits[++nhits] = "pastes an expression into its run script at line " FNR ": " $0
         }
         injobs && job != "" && /^[[:space:]]+(enable-)?cache(-[a-z-]+)?:/ {
             hits[++nhits] = "restores an Actions cache at line " FNR ": " $0
@@ -200,6 +232,38 @@ jobs:
           PW: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
 EOF
 
+cat >"$fixture_dir/release-run-expression.yml" <<'EOF'
+jobs:
+  sign:
+    steps:
+      - shell: bash
+        env:
+          PW: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          out="ci-artifacts/${{ needs.build.outputs.apk_name }}"
+EOF
+
+cat >"$fixture_dir/prerelease-comment-expression.yml" <<'EOF'
+jobs:
+  sign:
+    steps:
+      - env:
+          KS: ${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}
+        run: |
+          # names ${{ needs.build.outputs.apk_name }}
+          echo sign
+EOF
+
+cat >"$fixture_dir/publish-inline-expression.yml" <<'EOF'
+jobs:
+  publish:
+    permissions:
+      contents: write
+    steps:
+      - run: gh release create "${{ needs.build.outputs.release_tag }}"
+EOF
+
 cat >"$fixture_dir/clean.yml" <<'EOF'
 jobs:
   build:
@@ -221,6 +285,19 @@ jobs:
       - run: bash ./scripts/android/sign_android_artifacts.sh --keystore k
         env:
           PW: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+      - shell: bash
+        env:
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+        run: |
+          # A comment that names no expression.
+          out="ci-artifacts/${APK_NAME}"
+  publish:
+    permissions:
+      contents: write
+    steps:
+      - uses: softprops/action-gh-release@0000000000000000000000000000000000000000 # v3.0.3
+        with:
+          tag_name: ${{ needs.build.outputs.release_tag }}
   upload:
     steps:
       - run: gh attestation verify release-aab/app.aab --repo o/r
@@ -230,7 +307,8 @@ jobs:
 EOF
 
 for fixture in release-gradle prerelease-sync release-make workflow-env play-gradle play-workflow-env \
-    release-sdk-cache prerelease-cache release-java-cache; do
+    release-sdk-cache prerelease-cache release-java-cache release-run-expression \
+    prerelease-comment-expression publish-inline-expression; do
     if [ -z "$(find_signing_isolation_violations "$fixture_dir/$fixture.yml")" ]; then
         contract_fail "signing isolation checker missed the seeded violation in fixture $fixture.yml."
     fi

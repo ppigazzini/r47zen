@@ -191,12 +191,21 @@ it can fail on seeded fixtures:
   or when any file hands the upload action a stored service-account key,
   scanning every workflow and composite action;
 - `scripts/android/run_signing_isolation_contract.sh` fails when a job that
-  names a signing secret or the Play upload identity also runs the upstream
+  names a signing secret or the Play upload identity, or holds a token with
+  `contents`, `id-token`, or `attestations` write, also runs the upstream
   sync, the build wrapper, Gradle, a compiler, the simulator build, or the
-  emulator, when either sits in workflow-level `env`, when such a job uses an
-  action off its allowlist (checkout, `setup-java` without a `cache:` input,
-  artifact download and upload, `setup-signing-tools`, and the two Play upload
-  actions), and when `setup-signing-tools` uses anything but `setup-android`.
+  emulator; when a credential sits in workflow-level `env`; when such a job
+  uses an action off its allowlist (checkout, `setup-java` without a `cache:`
+  input, artifact download and upload, `setup-signing-tools`, the two Play
+  upload actions, and the release and attestation actions); when its run
+  script holds a `${{ }}` expression; and when `setup-signing-tools` uses
+  anything but `setup-android`.
+
+A run script in such a job takes every value through `env:`. GitHub pastes a
+`${{ }}` value into the script text before the shell parses it, comments
+included, so an artifact name or tag that a build job output would run as code
+in the job that holds the key; through `env:` it stays data. The signing jobs
+also refuse an asset name from a build job that is not a plain file name.
 
 The Play upload identity is the third release credential: a token from it can
 release to a Play track. [`upload-to-play`](#upload-to-play) owns it.
