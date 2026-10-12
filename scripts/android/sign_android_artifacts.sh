@@ -190,8 +190,11 @@ fi
 if [[ -n "$bundle_in" ]]; then
     # jarsigner appends a second signature to an already signed bundle rather
     # than replacing it, so refuse one: the input must be the unsigned bundle a
-    # build with no signing config produces.
-    if unzip -Z1 "$bundle_in" | grep -Eq '^META-INF/[^/]+\.(SF|RSA|DSA|EC)$'; then
+    # build with no signing config produces. Capture the listing first: piped
+    # into grep -q, it stops at the signature entries jarsigner writes first,
+    # unzip dies of SIGPIPE, and pipefail turns the match into a skip.
+    bundle_entries="$(unzip -Z1 "$bundle_in")"
+    if grep -Eq '^META-INF/[^/]+\.(SF|RSA|DSA|EC)$' <<<"$bundle_entries"; then
         fail "$bundle_in already carries a JAR signature; pass the unsigned bundle."
     fi
 
@@ -208,7 +211,9 @@ if [[ -n "$bundle_in" ]]; then
         "$bundle_out" \
         "$key_alias" >/dev/null
 
-    jarsigner -verify "$bundle_out" | grep -q '^jar verified\.' ||
+    bundle_verify="$(jarsigner -verify "$bundle_out")" ||
+        fail "jarsigner -verify rejected $bundle_out."
+    grep -q '^jar verified\.' <<<"$bundle_verify" ||
         fail "jarsigner -verify rejected $bundle_out."
     bundle_cert_sha256="$(
         keytool -printcert -jarfile "$bundle_out" 2>/dev/null |

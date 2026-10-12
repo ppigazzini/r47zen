@@ -415,7 +415,11 @@ jobs:
               exit 1
             fi
           done
-          if unzip -Z1 "$bundle_path" | grep -Eq '^META-INF/[^/]+\.(SF|RSA|DSA|EC)$'; then
+          # Capture the listing before matching it: unzip piped into grep -q
+          # dies of SIGPIPE once grep stops at an early signature entry, and
+          # pipefail then reads the match as a miss.
+          bundle_entries="$(unzip -Z1 "$bundle_path")"
+          if grep -Eq '^META-INF/[^/]+\.(SF|RSA|DSA|EC)$' <<<"$bundle_entries"; then
             echo "Expected an unsigned release bundle, but ${bundle_path} carries a JAR signature." >&2
             exit 1
           fi

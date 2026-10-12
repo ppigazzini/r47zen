@@ -38,6 +38,7 @@ CONTRACTS=(
     run_test_integrity_contract.sh
     run_privacy_policy_parity_contract.sh
     run_commit_message_contract.sh
+    run_quiet_grep_pipeline_contract.sh
 )
 
 failed=()

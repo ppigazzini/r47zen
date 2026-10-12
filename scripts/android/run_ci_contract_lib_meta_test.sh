@@ -21,11 +21,13 @@ commented='      # run: gh attestation verify "$artifact"'
 real='        run: gh attestation verify "$artifact"'
 printf '%s\n%s\n' "$commented" "$real" >"$fixture"
 
-if printf '%s\n' "$commented" | strip_hash_comments | grep -q 'gh attestation verify'; then
+stripped="$(printf '%s\n' "$commented" | strip_hash_comments || true)"
+if grep -q 'gh attestation verify' <<<"$stripped"; then
     echo "FAIL: strip_hash_comments did not drop a comment-only directive." >&2
     exit 1
 fi
-if ! printf '%s\n' "$real" | strip_hash_comments | grep -q 'gh attestation verify'; then
+stripped="$(printf '%s\n' "$real" | strip_hash_comments)"
+if ! grep -q 'gh attestation verify' <<<"$stripped"; then
     echo "FAIL: strip_hash_comments dropped a real directive line." >&2
     exit 1
 fi

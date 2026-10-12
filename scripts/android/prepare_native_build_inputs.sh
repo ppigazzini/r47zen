@@ -141,7 +141,9 @@ resolve_upstream_state() {
 }
 
 ensure_remote() {
-    if git -C "$PROJECT_ROOT" remote | grep -qx "$UPSTREAM_REMOTE_NAME"; then
+    local remotes
+    remotes="$(git -C "$PROJECT_ROOT" remote)"
+    if grep -qx "$UPSTREAM_REMOTE_NAME" <<<"$remotes"; then
         git -C "$PROJECT_ROOT" remote set-url "$UPSTREAM_REMOTE_NAME" "$RESOLVED_UPSTREAM_URL"
     else
         git -C "$PROJECT_ROOT" remote add "$UPSTREAM_REMOTE_NAME" "$RESOLVED_UPSTREAM_URL"

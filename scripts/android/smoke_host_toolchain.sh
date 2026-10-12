@@ -69,7 +69,8 @@ done
 # The host x86_64 profiling runtime archive is the reason libclang-rt-<major>-dev
 # is installed (it links the -fprofile-generate host build); assert the package
 # actually ships it.
-if ! dpkg -L "libclang-rt-${llvm_major}-dev" | grep -q 'libclang_rt.profile-x86_64.a'; then
+rt_files="$(dpkg -L "libclang-rt-${llvm_major}-dev")"
+if ! grep -q 'libclang_rt.profile-x86_64.a' <<<"$rt_files"; then
     fail "libclang-rt-${llvm_major}-dev does not provide the host libclang_rt.profile-x86_64.a runtime"
 fi
 

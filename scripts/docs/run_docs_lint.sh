@@ -154,8 +154,8 @@ for f in AGENTS.md CLAUDE.md; do
     }
 done
 if [[ -f CLAUDE.md ]]; then
-    if ! awk '/^```/{f=!f; next} !f' CLAUDE.md |
-        grep -qE '^[[:space:]]*@AGENTS\.md[[:space:]]*$'; then
+    unfenced="$(awk '/^```/{f=!f; next} !f' CLAUDE.md)"
+    if ! grep -qE '^[[:space:]]*@AGENTS\.md[[:space:]]*$' <<<"$unfenced"; then
         note "IMPORT DEAD   CLAUDE.md has no bare '@AGENTS.md' line (backticked, fenced or gone: Claude Code would load nothing)"
         n=$((n + 1))
     fi
@@ -196,7 +196,8 @@ for f in "${DOCS[@]}"; do
         page="$f"
         [[ -z "$path" ]] || page="$dir/$path"
         [[ "$page" == *.md && -f "$page" ]] || continue # check 1 owns the file
-        heading_anchors "$page" | grep -qxF -- "$anchor" || {
+        anchors="$(heading_anchors "$page")"
+        grep -qxF -- "$anchor" <<<"$anchors" || {
             note "DEAD ANCHOR   $f -> $target (no such heading in $page)"
             n=$((n + 1))
         }

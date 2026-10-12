@@ -32,8 +32,10 @@ trap cleanup EXIT
 
 ensure_remote() {
     local upstream_url="$1"
+    local remotes
 
-    if git -C "$PROJECT_ROOT" remote | grep -qx "$UPSTREAM_REMOTE_NAME"; then
+    remotes="$(git -C "$PROJECT_ROOT" remote)"
+    if grep -qx "$UPSTREAM_REMOTE_NAME" <<<"$remotes"; then
         git -C "$PROJECT_ROOT" remote set-url "$UPSTREAM_REMOTE_NAME" "$upstream_url"
     else
         git -C "$PROJECT_ROOT" remote add "$UPSTREAM_REMOTE_NAME" "$upstream_url"

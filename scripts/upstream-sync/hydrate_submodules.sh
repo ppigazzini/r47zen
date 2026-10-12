@@ -21,7 +21,8 @@ if ! git -C "$PROJECT_ROOT" cat-file -e "$upstream_commit^{commit}" 2>/dev/null;
         fail "Commit $upstream_commit is not available locally. Provide an upstream URL as the second argument or run upstream sync first"
 
     hydrate_remote_name="r47-c43-upstream-hydrate"
-    if git -C "$PROJECT_ROOT" remote | grep -qx "$hydrate_remote_name"; then
+    remotes="$(git -C "$PROJECT_ROOT" remote)"
+    if grep -qx "$hydrate_remote_name" <<<"$remotes"; then
         git -C "$PROJECT_ROOT" remote set-url "$hydrate_remote_name" "$upstream_url"
     else
         git -C "$PROJECT_ROOT" remote add "$hydrate_remote_name" "$upstream_url"

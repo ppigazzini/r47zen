@@ -149,12 +149,13 @@ jobs:
 EOF
 
 for stray in stray/android-release stray/android-ci stray-play/android-release stray-key/android-release; do
-    if ! scan_signing_scope "$fixture_dir/$stray.yml" | grep -q '^violation: '; then
+    stray_report="$(scan_signing_scope "$fixture_dir/$stray.yml")"
+    if ! grep -q '^violation: ' <<<"$stray_report"; then
         contract_fail "signing scope checker missed the seeded stray credential in fixture $stray.yml."
     fi
 done
 owned_report="$(scan_signing_scope "$fixture_dir/owned/android-release.yml" "$fixture_dir/owned/android-ci.yml")"
-if printf '%s\n' "$owned_report" | grep -q '^violation: '; then
+if grep -q '^violation: ' <<<"$owned_report"; then
     contract_fail "signing scope checker flagged the owning jobs:" "$owned_report"
 fi
 
@@ -169,7 +170,7 @@ if [ -n "$violations" ]; then
     contract_fail "a release credential is named outside the job that owns it:" "$violations"
 fi
 for key in release prerelease play; do
-    printf '%s\n' "$report" | grep -qx "seen: $key" ||
+    grep -qx "seen: $key" <<<"$report" ||
         contract_fail "no owning job names the $key credential; the scan read nothing, or the owning job was renamed without this contract."
 done
 
