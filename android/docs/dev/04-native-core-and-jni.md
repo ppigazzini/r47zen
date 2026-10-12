@@ -135,8 +135,16 @@ The Android bridge code is intentionally split by responsibility:
 
 - `jni_lifecycle.c` for init, deadline-driven tick, refresh, and slot-state lifecycle work
 - `jni_input.c` for key and menu dispatch
-- `jni_display.c` for packed LCD generations, pixels, keypad snapshots, and
-  clipboard-export queries for X, stack, and all-register payloads
+- `jni_display.c` for packed LCD generations and pixels and keypad snapshot
+  generations and copies
+- `keypad_scene.c` for the keypad scene those copies carry: every key's labels,
+  roles, and flags from the core's keyboard, shift, mode, and softmenu state.
+  It makes no JNI call, so the keypad fixture exporter and the TSan harness run
+  it as the app does
+- `jni_clipboard.c` for clipboard-export queries for X, stack, and
+  all-register payloads
+- `hal/power.c` for the core's power and exit hooks, which close the activity
+  through `MainActivity.quitApp`
 - `jni_storage.c` for SAF-backed blocking file handoff
 - `jni_registration.c` for `JNI_OnLoad()` and explicit native registration
 - `jni_activity_bridge.c` for shared JVM, activity callbacks, and bridge globals
@@ -183,7 +191,7 @@ The clipboard-export getters are Android-owned bridge seams. They mirror the
 upstream desktop clipboard payload shapes for `Copy X Register`, `Copy Stack
 Registers`, and `Copy All Registers` without moving Android menu policy into
 the upstream core. When those payloads change, keep
-`DisplayActionController.kt`, `jni_display.c`, and the formatter helpers in
+`DisplayActionController.kt`, `jni_clipboard.c`, and the formatter helpers in
 `android_helpers.c` aligned with the upstream reference behavior in
 `src/c47/screen.c`.
 
@@ -436,7 +444,7 @@ Native code reaches the current `MainActivity` through five globals in
 |---|---|---|
 | write | `updateNativeActivityRef`, from `initNative` and, on reattach, from `NativeCoreRuntime`'s core-thread attach | core |
 | write | `releaseNativeRuntime`, from `NativeCoreRuntime.releaseFinishedHost` as the core thread leaves its loop with no host attached | core |
-| read | `processCoreTasksNative` (`jni_activity_bridge.c`), `r47_report_file_write_failure` (`jni_activity_bridge.c`), `_Buzz` (`hal/audio.c`), `requestAndroidFile` (`jni_storage.c`), `triggerQuit` (`jni_display.c`) | core |
+| read | `processCoreTasksNative` (`jni_activity_bridge.c`), `r47_report_file_write_failure` (`jni_activity_bridge.c`), `_Buzz` (`hal/audio.c`), `requestAndroidFile` (`jni_storage.c`), `triggerQuit` (`hal/power.c`) | core |
 
 No lock covers the five globals, and none is needed: every reader and both
 writers run on the core thread, so a reader never sees a reference half

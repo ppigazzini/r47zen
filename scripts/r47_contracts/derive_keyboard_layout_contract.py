@@ -40,7 +40,7 @@ REPRESENTATIVE_ANDROID_FIXTURES: Final[tuple[str, ...]] = (
 )
 REPRESENTATIVE_ANDROID_KEY_CODES: Final[tuple[int, ...]] = (11, 12, 35, 36, 37)
 FIXTURE_LABEL_SLOT_COUNT: Final = 5
-JNI_DISPLAY_PATH: Final = ANDROID_CPP_ROOT / "jni_display.c"
+KEYPAD_SCENE_PATH: Final = ANDROID_CPP_ROOT / "keypad_scene.c"
 _ASSIGN_TABLE_PATTERN: Final = re.compile(
     r"TO_QSPI const calcKey_t (?P<name>kbd_std_R47(?:f_g|bk_fg|fg_bk|fg_g))\[37\] = \{"
     r"(?P<body>.*?)"
@@ -220,10 +220,10 @@ def load_items_display_names(
 
 
 def load_android_static_label_overrides(
-    jni_display_path: Path = JNI_DISPLAY_PATH,
+    keypad_scene_path: Path = KEYPAD_SCENE_PATH,
 ) -> dict[str, dict[str, str]]:
-    """Load the Android-local static main-label overrides from jni_display.c."""
-    source = jni_display_path.read_text(encoding="utf-8")
+    """Load the Android-local static main-label overrides from keypad_scene.c."""
+    source = keypad_scene_path.read_text(encoding="utf-8")
     overrides: dict[str, dict[str, str]] = {}
     for pattern in (
         _STATIC_LABEL_PATTERN,
@@ -239,10 +239,10 @@ def load_android_static_label_overrides(
 
 
 def load_android_formatter_assists(
-    jni_display_path: Path = JNI_DISPLAY_PATH,
+    keypad_scene_path: Path = KEYPAD_SCENE_PATH,
 ) -> dict[str, bool]:
-    """Load the explicit Android main-label formatter assists from jni_display.c."""
-    source = jni_display_path.read_text(encoding="utf-8")
+    """Load the explicit Android main-label formatter assists from keypad_scene.c."""
+    source = keypad_scene_path.read_text(encoding="utf-8")
     return {
         assist_name: bool(pattern.search(source))
         for assist_name, pattern in _ANDROID_FORMATTER_ASSIST_PATTERNS.items()
@@ -343,7 +343,7 @@ def build_keyboard_layout_contract_payload() -> dict[str, object]:
         "canonical_source": {
             "assign_path": str(UPSTREAM_R47_ASSIGN_PATH.relative_to(REPO_ROOT)),
             "items_path": str(UPSTREAM_R47_ITEMS_PATH.relative_to(REPO_ROOT)),
-            "jni_display_path": str(JNI_DISPLAY_PATH.relative_to(REPO_ROOT)),
+            "keypad_scene_path": str(KEYPAD_SCENE_PATH.relative_to(REPO_ROOT)),
         },
         "variant_key_counts": variant_key_counts,
         "shift_legends": shift_legends,

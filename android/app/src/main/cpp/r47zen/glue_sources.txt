@@ -11,10 +11,13 @@ hal/audio.c
 hal/gui.c
 hal/io.c
 hal/lcd.c
+hal/power.c
 hal/print_ir.c
 jni_activity_bridge.c
+jni_clipboard.c
 jni_display.c
 jni_input.c
 jni_lifecycle.c
 jni_registration.c
 jni_storage.c
+keypad_scene.c

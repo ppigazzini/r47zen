@@ -177,7 +177,7 @@
   "canonical_source": {
     "assign_path": "src/c47/assign.c",
     "items_path": "src/c47/items.c",
-    "jni_display_path": "android/app/src/main/cpp/r47zen/jni_display.c"
+    "keypad_scene_path": "android/app/src/main/cpp/r47zen/keypad_scene.c"
   },
   "core_display_names": {
     "ITM_7": "7",

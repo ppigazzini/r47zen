@@ -17,7 +17,7 @@ from r47_contracts._repo_paths import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-JNI_DISPLAY_PATH = ANDROID_CPP_ROOT / "jni_display.c"
+KEYPAD_SCENE_PATH = ANDROID_CPP_ROOT / "keypad_scene.c"
 KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
 KEYPAD_LAYOUT_PATH = KOTLIN_R47ZEN_ROOT / "ReplicaKeypadLayout.kt"
 
@@ -68,7 +68,7 @@ class AlphaCaseExportContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """Load shared fixtures for the test class."""
-        cls.jni_display = JNI_DISPLAY_PATH.read_text(encoding="utf-8")
+        cls.keypad_scene = KEYPAD_SCENE_PATH.read_text(encoding="utf-8")
         cls.assign = ASSIGN_PATH.read_text(encoding="utf-8")
         cls.items = ITEMS_PATH.read_text(encoding="utf-8")
         cls.key_view = KEY_VIEW_PATH.read_text(encoding="utf-8")
@@ -86,7 +86,7 @@ class AlphaCaseExportContractTest(unittest.TestCase):
 
     def test_jni_does_not_truncate_case_labels(self) -> None:
         """Jni does not truncate case labels."""
-        _assert_true('"CASE "' not in self.jni_display)
+        _assert_true('"CASE "' not in self.keypad_scene)
 
     def test_jni_uses_core_case_selection_rule(self) -> None:
         """Jni uses core case selection rule."""
@@ -99,7 +99,7 @@ class AlphaCaseExportContractTest(unittest.TestCase):
                     r"\s*\}",
                     re.DOTALL,
                 ),
-                self.jni_display,
+                self.keypad_scene,
             ),
         )
 
@@ -122,14 +122,14 @@ class AlphaCaseExportContractTest(unittest.TestCase):
                     r"\}",
                     re.DOTALL,
                 ),
-                self.jni_display,
+                self.keypad_scene,
             ),
         )
 
     def test_jni_limits_case_swaps_to_latin_pairs(self) -> None:
         """Jni limits case swaps to latin pairs."""
-        _assert_true("upper[0] >= 'A' && upper[0] <= 'Z'" in self.jni_display)
-        _assert_true("lower[0] == (upper[0] - 'A' + 'a')" in self.jni_display)
+        _assert_true("upper[0] >= 'A' && upper[0] <= 'Z'" in self.keypad_scene)
+        _assert_true("lower[0] == (upper[0] - 'A' + 'a')" in self.keypad_scene)
 
     def test_jni_promotes_dynamic_alpha_preview_into_primary_label(self) -> None:
         """Jni promotes dynamic alpha preview into primary label."""
@@ -143,7 +143,7 @@ class AlphaCaseExportContractTest(unittest.TestCase):
                     r"\s*:\s*key->primaryAim;",
                     re.DOTALL,
                 ),
-                self.jni_display,
+                self.keypad_scene,
             ),
         )
 
@@ -155,7 +155,7 @@ class AlphaCaseExportContractTest(unittest.TestCase):
                     r"case KEYPAD_LABEL_F:\s*return key->fShiftedAim;",
                     re.DOTALL,
                 ),
-                self.jni_display,
+                self.keypad_scene,
             ),
         )
         _assert_true(
@@ -164,7 +164,7 @@ class AlphaCaseExportContractTest(unittest.TestCase):
                     r"case KEYPAD_LABEL_G:\s*return key->gShiftedAim;",
                     re.DOTALL,
                 ),
-                self.jni_display,
+                self.keypad_scene,
             ),
         )
 
@@ -186,11 +186,11 @@ class AlphaCaseExportContractTest(unittest.TestCase):
                     r"\}",
                     re.DOTALL,
                 ),
-                self.jni_display,
+                self.keypad_scene,
             ),
         )
         _assert_true(
-            "resolveMainLabelRoles(key, keyCode, presentation);" in self.jni_display,
+            "resolveMainLabelRoles(key, keyCode, presentation);" in self.keypad_scene,
         )
 
     def test_main_key_primary_label_fits_to_button_width(self) -> None:

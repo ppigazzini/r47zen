@@ -98,8 +98,8 @@ class KeyboardLayoutContractTest(unittest.TestCase):
         _assert_equal(self.canonical_source["assign_path"], "src/c47/assign.c")
         _assert_equal(self.canonical_source["items_path"], "src/c47/items.c")
         _assert_equal(
-            self.canonical_source["jni_display_path"],
-            "android/app/src/main/cpp/r47zen/jni_display.c",
+            self.canonical_source["keypad_scene_path"],
+            "android/app/src/main/cpp/r47zen/keypad_scene.c",
         )
 
     def test_assign_tables_expose_complete_r47_variant_family(self) -> None:
