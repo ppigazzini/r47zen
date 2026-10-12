@@ -157,7 +157,7 @@ a process behind or rewrite the workspace. So each lane splits in two:
 A build job uploads AGP's unsigned output as an artifact named
 `<artifact stem>-unsigned` and fails if AGP reports a signed APK or the bundle
 carries a JAR signature. A signing job checks out this repository alone,
-provisions the JDK and the pinned SDK packages, downloads those bytes, decodes
+provisions the JDK and the pinned build-tools, downloads those bytes, decodes
 the key into `RUNNER_TEMP` for one step, and signs with
 `scripts/android/sign_android_artifacts.sh`: `apksigner` from the pinned
 build-tools for the APK (v1 through v3, native libraries page-aligned to 16 KB),
@@ -168,6 +168,19 @@ the alias. The job then removes the key, runs
 `collect_packaging_evidence.sh` over the signed bytes, and uploads them under
 the artifact names the downstream jobs already read. The emulator jobs sign
 their test installs with a throwaway key generated in-job.
+
+A signing job restores no Actions cache. Any job on the branch can write a
+cache entry, and a key that misses is filled by whichever job misses first,
+after that job's own steps ran: a build job saves the SDK cache after it ran
+upstream code. A cached `apksigner` is therefore one an upstream commit could
+have replaced, and the signing job runs it with the key on disk and the
+passwords in its environment. `./.github/actions/setup-signing-tools`
+installs `build-tools;<R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION>` from Google
+into an empty SDK root under `RUNNER_TEMP`, about 150 MB, and nothing else.
+`collect_packaging_evidence.sh` reads the `LOAD` segments of the native
+libraries with the runner image's binutils `objdump`, not the NDK's
+`llvm-objdump`, so a signing job needs no NDK, and it fails on a library it
+cannot read instead of passing it unseen.
 
 Two host contracts in the `run_workflow_contracts.sh` group, which
 `python-contracts` runs under `ci-required`, lock this, and each first proves
@@ -180,16 +193,21 @@ it can fail on seeded fixtures:
 - `scripts/android/run_signing_isolation_contract.sh` fails when a job that
   names a signing secret or the Play upload identity also runs the upstream
   sync, the build wrapper, Gradle, a compiler, the simulator build, or the
-  emulator, or when either sits in workflow-level `env`.
+  emulator, when either sits in workflow-level `env`, when such a job uses an
+  action off its allowlist (checkout, `setup-java` without a `cache:` input,
+  artifact download and upload, `setup-signing-tools`, and the two Play upload
+  actions), and when `setup-signing-tools` uses anything but `setup-android`.
 
 The Play upload identity is the third release credential: a token from it can
 release to a Play track. [`upload-to-play`](#upload-to-play) owns it.
 
-The limits. The isolation contract matches command names, so a step that
-reaches upstream code through a name it does not list passes it; the signing
-jobs stay short so a reviewer can read them whole. A signing job still runs the
-pinned third-party `android-actions/setup-android` inside the SDK composite
-before the key is decoded. And the environment only gates what it holds: a
+The limits. The isolation contract's run-step half matches command names, so
+a step that reaches upstream code through a name it does not list passes it;
+the signing jobs stay short so a reviewer can read them whole. A signing job
+still runs the pinned third-party `android-actions/setup-android` inside
+`setup-signing-tools` before the key is decoded; at the pinned commit it
+downloads the command-line tools from Google and keeps them in the runner's
+local tool cache, not in an Actions cache, and a bump must keep it so. And the environment only gates what it holds: a
 repository-scoped secret is readable by every job in every workflow. The four
 `R47_RELEASE_*` secrets therefore live in the `production-release` environment
 alone, and no repository copy may exist;
@@ -256,8 +274,10 @@ It:
   The Android SDK provisioning (writable SDK root, setup-android for adb,
   license acceptance, pinned-package install, and SDK cache) is centralized in
   the `./.github/actions/setup-android-sdk` composite action shared by every
-  Android job; an `include-emulator` input adds the emulator and system image
-  for the test and release jobs and leaves them out of this build lane
+  Android job that builds or tests; an `include-emulator` input adds the
+  emulator and system image for the test and release jobs and leaves them out
+  of this build lane. The signing jobs use `setup-signing-tools` instead (see
+  [Signing isolation](#signing-isolation))
 - derives the Linux host LLVM major from the pinned NDK `clang`, then installs
   matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
   `libclang-rt-<major>-dev` packages so the host PGO runtime shim does not
@@ -359,7 +379,8 @@ publication. It runs whenever the build lane runs, pull requests included.
 It:
 
 - checks out this repository only and provisions the build JDK and the pinned
-  SDK packages; it runs no upstream sync, Gradle, compiler, or emulator
+  build-tools through `setup-signing-tools`; it runs no upstream sync, Gradle,
+  compiler, or emulator, and restores no Actions cache
 - signs with the prerelease key on push, schedule, and dispatch, and with a
   throwaway key generated in-job on a pull request, so PR-head scripts never
   see the real key and fork pull requests, which receive no secrets, still
@@ -585,7 +606,8 @@ The only job that reads the release upload key, and the only job bound to the
 `production-release` environment. It:
 
 - checks out this repository only and provisions the build JDK and the pinned
-  SDK packages; it runs no upstream sync, Gradle, compiler, or emulator
+  build-tools through `setup-signing-tools`; it runs no upstream sync, Gradle,
+  compiler, or emulator, and restores no Actions cache
 - decodes `R47_RELEASE_STORE_FILE_BASE64` into `RUNNER_TEMP` for the signing
   step alone and signs the unsigned APK and AAB with
   `scripts/android/sign_android_artifacts.sh`, reading
@@ -776,7 +798,9 @@ The rest, and what each one gates:
 not a required status check: `main` takes direct pushes, so every row above
 reports and none blocks a push.
 
-Two composite actions carry setup shared by several jobs:
+Three composite actions carry setup shared by several jobs:
+`./.github/actions/setup-signing-tools` (the pinned build-tools, fresh, for
+the two signing jobs; see [Signing isolation](#signing-isolation)),
 `./.github/actions/setup-android-sdk` (writable SDK root, license acceptance,
 the pinned SDK packages from `android/r47-defaults.properties`, installed
 through `retry_with_backoff` from `scripts/lib/common.sh` because a cache miss

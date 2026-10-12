@@ -1,0 +1,58 @@
+name: Set up Android signing tools
+description: Install the pinned Android build-tools (apksigner, zipalign) fresh from Google into an empty SDK root, with no Actions cache, and expose ANDROID_HOME/ANDROID_SDK_ROOT. For the jobs that hold a signing key.
+
+# Restore no cache here. Any job on the branch can write an Actions cache entry,
+# and the build jobs that write the SDK cache run upstream code first, so a
+# cached apksigner is one an upstream commit could have replaced. A signing job
+# runs that binary with the decoded key on disk and the passwords in its
+# environment. run_signing_isolation_contract.sh fails if this file gains a
+# `uses:` other than setup-android, or a signing job any cache.
+
+inputs:
+  build-tools-version:
+    description: Android build-tools version to install, R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Select an empty Android SDK root
+      shell: bash
+      run: | # zizmor: ignore[github-env] writes only the action-computed SDK root, not attacker input
+        set -euo pipefail
+
+        sdk_root="$RUNNER_TEMP/android-signing-sdk"
+        if [ -e "$sdk_root" ]; then
+          echo "$sdk_root already exists; the signing tools must come from an empty SDK root." >&2
+          exit 1
+        fi
+        mkdir -p "$sdk_root"
+        echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+        echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+
+    - name: Set up Android SDK command-line tools
+      uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+      with:
+        # sdkmanager and the license acceptance only; the next step installs
+        # the one package signing runs.
+        packages: ''
+        log-accepted-android-sdk-licenses: false
+
+    - name: Install the pinned build-tools
+      shell: bash
+      env:
+        BUILD_TOOLS_VERSION: ${{ inputs.build-tools-version }}
+      run: |
+        set -euo pipefail
+        # shellcheck source=scripts/lib/common.sh
+        source "$GITHUB_WORKSPACE/scripts/lib/common.sh"
+
+        retry_with_backoff "sdkmanager build-tools install" sdkmanager \
+          "build-tools;${BUILD_TOOLS_VERSION}"
+        for tool in apksigner zipalign; do
+          tool_path="${ANDROID_SDK_ROOT:?}/build-tools/${BUILD_TOOLS_VERSION}/${tool}"
+          if [ ! -x "$tool_path" ]; then
+            echo "Missing ${tool_path} after the build-tools install." >&2
+            exit 1
+          fi
+        done

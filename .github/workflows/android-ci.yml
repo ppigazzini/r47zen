@@ -744,11 +744,14 @@ jobs:
     if: needs.upstream-release-gate.outputs.should_run == 'true'
     # The only job that reads the prerelease signing key. It checks out this
     # repository alone and signs the APK android-build-test-package uploaded:
-    # no upstream sync, no Gradle, no compiler, no emulator. Keep it that way;
+    # no upstream sync, no Gradle, no compiler, no emulator, and no Actions
+    # cache, which upstream-running jobs write; setup-signing-tools installs
+    # build-tools fresh. Keep it that way;
     # scripts/android/run_signing_isolation_contract.sh fails a secret-holding
-    # job that builds or runs upstream code. A pull request signs with a
-    # throwaway key, so PR-head scripts never see the real one and fork PRs,
-    # which get no secrets, still produce an installable artifact.
+    # job that builds or runs upstream code or restores a cache. A pull
+    # request signs with a throwaway key, so PR-head scripts never see the
+    # real one and fork PRs, which get no secrets, still produce an
+    # installable artifact.
     needs:
       - resolve-upstream-core
       - upstream-release-gate
@@ -773,7 +776,6 @@ jobs:
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
-          echo "compile_sdk_minor=$R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
           echo "abi_filters=$R47_DEFAULT_ANDROID_ABI_FILTERS" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
@@ -785,14 +787,10 @@ jobs:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
-      - name: Set up Android SDK
-        uses: ./.github/actions/setup-android-sdk
+      - name: Set up the signing tools
+        uses: ./.github/actions/setup-signing-tools
         with:
-          compile-sdk: ${{ steps.defaults.outputs.compile_sdk }}
-          compile-sdk-minor: ${{ steps.defaults.outputs.compile_sdk_minor }}
           build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
-          cmake-version: ${{ steps.defaults.outputs.cmake_version }}
-          ndk-version: ${{ steps.defaults.outputs.ndk_version }}
 
       - name: Download the unsigned dev prerelease APK
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

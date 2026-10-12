@@ -389,8 +389,8 @@ fi
 signing_cert_sha256="unknown"
 
 if [[ "$artifact_type" == "apk" ]]; then
-    if [[ -z "$android_sdk_root" || -z "$ndk_version" ]]; then
-        echo "APK evidence collection requires --android-sdk-root and --ndk-version." >&2
+    if [[ -z "$android_sdk_root" ]]; then
+        echo "APK evidence collection requires --android-sdk-root." >&2
         exit 1
     fi
 
@@ -409,15 +409,18 @@ if [[ "$artifact_type" == "apk" ]]; then
     build_tools_version="$(sed -n 's/^R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION=//p' \
         "$(dirname "${BASH_SOURCE[0]}")/../../android/r47-defaults.properties")"
     zipalign_bin="$android_sdk_root/build-tools/$build_tools_version/zipalign"
-    llvm_objdump="$(find "$android_sdk_root/ndk/$ndk_version/toolchains/llvm/prebuilt" -type f -name llvm-objdump | sort | head -n 1)"
 
     if [[ -z "$zipalign_bin" || ! -x "$zipalign_bin" ]]; then
         echo "Unable to locate zipalign in the pinned build-tools $build_tools_version under $android_sdk_root/build-tools." >&2
         exit 1
     fi
 
-    if [[ -z "$llvm_objdump" || ! -x "$llvm_objdump" ]]; then
-        echo "Unable to locate llvm-objdump for NDK $ndk_version." >&2
+    # The runner image's binutils objdump, not the NDK's llvm-objdump: the
+    # signing jobs run this script, and they install only build-tools, fresh,
+    # because the cached NDK is one an upstream-running build job wrote. GNU
+    # objdump reads any ELF's program headers and prints the same LOAD lines.
+    if ! command -v objdump >/dev/null 2>&1; then
+        echo "objdump (binutils) is not on PATH; the ELF LOAD alignment check needs it." >&2
         exit 1
     fi
 
@@ -440,13 +443,31 @@ if [[ "$artifact_type" == "apk" ]]; then
     elf_report="$output_dir/elf-load-segments.txt"
     below_16k_report="$tmp_dir/elf-load-segments-below-16k.txt"
     : >"$elf_report"
+    so_count=0
     while IFS= read -r -d '' so_file; do
+        so_count=$((so_count + 1))
+        # A library objdump cannot read, or one with no LOAD segment, must
+        # fail here: otherwise it adds no line to the report and the 16 KB
+        # check below passes it unseen.
+        if ! headers="$(objdump -p "$so_file")"; then
+            echo "objdump could not read ${so_file#"$unpack_dir"/}." >&2
+            exit 1
+        fi
+        load_lines="$(grep 'LOAD' <<<"$headers" || true)"
+        if [[ -z "$load_lines" ]]; then
+            echo "objdump found no LOAD segment in ${so_file#"$unpack_dir"/}." >&2
+            exit 1
+        fi
         {
-            echo "== ${so_file#$unpack_dir/} =="
-            { "$llvm_objdump" -p "$so_file" | grep 'LOAD' || true; }
+            echo "== ${so_file#"$unpack_dir"/} =="
+            printf '%s\n' "$load_lines"
             echo
         } >>"$elf_report"
     done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)
+    if [[ "$so_count" -eq 0 ]]; then
+        echo "The APK carries no native library under lib/; the ELF LOAD alignment check has nothing to read." >&2
+        exit 1
+    fi
 
     awk '
         /^== / {

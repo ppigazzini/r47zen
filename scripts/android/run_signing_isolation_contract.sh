@@ -12,12 +12,23 @@
 # that a credential-free job built, and nothing else. A credential in
 # workflow-level env reaches every job, so it fails too.
 #
+# A credential job also restores no Actions cache. Any job on the branch can
+# write a cache entry, and the build jobs that write the SDK cache run upstream
+# code before the entry is saved, so a cached binary is one an upstream commit
+# could have replaced; a signing job runs apksigner with the key on disk. The
+# actions a credential job uses are therefore an allowlist, not a denylist:
+# checkout, setup-java without a cache, artifact download and upload, the
+# setup-signing-tools composite, and the two Play upload actions. Anything else,
+# the SDK composite or actions/cache among them, fails, and so does a `cache:`
+# input. The setup-signing-tools composite itself may use setup-android only.
+#
 # The checker first proves it can fail: every seeded fixture below must be
 # flagged and the clean fixture must pass. Then it scans the real workflows.
-# It matches command names, so it states a floor, not a proof: a step that
-# reaches upstream code through a name this list does not know passes. Keep a
-# credential job to checkout, defaults, JDK, SDK, download, verify, sign or
-# upload, evidence, and artifact upload. Pure host test, no SDK needed.
+# Its run-step half matches command names, so it states a floor, not a proof:
+# a step that reaches upstream code through a name this list does not know
+# passes. Keep a credential job to checkout, defaults, JDK, signing tools,
+# download, verify, sign or upload, evidence, and artifact upload. Pure host
+# test, no SDK needed.
 
 set -Eeuo pipefail
 
@@ -32,8 +43,14 @@ find_signing_isolation_violations() {
         function report(    i) {
             if (job != "" && has_secret) {
                 for (i = 1; i <= nhits; i++) {
-                    printf "%s: job=%s holds a release credential and runs upstream-facing work at line %s\n", short, job, hits[i]
+                    printf "%s: job=%s holds a release credential and %s\n", short, job, hits[i]
                 }
+            }
+        }
+        BEGIN {
+            split("actions/checkout actions/setup-java actions/download-artifact actions/upload-artifact ./.github/actions/setup-signing-tools google-github-actions/auth r0adkll/upload-google-play", names, " ")
+            for (i in names) {
+                allowed[names[i]] = 1
             }
         }
         FNR == 1 {
@@ -69,7 +86,19 @@ find_signing_isolation_violations() {
         }
         injobs && job != "" && ($0 ~ /upstream\.sh|hydrate_submodules|build_android\.sh|gradlew|build_sim_assets|prepare_native_build_inputs|stage_native_sources|collect_host_pgo_profile|run_workload_regressions|run_connected_android_tests|android-emulator-runner|setup-xlsxio-toolchain|install_linux_build_deps/ ||
             $0 ~ /(^|[^[:alnum:]_.\/-])(make|meson|ninja|cmake|gcc|clang)[[:space:]]/) {
-            hits[++nhits] = FNR ": " $0
+            hits[++nhits] = "runs upstream-facing work at line " FNR ": " $0
+        }
+        injobs && job != "" && /^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]*/ {
+            action = $0
+            sub(/^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]*/, "", action)
+            sub(/@.*/, "", action)
+            sub(/[[:space:]].*/, "", action)
+            if (!(action in allowed)) {
+                hits[++nhits] = "uses " action ", which is not on the credential-job allowlist, at line " FNR ": " $0
+            }
+        }
+        injobs && job != "" && /^[[:space:]]+(enable-)?cache(-[a-z-]+)?:/ {
+            hits[++nhits] = "restores an Actions cache at line " FNR ": " $0
         }
         END { report() }
     ' "$@"
@@ -134,18 +163,61 @@ jobs:
       - run: echo hi
 EOF
 
+cat >"$fixture_dir/release-sdk-cache.yml" <<'EOF'
+jobs:
+  sign:
+    steps:
+      - uses: ./.github/actions/setup-android-sdk
+        with:
+          build-tools-version: 37.0.0
+      - run: bash ./scripts/android/sign_android_artifacts.sh --keystore k
+        env:
+          PW: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
+EOF
+
+cat >"$fixture_dir/prerelease-cache.yml" <<'EOF'
+jobs:
+  sign:
+    steps:
+      - uses: actions/cache/restore@0000000000000000000000000000000000000000 # v6.1.0
+        with:
+          key: sdk
+      - run: echo sign
+        env:
+          KS: ${{ secrets.R47_PRERELEASE_STORE_FILE_BASE64 }}
+EOF
+
+cat >"$fixture_dir/release-java-cache.yml" <<'EOF'
+jobs:
+  sign:
+    steps:
+      - uses: actions/setup-java@0000000000000000000000000000000000000000 # v6.0.1
+        with:
+          distribution: temurin
+          cache: gradle
+      - run: echo sign
+        env:
+          PW: ${{ secrets.R47_RELEASE_STORE_PASSWORD }}
+EOF
+
 cat >"$fixture_dir/clean.yml" <<'EOF'
 jobs:
   build:
     steps:
       - run: ./gradlew :app:bundleRelease
       - run: make sim
+      - uses: ./.github/actions/setup-android-sdk
+      - uses: actions/cache@0000000000000000000000000000000000000000 # v6.1.0
   sign:
     steps:
-      # A comment that names ./gradlew or make sim runs nothing.
-      - uses: ./.github/actions/setup-android-sdk
+      # A comment that names ./gradlew, make sim, or actions/cache runs nothing.
+      - uses: actions/checkout@0000000000000000000000000000000000000000 # v7.0.1
+      - uses: actions/setup-java@0000000000000000000000000000000000000000 # v6.0.1
         with:
-          cmake-version: 4.1.2
+          distribution: temurin
+      - uses: ./.github/actions/setup-signing-tools
+        with:
+          build-tools-version: 37.0.0
       - run: bash ./scripts/android/sign_android_artifacts.sh --keystore k
         env:
           PW: ${{ secrets.R47_RELEASE_KEY_PASSWORD }}
@@ -157,7 +229,8 @@ jobs:
           workload_identity_provider: ${{ vars.R47_PLAY_WIF_PROVIDER }}
 EOF
 
-for fixture in release-gradle prerelease-sync release-make workflow-env play-gradle play-workflow-env; do
+for fixture in release-gradle prerelease-sync release-make workflow-env play-gradle play-workflow-env \
+    release-sdk-cache prerelease-cache release-java-cache; do
     if [ -z "$(find_signing_isolation_violations "$fixture_dir/$fixture.yml")" ]; then
         contract_fail "signing isolation checker missed the seeded violation in fixture $fixture.yml."
     fi
@@ -175,8 +248,18 @@ shopt -u nullglob
 violations="$(find_signing_isolation_violations "${workflows[@]}")"
 if [ -n "$violations" ]; then
     contract_fail \
-        "a job that holds a release credential also builds or runs upstream code:" \
+        "a job that holds a release credential also builds or runs upstream code, or uses an action off the allowlist:" \
         "$violations"
 fi
 
-contract_pass "no job that holds a release credential builds or runs upstream code (${#workflows[@]} workflows)."
+# The allowlist admits setup-signing-tools by name, so hold its body too: it
+# may call setup-android and nothing else, and setup-android restores no cache.
+signing_tools="$PROJECT_ROOT/.github/actions/setup-signing-tools/action.yml"
+[ -f "$signing_tools" ] || contract_fail "missing the setup-signing-tools composite: $signing_tools"
+signing_tools_uses="$(strip_hash_comments <"$signing_tools" | grep -E '^[[:space:]]*(-[[:space:]]+)?uses:' || true)"
+[ -n "$signing_tools_uses" ] || contract_fail "setup-signing-tools uses no action; the scan read nothing."
+stray_uses="$(grep -vE 'uses:[[:space:]]*android-actions/setup-android@[0-9a-f]{40}([[:space:]]|$)' <<<"$signing_tools_uses" || true)"
+[ -z "$stray_uses" ] ||
+    contract_fail "setup-signing-tools may use the SHA-pinned android-actions/setup-android only:" "$stray_uses"
+
+contract_pass "no job that holds a release credential builds or runs upstream code or restores a cache (${#workflows[@]} workflows)."
