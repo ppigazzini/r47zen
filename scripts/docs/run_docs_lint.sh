@@ -214,7 +214,7 @@ log "check 6: intra-repo anchors name a heading ($n dead)"
 # --- 7. a page that inventories a set names every member ---------------------
 # Three pages list a set this repo defines elsewhere: 04 splits the native glue
 # by responsibility, 07 describes every workflow and composite action, and 08
-# maps every host CI contract and Python suite module. A list that reads as
+# maps every host CI contract, Python suite module, and Kotlin test source. A list that reads as
 # complete and is not sends a reader past the file that matters. Each set is
 # read from the file that defines it, never kept here, and a member counts as
 # named when its file name (a composite action: its .github/actions/ path)
@@ -276,6 +276,9 @@ inventory "$DEV/08-tests-and-contracts.md" "contract suite module" \
         array_entries scripts/r47_contracts/run_contract_suite.sh DERIVE_MODULES
         array_entries scripts/r47_contracts/run_contract_suite.sh TEST_MODULES
     } | sed 's/^r47_contracts\.//')"
+inventory "$DEV/08-tests-and-contracts.md" "Kotlin test source" \
+    "$(git ls-files 'android/app/src/test/*.kt' 'android/app/src/androidTest/*.kt' |
+        sed 's|.*/||')"
 log "check 7: pages that inventory a set name every member ($n unlisted)"
 
 if [[ "$fail" -ne 0 ]]; then

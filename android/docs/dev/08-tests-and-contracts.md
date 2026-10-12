@@ -312,7 +312,8 @@ does an entry no finding matches anymore. It is a static check, not a test: it
 bounds function and class size, complexity, and magic numbers in new code, and
 proves nothing about behaviour.
 
-Important contract files include:
+Each JVM test file and what it locks; `run_docs_lint.sh` fails when a test
+source is missing from this page:
 
 - `KeypadFixtureContractTest.kt`: asserts that the exported keypad-fixture
   manifest still matches `KeypadSnapshot` contract values such as scene version,
@@ -494,6 +495,26 @@ Important contract files include:
 - `LcdThemePolicyTest.kt`: locks unknown theme fallback to the default display
   theme and keeps every shipped normal and inverse LCD palette above its
   declared contrast floor across the supported luminance range
+- `CalculatorKeyViewCanvasTest.kt`: draws a measured main key and asserts each
+  of the primary, f, g, and fourth label lanes paints its text in its own
+  colour from the label state
+- `GraphTouchVisualPolicyTest.kt`: locks `ReplicaOverlay.isSignificantPinch`,
+  so a pinch drives the LCD zoom only when its scale factor is finite and
+  differs from 1 by at least `PINCH_EPSILON`
+- `NativeKeypadSnapshotStoreTest.kt`: locks the keypad snapshot cache: a copy
+  on first sight, reuse while the generation holds, a recopy when it
+  advances, the prior snapshot kept when a copy fails, and one cache per
+  label mode
+- `SlotSessionControllerTest.kt`: locks a slot switch as save, set, load, and
+  persist, and that an out-of-range or current slot id is ignored
+- `LibraryLicenseNoticesTest.kt`: reads the library-licence assets the build
+  merged for the variant under test, so a variant whose
+  `library-licenses/NOTICE-INDEX.json` is missing or empty fails on the JVM
+- `KeyboardLayoutContractResources.kt`, `KeypadFixtureResources.kt`,
+  `TestJsonResources.kt`, and `KeypadTestSnapshots.kt` are helpers, not
+  tests: the first three load the keyboard-layout contract, the exported
+  keypad fixtures, and the JSON test resources, and the last builds a keypad
+  snapshot from a few key states
 
 Use `cd android && ./gradlew :app:testDebugUnitTest` as the smallest grouped
 lane when one of those Kotlin- or Robolectric-owned contracts changes.
@@ -504,7 +525,7 @@ The instrumentation suite under
 `android/app/src/androidTest/java/io/github/ppigazzini/r47zen/` is the device or emulator
 surface for Android-only runtime seams.
 
-Important files include:
+Each instrumentation source and what it covers:
 
 - `ProgramLoadTestBridge.kt`: exposes the instrumentation-only native bridge for
   runtime readiness, async function execution, redraw flags, seeding helpers,
@@ -598,6 +619,9 @@ Important files include:
 - `scripts/android/run_16kb_runtime_smoke.sh`: asserts that a connected device
   or emulator reports `16384`-byte pages before it runs the focused activity
   recreation lifecycle probe on the live Android runtime
+- `TestAssets.kt` is a helper: it reads the `PROGRAMS` fixtures through the
+  instrumentation context, the test APK, which holds them; the app under test
+  carries none
 
 Use `cd android && ./gradlew :app:assembleDebugAndroidTest` first, then
 `cd android && ./gradlew :app:connectedDebugAndroidTest` when the task touches

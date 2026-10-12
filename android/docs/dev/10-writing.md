@@ -280,7 +280,7 @@ runs in seconds on every push, and it settles these mechanical rot classes:
    [04-native-core-and-jni.md](04-native-core-and-jni.md), a workflow or
    composite action on
    [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md), a host CI
-   contract or a contract suite module on
+   contract, a contract suite module, or a Kotlin test source on
    [08-tests-and-contracts.md](08-tests-and-contracts.md). It reads each set
    from the file that defines it, and it checks that the page names the
    member, not that the page says anything true about it.
