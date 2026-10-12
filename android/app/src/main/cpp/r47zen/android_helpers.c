@@ -385,10 +385,10 @@ char *getXRegisterString() {
     break;
 
   case dtShortInteger:
-    // maxWidth: upstream 492298ff added the caller's available width so a
-    // temporary information prefix is not painted over. SCREEN_WIDTH is the
-    // whole-line value the function hardcoded before, and what every upstream
-    // caller without a prefix passes, so the extracted text does not change.
+    // maxWidth is the width the caller has left, so a temporary-information
+    // prefix is not painted over. The clipboard text has no prefix, so it
+    // passes the whole line, SCREEN_WIDTH, as every upstream caller without
+    // one does.
     shortIntegerToDisplayString(regist, coreBuf, false, noBaseOverride,
                                 SCREEN_WIDTH);
     break;

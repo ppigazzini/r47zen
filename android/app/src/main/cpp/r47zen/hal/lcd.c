@@ -110,8 +110,8 @@ void LCD_write_line(uint8_t *line_buf) {
   pthread_mutex_lock(&packedDisplayMutex);
   uint8_t *snapshot_line =
       packedDisplayBuffer + buffer_row * LCD_ROW_SIZE_BYTES;
-  // lcd_buffer follows the DMCP polarity upstream adopted in 1560394c, a 1 bit
-  // is a white pixel, while the packed snapshot keeps a 1 bit as a dark one,
+  // lcd_buffer follows the DMCP polarity the upstream simulator HALs use, a 1
+  // bit is a white pixel, while the packed snapshot keeps a 1 bit as a dark one,
   // which is what PackedLcdRaster paints as text. Invert on the copy, so the
   // JNI transport keeps its own polarity whatever upstream stores.
   bool changed = false;
@@ -192,13 +192,13 @@ void bitblt24(uint32_t x, uint32_t dx, uint32_t y, uint32_t val, int blt_op,
   const uint32_t lowmask = (1u << dx) - 1u;
   const uint32_t bytes_needed = (bit_off + dx + 7) / 8;
   const uint32_t srcbits = (val & lowmask) << bit_off;
-  // Tracks upstream c47-gtk/hal/lcd.c at 1560394c, which moved the simulator
-  // lcd_buffer onto the DMCP polarity (a 1 bit is white): BLT_OR draws dark
-  // pixels by clearing bits and BLT_ANDN draws white ones by setting them.
-  // BLT_SET writes the dx columns white before BLT_OR and dark before BLT_ANDN,
-  // so the pixels where val has a 0 are written too; before 492298ff it
-  // replaced srcbits outright, which made a BLT_OR plus BLT_SET call a no-op and
-  // left softmenus.c drawKeyFrame drawing nothing.
+  // The same blit as upstream c47-gtk/hal/lcd.c, on the DMCP polarity (a 1 bit
+  // is white): BLT_OR draws dark pixels by clearing bits and BLT_ANDN draws
+  // white ones by setting them. BLT_SET writes the dx columns white before
+  // BLT_OR and dark before BLT_ANDN, so the pixels where val has a 0 are
+  // written too. softmenus.c drawKeyFrame draws its frame with one BLT_OR plus
+  // BLT_SET call, which draws nothing if BLT_SET replaces srcbits instead.
+  // run_keypad_generation_contract.sh locks both modes.
   const uint32_t fillbits = (fill == BLT_SET) ? lowmask << bit_off : 0u;
   uint8_t srcbytes[4] = {
       (uint8_t)(srcbits),

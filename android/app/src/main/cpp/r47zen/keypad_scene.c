@@ -96,14 +96,14 @@ enum {
   KEYPAD_SCENE_FLAG_DOTTED_ROW = 1 << 11,
 };
 
-// Upstream's softkey-label resolver changeSoftKey() became a file-local static at
-// upstream 485b6709 (and shed its always-unused menuNr parameter), so the Android
-// keypad overlay cannot link it. resolveSoftkeyMeta() below reproduces the
-// parts the softkey scene needs from the public item API: the reverse-video menu
-// flag, the callback and show-value badges, and the plain item label. The upstream
-// inline formatting that depends on other now-static helpers (placeSubscript
-// subscripts, changeDotAndIJ glyph rewrites, catalog-name substitution) is not
-// reproduced; those softkeys render the plain item label without inline text.
+// Upstream's softkey-label resolver changeSoftKey() is file-local static, so the
+// Android keypad overlay cannot link it. resolveSoftkeyMeta() below reproduces
+// the parts the softkey scene needs from the public item API: the reverse-video
+// menu flag, the callback and show-value badges, and the plain item label. The
+// upstream inline formatting that depends on other static helpers
+// (placeSubscript subscripts, changeDotAndIJ glyph rewrites, catalog-name
+// substitution) is not reproduced; those softkeys render the plain item label
+// without inline text.
 extern bool_t isFunctionItemAMenu(int16_t item);
 extern int8_t fnCbIsSet(int16_t item);
 extern int16_t fnItemShowValue(int16_t item);

@@ -507,8 +507,8 @@ static workload_result_t run_program_fixture_workload(
       return WORKLOAD_RESULT_FAIL;
     }
   } else {
-    // Upstream added a labelType selector to findNamedLabel; ALL_LABELS keeps
-    // the prior "search global and local" behavior for a built-in XEQ target.
+    // ALL_LABELS searches the global and the local labels, as a built-in XEQ
+    // target needs.
     label = findNamedLabel(scenario->program_name, ALL_LABELS);
     if (label == INVALID_VARIABLE) {
       fprintf(stderr, "ERROR: %s workload could not resolve built-in label\n",
@@ -716,33 +716,17 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
      // A regression pin, not an independent oracle: the hash is this harness's
-     // own recorded output, so it proves the final image did not change, not that
-     // it is right. Re-pin only with a bitmap diff that accounts for every moved
-     // pixel, as below. Verified run-to-run deterministic over repeated host
-     // runs; BinetV4 parks at its plot prompt leaving a stable final image. BinetV4 does not end in
+     // own recorded output, so it proves the final image did not change, not
+     // that it is right. Re-pin only with a bitmap diff that accounts for every
+     // moved pixel, as 08-tests-and-contracts.md describes. Run-to-run
+     // deterministic over repeated host runs: BinetV4 parks at its plot prompt,
+     // leaving a stable final image. BinetV4 does not end in
      // GRAPHMODE: its rows 0..19 are status bar at full width, measured as the
      // ten date cells at x 25..102 (pitch 8 from X_DATE) plus annunciator runs
      // at 138-149, 160-165, 186-216, 264-290 and 315-327. The date is masked and
      // the annunciators are not, so a mode regression moves this golden and a
-     // new calendar day does not.
-     //
-     // Re-blessed at upstream 492298ff, which rewrote softmenus.c drawKeyFrame
-     // from greyRect plus lcd_fill_rect to one bitblt24(BLT_OR, BLT_SET) per 24
-     // columns. hal/lcd.c had the pre-492298ff reading of BLT_SET, under which
-     // that call was `j |= 0` -- a no-op -- so the softkey frame stopped being
-     // drawn at all: 0x2d0f11012f70c634 -> 0x29072c7bcf2130c7. Fixing the fill
-     // semantics restores the frame and gives this hash. Verified by dumping the
-     // bitmap either side of the HAL fix: the delta is 255 pixels, all switched
-     // on, confined to rows 217-239 -- the dotted top rule of the softkey band
-     // and the dotted cell divider at column 66. Nothing else in the image moved.
-     //
-     // Re-blessed at upstream 1560394c, which merged f6391423e: register-line
-     // text now starts at screen.h noShiftOffset (2) where it started at x 1,
-     // so BinetV4's T-line value moved right one column: 0x06acb50abbba005d ->
-     // 0x015d36bb0e5925fa. Verified by dumping the bitmap either side of the
-     // merge: 960 pixels differ, 480 on and 480 off, all in rows 28-55 (the
-     // T line) at x 1..270, and each row is the old row shifted by exactly one
-     // column. No glyph changed shape and nothing else in the image moved.
+     // new calendar day does not. Each re-bless and its bitmap diff is in the
+     // commit that made it.
      .expected_display_hash = 0x015d36bb0e5925faull},
     {.program_name = "GudrmPL.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
@@ -791,8 +775,8 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .stop_after_activity_ms = 0u,
      // Independently verified valid 8-queens solution (see seed_nqueens_n8_input).
      // Asserted as an integer sequence so an upstream change to the vector's
-     // display format (e.g. the whitespace tightening in 5b925867) does not
-     // break a still-correct result.
+     // display format, its spacing or its separators, does not break a
+     // still-correct result.
      .expected_x_sequence = (const int[]){8, 4, 1, 3, 6, 2, 7, 5},
      .expected_x_sequence_len = 8},
     {.program_name = "SPIRALk.p47",
