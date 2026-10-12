@@ -243,6 +243,14 @@ The physical-keyboard HOME and MYMENU shortcuts and the paste path's `i` and
 renumbers between upstream revisions, so `jni_input.c` resolves each code to
 its `MNU_*` or `ITM_*` symbol at build time.
 
+`Paste Number` types the clip through `ClipboardPaster`, in
+`DisplayActionController.kt`: each press, release, or function is its own core
+task, 50 ms apart, scheduled from the main thread, so the core thread runs
+keys and timer ticks between keystrokes rather than sleeping through the clip.
+A second paste stops the first, and first releases any key the first one
+pressed. `DisplayActionControllerTest.kt` locks the steps, the spacing, and
+both supersede cases.
+
 `ReplicaOverlay` also owns the shell-level focus policy for the physical-
 keyboard path. It stays focusable in touch mode, blocks descendant focus
 navigation, and keeps touchscreen focus from suppressing the shell, so the

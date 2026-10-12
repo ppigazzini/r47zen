@@ -7,7 +7,6 @@
     <ID>CyclomaticComplexMethod:AudioEngine.kt:AudioEngine$@Synchronized fun start</ID>
     <ID>CyclomaticComplexMethod:CalculatorKeyView.kt:CalculatorKeyView$private fun buildMainKeyRenderSpec: KeyRenderSpec?</ID>
     <ID>CyclomaticComplexMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
-    <ID>CyclomaticComplexMethod:DisplayActionController.kt:DisplayActionController$private fun pasteFromClipboard</ID>
     <ID>CyclomaticComplexMethod:MainActivityPreferenceController.kt:MainActivityPreferenceController$fun onPreferenceChanged: Boolean</ID>
     <ID>CyclomaticComplexMethod:NativeDisplayRefreshLoop.kt:NativeDisplayRefreshLoop$internal fun refreshFrame</ID>
     <ID>CyclomaticComplexMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>
@@ -50,7 +49,6 @@
     <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$8</ID>
     <ID>MagicNumber:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$127</ID>
     <ID>MagicNumber:DisplayActionController.kt:DisplayActionController$3</ID>
-    <ID>MagicNumber:DisplayActionController.kt:DisplayActionController$50</ID>
     <ID>MagicNumber:KeyboardStateSnapshot.kt:KeyboardStateSnapshot.Companion$5</ID>
     <ID>MagicNumber:KeypadLabelModes.kt:37</ID>
     <ID>MagicNumber:KeypadSnapshot.kt:KeypadSceneContract$4</ID>
