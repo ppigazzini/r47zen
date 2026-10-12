@@ -120,8 +120,12 @@ class WorkDirectoryTest {
 
     @Test
     fun formatDisplayPath_stripsTreePrefix() {
-        assertEquals("/R47/PROGRAMS", WorkDirectory.formatDisplayPath("/tree/primary:R47/PROGRAMS"))
-        assertEquals("Select a folder", WorkDirectory.formatDisplayPath(null))
+        assertEquals("/R47/PROGRAMS", WorkDirectory.formatDisplayPath("/tree/primary:R47/PROGRAMS", "unknown"))
+    }
+
+    @Test
+    fun formatDisplayPath_namesTheUnknownFolderWhenTheUriHasNoPath() {
+        assertEquals("the saved folder", WorkDirectory.formatDisplayPath(null, "the saved folder"))
     }
 
     @Test

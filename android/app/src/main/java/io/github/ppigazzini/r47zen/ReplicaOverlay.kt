@@ -75,6 +75,21 @@ internal object TouchZoneDebugVisualPolicy {
     const val STROKE_ALPHA = 180
 }
 
+internal object PiPSoftkeyPolicy {
+    // In picture-in-picture the overlay is the softkey row alone, and a touch
+    // presses the softkey under it: F1 to F6, which native sendKey numbers 38
+    // to 43 and the only codes it presses in that row.
+    const val FIRST_SOFTKEY_CODE = 38
+    const val SOFTKEY_COUNT = 6
+
+    // The softkey code under x on an overlay width wide. A touch at the right
+    // edge (x == width) presses F6, not code 44, which sendKey ignores.
+    fun softkeyCode(x: Float, width: Int): Int {
+        val column = (x / width * SOFTKEY_COUNT).toInt().coerceIn(0, SOFTKEY_COUNT - 1)
+        return FIRST_SOFTKEY_CODE + column
+    }
+}
+
 internal object GraphTouchVisualPolicy {
     const val PAN_GAIN = 1.0f
     const val PINCH_EPSILON = 0.0001f
@@ -508,7 +523,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (isPiPMode) {
-            val fKey = (event.x / width * 6).toInt() + 38
+            val fKey = PiPSoftkeyPolicy.softkeyCode(event.x, width)
             if (event.action == MotionEvent.ACTION_DOWN) {
                 onPiPKeyEvent?.invoke(fKey)
             } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {

@@ -293,10 +293,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val workDirectorySummary = when {
             treeUriString == null -> getString(R.string.settings_work_directory_summary_unset)
             WorkDirectory.isAccessible(context.contentResolver, treeUriString) -> {
+                val unknownFolder = getString(R.string.settings_work_directory_summary_unknown_folder)
                 val displayPath = try {
-                    WorkDirectory.formatDisplayPath(treeUriString.toUri().path)
+                    WorkDirectory.formatDisplayPath(treeUriString.toUri().path, unknownFolder)
                 } catch (_: Exception) {
-                    getString(R.string.settings_work_directory_summary_unknown_folder)
+                    unknownFolder
                 }
                 getString(R.string.settings_work_directory_summary_set, displayPath)
             }

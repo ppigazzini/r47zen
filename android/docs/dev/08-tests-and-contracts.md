@@ -498,6 +498,8 @@ source is missing from this page:
 - `CalculatorKeyViewCanvasTest.kt`: draws a measured main key and asserts each
   of the primary, f, g, and fourth label lanes paints its text in its own
   colour from the label state
+- `PiPSoftkeyPolicyTest.kt`: locks the picture-in-picture softkey row, so every
+  touch across it, the right edge included, presses F1 to F6, codes 38 to 43
 - `GraphTouchVisualPolicyTest.kt`: locks `ReplicaOverlay.isSignificantPinch`,
   so a pinch drives the LCD zoom only when its scale factor is finite and
   differs from 1 by at least `PINCH_EPSILON`

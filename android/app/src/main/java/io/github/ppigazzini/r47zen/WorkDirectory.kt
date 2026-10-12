@@ -157,12 +157,17 @@ internal object WorkDirectory {
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
         )
         writeTreeUriString(context, uri)
-        return formatDisplayPath(uri.path)
+        return formatDisplayPath(
+            uri.path,
+            context.getString(R.string.settings_work_directory_summary_unknown_folder),
+        )
     }
 
-    fun formatDisplayPath(uriPath: String?): String {
+    // The settings sentences splice this in place of a folder name, so a URI
+    // with no path yields unknownFolder, a phrase that reads in that slot.
+    fun formatDisplayPath(uriPath: String?, unknownFolder: String): String {
         if (uriPath == null) {
-            return "Select a folder"
+            return unknownFolder
         }
 
         return uriPath.replaceFirst("^/tree/.*?:".toRegex(), "/")
