@@ -171,6 +171,8 @@ compiles it, for `ProgramLoadTestBridge`. The headers beside the glue are
 `jni_bridge.h` (the shared JNI helpers), `keypad_fixture_bridge.h` (the C entry
 points the fixture exporter and the TSan harness call), `r47_time.h` (the
 wrap-safe deadline helpers `run_wrap_safe_time_contract.sh` proves),
+`core_label.h` (the glyph-boundary label copy `run_core_label_copy_contract.sh`
+proves),
 `android_mocks.h` (forced into every unit), and `execinfo.h`, which shadows
 the NDK's header for the `<execinfo.h>` include upstream's `c47.h` makes on
 Linux: the NDK declares `backtrace()` only from API 33, above the app's

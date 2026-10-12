@@ -35,6 +35,7 @@ CONTRACTS=(
     run_bridge_tsan_lane_contract.sh
     run_lock_free_signal_atomicity_contract.sh
     run_mini_gmp_accounting_contract.sh
+    run_core_label_copy_contract.sh
     run_program_load_bridge_default_contract.sh
     run_test_integrity_contract.sh
     run_privacy_policy_parity_contract.sh

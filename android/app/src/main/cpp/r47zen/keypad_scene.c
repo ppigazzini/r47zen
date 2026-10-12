@@ -5,6 +5,8 @@
 // code the app does; jni_display.c turns a scene into Java arrays.
 #include "jni_bridge.h"
 
+#include "core_label.h"
+
 #include "hal/lcd.h"
 #include "keyboard.h"
 
@@ -316,7 +318,7 @@ static const char *resolveCpxJMainKeyLabel(const keypadMainLabel_t *label,
     return label->name;
   }
 
-  snprintf(mapped, mappedSize, "%s", label->name);
+  r47_copy_core_label(mapped, mappedSize, label->name);
   return replaceInternalGlyph(mapped, from, to) ? mapped : label->name;
 }
 
@@ -734,7 +736,8 @@ static bool_t composeSoftkeyInlineLabel(keypadSoftkeyScene_t *scene,
     return false;
   }
 
-  snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", composed);
+  r47_copy_core_label(scene->primaryLabel, sizeof(scene->primaryLabel),
+                      composed);
   return true;
 }
 
@@ -766,8 +769,8 @@ static void resolveSoftkeyMeta(int16_t itemNr, char *itemName,
     *showValue = fnItemShowValue(functionItem);
   }
 
-  snprintf(itemName, itemNameSize, "%s",
-           indexOfItems[functionItem].itemSoftmenuName);
+  r47_copy_core_label(itemName, itemNameSize,
+                      indexOfItems[functionItem].itemSoftmenuName);
 }
 
 static void resolveSoftkeyScene(int16_t fnKeyIndex,
@@ -803,7 +806,8 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex,
       return;
     }
 
-    snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", labelName);
+    r47_copy_core_label(scene->primaryLabel, sizeof(scene->primaryLabel),
+                        labelName);
     scene->enabled = true;
     videoMode_t videoMode = vmNormal;
     int8_t showCb = NOVAL;
@@ -831,8 +835,8 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex,
           showText[0] = 0;
           showValue = NOVAL;
         } else {
-          snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s",
-                   itemName);
+          r47_copy_core_label(scene->primaryLabel, sizeof(scene->primaryLabel),
+                              itemName);
         }
       }
       break;
@@ -859,8 +863,8 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex,
           showText[0] = 0;
           showValue = NOVAL;
         } else {
-          snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s",
-                   itemName);
+          r47_copy_core_label(scene->primaryLabel, sizeof(scene->primaryLabel),
+                              itemName);
         }
       }
       break;
@@ -880,7 +884,7 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex,
       scene->sceneFlags |= KEYPAD_SCENE_FLAG_SHOW_VALUE;
     }
     if (showText[0] != 0) {
-      snprintf(scene->auxLabel, sizeof(scene->auxLabel), "%s", showText);
+      r47_copy_core_label(scene->auxLabel, sizeof(scene->auxLabel), showText);
       scene->sceneFlags |= KEYPAD_SCENE_FLAG_SHOW_TEXT;
     }
   } else {
@@ -914,8 +918,8 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex,
         showText[0] = 0;
         showValue = NOVAL;
       } else {
-        snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s",
-                 itemName);
+        r47_copy_core_label(scene->primaryLabel, sizeof(scene->primaryLabel),
+                            itemName);
       }
 
       if (videoMode == vmReverse) {
@@ -930,7 +934,7 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex,
         scene->sceneFlags |= KEYPAD_SCENE_FLAG_SHOW_VALUE;
       }
       if (showText[0] != 0) {
-        snprintf(scene->auxLabel, sizeof(scene->auxLabel), "%s", showText);
+        r47_copy_core_label(scene->auxLabel, sizeof(scene->auxLabel), showText);
         scene->sceneFlags |= KEYPAD_SCENE_FLAG_SHOW_TEXT;
       }
     }
@@ -1208,7 +1212,7 @@ static void fillStaticSoftkeyMenuLabel(int16_t item, char *label,
     labelName = indexOfItems[-softmenu[menu].menuItem].itemSoftmenuName;
   }
 
-  snprintf(label, labelSize, "%s", labelName ? labelName : "");
+  r47_copy_core_label(label, labelSize, labelName ? labelName : "");
 }
 
 static void fillKeypadMetaForPresentation(
