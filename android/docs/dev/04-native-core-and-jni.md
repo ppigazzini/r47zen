@@ -35,8 +35,14 @@ and link flags to the release-native target configs, `Release` and
 shipping builds on the optimized shared-library path while debug builds stay on
 the normal non-LTO lane.
 
-The Android-owned glue (`ANDROID_SOURCES`: `r47zen/*.c` and `r47zen/hal/*.c`)
-follows `r47zen/.clang-format` (LLVM style, includes kept in their order,
+The Android-owned glue (`r47zen/*.c` and `r47zen/hal/*.c`) is listed once, in
+`r47zen/glue_sources.txt`: the app's `CMakeLists.txt` reads it, and so do the
+keypad fixture exporter and every host harness through `r47_glue_sources` in
+`scripts/lib/common.sh`, so a new glue file is one line there.
+`scripts/android/run_glue_sources_contract.sh` fails when a glue `.c` is not
+listed, a listed file is missing, or a build keeps a list of its own. Only the
+program-load test bridge, `jni_program_load_test.c`, stays out of it; an
+instrumentation build adds it. The glue follows `r47zen/.clang-format` (LLVM style, includes kept in their order,
 comments as written); `scripts/android/check_native_format.sh` checks it with
 the pinned NDK's `clang-format`, and `--fix` applies it.
 `scripts/android/run_native_clang_tidy.sh` runs the pinned NDK's `clang-tidy`

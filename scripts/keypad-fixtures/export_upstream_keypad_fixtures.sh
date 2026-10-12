@@ -60,21 +60,8 @@ STAGED_DEC_SOURCES=(
     "$STAGED_CPP_DIR/decNumberICU/decimal64.c"
 )
 
-ANDROID_BRIDGE_SOURCES=(
-    "$TRACKED_CPP_DIR/r47zen/android_runtime.c"
-    "$TRACKED_CPP_DIR/r47zen/android_helpers.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/audio.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/gui.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/io.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/lcd.c"
-    "$TRACKED_CPP_DIR/r47zen/hal/print_ir.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_activity_bridge.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_display.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_input.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_lifecycle.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_registration.c"
-    "$TRACKED_CPP_DIR/r47zen/jni_storage.c"
-)
+mapfile -t ANDROID_BRIDGE_SOURCES < <(r47_glue_sources "$TRACKED_CPP_DIR")
+[ "${#ANDROID_BRIDGE_SOURCES[@]}" -gt 0 ] || exit 1
 
 cc -std=gnu17 -O0 -g -pthread \
     -D_GNU_SOURCE -D_DEFAULT_SOURCE \

@@ -1,0 +1,20 @@
+# The repo-owned native glue every build compiles, relative to this directory,
+# in link order. android/app/src/main/cpp/CMakeLists.txt reads it for the app
+# library, and r47_glue_sources in scripts/lib/common.sh for the fixture
+# exporter and every host harness. The
+# program-load test bridge, jni_program_load_test.c, is not listed: only an
+# instrumentation build compiles it. run_glue_sources_contract.sh fails when a
+# .c file here is missing from the list or a build lists the glue by hand.
+android_runtime.c
+android_helpers.c
+hal/audio.c
+hal/gui.c
+hal/io.c
+hal/lcd.c
+hal/print_ir.c
+jni_activity_bridge.c
+jni_display.c
+jni_input.c
+jni_lifecycle.c
+jni_registration.c
+jni_storage.c

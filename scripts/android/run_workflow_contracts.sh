@@ -41,6 +41,7 @@ CONTRACTS=(
     run_commit_message_contract.sh
     run_quiet_grep_pipeline_contract.sh
     run_jni_surface_check_contract.sh
+    run_glue_sources_contract.sh
 )
 
 failed=()

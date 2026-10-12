@@ -58,21 +58,13 @@ set(DEC_SOURCES
     ${R47_STAGED_DECNUMBER_DIR}/decimal64.c
 )
 
-set(ANDROID_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_runtime.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_helpers.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/audio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/gui.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/io.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/lcd.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/hal/print_ir.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_activity_bridge.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_display.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_input.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_lifecycle.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_registration.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/jni_storage.c
-)
+# The glue list lives in r47zen/glue_sources.txt, which the host harnesses read
+# too. Re-run CMake when it changes.
+set(R47_GLUE_SOURCE_LIST ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/glue_sources.txt)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${R47_GLUE_SOURCE_LIST})
+file(STRINGS ${R47_GLUE_SOURCE_LIST} R47_GLUE_SOURCES REGEX "^[A-Za-z0-9_]")
+list(TRANSFORM R47_GLUE_SOURCES PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/
+    OUTPUT_VARIABLE ANDROID_SOURCES)
 
 # The program-load test bridge backs androidTest's ProgramLoadTestBridge, which
 # loads this app library and binds these symbols on the release build type, so

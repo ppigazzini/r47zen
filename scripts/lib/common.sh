@@ -173,3 +173,24 @@ resolve_jdk_home() {
     fi
     return 1
 }
+
+# Print the absolute path of each repo-owned glue source a host harness
+# compiles, in link order, from CPP_DIR/r47zen/glue_sources.txt: the list the
+# app's CMakeLists reads too, so a file added to the glue is added once. Fails
+# when the list is missing or empty.
+r47_glue_sources() {
+    local cpp_dir="$1"
+    local list="$cpp_dir/r47zen/glue_sources.txt"
+    local sources
+
+    [ -f "$list" ] || {
+        echo "ERROR: Missing the glue source list $list." >&2
+        return 1
+    }
+    sources="$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' -e "s|^|$cpp_dir/r47zen/|" "$list")"
+    [ -n "$sources" ] || {
+        echo "ERROR: The glue source list $list names no file." >&2
+        return 1
+    }
+    printf '%s\n' "$sources"
+}
