@@ -2,26 +2,38 @@
 [![Android CI](https://github.com/ppigazzini/r47zen/actions/workflows/android-ci.yml/badge.svg)](https://github.com/ppigazzini/r47zen/actions/workflows/android-ci.yml)
 
 R47 Zen packages the upstream C47 calculator core as an Android app for the
-R47 calculator variant.
+R47 calculator variant. It is independently maintained and is not an official
+release of the C47 project.
 
 This repository builds the APK, stages the shared native calculator core for
 Android, and owns the Android-specific Kotlin, JNI, packaging, and CI code that
-run the calculator on Android devices.
+run the calculator on Android devices. The calculator core itself comes from
+the upstream C47 project, `https://gitlab.com/rpncalculators/c43.git`; the
+GitLab path keeps the older `c43` name.
 
-The Android-native bridge also carries the repo-owned `PC_BUILD`
-compatibility layer required by the staged upstream core. When upstream syncs
-introduce new HAL helper exports used by the desktop-shaped core, the Android
-HAL under `android/app/src/main/cpp/r47zen/hal/` must be updated in the same
-iteration so the latest-upstream Android CI link stays green.
+## Get the app
 
-The authoritative upstream source repository is
-`https://gitlab.com/rpncalculators/c43.git`. The GitLab path still uses the
-historical `c43` repository name, but the upstream project identifies itself as
-C47.
+Download the APK from the
+[latest release](https://github.com/ppigazzini/r47zen/releases/latest) and
+install it; [Verify a downloaded APK](#verify-a-downloaded-apk) says how to
+check it was signed here. The `-dev` pre-releases on the same page are
+snapshot builds of `main`: they install as a separate app, beside the release.
 
-Android CI pins staged native inputs and staged `PROGRAMS` fixtures to that
-same workflow-selected upstream commit so the grouped release-path fixture lane
-never mixes different core revisions in one run.
+## Support
+
+- A bug or a question about the Android app:
+  [open an issue](https://github.com/ppigazzini/r47zen/issues).
+- A calculator behaviour that the desktop C47 simulator shows too is the
+  upstream core's; report it to the upstream project.
+- A security problem: follow `.github/SECURITY.md`, never a public issue.
+- Privacy: `android/docs/privacy-policy.md` says what the app stores on the
+  device; it collects nothing and has no Internet permission.
+
+## Licence
+
+GNU General Public License, version 3; `COPYING` holds the text. The app's
+licence screens show the notices of the third-party code it is built with:
+decNumber, mini-gmp, xlsxio, and the AndroidX libraries.
 
 ## Repo Layout
 
@@ -87,32 +99,7 @@ which deletes the app's data, then install the current release.
 
 ## Documentation
 
-Use `android/docs/dev/README.md` as the maintainer index.
-
-Project-facing publication docs:
-
-- `android/docs/privacy-policy.md`: privacy policy for the independently maintained
-  Android build and the current Play Console policy target.
-
-Key maintainer pages:
-
-- `android/docs/dev/00-project-and-upstream.md`: what this repo is, what the
-  upstream C47 project is, and where the ownership and interface boundary sits.
-- `android/docs/dev/01-build-and-source-layout.md`: how the Android overlay
-  builds, compiles, stages, and consumes the shared core.
-- `android/docs/dev/02-kotlin-shell-architecture.md`: Kotlin coordinator,
-  lifecycle, storage, and input flow.
-- `android/docs/dev/03-upstream-interface-surfaces.md`: the detailed Android
-  interface to upstream-owned runtime behavior.
-- `android/docs/dev/04-native-core-and-jni.md`: CMake, JNI, HAL, and bridge
-  ownership.
-- `android/docs/dev/05-ui-rendering-and-gtk-mapping.md`: geometry, LCD
-  projection, keypad layout, and rendering rules.
-- `android/docs/dev/06-runtime-hot-paths.md`: the main runtime loops, redraw
-  paths, and regression-sensitive boundaries.
-- `android/docs/dev/07-ci-and-release-workflow.md`: GitHub Actions lane split,
-  artifacts, and publication flow.
-- `android/docs/dev/08-tests-and-contracts.md`: the maintainer map of test
-  surfaces, contract owners, and rerun lanes.
-- `android/docs/dev/09-official-references.md`: official Android, NDK, Gradle,
-  Kotlin, GitHub Actions, and upstream reference surfaces.
+- [`AGENTS.md`](AGENTS.md): the one-page short form for contributors and
+  coding agents: the commands, the traps, and the rules.
+- [`android/docs/dev/README.md`](android/docs/dev/README.md): the maintainer
+  index, with the pages in reading order, by task, and by symptom.
