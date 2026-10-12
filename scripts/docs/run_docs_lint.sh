@@ -21,8 +21,8 @@
 #     smart quote arrives by paste and survives review.              -> check 3
 #   * __DEV/ is gitignored, so a pointer to a file inside it is a dangling
 #     reference for every reader who is not its author.              -> check 4
-#   * Claude Code reads CLAUDE.md and never AGENTS.md, so CLAUDE.md's @AGENTS.md
-#     import is the only thing that loads the contract at all.       -> check 5
+#   * Where a CLAUDE.md exists, Claude Code reads it and not AGENTS.md, so
+#     CLAUDE.md's @AGENTS.md import is what loads the contract.      -> check 5
 #   * A link can name a live page and a heading that was retitled; GitHub then
 #     lands the reader at the top of the page, silently.             -> check 6
 #   * Pages list the glue files, the workflows, and the contracts. A file added
@@ -144,11 +144,12 @@ done < <(grep -nE '__DEV/[A-Za-z0-9_./-]*\.[A-Za-z0-9]+' "${DOCS[@]}")
 log "check 4: no tracked doc points at a file under __DEV/ ($n citations)"
 
 # --- 5. the agent contract is loadable ----------------------------------------
-# AGENTS.md is the cross-tool convention; Claude Code reads CLAUDE.md and never
-# AGENTS.md, so CLAUDE.md's `@AGENTS.md` import is the only thing that makes the
-# contract load at all. Claude Code's import parser SKIPS code spans and fenced
-# blocks, so backticking or fencing that line silently loads nothing -- it still
-# renders fine on GitHub, which is what makes it worth a gate.
+# AGENTS.md is the cross-tool convention. Claude Code reads it directly only
+# where no CLAUDE.md exists; this repo keeps one, so CLAUDE.md's `@AGENTS.md`
+# import is what makes the contract load. Claude Code's import parser SKIPS
+# code spans and fenced blocks, so backticking or fencing that line silently
+# loads nothing -- it still renders fine on GitHub, which is what makes it
+# worth a gate.
 n=0
 for f in AGENTS.md CLAUDE.md; do
     [[ -f "$f" ]] || {

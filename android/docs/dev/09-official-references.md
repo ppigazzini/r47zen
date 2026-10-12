@@ -15,6 +15,7 @@ flowchart TD
   F[Storage and manifest]
   G[View and rendering]
   H[Bilevel bitmap packing]
+  I[Agent instructions]
 
   A --> B
   A --> C
@@ -23,6 +24,7 @@ flowchart TD
   A --> F
   A --> G
   A --> H
+  A --> I
 ```
 
 ## Upstream project surfaces
@@ -528,6 +530,18 @@ Current repository icon surfaces:
 - [Make custom views more accessible (Views)](https://developer.android.com/guide/topics/ui/accessibility/views/custom-views):
   directional-controller, click-action, accessibility-event, and
   accessibility-node guidance for custom interactive views.
+
+## Agent instructions
+
+- [AGENTS.md](https://agents.md/): the cross-tool format the root `AGENTS.md`
+  follows, a plain markdown file of project instructions that coding agents
+  read.
+- [How Claude remembers your project](https://code.claude.com/docs/en/memory#agents-md):
+  Anthropic's reference for which instruction files Claude Code loads. It
+  reads `AGENTS.md` directly only where no `CLAUDE.md` or `CLAUDE.local.md`
+  exists in the working directory or above it, from v2.1.277 and with its
+  built-in plugin on; a `CLAUDE.md` that imports `@AGENTS.md` is the shape it
+  documents for every other case, and the one the root `CLAUDE.md` uses.
 
 ## Bilevel bitmap packing conventions
 

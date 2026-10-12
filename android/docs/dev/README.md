@@ -1,13 +1,16 @@
 # Android Development Docs
 
-This directory is the active Android maintainer documentation surface for the
-checked-in R47 shell.
+These pages are the maintainer reference for R47 Zen, the Android shell, build
+pipeline, and maintainer overlay around the upstream C47 calculator core. The
+core is not tracked here: a sync hydrates it from upstream, and the build
+stages a copy of it for the NDK. The pages are code-facing, not end-user
+usage docs.
 
-These pages are code-facing maintainer docs, not end-user usage docs.
-
-Start with the project page, then the build page. The rest of the set assumes
-you already know what this repo owns, what the upstream C47 project owns, and
-where the Android overlay boundary sits.
+[AGENTS.md](../../../AGENTS.md) at the repository root is the one-page short
+form: the commands, the traps, and the rules, each linked to the page here
+that owns it. Read it first, then the project page and the build page; the
+rest of the set assumes you know what this repo owns, what upstream owns, and
+where the overlay boundary sits.
 
 ## Maintainer Doc Flow
 
@@ -34,12 +37,16 @@ flowchart TD
   D --> F
   E --> G
   F --> G
-  G --> I
+  G --> H
   H --> I
-  I --> J
-  J --> K
-  K --> L
+  A -.->|before writing anything| K
+  A -.->|before reviewing a change| L
+  A -.->|when a page cites a vendor doc| J
 ```
+
+The solid path is the reading order for the code. 10 and 11 are not the end
+of it: read 10 before you write a page, a comment, or a commit, and 11 before
+you review one.
 
 ## Read In Order
 
@@ -121,26 +128,11 @@ of them run hot; it is not restated here.
 
 ## Build Entry Points
 
-Maintainer entrypoints:
-
-- `./scripts/upstream-sync/upstream.sh sync --auto --write-lock` hydrates or
-  refreshes the authoritative upstream core inputs.
-- `./scripts/android/build_android.sh` is the canonical Android debug-build
-  path.
-- `cd android && ./gradlew lint` is the maintained module-local lint lane when
-  Kotlin, Java, manifest, resource, or Android Gradle changes are in scope and
-  the staged native inputs are already current.
-- `cd android && ./gradlew ...` is the fast module-local maintenance lane only
-  when the staged native inputs are already current.
-
-Two rules govern most Android work in this repository:
-
-1. Shared calculator behavior stays rooted in the synced upstream-shaped tree
-   plus generated outputs from `build.sim`.
-2. The build-only Android native input tree lives under
-   `android/.staged-native/cpp`, while
-  `android/app/src/main/cpp/r47zen` stays the Android-owned bridge, HAL,
-   and stub surface.
+AGENTS.md's short workflow lists the commands.
+[01-build-and-source-layout.md](01-build-and-source-layout.md#build-entry-points)
+owns what each one does, and when the module-local Gradle lane is valid;
+[canonical versus staged native inputs](01-build-and-source-layout.md#canonical-versus-staged-native-inputs)
+owns which tree to edit.
 
 ## Repo-Owned Automation Layout
 
@@ -156,10 +148,6 @@ Two rules govern most Android work in this repository:
 - `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
   `scripts/workload-regressions/` own the fixture export, notice generation,
   and host workload lanes.
-
-Use `./scripts/android/build_android.sh --doctor` to inspect host and staging
-readiness, and `./scripts/android/build_android.sh --android-only` for the fast
-module-local lane when staged native inputs are current.
 
 If a change crosses Kotlin, JNI, and rendering ownership at the same time, read
 the project page, the build page, the Kotlin page, the JNI page, and the

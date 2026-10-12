@@ -46,13 +46,11 @@ any page that describes a freshness guard, name the oracle, and never document a
 re-bless as a fix.
 
 **Separate canonical sources from staged sources.** This repo's sharpest
-documentation trap. Root `src/c47/`, `dep/`, and the Meson files are canonical.
-`android/.staged-native/cpp` is a build-only staged copy, refreshed by
-`scripts/android/prepare_native_build_inputs.sh`, and it strips the `src/` and
-`dep/` prefixes (`src/c47/assign.c` stages as `.../cpp/c47/assign.c`), so its
-paths are not upstream paths. Never tell a reader to
-edit the staged tree when the real source is at the repo root, and never cite a
-staged path as though it were upstream.
+documentation trap. Root `src/c47/`, `dep/`, and the Meson files are canonical;
+`android/.staged-native/cpp` is a build-only copy with different paths
+([01-build-and-source-layout.md](01-build-and-source-layout.md#canonical-versus-staged-native-inputs)).
+Never tell a reader to edit the staged tree when the real source is at the
+repo root, and never cite a staged path as though it were upstream.
 
 **Separate upstream fact from local decision.** "Upstream hydrates `res/fonts`"
 is checkable against a commit. "This lane gates hard because X" is a choice
@@ -120,10 +118,12 @@ files are dead for every reader but their author: a fresh clone does not have
 them. Never rest a claim on content only its author can see (AGENTS.md
 non-negotiable 2).
 
-`../../../AGENTS.md` is the committed agent contract and the short form of all
-of this. It carries the commands, the traps, and the definition of done, and it
-points here rather than restating. Keep the duplication at zero: a rule lives in
-exactly one of the two.
+`../../../AGENTS.md` is the committed agent contract and the short form of these
+pages: the commands, the traps, the definition of done, and each rule in a line
+or two with a link to the page that owns it. The owning page carries the
+rule's reasons, limits, and examples; AGENTS.md carries none of them. When the
+two disagree the page is right and AGENTS.md is the bug, so a change to a rule
+edits both in one commit.
 
 ### Hot and cold
 
@@ -268,8 +268,9 @@ runs in seconds on every push, and it settles these mechanical rot classes:
 4. a pointer to a file in the maintainer-local tree that AGENTS.md names -
    citing a file inside it rests a claim on content no other reader has,
 5. a missing `AGENTS.md` or `CLAUDE.md`, or a `CLAUDE.md` whose `@AGENTS.md`
-   import is backticked, fenced, or gone - Claude Code reads `CLAUDE.md`, never
-   `AGENTS.md`, so that one line carries the whole contract,
+   import is backticked, fenced, or gone - where a `CLAUDE.md` exists, Claude
+   Code reads it and not `AGENTS.md`, so that one line carries the whole
+   contract,
 6. a `page.md#anchor` or `#anchor` link whose anchor matches no heading of the
    target page, slugged as GitHub slugs it - a retitled heading otherwise lands
    the reader at the top of the page with no error,

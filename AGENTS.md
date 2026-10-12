@@ -45,22 +45,27 @@ R47 calculator variant implemented in the upstream C47 core.
 
 ## Non-negotiables
 
+Each rule below is the short form; the linked page owns it, with its reasons
+and limits.
+
 1. **This repo tracks the latest upstream HEAD.** No tracked file pins an
    `upstream_commit`; `upstream.source` carries only `upstream_url` and
    `upstream_ref`. A pin is local and optional: put it in the git-ignored
    `upstream.lock`. `scripts/upstream-sync/upstream.sh verify-source-policy`
    enforces this and pre-commit runs it. Two builds of the same repo commit on
    different days can therefore compile different cores.
+   [00-project-and-upstream.md](android/docs/dev/00-project-and-upstream.md)
 2. **`__DEV/` is git-ignored and maintainer-only.** Never commit it, and never
    rest a tracked claim on content only its author can see - a fresh clone does
    not have it. Naming the path to mark it ignored is fine. Tracked
    documentation lives in `android/docs/dev/`.
+   [10-writing.md](android/docs/dev/10-writing.md#the-rules)
 3. **ASCII by default** in tracked docs. No ASCII-art boxes; use mermaid.
+   [10-writing.md](android/docs/dev/10-writing.md#the-rules)
 4. **Conventional commits**, carrying the evidence rather than "should work".
-   [android/docs/dev/10-writing.md](android/docs/dev/10-writing.md#commit-messages)
-   owns the format; do not restate it here.
+   [10-writing.md](android/docs/dev/10-writing.md#commit-messages)
 5. **Never add a `Co-Authored-By` trailer** or any agent attribution to a
-   commit.
+   commit. [10-writing.md](android/docs/dev/10-writing.md#commit-messages)
 6. **Do not run destructive commands** unless asked. In particular `git stash
    drop`, `git reflog expire`, `git gc --prune`, and force-pushes.
 
@@ -85,12 +90,17 @@ R47 calculator variant implemented in the upstream C47 core.
 
 `AGENTS.md` is the cross-tool convention (stewarded by the Agentic AI Foundation
 under the Linux Foundation; read natively by Codex, Cursor, Aider, Jules, and
-others). **Claude Code does not read it** - it reads `CLAUDE.md` only. The root
-`CLAUDE.md` therefore carries nothing but a pointer and an `@AGENTS.md` import,
-the syntax Anthropic documents for exactly this case; the sibling zfish, z47,
-and c47-r47-ci repos use the same shape. It is not a duplicate: edit this file,
-never that one. A symlink would also work but breaks on Windows without
-Developer Mode.
+others). Claude Code reads it on its own only where no `CLAUDE.md` or
+`CLAUDE.local.md` sits in the working directory or above it, and not in every
+session: not before v2.1.277, and not with its built-in `AGENTS.md` plugin off
+([how Claude remembers your project](https://code.claude.com/docs/en/memory#agents-md)).
+Where a `CLAUDE.md` exists, Claude Code reads that instead. The root
+`CLAUDE.md` is therefore one line, an `@AGENTS.md` import, the shape Anthropic
+documents for a project that keeps a `CLAUDE.md` or a session that cannot read
+`AGENTS.md`: every Claude Code version and session then loads this file, once.
+The sibling zfish, z47, and c47-r47-ci repos use the same shape. It is not a
+duplicate: edit this file, never that one. A symlink would also work but
+breaks on Windows without Developer Mode.
 
 ## The short version of the workflow
 
@@ -124,27 +134,22 @@ cannot run, say why and record what was checked instead.
 1. **Lint is not implied.** `cd android && ./gradlew lint` is mandatory when
    Kotlin, manifest, resource, or Android Gradle surfaces change.
    `assembleDebug` and `:app:compileDebugKotlin` do not run it.
+   [10-writing.md](android/docs/dev/10-writing.md#the-gates)
 2. **A freshness guard is not an oracle.** The goldens under
-   `scripts/r47_contracts/` re-derive from live inputs, so a guard that compares
-   the committed file against a fresh re-derivation is circular: re-running the
-   deriver re-blesses any change, including a wrong one. Before re-blessing,
-   confirm the independent correctness tests still pass and root-cause the
-   drift. `PYTHONPATH=scripts uv run --group dev python -m
-   r47_contracts.upstream_provenance` answers the out-of-band half of that -
-   which upstream inputs moved since the goldens were recorded, and which
-   goldens each one puts in question.
+   `scripts/r47_contracts/` re-derive from live inputs, so re-running a deriver
+   re-blesses any change, including a wrong one. Before re-blessing, the
+   independent correctness tests must pass and the drift must be root-caused.
+   [08-tests-and-contracts.md](android/docs/dev/08-tests-and-contracts.md#python-contract-suite)
 3. **Upstream drift is not a regression, and not a licence either.** When a
    golden moves because upstream moved, name the upstream commit and show what
-   changed. Regenerating without that is laundering. Re-record the provenance
-   ledger (`--record --upstream-commit <sha>`) in the same commit that
-   re-blesses a golden. When the inputs moved and no golden did,
-   `--record-if-unaffected` re-records it on its own, and refuses unless every
-   golden a moved input feeds matches HEAD and every test module that guards
-   one passes; its output is the commit's evidence.
+   changed, and re-record the provenance ledger in the same commit; the
+   ledger's commands, including the one for a move no golden felt, are on
+   [08-tests-and-contracts.md](android/docs/dev/08-tests-and-contracts.md#upstream-provenance-ledger).
 4. **Verify against a live tree, not memory.** When a local note and upstream
    disagree, upstream wins.
 5. **Retract what you cannot prove.** Say which claims are measured, which are
    read from the source, and which are inferred.
+   [10-writing.md](android/docs/dev/10-writing.md#the-rules)
 
 The maintained entry points:
 
@@ -162,9 +167,9 @@ make sim && make test                                # upstream simulator core
   surfaces as unrelated clang/NDK errors. Remove `android/.staged-native`,
   `build.sim`, `android/app/.cxx`, and `android/app/build` before re-staging.
 - **The staged tree strips the `src/` and `dep/` prefixes**:
-  `src/c47/assign.c` stages as `android/.staged-native/cpp/c47/assign.c` and
-  `dep/decNumberICU/` as `.../cpp/decNumberICU/`. A staged path is therefore not
-  an upstream path. Do not cite it as one.
+  `src/c47/assign.c` stages as `android/.staged-native/cpp/c47/assign.c`. A
+  staged path is therefore not an upstream path. Do not cite it as one.
+  [01-build-and-source-layout.md](android/docs/dev/01-build-and-source-layout.md#canonical-versus-staged-native-inputs)
 - **`res/fonts` is git-ignored and hydrated from upstream**, so a font asset can
   change with no commit here and move a derived golden.
 - **The retired paths

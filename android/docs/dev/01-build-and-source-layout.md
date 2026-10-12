@@ -481,6 +481,11 @@ Staged Android inputs built by CMake:
 - `android/.staged-native/cpp/generated`
 - `android/.staged-native/cpp/gmp`
 
+Staging strips the `src/` and `dep/` prefixes: `src/c47/assign.c` stages as
+`android/.staged-native/cpp/c47/assign.c`, and `dep/decNumberICU/` as
+`android/.staged-native/cpp/decNumberICU/`. A staged path is not an upstream
+path, and the staged copy is replaced on the next build.
+
 Development rule:
 
 - Change the canonical root sources for shared calculator behavior.
