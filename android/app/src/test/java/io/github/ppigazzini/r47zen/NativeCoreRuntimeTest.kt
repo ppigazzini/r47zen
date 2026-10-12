@@ -439,7 +439,7 @@ class NativeCoreRuntimeTest {
             filesDirPath = "/tmp/r47-tests",
             currentSlotIdProvider = { 7 },
             nativePreInit = {},
-            initNative = { _, slotId ->
+            initNative = { slotId ->
                 assertEquals(7, slotId)
                 onInit()
             },

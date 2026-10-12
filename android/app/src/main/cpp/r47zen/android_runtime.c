@@ -17,7 +17,6 @@ int16_t screenStride = 400;
 bool_t screenChange = FALSE;
 int currentBezel = 0;
 calcKeyboard_t calcKeyboard[43];
-gboolean ui_is_active = FALSE;
 
 uint32_t nextTimerRefresh = 0;
 uint32_t nextScreenRefresh = 0;
@@ -103,8 +102,6 @@ static void driveAndroidMockEventLoop(gboolean may_block) {
   yieldToAndroidWithMs((int)wait_ms);
   pumpAndroidMockTimeout();
 }
-
-void onUIActivity(void) { ui_is_active = TRUE; }
 
 gint64 g_get_monotonic_time(void) {
   struct timespec ts;

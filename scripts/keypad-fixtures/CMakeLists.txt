@@ -29,9 +29,6 @@ add_definitions(
     -DCALCMODEL=USER_R47
 )
 
-add_definitions(-Dmpz_div_2exp=mpz_tdiv_q_2exp)
-add_definitions(-Dmpz_fits_uint_p=mpz_fits_ulong_p)
-
 include_directories(
     ${JNI_INCLUDE_DIRS}
     ${R47_TRACKED_CPP_DIR}/r47zen/stubs

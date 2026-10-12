@@ -2,10 +2,6 @@
 
 #include <string.h>
 
-#ifndef PTHREAD_MUTEX_RECURSIVE
-#define PTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX_RECURSIVE_NP
-#endif
-
 void r47_initialize_native_bridge_state(void) {
   pthread_mutexattr_t attr;
   pthread_mutexattr_init(&attr);
@@ -57,7 +53,7 @@ int register_main_activity_natives(JNIEnv *env) {
            Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime},
       {"nativePreInit", "(Ljava/lang/String;)V",
        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit},
-      {"initNative", "(Ljava/lang/String;I)V",
+      {"initNative", "(I)V",
        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_initNative},
       {"tick", "()I",
        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_tick},

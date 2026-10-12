@@ -9,7 +9,7 @@ internal class NativeCoreRuntime(
     private val filesDirPath: String,
     private val currentSlotIdProvider: () -> Int,
     private val nativePreInit: (String) -> Unit,
-    private val initNative: (String, Int) -> Unit,
+    private val initNative: (Int) -> Unit,
     private val updateNativeActivityRef: () -> Unit,
     private val releaseNativeRuntime: () -> Unit,
     private val tick: () -> Int,
@@ -215,7 +215,7 @@ internal class NativeCoreRuntime(
             Log.i(TAG, "Core thread starting; nativeInitialized=$isNativeInitializedShared")
             if (!isNativeInitializedShared) {
                 runtime.nativePreInit(runtime.filesDirPath)
-                runtime.initNative(runtime.filesDirPath, runtime.currentSlotIdProvider())
+                runtime.initNative(runtime.currentSlotIdProvider())
                 isNativeInitializedShared = true
             } else {
                 runtime.updateNativeActivityRef()

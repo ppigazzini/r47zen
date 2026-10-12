@@ -299,7 +299,6 @@ main() {
     "$CC_BIN" -std=gnu17 -O0 -g -pthread \
         -D_GNU_SOURCE -D_DEFAULT_SOURCE \
         -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47 \
-        -Dmpz_div_2exp=mpz_tdiv_q_2exp -Dmpz_fits_uint_p=mpz_fits_ulong_p \
         "${EXTRA_CPPFLAGS[@]}" \
         "${EXTRA_CFLAGS[@]}" \
         -I"$JDK_HOME/include" \

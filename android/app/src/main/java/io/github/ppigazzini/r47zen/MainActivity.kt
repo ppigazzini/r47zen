@@ -568,7 +568,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private external fun nativePreInit(storagePath: String)
-    private external fun initNative(storagePath: String, slotId: Int)
+    private external fun initNative(slotId: Int)
     private external fun tick(): Int
     private external fun releaseNativeRuntime()
     private external fun sendKey(keyCode: Int)

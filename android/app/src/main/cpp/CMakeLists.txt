@@ -115,9 +115,6 @@ target_compile_definitions(r47zen PRIVATE
     LINUX                       # the closest upstream platform
     ${R47_ANDROID_BITNESS_DEFINE}
     CALCMODEL=USER_R47
-    # GMP names the staged core uses, mapped onto mini-gmp's
-    mpz_div_2exp=mpz_tdiv_q_2exp
-    mpz_fits_uint_p=mpz_fits_ulong_p
 )
 
 # Every translation unit sees the Android mocks first, the core included.

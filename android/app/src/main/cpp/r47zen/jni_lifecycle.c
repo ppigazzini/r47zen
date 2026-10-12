@@ -170,8 +170,7 @@ void r47_init_runtime(int slotId) {
 }
 
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
-    JNIEnv *env, jobject thiz, jstring pathObj, jint slotId) {
-  (void)pathObj;
+    JNIEnv *env, jobject thiz, jint slotId) {
   Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(env,
                                                                         thiz);
   r47_init_runtime(slotId);

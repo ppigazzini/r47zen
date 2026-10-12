@@ -10,36 +10,9 @@
 #include <stdint.h>
 #include <time.h>
 
-#if !defined(LOGI) || !defined(LOGE) || !defined(LOGD)
-#if defined(HOST_TOOL_BUILD)
-#define LOG_TAG "R47Native"
-#define LOGI(...)                                                              \
-  do {                                                                         \
-    fprintf(stderr, "I/%s: ", LOG_TAG);                                        \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    fputc('\n', stderr);                                                       \
-  } while (0)
-#define LOGE(...)                                                              \
-  do {                                                                         \
-    fprintf(stderr, "E/%s: ", LOG_TAG);                                        \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    fputc('\n', stderr);                                                       \
-  } while (0)
-#define LOGD(...)                                                              \
-  do {                                                                         \
-    fprintf(stderr, "D/%s: ", LOG_TAG);                                        \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    fputc('\n', stderr);                                                       \
-  } while (0)
-#else
-#include <android/log.h>
-
-#define LOG_TAG "R47Native"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-#endif
-#endif
+// LOGI, LOGE, and LOGD come from android_mocks.h, which every translation unit
+// gets through -include before any header, the app build and each host harness
+// alike.
 
 #define MAIN_ACTIVITY_CLASS "io/github/ppigazzini/r47zen/MainActivity"
 
@@ -179,8 +152,6 @@ extern bool fileReady;
 extern bool fileCancelled;
 extern bool isCoreBlockingForIo;
 
-extern gboolean ui_is_active;
-
 extern uint32_t nextTimerRefresh;
 extern uint32_t nextScreenRefresh;
 
@@ -194,7 +165,6 @@ extern void lcd_clear_buf(void);
 extern void lcd_refresh(void);
 extern void refreshScreen(uint16_t reason);
 
-void onUIActivity(void);
 gint64 g_get_monotonic_time(void);
 gint64 g_get_real_time(void);
 uint32_t sys_current_ms(void);
@@ -235,7 +205,7 @@ Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(JNIEnv *env,
                                                             jobject thiz,
                                                             jstring path_obj);
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
-    JNIEnv *env, jobject thiz, jstring pathObj, jint slotId);
+    JNIEnv *env, jobject thiz, jint slotId);
 JNIEXPORT jint JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_tick(JNIEnv *env, jobject thiz);
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(

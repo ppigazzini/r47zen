@@ -60,13 +60,10 @@
 // GMP needs to be here for stubs to be visible
 #include "gmp.h"
 
-// GMP Stubs
-#ifndef mpz_div_2exp
+// GMP names the staged core uses, mapped onto mini-gmp's. This is their one
+// definition: the app build and every host harness force-include this header.
 #define mpz_div_2exp mpz_tdiv_q_2exp
-#endif
-#ifndef mpz_fits_uint_p
 #define mpz_fits_uint_p mpz_fits_ulong_p
-#endif
 
 static inline void mpz_nextprime(mpz_ptr r, mpz_srcptr n) {
   mpz_add_ui(r, n, 1);

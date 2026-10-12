@@ -565,8 +565,6 @@ JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
     return;
   }
 
-  onUIActivity();
-
   if (keyCode > 0) {
     LOGD("sendKey: DOWN %d", keyCode);
 
@@ -622,7 +620,6 @@ Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(
     return JNI_FALSE;
   }
 
-  onUIActivity();
   if (!r47_direct_stop_allowed(programRunStop)) {
     return JNI_FALSE;
   }
