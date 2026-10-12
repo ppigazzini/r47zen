@@ -256,8 +256,11 @@ It:
 
 - checks out the repo
 - syncs the authoritative upstream tree
-- provisions Python 3.14 and `uv`
-- runs `bash ./scripts/r47_contracts/run_contract_suite.sh`
+- provisions Python at the `requires-python` floor and the pinned `uv`, its
+  tarball checked against the SHA-256 the workflow names; the `uv` cache keys
+  on `uv.lock` alone
+- runs `bash ./scripts/r47_contracts/run_contract_suite.sh`, which runs every
+  step with `uv run --locked` on that floor
 - runs `bash ./scripts/android/run_workflow_contracts.sh`, the host CI
   contracts (signing isolation, release provenance, pinned toolchains, test
   integrity); this is the run that gates, because `ci-required` needs this job
@@ -858,6 +861,9 @@ nothing fails: both copies still resolve. `run_action_pin_consistency_contract.s
   `actionlint` hook revs, and its `uvx zizmor@<version>` against the
   `zizmor-pre-commit` rev;
 - ruff's pre-commit rev against the ruff `uv.lock` resolves;
+- every `astral-sh/setup-uv` step's `version` against the `uv-pre-commit` rev,
+  the uv that writes `uv.lock`, with one `checksum`: a step without a version
+  installs the newest uv at run time, a release no commit here took;
 - every `setup-python` `python-version` against `pyproject.toml`'s
   `requires-python` floor, ruff `target-version`, and ty `python-version`.
 
@@ -866,8 +872,13 @@ So a bump edits every file that names the thing it bumps: search `.github/`,
 and say in the commit which files each bump touched. Dependabot opens one
 pull request per ecosystem: its `uv` group moves ruff in `uv.lock` but not the
 pre-commit rev, and its `pre-commit` group moves a hook rev but not the
-`shell-lint.yml` pin beside it, so each fails this contract until the other
-copy moves in the same pull request.
+`shell-lint.yml` pin beside it, nor the uv version and checksum in the two
+`setup-uv` steps, so each fails this contract until the other copy moves in
+the same pull request.
+
+A bump by hand takes the newest tagged release of every package, hook,
+action, and toolchain it touches, the day it runs. The `cooldown` in
+`.github/dependabot.yml` paces Dependabot's own pull requests and nothing else.
 
 Every job names a versioned runner image (`ubuntu-24.04`, `windows-2025`); the
 same contract refuses a `-latest` label. A `-latest` label moves to a new OS on

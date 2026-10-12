@@ -47,9 +47,8 @@ import subprocess
 import sys
 import unittest
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated, Final, Literal
+from typing import TYPE_CHECKING, Annotated, Final, Literal, TypedDict
 
-from typing_extensions import TypedDict
 from valgebra import Regex, ValidationError, Validator
 
 from r47_contracts import _repo_paths

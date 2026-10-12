@@ -16,6 +16,10 @@
 #   matches the ruff uv.lock resolves for the contract suite. Every
 #   setup-python python-version matches pyproject.toml's requires-python
 #   floor, ruff target-version, and ty python-version.
+# - Every astral-sh/setup-uv step names a `version`, equal to the
+#   uv-pre-commit rev, the uv that writes uv.lock, and the one `checksum` of
+#   that version's x86_64 Linux tarball. Without a version the action installs
+#   the newest uv at run time, a release no commit here has taken.
 # - Every runner label names a versioned image. A -latest label moves to a new
 #   OS on GitHub's schedule with no commit here; that move belongs in a commit
 #   with a CI run as its evidence.
@@ -81,6 +85,43 @@ precommit_rev() {
     ' "$1"
 }
 
+# Print "<file>:<line> <version> <checksum>" for each astral-sh/setup-uv step
+# under DIR, reading the keys of its `with:` block; a missing key prints "-".
+setup_uv_pins() {
+    local dir="$1" file
+    while IFS= read -r file; do
+        awk -v file="${file#"$dir/"}" '
+            function flush() {
+                if (at != "") {
+                    print at, (version == "" ? "-" : version), (checksum == "" ? "-" : checksum)
+                }
+                at = ""; version = ""; checksum = ""
+            }
+            /uses:[[:space:]]*astral-sh\/setup-uv@/ {
+                flush()
+                at = file ":" NR
+                indent = match($0, /[^[:space:]-]/)
+                next
+            }
+            at != "" {
+                if ($0 ~ /^[[:space:]]*-[[:space:]]/ && match($0, /[^[:space:]]/) <= indent) {
+                    flush()
+                    next
+                }
+                line = $0
+                gsub(/["\047]/, "", line)
+                if (line ~ /^[[:space:]]*version:/) {
+                    sub(/^[[:space:]]*version:[[:space:]]*/, "", line); version = line
+                }
+                if (line ~ /^[[:space:]]*checksum:/) {
+                    sub(/^[[:space:]]*checksum:[[:space:]]*/, "", line); checksum = line
+                }
+            }
+            END { flush() }
+        ' "$file"
+    done < <(grep -rlE --include='*.yml' --include='*.yaml' 'astral-sh/setup-uv@' "$dir" 2>/dev/null | LC_ALL=C sort)
+}
+
 # Print the value of the env key NAME in FILE; fail unless it is defined once.
 single_env_value() {
     local file="$1" name="$2" values
@@ -124,6 +165,22 @@ tool_pin_gaps() {
     [ -n "$lane" ] && [ "$lane" = "$hook" ] ||
         echo "zizmor: Shell Lint runs '$lane', the pre-commit hook '$hook'"
 
+    local where version checksum first_checksum=""
+    hook="$(precommit_rev "$precommit" astral-sh/uv-pre-commit)"
+    hook="${hook#v}"
+    [ -n "$hook" ] || echo "uv: no astral-sh/uv-pre-commit rev in ${precommit##*/}"
+    while read -r where version checksum; do
+        [ "$version" = "$hook" ] ||
+            echo "uv: $where installs uv '$version', the uv-pre-commit hook '$hook'"
+        if [[ ! "$checksum" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "uv: $where names no SHA-256 checksum for that uv"
+        elif [ -z "$first_checksum" ]; then
+            first_checksum="$checksum"
+        elif [ "$checksum" != "$first_checksum" ]; then
+            echo "uv: $where names a different checksum for the same uv"
+        fi
+    done < <(setup_uv_pins "$dir")
+
     lane="$(awk '/^name = "ruff"$/ { getline; gsub(/"/, "", $3); print $3; exit }' "$uv_lock")"
     hook="$(precommit_rev "$precommit" astral-sh/ruff-pre-commit)"
     hook="${hook#v}"
@@ -160,6 +217,10 @@ jobs:
       SHFMT_VERSION: v3.14.1
       ACTIONLINT_VERSION: 1.7.12
     steps:
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: '0.12.24'
+          checksum: 'b4dfaef47d491a7296981f8374a4595f55dbf84e8937c8ecd2983574d8bb3da6'
       - run: uvx zizmor@1.30.1 --no-online-audits .github/workflows
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -189,6 +250,8 @@ repos:
     rev: v1.7.12
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
     rev: v1.30.1
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.24
 YML
 cat >"$good/uv.lock" <<'TOML'
 [[package]]
@@ -231,8 +294,12 @@ seed actionlint-split .pre-commit-config.yaml 's/rev: v1.7.12/rev: v1.7.13/'
 seed zizmor-split .github/workflows/shell-lint.yml 's/zizmor@1.30.1/zizmor@1.31.0/'
 seed python-floor pyproject.toml 's/>=3.14/>=3.15/'
 seed python-setup .github/workflows/shell-lint.yml "s/'3.14'/'3.13'/"
+seed uv-split .pre-commit-config.yaml 's/rev: 0.12.24/rev: 0.12.25/'
+seed uv-latest .github/workflows/shell-lint.yml "/version: '0.12.24'/d"
+seed uv-no-checksum .github/workflows/shell-lint.yml '/checksum:/d'
 for fixture in split-sha split-tag tag-ref no-comment latest-runner shfmt-split \
-    shfmt-twice shellcheck-split ruff-split actionlint-split zizmor-split python-floor python-setup; do
+    shfmt-twice shellcheck-split ruff-split actionlint-split zizmor-split python-floor python-setup \
+    uv-split uv-latest uv-no-checksum; do
     [ -n "$(fixture_gaps "$fixtures/$fixture")" ] ||
         contract_fail "the checker missed the seeded gap in fixture $fixture."
 done
@@ -248,4 +315,4 @@ gaps="$(tool_pin_gaps "$WORKFLOW_DIR/shell-lint.yml" "$PROJECT_ROOT/.pre-commit-
     "$PROJECT_ROOT/uv.lock" "$PROJECT_ROOT/pyproject.toml" "$PROJECT_ROOT/.github")"
 [ -z "$gaps" ] || contract_fail "a tool is pinned differently in two places:" "$gaps"
 
-contract_pass "every action has one SHA and tag, shfmt/shellcheck/actionlint/zizmor/ruff/python agree across CI, pre-commit, and uv.lock, and every runner label is versioned."
+contract_pass "every action has one SHA and tag, shfmt/shellcheck/actionlint/zizmor/ruff/uv/python agree across CI, pre-commit, and uv.lock, and every runner label is versioned."

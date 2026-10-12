@@ -32,11 +32,18 @@ rerun-lane map.
 ## Python Maintainer Tooling
 
 - The grouped contract lane under `scripts/r47_contracts/` is maintained
-  through the repo root `pyproject.toml` and should be run with `uv run
-  --group dev ...`.
-- Keep the full Python `3.14` dev tool set available in that environment:
-  `ruff`, `ty`, `fontTools`, and `valgebra` with `annotated-types` and
-  `typing-extensions`. The root `pyproject.toml` `dev` group is the list.
+  through the repo root `pyproject.toml` and runs with `uv run --locked
+  --group dev ...`, on the Python `requires-python` names as its floor;
+  `run_contract_suite.sh` sets `UV_PYTHON` to that floor, because uv would
+  otherwise pick the newest interpreter on the machine.
+- The `dev` group in `pyproject.toml` is the tool set: `ruff`, `ty`,
+  `fontTools`, and `valgebra` with `annotated-types`. The schemas' PEP 728
+  `closed=True` TypedDict is stdlib `typing` from Python 3.15, which is why
+  3.15 is the floor and ruff's `runtime-evaluated-base-classes` names
+  `typing.TypedDict`.
+- A Python move is one commit: `requires-python`, ruff's `target-version`, ty's
+  `python-version`, and every `setup-python` move together, and
+  `run_action_pin_consistency_contract.sh` fails until all four agree.
 - The font-policy, visual-policy, and top-label derivation scripts inspect the
   shipped calculator fonts through `fontTools`, so a partial Python setup is
   not enough for the full contract lane.

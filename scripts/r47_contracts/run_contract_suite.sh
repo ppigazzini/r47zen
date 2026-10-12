@@ -35,20 +35,32 @@ cd "$PROJECT_ROOT"
 
 export PYTHONPATH="$PROJECT_ROOT/scripts"
 
-uv run --group dev python -V
+# Run on the requires-python floor, the Python CI's setup-python installs:
+# with only a floor to go on, uv picks the newest interpreter on the machine,
+# so a host with a newer Python would run the suite on a version CI never does.
+python_floor="$(sed -n 's/^requires-python = ">=\([0-9.]*\)".*/\1/p' pyproject.toml)"
+[ -n "$python_floor" ] || {
+    echo "ERROR: no requires-python floor in pyproject.toml" >&2
+    exit 1
+}
+export UV_PYTHON="${UV_PYTHON:-$python_floor}"
+
+# --locked: run the environment uv.lock records, and fail when pyproject.toml
+# has moved without it, rather than resolve a fresh one no commit holds.
+uv run --locked --group dev python -V
 # No --select here: a CLI selector overrides the config's `select` AND discards
 # its `ignore`, which silently re-enabled a rule pyproject.toml deliberately
 # turns off. pyproject.toml already sets `select = ["ALL"]`, so let it own the
 # rule set and keep this lane identical to the pre-commit hook.
-uv run --group dev ruff check --no-cache scripts/r47_contracts
-uv run --group dev ty check scripts/r47_contracts
-uv run --group dev python -m r47_contracts.validate_geometry_dataset
+uv run --locked --group dev ruff check --no-cache scripts/r47_contracts
+uv run --locked --group dev ty check scripts/r47_contracts
+uv run --locked --group dev python -m r47_contracts.validate_geometry_dataset
 
 for module in "${DERIVE_MODULES[@]}"; do
-    uv run --group dev python -m "$module" >/dev/null
+    uv run --locked --group dev python -m "$module" >/dev/null
 done
 
-uv run --group dev python -m unittest "${TEST_MODULES[@]}"
+uv run --locked --group dev python -m unittest "${TEST_MODULES[@]}"
 
 # Provenance REPORT, not a gate. test_upstream_provenance_contract already fails
 # the run when the ledger and the suite disagree about which upstream inputs
@@ -57,4 +69,4 @@ uv run --group dev python -m unittest "${TEST_MODULES[@]}"
 # gives whoever reads the log the one thing the goldens cannot say on their own
 # - which upstream bytes moved, and therefore which golden to root-cause before
 # re-blessing it.
-uv run --group dev python -m r47_contracts.upstream_provenance
+uv run --locked --group dev python -m r47_contracts.upstream_provenance

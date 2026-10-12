@@ -11,10 +11,9 @@ own contract test, which is a stronger claim than any shape.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Annotated, Final, Literal, NotRequired
+from typing import TYPE_CHECKING, Annotated, Final, Literal, NotRequired, TypedDict
 
 import annotated_types as at
-from typing_extensions import TypedDict
 from valgebra import Regex, ValidationError, Validator, complement
 
 from r47_contracts._repo_paths import (
