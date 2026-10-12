@@ -6,7 +6,7 @@ JNIEXPORT jstring JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
-  if (!ram || isCoreBlockingForIo) {
+  if (!ram) {
     return jni_new_string_utf(
         env, "", NULL, "getClipboardXRegisterNative default NewStringUTF");
   }
@@ -25,7 +25,7 @@ JNIEXPORT jstring JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
-  if (!ram || isCoreBlockingForIo) {
+  if (!ram) {
     return jni_new_string_utf(
         env, "", NULL, "getClipboardStackRegistersNative default NewStringUTF");
   }
@@ -44,7 +44,7 @@ JNIEXPORT jstring JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
-  if (!ram || isCoreBlockingForIo) {
+  if (!ram) {
     return jni_new_string_utf(
         env, "", NULL, "getClipboardAllRegistersNative default NewStringUTF");
   }

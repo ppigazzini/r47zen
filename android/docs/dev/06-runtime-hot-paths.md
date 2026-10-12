@@ -315,9 +315,11 @@ moved into the per-frame LCD path.
   the same number of times.
 - `requestAndroidFile(...)` in `jni_storage.c` uses the same release and later
   reacquire pattern around SAF file selection.
-- While a file request is pending, `isCoreBlockingForIo` is true. The string
-  keypad path in `sendSimKeyNative(...)` and `r47_send_sim_key(...)` checks that
-  flag and declines new keypad work.
+- While a file request is pending, `isCoreBlockingForIo` is true, a C11
+  atomic the lock-free signal contract holds. `r47_send_sim_key(...)` and the
+  graph-touch gate check it. Their app callers run as core tasks, and the core
+  thread is the one parked, so they never see it set; the instrumentation
+  bridge's threads do.
 - `hal/io.c::ioFileOpen(...)` is what sends state, program, RTF export, and
   manual-save traffic onto this boundary in the first place.
 - This path is also one of the two core-owned consumption points for the

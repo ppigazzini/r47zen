@@ -10,7 +10,14 @@ pthread_mutex_t screenMutex;
 int fileDescriptor = -1;
 bool fileReady = false;
 bool fileCancelled = false;
-bool isCoreBlockingForIo = false;
+// True while the core thread is parked in requestAndroidFile, waiting on
+// fileCond with screenMutex released. The core thread writes it under
+// fileMutex; the readers hold no lock, hence the atomic. Every app caller of
+// the guarded entry points runs as a core task, so on the app path the guards
+// never see it set: the core thread is the one parked. The instrumentation
+// bridge's own threads (ProgramLoadTestBridge sendSimKey and the graph-touch
+// stress hook) are the readers it stops.
+_Atomic bool isCoreBlockingForIo = false;
 
 int16_t debugWindow = 0;
 int16_t screenStride = 400;

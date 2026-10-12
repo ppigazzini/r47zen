@@ -150,7 +150,7 @@ extern pthread_mutex_t screenMutex;
 extern int fileDescriptor;
 extern bool fileReady;
 extern bool fileCancelled;
-extern bool isCoreBlockingForIo;
+extern _Atomic bool isCoreBlockingForIo;
 
 extern uint32_t nextTimerRefresh;
 extern uint32_t nextScreenRefresh;

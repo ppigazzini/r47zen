@@ -119,9 +119,10 @@ flowchart LR
   main-thread snapshot export path in `NativeDisplayRefreshLoop`.
 - `sendSimKeyNative(String, boolean, boolean)` is the string-key path used by
   the physical keyboard mapper and display actions. It is a cold simulation or
-  control surface, not the hot keypad path. It bails out when
-  `isCoreBlockingForIo` is set so Android does not inject keypad work while the
-  core is suspended in a SAF file request.
+  control surface, not the hot keypad path. `r47_send_sim_key` bails out when
+  `isCoreBlockingForIo` is set; the app calls it only as a core task, which
+  cannot run while the core thread is the one parked in a SAF file request, so
+  the guard stops the instrumentation bridge's threads, not the app.
 - `sendSimMenuNative(int)` resolves a shell menu code (`R47_SHELL_MENU_*` in
   `jni_bridge.h`, mirrored by `NativeShellCodes.kt`) to its `-MNU_*` softmenu,
   calls `showSoftmenu(...)`, and forces a screen refresh. `sendSimFuncNative(int)`

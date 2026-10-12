@@ -1,5 +1,6 @@
 #include "jni_bridge.h"
 
+#include <stdatomic.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -57,7 +58,7 @@ static int restoreScreenMutexAndReturn(int lockCount, int fd) {
 
 static int failAndroidFileRequest(int lockCount) {
   pthread_mutex_lock(&fileMutex);
-  isCoreBlockingForIo = false;
+  atomic_store_explicit(&isCoreBlockingForIo, false, memory_order_relaxed);
   fileReady = false;
   fileCancelled = true;
   fileDescriptor = -1;
@@ -94,7 +95,7 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
        lockCount);
 
   pthread_mutex_lock(&fileMutex);
-  isCoreBlockingForIo = true;
+  atomic_store_explicit(&isCoreBlockingForIo, true, memory_order_relaxed);
   fileReady = false;
   fileCancelled = false;
   fileDescriptor = -1;
@@ -126,7 +127,7 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
     pthread_cond_wait(&fileCond, &fileMutex);
   }
   int fd = fileDescriptor;
-  isCoreBlockingForIo = false;
+  atomic_store_explicit(&isCoreBlockingForIo, false, memory_order_relaxed);
   LOGI("requestAndroidFile: Resumed, fd=%d, cancelled=%d", fd, fileCancelled);
   pthread_mutex_unlock(&fileMutex);
 

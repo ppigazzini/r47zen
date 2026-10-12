@@ -1,6 +1,7 @@
 #include "jni_bridge.h"
 
 #include <math.h>
+#include <stdatomic.h>
 #include <stdio.h>
 
 extern void btnFnPressed(GtkWidget *notUsed, GdkEvent *event, gpointer data);
@@ -52,7 +53,9 @@ void r47_graph_bound_from_float(float value, real_t *dst) {
 }
 
 static bool r47_graph_touch_supported_locked(void) {
-  if (!ram || isCoreBlockingForIo || calcMode != CM_GRAPH) {
+  if (!ram ||
+      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed) ||
+      calcMode != CM_GRAPH) {
     return false;
   }
 
@@ -409,7 +412,9 @@ void r47_send_sim_menu(int menuId) {
 }
 
 void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
-  if (!ram || isCoreBlockingForIo || keyId == NULL) {
+  if (!ram ||
+      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed) ||
+      keyId == NULL) {
     return;
   }
 
@@ -537,7 +542,7 @@ Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease) {
   (void)thiz;
-  if (!ram || isCoreBlockingForIo) {
+  if (!ram) {
     return;
   }
 

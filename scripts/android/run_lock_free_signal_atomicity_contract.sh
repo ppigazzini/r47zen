@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Contract: every lock-free cross-thread display/refresh signal in the Android
-# bridge stays a C11 atomic and is only ever touched through an atomic call.
-# These signals are written by the core thread and sampled with no lock held by
-# the UI/JNI threads, so plain volatile, or a plain read or write of the atomic,
+# Contract: every lock-free cross-thread signal in the Android bridge (the
+# display and refresh generations, the stop-refresh request, and the I/O
+# blocking flag) stays a C11 atomic and is only ever touched through an atomic
+# call. These signals are written by one thread and sampled with no lock held
+# by another, so plain volatile, or a plain read or write of the atomic,
 # leaves the concurrent access a data race under the C memory model
 # (ThreadSanitizer flags it via build_bridge_tsan_harness.sh).
 #
@@ -35,6 +36,7 @@ declare -A SIGNAL_HOME=(
     [packedDisplayGeneration]="$LCD_C"
     [keypadSnapshotGeneration]="$LCD_C"
     [g_r47_stop_refresh_pending]="$RUNTIME_C"
+    [isCoreBlockingForIo]="$RUNTIME_C"
 )
 
 # Print "file:line: text" for each use of SIGNAL in FILE that is neither a

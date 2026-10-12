@@ -2,6 +2,7 @@
 #include "hal/lcd.h"
 
 #include <math.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -434,7 +435,8 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease) {
   (void)thiz;
-  if (!ram || isCoreBlockingForIo) {
+  if (!ram ||
+      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed)) {
     return;
   }
 
