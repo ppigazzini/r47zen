@@ -17,7 +17,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -165,8 +164,13 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
 
         findPreference<Preference>("view_android_library_licenses")?.setOnPreferenceClickListener {
-            OssLicensesMenuActivity.setActivityTitle(getString(R.string.about_android_library_licenses_title))
-            startActivity(Intent(requireContext(), OssLicensesMenuActivity::class.java))
+            startActivity(
+                RepoNoticeIndexActivity.createIntent(
+                    requireContext(),
+                    getString(R.string.about_android_library_licenses_title),
+                    RepoNoticeIndexActivity.LIBRARY_LICENSES_INDEX,
+                )
+            )
             true
         }
 

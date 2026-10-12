@@ -17,13 +17,14 @@ kotest = "6.2.5"
 kotlinxSerialization = "1.11.0"
 kover = "0.9.11"
 material = "1.14.0"
-playServicesOssLicenses = "17.5.2"
+ossLicensesPlugin = "0.13.0"
 robolectric = "4.17"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
 kotlinx-kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
+oss-licenses = { id = "com.google.android.gms.oss-licenses-plugin", version.ref = "ossLicensesPlugin" }
 
 [libraries]
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "androidxActivityKtx" }
@@ -38,5 +39,4 @@ junit4 = { module = "junit:junit", version.ref = "junit4" }
 kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
-play-services-oss-licenses = { module = "com.google.android.gms:play-services-oss-licenses", version.ref = "playServicesOssLicenses" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }

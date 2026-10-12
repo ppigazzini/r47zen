@@ -1,6 +1,7 @@
 package io.github.ppigazzini.r47zen
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -27,12 +28,13 @@ class RepoNoticeIndexActivity : AppCompatActivity() {
 
         findViewById<MaterialToolbar>(R.id.top_app_bar)
             .configureScreenToolbar(
-                titleText = getString(R.string.repo_notice_catalog_title),
+                titleText = intent.getStringExtra(EXTRA_TITLE)
+                    ?: getString(R.string.repo_notice_catalog_title),
                 onNavigateUp = ::finish,
             )
 
         val entries = try {
-            loadEntries()
+            loadEntries(intent.getStringExtra(EXTRA_INDEX_PATH) ?: REPO_NOTICES_INDEX)
         } catch (e: IOException) {
             showMissingAndFinish(getString(R.string.repo_notice_catalog_missing_message))
             return
@@ -70,8 +72,8 @@ class RepoNoticeIndexActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadEntries(): List<RepoNoticeEntry> {
-        val rawText = assets.open("repo-notices/NOTICE-INDEX.json").bufferedReader().use { it.readText() }
+    private fun loadEntries(indexPath: String): List<RepoNoticeEntry> {
+        val rawText = assets.open(indexPath).bufferedReader().use { it.readText() }
         val jsonObject = JSONObject(rawText)
         val entriesArray = jsonObject.getJSONArray("entries")
         val entries = mutableListOf<RepoNoticeEntry>()
@@ -108,4 +110,20 @@ class RepoNoticeIndexActivity : AppCompatActivity() {
         val assetPath: String,
         val contentType: String
     )
+
+    companion object {
+        private const val EXTRA_TITLE = "title"
+        private const val EXTRA_INDEX_PATH = "index_path"
+
+        // Written by the generateRepoNoticeAssets and
+        // generate<Variant>LibraryLicenseAssets tasks in app/build.gradle.
+        const val REPO_NOTICES_INDEX = "repo-notices/NOTICE-INDEX.json"
+        const val LIBRARY_LICENSES_INDEX = "library-licenses/NOTICE-INDEX.json"
+
+        fun createIntent(context: Context, title: String, indexPath: String): Intent =
+            Intent(context, RepoNoticeIndexActivity::class.java).apply {
+                putExtra(EXTRA_TITLE, title)
+                putExtra(EXTRA_INDEX_PATH, indexPath)
+            }
+    }
 }

@@ -52,10 +52,6 @@
             android:label="@string/repo_notice_asset_fallback_title"
             android:parentActivityName=".RepoNoticeIndexActivity"
             android:theme="@style/Theme.R47.Settings" />
-        <activity
-            android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
-            android:exported="false"
-            android:theme="@style/Theme.R47.Settings" />
     </application>
 
 </manifest>

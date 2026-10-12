@@ -2,6 +2,7 @@ import java.util.Properties
 import java.util.Locale
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
+import com.google.android.gms.oss.licenses.plugin.LicensesTask
 import groovy.xml.XmlSlurper
 import javax.inject.Inject
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
@@ -10,7 +11,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.detekt)
     alias(libs.plugins.kotlinx.kover)
-    id 'com.google.android.gms.oss-licenses-plugin'
+    alias(libs.plugins.oss.licenses)
 }
 
 def defaultsProperties = new Properties()
@@ -467,7 +468,6 @@ dependencies {
     implementation libs.material
     implementation libs.androidx.constraintlayout
     implementation libs.androidx.preference.ktx
-    implementation libs.play.services.oss.licenses
 
     testImplementation libs.junit4
     testImplementation libs.androidx.test.core
@@ -634,8 +634,74 @@ def stageProgramFixtureAssets = tasks.register('stageProgramFixtureAssets', Stag
     task.repositoryRoot.set(repositoryRootDir)
 }
 
+// Turns the oss-licenses plugin's output, a byte blob (raw/third_party_licenses)
+// and one "offset:length name" line per library
+// (raw/third_party_license_metadata), into the asset index that
+// RepoNoticeIndexActivity reads, one text file per library. The app shows
+// every library's licence text on its own screens, so it ships no licence
+// viewer: play-services-oss-licenses 17.5 brought Compose, Play services, and
+// Guava into a View-based APK for one settings entry. The plugin writes a
+// single placeholder entry for a debug variant.
+abstract class GenerateLibraryLicenseAssets extends DefaultTask {
+    @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract DirectoryProperty getLicensesDirectory()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDir()
+
+    @TaskAction
+    void generate() {
+        def rawDir = licensesDirectory.dir('raw').get().asFile
+        byte[] blob = new File(rawDir, 'third_party_licenses').bytes
+        def metadataLines = new File(rawDir, 'third_party_license_metadata')
+            .getText('UTF-8')
+            .readLines()
+            .findAll { !it.trim().isEmpty() }
+        if (metadataLines.isEmpty()) {
+            throw new GradleException("The oss-licenses plugin listed no library in ${rawDir}")
+        }
+
+        def indexDir = outputDir.dir('library-licenses').get().asFile
+        indexDir.deleteDir()
+        indexDir.mkdirs()
+        def entries = []
+        metadataLines.eachWithIndex { String line, int index ->
+            // The offsets count bytes, not characters: the blob is UTF-8.
+            def matcher = line =~ /^(\d+):(\d+) (.+)$/
+            if (!matcher.matches()) {
+                throw new GradleException("Unreadable oss-licenses metadata line: ${line}")
+            }
+            int start = matcher.group(1) as int
+            int length = matcher.group(2) as int
+            if (start + length > blob.length) {
+                throw new GradleException("oss-licenses metadata points past the licence text: ${line}")
+            }
+            def assetName = String.format(Locale.ROOT, '%03d.txt', index)
+            new File(indexDir, assetName).bytes = Arrays.copyOfRange(blob, start, start + length)
+            entries << [
+                title      : matcher.group(3),
+                summary    : '',
+                assetPath  : "library-licenses/${assetName}".toString(),
+                contentType: 'text/plain'
+            ]
+        }
+        new File(indexDir, 'NOTICE-INDEX.json').text = JsonOutput.prettyPrint(JsonOutput.toJson([
+            schemaVersion: 1,
+            title        : 'Android library licences',
+            entries      : entries
+        ])) + '\n'
+    }
+}
+
 androidComponents {
     onVariants(selector().all()) { variant ->
+        def licensesTask = tasks.named("${variant.name}OssLicensesTask", LicensesTask)
+        def libraryLicenseAssets = tasks.register("generate${variant.name.capitalize()}LibraryLicenseAssets", GenerateLibraryLicenseAssets) { task ->
+            task.licensesDirectory.set(licensesTask.flatMap { it.generatedDirectory })
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(libraryLicenseAssets) { it.outputDir }
+
         variant.deviceTests.values().each { deviceTest ->
             deviceTest.sources.assets?.addGeneratedSourceDirectory(stageProgramFixtureAssets) { it.outputDir }
         }
