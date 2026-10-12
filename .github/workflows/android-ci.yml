@@ -69,8 +69,8 @@ jobs:
         env:
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           ANDROID_COMMIT: ${{ github.sha }}
-          DEV_VERSION_CODE_INPUT: ${{ github.event.inputs.dev_version_code }}
-          DEV_VERSION_NAME_INPUT: ${{ github.event.inputs.dev_version_name }}
+          DEV_VERSION_CODE_INPUT: ${{ inputs.dev_version_code }}
+          DEV_VERSION_NAME_INPUT: ${{ inputs.dev_version_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail

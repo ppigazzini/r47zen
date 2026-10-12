@@ -867,7 +867,9 @@ Android compatibility layer.
   repo-owned restore allowlist would re-own authoritative upstream root
   surfaces, and also when a tracked root file is missing from that allowlist
   (the overlay would then replace it with upstream's copy); `sync` runs that
-  same guard before it restores tracked paths
+  same guard before it restores tracked paths, and the `restore-boundary`
+  pre-commit hook runs it when a root file or `upstream.sh` changes. It reads
+  the index, so it sees a root file the commit adds
 - `scripts/upstream-sync/test_resolver_policy.sh` runs `upstream.sh` against
   a throwaway local repository standing in for upstream: with no pin, `--auto`
   and `--latest` resolve the latest HEAD; a pin in `upstream.lock` is honoured
@@ -931,7 +933,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_build_deps_single_source_contract.sh` | Linux build dependencies come only from `install_linux_build_deps.sh`; live lines only | text |
 | `run_toolchain_pin_coherence_contract.sh` | the documentary Gradle and AGP pins in `r47-defaults.properties` match the wrapper and the version catalog | text |
 | `run_build_jdk_pin_coherence_contract.sh` | the Gradle toolchain, every `setup-java`, and the doctor read the build JDK pin: the pin is read into `buildJdkVersion` once and never reassigned, every `JavaLanguageVersion.of` takes it, and no `jvmToolchain` sets a second one; live code only | yes, seeded copies of the Gradle file and the doctor |
-| `run_action_pin_consistency_contract.sh` | one SHA and tag per action, shfmt, shellcheck, ruff, and Python pinned alike in CI, pre-commit, `uv.lock`, and `pyproject.toml`, and no `-latest` runner label (see [07](07-ci-and-release-workflow.md#pins-that-live-in-more-than-one-file)) | yes, fixtures |
+| `run_action_pin_consistency_contract.sh` | one SHA and tag per action, shfmt, shellcheck, actionlint, zizmor, ruff, and Python pinned alike in CI, pre-commit, `uv.lock`, and `pyproject.toml`, and no `-latest` runner label (see [07](07-ci-and-release-workflow.md#pins-that-live-in-more-than-one-file)) | yes, fixtures |
 | `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely, and every deadline site includes and calls the helpers, comments aside, with no raw comparison in either operand order | yes, compiles and runs a C test; the patterns prove themselves on seeded lines |
 | `run_setup_android_packages_contract.sh` | every `setup-android` use passes explicit `packages:` without the legacy `tools` package | text |
 | `run_setup_android_composite_contract.sh` | SDK setup lives only in the composite, its actions are SHA-pinned on live lines, and each cache key covers every input its install step reads | yes, cache-key fixtures |

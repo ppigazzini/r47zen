@@ -811,7 +811,7 @@ The rest, and what each one gates:
 | `resolve-upstream-core.yml` | `workflow_call` from every lane below and above | resolves one upstream URL and commit per run through `upstream.sh resolve`, refusing any mode but `latest` unless a commit pin is passed | -- (a callee) |
 | `linux-ci.yml` | push to `main` and `github_ci`, pull request, nightly schedule | `upstream-resolver-policy` runs `test_resolver_policy.sh` and `test_fetch_retry.sh`; `linux-simulator` builds `make dist_linux`; `host-workload-regressions` runs the host harnesses and `run_workflow_contracts.sh` (see [08-tests-and-contracts.md](08-tests-and-contracts.md)); a green schedule or `main` push records the nightly marker | nothing requires it; it reports |
 | `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`; same nightly marker as Linux | nothing requires it; it reports |
-| `shell-lint.yml` | push to `main` and `github_ci`, pull request | `shellcheck` and `shfmt -i 4 -ci -d` over `scripts/**/*.sh`, then `actionlint` and `zizmor --no-online-audits --min-severity=medium` over `.github/`; both jobs download the one `shellcheck` release the workflow-level `SHELLCHECK_VERSION` pins, never the runner image's copy | nothing requires it; it reports |
+| `shell-lint.yml` | push to `main` and `github_ci`, pull request | `shellcheck` and `shfmt -i 4 -ci -d` over `scripts/**/*.sh`, then `actionlint` and `zizmor --no-online-audits --min-severity=medium` over the workflows, the composite actions, and `.github/dependabot.yml`; both jobs download the one `shellcheck` release the workflow-level `SHELLCHECK_VERSION` pins, never the runner image's copy | nothing requires it; it reports |
 | `docs-lint.yml` | push to `main` and `github_ci`, pull request | `scripts/docs/run_docs_lint.sh` (see [10-writing.md](10-writing.md#the-gates)) | nothing requires it; it reports |
 | `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL `c-cpp` with `build-mode: none` over repo-owned C, ignoring `src`, `dep`, and the staged tree; findings go to the Security tab. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
@@ -831,8 +831,15 @@ downloads several GB and a dropped connection is transient, and their cache,
 whose key covers every input the install step reads) and
 `./.github/actions/setup-xlsxio-toolchain` (builds the pinned xlsxio commit
 with a fixed CMake recipe and caches it on the source URL, the commit, and the
-action file's hash). `.github/dependabot.yml` opens weekly grouped update pull
-requests for GitHub Actions, Gradle, and uv.
+action file's hash).
+
+`.github/dependabot.yml` asks for weekly grouped update pull requests for
+GitHub Actions, Gradle, uv, and the pre-commit hook revs, each held back 7
+days after a release (`cooldown`; zizmor's `dependabot-cooldown` audit fails
+a shorter one). The file does nothing unless version updates are on: each run
+shows as the dynamic `Dependabot Updates` workflow, so when
+`gh api repos/ppigazzini/r47zen/actions/workflows` lists none, no update has
+ever run, and the switch is in the repository's Code security settings.
 
 ### Pins that live in more than one file
 
@@ -843,17 +850,21 @@ nothing fails: both copies still resolve. `run_action_pin_consistency_contract.s
 - every third-party action: one commit SHA and one `# <tag>` comment per
   `owner/repo` across the workflows and both composite actions, so
   `actions/cache` and `actions/cache/restore` move together;
-- `SHFMT_VERSION` and `SHELLCHECK_VERSION` in `shell-lint.yml` against the
-  `pre-commit-shfmt` and `shellcheck-py` hook revs;
+- `SHFMT_VERSION`, `SHELLCHECK_VERSION`, and `ACTIONLINT_VERSION` in
+  `shell-lint.yml` against the `pre-commit-shfmt`, `shellcheck-py`, and
+  `actionlint` hook revs, and its `uvx zizmor@<version>` against the
+  `zizmor-pre-commit` rev;
 - ruff's pre-commit rev against the ruff `uv.lock` resolves;
 - every `setup-python` `python-version` against `pyproject.toml`'s
   `requires-python` floor, ruff `target-version`, and ty `python-version`.
 
 So a bump edits every file that names the thing it bumps: search `.github/`,
 `.pre-commit-config.yaml`, and `pyproject.toml`, not the file that prompted it,
-and say in the commit which files each bump touched. Dependabot's `uv` group
-moves ruff in `uv.lock` but not the pre-commit rev, so its pull request fails
-this contract until the rev moves in the same pull request.
+and say in the commit which files each bump touched. Dependabot opens one
+pull request per ecosystem: its `uv` group moves ruff in `uv.lock` but not the
+pre-commit rev, and its `pre-commit` group moves a hook rev but not the
+`shell-lint.yml` pin beside it, so each fails this contract until the other
+copy moves in the same pull request.
 
 Every job names a versioned runner image (`ubuntu-24.04`, `windows-2025`); the
 same contract refuses a `-latest` label. A `-latest` label moves to a new OS on

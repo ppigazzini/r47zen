@@ -10,12 +10,21 @@
 # - gradle: the Android app dependencies and AGP/plugin versions, so a
 #   vulnerable transitive library surfaces as a PR instead of shipping silently.
 # - uv: the maintained Python contract/tooling deps in `pyproject.toml`.
+# - pre-commit: the hook revs in `.pre-commit-config.yaml`. A rev that Shell
+#   Lint or uv.lock also pins fails run_action_pin_consistency_contract.sh
+#   until the pull request moves the other copy too.
+#
+# Every ecosystem waits 7 days after a release before proposing it, so a
+# compromised release that is pulled within the week never reaches a pull
+# request. Security updates ignore the cooldown.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "ci"
     groups:
@@ -26,6 +35,8 @@ updates:
     directory: "/android"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "build"
     groups:
@@ -36,9 +47,23 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "build"
     groups:
       python:
+        patterns:
+          - "*"
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "build"
+    groups:
+      pre-commit:
         patterns:
           - "*"

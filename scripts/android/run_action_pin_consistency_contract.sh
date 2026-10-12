@@ -9,8 +9,10 @@
 #   the same SHA and the same tag. A bump that edits one file and misses
 #   another leaves two versions of one action running, and nothing fails.
 # - The tools Shell Lint downloads are the tools pre-commit runs locally:
-#   SHFMT_VERSION matches the scop/pre-commit-shfmt rev and SHELLCHECK_VERSION
-#   the shellcheck-py rev, each defined exactly once. ruff's pre-commit rev
+#   SHFMT_VERSION matches the scop/pre-commit-shfmt rev, SHELLCHECK_VERSION
+#   the shellcheck-py rev, and ACTIONLINT_VERSION the actionlint rev, each
+#   defined exactly once, and the one `uvx zizmor@<version>` the
+#   zizmor-pre-commit rev. ruff's pre-commit rev
 #   matches the ruff uv.lock resolves for the contract suite. Every
 #   setup-python python-version matches pyproject.toml's requires-python
 #   floor, ruff target-version, and ty python-version.
@@ -107,6 +109,21 @@ tool_pin_gaps() {
     [ -n "$lane" ] && [ "$lane" = "$hook" ] ||
         echo "shellcheck: Shell Lint pins '$lane', the pre-commit hook '$hook'"
 
+    lane="$(single_env_value "$shell_lint" ACTIONLINT_VERSION)" ||
+        echo "ACTIONLINT_VERSION is not defined exactly once in ${shell_lint##*/}"
+    hook="$(precommit_rev "$precommit" rhysd/actionlint)"
+    hook="${hook#v}"
+    [ -n "$lane" ] && [ "$lane" = "$hook" ] ||
+        echo "actionlint: Shell Lint pins '$lane', the pre-commit hook '$hook'"
+
+    lane="$(sed -n 's/.*uvx zizmor@\([0-9][0-9.]*\).*/\1/p' "$shell_lint")"
+    [ "$(grep -c . <<<"$lane")" = 1 ] ||
+        echo "zizmor: ${shell_lint##*/} must run uvx zizmor@<version> exactly once"
+    hook="$(precommit_rev "$precommit" zizmorcore/zizmor-pre-commit)"
+    hook="${hook#v}"
+    [ -n "$lane" ] && [ "$lane" = "$hook" ] ||
+        echo "zizmor: Shell Lint runs '$lane', the pre-commit hook '$hook'"
+
     lane="$(awk '/^name = "ruff"$/ { getline; gsub(/"/, "", $3); print $3; exit }' "$uv_lock")"
     hook="$(precommit_rev "$precommit" astral-sh/ruff-pre-commit)"
     hook="${hook#v}"
@@ -141,7 +158,9 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       SHFMT_VERSION: v3.14.1
+      ACTIONLINT_VERSION: 1.7.12
     steps:
+      - run: uvx zizmor@1.30.1 --no-online-audits .github/workflows
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       # - uses: actions/checkout@0000000000000000000000000000000000000000 # v1
@@ -166,6 +185,10 @@ repos:
     rev: v0.11.0.1-1
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.14.1-1
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.30.1
 YML
 cat >"$good/uv.lock" <<'TOML'
 [[package]]
@@ -204,10 +227,12 @@ seed shfmt-split .pre-commit-config.yaml 's/v3.14.1-1/v3.15.0-1/'
 seed shfmt-twice .github/workflows/shell-lint.yml 's/^env:$/env:\n  SHFMT_VERSION: v3.14.1/'
 seed shellcheck-split .github/workflows/shell-lint.yml 's/SHELLCHECK_VERSION: v0.11.0/SHELLCHECK_VERSION: v0.10.0/'
 seed ruff-split uv.lock 's/0.16.9/0.16.10/'
+seed actionlint-split .pre-commit-config.yaml 's/rev: v1.7.12/rev: v1.7.13/'
+seed zizmor-split .github/workflows/shell-lint.yml 's/zizmor@1.30.1/zizmor@1.31.0/'
 seed python-floor pyproject.toml 's/>=3.14/>=3.15/'
 seed python-setup .github/workflows/shell-lint.yml "s/'3.14'/'3.13'/"
 for fixture in split-sha split-tag tag-ref no-comment latest-runner shfmt-split \
-    shfmt-twice shellcheck-split ruff-split python-floor python-setup; do
+    shfmt-twice shellcheck-split ruff-split actionlint-split zizmor-split python-floor python-setup; do
     [ -n "$(fixture_gaps "$fixtures/$fixture")" ] ||
         contract_fail "the checker missed the seeded gap in fixture $fixture."
 done
@@ -223,4 +248,4 @@ gaps="$(tool_pin_gaps "$WORKFLOW_DIR/shell-lint.yml" "$PROJECT_ROOT/.pre-commit-
     "$PROJECT_ROOT/uv.lock" "$PROJECT_ROOT/pyproject.toml" "$PROJECT_ROOT/.github")"
 [ -z "$gaps" ] || contract_fail "a tool is pinned differently in two places:" "$gaps"
 
-contract_pass "every action has one SHA and tag, shfmt/shellcheck/ruff/python agree across CI, pre-commit, and uv.lock, and every runner label is versioned."
+contract_pass "every action has one SHA and tag, shfmt/shellcheck/actionlint/zizmor/ruff/python agree across CI, pre-commit, and uv.lock, and every runner label is versioned."

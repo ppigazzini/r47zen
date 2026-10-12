@@ -42,6 +42,22 @@ repos:
         # Format repo-owned shell scripts: 4-space indent, indented case bodies.
         files: ^scripts/.*\.sh$
         args: [-w, -i, '4', -ci]
+  # The two workflow linters Shell Lint runs, at the versions it pins
+  # (run_action_pin_consistency_contract.sh holds them equal). actionlint
+  # builds with Go, which pre-commit installs on first use. It runs without
+  # its shellcheck pass here: Shell Lint runs that one through a pinned
+  # shellcheck at --severity=warning, and a hook cannot set SHELLCHECK_OPTS,
+  # so a local shellcheck would report style findings CI does not.
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+        args: [-shellcheck=, -pyflakes=]
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.30.1
+    hooks:
+      - id: zizmor
+        args: [--no-progress, --no-online-audits, --min-severity=medium]
   - repo: local
     hooks:
       - id: upstream-source-no-pin
@@ -63,7 +79,10 @@ repos:
         name: docs rot gate
         entry: scripts/docs/run_docs_lint.sh
         language: script
-        files: \.md$
+        # Every commit, not only one that stages a .md: the gate also fails a
+        # doc that names a path the commit renames or deletes, and pre-commit
+        # hands a hook no deleted file to match on.
+        always_run: true
         pass_filenames: false
       - id: workflow-contracts
         # The host CI contracts (signing isolation, release provenance, pinned
@@ -75,6 +94,15 @@ repos:
         entry: scripts/android/run_workflow_contracts.sh
         language: script
         files: ^(\.github/|scripts/|android/|\.pre-commit-config\.yaml$|pyproject\.toml$|uv\.lock$)
+        pass_filenames: false
+      - id: restore-boundary
+        # Every tracked root file must be in upstream.sh's restore set, or the
+        # next sync replaces it with upstream's copy. The check reads the
+        # index, so it sees a root file this commit adds.
+        name: upstream sync restore boundary
+        entry: scripts/upstream-sync/upstream.sh verify-restore-boundary
+        language: script
+        files: ^([^/]+|scripts/upstream-sync/upstream\.sh)$
         pass_filenames: false
       - id: commit-message
         # The commit rules in android/docs/dev/10-writing.md that a script can
