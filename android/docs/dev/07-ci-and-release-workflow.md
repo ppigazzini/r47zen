@@ -170,11 +170,13 @@ the artifact names the downstream jobs already read. The emulator jobs sign
 their test installs with a throwaway key generated in-job.
 
 A signing job restores no Actions cache. Any job on the branch can write a
-cache entry, and a key that misses is filled by whichever job misses first,
-after that job's own steps ran: a build job saves the SDK cache after it ran
-upstream code. A cached `apksigner` is therefore one an upstream commit could
-have replaced, and the signing job runs it with the key on disk and the
-passwords in its environment. `./.github/actions/setup-signing-tools`
+cache entry, upstream code with a job's runtime token included, so a cached
+`apksigner` is one an upstream commit could have replaced, and the signing job
+would run it with the key on disk and the passwords in its environment. The
+SDK composite narrows this for the build and test jobs: it saves its entry
+right after the install, with `actions/cache/save`, before the job's own steps
+sync and build upstream code, so an entry holds what `sdkmanager` installed.
+Under `actions/cache` the save ran at the end of the job, after that code. `./.github/actions/setup-signing-tools`
 installs `build-tools;<R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION>` from Google
 into an empty SDK root under `RUNNER_TEMP`, about 150 MB, and nothing else.
 `collect_packaging_evidence.sh` reads the `LOAD` segments of the native
@@ -828,7 +830,8 @@ the two signing jobs; see [Signing isolation](#signing-isolation)),
 the pinned SDK packages from `android/r47-defaults.properties`, installed
 through `retry_with_backoff` from `scripts/lib/common.sh` because a cache miss
 downloads several GB and a dropped connection is transient, and their cache,
-whose key covers every input the install step reads) and
+whose key covers every input the install step reads and which the action
+saves itself right after the install) and
 `./.github/actions/setup-xlsxio-toolchain` (builds the pinned xlsxio commit
 with a fixed CMake recipe and caches it on the source URL, the commit, and the
 action file's hash).

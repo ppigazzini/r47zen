@@ -12,7 +12,15 @@
 # characteristic inline step names show up in a workflow again, when no workflow
 # routes SDK setup through the composite, when the composite stops SHA-pinning
 # its third-party actions, or when a cache key omits an input its install step
-# reads. Pure host test, no SDK needed.
+# reads.
+#
+# The composite saves the SDK cache itself, right after the install, with
+# actions/cache/save: a job's own steps, which sync and build upstream code, run
+# after it returns, so an entry holds only what sdkmanager installed. The plain
+# actions/cache action saves at the end of the job, after that code ran, so it
+# must not come back, and each save must name the paths and key of the restore
+# whose miss it follows, or it writes an entry no restore reads. Pure host test,
+# no SDK needed.
 
 set -Eeuo pipefail
 
@@ -30,8 +38,13 @@ ACTION_FILE="$PROJECT_ROOT/.github/actions/setup-android-sdk/action.yml"
 live_action="$(strip_hash_comments <"$ACTION_FILE")"
 grep -qE 'uses:[[:space:]]*android-actions/setup-android@[0-9a-f]{40}' <<<"$live_action" ||
     contract_fail "setup-android-sdk must SHA-pin android-actions/setup-android"
-grep -qE 'uses:[[:space:]]*actions/cache@[0-9a-f]{40}' <<<"$live_action" ||
-    contract_fail "setup-android-sdk must SHA-pin actions/cache"
+grep -qE 'uses:[[:space:]]*actions/cache/restore@[0-9a-f]{40}' <<<"$live_action" ||
+    contract_fail "setup-android-sdk must restore the SDK cache with a SHA-pinned actions/cache/restore"
+grep -qE 'uses:[[:space:]]*actions/cache/save@[0-9a-f]{40}' <<<"$live_action" ||
+    contract_fail "setup-android-sdk must save the SDK cache with a SHA-pinned actions/cache/save"
+if grep -qE 'uses:[[:space:]]*actions/cache@' <<<"$live_action"; then
+    contract_fail "setup-android-sdk uses actions/cache, which saves after the job's upstream steps ran; restore and save explicitly instead"
+fi
 
 # A workflow job must provision the SDK through the composite, never inline.
 workflow_uses 'uses:[[:space:]]*\./\.github/actions/setup-android-sdk' ||
@@ -159,4 +172,91 @@ if [ -n "$key_gaps" ]; then
     contract_fail "setup-android-sdk installs from an input its cache key omits, so a bump of it would hit a stale cache:" "$key_gaps"
 fi
 
-contract_pass "Android SDK setup is centralized in the setup-android-sdk composite action, and each cache key covers every input its install step reads."
+# Print one line per actions/cache/save step whose path block or key differs
+# from the restore step its `if:` names through steps.<id>.outputs.cache-hit.
+find_save_mismatches() {
+    awk '
+        function flush(    id, gate) {
+            if (block == "") {
+                return
+            }
+            if (block ~ /uses:[[:space:]]*actions\/cache\/restore@/ &&
+                match(block, /(^|\n)[[:space:]]*id:[[:space:]]*[A-Za-z0-9_-]+/)) {
+                id = substr(block, RSTART, RLENGTH)
+                sub(/.*id:[[:space:]]*/, "", id)
+                restore_with[id] = with_part(block)
+            }
+            if (block ~ /uses:[[:space:]]*actions\/cache\/save@/) {
+                nsave++
+                if (match(block, /steps\.[A-Za-z0-9_-]+\.outputs\.cache-hit/)) {
+                    gate = substr(block, RSTART, RLENGTH)
+                    sub(/^steps\./, "", gate)
+                    sub(/\.outputs\.cache-hit$/, "", gate)
+                    save_gate[nsave] = gate
+                }
+                save_name[nsave] = name
+                save_with[nsave] = with_part(block)
+            }
+        }
+        # The text from the `with:` line to the end of the step, without the
+        # blank lines that separate it from the next.
+        function with_part(text,    part) {
+            part = substr(text, index(text, "with:"))
+            sub(/[[:space:]]+$/, "", part)
+            return part
+        }
+        /^    - name:/ {
+            flush()
+            block = ""
+            name = $0
+            sub(/^    - name:[[:space:]]*/, "", name)
+        }
+        { block = block $0 "\n" }
+        END {
+            flush()
+            if (nsave == 0) {
+                print "no actions/cache/save step was found"
+            }
+            for (i = 1; i <= nsave; i++) {
+                if (!(i in save_gate)) {
+                    printf "%s: not gated on a restore miss\n", save_name[i]
+                } else if (!(save_gate[i] in restore_with)) {
+                    printf "%s: gated on %s, which is no restore step\n", save_name[i], save_gate[i]
+                } else if (save_with[i] != restore_with[save_gate[i]]) {
+                    printf "%s: its path or key differs from restore step %s\n", save_name[i], save_gate[i]
+                }
+            }
+        }
+    ' "$1"
+}
+
+cat >"$fixture_dir/mirrored-save.yml" <<'EOF'
+runs:
+  steps:
+    - name: Restore cache
+      id: sdk-cache
+      uses: actions/cache/restore@0000000000000000000000000000000000000000
+      with:
+        path: |
+          sdk/ndk
+        key: sdk-${{ inputs.ndk-version }}-v4
+    - name: Save cache
+      if: steps.sdk-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@0000000000000000000000000000000000000000
+      with:
+        path: |
+          sdk/ndk
+        key: sdk-${{ inputs.ndk-version }}-v4
+EOF
+# The last line is the save's key: bump it alone.
+sed '$ s/-v4$/-v5/' "$fixture_dir/mirrored-save.yml" >"$fixture_dir/drifted-save.yml"
+[ -z "$(find_save_mismatches "$fixture_dir/mirrored-save.yml")" ] ||
+    contract_fail "the save checker flagged a save that mirrors its restore."
+[ -n "$(find_save_mismatches "$fixture_dir/drifted-save.yml")" ] ||
+    contract_fail "the save checker missed a save whose key drifted from its restore."
+
+save_gaps="$(find_save_mismatches "$ACTION_FILE")"
+[ -z "$save_gaps" ] ||
+    contract_fail "setup-android-sdk saves a cache entry no restore reads:" "$save_gaps"
+
+contract_pass "Android SDK setup is centralized in the setup-android-sdk composite action, each cache key covers every input its install step reads, and each save mirrors its restore inside the action."
