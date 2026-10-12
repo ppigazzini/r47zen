@@ -1,7 +1,6 @@
-# Keep dependencies current across every ecosystem this repo owns. Manual pins
-# go stale silently, so Dependabot proposes the bump on a weekly cadence for
-# review. Each ecosystem groups its updates into one PR to keep the review
-# surface small.
+# Keep dependencies current: manual pins go stale silently, so Dependabot
+# proposes each bump on a weekly cadence for review. Each ecosystem groups its
+# updates into one PR to keep the review surface small.
 #
 # - github-actions: the workflows pin every third-party action to a full commit
 #   SHA with a reviewed `# vX.Y.Z` comment; Dependabot proposes the SHA + comment
@@ -9,11 +8,16 @@
 #   `.github/actions/**`.
 # - gradle: the Android app dependencies and AGP/plugin versions, so a
 #   vulnerable transitive library surfaces as a PR instead of shipping silently.
-# - uv: the maintained Python contract/tooling deps in `pyproject.toml`.
 # - pre-commit: the hook revs in `.pre-commit-config.yaml`. A rev that Shell
 #   Lint, uv.lock, or a setup-uv step (the uv-pre-commit rev) also pins fails
 #   run_action_pin_consistency_contract.sh until the pull request moves the
 #   other copy too.
+#
+# uv has no entry, so `pyproject.toml` and `uv.lock` move by hand alone.
+# Dependabot's updater installs Python 3.10 to 3.14 and stops with
+# tool_version_not_supported on a requires-python floor of 3.15. Restore the
+# entry once its updater lists 3.15;
+# android/docs/dev/07-ci-and-release-workflow.md says how to check.
 #
 # Every ecosystem waits 7 days after a release before proposing it, so a
 # compromised release that is pulled within the week never reaches a pull
@@ -42,18 +46,6 @@ updates:
       prefix: "build"
     groups:
       gradle:
-        patterns:
-          - "*"
-  - package-ecosystem: "uv"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    commit-message:
-      prefix: "build"
-    groups:
-      python:
         patterns:
           - "*"
   - package-ecosystem: "pre-commit"

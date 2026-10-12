@@ -40,7 +40,9 @@ rerun-lane map.
   `fontTools`, and `valgebra` with `annotated-types`. The schemas' PEP 728
   `closed=True` TypedDict is stdlib `typing` from Python 3.15, which is why
   3.15 is the floor and ruff's `runtime-evaluated-base-classes` names
-  `typing.TypedDict`.
+  `typing.TypedDict`. Dependabot cannot install 3.15, so
+  `.github/dependabot.yml` has no `uv` entry
+  ([07](07-ci-and-release-workflow.md#other-workflows)).
 - A Python move is one commit: `requires-python`, ruff's `target-version`, ty's
   `python-version`, and every `setup-python` move together, and
   `run_action_pin_consistency_contract.sh` fails until all four agree.

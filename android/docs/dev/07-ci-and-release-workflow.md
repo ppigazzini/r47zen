@@ -840,12 +840,23 @@ with a fixed CMake recipe and caches it on the source URL, the commit, and the
 action file's hash).
 
 `.github/dependabot.yml` asks for weekly grouped update pull requests for
-GitHub Actions, Gradle, uv, and the pre-commit hook revs, each held back 7
-days after a release (`cooldown`; zizmor's `dependabot-cooldown` audit fails
-a shorter one). The file does nothing unless version updates are on, a switch
+GitHub Actions, Gradle, and the pre-commit hook revs, each held back 7 days
+after a release (`cooldown`; zizmor's `dependabot-cooldown` audit fails a
+shorter one). The file does nothing unless version updates are on, a switch
 in the repository's Code security settings; each run shows as the dynamic
 `Dependabot Updates` workflow, which
 [Repository settings](#repository-settings) says how to look for.
+
+It has no `uv` entry, so `pyproject.toml` and `uv.lock` move by hand alone.
+Dependabot's updater installs Python 3.10 to 3.14 and stops with
+`tool_version_not_supported` on the 3.15 `requires-python` floor before it
+reads a dependency. Its `uv` ecosystem takes the list from the Python one;
+restore the entry once the list holds a 3.15 release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dependabot/dependabot-core/main/python/lib/dependabot/python/language.rb |
+    sed -n '/PRE_INSTALLED_PYTHON_VERSIONS_RAW = /,/freeze/p'
+```
 
 ### Pins that live in more than one file
 
@@ -870,11 +881,10 @@ nothing fails: both copies still resolve. `run_action_pin_consistency_contract.s
 So a bump edits every file that names the thing it bumps: search `.github/`,
 `.pre-commit-config.yaml`, and `pyproject.toml`, not the file that prompted it,
 and say in the commit which files each bump touched. Dependabot opens one
-pull request per ecosystem: its `uv` group moves ruff in `uv.lock` but not the
-pre-commit rev, and its `pre-commit` group moves a hook rev but not the
-`shell-lint.yml` pin beside it, nor the uv version and checksum in the two
-`setup-uv` steps, so each fails this contract until the other copy moves in
-the same pull request.
+pull request per ecosystem, and its `pre-commit` group moves a hook rev
+alone: not the `shell-lint.yml` pin beside it, not ruff in `uv.lock`, nor the
+uv version and checksum in the two `setup-uv` steps. Such a pull request
+fails this contract until the other copy moves in the same pull request.
 
 A bump by hand takes the newest tagged release of every package, hook,
 action, and toolchain it touches, the day it runs. The `cooldown` in
