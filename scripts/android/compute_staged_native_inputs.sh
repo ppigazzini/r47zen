@@ -4,6 +4,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 MINI_GMP_FALLBACK_DIR="$PROJECT_ROOT/android/compat/mini-gmp-fallback"
 OUTPUT_PATH=""
 STAGED_CORE_VERSION="${R47_STAGED_CORE_VERSION:-unknown}"
@@ -15,14 +17,7 @@ font_asset_files=(
     "sortingOrder.xlsx"
 )
 
-generated_files=(
-    "$PROJECT_ROOT/build.sim/src/generateCatalogs/softmenuCatalogs.h"
-    "$PROJECT_ROOT/build.sim/src/generateConstants/constantPointers.h"
-    "$PROJECT_ROOT/build.sim/src/generateConstants/constantPointers.c"
-    "$PROJECT_ROOT/build.sim/src/generateConstants/constantPointers2.c"
-    "$PROJECT_ROOT/build.sim/src/ttf2RasterFonts/rasterFontsData.c"
-    "$PROJECT_ROOT/build.sim/src/c47/version.h"
-)
+mapfile -t generated_files < <(r47_sim_generated_files | sed "s|^|$PROJECT_ROOT/build.sim/|")
 
 usage() {
     cat <<'EOF'

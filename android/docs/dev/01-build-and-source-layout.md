@@ -411,7 +411,14 @@ Internal helpers:
   `build.sim` Meson/Ninja generation step, plus the optional simulator-native
   test lane when `--run-tests` is set, and is normally invoked by
   `scripts/android/build_android.sh` or
-  `scripts/android/prepare_native_build_inputs.sh`.
+  `scripts/android/prepare_native_build_inputs.sh`. The second, which Gradle's
+  `prepareStagedNativeInputs` runs before every native build, passes
+  `--generated-only`: ninja builds just the generated tables the staged core
+  compiles against (`r47_sim_generated_files` in `scripts/lib/common.sh`,
+  which `stage_native_sources.sh` and `compute_staged_native_inputs.sh` read
+  too), not `sim`. Upstream's `vcs.h` target is always dirty, so `ninja sim`
+  recompiles every simulator object on each run; the tables alone are a no-op
+  when current.
 - `scripts/android/stage_native_sources.sh` stages canonical native inputs into
   `android/.staged-native/cpp` and is normally invoked by
   `scripts/android/build_android.sh`.

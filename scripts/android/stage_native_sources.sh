@@ -4,6 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
 MINI_GMP_FALLBACK_DIR="$ANDROID_PROJECT_DIR/compat/mini-gmp-fallback"
 CPP_DIR="${R47_ANDROID_STAGED_CPP_DIR:-$ANDROID_PROJECT_DIR/.staged-native/cpp}"
@@ -111,14 +113,7 @@ stage_tree "$PROJECT_ROOT/dep/decNumberICU" "$CPP_DIR/decNumberICU"
 echo "--- Staging generated native files ---"
 mkdir -p "$GENERATED_DEST"
 
-generated_files=(
-    "$PROJECT_ROOT/build.sim/src/generateCatalogs/softmenuCatalogs.h"
-    "$PROJECT_ROOT/build.sim/src/generateConstants/constantPointers.h"
-    "$PROJECT_ROOT/build.sim/src/generateConstants/constantPointers.c"
-    "$PROJECT_ROOT/build.sim/src/generateConstants/constantPointers2.c"
-    "$PROJECT_ROOT/build.sim/src/ttf2RasterFonts/rasterFontsData.c"
-    "$PROJECT_ROOT/build.sim/src/c47/version.h"
-)
+mapfile -t generated_files < <(r47_sim_generated_files | sed "s|^|$PROJECT_ROOT/build.sim/|")
 
 for generated_file in "${generated_files[@]}"; do
     require_file "$generated_file" "generated native artifact"

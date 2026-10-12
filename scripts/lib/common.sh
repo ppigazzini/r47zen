@@ -194,3 +194,18 @@ r47_glue_sources() {
     }
     printf '%s\n' "$sources"
 }
+
+# Print the files the Android build takes from upstream's simulator build
+# (build.sim), relative to its build directory: the generated tables the staged
+# core compiles against. Each is a ninja target, so build_sim_assets.sh
+# --generated-only builds them alone; the simulator itself recompiles every
+# object on each run, because upstream's vcs.h target is always dirty.
+r47_sim_generated_files() {
+    printf '%s\n' \
+        src/generateCatalogs/softmenuCatalogs.h \
+        src/generateConstants/constantPointers.h \
+        src/generateConstants/constantPointers.c \
+        src/generateConstants/constantPointers2.c \
+        src/ttf2RasterFonts/rasterFontsData.c \
+        src/c47/version.h
+}

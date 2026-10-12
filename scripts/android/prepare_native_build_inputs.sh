@@ -241,7 +241,10 @@ prepare_build_sim() {
 
     ensure_xlsxio_on_path
 
-    bash "$SCRIPT_DIR/build_sim_assets.sh" --build-dir "$PROJECT_ROOT/build.sim" --jobs "$job_count"
+    # Only the generated tables are staged; building the simulator too would
+    # recompile all of it on every Gradle native build.
+    bash "$SCRIPT_DIR/build_sim_assets.sh" --build-dir "$PROJECT_ROOT/build.sim" \
+        --jobs "$job_count" --generated-only
 }
 
 stage_native_inputs() {

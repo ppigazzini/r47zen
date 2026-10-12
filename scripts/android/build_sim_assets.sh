@@ -9,13 +9,17 @@ source "$SCRIPT_DIR/../lib/common.sh"
 BUILD_DIR="$PROJECT_ROOT/build.sim"
 JOB_COUNT=""
 RUN_TESTS=false
+GENERATED_ONLY=false
 TEST_PGMS_STAGE_DIR="$PROJECT_ROOT/res/testPgms"
 TEST_PGMS_OUTPUT_REL="src/generateTestPgms/testPgms.bin"
 
 usage() {
     cat <<'EOF'
 Usage:
-    scripts/android/build_sim_assets.sh [--build-dir <dir>] [--jobs <count>] [--run-tests]
+    scripts/android/build_sim_assets.sh [--build-dir <dir>] [--jobs <count>] [--run-tests | --generated-only]
+
+--generated-only builds just the generated tables the Android core stages
+(r47_sim_generated_files), not the simulator: a no-op when they are current.
 EOF
 }
 
@@ -95,6 +99,9 @@ main() {
             --run-tests)
                 RUN_TESTS=true
                 ;;
+            --generated-only)
+                GENERATED_ONLY=true
+                ;;
             -h | --help)
                 usage
                 exit 0
@@ -112,11 +119,30 @@ main() {
     echo "--- Generating core assets (Meson/Ninja sim target) ---"
     configure_build_dir
 
+    [ "$RUN_TESTS" = false ] || [ "$GENERATED_ONLY" = false ] ||
+        fail "--run-tests needs the simulator; drop --generated-only."
     ninja_targets=(sim)
+    if [ "$GENERATED_ONLY" = true ]; then
+        # Meson writes version.h at configure time, so in a fresh build
+        # directory it is a file, not a rule: ask ninja only for the rules.
+        ninja_targets=()
+        while read -r generated; do
+            if ninja -C "$BUILD_DIR" -t query "$generated" >/dev/null 2>&1; then
+                ninja_targets+=("$generated")
+            fi
+        done < <(r47_sim_generated_files)
+        [ "${#ninja_targets[@]}" -gt 0 ] || fail "No generated table is a ninja target in $BUILD_DIR."
+    fi
     if [ "$RUN_TESTS" = true ]; then
         ninja_targets+=(testPgms src/testSuite/testSuite)
     fi
     ninja -C "$BUILD_DIR" -j "$JOB_COUNT" "${ninja_targets[@]}"
+
+    if [ "$GENERATED_ONLY" = true ]; then
+        while read -r generated; do
+            [ -f "$BUILD_DIR/$generated" ] || fail "Missing generated table $BUILD_DIR/$generated after the build."
+        done < <(r47_sim_generated_files)
+    fi
 
     if [ "$RUN_TESTS" = true ]; then
         echo "--- Staging simulator test programs for Meson testSuite ---"
