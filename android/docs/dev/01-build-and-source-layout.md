@@ -347,7 +347,13 @@ Public maintainer entrypoints:
   the upstream `PROGRAMS` fixtures into the test APK's assets under
   `program-fixtures/PROGRAMS`. The app APK never carries them, and a lint,
   unit-test, or assemble run never stages them; the tests read them through
-  the instrumentation context.
+  the instrumentation context. The storage tests launch
+  `StorageAccessTestActivity` from `src/instrumentationHost`, which has to be in
+  the app's manifest: it joins the debug source set always and the release one
+  only with `-Pr47.includeInstrumentationHost=true`, which the instrumented
+  lanes pass, so a release androidTest build without it does not compile.
+  `collect_packaging_evidence.sh` fails a signed APK whose manifest declares
+  it. The JVM tests host on a plain `ComponentActivity`.
   `:app:connectedDebugAndroidTest` requires a device or emulator, and
   `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
   emulator is `x86_64`. The current required emulator-backed coverage includes
@@ -653,7 +659,7 @@ names, and release gating.
   when the build-only staged native tree is already current.
 - PROGRAMS fixture, SAF, release-source-set helper, or Activity Result
   lifecycle changes:
-    `cd android && ./gradlew :app:assembleReleaseAndroidTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`,
+    `cd android && ./gradlew :app:assembleReleaseAndroidTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`,
   then run `scripts/android/run_connected_android_tests.sh` on a device or
   emulator with a complete `R47_PRERELEASE_*` set for any key; CI generates a
   throwaway keystore in-job for these installs. Add

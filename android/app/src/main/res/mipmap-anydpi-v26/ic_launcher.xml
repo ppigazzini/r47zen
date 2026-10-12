@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- MonochromeLauncherIcon: no monochrome artwork exists yet. The foreground
+     draws its digits in opaque black on an opaque panel, so its alpha used as
+     the monochrome layer would tint into a blank panel; until a knock-out
+     drawing exists, a themed-icon launcher tints the colour icon instead. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="MonochromeLauncherIcon">
     <background android:drawable="@color/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground_inset" />
 </adaptive-icon>

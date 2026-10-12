@@ -192,6 +192,9 @@ run_connected_selection() {
         # (it must not ship to users); the connected suite needs its native entry
         # points, so the androidTest build here re-enables it.
         "-Pr47.includeProgramLoadTestBridge=true"
+        # The storage tests launch StorageAccessTestActivity, which joins the
+        # release manifest only on request; no shipped build declares it.
+        "-Pr47.includeInstrumentationHost=true"
         "-Pandroid.testInstrumentationRunnerArguments.class=$selection_filter"
     )
 

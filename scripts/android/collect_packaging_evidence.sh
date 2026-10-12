@@ -421,6 +421,20 @@ if [[ "$artifact_type" == "apk" ]]; then
         exit 1
     fi
 
+    # The storage tests' host activity joins a release manifest only when an
+    # instrumented lane asks for it (r47.includeInstrumentationHost); a shipped
+    # APK never declares it.
+    aapt2_bin="$android_sdk_root/build-tools/$build_tools_version/aapt2"
+    [[ -x "$aapt2_bin" ]] || {
+        echo "Unable to locate aapt2 in the pinned build-tools $build_tools_version." >&2
+        exit 1
+    }
+    manifest_tree="$("$aapt2_bin" dump xmltree --file AndroidManifest.xml "$primary_artifact_path")"
+    if grep -q 'StorageAccessTestActivity' <<<"$manifest_tree"; then
+        echo "The APK manifest declares StorageAccessTestActivity, a test host." >&2
+        exit 1
+    fi
+
     # The runner image's binutils objdump, not the NDK's llvm-objdump: the
     # signing jobs run this script, and they install only build-tools, fresh,
     # because the cached NDK is one an upstream-running build job wrote. GNU

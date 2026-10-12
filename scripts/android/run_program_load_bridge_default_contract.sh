@@ -10,6 +10,10 @@
 # re-enter a shipping artifact) and against the published release workflow
 # enabling the bridge.
 #
+# The same holds for the storage tests' host activity: build.gradle defaults
+# includeInstrumentationHost to false, and build-production-release-bundle,
+# the job whose bytes ship, never turns it on.
+#
 # Pure-host text check: no SDK, no staged native tree, no build.
 
 set -Eeuo pipefail
@@ -41,4 +45,16 @@ if grep -Eq 'includeProgramLoadTestBridge=true' <<<"$live_release"; then
     fail "android-release.yml enables the program-load bridge in a published release build."
 fi
 
-echo "OK: the program-load test bridge is excluded by default (instrumentation lanes opt in)."
+# The storage tests' host activity: off by default, and never on in the job
+# whose bytes ship. The verify job, which builds a throwaway-signed rebuild
+# for the emulator, may turn it on.
+if ! grep -Eq "readBooleanProperty\('r47\.includeInstrumentationHost',[[:space:]]*false\)" <<<"$live_gradle"; then
+    fail "build.gradle no longer defaults includeInstrumentationHost to false (the test host activity would ship)."
+fi
+shipping_job="$(workflow_job_block "$RELEASE_WORKFLOW" build-production-release-bundle | strip_hash_comments || true)"
+[ -n "$shipping_job" ] || fail "android-release.yml has no build-production-release-bundle job; the scan read nothing."
+if grep -Eq 'includeInstrumentationHost=true' <<<"$shipping_job"; then
+    fail "build-production-release-bundle declares the test host activity in the shipped release."
+fi
+
+echo "OK: the program-load test bridge and the test host activity are excluded by default (instrumentation lanes opt in)."

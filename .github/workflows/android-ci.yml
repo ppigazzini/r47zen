@@ -1073,6 +1073,7 @@ jobs:
             :app:koverLogRelease \
             ${{ env.R47_CI_GRADLE_ARGS }} \
             -Pr47.includeProgramLoadTestBridge=true \
+            -Pr47.includeInstrumentationHost=true \
             -Pr47.releaseMinify=false \
             -Pr47.releaseShrinkResources=false \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \

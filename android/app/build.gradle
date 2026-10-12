@@ -140,6 +140,13 @@ def releaseNativeDebugSymbolLevel = (readOptionalProperty('r47.releaseNativeDebu
 // assembleRelease or assembleDebug therefore never compiles it; the JVM unit
 // tests do not need it. run_workflow_contracts.sh guards this default.
 def includeProgramLoadTestBridge = readBooleanProperty('r47.includeProgramLoadTestBridge', false)
+// StorageAccessTestActivity hosts the storage instrumented tests. An activity
+// a test launches must be in the manifest of the app under test, so it lives in
+// src/instrumentationHost and joins the debug source set always and the release
+// one only when a lane that assembles the release androidTest APK passes
+// -Pr47.includeInstrumentationHost=true. A plain assembleRelease or bundleRelease
+// never declares it; the JVM tests host on a plain ComponentActivity.
+def includeInstrumentationHost = readBooleanProperty('r47.includeInstrumentationHost', false)
 def releaseChannel = (readOptionalProperty('r47.releaseChannel', 'R47_RELEASE_CHANNEL') ?: 'prod').toLowerCase(Locale.ROOT)
 def configuredTestBuildType = (readOptionalProperty('r47.testBuildType', 'R47_TEST_BUILD_TYPE') ?: (releaseChannel == 'dev' ? 'release' : 'debug')).toLowerCase(Locale.ROOT)
 def releaseChannelBuildToken = readOptionalProperty('r47.releaseChannelBuildToken', 'R47_RELEASE_CHANNEL_BUILD_TOKEN')
@@ -415,6 +422,16 @@ android {
         }
         test {
             resources.srcDir "${repositoryRootDir}/scripts/r47_contracts/data"
+        }
+        debug {
+            kotlin.srcDir 'src/instrumentationHost/java'
+            manifest.srcFile 'src/instrumentationHost/AndroidManifest.xml'
+        }
+        if (includeInstrumentationHost) {
+            release {
+                kotlin.srcDir 'src/instrumentationHost/java'
+                manifest.srcFile 'src/instrumentationHost/AndroidManifest.xml'
+            }
         }
     }
 

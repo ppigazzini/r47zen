@@ -3,6 +3,7 @@ package io.github.ppigazzini.r47zen
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -168,8 +169,8 @@ class StorageAccessCoordinatorTest {
         assertEquals(1, cancelCount)
     }
 
-    private fun buildActivity(): StorageAccessTestActivity {
-        return Robolectric.buildActivity(StorageAccessTestActivity::class.java)
+    private fun buildActivity(): ComponentActivity {
+        return Robolectric.buildActivity(ComponentActivity::class.java)
             .setup()
             .get()
     }

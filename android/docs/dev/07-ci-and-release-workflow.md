@@ -998,20 +998,20 @@ Use the smallest local lane that matches the failure surface:
   validation:
   `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
 - CI-matching Android pre-emulator build plus JVM slice:
-  `cd android && ./gradlew :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.releaseChannelBuildToken=<token> -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
+  `cd android && ./gradlew :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.releaseChannelBuildToken=<token> -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
 - Android lint-only regression with current staged inputs:
   `cd android && ./gradlew lint`
 - Android JVM tests with current staged inputs:
   `cd android && ./gradlew :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.releaseChannelBuildToken=<token> -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
 - release-path instrumentation packaging with current staged inputs:
-  `cd android && ./gradlew :app:assembleReleaseAndroidTest -Pr47.releaseChannel=dev -Pr47.releaseChannelBuildToken=<token> -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
+  `cd android && ./gradlew :app:assembleReleaseAndroidTest -Pr47.releaseChannel=dev -Pr47.releaseChannelBuildToken=<token> -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
 - release-path connected instrumentation with current staged inputs:
   use the same `R47_CONNECTED_ANDROID_TEST_*` and signing environment block as
   the hosted lane, then run
   `cd android && bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh`
 - protected-release parity with a collected host profile:
   `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`, then
-  `cd android && ./gradlew lint :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`, then
+  `cd android && ./gradlew lint :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`, then
   rerun `scripts/android/run_connected_android_tests.sh` with the same
   `R47_CONNECTED_ANDROID_TEST_*` environment and a throwaway `R47_RELEASE_*`
   keystore, as `verify-production-release` does, then build and sign as in the

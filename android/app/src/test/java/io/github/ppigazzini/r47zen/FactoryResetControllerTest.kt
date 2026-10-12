@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47zen
 
+import androidx.activity.ComponentActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,7 +12,7 @@ import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class FactoryResetControllerTest {
-    private val activity = Robolectric.buildActivity(StorageAccessTestActivity::class.java)
+    private val activity = Robolectric.buildActivity(ComponentActivity::class.java)
         .setup()
         .get()
     private var sharedStateResets = 0

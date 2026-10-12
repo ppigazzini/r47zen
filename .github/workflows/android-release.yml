@@ -862,6 +862,7 @@ jobs:
             lint \
             :app:assembleRelease \
             :app:assembleReleaseAndroidTest \
+            -Pr47.includeInstrumentationHost=true \
             :app:testReleaseUnitTest \
             --daemon --stacktrace --console=plain --warning-mode all \
             -Pr47.releaseMinify=false \
