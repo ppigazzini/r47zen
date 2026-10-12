@@ -38,10 +38,13 @@ jobs:
       - name: Install shellcheck
         shell: bash
         # The pinned release, not the runner image's copy: an image update would
-        # otherwise change the lint with no commit here.
+        # otherwise change the lint with no commit here. Every download here
+        # passes --retry: GitHub's release host answers a 504 now and then, and
+        # curl retries only a timeout or a 408, 429, 500, 502, 503, or 504,
+        # never a 404.
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
+          curl --fail --silent --show-error --location --retry 5 --retry-delay 5 \
             "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
             --output shellcheck.tar.xz
           echo "${SHELLCHECK_SHA256}  shellcheck.tar.xz" | sha256sum --check --status
@@ -53,7 +56,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
+          curl --fail --silent --show-error --location --retry 5 --retry-delay 5 \
             "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" \
             --output /usr/local/bin/shfmt
           echo "${SHFMT_SHA256}  /usr/local/bin/shfmt" | sha256sum --check --status
@@ -93,7 +96,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
+          curl --fail --silent --show-error --location --retry 5 --retry-delay 5 \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
             --output actionlint.tar.gz
           echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum --check --status
@@ -107,7 +110,7 @@ jobs:
         # preinstalled version.
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
+          curl --fail --silent --show-error --location --retry 5 --retry-delay 5 \
             "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
             --output shellcheck.tar.xz
           echo "${SHELLCHECK_SHA256}  shellcheck.tar.xz" | sha256sum --check --status
