@@ -635,63 +635,22 @@ Android compatibility layer.
   before any direct stop was requested, since the stop seam then went untested.
   The runner's fixture list and the harness's `kProgramFixtureScenarios` table
   must name the same fixtures, or the runner fails before it builds
-- The two plotting fixtures (`BinetV4.p47`, `GudrmPL.p47`) leave a deterministic
-  image rather than a scalar in X, so they are pinned -- regression pins, the
-  harness's own recorded output, not independent oracles -- by an FNV-1a
-  `expected_display_hash` over the final LCD bitmap instead. `compute_display_hash`
-  in `scripts/workload-regressions/host_workload_regression.c` owns it: it reads
-  every pixel through `lcd_buffer_pixel_on` and hashes eight pixels per octet, x
-  ascending, most significant bit first. Reading through the accessor rather than
-  the packed buffer keeps the digest a function of pixel coordinates, so an
-  upstream change to the row stride, to the two row-header bytes, or to the
-  reversed bit order cannot move a golden while the image holds; a file-scope
-  negative-array typedef fails the build if `SCREEN_WIDTH` stops being a multiple
-  of 8, because a partial trailing octet would drop the right edge of every row
-  and change nothing else. The packing follows the convention PNG, TIFF, BMP, and
-  PBM share (see
-  [09-official-references.md](09-official-references.md#bilevel-bitmap-packing-conventions)):
-  leftmost pixel in the high-order bit, and every row restarts on an octet
-  boundary. Both matter here. The bit order is the one four formats already
-  agreed on, so a reader has no reason to "correct" it toward the X11 XBM
-  ordering; the per-row restart is what keeps the digest decomposable by row, so
-  changing the masked region drops octets instead of
-  reshuffling every one of them. Row order is top-down, unlike BMP, so the
-  digest's rows sit in the same coordinate space as the mask. As packed, each
-  octet is the bitwise complement of a byte of the live `lcd_buffer` payload in
-  reverse order -- the accessor mirrors x within the row, and `lcd_buffer`
-  stores a dark pixel as a 0 bit -- which makes a hexdump of the framebuffer
-  readable against the digest during triage. That is an observation,
-  not a dependency: the digest is defined on coordinates, so a repacking
-  upstream leaves it where it was. The digest masks the clock, not
-  the bar: on `y < STATUS_BAR_ROWS` it skips `x < STATUS_BAR_CLOCK_COLUMNS`,
-  which is upstream's `X_REAL_COMPLEX` (`defines.h`), the origin of the first
-  mode annunciator. Everything left of it is date, time, or week-of-year and
-  churns with the calendar; everything from it rightwards is calculator state.
-  The date can start at `X_DATE` (25, or 1 once the time or WoY shares the row)
-  and the time at `X_TIME_WOY` (12 or 17), so masking from column 0 covers every
-  flag combination rather than the current one. A second negative-array typedef
-  fails the build if `X_REAL_COMPLEX` stops being a multiple of 8, since a seam
-  off an octet boundary would drop or duplicate pixels there silently
-- Masking columns rather than the whole band is deliberate, and measured. In
-  `GRAPHMODE` upstream clips the bar to `widthGraphInfoBox` and draws the graph
-  canvas from `y = 0` (`plotstat.c`), so rows `0..19` right of `x = 160` are plot,
-  not chrome. `GudrmPL` ends in that mode and paints no bar at all: its masked
-  band held only plot frame, at `x` `158-159`, `279-281` and `386-390`. `BinetV4`
-  and `SPIRALk` do not end in `GRAPHMODE` and carry a full-width bar, measured as
-  ten date cells at `x` `25..102` plus annunciator runs from `138`. Masking rows
-  would have discarded 94 pixels of `GudrmPL` plot frame and every fixture's
-  annunciators for no gain
-- The mode annunciators and all three softkey rows stay inside the digest on
-  purpose. A golden that moves when they move is the oracle catching changed
-  chrome, not noise. `GudrmPL` ends `PLSTAT` then `PLTFCNS` and so depends on
-  `fnPseudoMenu` in upstream `softmenus.c`, while `BinetV4` lands on
-  `MNU_PLOT_FUNC`; `SPIRALk` paints a softmenu too despite ending on a plot, its
-  bottom softkey row being byte-identical to `BinetV4`'s, so "a plot fixture has
-  no menu" is not a safe assumption. Root-cause a drifted plotting golden by
-  dumping the 400x240 buffer either side of the upstream change and diffing it
-  by row: `GudrmPL` paints all three softkey rows (`y 171..239`), so a diff
-  confined to `y >= 171` is changed chrome, and any plot-area row that moves is
-  a changed result
+- The two plotting fixtures (`BinetV4.p47`, `GudrmPL.p47`) leave an image
+  rather than a scalar in X, so `expected_display_hash` pins each: an FNV-1a
+  digest of the final LCD bitmap with the status bar's clock columns masked.
+  These are regression pins, the harness's own recorded output, not
+  independent oracles. `compute_display_hash` in
+  `scripts/workload-regressions/host_workload_regression.c` owns the digest:
+  its comment states the packing order, why it reads pixels through
+  `lcd_buffer_pixel_on`, why the mask covers the clock and not the whole bar,
+  and the two build-time guards that fail when an upstream constant stops
+  packing into whole octets. The annunciators and the softkey rows stay in
+  the digest, so a golden that moves when they move is the pin catching
+  changed chrome.
+- To root-cause a drifted plotting golden, dump the 400x240 buffer either side
+  of the upstream change and diff it by row: `GudrmPL` paints all three
+  softkey rows (`y 171..239`), so a diff confined to `y >= 171` is changed
+  chrome, and any plot-area row that moves is a changed result.
 - That host probe does not prove the Android stop-delivery or UI-thread ANR
   contract. It does prove that the shared compatibility path can start the five
   imported fixtures, compute the verified 8-queens result, and accept a bounded
@@ -847,22 +806,9 @@ Android compatibility layer.
   the androidTest tree: every file whose live code declares a `@Test` must be
   a selection, and every selection must be such a file, so a new
   instrumented class cannot sit on disk and never run.
-- The maintained PGO collector uses a separate merged profile surface: the
-  `broad-ci` `testSuite` base of `programs`, `tvm`, `jacobi_audit`,
-  `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the generated
-  `matrix_prefix_85` slice from `src/testSuite/tests/matrix.txt`, plus the
-  imported `.p47` fixture overlay through the host compatibility path, so the
-  compatibility harness and the CI PGO corpus are intentionally different
-  verification surfaces.
-- `scripts/workload-regressions/collect_host_pgo_profile.sh` builds upstream
-  `src/testSuite/testSuite` in Meson `release` with the pinned NDK Clang,
-  ThinLTO, and LLVM IRPGO instrumentation, stages
-  `res/testPgms/testPgms.bin` into a runtime root for the `programs.txt`
-  cases, runs the imported `.p47` fixture overlay through the host
-  compatibility path, reuses a host-installed `libclang_rt.profile` archive
-  through a temporary resource-dir shim, and merges the resulting raw profiles
-  into the indexed `.profdata` artifact consumed by the Android release-native
-  build
+- `scripts/workload-regressions/collect_host_pgo_profile.sh`, the PGO
+  collector, trains on a different corpus from this harness on purpose
+  (`--help` lists it), so the two are separate verification surfaces
 - `scripts/workload-regressions/host_workload_regression.c` is the harness that
   probes the wait, pause, progress, and workload-run behavior behind that lane
 - `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`

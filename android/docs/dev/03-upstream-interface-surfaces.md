@@ -263,14 +263,17 @@ The staged upstream core runs in `PC_BUILD` mode, so the Android bridge must
 provide the small GTK and GLib event-loop API surface that pause, wait,
 progress, and timer-driven code expects.
 
-`android_runtime.c` owns these compatibility symbols:
+`android_runtime.c` owns these compatibility symbols, and every GLib, GDK, or
+GTK function it defines is one of them:
 
 - `g_main_context_iteration(...)`
 - `gtk_main_iteration()`
 - `gtk_events_pending()`
-- `g_timeout_add(...)`
+- `g_timeout_add(...)` and `gdk_threads_add_timeout(...)`
 - `g_source_remove(...)`
-- `yieldToAndroidWithMs(...)`
+- `g_get_monotonic_time()` and `g_get_real_time()`
+- `yieldToAndroidWithMs(...)` and `yieldToAndroid()`, the Android-owned yield
+  the loop calls
 
 These are active runtime behavior, not placeholders. Changes here can break the
 host workload-regression lane and Android long-running program behavior even

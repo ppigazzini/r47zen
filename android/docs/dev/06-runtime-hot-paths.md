@@ -370,14 +370,10 @@ program, a save or load operation, or a progress or pause loop.
   `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Each workload runs in its
   own host process under the same outer timeout-and-kill safety net, while
   `MANSLV2` stays the maintained direct-stop-after-activity scenario inside
-  that framework. The broad `broad-ci` base already covers `prime` and
-  `factorial` through upstream `testSuite` inputs.
-- `scripts/workload-regressions/collect_host_pgo_profile.sh` uses a separate
-  merged host profile surface: it runs the maintained `broad-ci` `testSuite`
-  base, stages `res/testPgms/testPgms.bin` for the built-in `programs.txt`
-  cases, then runs the imported `.p47` fixture overlay through the same host
-  compatibility path so graph, pause, wait, and LCD-style workloads also land
-  in the indexed `.profdata` consumed by the Android release-native build.
+  that framework.
+- `scripts/workload-regressions/collect_host_pgo_profile.sh` trains the release
+  profile on a different corpus, an upstream `testSuite` base plus the same
+  `.p47` overlay; its `--help` lists it.
 - Focused automated Android coverage proves that the direct-stop publisher can
   interrupt the required `MANSLV2` bounded-stop regression after observed
   activity, and the Android wrapper treats a timed-out `MANSLV2` selection as a

@@ -429,17 +429,12 @@ Internal helpers:
   timeout-and-kill safety net to every canonical `PROGRAMS` fixture. This is
   the focused host compatibility harness, not the normal pull-request owner of
   the collector-driven host-core PGO contract.
-- `scripts/workload-regressions/collect_host_pgo_profile.sh` owns the lower-
-  level host-core PGO collector implementation: it builds instrumented
-  upstream `src/testSuite/testSuite` with the pinned NDK Clang plus ThinLTO,
-  trains on the maintained `broad-ci` corpus of `programs`, `tvm`,
-  `jacobi_audit`, `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and an
-  upstream-derived `matrix_prefix_85` slice from `src/testSuite/tests/matrix.txt`,
-  stages `res/testPgms/testPgms.bin` into a runtime root when `programs.txt`
-  is included, then runs the imported `.p47` fixture overlay through the host
-  compatibility path so those workloads also contribute raw profiles to the
-  same merged `.profdata`, and is normally invoked through
-  `scripts/android/build_android.sh --collect-host-pgo`.
+- `scripts/workload-regressions/collect_host_pgo_profile.sh` owns the
+  host-core PGO collector: it trains an instrumented upstream `testSuite` build
+  on the `broad-ci` corpus plus the imported `.p47` fixtures and merges the
+  indexed `.profdata` the release native build consumes. Its `--help` names the
+  corpus and the profiling-runtime shim the NDK makes necessary; it normally
+  runs through `scripts/android/build_android.sh --collect-host-pgo`.
 - `scripts/package-notices/generate_simulator_notice_artifacts.sh` owns the
   grouped simulator-package notice implementation.
 

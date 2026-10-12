@@ -310,13 +310,10 @@ supports that model by keeping shared synchronization in native code:
   happens-before for the packed buffer payload, so these stay relaxed hints.
   Plain `volatile` would leave that concurrent access a data race under the C
   memory model, which `build_bridge_tsan_harness.sh` flags
-- `android_runtime.c` also supplies Android-backed `PC_BUILD` event-loop shims
-  for `g_main_context_iteration()`, `g_timeout_add()`,
-  `gtk_events_pending()`, and `gtk_main_iteration()` so staged upstream pause
-  and progress loops keep yielding on Android instead of hanging behind no-op
-  mocks; treat these entry points as required compatibility behavior, not as
-  optional stubs, because upstream program workloads depend on them for pause
-  and progress responsiveness
+- `android_runtime.c` also supplies the `PC_BUILD` event-loop shims
+  ([03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md#event-loop-compatibility-contract)
+  lists them), so staged upstream pause and progress loops keep yielding on
+  Android instead of hanging behind no-op mocks
 - `scripts/workload-regressions/run_workload_regressions.sh` is the repo-owned
   Linux host harness for that compatibility contract. It compiles the staged
   core plus the Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, probes the
@@ -333,20 +330,13 @@ supports that model by keeping shared synchronization in native code:
   `broad-ci` base already covers `prime` and `factorial` through upstream
   `testSuite` inputs
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` builds that same
-  upstream `src/testSuite/testSuite` target in Meson `release` with the pinned
-  NDK Clang and `llvm-profdata` pair under ThinLTO plus LLVM IRPGO
-  instrumentation, runs the maintained `broad-ci` corpus of `programs`, `tvm`,
-  `jacobi_audit`, `normal_i`, `gamma`, `trig`, `prime`, `factorial`, and the
-  generated `matrix_prefix_85` slice from `src/testSuite/tests/matrix.txt`,
-  stages `res/testPgms/testPgms.bin` into a runtime root for the built-in
-  program cases, then runs the imported `.p47` fixture overlay through the
-  host compatibility path so the same indexed profile also covers graph,
-  pause, wait, and LCD-style workloads, injects a temporary resource-dir shim
-  so the Linux host link can reuse a host-installed `libclang_rt.profile`
-  archive that the NDK does not ship, then produces the indexed profile
-  artifact the release-native Android build path consumes. The maintained
-  full-lane owner of that collector plus consumer sequence is
+  upstream `src/testSuite/testSuite` target with the pinned NDK Clang and
+  `llvm-profdata` under ThinLTO plus LLVM IRPGO instrumentation, and runs the
+  imported `.p47` overlay through the same host compatibility path, so the
+  profile also covers graph, pause, wait, and LCD workloads. Its `--help`
+  names the training corpus and the `libclang_rt.profile` shim.
   `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
+  runs it and checks that the release native build consumes the profile
 - `jni_program_load_test.c` exposes the instrumentation-only bridge used by
   `ProgramFixtureInstrumentedTest`, `DisplayLifecycleInstrumentedTest`, and
   `GraphTouchStressInstrumentedTest`. It provides READP or RUN worker control,

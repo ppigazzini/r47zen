@@ -546,8 +546,8 @@ Current repository icon surfaces:
 ## Bilevel bitmap packing conventions
 
 These back the packing order `compute_display_hash` uses in
-`scripts/workload-regressions/host_workload_regression.c`, documented in
-[08-tests-and-contracts.md](08-tests-and-contracts.md). The 1-bit-per-pixel
+`scripts/workload-regressions/host_workload_regression.c`, documented in that
+function's comment. The 1-bit-per-pixel
 conventions agree across all four: the leftmost pixel of a group occupies the
 high-order bit, and every scanline restarts on a byte boundary. They disagree on
 row order and on row padding, which is why those two are decided here rather

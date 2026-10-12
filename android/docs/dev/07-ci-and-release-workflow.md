@@ -326,23 +326,13 @@ normal-pull-request host-core optimization sequence:
 
 - the Android wrapper testSuite rerun still proves the repo-owned simulator
   parity path before Gradle packaging
-- the host-side PGO collector runs under the same wrapper-owned lane,
-  produces the `.profdata` artifact uploaded by CI, and builds instrumented
-  upstream `src/testSuite/testSuite` with the maintained `broad-ci` corpus of
-  `programs`, `tvm`, `jacobi_audit`, `normal_i`, `gamma`, `trig`, `prime`,
-  `factorial`, and the generated `matrix_prefix_85` slice derived from
-  `src/testSuite/tests/matrix.txt`
-- the collector stages `res/testPgms/testPgms.bin` into its runtime root when
-  `programs.txt` is present so the built-in `Prime`, `Fact`, and `SPIRAL`
-  cases exercise the real generated program bundle rather than a stubbed path,
-  then runs the imported `.p47` fixture overlay through the host compatibility
-  path so graph, pause, wait, and LCD-style workloads are merged into the same
-  uploaded `.profdata`
+- the host-side PGO collector runs under the same wrapper-owned lane and
+  produces the `.profdata` artifact CI uploads;
+  `collect_host_pgo_profile.sh --help` names what it trains on
 - the canonical host workload set of the five imported `.p47` fixtures remains
   the focused Android bridge compatibility harness exposed by
   `scripts/workload-regressions/run_workload_regressions.sh`, not the CI PGO
-  corpus. The broad `broad-ci` base already covers `prime` and `factorial`
-  through upstream `testSuite` inputs. That harness also runs as the dedicated
+  corpus. That harness also runs as the dedicated
   `host-workload-regressions` lane in `linux-ci.yml` on every pull request and
   every push to `main` or `github_ci` (no
   emulator), where it both proves fixture liveness and asserts the seeded
