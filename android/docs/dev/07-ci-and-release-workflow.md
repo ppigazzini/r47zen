@@ -918,6 +918,9 @@ and `build-production-release-bundle` only runs on `main`
 pinned upstream core with the current `main` overlay. For a bit-exact rebuild of
 an old artifact you would also need the overlay at the recorded
 `android_source_commit`; the pin reproduces upstream drift, not the overlay.
+The packaged `THIRD-PARTY.spdx.json` takes its creation time from that commit,
+or from `SOURCE_DATE_EPOCH` when set, never from the clock, so it is not what
+makes two builds of one commit differ.
 
 The local-only counterpart to this CI input is the Git-ignored `upstream.lock`
 (`scripts/upstream-sync/upstream.sh resolve --latest --write-lock`, then trim to

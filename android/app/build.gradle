@@ -704,18 +704,17 @@ tasks.register('generateXlsxioLicense') {
     }
 }
 
-def spdxRuntimePackages = []
-def spdxRuntimeDocumentDescribes = []
-
-// Resolve the third-party SPDX package inventory at configuration time so the
-// task action never touches `configurations`, `dependencies`, or `file` at
-// execution time (configuration-cache compatibility). The captured lists hold
-// only plain serializable strings/maps.
-afterEvaluate {
+// The third-party SPDX package list, as a provider generateThirdPartySpdx
+// takes as an input. Gradle evaluates it only when a build schedules that task,
+// after the project is configured, and the configuration-cache entry stores the
+// plain strings and maps it returns. An afterEvaluate block here resolved
+// releaseRuntimeClasspath and read every dependency's POM while configuring
+// every build, `help` included, which Gradle reports as "resolved during
+// configuration time".
+def spdxRuntimePackages = providers.provider {
+    def packages = []
     def addSpdxPackage = { Map values ->
-        def entry = createSpdxPackage(values)
-        spdxRuntimePackages << entry
-        spdxRuntimeDocumentDescribes << entry.SPDXID
+        packages << createSpdxPackage(values)
     }
 
     addSpdxPackage([
@@ -826,7 +825,15 @@ afterEvaluate {
             ])
         }
     }
+    packages
 }
+
+// The SPDX creation time is the source commit's, not the clock's, so two
+// builds of one commit package the same bytes; SOURCE_DATE_EPOCH, the
+// reproducible-builds convention, overrides it.
+def spdxCreatedEpochSeconds = (System.getenv('SOURCE_DATE_EPOCH')
+    ?: readGitOutput(['show', '-s', '--format=%ct', androidSourceCommit])
+    ?: '0').toLong()
 
 tasks.register('generateThirdPartySpdx') {
     inputs.file(repoNoticeInventoryFile)
@@ -844,12 +851,16 @@ tasks.register('generateThirdPartySpdx') {
     def spdxOutputFile = new File(spdxAssetsDir, 'THIRD-PARTY.spdx.json')
     outputs.file(spdxOutputFile)
 
+    inputs.property('spdxPackages', spdxRuntimePackages)
+    inputs.property('spdxCreatedEpochSeconds', spdxCreatedEpochSeconds)
+
     def documentSourceCommit = androidSourceCommit
     def documentPackages = spdxRuntimePackages
-    def documentDescribes = spdxRuntimeDocumentDescribes
+    def documentCreated = new Date(spdxCreatedEpochSeconds * 1000L).format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))
 
     doLast {
         spdxAssetsDir.mkdirs()
+        def packages = documentPackages.get()
 
         def spdxDocument = [
             spdxVersion      : 'SPDX-2.3',
@@ -858,11 +869,11 @@ tasks.register('generateThirdPartySpdx') {
             name             : 'R47 Android third-party inventory',
             documentNamespace: "https://r47.invalid/spdx/android/${documentSourceCommit ?: 'unknown'}".toString(),
             creationInfo     : [
-                created : new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC')),
+                created : documentCreated,
                 creators: ['Tool: Gradle generateThirdPartySpdx task']
             ],
-            documentDescribes: documentDescribes,
-            packages         : documentPackages
+            documentDescribes: packages.collect { it.SPDXID },
+            packages         : packages
         ]
 
         spdxOutputFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(spdxDocument)) + '\n'
