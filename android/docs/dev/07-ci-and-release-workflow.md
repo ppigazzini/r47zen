@@ -26,7 +26,7 @@ flowchart TD
   S[sign-dev-prerelease]
   G[android-tests]
   H[publish-main-snapshot<br/>main branch]
-  R[ci-required<br/>required status check]
+  R[ci-required<br/>aggregate verdict, required by nothing]
 
   A --> B --> C
   C --> D
@@ -60,7 +60,8 @@ flowchart TD
 - keep external `uses:` pins on full-length commit SHAs and keep the reviewed
   tag comment on the same line so the workflow stays auditable and
   Dependabot-readable; the repository's Actions setting `sha_pinning_required`
-  fails any run that uses a tag-pinned action
+  fails any run that uses a tag-pinned action (see
+  [Repository settings](#repository-settings))
 - publish logs and packaging evidence as first-class artifacts
 - publish the main snapshot only after all required lanes pass
 - keep production signing and user-facing release publication in a separate
@@ -218,8 +219,9 @@ the signing jobs stay short so a reviewer can read them whole. A signing job
 still runs the pinned third-party `android-actions/setup-android` inside
 `setup-signing-tools` before the key is decoded; at the pinned commit it
 downloads the command-line tools from Google and keeps them in the runner's
-local tool cache, not in an Actions cache, and a bump must keep it so. And the environment only gates what it holds: a
-repository-scoped secret is readable by every job in every workflow. The four
+local tool cache, not in an Actions cache, and a bump must keep it so. And the
+environment only gates what it holds: a repository-scoped secret is readable
+by every job in every workflow. The four
 `R47_RELEASE_*` secrets therefore live in the `production-release` environment
 alone, and no repository copy may exist;
 `gh api repos/ppigazzini/r47zen/actions/secrets` must list only the
@@ -442,7 +444,7 @@ It:
   (`android/app/build/reports/kover`) reports in the Android test artifact
   bundle `r47zen-tests-<upstream short>-<android short>`
 
-The hosted instrumentation lane currently relies on:
+The hosted instrumentation lane relies on:
 
 - `ProgramFixtureInstrumentedTest` plus
   `scripts/android/run_connected_android_tests.sh` for the READP load-and-run
@@ -505,8 +507,8 @@ pull request build is never published.
 ### `ci-required`
 
 This is the job to require as a status check if `main` ever gets branch
-protection, not the individual test jobs. Nothing requires it today: `main`
-takes direct pushes by maintainer decision, so a red `ci-required` reports the
+protection, not the individual test jobs. Nothing requires it: `main` takes
+direct pushes by maintainer decision, so a red `ci-required` reports the
 failure but blocks no push. It runs with `if: always()` and
 `needs` the release gate plus every test lane
 (`upstream-simulator-sanity`, `python-contracts`,
@@ -717,8 +719,9 @@ environment and the only job that can release to Google Play. It:
   and the job names no secret
 - uploads the AAB, `mapping.txt`, and `native-debug-symbols.zip` with
   `r0adkll/upload-google-play` to the `play_track` track as a `completed`
-  release named `<version_name> (<version_code>)`. `internal` is internal
-  testing and `alpha` the default closed track
+  release named `<version_name> (<version_code>)`. `internal`, the input's
+  default, is the internal testing track; `alpha` is the closed testing track
+  Play Console creates for every app
 
 Production is not a `play_track` value: a release reaches production only by a
 promotion in Play Console. A release on a closed track still goes through Play
@@ -841,10 +844,10 @@ action file's hash).
 `.github/dependabot.yml` asks for weekly grouped update pull requests for
 GitHub Actions, Gradle, uv, and the pre-commit hook revs, each held back 7
 days after a release (`cooldown`; zizmor's `dependabot-cooldown` audit fails
-a shorter one). The file does nothing unless version updates are on: each run
-shows as the dynamic `Dependabot Updates` workflow, so when
-`gh api repos/ppigazzini/r47zen/actions/workflows` lists none, no update has
-ever run, and the switch is in the repository's Code security settings.
+a shorter one). The file does nothing unless version updates are on, a switch
+in the repository's Code security settings; each run shows as the dynamic
+`Dependabot Updates` workflow, which
+[Repository settings](#repository-settings) says how to look for.
 
 ### Pins that live in more than one file
 
@@ -876,6 +879,22 @@ same contract refuses a `-latest` label. A `-latest` label moves to a new OS on
 GitHub's schedule with no commit here, and the Linux lanes install their own
 LLVM and read apt packages whose versions change with the OS. Moving to a new
 image is a commit of its own, with a green run of every lane as its evidence.
+
+## Repository settings
+
+Some guarantees on this page rest on GitHub settings, which no tracked file
+holds and no contract can read. Each row names the state this repo expects
+and the command that shows the live one; run it when a claim here looks
+wrong, because a setting changes with no commit.
+
+| expected state | what relies on it | shows it |
+|---|---|---|
+| Actions `sha_pinning_required` on | a tag-pinned action fails the run, beyond what the pin contract checks in the tree | `gh api repos/ppigazzini/r47zen/actions/permissions` |
+| no branch protection on `main` | direct pushes; `ci-required` reports and blocks nothing | `gh api repos/ppigazzini/r47zen/branches/main/protection` answers 404 |
+| environments `production-release` and `play-upload`, each with a custom deployment branch policy naming only `main` | the release key and the Play identity reach only [`sign-production-release`](#sign-production-release) and [`upload-to-play`](#upload-to-play) | `gh api repos/ppigazzini/r47zen/environments/<name>/deployment-branch-policies` |
+| no repository-scoped `R47_RELEASE_*` secret | the production key is readable only inside its environment ([Signing isolation](#signing-isolation)) | `gh api repos/ppigazzini/r47zen/actions/secrets` |
+| private vulnerability reporting on | `.github/SECURITY.md` sends reporters to it | `gh api repos/ppigazzini/r47zen/private-vulnerability-reporting` |
+| Dependabot version updates on | `.github/dependabot.yml`, which does nothing while they are off | `gh api repos/ppigazzini/r47zen/actions/workflows` lists `Dependabot Updates` once one has run; until then no update has ever run |
 
 ## Reproducing or re-releasing a past build
 

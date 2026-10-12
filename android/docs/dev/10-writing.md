@@ -216,7 +216,7 @@ The commit is the durable record of *why*, and the only place history belongs.
 
 ## The gates
 
-The mechanical checks that exist today:
+The mechanical checks:
 
 - `pre-commit` runs the hooks `.pre-commit-config.yaml` declares; that file is
   the list. Besides formatting and linting it runs

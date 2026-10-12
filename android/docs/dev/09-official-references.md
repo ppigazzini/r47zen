@@ -29,8 +29,7 @@ flowchart TD
 
 - [C47 GitLab project](https://gitlab.com/rpncalculators/c43): the authoritative
   upstream source repository consumed by this Android overlay. The GitLab path
-  still uses the historical `c43` name even though the project identifies
-  itself as C47.
+  keeps the older `c43` name; the project identifies itself as C47.
 - [C47 lblGtoXeq.c run loop](https://gitlab.com/rpncalculators/c43/-/blob/master/src/c47/programming/lblGtoXeq.c):
   authoritative upstream run-loop source used when comparing Android stop-key
   behavior against the desktop simulator's `R/S` and `EXIT` parity during
@@ -52,20 +51,21 @@ flowchart TD
 ## Toolchain references
 
 - [Android Gradle plugin 9.4 release notes](https://developer.android.com/build/releases/agp-9-4-0-release-notes):
-  official Android build release notes for the 9.4 AGP line used by this repo
-  (the repo pins `9.4.1` in `android/gradle/libs.versions.toml`; the 9.4 line
-  shares one release-notes page). Its compatibility table states a JDK
-  *minimum* and default of `17` and no maximum, which is why this repo's build
-  JDK is a measured pin in `android/r47-defaults.properties` rather than a copy
-  of that number. The same table states a Gradle minimum of `9.6.0`, which the
-  checked-in wrapper `9.8.1` clears, and a maximum supported API level of `37`.
-  On this AGP line the repo builds against SDK Build Tools `37.0.0` and
-  `compileSdk`/`targetSdk` `37` (Android 17 / API 37) - the build-tools pin is
-  deliberately above the `36.0.0` the table names as minimum and default.
-  `compileSdk` additionally carries `compileSdkMinor 2`, so the build compiles
-  against the `android-37.2` platform. AGP has no `targetSdkMinor`: a minor SDK
-  version is a compile-time API surface only, so `targetSdk` stays the bare `37`
-  and the shipped manifest does not move with it.
+  official Android build release notes for the AGP line the `agp` entry of
+  `android/gradle/libs.versions.toml` pins; one page covers every patch of a
+  line, and `run_toolchain_pin_coherence_contract.sh` fails when this link
+  names another line. Its compatibility table states a JDK *minimum* and
+  default of `17` and no maximum, which is why this repo's build JDK is a
+  measured pin in `android/r47-defaults.properties` rather than a copy of that
+  number. The same table states a Gradle minimum of `9.6.0`, which the wrapper
+  in `android/gradle/wrapper/gradle-wrapper.properties` must clear, a maximum
+  supported API level of `37`, and a build-tools minimum and default of
+  `36.0.0`; `R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION` sits above it on
+  purpose. `R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR` makes the build compile
+  against a minor platform, `android-<compileSdk>.<minor>`. AGP has no
+  `targetSdkMinor`: a minor SDK version is a compile-time API surface only, so
+  `targetSdk` stays a bare major and the shipped manifest does not move with
+  it.
 - [Java versions in Android builds](https://developer.android.com/build/jdks):
   official Android reference separating the JDK that runs Gradle from the Java
   toolchain, `sourceCompatibility`/`targetCompatibility`, and the Kotlin
@@ -83,7 +83,9 @@ flowchart TD
   official JetBrains release page documenting the language, tooling, and bug-fix
   cadence.
 - [Gradle 9.8.1 release notes](https://docs.gradle.org/9.8.1/release-notes.html):
-  official Gradle release notes for the checked-in wrapper version.
+  official Gradle release notes for the wrapper version
+  `gradle-wrapper.properties` pins; `run_toolchain_pin_coherence_contract.sh`
+  fails when this link names another.
 - [Improve the Performance of Gradle Builds](https://docs.gradle.org/current/userguide/performance.html):
   official Gradle guidance for establishing a baseline, preferring
   workflow-specific task graphs, and using daemon, cache, parallelism, and

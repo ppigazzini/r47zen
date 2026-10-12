@@ -89,7 +89,7 @@ Tracked Android stub headers under `r47zen/stubs` and the forced include
 of `android_mocks.h` let the Android build satisfy upstream GTK, GDK, and Cairo
 includes without rewriting staged source files during the Gradle build.
 
-The Android native module currently compiles the staged upstream core in
+The Android native module compiles the staged upstream core in
 `PC_BUILD` mode. That means the Android-owned bridge layer must provide the
 GLib and GTK compatibility behavior used by upstream pause, wait, and progress
 paths instead of treating those entry points as no-op stubs.
@@ -111,7 +111,7 @@ a size other than its block's, so a re-vendor cannot drop the header.
 
 That `PC_BUILD` choice also makes the Android HAL responsible for any desktop-
 side helper symbols that upstream starts exporting through `src/c47/hal/*.h`.
-The current concrete examples are `create_dir(char *dir)` and
+Examples are `create_dir(char *dir)` and
 `_ioFileNameOverride[]` from `hal/io.h`, plus
 `lcd_buffer_pixel_on(uint32_t x, uint32_t y)` from `hal/lcd.h`. When an
 upstream sync advances those HAL contracts, update the Android HAL in
@@ -373,7 +373,7 @@ supports that model by keeping shared synchronization in native code:
 - The Android fixture seam still uses LCD redraw activity as valid run evidence
   for fast-returning fixtures such as `GudrmPL.p47` when step, pause, wait, or
   `VIEW` markers never surface before a clean return.
-- `yieldToAndroidWithMs()` in `android_runtime.c` is currently the only
+- `yieldToAndroidWithMs()` in `android_runtime.c` is the only
   Android-owned mid-run seam that both releases the recursive `screenMutex` and
   drains `processCoreTasksNative()` while shared-core execution is still in
   flight
@@ -607,8 +607,9 @@ The checked-in Android build uses the supported NDK flexible-page-size path:
 
 - `android/app/build.gradle` passes
   `-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON` to CMake
-- the checked-in NDK pin is `30.0.16248370`
-- the checked-in AGP version is `9.4.1`
+- the NDK is `R47_DEFAULT_ANDROID_NDK_VERSION` in
+  `android/r47-defaults.properties`, and AGP is the `agp` entry of
+  `android/gradle/libs.versions.toml`
 
 The default checked-in APK target is `arm64-v8a`. The workflow and local
 Gradle invocations can temporarily add `x86_64` through `r47.abiFilters` for

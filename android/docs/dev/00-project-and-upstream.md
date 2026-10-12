@@ -1,6 +1,6 @@
 # Project And Upstream Contract
 
-This page explains what R47 Android is, what the upstream C47 project is, what
+This page explains what R47 Zen is, what the upstream C47 project is, what
 this repository owns, and where the Android overlay interfaces with upstream-
 owned sources and runtime behavior.
 
@@ -9,7 +9,7 @@ this ownership boundary is already clear.
 
 ## At A Glance
 
-- R47 Android is the independently maintained Android shell and maintainer
+- R47 Zen is the independently maintained Android shell and maintainer
   overlay for the R47 variant.
 - The authoritative upstream project is the C47 core configured in
   `upstream.source`.
@@ -99,7 +99,7 @@ flowchart LR
 
 ## What This Repository Is
 
-R47 Android is not a generic Android sample app and not a plain mirror of the
+R47 Zen is not a generic Android sample app and not a plain mirror of the
 upstream calculator source tree.
 
 It is the independently maintained Android shell, build pipeline, packaging
@@ -135,8 +135,8 @@ latest commit on the ref every run, so the project always ships the current
 upstream core. Pinning an older commit is a roadblock-only action recorded in
 the Git-ignored `upstream.lock`, never in `upstream.source`.
 
-That GitLab path still uses the historical `c43` repository name, but the
-upstream project identifies itself as C47.
+That GitLab path keeps the older `c43` repository name; the upstream project
+identifies itself as C47.
 
 For this repository, the upstream project is the owner of the shared calculator
 engine, simulator-oriented source tree, core keyboard and menu behavior,

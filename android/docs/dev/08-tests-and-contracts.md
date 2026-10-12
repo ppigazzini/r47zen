@@ -103,9 +103,8 @@ alphabetically.
 The same JSON keeps `numeric` in `font_assets` and lane `font_coverage` as a
 measured font alias for coverage evidence, but `numeric` is not part of the
 runtime fallback arrays.
-When a historical external GIMP export needs checking, pass its JSON path directly to
-`validate_geometry_dataset.py`; no checked-in GIMP dataset exists in this
-repository.
+To check an external GIMP export, pass its JSON path to
+`validate_geometry_dataset.py`; no GIMP dataset is tracked in this repository.
 
 The two hand-maintained inputs have a declared shape, and the loader is the
 gate. `scripts/r47_contracts/_contract_data.py` owns a valgebra schema for each:
@@ -779,8 +778,8 @@ Android compatibility layer.
   `r47_try_take_packed_display`. A data race or
   lock-order inversion in the Android-owned bridge is the hard gate and aborts
   the run; `bridge_tsan_suppressions.txt` is the upstream-core-only escape hatch
-  (currently empty -- the bridge's `screenMutex`/`packedDisplayMutex` fully
-  serialize the core, so no upstream race surfaces), matching how the sanitized
+  (it holds no active entry: the bridge's `screenMutex`/`packedDisplayMutex`
+  fully serialize the core, so no upstream race surfaces), matching how the sanitized
   workload lane defers un-ownable upstream undefined behavior. The harness is
   what proves the `hal/lcd.c` display-change signals
   (`packedDisplayGeneration`, `keypadSnapshotGeneration`) are race-free under
@@ -931,7 +930,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_privileged_remote_script_contract.sh` | no workflow or script pipes a network fetch into a shell | text |
 | `run_llvm_toolchain_install_contract.sh` | every user of `llvm-config-<major>` installs `llvm-<major>`, which ships `llvm-profdata`; live lines only | text |
 | `run_build_deps_single_source_contract.sh` | Linux build dependencies come only from `install_linux_build_deps.sh`; live lines only | text |
-| `run_toolchain_pin_coherence_contract.sh` | the documentary Gradle and AGP pins in `r47-defaults.properties` match the wrapper and the version catalog | text |
+| `run_toolchain_pin_coherence_contract.sh` | the documentary Gradle and AGP pins in `r47-defaults.properties` match the wrapper and the version catalog, and the release-notes links on [09-official-references.md](09-official-references.md) name the same AGP line and Gradle version | text |
 | `run_build_jdk_pin_coherence_contract.sh` | the Gradle toolchain, every `setup-java`, and the doctor read the build JDK pin: the pin is read into `buildJdkVersion` once and never reassigned, every `JavaLanguageVersion.of` takes it, and no `jvmToolchain` sets a second one; live code only | yes, seeded copies of the Gradle file and the doctor |
 | `run_action_pin_consistency_contract.sh` | one SHA and tag per action, shfmt, shellcheck, actionlint, zizmor, ruff, and Python pinned alike in CI, pre-commit, `uv.lock`, and `pyproject.toml`, and no `-latest` runner label (see [07](07-ci-and-release-workflow.md#pins-that-live-in-more-than-one-file)) | yes, fixtures |
 | `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely, and every deadline site includes and calls the helpers, comments aside, with no raw comparison in either operand order | yes, compiles and runs a C test; the patterns prove themselves on seeded lines |

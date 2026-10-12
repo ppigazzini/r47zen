@@ -170,10 +170,14 @@ flowchart LR
   allocates, writes, or reads it.
 - A theme change never reaches native: the palette lives only in the
   overlay's `PackedLcdRaster`, which recolors the frame it holds.
-- the legacy `r47_get_keypad_meta(..., bool isDynamic)` and
-  `r47_get_keypad_labels(..., bool isDynamic)` functions remain the
-  bool-based fixture-export contract used by repo tooling and keep the older
-  semantics.
+- `r47_get_keypad_meta(..., bool isDynamic)` and
+  `r47_get_keypad_labels(..., bool isDynamic)` in `keypad_fixture_bridge.h`
+  are the fixture-export contract the keypad fixture exporter and the TSan
+  harness read. They take a two-state `isDynamic` where the app's
+  `r47_try_copy_app_keypad_snapshot` takes the `mainKeyDynamicMode` int, and
+  resolve the main labels through `buildLegacyMainLabelPresentation` in
+  `keypad_scene.c`, so the fixture goldens do not move with the app's label
+  modes.
 - Kotlin converts the copied buffers into `KeypadSnapshot`, and the renderer
   uses named fields from that model instead of indexing raw native arrays
   again. `ReplicaOverlayController` then applies any `virtuoso` keypad-label

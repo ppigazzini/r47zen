@@ -24,9 +24,9 @@ This is the **Android shell, build pipeline, and maintainer overlay** for the
 R47 calculator variant implemented in the upstream C47 core.
 
 - The upstream C47 core is the product. Its authoritative source is the
-  repository configured in `upstream.source`, currently
-  <https://gitlab.com/rpncalculators/c43.git>. That GitLab path still uses the
-  older `c43` repository name; the core this repo consumes is C47.
+  repository `upstream.source` names in `upstream_url`,
+  <https://gitlab.com/rpncalculators/c43.git>. That GitLab path keeps the older
+  `c43` repository name; the core this repo consumes is C47.
 - **Tracked here:** `android/`, `scripts/`, `.github/`, and a small set of root
   files (`README.md`, `AGENTS.md`, `CLAUDE.md`, `upstream.source`,
   `pyproject.toml`, `uv.lock`, `.pre-commit-config.yaml`, `.gitignore`,

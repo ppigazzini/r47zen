@@ -117,11 +117,11 @@ hydrated on demand, or only exercised in CI before updating the docs.
 ## Checked-in defaults
 
 - machine-readable Android tool defaults live in
-  `android/r47-defaults.properties`; the checked-in values currently cover
-  `compileSdk 37` with `compileSdkMinor 2`, `targetSdk 37`, `minSdk 24`, build tools
-  `37.0.0`, `ndkVersion 30.0.16248370`, CMake `4.1.2`, default ABI filter
-  `arm64-v8a`, hosted Android test API `34`, hosted Android test ABI filters
-  `arm64-v8a,x86_64`, and the pinned xlsxio URL plus commit.
+  `android/r47-defaults.properties`, one `R47_DEFAULT_*` key each: the compile,
+  target, and minimum SDK, the compile SDK minor, build tools, NDK, CMake, the
+  shipped ABI filter, the hosted test API level and ABI filters, and the
+  pinned xlsxio URL plus commit. Read the values from the file; a page that
+  copies one is wrong the day the key moves.
 - two of those keys are about Java and they are not interchangeable. Read the
   values from the file; what matters here is which is which:
   - `R47_DEFAULT_ANDROID_BUILD_JDK_VERSION` is the JDK that *runs* the build --
@@ -140,8 +140,10 @@ hydrated on demand, or only exercised in CI before updating the docs.
     supported range, and this key changes shipped dex, so it moves only with
     device-lane evidence.
 - settings-owned repositories via `android/settings.gradle`
-- version catalog `android/gradle/libs.versions.toml`, which owns the checked-in
-  AGP `9.4.1` plugin coordinate plus AndroidX and Material library versions.
+- version catalog `android/gradle/libs.versions.toml`, which owns the AGP
+  plugin coordinate plus the AndroidX and Material library versions.
+  `run_toolchain_pin_coherence_contract.sh` holds `R47_DEFAULT_ANDROID_AGP_VERSION`
+  equal to it.
 - Jetifier explicitly disabled in `android/gradle.properties`
 - base `namespace` and `applicationId` `io.github.ppigazzini.r47zen`
 - Android app, debug, release, JVM-test, and instrumentation-test sources live under
@@ -179,8 +181,8 @@ hydrated on demand, or only exercised in CI before updating the docs.
 - Review NDK and CMake pins when Android's AGP/NDK guidance or CMake release
   notes move, and rerun packaging checks before landing the update.
 - Kotlin is intentionally unpinned in `android/gradle/libs.versions.toml`: the
-  build rides the Kotlin compiler bundled with the pinned AGP line (AGP `9.4.1`)
-  rather than a standalone Kotlin plugin, so there is no `kotlin` catalog entry
+  build rides the Kotlin compiler bundled with the pinned AGP line rather
+  than a standalone Kotlin plugin, so there is no `kotlin` catalog entry
   to drift against AGP. This avoids AGP/compiler skew, where an explicit Kotlin
   pin newer or older than the one AGP expects can break the build. Add a
   `kotlin` catalog entry and the Kotlin Gradle plugin only when a concrete task
@@ -260,13 +262,12 @@ Current `--android-only` lane behavior:
   under `res/fonts`, and the tracked Android mini-gmp staging source before
   Gradle reuses the staged tree
 
-Current non-Android root surfaces that should not be used to justify Android
-ownership claims:
+Root surfaces that never justify an Android ownership claim:
 
 - the upstream `dist` and `distS` release-packaging scripts
 - upstream DMCP SDK submodule paths under `dep/DMCP_SDK` and
-  `dep/DMCP5_SDK`, which the current repo does not carry locally and the
-  Android lane never stages
+  `dep/DMCP5_SDK`, which the Android lane never stages, even after
+  `scripts/upstream-sync/hydrate_submodules.sh` has fetched them
 - cross-build helper tools such as `tools/add_pgm_chsum`, `tools/modify_crc`,
   `tools/gen_qspi_crc`, and `tools/size.py`
 

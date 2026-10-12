@@ -6,7 +6,9 @@
 # other value in the defaults file is the single source its consumers read;
 # these two are documentary copies (the docs present the defaults file as the
 # pin inventory), so without this guard they can drift silently when the
-# wrapper or the catalog is bumped. Pure host test, no SDK needed.
+# wrapper or the catalog is bumped. The same holds for the AGP and Gradle
+# release-notes links in android/docs/dev/09-official-references.md, which name
+# the pinned versions in their URLs. Pure host test, no SDK needed.
 #
 # File paths are env-overridable so the contract can be negative-proven against
 # a drifted copy without touching the live tree.
@@ -55,4 +57,50 @@ if [ "$declared_agp" != "$catalog_agp" ]; then
         "Update ${defaults_file} to match ${catalog_file}."
 fi
 
-contract_pass "documentary pins match their sources (Gradle ${wrapper_gradle}, AGP ${catalog_agp})."
+# 09-official-references.md links the release notes of the pinned AGP line and
+# Gradle version, so each link URL carries a version. A bump that leaves the
+# link behind still resolves, to the notes of a toolchain the build no longer
+# uses; hold both links to the pins.
+references_file="${R47_REFERENCES_DOC_FILE:-$PROJECT_ROOT/android/docs/dev/09-official-references.md}"
+[ -f "$references_file" ] || contract_fail "missing required file: $references_file"
+
+# Print one line per release-notes link in FILE that names a version other
+# than AGP_LINE (major.minor) or GRADLE.
+find_reference_drift() {
+    local file="$1" agp_line="$2" gradle="$3" linked
+    linked="$(grep -oE 'agp-[0-9]+-[0-9]+-0-release-notes' "$file" | sort -u)"
+    [ -n "$linked" ] || echo "no AGP release-notes link"
+    while read -r link; do
+        [ -n "$link" ] || continue
+        link="${link#agp-}"
+        link="${link%-0-release-notes}"
+        [ "${link/-/.}" = "$agp_line" ] || echo "AGP release notes link the ${link/-/.} line, not ${agp_line}"
+    done <<<"$linked"
+    linked="$(grep -oE 'docs\.gradle\.org/[0-9][0-9.]*/release-notes' "$file" | sort -u)"
+    [ -n "$linked" ] || echo "no Gradle release-notes link"
+    while read -r link; do
+        [ -n "$link" ] || continue
+        link="${link#docs.gradle.org/}"
+        link="${link%/release-notes}"
+        [ "$link" = "$gradle" ] || echo "Gradle release notes link ${link}, not ${gradle}"
+    done <<<"$linked"
+}
+
+catalog_agp_line="$(cut -d. -f1-2 <<<"$catalog_agp")"
+fixture_file="$(mktemp)"
+trap 'rm -f "$fixture_file"' EXIT
+printf '%s\n' "(https://developer.android.com/build/releases/agp-1-2-0-release-notes)" \
+    "(https://docs.gradle.org/3.4.5/release-notes.html)" >"$fixture_file"
+[ -z "$(find_reference_drift "$fixture_file" 1.2 3.4.5)" ] ||
+    contract_fail "the reference checker flagged links that match their pins."
+[ -n "$(find_reference_drift "$fixture_file" 1.3 3.4.5)" ] ||
+    contract_fail "the reference checker missed an AGP link one line behind."
+[ -n "$(find_reference_drift "$fixture_file" 1.2 3.4.6)" ] ||
+    contract_fail "the reference checker missed a Gradle link one patch behind."
+
+reference_drift="$(find_reference_drift "$references_file" "$catalog_agp_line" "$wrapper_gradle")"
+if [ -n "$reference_drift" ]; then
+    contract_fail "release-notes links in ${references_file} do not match the pins:" "$reference_drift"
+fi
+
+contract_pass "documentary pins and the release-notes links match their sources (Gradle ${wrapper_gradle}, AGP ${catalog_agp})."

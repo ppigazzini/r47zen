@@ -220,7 +220,7 @@ Focused verification for this lifecycle contract lives in
 
 ## Input surfaces
 
-The Kotlin shell currently accepts input from five paths:
+The Kotlin shell accepts input from five paths:
 
 - on-screen keys built by `ReplicaKeypadLayout`
 - accessibility click activation on those same key views once they hold focus
