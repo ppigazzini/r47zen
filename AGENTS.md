@@ -14,10 +14,9 @@ track it. [android/docs/dev/10-writing.md](android/docs/dev/10-writing.md)
 carries the rules for everything this repo writes for a reader - pages,
 comments, and commit messages alike - and maps every page to what it owns and
 which run hot. `bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook
-`docs-lint`, CI lane `Docs Lint`) catches a dead link or anchor, a repo path
-that is not tracked, a stray non-ASCII byte, a pointer to a file under
-`__DEV/`, and a broken `CLAUDE.md` import; it cannot tell you a sentence has
-become false. That part is yours.
+`docs-lint`, CI lane `Docs Lint`) catches the mechanical rot that page's
+[gates](android/docs/dev/10-writing.md#the-gates) list; it cannot tell you a
+sentence has become false. That part is yours.
 
 ## What this repository is
 

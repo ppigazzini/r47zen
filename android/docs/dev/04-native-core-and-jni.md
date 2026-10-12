@@ -79,11 +79,11 @@ CMake builds the library from:
   `android/.staged-native/cpp/decNumberICU`
 - build-only staged generated sources under
   `android/.staged-native/cpp/generated`
-- Android-specific bridge and HAL files under
+- the glue `r47zen/glue_sources.txt` lists, under
   `android/app/src/main/cpp/r47zen`
-- build-only staged mini-gmp sources under `android/.staged-native/cpp/gmp`
-- the tracked Android mini-gmp staging source under
-  `android/compat/mini-gmp-fallback`
+- the staged mini-gmp under `android/.staged-native/cpp/gmp`, which
+  `stage_native_sources.sh` copies from the tracked
+  `android/compat/mini-gmp-fallback`; CMake never reads the tracked copy
 
 Tracked Android stub headers under `r47zen/stubs` and the forced include
 of `android_mocks.h` let the Android build satisfy upstream GTK, GDK, and Cairo
@@ -131,7 +131,8 @@ The former tracked directories
 `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are retired
 snapshot paths and must stay absent during normal builds.
 
-The Android bridge code is intentionally split by responsibility:
+The glue is split by responsibility. Every file `glue_sources.txt` lists
+appears below; `run_docs_lint.sh` fails when one does not:
 
 - `jni_lifecycle.c` for init, deadline-driven tick, refresh, and slot-state lifecycle work
 - `jni_input.c` for key and menu dispatch
@@ -148,6 +149,32 @@ The Android bridge code is intentionally split by responsibility:
 - `jni_storage.c` for SAF-backed blocking file handoff
 - `jni_registration.c` for `JNI_OnLoad()` and explicit native registration
 - `jni_activity_bridge.c` for shared JVM, activity callbacks, and bridge globals
+- `android_runtime.c` for the GLib and GTK main-loop, timeout, and clock calls
+  the `PC_BUILD` core makes, the `screenMutex` and `fileMutex` globals, and
+  `yieldToAndroidWithMs()`, the yield boundary
+  [06-runtime-hot-paths.md](06-runtime-hot-paths.md) calls the bridge's most
+  sensitive re-entrancy boundary
+- `android_helpers.c` for the clipboard text formatters `jni_clipboard.c`
+  returns
+- `hal/lcd.c` for the LCD buffer, the packed snapshot Kotlin copies, and the
+  display-change generations
+- `hal/io.c` for file I/O through the SAF handoff, state and program files,
+  and the `hal/io.h` exports
+- `hal/audio.c` for the buzzer and volume calls, routed to
+  `MainActivity.playTone`
+- `hal/gui.c` for `setupUI()`'s core allocations, plus the `calcMode*Gui`
+  hooks upstream's `calcMode.c` calls, which Android leaves empty
+- `hal/print_ir.c` for the infrared-printer hooks, which send nothing
+
+`jni_program_load_test.c` is not in the list: only an instrumentation build
+compiles it, for `ProgramLoadTestBridge`. The headers beside the glue are
+`jni_bridge.h` (the shared JNI helpers), `keypad_fixture_bridge.h` (the C entry
+points the fixture exporter and the TSan harness call), `r47_time.h` (the
+wrap-safe deadline helpers `run_wrap_safe_time_contract.sh` proves),
+`android_mocks.h` (forced into every unit), and `execinfo.h`, which shadows
+the NDK's header for the `<execinfo.h>` include upstream's `c47.h` makes on
+Linux: the NDK declares `backtrace()` only from API 33, above the app's
+`minSdk`, so the stub's `backtrace()` reports no frames.
 
 ## JNI contract
 
@@ -155,7 +182,9 @@ JNI registration is explicit. `JNI_OnLoad()` initializes the JVM handle, the
 recursive `screenMutex`, and calls `register_main_activity_natives(...)`. The
 bridge does not rely on name-based native lookup.
 
-The registered native surface includes:
+`jni_registration.c`'s table is the list, and each entry is an `external fun`
+of `MainActivity.kt`. `scripts/android/check_jni_surface.sh` fails a minified
+APK whose dex lacks one. The entries cover:
 
 - activity reattachment and final runtime release
 - native pre-init, init, and tick
@@ -179,13 +208,16 @@ The registered native surface includes:
   explicit state load so a bad saved graph window cannot poison the first
   refresh of the next launch or slot switch; repaired bounds are resynced into
   `LX`, `UX`, `LY`, and `UY` before refresh
-- state save, load, and force refresh
+- state save and load
 - packed LCD generation reads and packed LCD transfer
-- keypad snapshot generation reads and whole-snapshot copy, plus the legacy
-  keypad metadata and label getters kept for bridge compatibility
+- keypad snapshot generation reads and whole-snapshot copy
 - slot selection plus clipboard-export fetches for X register, stack
   registers, and all registers
-- SAF file selection callbacks
+- the SAF picker's result, `onFileSelectedNative` and `onFileCancelledNative`
+
+`MainActivity` has no redraw entry point; `r47_force_refresh()` redraws at
+runtime init and for instrumentation only (see
+[03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md)).
 
 The clipboard-export getters are Android-owned bridge seams. They mirror the
 upstream desktop clipboard payload shapes for `Copy X Register`, `Copy Stack

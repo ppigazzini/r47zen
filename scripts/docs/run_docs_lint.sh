@@ -25,6 +25,9 @@
 #     import is the only thing that loads the contract at all.       -> check 5
 #   * A link can name a live page and a heading that was retitled; GitHub then
 #     lands the reader at the top of the page, silently.             -> check 6
+#   * Pages list the glue files, the workflows, and the contracts. A file added
+#     with no page edit leaves the list reading as complete while it omits
+#     the one file a reader came for.                                -> check 7
 #
 # NOT checked, deliberately: whether a sentence is true. A fluent invented
 # rationale parses, links, and names no dead path. Only a reader catches that.
@@ -204,6 +207,73 @@ for f in "${DOCS[@]}"; do
     done < <(grep -oE '\]\([^) ]+\)' "$f" | sed 's/^](//; s/)$//')
 done
 log "check 6: intra-repo anchors name a heading ($n dead)"
+
+# --- 7. a page that inventories a set names every member ---------------------
+# Three pages list a set this repo defines elsewhere: 04 splits the native glue
+# by responsibility, 07 describes every workflow and composite action, and 08
+# maps every host CI contract and Python suite module. A list that reads as
+# complete and is not sends a reader past the file that matters. Each set is
+# read from the file that defines it, never kept here, and a member counts as
+# named when its file name (a composite action: its .github/actions/ path)
+# appears anywhere on the page.
+n=0
+# Print the entries of the bash array NAME=( ... ) in FILE, one per line.
+array_entries() {
+    awk -v start="^$2=\\\\($" '
+        $0 ~ start { inside = 1; next }
+        inside && /^\)$/ { exit }
+        inside { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); if ($0 != "") print }
+    ' "$1"
+}
+# Print each member (stdin, one per line) that PAGE does not name.
+inventory_gaps() {
+    local page="$1" member
+    while IFS= read -r member; do
+        [[ -n "$member" ]] || continue
+        grep -qF -- "$member" "$page" || printf '%s\n' "$member"
+    done
+}
+# Prove the checker fails before trusting its silence.
+seeded="$(mktemp)"
+printf 'names alpha.c only\n' >"$seeded"
+seeded_gaps="$(printf 'alpha.c\nbeta.c\n' | inventory_gaps "$seeded")"
+rm -f "$seeded"
+if [[ "$seeded_gaps" != "beta.c" ]]; then
+    note "SELF-TEST     check 7 missed a member a seeded page omits"
+    n=$((n + 1))
+fi
+DEV=android/docs/dev
+# Report each member of MEMBERS (one per line) that PAGE omits. An empty set
+# means its defining file moved or changed shape; refuse it rather than pass on
+# it. Called directly, never at the end of a pipe: a pipe runs it in a subshell,
+# where its notes would print and never fail the gate.
+inventory() {
+    local page="$1" what="$2" members="$3" member
+    if [[ -z "$members" ]]; then
+        note "EMPTY SET     no ${what}s were read for $page; fix check 7"
+        n=$((n + 1))
+        return
+    fi
+    while IFS= read -r member; do
+        note "UNLISTED      $page omits $what $member"
+        n=$((n + 1))
+    done < <(inventory_gaps "$page" <<<"$members")
+}
+inventory "$DEV/04-native-core-and-jni.md" "glue source" \
+    "$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' \
+        android/app/src/main/cpp/r47zen/glue_sources.txt)"
+inventory "$DEV/07-ci-and-release-workflow.md" "workflow" \
+    "$(git ls-files '.github/workflows/*.yml' | sed 's|.*/||')"
+inventory "$DEV/07-ci-and-release-workflow.md" "composite action" \
+    "$(git ls-files '.github/actions/*/action.yml' | sed 's|/action\.yml$||')"
+inventory "$DEV/08-tests-and-contracts.md" "host CI contract" \
+    "$(array_entries scripts/android/run_workflow_contracts.sh CONTRACTS)"
+inventory "$DEV/08-tests-and-contracts.md" "contract suite module" \
+    "$({
+        array_entries scripts/r47_contracts/run_contract_suite.sh DERIVE_MODULES
+        array_entries scripts/r47_contracts/run_contract_suite.sh TEST_MODULES
+    } | sed 's/^r47_contracts\.//')"
+log "check 7: pages that inventory a set name every member ($n unlisted)"
 
 if [[ "$fail" -ne 0 ]]; then
     log "DOCS GATE FAILED"

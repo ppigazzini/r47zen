@@ -272,7 +272,16 @@ runs in seconds on every push, and it settles these mechanical rot classes:
    `AGENTS.md`, so that one line carries the whole contract,
 6. a `page.md#anchor` or `#anchor` link whose anchor matches no heading of the
    target page, slugged as GitHub slugs it - a retitled heading otherwise lands
-   the reader at the top of the page with no error.
+   the reader at the top of the page with no error,
+7. a member of a set a page inventories that the page does not name: a file in
+   `r47zen/glue_sources.txt` on
+   [04-native-core-and-jni.md](04-native-core-and-jni.md), a workflow or
+   composite action on
+   [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md), a host CI
+   contract or a contract suite module on
+   [08-tests-and-contracts.md](08-tests-and-contracts.md). It reads each set
+   from the file that defines it, and it checks that the page names the
+   member, not that the page says anything true about it.
 
 **No gate can tell you a sentence is false.** A fluent, technical, invented
 rationale parses, links, and pins nothing, and survives review precisely because
