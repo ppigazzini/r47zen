@@ -24,29 +24,14 @@ this ownership boundary is already clear.
 Before hydration, Git tracking keeps the repo-owned overlay paths and excludes
 the upstream payload at the repo root.
 
-That tracked clean overlay state is:
-
-```text
-repo root, clean tracked overlay
-|- .github/
-|- android/
-|  |- app/src/main/java/io/github/ppigazzini/r47zen/
-|  |  |- R47Geometry.kt
-|  |  `- R47KeypadPolicy.kt
-|  |- app/src/main/cpp/r47zen/
-|  |- docs/dev/
-|  `- r47-defaults.properties
-|- scripts/
-|  |- android/
-|  |- r47_contracts/
-|  |  `- data/
-|  `- upstream-sync/
-`- the tracked root files
-```
-
-The tracked root files are the ones the `.gitignore` reopen rule admits;
-`git ls-files | grep -v /` lists them, `upstream.source`, `AGENTS.md`, and the
-Python toolchain files among them.
+That tracked clean overlay is `.github/` (workflows and composite actions),
+`android/` (the app, its Gradle project, the native glue under
+`android/app/src/main/cpp/r47zen/`, these docs, and
+`android/r47-defaults.properties`), `scripts/` (build, staging, upstream sync,
+and the contract suites), and the tracked root files. The root files are the
+ones the `.gitignore` reopen rule admits; `git ls-files | grep -v /` lists
+them, `upstream.source`, `AGENTS.md`, and the Python toolchain files among
+them.
 
 Maintainer-local ignored paths such as `.venv/` or `upstream.lock` may also
 exist in a local workspace, but they are not part of the tracked clean overlay
@@ -58,24 +43,11 @@ After `./scripts/upstream-sync/upstream.sh sync --auto --write-lock`, the
 working tree also contains the upstream-shaped root inputs that the Android
 overlay consumes.
 
-That hydrated state adds paths such as:
-
-```text
-repo root, hydrated working tree
-|- .github/
-|- android/
-|- scripts/
-|- upstream.source
-|- src/
-|- dep/
-|- meson.build
-|- meson_options.txt
-|- res/fonts/
-|- Makefile
-|- docs/code/
-|- subprojects/
-`- tools/
-```
+That hydrated state adds upstream's root: `src/`, `dep/`, `res/`, `docs/`,
+`tools/`, `subprojects/`, `Makefile`, `meson.build`, and `meson_options.txt`.
+`UPSTREAM_REQUIRED_DIRS` and `UPSTREAM_REQUIRED_FILES` in
+`scripts/upstream-sync/upstream.sh` are the paths it checks to decide whether
+a checkout is hydrated.
 
 Hydration does not mean the Android build outputs already exist.
 

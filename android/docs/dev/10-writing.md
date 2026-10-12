@@ -87,7 +87,7 @@ thoroughness; it is where rot hides.
 ## Doc pages
 
 `README.md` is the index; GitHub renders it for the folder, so it is what a
-reader lands on. The numbered pages `00-` to `11-` go by **reading order**, not
+reader lands on. The numbered pages `00-` to `12-` go by **reading order**, not
 importance: a contributor works down from the project boundary into the
 build, out through the shell and the native core into the runtime, CI, and
 tests. The prefix is
@@ -149,6 +149,7 @@ better than the person who broke it.
 | [09-official-references.md](09-official-references.md) | external links | cold |
 | this page | the rules | cold |
 | [11-reviewing-a-change.md](11-reviewing-a-change.md) | the four checks for a change that crosses a seam, and where each seam's inventory lives | cold |
+| [12-cutting-a-release.md](12-cutting-a-release.md) | the ordered release procedure, the refusals and their recovery, re-releasing a past build | hot - tracks `android-release.yml` |
 
 The rows that track upstream describe a tree **this repo does not control**. No
 tracked file pins an upstream commit: CI resolves the newest commit on every

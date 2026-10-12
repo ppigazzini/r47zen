@@ -529,6 +529,9 @@ its dependencies because it is a publish lane, not a verification lane.
 ## Production release workflow
 
 The protected production workflow is `.github/workflows/android-release.yml`.
+[12-cutting-a-release.md](12-cutting-a-release.md) is the procedure for
+dispatching it, recovering from a refusal, and re-releasing a past build; this
+section is what each job does.
 
 ```mermaid
 flowchart TD
@@ -576,7 +579,8 @@ This workflow:
   fetch, since a shallow fetch accepts only a full one; `BUILD-METADATA.txt`
   records the full SHA to paste.
   This is the supported way to reproduce or re-release a past
-  `BUILD-METADATA.txt` commit. Leaving it blank ships the latest HEAD. Holding a
+  `BUILD-METADATA.txt` commit
+  ([re-releasing a past build](12-cutting-a-release.md#re-releasing-a-past-build)). Leaving it blank ships the latest HEAD. Holding a
   revision locally instead is done through the Git-ignored `upstream.lock`, never
   by pinning the Git-tracked `upstream.source`
 - syncs the resolved authoritative upstream tree
@@ -896,61 +900,6 @@ wrong, because a setting changes with no commit.
 | no repository-scoped `R47_RELEASE_*` secret | the production key is readable only inside its environment ([Signing isolation](#signing-isolation)) | `gh api repos/ppigazzini/r47zen/actions/secrets` |
 | private vulnerability reporting on | `.github/SECURITY.md` sends reporters to it | `gh api repos/ppigazzini/r47zen/private-vulnerability-reporting` |
 | Dependabot version updates on | `.github/dependabot.yml`, which does nothing while they are off | `gh api repos/ppigazzini/r47zen/actions/workflows` lists `Dependabot Updates` once one has run; until then no update has ever run |
-
-## Reproducing or re-releasing a past build
-
-Every published build records the exact upstream core revision it was built from
-in `BUILD-METADATA.txt` (`upstream_commit=<sha>`), packaged inside the
-`*-packaging-evidence.zip` evidence archive and linked from the release notes.
-That recorded commit, fed back through the `upstream_commit` roadblock-pin input
-(see `build-production-release-bundle`), is the supported way to rebuild a build
-from a specific upstream revision instead of the latest HEAD.
-
-1. **Find the upstream commit.** Open the release whose core you want to
-   reproduce. Read the linked upstream commit in the release notes, or download
-   its packaging-evidence archive and read `upstream_commit=` from
-   `BUILD-METADATA.txt`. Note `android_source_commit=` too if you need to match
-   the overlay (see the caveat below).
-2. **Re-release the signed production build.** Dispatch
-   `.github/workflows/android-release.yml` from `main` with the recorded commit
-   as `upstream_commit`, plus the next `version_code` (previous production
-   release plus one) and a `version_name`:
-
-   ```sh
-   gh workflow run android-release.yml --ref main \
-     -f upstream_commit=<recorded-sha> \
-     -f version_code=<previous+1> \
-     -f version_name=<major.minor.patch-signed.YYYYMMDDVV>
-   ```
-
-   `resolve-upstream-core` then resolves `--locked --commit <sha>`, so the build
-   uses exactly that upstream revision. The new release records the same
-   `upstream_commit` in its own `BUILD-METADATA.txt`, keeping the chain
-   traceable. Through the GitHub UI: Actions -> Android Release -> Run workflow,
-   set the same three inputs.
-3. **Reproduce a dev prerelease instead.** Dispatch
-   `.github/workflows/android-ci.yml` with `-f upstream_commit=<recorded-sha>`
-   (optionally `dev_version_code` / `dev_version_name`). A manual dispatch always
-   builds, even if a release for the derived tag already exists.
-4. **Verify.** Confirm the produced `BUILD-METADATA.txt` reports
-   `upstream_commit=<recorded-sha>`. Leaving `upstream_commit` blank on any
-   dispatch resolves the latest HEAD, which is the normal path.
-
-Caveat: the `upstream_commit` input pins only the **upstream calculator core**.
-The Android overlay (this repository) is built from the dispatched workflow ref,
-and `build-production-release-bundle` only runs on `main`
-(`if: github.ref == 'refs/heads/main'`), so a production re-release combines the
-pinned upstream core with the current `main` overlay. For a bit-exact rebuild of
-an old artifact you would also need the overlay at the recorded
-`android_source_commit`; the pin reproduces upstream drift, not the overlay.
-The packaged `THIRD-PARTY.spdx.json` takes its creation time from that commit,
-or from `SOURCE_DATE_EPOCH` when set, never from the clock, so it is not what
-makes two builds of one commit differ.
-
-The local-only counterpart to this CI input is the Git-ignored `upstream.lock`
-(`scripts/upstream-sync/upstream.sh resolve --latest --write-lock`, then trim to
-the commit you want), which pins resolution for a developer's own builds without
-affecting CI.
 
 ## Shared CI inputs
 

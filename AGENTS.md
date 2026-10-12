@@ -80,11 +80,12 @@ and limits.
 | change JNI, SAF, the HAL, or native packaging | [04-native-core-and-jni.md](android/docs/dev/04-native-core-and-jni.md) |
 | chase renderer, geometry, or keypad-scene drift | [05-ui-rendering-and-gtk-mapping.md](android/docs/dev/05-ui-rendering-and-gtk-mapping.md) |
 | touch a hot loop, a redraw path, or a lock boundary | [06-runtime-hot-paths.md](android/docs/dev/06-runtime-hot-paths.md) |
-| understand or add a CI lane, or cut a release | [07-ci-and-release-workflow.md](android/docs/dev/07-ci-and-release-workflow.md) |
+| understand or add a CI lane | [07-ci-and-release-workflow.md](android/docs/dev/07-ci-and-release-workflow.md) |
 | find what locks a contract, or which lane to rerun | [08-tests-and-contracts.md](android/docs/dev/08-tests-and-contracts.md) |
 | find an authoritative external reference | [09-official-references.md](android/docs/dev/09-official-references.md) |
 | write a doc, a code comment, or a commit message | [10-writing.md](android/docs/dev/10-writing.md) |
 | review a change or audit a seam | [11-reviewing-a-change.md](android/docs/dev/11-reviewing-a-change.md) |
+| cut a release, or re-release a past build | [12-cutting-a-release.md](android/docs/dev/12-cutting-a-release.md) |
 
 ## This file, and CLAUDE.md
 

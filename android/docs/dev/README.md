@@ -28,6 +28,7 @@ flowchart TD
   J[09 official references]
   K[10 writing]
   L[11 reviewing a change]
+  M[12 cutting a release]
 
   A --> B
   B --> C
@@ -39,6 +40,7 @@ flowchart TD
   F --> G
   G --> H
   H --> I
+  H --> M
   A -.->|before writing anything| K
   A -.->|before reviewing a change| L
   A -.->|when a page cites a vendor doc| J
@@ -80,6 +82,9 @@ you review one.
 - [11-reviewing-a-change.md](11-reviewing-a-change.md): the four checks for a
   change or an audit that crosses a seam, and where each seam's state
   inventory lives.
+- [12-cutting-a-release.md](12-cutting-a-release.md): the ordered release
+  procedure, what each refusal means and how to recover, and re-releasing a
+  past build.
 
 ## By Task
 
@@ -106,6 +111,68 @@ you review one.
   [10-writing.md](10-writing.md)
 - reviewing a change, or auditing code, where state crosses a thread, the JNI
   boundary, or a cache: [11-reviewing-a-change.md](11-reviewing-a-change.md)
+- cutting a release or re-releasing a past build:
+  [12-cutting-a-release.md](12-cutting-a-release.md)
+
+## By Symptom
+
+Start from what you see; each row names the usual cause and the page that
+owns the fix.
+
+| symptom | usual cause | go to |
+|---|---|---|
+| clang or NDK errors in upstream files you did not touch, after switching upstream commits | the staged tree mixes two cores | remove `android/.staged-native`, `build.sim`, `android/app/.cxx`, and `android/app/build`, then [rebuild from the top](01-build-and-source-layout.md#when-to-rebuild-from-the-top) |
+| a CI lane fails with no commit here | upstream HEAD moved; every lane resolves it | pin `upstream.lock` to the last good commit to tell the two apart ([00](00-project-and-upstream.md#what-the-upstream-project-is)) |
+| `--android-only` refuses to build | the staged inputs no longer match the sources | the full build ([build entry points](01-build-and-source-layout.md#build-entry-points)) |
+| a contract golden fails after a sync | an upstream input it derives from moved | the [provenance ledger](08-tests-and-contracts.md#upstream-provenance-ledger), before any re-bless |
+| Gradle says "No matching toolchains found" | the pinned build JDK is not installed | [checked-in defaults](01-build-and-source-layout.md#checked-in-defaults); `build_android.sh --doctor` names it |
+| lint fails in CI on a change that built locally | builds do not run lint | `cd android && ./gradlew lint` ([the gates](10-writing.md#the-gates)) |
+| docs lint fails on a page you did not edit | a path you renamed or a file you added is named, or missing, there | [the gates](10-writing.md#the-gates) lists each check |
+| a key label, a softkey, or the keypad layout looks wrong | scene export, render spec, or projection | [debug by symptom](05-ui-rendering-and-gtk-mapping.md#debug-by-symptom) |
+| the UI stalls while a program runs | a long native run that does not yield | [yield and SAF I/O boundary](06-runtime-hot-paths.md#yield-and-saf-io-boundary) and [the residual hang](06-runtime-hot-paths.md#residual-hang-nan-driven-non-yielding-runs) |
+| a release dispatch, or its Play upload, fails | an input refusal, or Play state | [when the workflow refuses](12-cutting-a-release.md#when-the-workflow-refuses) |
+
+## Glossary
+
+Each term links the page that owns it.
+
+- **overlay**: this repository, laid over the upstream tree; it owns the
+  Android shell, the build, and these docs
+  ([00](00-project-and-upstream.md#what-this-repository-is)).
+- **hydrate**: write the upstream core's tree into the working tree with
+  `upstream.sh sync`; `src/`, `dep/`, and `res/` exist only after it
+  ([00](00-project-and-upstream.md#working-tree-after-hydration)).
+- **roadblock pin**: an `upstream_commit` in the git-ignored `upstream.lock`,
+  or the `upstream_commit` dispatch input, that holds one upstream revision;
+  never in a tracked file
+  ([00](00-project-and-upstream.md#what-the-upstream-project-is)).
+- **staged tree**: `android/.staged-native/cpp`, the build-only copy of the
+  core CMake compiles, with the `src/` and `dep/` prefixes stripped
+  ([01](01-build-and-source-layout.md#canonical-versus-staged-native-inputs)).
+- **glue**: the repo-owned C under `android/app/src/main/cpp/r47zen` that
+  `glue_sources.txt` lists: the JNI bridge and the HAL
+  ([04](04-native-core-and-jni.md#native-library-shape)).
+- **core thread**: the one thread that runs the native core and owns its
+  lifecycle ([06](06-runtime-hot-paths.md#core-thread-coordinator)).
+- **generation**: a counter the core bumps when the LCD or the keypad scene
+  changes, so a reader copies only on a change
+  ([06](06-runtime-hot-paths.md#frame-refresh-loop)).
+- **scene**: one keypad state, every key's labels, roles, and flags, as the
+  core exports it ([05](05-ui-rendering-and-gtk-mapping.md#display-and-scene-handoff)).
+- **seam**: a place where state crosses a thread, the JNI boundary, or a
+  cache ([11](11-reviewing-a-change.md#the-four-checks)).
+- **lane**: one CI job, or a local command that reproduces it
+  ([07](07-ci-and-release-workflow.md#ci-at-a-glance)).
+- **golden**: a committed file a test compares against, re-derived from live
+  inputs; a **freshness guard** proves only that it re-derives, and an
+  **oracle** is a test rooted in facts outside it
+  ([08](08-tests-and-contracts.md#python-contract-suite)).
+- **`-dev` prerelease**: the snapshot build `android-ci` publishes from
+  `main` and prunes on a TTL, installed as a separate app id and
+  signed by the prerelease key; a **signed release** is the production build
+  `android-release` publishes
+  ([07](07-ci-and-release-workflow.md#dev-pre-release-retention),
+  [12](12-cutting-a-release.md)).
 
 ## Maintainer Update Workflow
 

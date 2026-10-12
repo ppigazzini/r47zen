@@ -43,48 +43,27 @@ rerun-lane map.
 
 ## Build-Relevant File Layout
 
-```text
-repo root
-|- upstream.source
-|- meson.build
-|- meson_options.txt
-|- src/                                       # hydrated upstream core
-|- dep/decNumberICU                           # hydrated upstream dependency
-|- res/fonts/                                 # hydrated upstream build input
-|- build.sim/                                 # generated Meson outputs
-|- scripts/
-|  |- android/
-|  |  |- build_android.sh
-|  |  |- build_sim_assets.sh
-|  |  `- stage_native_sources.sh
-|  |- r47_contracts/
-|  |  |- data/
-|  |  |  |- r47_physical_geometry.json
-|  |  |  `- r47zen_ui_contract.json
-|  |  |- validate_geometry_dataset.py
-|  |  |- derive_touch_grid.py
-|  |  |- derive_shell_geometry.py
-|  |  |- derive_key_label_geometry.py
-|  |  `- derive_key_visual_policy.py
-|  `- upstream-sync/upstream.sh
-`- android/
-  |- app/src/main/java/io/github/ppigazzini/r47zen/
-  |  |- C47TextRenderer.kt
-  |  |- CalculatorKeyView.kt
-  |  |- CalculatorSoftkeyPainter.kt
-  |  |- KeyRenderPainter.kt
-  |  |- KeyRenderSpec.kt
-  |  |- MainKeyLabelMirrors.kt
-  |  |- SoftkeyOverlayPainter.kt
-  |  |- R47Geometry.kt
-  |  |- R47KeypadPolicy.kt
-  |  `- TopLabelLaneLayout.kt
-    |- app/src/main/cpp/r47zen/
-  |- docs/dev/
-  |- .staged-native/cpp/
-  |- gradle/wrapper/
-  `- r47-defaults.properties
-```
+- `upstream.source`: the tracked upstream URL and ref; a local pin goes in the
+  git-ignored `upstream.lock`.
+- `src/`, `dep/decNumberICU`, `res/fonts/`, `meson.build`, and
+  `meson_options.txt`: the hydrated upstream inputs the build reads.
+- `build.sim/`: the Meson build of the simulator, whose generated tables the
+  staged core compiles against.
+- `scripts/upstream-sync/upstream.sh`: resolve and hydrate the upstream core.
+- `scripts/android/build_android.sh`, `scripts/android/build_sim_assets.sh`,
+  and `scripts/android/stage_native_sources.sh`: the full build, its
+  `build.sim` step, and its staging step.
+- `scripts/r47_contracts/data/r47_physical_geometry.json` and
+  `scripts/r47_contracts/data/r47zen_ui_contract.json`: the two hand-kept
+  inputs the geometry derivers in `scripts/r47_contracts/` read
+  ([08](08-tests-and-contracts.md#python-contract-suite)).
+- `android/app/src/main/java/io/github/ppigazzini/r47zen/`: the Kotlin shell
+  ([02](02-kotlin-shell-architecture.md)).
+- `android/app/src/main/cpp/r47zen/`: the native glue
+  ([04](04-native-core-and-jni.md)).
+- `android/.staged-native/cpp/`: the staged build-only copy of the core.
+- `android/gradle/wrapper/`: the tracked Gradle wrapper the build runs.
+- `android/r47-defaults.properties`: the toolchain and SDK pins.
 
 ## Build Flow
 
