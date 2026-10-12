@@ -578,12 +578,18 @@ This workflow:
 - resolves `version_code` and `version_name` from manual workflow inputs
 - uses a plain counter as the `version_code` for Play uploads: exactly the
   previous production release's code plus one, 1 for the first Play upload.
-  The job reads the previous code from the latest production release body
-  (the `Android version <name> (<code>)` line this workflow writes), refuses
-  any other value, and caps the code at 100000. Play's ceiling is 2100000000
-  and a code can never be lowered or reused, which is why the retired
-  `YYYYMMDDVV` pattern is rejected: it sat at 96% of the ceiling on the first
-  upload. Codes above the cap in older releases are ignored by the check
+  `resolve-release-inputs` reads the previous code with
+  `scripts/android/resolve_previous_release.sh`, from the production release
+  bodies (the `Android version <name> (<code>)` line this workflow writes),
+  refuses any other value, and caps the code at 100000. Play's ceiling is
+  2100000000 and a code can never be lowered or reused, which is why the
+  retired `YYYYMMDDVV` pattern is rejected: it sat at 96% of the ceiling on the
+  first upload. Codes above the cap in older releases are ignored by the check.
+  An `allow_overwrite` re-cut that keeps the previous code must set
+  `play_track` to `none`: Play takes a code once, across every track
+- derives the release tag `r47zen-v<version_name>` and title once, in
+  `resolve-release-inputs`, which runs no upstream code; the tag-exists guard
+  and the publish step read the same value
 - uses `version_name` as the user-facing release label and the derived GitHub
   tag basis; keep it semver-shaped with a signed date suffix:
   `major.minor.patch-signed.YYYYMMDDVV`
@@ -651,6 +657,11 @@ This workflow job:
   JVM tests, and the instrumentation tests against the non-minified,
   throwaway-signed rebuild that `verify-production-release` makes of the same
   commit
+- names the signing certificate's SHA-256 in the notes and, when the previous
+  production release recorded a different one in its APK evidence, adds a
+  "Reinstall required" notice naming that release and its certificate:
+  Android refuses an update across a signer change. `resolve-release-inputs`
+  downloads that evidence and fails when it records no certificate
 
 Play Console still owns the publication inputs that no workflow holds:
 
@@ -772,11 +783,14 @@ The signer certificate is derived cryptographically in
 `sign-production-release` by `collect_packaging_evidence.sh` (`apksigner` for
 the APK, `keytool` for the AAB) and recorded as
 `artifact_signing_cert_sha256`. The verify lane requires a signed release to
-carry it, asserts the APK and AAB share one signer, and asserts both equal the
-repository variable `R47_RELEASE_EXPECTED_CERT_SHA256`, the upload key's public
-certificate fingerprint. A release signed by any other key fails before
-publication. Rotating the upload key means updating that variable in the same
-change; `gh variable list` shows the current value.
+carry it, asserts the APK and AAB share one signer, and asserts both equal
+`R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256` in `android/r47-defaults.properties`.
+The verifier refuses to check a signed release without that pin, so a release
+signed by any other key fails before publication. The pin is tracked, so
+rotating the signing key is a commit that changes it and the README's copy
+together; `scripts/android/run_published_artifacts_verifier_contract.sh` holds
+the two equal, and the release notes of the first release under the new key
+carry the reinstall notice.
 
 ## Other workflows
 

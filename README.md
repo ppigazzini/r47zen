@@ -67,6 +67,24 @@ schedule (short TTL, newest few retained) while signed releases are kept. See
 `android/docs/dev/07-ci-and-release-workflow.md` for the lane split,
 signing-key policy, retention, and published artifacts.
 
+## Verify a downloaded APK
+
+Every production release APK and AAB is signed by one certificate. Its
+SHA-256, as `apksigner verify --print-certs` prints it:
+
+    fa001b0b6a847335806c5ba5094a07c38b1962b0b983e1b07407bbe5628aacc6
+
+The release workflow refuses to publish a build that carries any other signer,
+and each release's notes repeat the value. The `-dev` pre-releases install as
+a separate app, `io.github.ppigazzini.r47zen.dev`, signed by a prerelease key.
+
+Android refuses to update an install of a production release older than
+0.1.10-signed.2026100904: those carry a date-shaped version code (2026092802
+to 2026100903), higher than any later release's, and all but
+0.1.10-signed.2026100903 an earlier certificate, SHA-256
+7514186154f3789499eddd8e2b656b986dc801462fc5571293202ec5f0e92d71. Uninstall it,
+which deletes the app's data, then install the current release.
+
 ## Documentation
 
 Use `android/docs/dev/README.md` as the maintainer index.

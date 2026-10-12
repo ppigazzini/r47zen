@@ -16,7 +16,7 @@ on:
         required: false
         type: string
       allow_overwrite:
-        description: Allow re-publishing over an existing release tag (default false; only for a deliberate re-cut)
+        description: Allow re-publishing over an existing release tag (default false; only for a deliberate re-cut, and only with play_track none when the version code is unchanged)
         required: false
         default: false
         type: boolean
@@ -54,6 +54,10 @@ jobs:
       version_code: ${{ steps.resolve.outputs.version_code }}
       version_name: ${{ steps.resolve.outputs.version_name }}
       release_mode: ${{ steps.resolve.outputs.release_mode }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      release_title: ${{ steps.resolve.outputs.release_title }}
+      previous_release_tag: ${{ steps.resolve.outputs.previous_release_tag }}
+      previous_signing_cert_sha256: ${{ steps.resolve.outputs.previous_signing_cert_sha256 }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -67,6 +71,7 @@ jobs:
           R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
           R47_ALLOW_OVERWRITE: ${{ inputs.allow_overwrite }}
+          R47_PLAY_TRACK: ${{ inputs.play_track }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -92,29 +97,64 @@ jobs:
           # date-shaped value (2026100903 was uploaded once, and that app
           # entry had to be deleted) burns the range in one dispatch. Cap
           # the value far below the ceiling and require exactly the previous
-          # production release's code plus one, read from the release body
-          # line this workflow writes ("Android version <name> (<code>)").
-          # Codes above the cap in older releases belong to the retired
-          # date scheme and are ignored; the first counter release is 1.
+          # production release's code plus one;
+          # scripts/android/resolve_previous_release.sh reads it from the
+          # release body line this workflow writes and skips codes above the
+          # cap, which belong to the retired date scheme. The first counter
+          # release is 1.
           version_code_cap=100000
           if [[ "$version_code" -gt "$version_code_cap" ]]; then
             echo "version_code $version_code is above $version_code_cap; it must be a small counter (previous production release plus one), not a date." >&2
             exit 1
           fi
-          previous_code=$(
-            gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-              --jq '.[] | select(.draft | not) | select(.prerelease | not) | .body' |
-              sed -n 's/^- Android version [^ ]* (\([0-9]*\))\r\{0,1\}$/\1/p' |
-              awk -v cap="$version_code_cap" '$1 <= cap && $1 > max { max = $1 } END { print max + 0 }'
-          )
+          releases_json="${RUNNER_TEMP}/releases.json"
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" >"$releases_json"
+          previous="$(bash ./scripts/android/resolve_previous_release.sh \
+            --releases-json "$releases_json" --cap "$version_code_cap")"
+          previous_code="$(sed -n 's/^previous_code=//p' <<<"$previous")"
+          previous_tag="$(sed -n 's/^previous_tag=//p' <<<"$previous")"
           expected_code=$((previous_code + 1))
           if [[ "$R47_ALLOW_OVERWRITE" == "true" && "$version_code" -eq "$previous_code" ]]; then
-            echo "allow_overwrite=true: re-cutting version_code $version_code." >&2
+            # Play takes a version code once, across every track, so a re-cut
+            # that keeps the code cannot reach Play; when the first cut never
+            # went there either, the GitHub release would still change bytes
+            # under a code Play may later receive for different ones.
+            if [[ "$R47_PLAY_TRACK" != "none" ]]; then
+              echo "allow_overwrite=true re-cuts version_code $version_code, which Play refuses to take twice; re-run with play_track=none, or release version_code $expected_code." >&2
+              exit 1
+            fi
+            echo "allow_overwrite=true: re-cutting version_code $version_code for GitHub only." >&2
           elif [[ "$version_code" -ne "$expected_code" ]]; then
             echo "version_code must be $expected_code (previous production release used $previous_code), got $version_code." >&2
             exit 1
           fi
           echo "version_code $version_code follows previous production release $previous_code." >&2
+
+          # The certificate the previous production release was signed with,
+          # from its APK evidence, so the release notes can tell its installs
+          # when this release cannot update them. Fail closed: a release that
+          # cannot answer this would publish without the notice it may need.
+          previous_cert=""
+          if [[ -n "$previous_tag" ]]; then
+            previous_evidence_dir="${RUNNER_TEMP}/previous-release-evidence"
+            mkdir -p "$previous_evidence_dir"
+            gh release download "$previous_tag" --repo "$GITHUB_REPOSITORY" \
+              --pattern '*-apk-packaging-evidence.zip' --dir "$previous_evidence_dir"
+            shopt -s nullglob
+            previous_zips=("$previous_evidence_dir"/*.zip)
+            shopt -u nullglob
+            if [[ "${#previous_zips[@]}" -ne 1 ]]; then
+              echo "Expected one APK evidence archive on ${previous_tag}, found ${#previous_zips[@]}." >&2
+              exit 1
+            fi
+            previous_metadata="$(unzip -p "${previous_zips[0]}" BUILD-METADATA.txt)"
+            previous_cert="$(sed -n 's/^artifact_signing_cert_sha256=//p' <<<"$previous_metadata")"
+            if [[ ! "$previous_cert" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "The APK evidence of ${previous_tag} records no signing certificate ('${previous_cert}')." >&2
+              exit 1
+            fi
+            echo "previous production release ${previous_tag} was signed by ${previous_cert}." >&2
+          fi
 
           # Strict format: major.minor.patch-signed.YYYYMMDD[VV], matching every
           # published signed tag. This rejects the typo class that already
@@ -156,6 +196,10 @@ jobs:
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
           echo "release_mode=$release_mode" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "release_title=R47 Zen $version_name" >> "$GITHUB_OUTPUT"
+          echo "previous_release_tag=$previous_tag" >> "$GITHUB_OUTPUT"
+          echo "previous_signing_cert_sha256=$previous_cert" >> "$GITHUB_OUTPUT"
 
   resolve-upstream-core:
     name: Resolve authoritative upstream core revision
@@ -187,8 +231,6 @@ jobs:
       apk_artifact_name: ${{ steps.meta.outputs.apk_artifact_name }}
       release_bundle_name: ${{ steps.meta.outputs.release_bundle_name }}
       release_apk_name: ${{ steps.meta.outputs.release_apk_name }}
-      release_tag: ${{ steps.meta.outputs.release_tag }}
-      release_title: ${{ steps.meta.outputs.release_title }}
     steps:
       - name: Configure Git init defaults
         shell: bash
@@ -308,8 +350,6 @@ jobs:
       - name: Set release metadata
         id: meta
         shell: bash
-        env:
-          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
         run: |
           set -euo pipefail
 
@@ -317,20 +357,11 @@ jobs:
             --upstream-commit "${{ steps.upstream.outputs.upstream_commit }}" \
             --android-commit "${{ github.sha }}")"
 
-          release_version_token=$(printf '%s' "$R47_VERSION_NAME_INPUT" | sed -e 's/[^0-9A-Za-z._-]/-/g' -e 's/^-*//' -e 's/-*$//')
-          release_version_token="${release_version_token#[Vv]}"
-          if [[ -z "$release_version_token" ]]; then
-            echo "version_name did not contain any characters suitable for a GitHub release tag." >&2
-            exit 1
-          fi
-
           echo "artifact_name=$R47_ANDROID_RELEASE_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
           echo "apk_artifact_name=${R47_ANDROID_RELEASE_ARTIFACT_STEM}-apk" >> "$GITHUB_OUTPUT"
           echo "unsigned_artifact_name=${R47_ANDROID_RELEASE_ARTIFACT_STEM}-unsigned" >> "$GITHUB_OUTPUT"
           echo "release_bundle_name=$R47_ANDROID_RELEASE_AAB_NAME" >> "$GITHUB_OUTPUT"
           echo "release_apk_name=$R47_ANDROID_RELEASE_APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "release_tag=r47zen-v${release_version_token}" >> "$GITHUB_OUTPUT"
-          echo "release_title=R47 Zen ${R47_VERSION_NAME_INPUT}" >> "$GITHUB_OUTPUT"
 
       - name: Prepare staged native inputs and simulator parity
         shell: bash
@@ -821,32 +852,6 @@ jobs:
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
 
-      - name: Set release metadata
-        id: meta
-        shell: bash
-        env:
-          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
-        run: |
-          set -euo pipefail
-
-          eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
-            --upstream-commit "${{ steps.upstream.outputs.upstream_commit }}" \
-            --android-commit "${{ github.sha }}")"
-
-          release_version_token=$(printf '%s' "$R47_VERSION_NAME_INPUT" | sed -e 's/[^0-9A-Za-z._-]/-/g' -e 's/^-*//' -e 's/-*$//')
-          release_version_token="${release_version_token#[Vv]}"
-          if [[ -z "$release_version_token" ]]; then
-            echo "version_name did not contain any characters suitable for a GitHub release tag." >&2
-            exit 1
-          fi
-
-          echo "artifact_name=$R47_ANDROID_RELEASE_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
-          echo "apk_artifact_name=${R47_ANDROID_RELEASE_ARTIFACT_STEM}-apk" >> "$GITHUB_OUTPUT"
-          echo "release_bundle_name=$R47_ANDROID_RELEASE_AAB_NAME" >> "$GITHUB_OUTPUT"
-          echo "release_apk_name=$R47_ANDROID_RELEASE_APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "release_tag=r47zen-v${release_version_token}" >> "$GITHUB_OUTPUT"
-          echo "release_title=R47 Zen ${R47_VERSION_NAME_INPUT}" >> "$GITHUB_OUTPUT"
-
       - name: Build Android release verification artifacts and run JVM tests
         shell: bash
         env:
@@ -992,20 +997,17 @@ jobs:
         env:
           R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
-          # Optional signer-identity pin. The release signing cert fingerprint is
-          # public, so set it as a repository variable (not a secret) to assert
-          # the published artifacts were signed by the expected key. Unset keeps
-          # the signer self-consistency checks only.
-          R47_RELEASE_EXPECTED_CERT_SHA256: ${{ vars.R47_RELEASE_EXPECTED_CERT_SHA256 }}
         run: |
           set -euo pipefail
 
-          # Single source of truth for the published ABI: the same default the
-          # app library is built with. The published release APK carries only
-          # this ABI; the x86_64-capable instrumentation build in
+          # Single source of truth for the published ABI and the signer: the
+          # defaults the app is built with. The published release APK carries
+          # only that ABI; the x86_64-capable instrumentation build in
           # verify-production-release is a separate emulator vehicle, not the
-          # published artifact, so the published bytes are verified here directly
-          # against their recorded evidence.
+          # published artifact, so the published bytes are verified here
+          # directly against their recorded evidence. The signer pin is tracked,
+          # so a key rotation is a commit, and the verifier refuses to run
+          # without it.
           . ./android/r47-defaults.properties
 
           bash ./scripts/android/verify_published_release_artifacts.sh \
@@ -1014,7 +1016,8 @@ jobs:
             --expected-version-code "$R47_VERSION_CODE_INPUT" \
             --expected-version-name "$R47_VERSION_NAME_INPUT" \
             --expected-apk-abis "$R47_DEFAULT_ANDROID_ABI_FILTERS" \
-            --expected-signing-mode release
+            --expected-signing-mode release \
+            --expected-cert-sha256 "$R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256"
 
   publish-production-release:
     name: Publish production GitHub release
@@ -1136,6 +1139,9 @@ jobs:
         shell: bash
         env:
           R47_RELEASE_MODE: ${{ needs.resolve-release-inputs.outputs.release_mode }}
+          R47_RELEASE_TAG: ${{ needs.resolve-release-inputs.outputs.release_tag }}
+          R47_PREVIOUS_RELEASE_TAG: ${{ needs.resolve-release-inputs.outputs.previous_release_tag }}
+          R47_PREVIOUS_SIGNING_CERT: ${{ needs.resolve-release-inputs.outputs.previous_signing_cert_sha256 }}
         run: |
           set -euo pipefail
 
@@ -1148,15 +1154,35 @@ jobs:
           xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-aab/BUILD-METADATA.txt)
           aab_name=$(sed -n 's/^artifact_name=//p' release-aab/BUILD-METADATA.txt)
           apk_name=$(sed -n 's/^artifact_name=//p' release-apk/BUILD-METADATA.txt)
+          signer_cert=$(sed -n 's/^artifact_signing_cert_sha256=//p' release-apk/BUILD-METADATA.txt)
           upstream_short_commit="${upstream_commit:0:8}"
           android_short_commit="${android_commit:0:8}"
 
           cat > release-notes.md <<EOF
-          - Release tag ${{ needs.build-production-release-bundle.outputs.release_tag }}
+          - Release tag ${R47_RELEASE_TAG}
           - Android version ${version_name} (${version_code})
           - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
           - Build Android overlay commit [${android_short_commit}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${android_commit})
+          - Signing certificate SHA-256 ${signer_cert}
 
+          EOF
+
+          # A signer change is the one thing an existing install cannot
+          # survive: Android refuses the update. verify-published-artifacts
+          # held signer_cert to the tracked pin; the previous release's comes
+          # from its own evidence.
+          if [[ -n "$R47_PREVIOUS_SIGNING_CERT" && "$R47_PREVIOUS_SIGNING_CERT" != "$signer_cert" ]]; then
+            cat >> release-notes.md <<EOF
+          **Reinstall required.** This release is signed by a different
+          certificate than ${R47_PREVIOUS_RELEASE_TAG} (SHA-256
+          ${R47_PREVIOUS_SIGNING_CERT}). Android refuses to update an install
+          signed by that certificate: uninstall it, which deletes the app's
+          data, then install this APK.
+
+          EOF
+          fi
+
+          cat >> release-notes.md <<EOF
           This release contains the signed production APK ${apk_name} for direct
           installation and the signed production AAB ${aab_name} for Play
           Console upload.
@@ -1198,8 +1224,8 @@ jobs:
       - name: Create and publish production release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          tag_name: ${{ needs.build-production-release-bundle.outputs.release_tag }}
-          name: ${{ needs.build-production-release-bundle.outputs.release_title }}
+          tag_name: ${{ needs.resolve-release-inputs.outputs.release_tag }}
+          name: ${{ needs.resolve-release-inputs.outputs.release_title }}
           target_commitish: ${{ github.sha }}
           body_path: release-notes.md
           files: |

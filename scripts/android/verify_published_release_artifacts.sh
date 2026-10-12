@@ -10,7 +10,9 @@
 #
 # It needs no Android SDK and no signing key: it reads the evidence each bundle
 # already carries (BUILD-METADATA.txt, SHA256SUMS.txt, abis.txt) and recomputes
-# the artifact digest.
+# the artifact digest. A signed mode requires --expected-cert-sha256, the
+# certificate every signed artifact must carry; the release lane passes
+# R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256 from android/r47-defaults.properties.
 
 set -Eeuo pipefail
 
@@ -25,6 +27,9 @@ Usage:
     --expected-apk-abis <abi[,abi...]> \
     [--expected-signing-mode <mode>] \
     [--expected-cert-sha256 <hex>]
+
+--expected-cert-sha256 is required when the signing mode is release or
+prerelease.
 EOF
 }
 
@@ -34,12 +39,10 @@ expected_version_code=""
 expected_version_name=""
 expected_apk_abis=""
 expected_signing_mode="release"
-# Optional out-of-band pin of the signing certificate SHA-256. When set (the
-# public cert fingerprint of the release key, safe to track), the published
-# APK's and AAB's recorded cert must equal it, so a build signed with the wrong
-# key fails even though the bundle is internally consistent. Unset keeps the
-# self-consistency checks (APK cert == AAB cert, and present for a signed mode).
-expected_cert_sha256="${R47_RELEASE_EXPECTED_CERT_SHA256:-}"
+# The signing certificate SHA-256 every signed artifact must carry. Without
+# it the checks below prove only that the APK and the AAB agree with each
+# other, which a build signed by the wrong key also does.
+expected_cert_sha256=""
 apk_signing_cert=""
 aab_signing_cert=""
 
@@ -103,9 +106,15 @@ if [[ -z "$expected_apk_abis" ]]; then
     exit 1
 fi
 
-# Normalize the optional pin to the same shape the evidence records: lowercase
-# hex, no separators.
+# Normalize the pin to the shape the evidence records: lowercase hex, no
+# separators.
 expected_cert_sha256="$(printf '%s' "$expected_cert_sha256" | tr -d ':' | tr 'A-F' 'a-f')"
+if [[ "$expected_signing_mode" == "release" || "$expected_signing_mode" == "prerelease" ]]; then
+    if [[ ! "$expected_cert_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "FAIL: signer pin: a ${expected_signing_mode} needs --expected-cert-sha256 with 64 hex digits, got '${expected_cert_sha256}'." >&2
+        exit 1
+    fi
+fi
 
 read_metadata_value() {
     local key="$1"
@@ -247,12 +256,6 @@ verify_evidence_dir "$aab_evidence_dir" "aab"
 if [[ -n "$apk_signing_cert" && "$apk_signing_cert" != "unknown" &&
     -n "$aab_signing_cert" && "$aab_signing_cert" != "unknown" ]]; then
     assert_equal "apk/aab signing cert match" "$apk_signing_cert" "$aab_signing_cert"
-fi
-
-if [[ -z "$expected_cert_sha256" ]]; then
-    echo "NOTE: no --expected-cert-sha256 pin supplied; verified signer self-consistency only." >&2
-    echo "NOTE: observed signing cert sha256 = ${apk_signing_cert:-unknown}. Pin it via" >&2
-    echo "NOTE: R47_RELEASE_EXPECTED_CERT_SHA256 to assert signer identity out-of-band." >&2
 fi
 
 echo "All published release artifacts verified against their recorded evidence."

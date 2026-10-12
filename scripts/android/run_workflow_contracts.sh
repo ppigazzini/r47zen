@@ -19,6 +19,7 @@ CONTRACTS=(
     run_ndk_resolution_contract.sh
     run_release_abi_single_source_contract.sh
     run_published_artifacts_verifier_contract.sh
+    run_previous_release_contract.sh
     run_production_signing_scope_contract.sh
     run_signing_isolation_contract.sh
     run_release_provenance_contract.sh

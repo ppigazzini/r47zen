@@ -6,11 +6,18 @@
 # wrong version, leaked ABI, wrong signing mode, an APK with no v2+ APK Signing
 # Block (an unsigned or signing-stripped release), and the signer-certificate
 # checks -- a signed release missing its recorded cert digest, an APK and AAB
-# signed by different keys, and a build whose cert does not match a supplied pin.
+# signed by different keys, a build whose cert does not match the pin, and a
+# signed release verified with no pin or a malformed one. Every case passes the
+# pin unless it tests the pin, and every rejection must name the check that
+# made it, so a case cannot pass by failing for another reason.
 # The v2+ block is the literal magic "APK Sig Block 42" that sits between the
 # last entry and the central directory of a signed APK; the cert digest
 # (artifact_signing_cert_sha256) is recorded at build time by
 # collect_packaging_evidence via apksigner/keytool.
+#
+# Then it holds the tracked pin: R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256 in
+# android/r47-defaults.properties is 64 lowercase hex digits, the README states
+# that value, and the release workflow hands it to the verifier.
 
 set -Eeuo pipefail
 
@@ -52,10 +59,10 @@ write_bundle() {
     fi
 }
 
-# run_verifier <apk_dir> <aab_dir> <vc> <vn> <abis> [cert_pin]
+# run_verifier <apk_dir> <aab_dir> <vc> <vn> <abis> [cert_pin|none]
 run_verifier() {
-    local extra=()
-    [ -n "${6:-}" ] && extra=(--expected-cert-sha256 "$6")
+    local pin="${6:-$CERT}" extra=()
+    [ "$pin" != none ] && extra=(--expected-cert-sha256 "$pin")
     bash "$VERIFIER" \
         --apk-evidence-dir "$1" \
         --aab-evidence-dir "$2" \
@@ -66,20 +73,26 @@ run_verifier() {
         "${extra[@]}"
 }
 
+# assert_case <desc> pass -- <run_verifier args>
+# assert_case <desc> fail <reason> <run_verifier args>
+# A rejection counts only when the verifier's FAIL line names <reason>.
 assert_case() {
-    local desc="$1" want="$2"
-    shift 2
-    local rc
+    local desc="$1" want="$2" reason="$3"
+    shift 3
+    local rc output
     set +e
-    run_verifier "$@" >/dev/null 2>&1
+    output="$(run_verifier "$@" 2>&1)"
     rc=$?
     set -e
-    if { [ "$want" = pass ] && [ "$rc" -eq 0 ]; } ||
-        { [ "$want" = fail ] && [ "$rc" -ne 0 ]; }; then
+    if [ "$want" = pass ] && [ "$rc" -eq 0 ]; then
+        echo "OK: $desc"
+        pass=$((pass + 1))
+    elif [ "$want" = fail ] && [ "$rc" -ne 0 ] && grep -qF -- "FAIL: $reason" <<<"$output"; then
         echo "OK: $desc"
         pass=$((pass + 1))
     else
-        echo "FAIL: $desc (exit=$rc, expected to $want)"
+        echo "FAIL: $desc (exit=$rc, expected to $want${reason:+ on '$reason'}):"
+        printf '%s\n' "$output" | sed 's/^/    /'
         fail=$((fail + 1))
     fi
 }
@@ -91,39 +104,64 @@ trap 'rm -rf "$work"' EXIT
 # the same signer cert.
 write_bundle "$work/valid_apk" apk app.apk "$VC" "$VN" release "$PIN_ABI" yes "$CERT"
 write_bundle "$work/valid_aab" aab app.aab "$VC" "$VN" release "" no "$CERT"
-assert_case "valid signed release passes" pass "$work/valid_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
+assert_case "valid signed release passes" pass -- "$work/valid_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
 
 # An APK with no v2+ signing block must be rejected.
 write_bundle "$work/unsigned_apk" apk app.apk "$VC" "$VN" release "$PIN_ABI" no "$CERT"
-assert_case "unsigned APK (no v2+ signing block) fails" fail "$work/unsigned_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
+assert_case "unsigned APK (no v2+ signing block) fails" fail "apk v2+ signing block" "$work/unsigned_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
 
 # Tampered bytes: stale recorded digest.
 write_bundle "$work/tampered_apk" apk app.apk "$VC" "$VN" release "$PIN_ABI" yes "$CERT"
 printf 'TAMPER' >>"$work/tampered_apk/app.apk"
-assert_case "tampered APK bytes fail" fail "$work/tampered_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
+assert_case "tampered APK bytes fail" fail "apk sha256 integrity" "$work/tampered_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
 
 # Wrong version.
-assert_case "wrong version_code fails" fail "$work/valid_apk" "$work/valid_aab" 9999999999 "$VN" "$PIN_ABI"
+assert_case "wrong version_code fails" fail "apk version_code" "$work/valid_apk" "$work/valid_aab" 9999999999 "$VN" "$PIN_ABI"
 
 # Leaked extra ABI.
 write_bundle "$work/leaked_apk" apk app.apk "$VC" "$VN" release "arm64-v8a,x86_64" yes "$CERT"
-assert_case "leaked x86_64 ABI fails" fail "$work/leaked_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
+assert_case "leaked x86_64 ABI fails" fail "apk packaged ABIs" "$work/leaked_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
 
 # Wrong signing mode.
 write_bundle "$work/debug_apk" apk app.apk "$VC" "$VN" debug "$PIN_ABI" yes "$CERT"
-assert_case "debug signing mode fails" fail "$work/debug_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
+assert_case "debug signing mode fails" fail "apk signing mode" "$work/debug_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
 
 # A signed release missing its recorded signer cert digest must be rejected.
 write_bundle "$work/nocert_apk" apk app.apk "$VC" "$VN" release "$PIN_ABI" yes ""
-assert_case "signed release without a cert digest fails" fail "$work/nocert_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
+assert_case "signed release without a cert digest fails" fail "apk app.apk has no recorded signing certificate digest" "$work/nocert_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
 
 # APK and AAB signed by different keys must be rejected.
 write_bundle "$work/othercert_aab" aab app.aab "$VC" "$VN" release "" no "$OTHER_CERT"
-assert_case "apk/aab signer mismatch fails" fail "$work/valid_apk" "$work/othercert_aab" "$VC" "$VN" "$PIN_ABI"
+assert_case "apk/aab signer mismatch fails" fail "aab signing cert sha256" "$work/valid_apk" "$work/othercert_aab" "$VC" "$VN" "$PIN_ABI"
 
-# With a pin: the matching cert passes and a different cert fails.
-assert_case "cert pin match passes" pass "$work/valid_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI" "$CERT"
-assert_case "cert pin mismatch fails" fail "$work/valid_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI" "$OTHER_CERT"
+# The pin: a different cert fails, and a signed release verified with no pin,
+# or with one that is not 64 hex digits, fails before any artifact is read.
+assert_case "cert pin mismatch fails" fail "apk signing cert sha256" "$work/valid_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI" "$OTHER_CERT"
+assert_case "signed release with no pin fails" fail "signer pin" "$work/valid_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI" none
+assert_case "malformed pin fails" fail "signer pin" "$work/valid_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI" "${CERT:0:63}"
+assert_case "colon-separated uppercase pin passes" pass -- "$work/valid_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI" \
+    "$(sed 's/../&:/g; s/:$//' <<<"$CERT" | tr 'a-f' 'A-F')"
 
 echo "--- published-artifacts verifier contract: ${pass} passed, ${fail} failed ---"
-[ "$fail" -eq 0 ]
+[ "$fail" -eq 0 ] || exit 1
+
+# The tracked pin. One owner: the defaults file. The README repeats it for
+# people who verify an APK by hand, and the release workflow passes it.
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+DEFAULTS_FILE="$PROJECT_ROOT/android/r47-defaults.properties"
+pin="$(sed -n 's/^R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256=//p' "$DEFAULTS_FILE")"
+if [[ ! "$pin" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "FAIL: R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256 in $DEFAULTS_FILE must be one line of 64 lowercase hex digits, got '$pin'." >&2
+    exit 1
+fi
+readme="$(cat "$PROJECT_ROOT/README.md")"
+if ! grep -qxF -- "    $pin" <<<"$readme"; then
+    echo "FAIL: README.md does not state the release signer pin $pin as an indented line of its own." >&2
+    exit 1
+fi
+release_workflow="$(grep -vE '^[[:space:]]*#' "$PROJECT_ROOT/.github/workflows/android-release.yml")"
+if ! grep -qF -- '--expected-cert-sha256 "$R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256"' <<<"$release_workflow"; then
+    echo "FAIL: android-release.yml does not pass R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256 to the verifier." >&2
+    exit 1
+fi
+echo "OK: the release signer pin is $pin in r47-defaults.properties, README.md, and the release verifier."
