@@ -205,6 +205,18 @@ That alignment rule is the main Android-owned seam. The upstream core remains
 the source of calculator behavior, while the bridge owns registration,
 marshalling, and Android runtime compatibility.
 
+A minified release keeps that surface by name and nothing more of
+`MainActivity`. `proguard-rules.pro` keeps every native method, so
+`RegisterNatives` finds each name and signature; each method the core calls
+through `GetMethodID` carries a member `@Keep`, which the AndroidX annotation
+library's consumer rules honor; the manifest keeps the class name `FindClass`
+loads. `MainActivity` itself carries no class-level `@Keep`, which would keep
+every member. `scripts/android/check_jni_surface.sh` reads the expected names
+from `jni_bridge.h`, the `jni_registration.c` table, and every `GetMethodID`,
+and fails a minified APK whose dex lacks one; `collect_packaging_evidence.sh`
+runs it over every signed release and dev prerelease APK, because a lookup R8
+broke fails only on a device.
+
 ## Threading and synchronization
 
 `NativeCoreRuntime` runs the engine loop on a background thread. The JNI bridge
@@ -531,6 +543,8 @@ round trip.
 3. Update the bridge header and the owning C implementation.
 4. Recheck thread and lock behavior if the call can touch UI, storage, or long
   native work.
+5. A new `GetMethodID` target gets a member `@Keep`; run
+  `scripts/android/check_jni_surface.sh --apk` over a minified release build.
 
 ## Change ownership
 

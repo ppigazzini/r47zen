@@ -1,6 +1,8 @@
-# Keep AndroidX @Keep annotations and native entry points stable for the
-# JNI bridge and Activity-owned callback surface.
--keep @androidx.annotation.Keep class * { *; }
+# The JNI bridge reaches MainActivity by name. JNI_OnLoad registers its
+# external functions by name and signature, so they keep both; the native core
+# calls its @Keep methods through GetMethodID, which the AndroidX annotation
+# library's consumer rules keep; the manifest keeps the class name.
+# scripts/android/check_jni_surface.sh checks every one in the minified dex.
 -keepclasseswithmembers class * {
     native <methods>;
 }

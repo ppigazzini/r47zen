@@ -446,6 +446,11 @@ if [[ "$artifact_type" == "apk" ]]; then
 
     "$zipalign_bin" -c -P 16 -v 4 "$primary_artifact_path" | tee "$output_dir/zipalign.txt"
 
+    # R8 must leave every name the native bridge looks up; a renamed one fails
+    # only on a device, when the library loads or a callback runs.
+    bash "$(dirname "${BASH_SOURCE[0]}")/check_jni_surface.sh" \
+        --apk "$primary_artifact_path" --android-sdk-root "$android_sdk_root"
+
     elf_report="$output_dir/elf-load-segments.txt"
     below_16k_report="$tmp_dir/elf-load-segments-below-16k.txt"
     : >"$elf_report"

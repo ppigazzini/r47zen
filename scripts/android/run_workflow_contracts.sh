@@ -40,6 +40,7 @@ CONTRACTS=(
     run_privacy_policy_parity_contract.sh
     run_commit_message_contract.sh
     run_quiet_grep_pipeline_contract.sh
+    run_jni_surface_check_contract.sh
 )
 
 failed=()

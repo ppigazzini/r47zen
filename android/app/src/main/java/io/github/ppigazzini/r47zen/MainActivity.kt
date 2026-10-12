@@ -20,7 +20,6 @@ import android.content.res.Configuration
 import com.google.android.material.color.MaterialColors
 import kotlin.math.abs
 
-@Keep
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
 
     private val TAG = "R47Activity"
@@ -596,8 +595,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     ): Boolean
     private external fun requestStopProgramNative(): Boolean
 
-    @Keep fun onFileSelected(fd: Int) { onFileSelectedNative(fd) }
-    @Keep fun onFileCancelled() { onFileCancelledNative() }
     private external fun onFileSelectedNative(fd: Int)
     private external fun onFileCancelledNative()
 }
