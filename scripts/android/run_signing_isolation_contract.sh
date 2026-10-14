@@ -25,8 +25,10 @@
 # could have replaced; a signing job runs apksigner with the key on disk. The
 # actions a credential job uses are therefore an allowlist, not a denylist:
 # checkout, setup-java without a cache, artifact download and upload, the
-# setup-signing-tools composite, the two Play upload actions, and the release
-# publish and attestation actions. Anything else,
+# setup-signing-tools composite, the two Play upload actions, the release
+# publish and attestation actions, and the Pages deploy action, which
+# privacy-policy-pages.yml runs with id-token write on an artifact its
+# credential-free build job staged from one tracked file. Anything else,
 # the SDK composite or actions/cache among them, fails, and so does a `cache:`
 # input. The setup-signing-tools composite itself may use setup-android only.
 #
@@ -56,7 +58,7 @@ find_signing_isolation_violations() {
             }
         }
         BEGIN {
-            split("actions/checkout actions/setup-java actions/download-artifact actions/upload-artifact ./.github/actions/setup-signing-tools google-github-actions/auth r0adkll/upload-google-play actions/attest-build-provenance softprops/action-gh-release", names, " ")
+            split("actions/checkout actions/setup-java actions/download-artifact actions/upload-artifact ./.github/actions/setup-signing-tools google-github-actions/auth r0adkll/upload-google-play actions/attest-build-provenance softprops/action-gh-release actions/deploy-pages", names, " ")
             for (i in names) {
                 allowed[names[i]] = 1
             }

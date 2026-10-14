@@ -200,7 +200,8 @@ it can fail on seeded fixtures:
   emulator; when a credential sits in workflow-level `env`; when such a job
   uses an action off its allowlist (checkout, `setup-java` without a `cache:`
   input, artifact download and upload, `setup-signing-tools`, the two Play
-  upload actions, and the release and attestation actions); when its run
+  upload actions, the release and attestation actions, and the Pages deploy
+  action); when its run
   script holds a `${{ }}` expression; and when `setup-signing-tools` uses
   anything but `setup-android`.
 
@@ -676,7 +677,10 @@ This workflow job:
 
 Play Console still owns the publication inputs that no workflow holds:
 
-- a stable privacy-policy URL and the in-app privacy-policy surface
+- the privacy-policy URL field, set to
+  `https://ppigazzini.github.io/r47zen/privacy-policy.html`, the page
+  `privacy-policy-pages.yml` publishes from the in-app asset (see
+  [Other workflows](#other-workflows))
 - a reviewed Data safety declaration
 - final target-audience and content-rating answers
 - final store title, description, screenshots, and feature graphic
@@ -821,6 +825,7 @@ The rest, and what each one gates:
 | `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL `c-cpp` with `build-mode: none` over repo-owned C, ignoring `src`, `dep`, and the staged tree; findings go to the Security tab. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
 | `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
+| `privacy-policy-pages.yml` | push to `main` that touches the policy asset or the workflow, dispatch | publishes `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html` through the Actions-based Pages flow, so the in-app and the Play Console policy are one file; `run_privacy_policy_single_source_contract.sh` holds the workflow to that file | -- |
 
 `ci-required` in `android-ci.yml` is the one aggregate verdict, and even it is
 not a required status check: `main` takes direct pushes, so every row above
@@ -908,6 +913,8 @@ wrong, because a setting changes with no commit.
 | Actions `sha_pinning_required` on | a tag-pinned action fails the run, beyond what the pin contract checks in the tree | `gh api repos/ppigazzini/r47zen/actions/permissions` |
 | no branch protection on `main` | direct pushes; `ci-required` reports and blocks nothing | `gh api repos/ppigazzini/r47zen/branches/main/protection` answers 404 |
 | environments `production-release` and `play-upload`, each with a custom deployment branch policy naming only `main` | the release key and the Play identity reach only [`sign-production-release`](#sign-production-release) and [`upload-to-play`](#upload-to-play) | `gh api repos/ppigazzini/r47zen/environments/<name>/deployment-branch-policies` |
+| Pages source "GitHub Actions" (`build_type` `workflow`) | `privacy-policy-pages.yml` deploys the privacy policy; under any other source its deploy job fails and the Play Console URL keeps the last page | `gh api repos/ppigazzini/r47zen/pages` |
+| environment `github-pages` with a custom deployment branch policy naming only `main` | the privacy-policy page publishes only what `main` holds | `gh api repos/ppigazzini/r47zen/environments/github-pages/deployment-branch-policies` |
 | no repository-scoped `R47_RELEASE_*` secret | the production key is readable only inside its environment ([Signing isolation](#signing-isolation)) | `gh api repos/ppigazzini/r47zen/actions/secrets` |
 | private vulnerability reporting on | `.github/SECURITY.md` sends reporters to it | `gh api repos/ppigazzini/r47zen/private-vulnerability-reporting` |
 | Dependabot version updates on | `.github/dependabot.yml`, which does nothing while they are off | `gh api repos/ppigazzini/r47zen/actions/workflows` lists `Dependabot Updates` once one has run; until then no update has ever run |

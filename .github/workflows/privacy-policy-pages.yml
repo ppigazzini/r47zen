@@ -1,0 +1,70 @@
+name: Privacy Policy Pages
+
+# Publishes the privacy policy the app ships,
+# android/app/src/main/assets/privacy-policy.html, unchanged, as
+# https://ppigazzini.github.io/r47zen/privacy-policy.html, the URL in Play
+# Console's privacy-policy field. The page the app shows and the page Play
+# links to are one file, so they cannot drift;
+# run_privacy_policy_single_source_contract.sh holds this workflow to that
+# file. The deployment is the Actions-based Pages flow: an uploaded artifact,
+# no gh-pages branch.
+#
+# One-time setup: Settings, Pages, Build and deployment, Source "GitHub
+# Actions". GitHub then creates the github-pages environment, whose
+# deployment branch policy admits main only; a run on any other branch fails
+# at deploy.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - android/app/src/main/assets/privacy-policy.html
+      - .github/workflows/privacy-policy-pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One Pages deployment at a time; never cancel a publish already in flight.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Stage the shipped privacy policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Stage the asset as the site
+        shell: bash
+        # cp fails the job when the asset is missing, so a move that skips
+        # this workflow never publishes an empty site.
+        run: |
+          mkdir -p _site
+          cp android/app/src/main/assets/privacy-policy.html _site/privacy-policy.html
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # deploy-pages publishes the artifact and mints the OIDC token Pages verifies.
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}privacy-policy.html
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

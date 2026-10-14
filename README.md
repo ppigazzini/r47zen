@@ -26,8 +26,10 @@ snapshot builds of `main`: they install as a separate app, beside the release.
 - A calculator behaviour that the desktop C47 simulator shows too is the
   upstream core's; report it to the upstream project.
 - A security problem: follow `.github/SECURITY.md`, never a public issue.
-- Privacy: `android/docs/privacy-policy.md` says what the app stores on the
-  device; it collects nothing and has no Internet permission.
+- Privacy: the
+  [privacy policy](https://ppigazzini.github.io/r47zen/privacy-policy.html)
+  says what the app stores on the device; it collects nothing and has no
+  Internet permission. The app shows the same page in Settings.
 
 ## Licence
 
