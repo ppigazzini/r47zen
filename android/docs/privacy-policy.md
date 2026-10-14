@@ -1,91 +1,162 @@
 # Privacy Policy
 
-This privacy policy applies to the independently maintained Android app
-R47 Zen RPN Calculator published from this repository.
+This privacy policy covers the Android app R47 Zen RPN Calculator, shown on the
+home screen as "R47 Zen", package `io.github.ppigazzini.r47zen`. It is the same
+app whether you install it from Google Play or from the GitHub releases of its
+source repository.
 
-Repository: https://github.com/ppigazzini/r47zen
+Last updated: 2026-10-14
 
-Privacy contact mechanism: https://github.com/ppigazzini/r47zen/issues
+## Summary
 
-Last updated: 2026-06-04
+R47 Zen collects no personal data. It has no accounts, ads, analytics, or crash
+reporting, and it does not request the Android Internet permission, so it has
+no way to send anything off your device. What it stores stays on your device,
+in your own Android backup, or in a folder you choose.
 
-## What This App Does
+## Who We Are And How To Contact Us
 
-R47 Zen RPN Calculator is a local calculator shell for Android. It runs the
-calculator core on your device, restores local session state, and can optionally
-use an Android document-provider folder that you choose as a Work Directory for
-portable PROGRAMS, SAVFILES, SCREENS, and STATE files.
+R47 Zen is developed and published by Pasquale Pigazzini, an individual
+developer, as an independent Android build of the open-source C47 calculator
+core.
 
-## Data This App Accesses
+- Source code: https://github.com/ppigazzini/r47zen
+- Privacy questions and requests: open an issue at
+  https://github.com/ppigazzini/r47zen/issues. Issues are public. To ask
+  privately, write to the developer email address shown on the app's Google
+  Play listing.
 
-- Calculator session and settings data stored in Android app-private storage.
-- Optional document-provider folder access that you grant through Android's
-  folder picker.
-- Files that you choose to open, create, save, or export through that Work
-  Directory.
-- Vibration access for haptic feedback.
+## Data The App Handles On Your Device
 
-## Data This App Does Not Collect
+The app handles the following data only on your device, to work as a
+calculator:
 
-- No user account or sign-in data.
-- No advertising identifier.
-- No analytics or crash-reporting telemetry.
-- No contacts, location, microphone, camera, call log, or SMS data.
-- No network traffic for app operation. This build does not request Android
-  Internet permission.
+- **Calculator state and settings.** The stack, registers, programs, and other
+  calculator memory, plus your preferences (keypad layout, display colors,
+  haptics, and similar). They are kept in Android app-private storage so the
+  app can restore your last session.
+- **Files you open or save.** Through Android's system file picker you can
+  open and save calculator files (STATE, PROGRAMS, SAVFILES) and screenshots
+  of the calculator display (SCREENS). If you choose a Work Directory, the app
+  can read and write files in that one folder only.
+- **Clipboard.** The Copy actions put the X register, the stack registers, or
+  all registers on the Android clipboard, only when you choose them. Paste
+  Number reads the clipboard once, only when you choose it, and types the
+  number characters it finds into the calculator; it ignores the rest and
+  keeps no copy. On Android 13 and later the system shows a notice when the
+  app reads the clipboard.
+- **Vibration.** The app asks Android for the vibration permission, for haptic
+  key feedback only.
+
+The app requests no Internet, location, camera, microphone, contacts, phone,
+SMS, or notification permission, and no broad access to your storage.
+
+## Data The App Does Not Collect
+
+- No data is sent to the developer or to anyone else. Without the Internet
+  permission, the app cannot connect to a network.
+- No user account or sign-in.
+- No advertising or advertising identifier.
+- No analytics, tracking, or crash-reporting tools, and no third-party
+  software that collects data.
+- Links in the app, such as View Android Source, open in your web browser,
+  which is a separate app with its own privacy policy.
 
 ## How Data Is Used
 
-- App-private storage is used to restore your last calculator session and save
-  local preferences.
-- The optional Work Directory is used only for calculator files that you choose
-  to manage through Android's document browser.
-- Haptic settings are used only to control on-device feedback.
+The data described above is used only on your device, to run the calculator,
+restore your session, apply your settings, and open or save the files you ask
+for. It is never used for advertising, profiling, or tracking.
 
 ## Sharing
 
-This app does not sell or share your personal data with advertising, analytics,
-or data-broker services.
+The developer does not sell, rent, or share your data, and receives none from
+the app. Data leaves the app only when you choose to move it:
 
-If you choose an external Work Directory through Android's document provider,
-files that you save there are stored with that provider because you explicitly
-asked the app to use that location.
+- Files you save to a folder that belongs to a cloud provider, such as Google
+  Drive, are stored by that provider under its own privacy policy.
+- Text you copy to the clipboard can be read by the apps you paste it into.
+- Android backup and device transfer are described under Backup And Device
+  Transfer.
+
+## Google Play, GitHub, And Android
+
+Google Play and GitHub, which deliver the app, process data under their own
+privacy policies when you download and update it. If you allowed your device
+to share usage and diagnostics data with Google, Google Play may give the
+developer aggregate install statistics and crash and freeze reports (app
+version, device model, Android version, and the technical trace of the
+failure). These reports come from Google Play, not from code in the app. The
+developer uses them only to find and fix bugs.
 
 ## Retention And Deletion
 
-- App-private session data stays on your device until you clear app data,
-  uninstall the app, or use Reset to Factory Defaults inside the app.
-- Reset to Factory Defaults clears internal app data but does not delete files
-  that you saved in an external Work Directory.
-- You can remove the saved Work Directory choice from Settings with Use Android
-  Default Folder.
-- Files stored in an external Work Directory remain there until you delete them
-  through your document provider or file manager.
+- App-private data stays on your device until you use Reset to Factory
+  Defaults in Settings, clear the app's storage in Android settings, or
+  uninstall the app. Each of these deletes it.
+- Reset to Factory Defaults does not delete files you saved in a Work
+  Directory or elsewhere with the file picker. They stay until you delete them
+  with a file manager or with the provider that holds them.
+- Use Android Default Folder in Settings makes the app forget the saved Work
+  Directory and gives up its access to that folder.
+- Messages you send to the developer are kept only as long as needed to answer
+  you. Ask, and a private message will be deleted.
 
 ## Backup And Device Transfer
 
-Android may back up some app-private state depending on your device and account
-backup settings. The app excludes its saved Work Directory and slot preference
-files from Android backup and device-transfer rules.
+Android may copy the app's calculator state and settings to your Google
+account backup and to a new device during a device transfer. These copies are
+managed by Android and Google, and the developer cannot read them. The app
+leaves its Work Directory choice and its saved-slot settings out of backup and
+transfer. On Android 12 and later, the app allows a cloud backup only when your
+device can encrypt it end to end, which needs a screen lock. You can turn
+backup off in your device's Android settings.
 
 ## Security
 
-This app keeps its session and preference data in Android app-private storage
-unless you explicitly choose an external Work Directory through the system
-document picker.
+- App-private storage is protected by Android's app sandbox: other apps cannot
+  read it.
+- The app has no Internet permission, so a fault in the app cannot leak your
+  data over a network.
+- Access outside app-private storage goes through the Android system file
+  picker and is limited to the files and the folder you choose.
+- The source code is public, so anyone can check these statements. The README
+  in the source repository lists the SHA-256 fingerprint of the certificate
+  that signs the official release, so you can check that your copy is genuine.
+
+## Children
+
+R47 Zen is made for everyone aged 6 and over, children under 13 included. It
+collects no personal information from anyone, of any age: no names, contact
+details, photos, voice, location, device identifiers, or usage data. It has no
+ads, no in-app purchases, no chat or social features, and no accounts. Because
+nothing is collected, the app never needs a parent's consent under the US
+Children's Online Privacy Protection Act (COPPA), and there is no child data to
+review or delete.
+
+Parents and guardians can ask questions at the developer email address shown
+on the app's Google Play listing.
+
+## Your Rights
+
+Depending on where you live, laws such as the EU and UK GDPR or US state privacy
+laws give you rights to access, correct, or delete personal data that a
+developer holds about you. The developer holds none from the app. If you
+contacted the developer, you can exercise these rights over that message
+through the contact options above. The developer does not sell or share
+personal information as those laws define it.
 
 ## Google Play Data Safety
 
-This policy aligns with the app's Google Play Data safety declaration: the app
-collects no data and shares no data. It requests no Android Internet permission,
-so no data leaves the device for app operation. The only off-device storage is
-the optional Work Directory that you choose through the system document picker,
-where files are stored because you explicitly asked the app to use that
-location.
+The app's Google Play Data safety section declares that the app collects no
+data and shares no data. Google Play counts data as collected when an app sends
+it off your device. This app sends nothing: it processes data on your device
+and stores files only where you tell it to.
 
-## Policy Updates
+## Changes To This Policy
 
-When the app's data behavior changes, this policy should be updated in the
-source repository and in the app build that ships those changes. Update the
-Last updated date above and keep the Google Play Data safety declaration in the
-Play Console aligned with this policy in the same change.
+When the app's handling of data changes, this policy is updated in the same
+release, here and in the copy inside the app (Settings, About R47 Zen, View
+Privacy Policy), and the Last updated date changes. Every past version is in the
+repository history:
+https://github.com/ppigazzini/r47zen/commits/main/android/docs/privacy-policy.md
