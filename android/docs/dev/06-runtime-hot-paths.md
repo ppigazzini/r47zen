@@ -240,7 +240,7 @@ What each rule rests on:
   `PackedLcdRasterTest` locks each path, and `mutation_spot_check.sh` carries
   two raster mutants.
 - **The palette has one source, and one writer before the first draw.** The
-  `LcdTheme` entries in `LcdThemePolicy.kt` hold every base colour, in one
+  `LcdTheme` entries in `LcdThemePolicy.kt` hold every base color, in one
   notation; `test_lcd_palette_owner_contract.py` fails on a copy of one in any
   other `src/main` Kotlin file or resource, and on a second notation. It cannot
   see a copy of a resolved palette, which `resolve` computes at run time. The

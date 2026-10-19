@@ -50,7 +50,7 @@ class NativeFileRequestGateTest {
     }
 
     @Test
-    fun launchedPickerWithNoAnswer_isCancelledOnceWhenTheAppStops() {
+    fun launchedPickerWithNoAnswer_isCanceledOnceWhenTheAppStops() {
         gate.request(isSave = true, defaultName = "state.s47", fileType = 0)
         posted.removeFirst().run()
 
@@ -63,7 +63,7 @@ class NativeFileRequestGateTest {
     }
 
     @Test
-    fun answeredPicker_isNotCancelledAgain() {
+    fun answeredPicker_isNotCanceledAgain() {
         gate.request(isSave = false, defaultName = "", fileType = 1)
         posted.removeFirst().run()
 
@@ -79,7 +79,7 @@ class NativeFileRequestGateTest {
         // After a recreation the picker answers the new Activity, whose gate
         // never launched, while the core thread still waits.
         gate.deliverSelected(7)
-        gate.deliverCancelled()
+        gate.deliverCanceled()
 
         assertEquals(listOf(7), selections)
         assertEquals(1, cancels)

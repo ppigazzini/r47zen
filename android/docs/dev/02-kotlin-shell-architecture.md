@@ -328,11 +328,11 @@ while matching the desktop simulator's stop-key parity during an active run.
 - the notice screens are `RepoNoticeIndexActivity` over an asset index and
   `NoticeAssetActivity` for one text. The repo-owned notices come from
   `android/compliance/repo-notices/components.json`; the Android library
-  licences come from the `oss-licenses` Gradle plugin, which reads each runtime
-  dependency's POM and embedded licence, and from
+  licenses come from the `oss-licenses` Gradle plugin, which reads each runtime
+  dependency's POM and embedded license, and from
   `generate<Variant>LibraryLicenseAssets` in `app/build.gradle`, which turns
   its output into `library-licenses/NOTICE-INDEX.json`. The app links no
-  licence-viewer library: `play-services-oss-licenses` brought Compose, Play
+  license-viewer library: `play-services-oss-licenses` brought Compose, Play
   services, and Guava, nearly two thirds of the shipped dex classes, for that
   one screen. A debug variant lists the plugin's single placeholder entry
 - `SettingsFragment` owns the user-facing behavior copy for

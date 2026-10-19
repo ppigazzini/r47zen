@@ -109,9 +109,9 @@ int register_main_activity_natives(JNIEnv *env) {
       {"onFileSelectedNative", "(I)V",
        (void *)
            Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative},
-      {"onFileCancelledNative", "()V",
+      {"onFileCanceledNative", "()V",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_onFileCancelledNative},
+           Java_io_github_ppigazzini_r47zen_MainActivity_onFileCanceledNative},
   };
 
   jclass clazz = (*env)->FindClass(env, MAIN_ACTIVITY_CLASS);

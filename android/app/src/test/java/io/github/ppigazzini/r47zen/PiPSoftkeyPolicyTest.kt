@@ -13,10 +13,10 @@ class PiPSoftkeyPolicyTest {
     fun softkeyCode_mapsEachColumnToItsKey() {
         val width = 600
         for (column in 0 until PiPSoftkeyPolicy.SOFTKEY_COUNT) {
-            val centre = (column + 0.5f) * width / PiPSoftkeyPolicy.SOFTKEY_COUNT
+            val center = (column + 0.5f) * width / PiPSoftkeyPolicy.SOFTKEY_COUNT
             assertEquals(
                 PiPSoftkeyPolicy.FIRST_SOFTKEY_CODE + column,
-                PiPSoftkeyPolicy.softkeyCode(centre, width),
+                PiPSoftkeyPolicy.softkeyCode(center, width),
             )
         }
     }

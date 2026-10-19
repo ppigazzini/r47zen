@@ -9,7 +9,7 @@ pthread_cond_t fileCond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t screenMutex;
 int fileDescriptor = -1;
 bool fileReady = false;
-bool fileCancelled = false;
+bool fileCanceled = false;
 // True while the core thread is parked in requestAndroidFile, waiting on
 // fileCond with screenMutex released. The core thread writes it under
 // fileMutex; the readers hold no lock, hence the atomic. Every app caller of

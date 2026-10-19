@@ -27,7 +27,7 @@ class StorageAccessCoordinatorInstrumentedTest {
                 val coordinator = StorageAccessCoordinator(
                     activity = activity,
                     onNativeFileSelected = { selectedFd = it },
-                    onNativeFileCancelled = { cancelCount += 1 },
+                    onNativeFileCanceled = { cancelCount += 1 },
                     openFileDescriptor = { _, _ ->
                         ParcelFileDescriptor.open(backingFile, ParcelFileDescriptor.MODE_READ_ONLY)
                             .also { openedDescriptor = it }
@@ -57,7 +57,7 @@ class StorageAccessCoordinatorInstrumentedTest {
                 val coordinator = StorageAccessCoordinator(
                     activity = activity,
                     onNativeFileSelected = { selectedFd = it },
-                    onNativeFileCancelled = { cancelCount += 1 },
+                    onNativeFileCanceled = { cancelCount += 1 },
                 )
 
                 coordinator.deliverNativeFileResult(

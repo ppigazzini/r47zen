@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * request reaches the main thread as a posted callback, and
  * `MainActivity.onDestroy` drops every pending callback: [cancelPending] cancels
  * a request whose launch never ran. A launched picker is answered through
- * [deliverSelected] or [deliverCancelled]; when the app stops before it answers,
+ * [deliverSelected] or [deliverCanceled]; when the app stops before it answers,
  * the result never arrives, and [cancelUnanswered] cancels instead. A request
  * posted after `onDestroy` needs no help: its launcher is already unregistered,
  * the launch throws, and [StorageAccessCoordinator.requestNativeFile] cancels.
@@ -49,7 +49,7 @@ internal class NativeFileRequestGate(
         selectNative(fd)
     }
 
-    fun deliverCancelled() {
+    fun deliverCanceled() {
         state.set(IDLE)
         cancelNative()
     }

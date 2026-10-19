@@ -564,7 +564,7 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_directStopAllowedForRunSt
 // waiting for a graphing program to emergently reach a busy state. Safe because
 // fnStopProgram() only sets
 // programRunStop = PGM_WAITING and clears a screen flag; it dereferences no
-// program state. Tests must resetRuntime() afterwards to restore isolation.
+// program state. Tests must resetRuntime() afterward to restore isolation.
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setProgramRunStopForTestNative(
     JNIEnv *env, jobject thiz, jint runState) {

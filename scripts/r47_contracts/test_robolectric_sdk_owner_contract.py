@@ -3,7 +3,7 @@
 No JVM test names an sdk in `@Config` and no `robolectric.properties` sets one,
 so Robolectric runs every class at the targetSdkVersion of the merged manifest,
 which `R47_DEFAULT_ANDROID_TARGET_SDK` in `android/r47-defaults.properties`
-sets. A class that pins its own SDK tests framework behaviour the app does not
+sets. A class that pins its own SDK tests framework behavior the app does not
 run on, and the next class copied from it inherits the pin. `RobolectricSdkTest`
 proves at run time that the framework under test is the target; this proves no
 source overrides it, after proving the scanner on seeded text.

@@ -60,7 +60,7 @@ static int failAndroidFileRequest(int lockCount) {
   pthread_mutex_lock(&fileMutex);
   atomic_store_explicit(&isCoreBlockingForIo, false, memory_order_relaxed);
   fileReady = false;
-  fileCancelled = true;
+  fileCanceled = true;
   fileDescriptor = -1;
   pthread_mutex_unlock(&fileMutex);
 
@@ -97,7 +97,7 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   pthread_mutex_lock(&fileMutex);
   atomic_store_explicit(&isCoreBlockingForIo, true, memory_order_relaxed);
   fileReady = false;
-  fileCancelled = false;
+  fileCanceled = false;
   fileDescriptor = -1;
   pthread_mutex_unlock(&fileMutex);
 
@@ -123,12 +123,12 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
 
   pthread_mutex_lock(&fileMutex);
   LOGI("requestAndroidFile: Waiting for file result...");
-  while (!fileReady && !fileCancelled) {
+  while (!fileReady && !fileCanceled) {
     pthread_cond_wait(&fileCond, &fileMutex);
   }
   int fd = fileDescriptor;
   atomic_store_explicit(&isCoreBlockingForIo, false, memory_order_relaxed);
-  LOGI("requestAndroidFile: Resumed, fd=%d, cancelled=%d", fd, fileCancelled);
+  LOGI("requestAndroidFile: Resumed, fd=%d, canceled=%d", fd, fileCanceled);
   pthread_mutex_unlock(&fileMutex);
 
   return restoreScreenMutexAndReturn(lockCount, fd);
@@ -149,13 +149,13 @@ Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(JNIEnv *env,
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_onFileCancelledNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_onFileCanceledNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-  LOGI("onFileCancelledNative()");
+  LOGI("onFileCanceledNative()");
   pthread_mutex_lock(&fileMutex);
-  fileCancelled = true;
+  fileCanceled = true;
   pthread_cond_signal(&fileCond);
   pthread_mutex_unlock(&fileMutex);
 }

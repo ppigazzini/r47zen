@@ -10,7 +10,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.GraphicsMode
 
 // The expected pixels come from the set of lit coordinates, never from a second
-// row decoder: a pixel is the text colour exactly where the test lit it. The
+// row decoder: a pixel is the text color exactly where the test lit it. The
 // coordinate-to-byte rule in [frameWith] is the one
 // keypad_generation_contract_test.c pins on the native side.
 @RunWith(RobolectricTestRunner::class)

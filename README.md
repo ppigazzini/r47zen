@@ -23,7 +23,7 @@ snapshot builds of `main`: they install as a separate app, beside the release.
 
 - A bug or a question about the Android app:
   [open an issue](https://github.com/ppigazzini/r47zen/issues).
-- A calculator behaviour that the desktop C47 simulator shows too is the
+- A calculator behavior that the desktop C47 simulator shows too is the
   upstream core's; report it to the upstream project.
 - A security problem: follow `.github/SECURITY.md`, never a public issue.
 - Privacy: the
@@ -31,10 +31,10 @@ snapshot builds of `main`: they install as a separate app, beside the release.
   says what the app stores on the device; it collects nothing and has no
   Internet permission. The app shows the same page in Settings.
 
-## Licence
+## License
 
 GNU General Public License, version 3; `COPYING` holds the text. The app's
-licence screens show the notices of the third-party code it is built with:
+license screens show the notices of the third-party code it is built with:
 decNumber, mini-gmp, xlsxio, and the AndroidX libraries.
 
 ## Repo Layout

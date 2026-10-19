@@ -9,7 +9,9 @@
 #     characters;
 #   - a blank second line when a body follows;
 #   - every body line at most 80 characters;
-#   - no Co-authored-by trailer and no agent attribution.
+#   - no Co-authored-by trailer and no agent attribution;
+#   - no British spelling scripts/lib/american_spelling.sh lists, outside a
+#     `code span` or a "quoted span".
 #
 # It cannot check that the subject is imperative or that the body carries
 # evidence; those stay with the reader.
@@ -27,13 +29,16 @@
 
 set -Eeuo pipefail
 
+# shellcheck source=scripts/lib/american_spelling.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/american_spelling.sh"
+
 readonly SUBJECT_MAX=72
 readonly BODY_MAX=80
 readonly TYPES='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
 readonly SUBJECT_RE="^(${TYPES})(\\([A-Za-z0-9][A-Za-z0-9._-]*\\))?!?: [^ ]"
 
 usage() {
-    sed -n '3,27p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,29p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 # Print one line per broken rule for the cleaned message on stdin.
@@ -81,6 +86,13 @@ check_message() {
             echo "line $((index + 1)) is agent attribution"
         fi
     done
+
+    local british_re hit
+    british_re="$(british_spelling_re)"
+    while IFS= read -r hit; do
+        echo "line ${hit%%:*} has the British spelling '${hit#*:}'"
+    done < <(printf '%s\n' "${lines[@]}" | strip_cited_spans |
+        grep -noP -- "$british_re" || true)
 }
 
 # Drop what git's default cleanup drops from a commit-msg file.

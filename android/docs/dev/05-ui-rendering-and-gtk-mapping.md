@@ -45,7 +45,7 @@ flowchart LR
 | shared touch grid and key slots | `KeypadTopology` -> `ReplicaKeypadLayout` | `scripts/r47_contracts/data/r47_physical_geometry.json` plus `scripts/r47_contracts/derive_touch_grid.py` | grouped `scripts/r47_contracts` validation lane, `KeypadFixtureContractTest.kt` |
 | top-label lane placement | `TopLabelLaneLayout` -> `ReplicaKeypadLayout` -> `CalculatorKeyView` | `TopLabelLaneLayout.kt` and `R47TopLabelSolverPolicy` | `TopLabelLaneLayoutTest.kt`, `KeypadTopLabelLayoutTest.kt` |
 | per-key label offsets and body geometry | `R47KeySurfacePolicy`, `R47LabelLayoutPolicy`, `R47TopLabelSolverPolicy` -> `CalculatorKeyView.buildMainKeyRenderSpec()` -> `KeyRenderSpec` | `scripts/r47_contracts/data/r47zen_ui_contract.json`, `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `KeyRenderSpec.kt` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py`, `CalculatorKeyViewRenderSpecTest.kt` |
-| softkey visuals and overlay states | `CalculatorSoftkeyPainter.buildRenderSpec()` -> `KeyRenderSpec` | native scene roles plus `KeyVisualPolicy` constants and `scripts/r47_contracts/data/r47zen_ui_contract.json` softkey geometry fields; the live fill split is grey-32 for native clear-scene empties, grey-64 for populated standard or barred items, and grey-96 for reverse submenu items, and row-decoration bits like dotted-row or preview targeting do not change that content split | `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ExportedKeypadFixtureRenderTest.kt` |
+| softkey visuals and overlay states | `CalculatorSoftkeyPainter.buildRenderSpec()` -> `KeyRenderSpec` | native scene roles plus `KeyVisualPolicy` constants and `scripts/r47_contracts/data/r47zen_ui_contract.json` softkey geometry fields; the live fill split is gray-32 for native clear-scene empties, gray-64 for populated standard or barred items, and gray-96 for reverse submenu items, and row-decoration bits like dotted-row or preview targeting do not change that content split | `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ExportedKeypadFixtureRenderTest.kt` |
 
 ## Shell projection contract
 
@@ -190,7 +190,7 @@ on the main-key or function-key branch.
 
 For empty-slot fill classification, Android treats dotted-row and preview
 markers as decorator bits layered on top of the native scene meaning. A native
-empty slot stays on the grey-32 capsule even when the export marks its row as
+empty slot stays on the gray-32 capsule even when the export marks its row as
 dotted or highlights the current preview target.
 
 Render split:
@@ -546,8 +546,8 @@ The verification surface for this text-rendering split is:
 - `C47TextRendererTest.kt` for shared paint flags, fit-floor behavior, and
   resolved fitted-label bounds equivalence
 - `CalculatorKeyViewCanvasTest.kt` for main-key primary, top-label, and fourth-
-  label canvas output: each lane must draw its exact text colour, which the
-  same render before the lane is given that colour must not hold
+  label canvas output: each lane must draw its exact text color, which the
+  same render before the lane is given that color must not hold
 - `CalculatorSoftkeyPainterCanvasTest.kt` and
   `CalculatorSoftkeyPainterContractTest.kt` for softkey text, chrome output,
   and the empty-versus-populated capsule split

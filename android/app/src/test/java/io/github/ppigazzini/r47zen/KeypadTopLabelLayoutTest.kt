@@ -192,13 +192,13 @@ class KeypadTopLabelLayoutTest {
                 overlay.layout(0, 0, width, height)
 
                 val keys = (0 until overlay.childCount).map(overlay::getChildAt).filterIsInstance<CalculatorKeyView>()
-                val labelled = keys.filter { it.fLabel.isVisible && it.fLabel.text.isNotBlank() }
+                val labeled = keys.filter { it.fLabel.isVisible && it.fLabel.text.isNotBlank() }
                 assertEquals(
                     "${fixture.name} at ${width}x$height: keys with a top label that never reached the lane solver",
                     emptyList<Int>(),
-                    labelled.filter { it.buildTopLabelLaneInput() == null }.map { it.keyCode },
+                    labeled.filter { it.buildTopLabelLaneInput() == null }.map { it.keyCode },
                 )
-                solvedKeys += labelled.size
+                solvedKeys += labeled.size
                 keys.forEach { key ->
                     assertEquals(
                         "${fixture.name} at ${width}x$height: key ${key.keyCode} '${key.fLabel.text}'",

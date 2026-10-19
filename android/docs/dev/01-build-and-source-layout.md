@@ -375,8 +375,9 @@ Public maintainer entrypoints:
   `GudrmPL.p47`, matching the host workload harness instead of requiring only
   step, pause, wait, or `VIEW` markers.
 - `MANSLV2.p47` remains an upstream example program whose public export text
-  still calls it a manual solver with no checks and stabilisations, so the repo
-  treats it as a bounded interrupt contract rather than a completion contract.
+  still calls it a manual solver with "no checks and stabilisations", so the
+  repo treats it as a bounded interrupt contract rather than a completion
+  contract.
   Both the host and Android-owned lanes must let it show post-load activity,
   then publish a direct stop inside a maintained budget and require a clean
   stop verdict without calculator error.

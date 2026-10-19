@@ -215,7 +215,7 @@ APK whose dex lacks one. The entries cover:
 - keypad snapshot generation reads and whole-snapshot copy
 - slot selection plus clipboard-export fetches for X register, stack
   registers, and all registers
-- the SAF picker's result, `onFileSelectedNative` and `onFileCancelledNative`
+- the SAF picker's result, `onFileSelectedNative` and `onFileCanceledNative`
 
 `MainActivity` has no redraw entry point; `r47_force_refresh()` redraws at
 runtime init and for instrumentation only (see
@@ -251,7 +251,7 @@ Development rule:
 
 That alignment rule is the main Android-owned seam. The upstream core remains
 the source of calculator behavior, while the bridge owns registration,
-marshalling, and Android runtime compatibility.
+marshaling, and Android runtime compatibility.
 
 A minified release keeps that surface by name and nothing more of
 `MainActivity`. `proguard-rules.pro` keeps every native method, so
@@ -441,7 +441,7 @@ successor attaches
 (`activityRecreationPreservesSpiralkGraphSnapshot`). The native runtime persists
 across recreation (`NativeCoreRuntime`'s `isCoreThreadStarted` /
 `isNativeInitializedShared` are process-shared, so the recreated Activity
-re-attaches rather than re-initialising), but recreation **does re-render
+re-attaches rather than re-initializing), but recreation **does re-render
 `packedDisplayBuffer` from calculator state**. A raw injected framebuffer
 therefore cannot survive recreation -- the state render replaces the injected
 pattern -- so the recreation snapshot test must assert over a state-derived

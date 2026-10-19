@@ -22,7 +22,7 @@ class LiveProgramStopKeyPolicyTest {
     fun onlyExitAndRunStopPublishDirectStopAcrossTheKeySpace() {
         // Pinning to literal 33/36 (not the policy's own constants) and sweeping the
         // whole plausible key space proves the direct-stop set is EXACTLY {33, 36}:
-        // a widened policy, a changed constant, or a hijacked neighbour all fail.
+        // a widened policy, a changed constant, or a hijacked neighbor all fail.
         val directStopCodes = setOf(33, 36)
         for (keyCode in -8..64) {
             val expected = keyCode in directStopCodes

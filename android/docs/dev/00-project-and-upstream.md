@@ -185,7 +185,7 @@ menu logic, and most shared keypad or display semantics.
 ## Runtime Boundary Summary
 
 - Kotlin owns lifecycle, settings, storage UI, and Android view rendering.
-- JNI and `r47zen` own registration, marshalling, and Android runtime
+- JNI and `r47zen` own registration, marshaling, and Android runtime
   compatibility.
 - The staged upstream core owns calculator execution and shared runtime state.
 

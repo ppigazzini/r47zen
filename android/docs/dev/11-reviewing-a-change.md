@@ -29,7 +29,7 @@ not only on the diff, and run them before reading for smells.
    while it is correct: it stays correct only until the first owner changes,
    and until then the code behaves differently for the one input it matches.
 
-   Example: a view that starts from a colour pair written into the view, equal
+   Example: a view that starts from a color pair written into the view, equal
    to one theme's resolved palette in the policy object, treats that theme
    unlike every other. The alternative is to start from the policy, or from
    no palette at all until the policy supplies one.

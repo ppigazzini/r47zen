@@ -61,6 +61,8 @@ and limits.
    documentation lives in `android/docs/dev/`.
    [10-writing.md](android/docs/dev/10-writing.md#the-rules)
 3. **ASCII by default** in tracked docs. No ASCII-art boxes; use mermaid.
+   **American spelling** everywhere this repo writes: pages, comments,
+   identifiers, and commit messages.
    [10-writing.md](android/docs/dev/10-writing.md#the-rules)
 4. **Conventional commits**, carrying the evidence rather than "should work".
    [10-writing.md](android/docs/dev/10-writing.md#commit-messages)
@@ -141,7 +143,7 @@ cannot run, say why and record what was checked instead.
    re-blesses any change, including a wrong one. Before re-blessing, the
    independent correctness tests must pass and the drift must be root-caused.
    [08-tests-and-contracts.md](android/docs/dev/08-tests-and-contracts.md#python-contract-suite)
-3. **Upstream drift is not a regression, and not a licence either.** When a
+3. **Upstream drift is not a regression, and not a license either.** When a
    golden moves because upstream moved, name the upstream commit and show what
    changed, and re-record the provenance ledger in the same commit; the
    ledger's commands, including the one for a move no golden felt, are on

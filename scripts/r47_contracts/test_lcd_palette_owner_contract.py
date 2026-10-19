@@ -1,15 +1,15 @@
 """Hold every LCD palette value to its one owner, the `LcdTheme` enum.
 
-`LcdThemePolicy.kt` declares each theme's text and background base colour once,
+`LcdThemePolicy.kt` declares each theme's text and background base color once,
 and `LcdThemePolicy.resolve` derives every palette the LCD paints from them. A
 copy of one of those values anywhere else in the shipped Kotlin or resources is
 a second owner: it stays right only until the enum changes, and code that starts
 from it treats the one theme it equals unlike every other. This reads the enum,
 requires one notation for its values, and fails on a copy in any other
-`src/main` Kotlin file or resource XML, in any colour notation the tree uses.
+`src/main` Kotlin file or resource XML, in any color notation the tree uses.
 
-Limits: black is exempt, since it is a theme's text colour and also the
-generic shadow and background colour, and a copy of a *resolved* palette, which
+Limits: black is exempt, since it is a theme's text color and also the
+generic shadow and background color, and a copy of a *resolved* palette, which
 `resolve` computes at run time, is not detectable from source.
 """
 
@@ -74,8 +74,8 @@ def palette_bases(text: str) -> dict[int, str]:
     return bases
 
 
-def colour_literals(text: str) -> list[tuple[int, int]]:
-    """Return (line, RGB) for every colour literal in Kotlin or resource text."""
+def color_literals(text: str) -> list[tuple[int, int]]:
+    """Return (line, RGB) for every color literal in Kotlin or resource text."""
     found: list[tuple[int, int]] = []
     for line_number, line in enumerate(text.splitlines(), start=1):
         found.extend(
@@ -102,7 +102,7 @@ def palette_copies(text: str, label: str, bases: dict[int, str]) -> list[str]:
     """Return one finding per literal in `text` equal to a palette base."""
     return [
         f"{label}:{line}: #{rgb:06X} copies the LcdTheme {bases[rgb]} value"
-        for line, rgb in colour_literals(text)
+        for line, rgb in color_literals(text)
         if rgb in bases and rgb not in _EXEMPT_RGB
     ]
 
@@ -141,11 +141,11 @@ class LcdPaletteOwnerContractTest(unittest.TestCase):
         rgb = next(value for value in bases if value not in _EXEMPT_RGB)
         red, green, blue = rgb >> 16, (rgb >> 8) & 0xFF, rgb & 0xFF
         seeds = [
-            f"private var colour = 0xFF{rgb:06X}.toInt()",
-            f'val colour = "#{rgb:06x}".toColorInt()',
-            f'val colour = "#80{rgb:06X}".toColorInt()',
-            f"val colour = Color.rgb({red}, {green}, {blue})",
-            f"val colour = Color.argb(255, {red}, {green}, {blue})",
+            f"private var color = 0xFF{rgb:06X}.toInt()",
+            f'val color = "#{rgb:06x}".toColorInt()',
+            f'val color = "#80{rgb:06X}".toColorInt()',
+            f"val color = Color.rgb({red}, {green}, {blue})",
+            f"val color = Color.argb(255, {red}, {green}, {blue})",
             f'<color name="lcd">#{rgb:06X}</color>',
         ]
         for seed in seeds:
@@ -153,7 +153,7 @@ class LcdPaletteOwnerContractTest(unittest.TestCase):
                 if not palette_copies(seed, "seed", bases):
                     message = f"the scanner missed a seeded copy: {seed}"
                     raise AssertionError(message)
-        clean = f"val colour = 0xFF{rgb ^ 0x010101:06X}.toInt()"
+        clean = f"val color = 0xFF{rgb ^ 0x010101:06X}.toInt()"
         if palette_copies(clean, "seed", bases):
             message = f"the scanner flagged a value that is not a base: {clean}"
             raise AssertionError(message)

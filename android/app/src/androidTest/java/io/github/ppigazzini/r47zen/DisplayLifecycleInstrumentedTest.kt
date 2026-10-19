@@ -69,7 +69,7 @@ class DisplayLifecycleInstrumentedTest {
     fun pauseResumePreservesSpiralkGraphSnapshot() {
         // onResume re-renders packedDisplayBuffer from calculator state, so an
         // injected arbitrary buffer is overwritten by the state-derived render --
-        // the same display-active behaviour the recreation test accounts for.
+        // the same display-active behavior the recreation test accounts for.
         // Drive this from SPIRALk state: pause/resume must preserve the calculator
         // state, so a force-refresh render of that state is byte-identical before
         // and after, whether or not onResume itself re-renders. forceRefresh on

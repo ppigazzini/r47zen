@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Resolver-policy test harness for scripts/upstream-sync/upstream.sh. It asserts
-# the resolution contract, so the policy is verified behaviour instead of prose
+# the resolution contract, so the policy is verified behavior instead of prose
 # that can silently drift:
 #
 #   * no source pin and no lock  => --auto and --latest resolve the latest HEAD
-#   * a lock pin                  => honoured by --auto and --locked, while
+#   * a lock pin                  => honored by --auto and --locked, while
 #                                    --latest still ignores it and follows HEAD
 #   * no pin anywhere            => --locked fails loudly (non-zero exit)
 #   * a pin in upstream.source   => verify-source-policy fails; absent => passes
@@ -129,9 +129,9 @@ assert_eq "latest resolves HEAD" "$COMMIT_HEAD" "$(resolve_field --latest R47_RE
 echo "Scenario 2: lock pins the old commit while HEAD has advanced"
 write_source
 write_lock "$COMMIT_OLD"
-assert_eq "auto honours the lock pin" "$COMMIT_OLD" "$(resolve_field --auto R47_RESOLVED_UPSTREAM_COMMIT)"
+assert_eq "auto honors the lock pin" "$COMMIT_OLD" "$(resolve_field --auto R47_RESOLVED_UPSTREAM_COMMIT)"
 assert_eq "auto mode is locked" "locked" "$(resolve_field --auto R47_RESOLVED_UPSTREAM_MODE)"
-assert_eq "locked honours the lock pin" "$COMMIT_OLD" "$(resolve_field --locked R47_RESOLVED_UPSTREAM_COMMIT)"
+assert_eq "locked honors the lock pin" "$COMMIT_OLD" "$(resolve_field --locked R47_RESOLVED_UPSTREAM_COMMIT)"
 assert_eq "latest ignores the lock pin" "$COMMIT_HEAD" "$(resolve_field --latest R47_RESOLVED_UPSTREAM_COMMIT)"
 
 echo "Scenario 3: no pin anywhere => locked fails loudly"

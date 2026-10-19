@@ -7,7 +7,7 @@
 # and the Play page cannot drift. This guard fails when:
 #
 # - the asset is missing, or loses its "Privacy Policy" title or heading
-#   (Google Play requires the page to be labelled as one) or its Last updated
+#   (Google Play requires the page to be labeled as one) or its Last updated
 #   date;
 # - SettingsActivity stops opening that asset;
 # - the workflow stops copying it into the site, or its push filter stops

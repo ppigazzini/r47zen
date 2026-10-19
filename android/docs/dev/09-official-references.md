@@ -232,7 +232,7 @@ Current repository icon surfaces:
   `sdkmanager` package syntax this repo uses in CI.
 - [JNI tips](https://developer.android.com/ndk/guides/jni-tips): explicit
   registration, thread attachment, reference management, exception rules, and
-  the guidance to minimize marshalling and prefer region-style copy calls when
+  the guidance to minimize marshaling and prefer region-style copy calls when
   a simple copy contract is enough.
 - [simpleperf](https://developer.android.com/ndk/guides/simpleperf): official
   native profiler for symbol, DSO, thread, and call-graph attribution before

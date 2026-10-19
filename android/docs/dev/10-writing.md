@@ -113,6 +113,15 @@ sentence is about.
 surface actually requires it. Do not draw ASCII-art boxes; use a mermaid graph
 when a visual helps a pipeline, lane split, or ownership handoff.
 
+**American spelling**, in pages, comments, identifiers, and commit messages
+alike: `color`, `behavior`, `center`, `gray`, `license`, `canceled`, `labeled`,
+and the `-ize` / `-ization` forms. One spelling gives a reader one form to read
+and a search one form to find. A quotation keeps the spelling of what it quotes:
+put it in a "quoted span" or a `code span`. Check 8 of the [docs
+gate](#the-gates) and `scripts/docs/check_commit_message.sh` hold the rule
+against the list in `scripts/lib/american_spelling.sh`; a British form that list
+does not name passes both.
+
 **Never send a reader to a maintainer-local file for a fact.** Git-ignored
 files are dead for every reader but their author: a fresh clone does not have
 them. Never rest a claim on content only its author can see (AGENTS.md
@@ -245,8 +254,9 @@ The mechanical checks:
   the diff, never a way to pass.
 - `scripts/docs/check_commit_message.sh` holds the mechanical half of the
   [commit rules](#commit-messages): the subject shape and length, the blank
-  second line, the body width, and no co-author or agent attribution. It is an
-  opt-in `commit-msg` hook that a plain `pre-commit install` leaves off;
+  second line, the body width, no co-author or agent attribution, and no
+  British spelling outside a code or quoted span. It is an opt-in `commit-msg`
+  hook that a plain `pre-commit install` leaves off;
   `pre-commit install --hook-type commit-msg` turns it on, and
   `--range origin/main..HEAD` checks commits already made.
   `scripts/android/run_commit_message_contract.sh` proves it on seeded
@@ -283,7 +293,14 @@ runs in seconds on every push, and it settles these mechanical rot classes:
    contract, a contract suite module, or a Kotlin test source on
    [08-tests-and-contracts.md](08-tests-and-contracts.md). It reads each set
    from the file that defines it, and it checks that the page names the
-   member, not that the page says anything true about it.
+   member, not that the page says anything true about it,
+8. a British spelling that `scripts/lib/american_spelling.sh` lists, in any
+   tracked text file. A source file is read whole. In markdown a fenced block,
+   a code span, and a quoted span are skipped, since a quotation keeps the
+   spelling of what it quotes, and `COPYING` is skipped as the license
+   verbatim. A span is read one line at a time, so keep a quoted British form
+   and its quotation marks on one line. A self-test proves the matcher on
+   seeded lines first.
 
 External links are not in it: a page outside this repo moves with no commit
 here, so `scripts/docs/check_external_links.sh` checks every one weekly in the

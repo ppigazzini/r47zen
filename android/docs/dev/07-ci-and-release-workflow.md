@@ -102,7 +102,7 @@ upstream commit and applies a release gate:
   (`Resolved upstream commit: <sha> (mode latest)`) so the shipped revision is
   visible in the resolve job before the heavy build runs. Because GitHub builds
   the workflow file at the ref a run is dispatched from, this latest-by-default
-  behaviour only applies once the change is present on that ref; a release
+  behavior only applies once the change is present on that ref; a release
   dispatched from an older ref runs that ref's older resolution logic
 - `upstream-release-gate` computes the downstream Android prerelease tag from
   the resolved upstream commit plus the current Android repository commit, then
@@ -516,7 +516,7 @@ directly could report green when the release gate skipped them
 (a re-run of an already-released upstream and overlay state). `ci-required`
 closes that: it passes when the gate legitimately skipped the lane
 (`should_run != true`), and otherwise fails unless every test job genuinely
-succeeded, so a skipped, cancelled, or failed test job cannot report green
+succeeded, so a skipped, canceled, or failed test job cannot report green
 through a required check. `publish-main-snapshot` is intentionally not one of
 its dependencies because it is a publish lane, not a verification lane.
 

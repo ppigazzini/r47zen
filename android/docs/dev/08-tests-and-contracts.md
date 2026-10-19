@@ -120,7 +120,7 @@ types, and `ANDROID_UI_CONTRACT`, a closed dict literal the UI-contract readers
 take apart with the `*_member` accessors. `load_physical_geometry` and
 `load_android_ui_contract` validate the file as they read it, so a missing or
 unknown key, a wrong type, a JSON `true` where a number belongs, or a malformed
-`#AARRGGBB` colour fails once with its path as a `ContractDataError`, before any
+`#AARRGGBB` color fails once with its path as a `ContractDataError`, before any
 deriver runs. `load_contract_document` stays schema-free for the validator CLI,
 which accepts foreign dataset paths. The derived goldens are not shape-checked
 on purpose: the whole-document re-derivation their tests perform is the
@@ -196,10 +196,10 @@ runs. What each one locks:
 - `test_lcd_packed_row_contract.py`: `LCD_ROW_SIZE_BYTES` in `hal/lcd.h`
   against the Kotlin `PACKED_ROW_SIZE_BYTES`, and the packed buffer size as row
   stride times pixel height
-- `test_lcd_palette_owner_contract.py`: every LCD palette base colour is
+- `test_lcd_palette_owner_contract.py`: every LCD palette base color is
   written once, in the `LcdTheme` entries of `LcdThemePolicy.kt`, in the one
   notation `"#RRGGBB".toColorInt()`, and no other `src/main` Kotlin file or
-  resource copies one in any colour notation; it proves the scanner on seeded
+  resource copies one in any color notation; it proves the scanner on seeded
   copies first. Black is exempt, and a copy of a resolved palette is out of
   its reach
 - `test_keypad_snapshot_wire_contract.py`: key count, labels per key, scene
@@ -310,7 +310,7 @@ the main and test Kotlin sources. `android/app/detekt-baseline.xml` lists the
 findings the code carried when detekt was adopted; a new finding fails, and so
 does an entry no finding matches anymore. It is a static check, not a test: it
 bounds function and class size, complexity, and magic numbers in new code, and
-proves nothing about behaviour.
+proves nothing about behavior.
 
 Each JVM test file and what it locks; `run_docs_lint.sh` fails when a test
 source is missing from this page:
@@ -365,8 +365,8 @@ source is missing from this page:
   bounds, and accessibility text before pixels are drawn
 - `CalculatorSoftkeyPainterContractTest.kt` and
   `CalculatorSoftkeyPainterCanvasTest.kt`: lock softkey content-description,
-  overlay, preview, strike rendering rules, the grey-32 empty-slot versus
-  grey-64 populated-slot fill split, including dotted-row and preview-target
+  overlay, preview, strike rendering rules, the gray-32 empty-slot versus
+  gray-64 populated-slot fill split, including dotted-row and preview-target
   decorations on native empty slots, the lower-left to upper-right barred
   strike-out slash, the shared softkey text-paint antialias bit, and the
   spec-layer value-field and overlay geometry seam
@@ -380,8 +380,8 @@ source is missing from this page:
   flagged or not; a later frame decodes only its flagged rows; and a palette
   change, even to the same palette, repaints the held frame
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable. The
-  LCD raster's composition into the frame is locked by a structural colour
-  oracle (`nativeChrome_compositesLcdRasterColours`), and a fresh overlay
+  LCD raster's composition into the frame is locked by a structural color
+  oracle (`nativeChrome_compositesLcdRasterColors`), and a fresh overlay
   decodes its first frame whole and invalidates the whole LCD
   (`packedLcd_firstFrame_isDecodedWhole_andInvalidatesTheWholeLcd`). Native-only
   chrome draws no shell, so outside the LCD window every pixel is the overlay's
@@ -391,7 +391,7 @@ source is missing from this page:
   `lcdWindow_matchesTextGolden`, a **code-only** ASCII-luminance downsample of
   the render of a packed sample frame, held in `LCD_WINDOW_TEXT_GOLDEN`. Its
   ramp maps every luminance up to 28 to one blank, so it cannot tell black
-  from a dark grey; the exact test can. A text golden is deliberate here: its
+  from a dark gray; the exact test can. A text golden is deliberate here: its
   `assertEquals` diff shows the visual change as a grid a reviewer can confirm,
   where a SHA hash only says "differs" and invites a blind re-bless, and it adds
   no binary reference image to the repository. It also
@@ -447,8 +447,8 @@ source is missing from this page:
   work-directory tree persistence, detached-fd cancellation, and work-directory
   tree subfolder rules
 - `NativeFileRequestGateTest.kt`: locks that a native file request ends in
-  exactly one result or cancel: a dropped launch is cancelled on destroy, a
-  launched picker with no answer is cancelled once when the app stops, an
+  exactly one result or cancel: a dropped launch is canceled on destroy, a
+  launched picker with no answer is canceled once when the app stops, an
   answered one is not, and an answer reaching a recreated Activity's gate still
   reaches native
 - `SettingsLinkTest.kt`: locks that the two external links in Settings show a
@@ -497,7 +497,7 @@ source is missing from this page:
   declared contrast floor across the supported luminance range
 - `CalculatorKeyViewCanvasTest.kt`: draws a measured main key and asserts each
   of the primary, f, g, and fourth label lanes paints its text in its own
-  colour from the label state
+  color from the label state
 - `PiPSoftkeyPolicyTest.kt`: locks the picture-in-picture softkey row, so every
   touch across it, the right edge included, presses F1 to F6, codes 38 to 43
 - `GraphTouchVisualPolicyTest.kt`: locks `ReplicaOverlay.isSignificantPinch`,
@@ -509,7 +509,7 @@ source is missing from this page:
   label mode
 - `SlotSessionControllerTest.kt`: locks a slot switch as save, set, load, and
   persist, and that an out-of-range or current slot id is ignored
-- `LibraryLicenseNoticesTest.kt`: reads the library-licence assets the build
+- `LibraryLicenseNoticesTest.kt`: reads the library-license assets the build
   merged for the variant under test, so a variant whose
   `library-licenses/NOTICE-INDEX.json` is missing or empty fails on the JVM
 - `KeyboardLayoutContractResources.kt`, `KeypadFixtureResources.kt`,
@@ -858,7 +858,7 @@ Android compatibility layer.
   commit. It reads the index, so it sees what the commit adds
 - `scripts/upstream-sync/test_resolver_policy.sh` runs `upstream.sh` against
   a throwaway local repository standing in for upstream: with no pin, `--auto`
-  and `--latest` resolve the latest HEAD; a pin in `upstream.lock` is honoured
+  and `--latest` resolve the latest HEAD; a pin in `upstream.lock` is honored
   by `--auto` and `--locked` and ignored by `--latest`; `--locked` with no pin
   fails; and `verify-source-policy` fails on a pin in `upstream.source`.
   `scripts/upstream-sync/test_fetch_retry.sh` drives `retry_with_backoff` in

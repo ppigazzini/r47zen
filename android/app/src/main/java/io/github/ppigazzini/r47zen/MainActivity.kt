@@ -197,7 +197,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             post = { mainHandler.post(it) },
             launch = storageAccessCoordinator::requestNativeFile,
             selectNative = ::onFileSelectedNative,
-            cancelNative = ::onFileCancelledNative,
+            cancelNative = ::onFileCanceledNative,
         )
         displayActionController = createDisplayActionController()
         physicalKeyboardInputController = createPhysicalKeyboardInputController()
@@ -251,7 +251,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         return StorageAccessCoordinator(
             activity = this,
             onNativeFileSelected = { fd -> nativeFileRequestGate.deliverSelected(fd) },
-            onNativeFileCancelled = { nativeFileRequestGate.deliverCancelled() },
+            onNativeFileCanceled = { nativeFileRequestGate.deliverCanceled() },
         ).also { coordinator ->
             coordinator.registerLaunchers()
         }
@@ -469,8 +469,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=$resetInProgress")
         val shouldStopApp = isFinishing || resetInProgress
         // The core thread may be parked in requestAndroidFile. A request whose
-        // posted launch was just dropped is cancelled always. A launched picker
-        // whose result has not arrived is cancelled only when the app stops: a
+        // posted launch was just dropped is canceled always. A launched picker
+        // whose result has not arrived is canceled only when the app stops: a
         // recreated Activity still receives that result, but a finishing one
         // never does, and the core thread would wait out the dispose fence.
         if (::nativeFileRequestGate.isInitialized) {
@@ -601,5 +601,5 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun requestStopProgramNative(): Boolean
 
     private external fun onFileSelectedNative(fd: Int)
-    private external fun onFileCancelledNative()
+    private external fun onFileCanceledNative()
 }

@@ -13,7 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 internal class StorageAccessCoordinator(
     private val activity: ComponentActivity,
     private val onNativeFileSelected: (Int) -> Unit,
-    private val onNativeFileCancelled: () -> Unit,
+    private val onNativeFileCanceled: () -> Unit,
     private val openFileDescriptor: (Uri, String) -> ParcelFileDescriptor? = { uri, mode ->
         activity.contentResolver.openFileDescriptor(uri, mode)
     },
@@ -84,7 +84,7 @@ internal class StorageAccessCoordinator(
             launcher(buildNativeFileRequestIntent(isSave, defaultName, fileType))
         } catch (error: Exception) {
             Log.e(TAG, "Failed to launch SAF", error)
-            onNativeFileCancelled()
+            onNativeFileCanceled()
         }
     }
 
@@ -108,17 +108,17 @@ internal class StorageAccessCoordinator(
 
     internal fun deliverNativeFileResult(resultCode: Int, uri: Uri?, mode: String) {
         if (resultCode != Activity.RESULT_OK || uri == null) {
-            onNativeFileCancelled()
+            onNativeFileCanceled()
             return
         }
 
         try {
             openFileDescriptor(uri, mode)?.use { fileDescriptor ->
                 onNativeFileSelected(fileDescriptor.detachFd())
-            } ?: onNativeFileCancelled()
+            } ?: onNativeFileCanceled()
         } catch (error: Exception) {
             Log.e(TAG, "Failed to open selected SAF file", error)
-            onNativeFileCancelled()
+            onNativeFileCanceled()
         }
     }
 

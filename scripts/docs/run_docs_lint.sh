@@ -28,6 +28,8 @@
 #   * Pages list the glue files, the workflows, and the contracts. A file added
 #     with no page edit leaves the list reading as complete while it omits
 #     the one file a reader came for.                                -> check 7
+#   * American spelling is a writing rule; a British form arrives by habit, in
+#     a page, a comment, or an identifier, and reads fine in review. -> check 8
 #
 # NOT checked, deliberately: whether a sentence is true. A fluent invented
 # rationale parses, links, and names no dead path. Only a reader catches that.
@@ -63,7 +65,7 @@ if [[ ${#DOCS[@]} -eq 0 ]]; then
     echo "docs rot gate: no tracked markdown found (is this a git checkout?)" >&2
     exit 1
 fi
-log "docs rot gate over ${#DOCS[@]} tracked markdown files"
+log "docs rot gate over ${#DOCS[@]} tracked markdown files and, for check 8, all tracked text"
 
 # --- 1. every internal link resolves ------------------------------------------
 # Resolve relative to the LINKING FILE's directory, not the cwd: README.md links
@@ -280,6 +282,43 @@ inventory "$DEV/08-tests-and-contracts.md" "Kotlin test source" \
     "$(git ls-files 'android/app/src/test/*.kt' 'android/app/src/androidTest/*.kt' |
         sed 's|.*/||')"
 log "check 7: pages that inventory a set name every member ($n unlisted)"
+
+# --- 8. tracked text uses American spelling ----------------------------------
+# scripts/lib/american_spelling.sh lists the British forms the rule bans. A
+# source file is read whole: its identifiers, strings, and comments are this
+# repo's own text. In markdown a fenced block, a `code span`, and a "quoted
+# span" are skipped: a quotation keeps the spelling of what it quotes. COPYING
+# is the license verbatim. The list file names every form, so it is skipped too.
+n=0
+# shellcheck source=scripts/lib/american_spelling.sh
+source "$REPO_ROOT/scripts/lib/american_spelling.sh"
+british_re="$(british_spelling_re)"
+# Print each markdown line of stdin, a fenced line as blank so line numbers hold.
+unfence() {
+    awk '/^[[:space:]]*(```|~~~)/ { f = !f; print ""; next } f { print ""; next } { print }'
+}
+# Prove the matcher and the span rule before trusting their silence. A seed is
+# built from halves so this file holds no banned form of its own.
+seed_bad="$(printf '%s\n' "the col""our" "LCD_COL""OUR_TOLERANCE" "initial""iseCore" "cancel""led")"
+seed_good="$(printf '%s\n' color programmer fulfilled analyses cancellation \
+    "says \"no gr""ey\"" "calls \`initial""ise\`")"
+seed_good_prose="$(strip_cited_spans <<<"$seed_good")"
+if [[ "$(grep -cP -- "$british_re" <<<"$seed_bad")" -ne 4 ]] ||
+    grep -qP -- "$british_re" <<<"$seed_good_prose"; then
+    note "SELF-TEST     check 8 gave a wrong verdict on a seeded line"
+    n=$((n + 1))
+fi
+while IFS= read -r hit; do
+    note "BRITISH       $hit"
+    n=$((n + 1))
+done < <(
+    git grep -nIP -- "$british_re" -- . ':!*.md' ':!COPYING' \
+        ':!scripts/lib/american_spelling.sh'
+    for f in "${DOCS[@]}"; do
+        unfence <"$f" | strip_cited_spans | grep -nP -- "$british_re" | sed "s|^|$f:|"
+    done
+)
+log "check 8: tracked text uses American spelling ($n British forms)"
 
 if [[ "$fail" -ne 0 ]]; then
     log "DOCS GATE FAILED"

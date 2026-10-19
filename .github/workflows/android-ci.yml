@@ -132,7 +132,7 @@ jobs:
           # dispatch always proceeds: a push moves ANDROID_COMMIT (new tag), and a
           # maintainer dispatch is an explicit rebuild request.
           # A release only counts as published once it carries its APK: a
-          # publish cancelled between creating the release and uploading the
+          # publish canceled between creating the release and uploading the
           # asset leaves a release with no APK, which the next run must redo.
           published_apks="$(gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" \
             --json assets --jq '[.assets[] | select(.name | endswith(".apk"))] | length' \

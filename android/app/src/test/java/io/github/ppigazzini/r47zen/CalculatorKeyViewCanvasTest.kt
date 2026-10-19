@@ -23,7 +23,7 @@ class CalculatorKeyViewCanvasTest {
 
     @Test
     fun drawRendersPrimaryLaneFromLabelState() {
-        assertLaneDrawsItsTextColour(
+        assertLaneDrawsItsTextColor(
             KeypadKeySnapshot.EMPTY.copy(
                 primaryLabel = "88",
                 styleRole = KeypadSceneContract.STYLE_NUMERIC,
@@ -35,7 +35,7 @@ class CalculatorKeyViewCanvasTest {
 
     @Test
     fun drawRendersFLaneFromLabelState() {
-        assertLaneDrawsItsTextColour(
+        assertLaneDrawsItsTextColor(
             KeypadKeySnapshot.EMPTY.copy(
                 fLabel = "MM",
                 styleRole = KeypadSceneContract.STYLE_DEFAULT,
@@ -47,7 +47,7 @@ class CalculatorKeyViewCanvasTest {
 
     @Test
     fun drawRendersGLaneFromLabelState() {
-        assertLaneDrawsItsTextColour(
+        assertLaneDrawsItsTextColor(
             KeypadKeySnapshot.EMPTY.copy(
                 fLabel = "MM",
                 gLabel = "WW",
@@ -60,7 +60,7 @@ class CalculatorKeyViewCanvasTest {
 
     @Test
     fun drawRendersFourthLaneFromLabelState() {
-        assertLaneDrawsItsTextColour(
+        assertLaneDrawsItsTextColor(
             KeypadKeySnapshot.EMPTY.copy(
                 letterLabel = "A",
                 styleRole = KeypadSceneContract.STYLE_DEFAULT,
@@ -70,22 +70,22 @@ class CalculatorKeyViewCanvasTest {
         ) { view -> view.letterLabel }
     }
 
-    // The lane's glyph interiors carry its text colour exactly, so the render
-    // must hold that colour exactly. The same render before the lane is given
-    // the colour must not hold it, or the colour comes from somewhere else and
+    // The lane's glyph interiors carry its text color exactly, so the render
+    // must hold that color exactly. The same render before the lane is given
+    // the color must not hold it, or the color comes from somewhere else and
     // the check proves nothing.
-    private fun assertLaneDrawsItsTextColour(
+    private fun assertLaneDrawsItsTextColor(
         keyState: KeypadKeySnapshot,
-        textColour: Int,
+        textColor: Int,
         lane: (CalculatorKeyView) -> TextView,
     ) {
         assertFalse(
-            "${hex(textColour)} is in the render before the lane is given it",
-            render(keyState) {}.containsColour(textColour),
+            "${hex(textColor)} is in the render before the lane is given it",
+            render(keyState) {}.containsColor(textColor),
         )
         assertTrue(
-            "the lane did not draw its text colour ${hex(textColour)}",
-            render(keyState) { view -> lane(view).setTextColor(textColour) }.containsColour(textColour),
+            "the lane did not draw its text color ${hex(textColor)}",
+            render(keyState) { view -> lane(view).setTextColor(textColor) }.containsColor(textColor),
         )
     }
 
@@ -156,13 +156,13 @@ class CalculatorKeyViewCanvasTest {
         )
     }
 
-    private fun Bitmap.containsColour(colour: Int): Boolean {
+    private fun Bitmap.containsColor(color: Int): Boolean {
         val pixels = IntArray(width * height)
         getPixels(pixels, 0, width, 0, 0, width, height)
-        return pixels.any { it == colour }
+        return pixels.any { it == color }
     }
 
-    private fun hex(colour: Int): String = "#%08X".format(colour)
+    private fun hex(color: Int): String = "#%08X".format(color)
 
     private companion object {
         private const val CANVAS_VERTICAL_INSET = 120

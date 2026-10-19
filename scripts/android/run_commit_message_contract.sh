@@ -54,6 +54,8 @@ subject72="$(pad 72 'docs(dev): ')"
 subject73="$(pad 73 'docs(dev): ')"
 line80="$(pad 80 'Body ')"
 line81="$(pad 81 'Body ')"
+# Built from halves so this file holds no form the docs gate bans.
+british="col""our"
 
 expect_pass "scoped subject with a body" \
     $'docs(dev): add the seam review page\n\nSay why.\n'
@@ -68,6 +70,12 @@ expect_pass "git-written fixup subject" \
     "fixup! $(pad 90 'docs(dev): ')"$'\n'
 expect_pass "Signed-off-by trailer" \
     $'build: bump it\n\nBody.\n\nSigned-off-by: A Maintainer <a@example.org>\n'
+expect_pass "British spelling in a quoted span" \
+    $'revert: drop it\n\nThe log says "the '"${british}"$' map".\n'
+expect_pass "British spelling in a code span" \
+    $'test: pin it\n\nThe call is `'"${british}"$'Map()`.\n'
+expect_pass "American forms the list must not catch" \
+    $'fix: keep it\n\nThe color, the cancellation, and the analyses held.\n'
 
 expect_fail "subject at 73" "${subject73}"$'\n' "subject is 73 characters"
 expect_fail "scope with a space" $'fix(upstream sync): retry\n' "single-token scope"
@@ -86,6 +94,11 @@ expect_fail "lower-case co-author trailer" \
 expect_fail "agent e-mail in another trailer" \
     $'feat: add it\n\nBody.\n\nSigned-off-by: Agent <noreply@anthropic.com>\n' \
     "agent attribution"
+expect_fail "British spelling in the subject" \
+    "docs(dev): fix the ${british}"$'\n' "line 1 has the British spelling '${british}'"
+expect_fail "British spelling in an identifier" \
+    $'test: pin it\n\nRename LCD_'"${british^^}"$'_TOLERANCE.\n' \
+    "line 3 has the British spelling '${british^^}'"
 expect_fail "empty message" $'# only a comment\n\n' "the message is empty"
 
 # --range reads committed messages through git, so prove it on a scratch

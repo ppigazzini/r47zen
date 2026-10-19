@@ -655,7 +655,7 @@ def stageProgramFixtureAssets = tasks.register('stageProgramFixtureAssets', Stag
 // and one "offset:length name" line per library
 // (raw/third_party_license_metadata), into the asset index that
 // RepoNoticeIndexActivity reads, one text file per library. The app shows
-// every library's licence text on its own screens, so it ships no licence
+// every library's license text on its own screens, so it ships no license
 // viewer: play-services-oss-licenses 17.5 brought Compose, Play services, and
 // Guava into a View-based APK for one settings entry. The plugin writes a
 // single placeholder entry for a debug variant.
@@ -692,7 +692,7 @@ abstract class GenerateLibraryLicenseAssets extends DefaultTask {
             int start = matcher.group(1) as int
             int length = matcher.group(2) as int
             if (start + length > blob.length) {
-                throw new GradleException("oss-licenses metadata points past the licence text: ${line}")
+                throw new GradleException("oss-licenses metadata points past the license text: ${line}")
             }
             def assetName = String.format(Locale.ROOT, '%03d.txt', index)
             new File(indexDir, assetName).bytes = Arrays.copyOfRange(blob, start, start + length)
@@ -705,7 +705,7 @@ abstract class GenerateLibraryLicenseAssets extends DefaultTask {
         }
         new File(indexDir, 'NOTICE-INDEX.json').text = JsonOutput.prettyPrint(JsonOutput.toJson([
             schemaVersion: 1,
-            title        : 'Android library licences',
+            title        : 'Android library licenses',
             entries      : entries
         ])) + '\n'
     }

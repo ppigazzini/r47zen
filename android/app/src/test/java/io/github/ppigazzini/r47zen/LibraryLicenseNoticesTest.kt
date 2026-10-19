@@ -13,7 +13,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
-// The library licence texts come from the oss-licenses plugin through
+// The library license texts come from the oss-licenses plugin through
 // generate<Variant>LibraryLicenseAssets, and the app shows them on its own
 // notice screens. These tests read the assets the build merged, so a variant
 // whose index is missing or empty fails here, not on a device.
@@ -21,7 +21,7 @@ import org.robolectric.annotation.Config
 @Config(qualifiers = "notnight")
 class LibraryLicenseNoticesTest {
     @Test
-    fun libraryLicencesEntry_opensTheNoticeIndexOnTheLibraryLicences() {
+    fun libraryLicensesEntry_opensTheNoticeIndexOnTheLibraryLicenses() {
         val activity = Robolectric.buildActivity(SettingsActivity::class.java).setup().get()
         val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
         val preference = requireNotNull(fragment.findPreference<Preference>("view_android_library_licenses"))
@@ -39,7 +39,7 @@ class LibraryLicenseNoticesTest {
     }
 
     @Test
-    fun everyLibraryLicenceEntry_namesAnAssetThatHoldsText() {
+    fun everyLibraryLicenseEntry_namesAnAssetThatHoldsText() {
         val context = Robolectric.buildActivity(SettingsActivity::class.java).get()
         val index = context.assets.open(RepoNoticeIndexActivity.LIBRARY_LICENSES_INDEX)
             .bufferedReader().use { org.json.JSONObject(it.readText()) }

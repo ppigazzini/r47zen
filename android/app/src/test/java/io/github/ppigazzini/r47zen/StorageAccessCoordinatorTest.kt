@@ -23,7 +23,7 @@ class StorageAccessCoordinatorTest {
         val coordinator = StorageAccessCoordinator(
             activity = activity,
             onNativeFileSelected = {},
-            onNativeFileCancelled = {},
+            onNativeFileCanceled = {},
             readWorkDirectoryTreeUri = { "content://io.github.ppigazzini.r47zen.documents/tree/root" },
             resolveInitialUri = { treeUriString, fileType ->
                 capturedTreeUri = treeUriString
@@ -62,7 +62,7 @@ class StorageAccessCoordinatorTest {
         val coordinator = StorageAccessCoordinator(
             activity = activity,
             onNativeFileSelected = {},
-            onNativeFileCancelled = {},
+            onNativeFileCanceled = {},
             readWorkDirectoryTreeUri = { "content://io.github.ppigazzini.r47zen.documents/tree/root" },
             resolveInitialUri = { treeUriString, fileType ->
                 capturedTreeUri = treeUriString
@@ -99,7 +99,7 @@ class StorageAccessCoordinatorTest {
         val coordinator = StorageAccessCoordinator(
             activity = activity,
             onNativeFileSelected = {},
-            onNativeFileCancelled = {},
+            onNativeFileCanceled = {},
             readWorkDirectoryTreeUri = { "content://io.github.ppigazzini.r47zen.documents/tree/root" },
             resolveInitialUri = { _, _ ->
                 resolveCallCount += 1
@@ -130,7 +130,7 @@ class StorageAccessCoordinatorTest {
         val coordinator = StorageAccessCoordinator(
             activity = activity,
             onNativeFileSelected = {},
-            onNativeFileCancelled = { cancelCount += 1 },
+            onNativeFileCanceled = { cancelCount += 1 },
             providedSaveIntentLauncher = { throw IllegalStateException("boom") },
             providedLoadIntentLauncher = {},
         )
@@ -153,7 +153,7 @@ class StorageAccessCoordinatorTest {
         val coordinator = StorageAccessCoordinator(
             activity = activity,
             onNativeFileSelected = { selectedFd = it },
-            onNativeFileCancelled = { cancelCount += 1 },
+            onNativeFileCanceled = { cancelCount += 1 },
             openFileDescriptor = { _, _ -> throw IllegalStateException("open failed") },
             providedSaveIntentLauncher = {},
             providedLoadIntentLauncher = {},

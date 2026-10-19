@@ -121,10 +121,10 @@ class ReplicaOverlayGoldenTest {
     }
 
     @Test
-    fun nativeChrome_compositesLcdRasterColours() {
+    fun nativeChrome_compositesLcdRasterColors() {
         // Semantic oracle: prove the LCD raster is actually
         // composited into the frame, instead of a re-blessable whole-frame hash
-        // that proves nothing about correctness. Both palette colours of the
+        // that proves nothing about correctness. Both palette colors of the
         // sample frame -- the lit status band and the unlit checker cells -- must
         // appear in the render. A regression that blanks or drops the LCD
         // fails here, without depending on exact (letterboxed) projection math; the
@@ -134,12 +134,12 @@ class ReplicaOverlayGoldenTest {
 
         val (text, background) = SAMPLE_PALETTE
         assertTrue(
-            "LCD text colour ${hex(text)} must appear in the render",
-            rendered.any { colorDistance(it, text) <= LCD_COLOUR_TOLERANCE },
+            "LCD text color ${hex(text)} must appear in the render",
+            rendered.any { colorDistance(it, text) <= LCD_COLOR_TOLERANCE },
         )
         assertTrue(
-            "LCD background colour ${hex(background)} must appear in the render",
-            rendered.any { colorDistance(it, background) <= LCD_COLOUR_TOLERANCE },
+            "LCD background color ${hex(background)} must appear in the render",
+            rendered.any { colorDistance(it, background) <= LCD_COLOR_TOLERANCE },
         )
     }
 
@@ -181,8 +181,8 @@ class ReplicaOverlayGoldenTest {
         // nativeChrome_isTheBlackBackgroundOutsideTheLcdWindow holds exactly.
         // assertEquals on the two grids yields a reviewable diff: an intended
         // change shows up as a shape change a reviewer confirms before
-        // updating LCD_WINDOW_TEXT_GOLDEN. The exact LCD colours are
-        // locked by nativeChrome_compositesLcdRasterColours and
+        // updating LCD_WINDOW_TEXT_GOLDEN. The exact LCD colors are
+        // locked by nativeChrome_compositesLcdRasterColors and
         // PackedLcdRasterTest.
         val overlay = overlayShowingSampleFrame()
 
@@ -728,9 +728,9 @@ class ReplicaOverlayGoldenTest {
         private val SAMPLE_PALETTE = LcdPalette(text = 0xFF1E3A5F.toInt(), background = 0xFFE7F2E4.toInt())
 
         // Allow for scaling/filtering when the 400x240 LCD raster is upscaled into
-        // the projected window; the sampled centre sits inside a uniform colour
+        // the projected window; the sampled center sits inside a uniform color
         // block, so a small per-channel sum tolerance is enough.
-        private const val LCD_COLOUR_TOLERANCE = 24
+        private const val LCD_COLOR_TOLERANCE = 24
 
         // ASCII-luminance golden grid: dimensions, subsample stride within a cell,
         // and the dark-to-light ramp.

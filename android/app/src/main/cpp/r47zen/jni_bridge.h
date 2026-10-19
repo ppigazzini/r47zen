@@ -149,7 +149,7 @@ extern pthread_cond_t fileCond;
 extern pthread_mutex_t screenMutex;
 extern int fileDescriptor;
 extern bool fileReady;
-extern bool fileCancelled;
+extern bool fileCanceled;
 extern _Atomic bool isCoreBlockingForIo;
 
 extern uint32_t nextTimerRefresh;
@@ -275,7 +275,7 @@ Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(JNIEnv *env,
                                                                    jobject thiz,
                                                                    jint fd);
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_onFileCancelledNative(
+Java_io_github_ppigazzini_r47zen_MainActivity_onFileCanceledNative(
     JNIEnv *env, jobject thiz);
 
 #endif
