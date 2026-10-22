@@ -14,11 +14,11 @@
     },
     {
       "path": "src/c47/assign.c",
-      "sha256": "5d7631055a53ef5156d9f23c07fa0e2e900b16f94582958ebb277fe6097e0f3d"
+      "sha256": "d1bb3aad9a40d39ec805b3d4d3e46d1b8c8d4de26fd5247e5929a67bedc52e8a"
     },
     {
       "path": "src/c47/items.c",
-      "sha256": "cc5f08afa8fc05eed5104fcda27f3026131e30939c2b7fde03ca6a46d036d377"
+      "sha256": "c7a64d4d779c861922dbd3852cf97e928a7ea023e7a78f94ec25e67197560f3e"
     },
     {
       "path": "src/c47/programming/input.c",
@@ -26,8 +26,8 @@
     }
   ],
   "recorded": {
-    "recorded_on": "2026-10-11",
-    "upstream_commit": "3244db3bdc82e1351d0075c4f525841eef9966e3",
+    "recorded_on": "2026-10-22",
+    "upstream_commit": "b847c5844357165283aac7f1e046d294b6654f03",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 2

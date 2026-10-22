@@ -75,9 +75,9 @@ class AlphaCaseExportContractTest(unittest.TestCase):
         cls.keypad_layout = KEYPAD_LAYOUT_PATH.read_text(encoding="utf-8")
 
     def test_alpha_arrows_still_map_to_case_items(self) -> None:
-        """Alpha arrows still map to case items."""
-        _assert_true(re.search(r"CHR_caseUP\s*,\s*ITM_UP_ARROW", self.assign))
-        _assert_true(re.search(r"CHR_caseDN\s*,\s*ITM_DOWN_ARROW", self.assign))
+        """Alpha arrows still map to the case items on f and script items on g."""
+        _assert_true(re.search(r"ITM_CASEUP\s*,\s*ITM_SUPUP", self.assign))
+        _assert_true(re.search(r"ITM_CASEDN\s*,\s*ITM_SUBDN", self.assign))
 
     def test_items_define_full_case_labels(self) -> None:
         """Items define full case labels."""
