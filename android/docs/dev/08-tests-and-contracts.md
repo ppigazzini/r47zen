@@ -666,6 +666,13 @@ Android compatibility layer.
   across machines. Only `MANSLV2` stays liveness-only, because its direct-stop
   interrupt leaves no completed state to assert; it fails if it finishes
   before any direct stop was requested, since the stop seam then went untested.
+  That check is only as good as the window before the stop: `MANSLV2` ends by
+  itself after a time that depends on the machine and the build, so the
+  `stop_after_activity_ms` of its scenario must stay a small fraction of the
+  shortest natural run, or a fast runner finishes the program first and fails
+  the lane with no regression. The harness comment on that scenario records
+  the measured run times, and `ProgramFixtureInstrumentedTest.kt` holds the
+  same window on the emulator.
   The runner's fixture list and the harness's `kProgramFixtureScenarios` table
   must name the same fixtures, or the runner fails before it builds
 - The two plotting fixtures (`BinetV4.p47`, `GudrmPL.p47`) leave an image

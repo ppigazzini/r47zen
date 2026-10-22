@@ -591,7 +591,11 @@ class ProgramFixtureInstrumentedTest {
                 pauseResumePolicy = PauseResumePolicy.NONE,
                 seedMode = SeedMode.NONE,
                 stopPolicy = StopPolicy.DIRECT_STOP_AFTER_ACTIVITY,
-                stopAfterActivityMs = 3_000L,
+                // Stop well before MANSLV2 can end by itself, or a fast device
+                // finishes it first and the stop probe never runs. The host
+                // harness's MANSLV2 scenario holds the same window and the
+                // measured run times behind it.
+                stopAfterActivityMs = 500L,
             ),
             ProgramFixtureScenario(
                 fileName = "NQueens.p47",

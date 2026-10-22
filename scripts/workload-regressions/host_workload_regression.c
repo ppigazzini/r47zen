@@ -764,8 +764,14 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // reproducible across machines even though its plot image is not, see
      // below); MANSLV2 is the remaining known result-coverage gap because its
      // direct-stop interrupt leaves no completed state to assert.
+     // Keep the window a small fraction of MANSLV2's natural run: the solve
+     // ends by itself once it converges, after a time set by the machine and
+     // the optimization level (measured on upstream b847c584: 2.6-3.0 s at -O2
+     // and 4.4-5.9 s at -O0 on one host, 2.7 s at -O0 on a hosted runner). A
+     // window near that lets a fast machine finish first and fail the stop-seam
+     // check. ProgramFixtureInstrumentedTest.kt holds the same window.
      .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
-     .stop_after_activity_ms = 3000u},
+     .stop_after_activity_ms = 500u},
     {.program_name = "NQueens.p47",
   .source = WORKLOAD_SOURCE_PROGRAM_FILE,
      .timeout_ms = 20000u,
