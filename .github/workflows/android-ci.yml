@@ -244,7 +244,7 @@ jobs:
           ccache --zero-stats
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
@@ -316,7 +316,7 @@ jobs:
             "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
 
       - name: Set up Python 3.15
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.15'
 
@@ -327,10 +327,10 @@ jobs:
       # hash its requirements files too.
       # run_action_pin_consistency_contract.sh holds version and checksum.
       - name: Set up uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
-          version: '0.13.0'
-          checksum: '1468ebd5a5541121837c5a2817b9972ba6090fa6caa3d142620850a47fb75154'
+          version: '0.13.5'
+          checksum: 'f68d291c75783122dad58ab77def0e13f3233f358731db5d6d7e8715603b928f'
           enable-cache: true
           cache-dependency-glob: uv.lock
 
@@ -471,7 +471,7 @@ jobs:
           ccache --zero-stats
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
@@ -785,7 +785,7 @@ jobs:
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
@@ -973,7 +973,7 @@ jobs:
         run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}

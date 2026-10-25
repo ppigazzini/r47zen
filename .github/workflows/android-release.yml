@@ -280,7 +280,7 @@ jobs:
         run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
@@ -536,7 +536,7 @@ jobs:
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
@@ -772,7 +772,7 @@ jobs:
         run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}

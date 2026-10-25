@@ -1,5 +1,9 @@
 [versions]
 agp = "9.4.1"
+# Run AGP's built-in Kotlin on this KGP, through the root build.gradle. It must
+# read the Kotlin metadata of every library below: kotlinx-serialization is
+# built with a newer Kotlin than the KGP AGP depends on can read.
+kotlin = "2.4.21"
 # 2.0 alpha: detekt 1.23.8, the stable line, cannot run on the build JDK 25
 # (its Kotlin rejects the JVM target, and its compiler cannot parse the JDK
 # version string).
@@ -13,8 +17,8 @@ androidxTestCore = "1.7.0"
 androidxTestExtJunit = "1.3.0"
 androidxTestRunner = "1.7.0"
 junit4 = "4.13.2"
-kotest = "6.2.5"
-kotlinxSerialization = "1.11.0"
+kotest = "6.2.6"
+kotlinxSerialization = "1.12.0"
 kover = "0.9.11"
 material = "1.14.0"
 ossLicensesPlugin = "0.13.0"
@@ -37,6 +41,7 @@ androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "a
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
 junit4 = { module = "junit:junit", version.ref = "junit4" }
 kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }

@@ -123,13 +123,15 @@ hydrated on demand, or only exercised in CI before updating the docs.
   - `R47_DEFAULT_ANDROID_JAVA_VERSION` is the language and bytecode level the
     app is compiled *to* (`sourceCompatibility`, `targetCompatibility`, and the
     Kotlin `jvmTarget` AGP derives from them; verified by reading the emitted
-    class-file major version, not inferred). It is capped below the build JDK:
-    the Kotlin compiler AGP bundles rejects a `jvmTarget` above its own
-    supported range, and this key changes shipped dex, so it moves only with
-    device-lane evidence.
+    class-file major version, not inferred). It stays below the build JDK
+    because this key changes shipped dex, so it moves only with device-lane
+    evidence. The Kotlin compiler is not what holds it there: with the key
+    raised to the build JDK, `:app:compileDebugKotlin` on the KGP the
+    catalog's `kotlin` entry names emits that JDK's class-file major version.
 - settings-owned repositories via `android/settings.gradle`
 - version catalog `android/gradle/libs.versions.toml`, which owns the AGP
-  plugin coordinate plus the AndroidX and Material library versions.
+  plugin coordinate, the Kotlin Gradle plugin version, and the AndroidX and
+  Material library versions.
   `run_toolchain_pin_coherence_contract.sh` holds `R47_DEFAULT_ANDROID_AGP_VERSION`
   equal to it.
 - Jetifier explicitly disabled in `android/gradle.properties`
@@ -168,15 +170,21 @@ hydrated on demand, or only exercised in CI before updating the docs.
   API level, and keep local plus hosted test lanes on explicit API images.
 - Review NDK and CMake pins when Android's AGP/NDK guidance or CMake release
   notes move, and rerun packaging checks before landing the update.
-- Kotlin is intentionally unpinned in `android/gradle/libs.versions.toml`: the
-  build rides the Kotlin compiler bundled with the pinned AGP line rather
-  than a standalone Kotlin plugin, so there is no `kotlin` catalog entry
-  to drift against AGP. This avoids AGP/compiler skew, where an explicit Kotlin
-  pin newer or older than the one AGP expects can break the build. Add a
-  `kotlin` catalog entry and the Kotlin Gradle plugin only when a concrete task
-  needs a compiler newer than the AGP line bundles; until then, reviewing
-  Kotlin's current stable line on the JetBrains release page during quarterly
-  maintenance is informational, not a pin to bump.
+- Kotlin is pinned as the `kotlin` entry in `android/gradle/libs.versions.toml`.
+  `android/build.gradle` puts that Kotlin Gradle plugin (KGP) on the root
+  buildscript classpath, the route the
+  [AGP 9.0 release notes](https://developer.android.com/build/releases/agp-9-0-0-release-notes)
+  give for running AGP's built-in Kotlin on a KGP newer than the one AGP
+  depends on, and declares AGP `apply false` beside it so KGP on that
+  classloader sees AGP's classes. Its compiler must read the Kotlin metadata
+  of every catalog library: kotlinx-serialization is built with a newer Kotlin
+  than AGP's own KGP reads, and on that KGP `:app:compileDebugUnitTestKotlin`
+  refuses it. Gradle upgrades a KGP older than AGP's to AGP's, so the entry
+  can only raise the compiler; `./gradlew buildEnvironment` prints the
+  resolution as `kotlin-gradle-plugin:<AGP's> -> <catalog's>`. No contract
+  holds the pair. Prove an AGP or `kotlin` bump with lint, the JVM unit
+  tests, detekt, and `:app:compileDebugAndroidTestKotlin`; running the
+  instrumented tests is the connected lane's.
 - Review the xlsxio pin only when upstream font-generation behavior, security
   fixes, or CI breakage require it.
 

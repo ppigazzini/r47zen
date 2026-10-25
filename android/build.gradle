@@ -1,3 +1,21 @@
+// Raise the Kotlin Gradle plugin AGP's built-in Kotlin runs to the catalog's
+// `kotlin` version; AGP takes a newer KGP from the buildscript classpath.
+// Declare AGP here too: KGP on this classloader must see AGP's classes, and
+// with AGP loaded by :app alone, configuration fails with "Could not generate
+// a decorated class for type KotlinAndroidTarget".
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath libs.kotlin.gradle.plugin
+    }
+}
+
+plugins {
+    alias(libs.plugins.android.application) apply false
+}
+
 tasks.register('clean', Delete) {
     delete rootProject.layout.buildDirectory
 }

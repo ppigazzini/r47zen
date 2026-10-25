@@ -135,10 +135,10 @@ jobs:
       # The same uv android-ci pins; run_action_pin_consistency_contract.sh
       # holds both to the uv-pre-commit rev.
       - name: Set up uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
-          version: '0.13.0'
-          checksum: '1468ebd5a5541121837c5a2817b9972ba6090fa6caa3d142620850a47fb75154'
+          version: '0.13.5'
+          checksum: 'f68d291c75783122dad58ab77def0e13f3233f358731db5d6d7e8715603b928f'
 
       - name: Run zizmor
         shell: bash
@@ -147,5 +147,5 @@ jobs:
         # audits (known-vulnerable-action lookups) are a follow-up.
         run: |
           set -euo pipefail
-          uvx zizmor@1.30.1 --no-online-audits --min-severity=medium \
+          uvx zizmor@1.31.1 --no-online-audits --min-severity=medium \
             .github/workflows .github/actions .github/dependabot.yml

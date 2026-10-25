@@ -14,8 +14,8 @@
 # Also asserts the one invariant between the two JDK axes: the app language
 # level (R47_DEFAULT_ANDROID_JAVA_VERSION) can never exceed the build JDK,
 # because no compiler emits bytecode newer than itself. The separate ceiling
-# that the AGP-bundled Kotlin compiler imposes on jvmTarget is not encoded
-# here: it moves with AGP, and the Kotlin compiler already rejects an
+# that the Kotlin compiler imposes on jvmTarget is not encoded here: it moves
+# with the catalog's `kotlin` version, and the compiler already rejects an
 # out-of-range value with its own explicit error.
 #
 # Every check reads live code: a comment that names the pin satisfies nothing.

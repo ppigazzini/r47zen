@@ -84,7 +84,7 @@ flowchart TD
 - [Kotlin release process](https://kotlinlang.org/docs/releases.html):
   official JetBrains release page documenting the language, tooling, and bug-fix
   cadence.
-- [Gradle 9.8.1 release notes](https://docs.gradle.org/9.8.1/release-notes.html):
+- [Gradle 9.8.2 release notes](https://docs.gradle.org/9.8.2/release-notes.html):
   official Gradle release notes for the wrapper version
   `gradle-wrapper.properties` pins; `run_toolchain_pin_coherence_contract.sh`
   fails when this link names another.
