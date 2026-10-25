@@ -123,11 +123,26 @@ hydrated on demand, or only exercised in CI before updating the docs.
   - `R47_DEFAULT_ANDROID_JAVA_VERSION` is the language and bytecode level the
     app is compiled *to* (`sourceCompatibility`, `targetCompatibility`, and the
     Kotlin `jvmTarget` AGP derives from them; verified by reading the emitted
-    class-file major version, not inferred). It stays below the build JDK
-    because this key changes shipped dex, so it moves only with device-lane
-    evidence. The Kotlin compiler is not what holds it there: with the key
-    raised to the build JDK, `:app:compileDebugKotlin` on the KGP the
-    catalog's `kotlin` entry names emits that JDK's class-file major version.
+    class-file major version, not inferred). Its reach is narrow. The app has
+    no Java source of its own, which `find android/app/src -name '*.java'`
+    shows by printing nothing, so `sourceCompatibility` governs only the
+    ViewBinding classes AGP generates; it does not affect Kotlin source. What
+    the key moves is the class-file format of everything compiled, which D8,
+    or R8 in a minified release, compiles into dex; no JVM runs on a device. A
+    higher level can let the Kotlin compiler use a newer Java feature
+    directly, and can force a higher `minSdk`. The Java versions and d8 pages
+    in [the toolchain references](09-official-references.md#toolchain-references)
+    state each of these.
+
+    The key stays below the build JDK because moving it changes shipped dex,
+    and only a device or emulator runs dex: here, the connected lane. The
+    Kotlin compiler is not what holds it there: with the key raised to the
+    build JDK, `:app:compileDebugKotlin` on the KGP the catalog's `kotlin`
+    entry names emits that JDK's class-file major version. That compile is
+    the only step measured at that level; D8, R8, and the connected lane are
+    not. Move the key only when `:app:assembleDebug`, `:app:assembleRelease`
+    (which runs R8), and the connected lane pass on the new value, and confirm
+    the level with `javap -v` on a class `:app:compileDebugKotlin` emitted.
 - settings-owned repositories via `android/settings.gradle`
 - version catalog `android/gradle/libs.versions.toml`, which owns the AGP
   plugin coordinate, the Kotlin Gradle plugin version, and the AndroidX and

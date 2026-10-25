@@ -73,7 +73,15 @@ flowchart TD
   toolchain, `sourceCompatibility`/`targetCompatibility`, and the Kotlin
   `jvmTarget`. It is the source for the recommendation this repo follows -
   always declare the toolchain rather than inheriting the JDK that launched
-  Gradle.
+  Gradle - and for how far the app's language level reaches:
+  `sourceCompatibility` does not affect Kotlin source, `targetCompatibility`
+  sets the class-file format of Java and Kotlin output, a higher level may let
+  Kotlin use a Java feature directly or force a higher `minSdk`, and no JVM
+  runs on an Android device or emulator.
+- [d8](https://developer.android.com/tools/d8): official reference for the
+  tool AGP runs to compile class files into the dex a device runs, desugaring
+  Java language features on the way. It names no range of class-file versions
+  it accepts, so only a build at a new language level proves D8 takes it.
 - [Gradle Java toolchains](https://docs.gradle.org/current/userguide/toolchains.html):
   official Gradle reference for toolchain declaration, auto-detection, and the
   "No matching toolchains found" failure a host without the pinned JDK gets.
