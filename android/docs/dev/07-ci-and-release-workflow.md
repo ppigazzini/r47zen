@@ -394,8 +394,10 @@ It:
   see the real key and fork pull requests, which receive no secrets, still
   produce an installable APK
 - collects packaging evidence for the signed APK: expected ABIs, 16 KB zip
-  alignment, ELF `LOAD` segment alignment, compliance assets, and the signer
-  certificate digest
+  alignment, ELF `LOAD` segment alignment, compliance assets, the signer
+  certificate digest, and the upstream core's own version
+  (`upstream_version`, `VERSION1` from `src/c47/defines.h`, read by
+  `scripts/android/read_upstream_version.sh` in the build job)
 - uploads the Android packaging artifact bundle
   `r47zen-<upstream short>-<android short>`
 
@@ -490,6 +492,7 @@ the required verification lanes pass.
 It downloads the packaging artifact bundle `sign-dev-prerelease` uploaded,
 archives the packaging evidence, and publishes the signed dev-prerelease tagged
 `r47zen-<upstream short>-<android short>-dev`.
+The notes name the upstream commit with its `C47 <version>`.
 
 This prerelease is intentionally separate from the manual production release
 channel. The APK uses a dedicated prerelease signing key and never reuses the
@@ -614,6 +617,9 @@ This workflow:
   -Pr47.pgoProfilePath=...` unsigned, so the release APK and AAB consume the
   same collected host-core profile that the wrapper already validated, and
   fails if AGP reports a signed APK or the bundle carries a JAR signature
+- reads the upstream core's own version with
+  `scripts/android/read_upstream_version.sh` and passes it to Gradle as
+  `r47.upstreamVersion`, which the About line shows beside the core commit
 - uploads the release build logs, the host-core PGO artifact bundle, and the
   unsigned APK, unsigned AAB, `mapping.txt`, and `native-debug-symbols.zip` as
   `r47zen-<upstream short>-<android short>-release-unsigned`
@@ -633,11 +639,11 @@ The only job that reads the release upload key, and the only job bound to the
   `R47_RELEASE_KEY_PASSWORD`
 - removes the decoded key in the signing step's exit trap and again in an
   `if: always()` step
-- collects packaging evidence over the signed bytes and uploads the signed AAB
-  artifact bundle `r47zen-<upstream short>-<android short>-release` and the
-  signed APK artifact bundle
-  `r47zen-<upstream short>-<android short>-release-apk`, which ship
-  `r47zen-<upstream short>-<android short>-release.aab`,
+- collects packaging evidence over the signed bytes, the upstream version
+  included, and uploads the signed AAB artifact bundle
+  `r47zen-<upstream short>-<android short>-release` and the signed APK
+  artifact bundle `r47zen-<upstream short>-<android short>-release-apk`,
+  which ship `r47zen-<upstream short>-<android short>-release.aab`,
   `r47zen-<upstream short>-<android short>-release.apk`,
   `BUILD-METADATA.txt`, `SHA256SUMS.txt`, `mapping.txt`,
   `native-debug-symbols.zip`, and the compliance-assets payload
@@ -674,6 +680,7 @@ This workflow job:
   "Reinstall required" notice naming that release and its certificate:
   Android refuses an update across a signer change. `resolve-release-inputs`
   downloads that evidence and fails when it records no certificate
+- names the upstream commit with its `C47 <version>` in the notes
 
 Play Console still owns the publication inputs that no workflow holds:
 
@@ -714,8 +721,9 @@ environment and the only job that can release to Google Play. It:
   `version_code`, and fails before any network call when either `play-upload`
   variable is empty
 - writes the `play_release_notes` input, or by default the version and the
-  upstream short commit, as the en-US release notes; Play refuses more than
-  500 characters per language, and so does the job
+  calculator core (`C47 <version>` and the upstream short commit), as the
+  en-US release notes; Play refuses more than 500 characters per language,
+  and so does the job
 - exchanges the job's GitHub OIDC token for a short-lived token of the Play
   upload service account through `google-github-actions/auth`. No key exists
   and the job names no secret

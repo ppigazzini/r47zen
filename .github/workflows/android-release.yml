@@ -30,7 +30,7 @@ on:
           - alpha
           - none
       play_release_notes:
-        description: Play release notes in en-US, at most 500 characters (blank = the version and upstream commit)
+        description: Play release notes in en-US, at most 500 characters (blank = the version and the calculator core)
         required: false
         default: ''
         type: string
@@ -231,6 +231,7 @@ jobs:
       apk_artifact_name: ${{ steps.meta.outputs.apk_artifact_name }}
       release_bundle_name: ${{ steps.meta.outputs.release_bundle_name }}
       release_apk_name: ${{ steps.meta.outputs.release_apk_name }}
+      upstream_version: ${{ steps.upstream.outputs.upstream_version }}
     steps:
       - name: Configure Git init defaults
         shell: bash
@@ -346,6 +347,7 @@ jobs:
             "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
+          echo "upstream_version=$(bash ./scripts/android/read_upstream_version.sh src/c47/defines.h)" >> "$GITHUB_OUTPUT"
 
       - name: Set release metadata
         id: meta
@@ -393,6 +395,7 @@ jobs:
           R47_RELEASE_HOST_PGO_PROFILE: ${{ github.workspace }}/ci-artifacts/pgo/r47-host-core.profdata
           R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
+          R47_UPSTREAM_VERSION: ${{ steps.upstream.outputs.upstream_version }}
           GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
         run: |
           set -euo pipefail
@@ -409,6 +412,7 @@ jobs:
             -Pr47.versionCode="$R47_VERSION_CODE_INPUT" \
             -Pr47.versionName="$R47_VERSION_NAME_INPUT" \
             -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
+            -Pr47.upstreamVersion="$R47_UPSTREAM_VERSION" \
             -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
             -Pr47.sourceCommit=${{ github.sha }} \
             -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
@@ -630,10 +634,18 @@ jobs:
           RELEASE_BUNDLE_NAME: ${{ needs.build-production-release-bundle.outputs.release_bundle_name }}
           UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          UPSTREAM_VERSION: ${{ needs.build-production-release-bundle.outputs.upstream_version }}
         run: |
           set -euo pipefail
 
           . ./android/r47-defaults.properties
+
+          # The upstream version comes from a job that ran upstream code; take
+          # it as one plain token or not at all.
+          if [[ -n "$UPSTREAM_VERSION" && ! "$UPSTREAM_VERSION" =~ ^[0-9A-Za-z.-]{1,40}$ ]]; then
+            echo "Refusing the upstream version '${UPSTREAM_VERSION}' from build-production-release-bundle." >&2
+            exit 1
+          fi
 
           bundle_output_dir='ci-artifacts/release-aab'
           apk_output_dir='ci-artifacts/release-apk'
@@ -673,6 +685,7 @@ jobs:
             --android-source-commit "${GITHUB_SHA}"
             --upstream-source-repository-url "$UPSTREAM_URL"
             --upstream-source-commit "$UPSTREAM_COMMIT"
+            --upstream-version "$UPSTREAM_VERSION"
             --xlsxio-source-repository-url "$R47_DEFAULT_XLSXIO_URL"
             --xlsxio-source-commit "$R47_DEFAULT_XLSXIO_COMMIT"
             --application-id "$R47_DEFAULT_ANDROID_APPLICATION_ID"
@@ -1141,6 +1154,7 @@ jobs:
 
           upstream_commit=$(sed -n 's/^upstream_commit=//p' release-aab/BUILD-METADATA.txt)
           upstream_url=$(sed -n 's/^upstream_url=//p' release-aab/BUILD-METADATA.txt)
+          upstream_version=$(sed -n 's/^upstream_version=//p' release-aab/BUILD-METADATA.txt)
           android_commit=$(sed -n 's/^android_source_commit=//p' release-aab/BUILD-METADATA.txt)
           version_name=$(sed -n 's/^version_name=//p' release-aab/BUILD-METADATA.txt)
           version_code=$(sed -n 's/^version_code=//p' release-aab/BUILD-METADATA.txt)
@@ -1151,11 +1165,15 @@ jobs:
           signer_cert=$(sed -n 's/^artifact_signing_cert_sha256=//p' release-apk/BUILD-METADATA.txt)
           upstream_short_commit="${upstream_commit:0:8}"
           android_short_commit="${android_commit:0:8}"
+          core_label=""
+          if [[ -n "$upstream_version" ]]; then
+            core_label=" (C47 ${upstream_version})"
+          fi
 
           cat > release-notes.md <<EOF
           - Release tag ${R47_RELEASE_TAG}
           - Android version ${version_name} (${version_code})
-          - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
+          - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})${core_label}
           - Build Android overlay commit [${android_short_commit}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${android_commit})
           - Signing certificate SHA-256 ${signer_cert}
 
@@ -1308,14 +1326,17 @@ jobs:
           version_name=$(sed -n 's/^version_name=//p' release-aab/BUILD-METADATA.txt)
           version_code=$(sed -n 's/^version_code=//p' release-aab/BUILD-METADATA.txt)
           upstream_commit=$(sed -n 's/^upstream_commit=//p' release-aab/BUILD-METADATA.txt)
+          upstream_version=$(sed -n 's/^upstream_version=//p' release-aab/BUILD-METADATA.txt)
           if [[ "$version_code" != "$R47_VERSION_CODE_INPUT" ]]; then
             echo "The AAB records version_code '$version_code', the run resolved '$R47_VERSION_CODE_INPUT'." >&2
             exit 1
           fi
 
           notes="$R47_PLAY_RELEASE_NOTES"
-          if [[ -z "$notes" ]]; then
-            notes="R47 Zen ${version_name}, built from upstream C47 commit ${upstream_commit:0:8}."
+          if [[ -z "$notes" && -n "$upstream_version" ]]; then
+            notes="R47 Zen ${version_name}. Calculator core C47 ${upstream_version} (${upstream_commit:0:8})."
+          elif [[ -z "$notes" ]]; then
+            notes="R47 Zen ${version_name}. Calculator core commit ${upstream_commit:0:8}."
           fi
           # Play refuses release notes over 500 characters per language.
           if [[ "${#notes}" -gt 500 ]]; then

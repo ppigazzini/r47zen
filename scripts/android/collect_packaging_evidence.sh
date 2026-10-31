@@ -19,6 +19,7 @@ Usage:
     [--android-source-commit <commit>] \
     [--upstream-source-repository-url <url>] \
     [--upstream-source-commit <commit>] \
+    [--upstream-version <version>] \
     [--xlsxio-source-repository-url <url>] \
     [--xlsxio-source-commit <commit>] \
     [--application-id <id>] \
@@ -48,6 +49,7 @@ android_source_repository_url=""
 android_source_commit=""
 upstream_source_repository_url=""
 upstream_source_commit=""
+upstream_version=""
 xlsxio_source_repository_url=""
 xlsxio_source_commit=""
 application_id=""
@@ -113,6 +115,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --upstream-source-repository-url)
             upstream_source_repository_url="$2"
+            shift 2
+            ;;
+        --upstream-version)
+            upstream_version="$2"
             shift 2
             ;;
         --upstream-source-commit)
@@ -573,6 +579,7 @@ write_metadata_line "run_id" "$run_id" "$build_metadata_file"
 write_metadata_line "run_attempt" "$run_attempt" "$build_metadata_file"
 write_metadata_line "upstream_url" "$upstream_source_repository_url" "$build_metadata_file"
 write_metadata_line "upstream_commit" "$upstream_source_commit" "$build_metadata_file"
+write_metadata_line "upstream_version" "$upstream_version" "$build_metadata_file"
 write_metadata_line "upstream_license_file" "compliance-assets/COPYING" "$build_metadata_file"
 write_metadata_line "android_source_repository_url" "$android_source_repository_url" "$build_metadata_file"
 write_metadata_line "android_source_commit" "$android_source_commit" "$build_metadata_file"

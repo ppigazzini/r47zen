@@ -394,6 +394,7 @@ jobs:
       dev_apk_name: ${{ steps.meta.outputs.dev_apk_name }}
       release_tag: ${{ steps.meta.outputs.release_tag }}
       release_title: ${{ steps.meta.outputs.release_title }}
+      upstream_version: ${{ steps.upstream.outputs.upstream_version }}
     steps:
       - name: Configure Git init defaults
         shell: bash
@@ -530,6 +531,7 @@ jobs:
             "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
+          echo "upstream_version=$(bash ./scripts/android/read_upstream_version.sh src/c47/defines.h)" >> "$GITHUB_OUTPUT"
 
       - name: Set build metadata
         id: meta
@@ -877,12 +879,20 @@ jobs:
           DEV_APK_NAME: ${{ needs.android-build-test-package.outputs.dev_apk_name }}
           UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          UPSTREAM_VERSION: ${{ needs.android-build-test-package.outputs.upstream_version }}
           DEV_VERSION_CODE: ${{ needs.upstream-release-gate.outputs.dev_version_code }}
           DEV_VERSION_NAME: ${{ needs.upstream-release-gate.outputs.dev_version_name }}
         run: |
           set -euo pipefail
 
           . ./android/r47-defaults.properties
+
+          # The upstream version comes from a job that ran upstream code; take
+          # it as one plain token or not at all.
+          if [[ -n "$UPSTREAM_VERSION" && ! "$UPSTREAM_VERSION" =~ ^[0-9A-Za-z.-]{1,40}$ ]]; then
+            echo "Refusing the upstream version '${UPSTREAM_VERSION}' from android-build-test-package." >&2
+            exit 1
+          fi
 
           bash ./scripts/android/collect_packaging_evidence.sh \
             --variant release \
@@ -898,6 +908,7 @@ jobs:
             --android-source-commit "${GITHUB_SHA}" \
             --upstream-source-repository-url "$UPSTREAM_URL" \
             --upstream-source-commit "$UPSTREAM_COMMIT" \
+            --upstream-version "$UPSTREAM_VERSION" \
             --xlsxio-source-repository-url "$R47_DEFAULT_XLSXIO_URL" \
             --xlsxio-source-commit "$R47_DEFAULT_XLSXIO_COMMIT" \
             --version-code "$DEV_VERSION_CODE" \
@@ -1282,10 +1293,15 @@ jobs:
           upstream_short_commit="${upstream_commit:0:8}"
           android_short_commit="${android_commit:0:8}"
           evidence_archive_name="${dev_apk_name%.apk}-packaging-evidence.zip"
+          upstream_version=$(sed -n 's/^upstream_version=//p' release-assets/BUILD-METADATA.txt)
+          core_label=""
+          if [[ -n "$upstream_version" ]]; then
+            core_label=" (C47 ${upstream_version})"
+          fi
 
           cat > release-notes.md <<EOF
           - Snapshot tag ${release_tag}
-          - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
+          - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})${core_label}
           - Build Android overlay commit [${android_short_commit}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${android_commit})
 
           This prerelease contains the signed dev-channel APK ${dev_apk_name}

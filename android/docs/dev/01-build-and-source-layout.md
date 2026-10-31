@@ -157,6 +157,10 @@ hydrated on demand, or only exercised in CI before updating the docs.
 - debug builds add `applicationIdSuffix ".debug"`
 - release version inputs come from `r47.versionCode`, `r47.versionName`, and
   `r47.coreVersion`
+- `r47.upstreamVersion`, the upstream core's `VERSION1` that
+  `build_android.sh` reads with `scripts/android/read_upstream_version.sh`,
+  joins the core commit on the About line as `C47 <version>, <commit>`; an
+  empty or malformed value leaves the commit alone
 - release minify and resource shrinking default to on via
   `r47.releaseMinify` and `r47.releaseShrinkResources`
 - `r47.releaseChannel=dev` switches the release install identity to `.dev`,

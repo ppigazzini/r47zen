@@ -311,6 +311,14 @@ android {
     def coreVersion = (project.findProperty('r47.coreVersion') ?: "unknown").toString()
     def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z._-]/, "_")
     def normalizedReleaseChannelBuildToken = releaseChannelBuildToken?.replaceAll(/[^0-9A-Za-z._-]/, "_")
+    // The upstream core's own version (VERSION1 in src/c47/defines.h), read by
+    // scripts/android/read_upstream_version.sh; empty or malformed shows the
+    // commit alone.
+    def upstreamVersion = (project.findProperty('r47.upstreamVersion') ?: '').toString()
+    if (!(upstreamVersion ==~ /[0-9A-Za-z.-]{1,40}/)) {
+        upstreamVersion = ''
+    }
+    def coreLabel = upstreamVersion ? "C47 ${upstreamVersion}, ${coreVersion.take(8)}" : coreVersion
     def releaseVersionCode = Integer.parseInt((project.findProperty('r47.versionCode') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_CODE')).toString())
     def releaseVersionName = (project.findProperty('r47.versionName') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_NAME')).toString()
     def isDevReleaseChannel = releaseChannel == 'dev'
@@ -351,7 +359,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = releaseVersionCode
         versionName = releaseVersionName
-        resValue "string", "about_version_summary", "R47 Zen ${effectiveAboutVersionName} (Core: ${coreVersion})"
+        resValue "string", "about_version_summary", "R47 Zen ${effectiveAboutVersionName} (Core: ${coreLabel})"
         resValue "string", "android_source_repository_url", androidSourceRepositoryUrl
 
         // Use property override if provided, otherwise default to a verified version
