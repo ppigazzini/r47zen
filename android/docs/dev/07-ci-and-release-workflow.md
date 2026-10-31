@@ -116,6 +116,17 @@ upstream commit and applies a release gate:
     build, test, and publish lanes (`should_run=false`). A new upstream commit
     yields a new tag, which has no release yet, so the nightly run builds and
     tests the new artifact and surfaces any upstream regression
+- `upstream-release-gate` also names the dev build: a SemVer pre-release of
+  the next production release that `android/r47-defaults.properties` names,
+  `<version>-<run>.<attempt>`, with the run number as its version code. A
+  manual dispatch takes one input, the upstream commit, and its run title
+  names that commit
+- its `Check the next release numbers` step runs the release lane's checks
+  against the previous production release and warns, without failing, when
+  the next release would refuse the file's numbers: a code that is not the
+  previous code plus one, or a version that is not the next step under the
+  [version rules](10-writing.md#version-numbers), a forgotten "open the next
+  release" commit included
 
 ### Dev pre-release retention
 
@@ -128,7 +139,8 @@ the newest few (default 3). It removes each deleted release's git tag with
 `gh release delete --cleanup-tag`, so no orphan tags remain.
 
 The filter matches only `isPrerelease` releases whose tag ends in `-dev`, so
-it can never touch a signed `*-signed` production release, and retaining the
+it can never touch a production release, a full release tagged
+`r47zen-v<version>`, and retaining the
 newest pre-releases preserves the recent tags that `upstream-release-gate`
 relies on as its rebuild-idempotency key. A `dry_run` dispatch input lists
 what would be deleted without deleting. The job uses only the first-party
@@ -395,7 +407,7 @@ It:
   produce an installable APK
 - collects packaging evidence for the signed APK: expected ABIs, 16 KB zip
   alignment, ELF `LOAD` segment alignment, compliance assets, the signer
-  certificate digest, and the upstream core's own version
+  certificate digest, the dev version, and the upstream core's own version
   (`upstream_version`, `VERSION1` from `src/c47/defines.h`, read by
   `scripts/android/read_upstream_version.sh` in the build job)
 - off `pull_request`, fails unless that digest equals
@@ -496,8 +508,8 @@ the required verification lanes pass.
 It downloads the packaging artifact bundle `sign-dev-prerelease` uploaded,
 archives the packaging evidence, and publishes the signed dev-prerelease tagged
 `r47zen-<upstream short>-<android short>-dev`.
-The notes name the upstream commit with its `C47 <version>` and the signing
-certificate.
+The notes name the dev version, the upstream commit with its `C47 <version>`,
+and the signing certificate.
 
 This prerelease is intentionally separate from the manual production release
 channel. The APK uses a dedicated prerelease signing key and never reuses the
@@ -595,29 +607,37 @@ This workflow:
   `ci-artifacts/pgo/r47-host-core.profdata`
 - holds no signing input: no environment, no secret, no keystore (see
   [Signing isolation](#signing-isolation))
-- resolves `version_code` and `version_name` from manual workflow inputs
-- uses a plain counter as the `version_code` for Play uploads: exactly the
-  previous production release's code plus one, 1 for the first Play upload.
-  `resolve-release-inputs` reads the previous code with
+- takes the release's two numbers from `android/r47-defaults.properties`,
+  which names the next release: `R47_DEFAULT_ANDROID_VERSION_CODE` and
+  `R47_DEFAULT_ANDROID_VERSION_NAME`. `resolve-release-inputs` refuses the run
+  unless the dispatch's `confirm_version_code` and `confirm_version` equal
+  them, so a typo stops before anything builds
+- holds the code to a plain counter for Play uploads: exactly the previous
+  production release's code plus one. `resolve-release-inputs` reads the
+  previous code, tag, and version with
   `scripts/android/resolve_previous_release.sh`, from the production release
   bodies (the `Android version <name> (<code>)` line this workflow writes),
   refuses any other value, and caps the code at 100000. Play's ceiling is
   2100000000 and a code can never be lowered or reused, which is why the
   retired `YYYYMMDDVV` pattern is rejected: it sat at 96% of the ceiling on the
   first upload. Codes above the cap in older releases are ignored by the check.
-  An `allow_overwrite` re-cut that keeps the previous code must set
-  `play_track` to `none`: Play takes a code once, across every track
-- derives the release tag `r47zen-v<version_name>` and title once, in
-  `resolve-release-inputs`, which runs no upstream code; the tag-exists guard
-  and the publish step read the same value
-- uses `version_name` as the user-facing release label and the derived GitHub
-  tag basis; keep it semver-shaped with a signed date suffix:
-  `major.minor.patch-signed.YYYYMMDDVV`
-- follows the current guidance behind that pattern: Android requires each
-  release to use a higher integer `versionCode`, treats `versionName` as the
-  user-visible string, and points to Semantic Versioning as a common basis;
-  keeping the underlying release version semver-shaped also makes the derived
-  prefixed GitHub tag easier to read and maintain
+  An `allow_overwrite` re-cut keeps the previous release's code and version
+  and must set `play_track` to `none`: Play takes a code once, across every
+  track
+- holds the version to the [version rules](10-writing.md#version-numbers)
+  with `scripts/android/check_release_version.sh`: a plain
+  `major.minor.patch`, the PATCH step from the previous release when
+  `android/app/src/main/` is unchanged since the commit that release was built
+  from (`android_source_commit` in its APK evidence), and the MINOR step with
+  PATCH 0 when it changed. The diff needs that commit, so
+  `resolve-release-inputs` checks out with `fetch-depth: 0`
+- derives the release tag `r47zen-v<version>` and the title
+  `R47 Zen <version>` once, in `resolve-release-inputs`, which runs no
+  upstream code; the tag-exists guard and the publish step read the same value
+- follows Android's own split: each release uses a higher integer
+  `versionCode`, and `versionName` is the user-visible string, here a SemVer
+  version
+- names the run `Android Release <version> (<code>) -> <play_track>`
 - builds `:app:assembleRelease :app:bundleRelease
   -Pr47.pgoProfilePath=...` unsigned, so the release APK and AAB consume the
   same collected host-core profile that the wrapper already validated, and
@@ -667,10 +687,8 @@ This workflow job:
   packaging-evidence zips, then verifies each attestation against this
   workflow's identity with `gh attestation verify`, before anything is
   published
-- creates or updates the GitHub release tag
-  `r47zen-v<sanitized version_name>` titled `R47 Zen <version_name>`
-- keeps the derived tag predictable when `version_name` stays ASCII and follows
-  the maintained semver-shaped signed-release pattern
+- creates or updates the GitHub release tag `r47zen-v<version>` titled
+  `R47 Zen <version>`
 - attaches the signed installable APK, the signed Play upload AAB, and both
   packaging-evidence archives to that GitHub release
 - hands the signed AAB to [`upload-to-play`](#upload-to-play), which sends it
@@ -686,6 +704,8 @@ This workflow job:
   Android refuses an update across a signer change. `resolve-release-inputs`
   downloads that evidence and fails when it records no certificate
 - names the upstream commit with its `C47 <version>` in the notes
+- writes a run summary: the release link, the signing certificate, the Play
+  track, and the two lines that open the next release
 
 Play Console still owns the publication inputs that no workflow holds:
 
@@ -722,8 +742,8 @@ environment and the only job that can release to Google Play. It:
   and verifies the AAB's provenance attestation with `gh attestation verify`
   against this workflow, so Play receives only the bytes the GitHub release
   attested
-- fails unless the AAB's `BUILD-METADATA.txt` records the run's
-  `version_code`, and fails before any network call when either `play-upload`
+- fails unless the AAB's `BUILD-METADATA.txt` records the run's version
+  code, and fails before any network call when either `play-upload`
   variable is empty
 - writes the `play_release_notes` input, or by default the version and the
   calculator core (`C47 <version>` and the upstream short commit), as the

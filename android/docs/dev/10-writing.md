@@ -224,6 +224,38 @@ The commit is the durable record of *why*, and the only place history belongs.
 - A commit that re-blesses a golden names the upstream commit that moved it and
   root-causes the drift. Regenerating without that is laundering.
 
+## Version numbers
+
+A version is a claim a reader acts on: Android and Play order builds by the
+version code alone, and a person reads the version.
+`scripts/android/check_release_version.sh` holds the mechanical half of these
+rules ([the gates](#the-gates)); the release procedure is
+[12-cutting-a-release.md](12-cutting-a-release.md).
+
+- **SemVer 2.0.0, and every release gets its own version.** A production
+  version is a plain `major.minor.patch`, no suffix. A firmware-only release
+  gets a new one too: "Any modifications MUST be released as a new version"
+  (SemVer item 3).
+- **App code changed since the previous release: MINOR, PATCH reset to 0.**
+  App code is `android/app/src/main/`, what this repo ships in the APK. A
+  change there takes `0.1.14` to `0.2.0`, whether it fixes or adds; a MAJOR
+  step (`1.0.0`) also passes.
+- **Anything else: PATCH.** A release that changes only the upstream
+  firmware, CI, the build, tests, or docs takes `0.1.13` to `0.1.14`.
+- **From a pre-release, drop the suffix.** Every release before these rules
+  carried one (`0.1.13-signed.2026102901`), so SemVer sorts it before the
+  plain `0.1.13`. The PATCH step from it is `0.1.13` and the MINOR step
+  `0.2.0`, as npm semver's `inc()` steps.
+- **`android/r47-defaults.properties` names the next release**, not the last
+  one: `R47_DEFAULT_ANDROID_VERSION_CODE`, the previous code plus one, and
+  `R47_DEFAULT_ANDROID_VERSION_NAME`. Right after a release, a commit opens
+  the next numbers (`chore(release): open 0.1.14 (11)` after 0.1.13 with code
+  10), and a commit that changes app code moves a pending PATCH step to the
+  MINOR step. The release form confirms both numbers; it never invents them.
+- **A dev build is a pre-release of the next version**,
+  `<version>-<run>.<attempt>`: `0.1.14-53.1` sorts after `0.1.13` and before
+  `0.1.14`. The `-` already makes it a pre-release, so it carries no label.
+
 ## The gates
 
 The mechanical checks:
@@ -252,6 +284,13 @@ The mechanical checks:
   does a baseline entry the code no longer has, so a fix removes its entry in
   the same commit. Adding an entry by hand is a decision a reviewer sees in
   the diff, never a way to pass.
+- `scripts/android/check_release_version.sh` holds the
+  [version rules](#version-numbers) against the previous production release:
+  the release lane's `resolve-release-inputs` refuses a version that breaks
+  them, and `android-ci`'s `upstream-release-gate` warns on every run.
+  `scripts/android/run_version_naming_contract.sh` proves it on a seeded
+  repository. It reads only paths: it cannot tell a fix under
+  `android/app/src/main/` from a feature, and both take the MINOR step.
 - `scripts/docs/check_commit_message.sh` holds the mechanical half of the
   [commit rules](#commit-messages): the subject shape and length, the blank
   second line, the body width, no co-author or agent attribution, and no

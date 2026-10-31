@@ -25,8 +25,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERIFIER="$SCRIPT_DIR/verify_published_release_artifacts.sh"
 SIG_MAGIC="APK Sig Block 42"
 PIN_ABI="arm64-v8a"
-VC="2026060701"
-VN="0.1.0-signed.2026060701"
+VC="10"
+VN="0.1.13"
 # Two synthetic signer cert digests (64 lowercase hex): the release key and a
 # different one used for the mismatch and pin cases.
 CERT="430e736b0f2f1ca4f5d8da9286961c2273a2e574153a9fb6c8176e97b1e3e3f8"

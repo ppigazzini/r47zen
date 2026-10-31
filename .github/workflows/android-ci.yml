@@ -1,18 +1,14 @@
 name: Android CI
 
+# A dispatch that pins an upstream commit says so in the run list; any other
+# run keeps GitHub's default title (an empty run-name falls back to it).
+run-name: ${{ inputs.upstream_commit && format('Android CI upstream {0}', inputs.upstream_commit) || '' }}
+
 on:
   workflow_dispatch:
     inputs:
-      dev_version_code:
-        description: Monotonic Android versionCode for the signed dev prerelease lane
-        required: false
-        type: string
-      dev_version_name:
-        description: Android versionName base for the signed dev prerelease lane
-        required: false
-        type: string
       upstream_commit:
-        description: Optional full 40-character upstream commit SHA to pin for this run (roadblock; blank = latest HEAD)
+        description: GitLab commit to build (full 40 characters; blank = upstream's latest)
         required: false
         type: string
   push:
@@ -56,12 +52,16 @@ jobs:
       release_tag: ${{ steps.decide.outputs.release_tag }}
       dev_version_code: ${{ steps.decide.outputs.dev_version_code }}
       dev_version_name: ${{ steps.decide.outputs.dev_version_name }}
+      dev_version: ${{ steps.decide.outputs.dev_version }}
       dev_build_token: ${{ steps.decide.outputs.dev_build_token }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The next-release check diffs this commit against the previous
+          # release's, so it needs the history.
+          fetch-depth: 0
 
       - name: Decide whether to build and publish
         id: decide
@@ -69,8 +69,6 @@ jobs:
         env:
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           ANDROID_COMMIT: ${{ github.sha }}
-          DEV_VERSION_CODE_INPUT: ${{ inputs.dev_version_code }}
-          DEV_VERSION_NAME_INPUT: ${{ inputs.dev_version_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -95,34 +93,24 @@ jobs:
           release_tag="$R47_ANDROID_DEV_RELEASE_TAG"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
 
+          # A dev build is a SemVer pre-release of the next production
+          # release, which android/r47-defaults.properties names:
+          # <version>-<run>.<attempt>, with the run number as its version code,
+          # which only goes up.
           dev_build_token="${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+          dev_version_code="$GITHUB_RUN_NUMBER"
+          dev_version_name="$(sed -n 's/^R47_DEFAULT_ANDROID_VERSION_NAME=//p' ./android/r47-defaults.properties)"
 
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "${DEV_VERSION_CODE_INPUT:-}" ]]; then
-            dev_version_code="$DEV_VERSION_CODE_INPUT"
-          else
-            dev_version_code="$GITHUB_RUN_NUMBER"
-          fi
-
-          if [[ "$dev_version_code" =~ [^0-9] || "$dev_version_code" -lt 1 ]]; then
-            echo "Dev prerelease version code must be a positive integer. Got: $dev_version_code" >&2
-            exit 1
-          fi
-
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "${DEV_VERSION_NAME_INPUT:-}" ]]; then
-            dev_version_name="$DEV_VERSION_NAME_INPUT"
-          else
-            dev_version_name="$(grep -E '^R47_DEFAULT_ANDROID_VERSION_NAME=' ./android/r47-defaults.properties | cut -d= -f2)"
-          fi
-
-          # Gradle appends -dev.<token>, so the base must be a bare
+          # Gradle appends -<token>, so the base must be a bare
           # major.minor.patch; anything else reaches file and tag names unchecked.
-          if [[ ! "$dev_version_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Dev prerelease version name must be major.minor.patch (e.g. 0.1.0). Got: '$dev_version_name'" >&2
+          if [[ ! "$dev_version_name" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "R47_DEFAULT_ANDROID_VERSION_NAME must be major.minor.patch. Got: '$dev_version_name'" >&2
             exit 1
           fi
 
           echo "dev_version_code=$dev_version_code" >> "$GITHUB_OUTPUT"
           echo "dev_version_name=$dev_version_name" >> "$GITHUB_OUTPUT"
+          echo "dev_version=${dev_version_name}-${dev_build_token}" >> "$GITHUB_OUTPUT"
           echo "dev_build_token=$dev_build_token" >> "$GITHUB_OUTPUT"
 
           # release_tag is keyed on the resolved upstream short commit and the
@@ -166,6 +154,62 @@ jobs:
               echo "- release tag: \`$release_tag\`"
             } >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Check the next release numbers
+        # Warn only: the release lane refuses numbers that fail these checks
+        # anyway; this step says so at push time instead of at release time.
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          defaults_file="android/r47-defaults.properties"
+          next_code="$(sed -n 's/^R47_DEFAULT_ANDROID_VERSION_CODE=//p' "$defaults_file")"
+          next_version="$(sed -n 's/^R47_DEFAULT_ANDROID_VERSION_NAME=//p' "$defaults_file")"
+
+          releases_json="${RUNNER_TEMP}/releases.json"
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" >"$releases_json"
+          previous="$(bash ./scripts/android/resolve_previous_release.sh \
+            --releases-json "$releases_json" --cap 100000)"
+          previous_code="$(sed -n 's/^previous_code=//p' <<<"$previous")"
+          previous_tag="$(sed -n 's/^previous_tag=//p' <<<"$previous")"
+          previous_name="$(sed -n 's/^previous_name=//p' <<<"$previous")"
+
+          problems=()
+          if [[ "$next_code" != "$((previous_code + 1))" ]]; then
+            problems+=("R47_DEFAULT_ANDROID_VERSION_CODE is ${next_code}; the next release needs $((previous_code + 1)), since ${previous_tag:-no release} used ${previous_code}.")
+          fi
+          previous_android_commit=""
+          if [[ -n "$previous_tag" ]]; then
+            evidence_dir="${RUNNER_TEMP}/previous-release-evidence"
+            mkdir -p "$evidence_dir"
+            gh release download "$previous_tag" --repo "$GITHUB_REPOSITORY" \
+              --pattern '*apk-packaging-evidence.zip' --dir "$evidence_dir"
+            previous_android_commit="$(unzip -p "$evidence_dir"/*.zip BUILD-METADATA.txt | sed -n 's/^android_source_commit=//p')"
+          fi
+          if ! check_output="$(bash ./scripts/android/check_release_version.sh \
+            --version "$next_version" \
+            --previous-version "$previous_name" \
+            --previous-commit "$previous_android_commit" 2>&1)"; then
+            problems+=("$(grep -v -e '^app_changed=' -e '^expected=' <<<"$check_output" | tr '\n' ' ')")
+          fi
+
+          if [[ "${#problems[@]}" -eq 0 ]]; then
+            echo "The next release, ${next_version} (${next_code}), follows ${previous_tag:-no release}."
+            exit 0
+          fi
+          {
+            echo "### Next release numbers"
+            echo
+            echo "The release lane would refuse \`${defaults_file}\` as it stands:"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          for problem in "${problems[@]}"; do
+            echo "::warning title=Next release numbers::${problem}"
+            echo "- ${problem}" >> "$GITHUB_STEP_SUMMARY"
+          done
 
   upstream-simulator-sanity:
     name: Sanity-check authoritative upstream simulator core
@@ -882,7 +926,7 @@ jobs:
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           UPSTREAM_VERSION: ${{ needs.android-build-test-package.outputs.upstream_version }}
           DEV_VERSION_CODE: ${{ needs.upstream-release-gate.outputs.dev_version_code }}
-          DEV_VERSION_NAME: ${{ needs.upstream-release-gate.outputs.dev_version_name }}
+          DEV_VERSION: ${{ needs.upstream-release-gate.outputs.dev_version }}
         run: |
           set -euo pipefail
 
@@ -913,7 +957,7 @@ jobs:
             --xlsxio-source-repository-url "$R47_DEFAULT_XLSXIO_URL" \
             --xlsxio-source-commit "$R47_DEFAULT_XLSXIO_COMMIT" \
             --version-code "$DEV_VERSION_CODE" \
-            --version-name "$DEV_VERSION_NAME" \
+            --version-name "$DEV_VERSION" \
             --signing-mode prerelease \
             --ref "${GITHUB_REF}" \
             --sha "${GITHUB_SHA}" \
@@ -1306,6 +1350,8 @@ jobs:
           android_short_commit="${android_commit:0:8}"
           evidence_archive_name="${dev_apk_name%.apk}-packaging-evidence.zip"
           upstream_version=$(sed -n 's/^upstream_version=//p' release-assets/BUILD-METADATA.txt)
+          version_name=$(sed -n 's/^version_name=//p' release-assets/BUILD-METADATA.txt)
+          version_code=$(sed -n 's/^version_code=//p' release-assets/BUILD-METADATA.txt)
           signer_cert=$(sed -n 's/^artifact_signing_cert_sha256=//p' release-assets/BUILD-METADATA.txt)
           core_label=""
           if [[ -n "$upstream_version" ]]; then
@@ -1314,6 +1360,7 @@ jobs:
 
           cat > release-notes.md <<EOF
           - Snapshot tag ${release_tag}
+          - Android version ${version_name} (${version_code})
           - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})${core_label}
           - Build Android overlay commit [${android_short_commit}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${android_commit})
           - Signing certificate SHA-256 ${signer_cert}

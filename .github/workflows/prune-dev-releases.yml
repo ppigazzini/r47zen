@@ -4,13 +4,13 @@ name: Prune dev pre-releases
 # (upstream, overlay) commit pair as a browsable snapshot and as the
 # rebuild-idempotency key (upstream-release-gate skips the build when the
 # release already exists). Left unmanaged the set grows ~1/day and buries the
-# signed `-signed` production releases. GitHub has no native release/tag TTL, so
+# production releases. GitHub has no native release/tag TTL, so
 # this scheduled job enforces one: it deletes `-dev` pre-releases past the TTL
 # while always retaining the newest KEEP_MIN, and drops each deleted release's
 # git tag with `gh release delete --cleanup-tag`.
 #
-# Safety: the `isPrerelease` + `-dev` suffix filter cannot match a signed
-# production release (those are full releases named `*-signed`), and KEEP_MIN
+# Safety: the `isPrerelease` + `-dev` suffix filter cannot match a production
+# release, which is a full release tagged `r47zen-v<version>`, and KEEP_MIN
 # preserves the recent tags the build gate depends on. Run with the dry_run
 # input first to preview.
 

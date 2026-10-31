@@ -156,7 +156,9 @@ hydrated on demand, or only exercised in CI before updating the docs.
   wiring stay aligned with that checked-in identity
 - debug builds add `applicationIdSuffix ".debug"`
 - release version inputs come from `r47.versionCode`, `r47.versionName`, and
-  `r47.coreVersion`
+  `r47.coreVersion`; without the first two, Gradle reads the next release's
+  numbers from `R47_DEFAULT_ANDROID_VERSION_CODE` and
+  `R47_DEFAULT_ANDROID_VERSION_NAME` in `android/r47-defaults.properties`
 - `r47.upstreamVersion`, the upstream core's `VERSION1` that
   `build_android.sh` reads with `scripts/android/read_upstream_version.sh`,
   joins the core commit on the About line as `C47 <version>, <commit>`; an
@@ -164,7 +166,9 @@ hydrated on demand, or only exercised in CI before updating the docs.
 - release minify and resource shrinking default to on via
   `r47.releaseMinify` and `r47.releaseShrinkResources`
 - `r47.releaseChannel=dev` switches the release install identity to `.dev`,
-  appends `-dev.<token>` to `versionName`, defaults `testBuildType` to
+  appends `-<token>` to `versionName`, making it a SemVer pre-release of the
+  next release (the CI token is `<run>.<attempt>`; without one it is the core
+  commit), defaults `testBuildType` to
   `release`, and uses dedicated prerelease signing when the full
   `R47_PRERELEASE_*` or `r47.prerelease*` input set is present. Without it AGP
   writes `app-release-unsigned.apk`, which is how CI builds the dev APK before

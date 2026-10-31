@@ -309,8 +309,10 @@ android {
     compileSdk = project.findProperty('r47.compileSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK')
     compileSdkMinor = project.findProperty('r47.compileSdkMinor')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR')
     def coreVersion = (project.findProperty('r47.coreVersion') ?: "unknown").toString()
-    def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z._-]/, "_")
-    def normalizedReleaseChannelBuildToken = releaseChannelBuildToken?.replaceAll(/[^0-9A-Za-z._-]/, "_")
+    // The dev token becomes a SemVer pre-release, <version>-<token>, so it
+    // keeps to [0-9A-Za-z.-].
+    def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z.-]/, "-")
+    def normalizedReleaseChannelBuildToken = releaseChannelBuildToken?.replaceAll(/[^0-9A-Za-z.-]/, "-")
     // The upstream core's own version (VERSION1 in src/c47/defines.h), read by
     // scripts/android/read_upstream_version.sh; empty or malformed shows the
     // commit alone.
@@ -323,7 +325,7 @@ android {
     def releaseVersionName = (project.findProperty('r47.versionName') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_NAME')).toString()
     def isDevReleaseChannel = releaseChannel == 'dev'
     def effectiveDevReleaseToken = normalizedReleaseChannelBuildToken ?: normalizedCoreVersion
-    def effectiveAboutVersionName = isDevReleaseChannel ? "${releaseVersionName}-dev.${effectiveDevReleaseToken}" : releaseVersionName
+    def effectiveAboutVersionName = isDevReleaseChannel ? "${releaseVersionName}-${effectiveDevReleaseToken}" : releaseVersionName
 
     signingConfigs {
         if (isPrereleaseSigningConfigured) {
@@ -389,7 +391,7 @@ android {
             shrinkResources = releaseShrinkResourcesEnabled
             if (isDevReleaseChannel) {
                 applicationIdSuffix = ".dev"
-                versionNameSuffix = "-dev.${effectiveDevReleaseToken}"
+                versionNameSuffix = "-${effectiveDevReleaseToken}"
                 if (isPrereleaseSigningConfigured) {
                     signingConfig = signingConfigs.prerelease
                 }

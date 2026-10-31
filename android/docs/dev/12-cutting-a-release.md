@@ -4,8 +4,9 @@ This page is the ordered procedure for publishing a signed production release
 of R47 Zen, what to do when the workflow refuses, and how to re-release a past
 build. It is a checklist, not a reference:
 [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md#production-release-workflow)
-owns what each job does and why, and every step below links the rule it
-follows.
+owns what each job does and why,
+[10-writing.md](10-writing.md#version-numbers) owns the version rules, and
+every step below links the rule it follows.
 
 A release is one dispatch of `.github/workflows/android-release.yml` on `main`.
 Nothing else publishes a production release, and every job after the two
@@ -21,35 +22,37 @@ resolve jobs runs only on `main`.
    gh run list --workflow android-ci.yml --branch main --limit 1
    ```
 
-2. **Find the version code.** It is a counter: exactly the previous production
-   release's code plus one
-   ([why](07-ci-and-release-workflow.md#build-production-release-bundle)). The
-   workflow reads the previous code with the same script you can run:
+2. **Read the two numbers you are about to release.**
+   `android/r47-defaults.properties` holds the next release: its Play version
+   code and its version.
 
    ```sh
-   gh api 'repos/ppigazzini/r47zen/releases?per_page=100' >releases.json
-   bash scripts/android/resolve_previous_release.sh --releases-json releases.json --cap 100000
+   grep -E '^R47_DEFAULT_ANDROID_VERSION_(CODE|NAME)=' android/r47-defaults.properties
    ```
 
-   It prints `previous_code=<n>` and `previous_tag=<tag>`; dispatch with
-   `<n> + 1`.
+   The commit after the previous release set them; the workflow refuses them
+   unless the code is the previous production release's plus one and the
+   version is the next SemVer step
+   ([rules](10-writing.md#version-numbers)). The `Check the next release
+   numbers` step of `android-ci`'s `upstream-release-gate` job runs the same
+   checks on every run and warns when they fail. If app code changed since the
+   previous release and the file still names a PATCH step, commit the MINOR
+   step first.
 
-3. **Choose the version name**, `major.minor.patch-signed.YYYYMMDDVV`, for
-   example `0.1.12-signed.2026101201`. The release tag is
-   `r47zen-v<version_name>`, and the workflow refuses a tag that exists.
-
-4. **Choose the Play track.** `internal` is the default, `alpha` is the closed
+3. **Choose the Play track.** `internal` is the default, `alpha` is the closed
    testing track, and `none` publishes the GitHub release alone
    ([`upload-to-play`](07-ci-and-release-workflow.md#upload-to-play)).
    Production is never a dispatch value: promote in Play Console.
 
 ## Dispatch
 
+Type the two numbers from step 2 as confirmations:
+
 ```sh
 gh workflow run android-release.yml --ref main \
-  -f version_code=<previous+1> \
-  -f version_name=<major.minor.patch-signed.YYYYMMDDVV> \
-  -f play_track=internal
+  -f confirm_version_code=<R47_DEFAULT_ANDROID_VERSION_CODE> \
+  -f confirm_version=<R47_DEFAULT_ANDROID_VERSION_NAME> \
+  -f play_track=alpha
 gh run watch "$(gh run list --workflow android-release.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
 ```
 
@@ -93,6 +96,16 @@ until it passes.
    `android/r47-defaults.properties`.
 3. With a Play track set, the release is on that track. Promote it in Play
    Console when it should reach production.
+4. **Open the next release.** Commit the next code (this one plus one) and
+   the next PATCH step in `android/r47-defaults.properties`; the run summary
+   prints both lines:
+
+   ```sh
+   git commit -m "chore(release): open 0.1.14 (11)" android/r47-defaults.properties
+   ```
+
+   Until this commit lands, dev pre-releases read the released version as
+   their base and sort before it, and the next release run is refused.
 
 ## When the workflow refuses
 
@@ -102,20 +115,24 @@ cause.
 
 | message | what it means | do this |
 |---|---|---|
-| `version_code must be <n> (previous production release used <m>), got <x>.` | the code is not the previous plus one | dispatch again with `<n>` |
-| `version_code <x> is above 100000; it must be a small counter ...` | a date was typed as the code | dispatch with the counter from step 2 |
-| `version_name '<x>' is malformed; ...` | the name misses the `major.minor.patch-signed.YYYYMMDDVV` shape | fix the name |
-| `Release tag <tag> already exists; refusing to overwrite a published release.` | that name was released | pick the next name; set `allow_overwrite=true` only to re-cut that release on purpose |
-| `allow_overwrite=true re-cuts version_code <x>, which Play refuses to take twice; ...` | a re-cut keeps the code, and Play takes a code once | re-cut with `play_track=none`, or release the next code |
+| `android/r47-defaults.properties says R47_DEFAULT_ANDROID_VERSION_CODE=<x>, confirm_version_code says <y>.` (or `..._VERSION_NAME=...`, `confirm_version`) | the typed confirmation is not the file | dispatch again with the file's value, or fix the file first |
+| `R47_DEFAULT_ANDROID_VERSION_CODE must be <n> (previous production release used <m>), got <x>.` | the file's code is not the previous plus one, usually a forgotten "open the next release" commit | commit `<n>` and its version, then dispatch |
+| `R47_DEFAULT_ANDROID_VERSION_CODE <x> is above 100000; ...` | a date was written as the code | commit the counter |
+| `... the release takes the PATCH step, <v>, not <x>.` | app code is unchanged since the previous release, and the file names another version | commit `<v>` |
+| `App code (android/app/src/main/) changed since <prev> ... The release takes the MINOR step, PATCH reset: <v> ...` | app code changed, and the file names a PATCH step | commit `<v>` ([rules](10-writing.md#version-numbers)) |
+| `Commit <sha> of the previous release <prev> is not in the local history ...` | the checkout lost history | rerun; the job checks out with `fetch-depth: 0` |
+| `Release tag <tag> already exists; refusing to overwrite a published release.` | that version was released | commit the next version; set `allow_overwrite=true` only to re-cut that release on purpose |
+| `allow_overwrite=true re-cuts version code <x>, which Play refuses to take twice; ...` | a re-cut keeps the code, and Play takes a code once | re-cut with `play_track=none`, or release the next code |
+| `allow_overwrite=true re-cuts <tag>, so the version must stay <v>, not <x>.` | a re-cut republishes the previous release under its own tag | set the file back to that release's numbers, or release the next ones |
 | `Could not determine whether <tag> exists (git ls-remote exit <n>); ...` | the tag check failed on the network or auth | rerun the failed job |
-| `Expected one APK evidence archive on <tag>, found <n>.` or `The APK evidence of <tag> records no signing certificate ...` | the previous release lacks the evidence the reinstall notice is computed from | restore the previous release's `*-apk-packaging-evidence.zip` asset; the workflow will not publish without knowing whether installs can update |
+| `Expected one APK evidence archive on <tag>, found <n>.`, `The APK evidence of <tag> records no signing certificate ...`, or `... records no android_source_commit ...` | the previous release lacks the evidence the reinstall notice and the version check read | restore the previous release's APK packaging-evidence asset; the workflow will not publish without it |
 | `Missing required production release signing secret for <name>.` | an `R47_RELEASE_*` secret is missing from the `production-release` environment | see [Repository settings](07-ci-and-release-workflow.md#repository-settings) |
 | `upload-to-play` fails with "Precondition check failed" | an edit was open in Play Console | close it, then rerun the failed job alone; the GitHub release is already published ([limits](07-ci-and-release-workflow.md#upload-to-play)) |
 | Play answers that the track does not exist | the track name | the first value to check is `internal` versus `qa` ([limits](07-ci-and-release-workflow.md#upload-to-play)) |
 
 A failure in a build, sign, or verify job is a regression, not a refusal:
 nothing was published, so fix it on `main`, wait for `android-ci` to pass, and
-dispatch again with the same code and name.
+dispatch again with the same numbers.
 
 ## Re-releasing a past build
 
@@ -130,21 +147,21 @@ Every published build records the upstream core revision it was built from in
    release's packaging-evidence archive. Note `android_source_commit=` too if
    you need the overlay (see the limit below).
 2. **Re-release the signed production build** with that full 40-character
-   commit and the next version code and name:
+   commit, as the next release in `android/r47-defaults.properties`:
 
    ```sh
    gh workflow run android-release.yml --ref main \
      -f upstream_commit=<recorded-sha> \
-     -f version_code=<previous+1> \
-     -f version_name=<major.minor.patch-signed.YYYYMMDDVV>
+     -f confirm_version_code=<R47_DEFAULT_ANDROID_VERSION_CODE> \
+     -f confirm_version=<R47_DEFAULT_ANDROID_VERSION_NAME>
    ```
 
    `resolve-upstream-core` then resolves `--locked --commit <sha>`, and the new
    release records the same `upstream_commit` in its own `BUILD-METADATA.txt`.
 3. **Reproduce a dev prerelease instead** by dispatching
-   `.github/workflows/android-ci.yml` with `-f upstream_commit=<recorded-sha>`
-   (optionally `dev_version_code` and `dev_version_name`). A manual dispatch
-   always builds, even when a release for the derived tag exists.
+   `.github/workflows/android-ci.yml` with `-f upstream_commit=<recorded-sha>`.
+   A manual dispatch always builds, even when a release for the derived tag
+   exists.
 4. **Verify** that the new `BUILD-METADATA.txt` reports
    `upstream_commit=<recorded-sha>`. A blank `upstream_commit` resolves the
    newest HEAD, the normal path.

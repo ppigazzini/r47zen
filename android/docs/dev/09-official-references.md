@@ -319,6 +319,26 @@ Current repository icon surfaces:
   artifact upload and download behavior for GitHub Actions.
 - [Manage releases in a repository](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository):
   the release model used by the main-branch snapshot lane.
+- [Workflow syntax: `run-name`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#run-name):
+  a `run-name` that is omitted or only whitespace falls back to the
+  event-specific title, which is how `android-ci.yml` names only a dispatch
+  that pins an upstream commit.
+- [Version your app](https://developer.android.com/studio/publish/versioning):
+  `versionCode` must increase with every release, can never be reused on
+  Play, and tops out at 2100000000; `versionName` is the only value shown to
+  users.
+- [Semantic Versioning 2.0.0](https://semver.org/): the version form the
+  [version rules](10-writing.md#version-numbers) follow; item 3 (a modified
+  release is a new version), item 7 (PATCH resets on a MINOR step), item 9
+  (a `-` suffix makes a pre-release), and item 11 (precedence).
+- [node-semver increment fixtures](https://github.com/npm/node-semver/blob/main/test/fixtures/increments.js):
+  how npm's `inc()` steps from a pre-release (`['1.2.3-4', 'patch', '1.2.3']`,
+  `['1.2.3-4', 'minor', '1.3.0']`), which `check_release_version.sh` follows
+  for the first release after the `-signed` names.
+- [F-Droid Build Metadata Reference](https://f-droid.org/docs/Build_Metadata_Reference/):
+  `UpdateCheckMode: Tags` reads the version files in tagged revisions, which
+  is why the tracked defaults file must hold the released numbers at each
+  release tag.
 
 ## Google Play setup and policy
 

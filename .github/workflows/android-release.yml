@@ -1,25 +1,18 @@
 name: Android Release
 
+run-name: Android Release ${{ inputs.confirm_version }} (${{ inputs.confirm_version_code }}) -> ${{ inputs.play_track }}
+
 on:
   workflow_dispatch:
     inputs:
-      version_code:
-        description: Play versionCode, a plain counter, exactly one above the previous production release (1 for the first Play upload); never a date
+      confirm_version_code:
+        description: Play version code to release; must equal R47_DEFAULT_ANDROID_VERSION_CODE in android/r47-defaults.properties
         required: true
         type: string
-      version_name:
-        description: Android versionName and derived GitHub tag basis (major.minor.patch-signed.YYYYMMDDVV)
+      confirm_version:
+        description: Version to release; must equal R47_DEFAULT_ANDROID_VERSION_NAME in android/r47-defaults.properties
         required: true
         type: string
-      upstream_commit:
-        description: Optional full 40-character upstream commit SHA to pin for a roadblock re-release (blank = latest HEAD)
-        required: false
-        type: string
-      allow_overwrite:
-        description: Allow re-publishing over an existing release tag (default false; only for a deliberate re-cut, and only with play_track none when the version code is unchanged)
-        required: false
-        default: false
-        type: boolean
       play_track:
         description: Google Play track that receives the signed AAB after the GitHub release (internal testing, the closed Alpha track, or none to skip)
         required: false
@@ -34,6 +27,15 @@ on:
         required: false
         default: ''
         type: string
+      upstream_commit:
+        description: Optional full 40-character upstream commit SHA to pin for a roadblock re-release (blank = latest HEAD)
+        required: false
+        type: string
+      allow_overwrite:
+        description: Allow re-publishing over an existing release tag (default false; only for a deliberate re-cut of the previous release, with play_track none)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -63,32 +65,52 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The version check diffs this commit against the previous
+          # release's, so it needs the history.
+          fetch-depth: 0
 
       - name: Resolve release version inputs
         id: resolve
         shell: bash
         env:
-          R47_VERSION_CODE_INPUT: ${{ inputs.version_code }}
-          R47_VERSION_NAME_INPUT: ${{ inputs.version_name }}
+          R47_CONFIRM_VERSION_CODE_INPUT: ${{ inputs.confirm_version_code }}
+          R47_CONFIRM_VERSION_INPUT: ${{ inputs.confirm_version }}
           R47_ALLOW_OVERWRITE: ${{ inputs.allow_overwrite }}
           R47_PLAY_TRACK: ${{ inputs.play_track }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          version_code="$R47_VERSION_CODE_INPUT"
-          version_name="$R47_VERSION_NAME_INPUT"
           release_mode="manual"
+          defaults_file="android/r47-defaults.properties"
+
+          # The next release's two numbers live in the tracked defaults file
+          # and the form confirms both, so a typo stops here instead of
+          # becoming a tag or a Play upload.
+          version_code="$(sed -n 's/^R47_DEFAULT_ANDROID_VERSION_CODE=//p' "$defaults_file")"
+          version_name="$(sed -n 's/^R47_DEFAULT_ANDROID_VERSION_NAME=//p' "$defaults_file")"
+          if [[ "$R47_CONFIRM_VERSION_CODE_INPUT" != "$version_code" ]]; then
+            echo "${defaults_file} says R47_DEFAULT_ANDROID_VERSION_CODE=${version_code}, confirm_version_code says ${R47_CONFIRM_VERSION_CODE_INPUT}." >&2
+            exit 1
+          fi
+          if [[ "$R47_CONFIRM_VERSION_INPUT" != "$version_name" ]]; then
+            echo "${defaults_file} says R47_DEFAULT_ANDROID_VERSION_NAME=${version_name}, confirm_version says ${R47_CONFIRM_VERSION_INPUT}." >&2
+            exit 1
+          fi
 
           case "$version_code" in
             ''|*[!0-9]*)
-              echo "version_code must be a positive integer." >&2
+              echo "R47_DEFAULT_ANDROID_VERSION_CODE must be a positive integer, got '${version_code}'." >&2
               exit 1
               ;;
           esac
 
           if [[ "$version_code" -lt 1 ]]; then
-            echo "version_code must be greater than zero." >&2
+            echo "R47_DEFAULT_ANDROID_VERSION_CODE must be greater than zero." >&2
+            exit 1
+          fi
+          if [[ ! "$version_name" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "R47_DEFAULT_ANDROID_VERSION_NAME '${version_name}' is not major.minor.patch." >&2
             exit 1
           fi
 
@@ -104,7 +126,7 @@ jobs:
           # release is 1.
           version_code_cap=100000
           if [[ "$version_code" -gt "$version_code_cap" ]]; then
-            echo "version_code $version_code is above $version_code_cap; it must be a small counter (previous production release plus one), not a date." >&2
+            echo "R47_DEFAULT_ANDROID_VERSION_CODE $version_code is above $version_code_cap; it must be a small counter (previous production release plus one), not a date." >&2
             exit 1
           fi
           releases_json="${RUNNER_TEMP}/releases.json"
@@ -113,28 +135,34 @@ jobs:
             --releases-json "$releases_json" --cap "$version_code_cap")"
           previous_code="$(sed -n 's/^previous_code=//p' <<<"$previous")"
           previous_tag="$(sed -n 's/^previous_tag=//p' <<<"$previous")"
+          previous_name="$(sed -n 's/^previous_name=//p' <<<"$previous")"
           expected_code=$((previous_code + 1))
+          recut=false
           if [[ "$R47_ALLOW_OVERWRITE" == "true" && "$version_code" -eq "$previous_code" ]]; then
             # Play takes a version code once, across every track, so a re-cut
             # that keeps the code cannot reach Play; when the first cut never
             # went there either, the GitHub release would still change bytes
             # under a code Play may later receive for different ones.
             if [[ "$R47_PLAY_TRACK" != "none" ]]; then
-              echo "allow_overwrite=true re-cuts version_code $version_code, which Play refuses to take twice; re-run with play_track=none, or release version_code $expected_code." >&2
+              echo "allow_overwrite=true re-cuts version code $version_code, which Play refuses to take twice; re-run with play_track=none, or release version code $expected_code." >&2
               exit 1
             fi
-            echo "allow_overwrite=true: re-cutting version_code $version_code for GitHub only." >&2
+            echo "allow_overwrite=true: re-cutting version code $version_code for GitHub only." >&2
+            recut=true
           elif [[ "$version_code" -ne "$expected_code" ]]; then
-            echo "version_code must be $expected_code (previous production release used $previous_code), got $version_code." >&2
+            echo "R47_DEFAULT_ANDROID_VERSION_CODE must be $expected_code (previous production release used $previous_code), got $version_code." >&2
             exit 1
           fi
-          echo "version_code $version_code follows previous production release $previous_code." >&2
+          echo "version code $version_code follows previous production release $previous_code." >&2
 
           # The certificate the previous production release was signed with,
           # from its APK evidence, so the release notes can tell its installs
-          # when this release cannot update them. Fail closed: a release that
-          # cannot answer this would publish without the notice it may need.
+          # when this release cannot update them, and the r47zen commit it was
+          # built from, for the version check. Fail closed: a release that
+          # cannot answer these would publish without the notice it may need
+          # or with an unchecked version.
           previous_cert=""
+          previous_android_commit=""
           if [[ -n "$previous_tag" ]]; then
             previous_evidence_dir="${RUNNER_TEMP}/previous-release-evidence"
             mkdir -p "$previous_evidence_dir"
@@ -154,27 +182,38 @@ jobs:
               exit 1
             fi
             echo "previous production release ${previous_tag} was signed by ${previous_cert}." >&2
+            previous_android_commit="$(sed -n 's/^android_source_commit=//p' <<<"$previous_metadata")"
+            if [[ ! "$previous_android_commit" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "The APK evidence of ${previous_tag} records no android_source_commit ('${previous_android_commit}')." >&2
+              exit 1
+            fi
           fi
 
-          # Strict format: major.minor.patch-signed.YYYYMMDD[VV], matching every
-          # published signed tag. This rejects the typo class that already
-          # shipped a malformed tag (r47zen-version-0.1.6-signed.2026061101, from
-          # a "version-0.1.6" input) before it can pollute the tag namespace.
-          if [[ ! "$version_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+-signed\.[0-9]{8,10}$ ]]; then
-            echo "version_name '$version_name' is malformed; expected major.minor.patch-signed.YYYYMMDD[VV] (e.g. 0.1.6-signed.2026061101)." >&2
-            exit 1
+          if [[ "$recut" == "true" ]]; then
+            # A re-cut republishes the previous release under its own tag.
+            if [[ "$version_name" != "$previous_name" ]]; then
+              echo "allow_overwrite=true re-cuts ${previous_tag}, so the version must stay ${previous_name}, not ${version_name}." >&2
+              exit 1
+            fi
+          else
+            # Every release gets a new major.minor.patch: MINOR with PATCH 0
+            # when app code changed since the previous release, PATCH
+            # otherwise (android/docs/dev/10-writing.md#version-numbers).
+            bash ./scripts/android/check_release_version.sh \
+              --version "$version_name" \
+              --previous-version "$previous_name" \
+              --previous-commit "$previous_android_commit" \
+              --head HEAD
           fi
 
           # Refuse to re-publish over an existing release tag. The publish step
           # builds the LATEST upstream HEAD and uses overwrite_files, so re-running
-          # the dispatch with the same version_name on a later day would replace
+          # the dispatch with the same version on a later day would replace
           # the already-published signed bytes under the same tag with a different
-          # core, silently invalidating every recorded SHA256. Derive the tag the
-          # same way the metadata step does and fail unless allow_overwrite is set
-          # for a deliberate re-cut.
-          release_version_token=$(printf '%s' "$version_name" | sed -e 's/[^0-9A-Za-z._-]/-/g' -e 's/^-*//' -e 's/-*$//')
-          release_version_token="${release_version_token#[Vv]}"
-          release_tag="r47zen-v${release_version_token}"
+          # core, silently invalidating every recorded SHA256. Fail unless
+          # allow_overwrite is set for a deliberate re-cut. The version is
+          # major.minor.patch, checked above, so it is the tag as it stands.
+          release_tag="r47zen-v${version_name}"
           if [[ "$R47_ALLOW_OVERWRITE" != "true" ]]; then
             # ls-remote returns 0 when the tag exists and 2 when it does not;
             # any other code is a network/auth error. Fail closed on both "exists"
@@ -1254,6 +1293,31 @@ jobs:
           prerelease: false
           draft: false
           make_latest: true
+
+      - name: Summarize the release
+        shell: bash
+        env:
+          R47_RELEASE_TAG: ${{ needs.resolve-release-inputs.outputs.release_tag }}
+          R47_PLAY_TRACK: ${{ inputs.play_track }}
+        run: |
+          set -euo pipefail
+
+          version_name=$(sed -n 's/^version_name=//p' release-aab/BUILD-METADATA.txt)
+          version_code=$(sed -n 's/^version_code=//p' release-aab/BUILD-METADATA.txt)
+          signer_cert=$(sed -n 's/^artifact_signing_cert_sha256=//p' release-apk/BUILD-METADATA.txt)
+          IFS=. read -r major minor patch <<<"$version_name"
+          {
+            echo "### R47 Zen ${version_name} (${version_code})"
+            echo
+            echo "- GitHub release: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${R47_RELEASE_TAG}"
+            echo "- Signing certificate SHA-256: \`${signer_cert}\`"
+            if [[ "$R47_PLAY_TRACK" == "none" ]]; then
+              echo "- Google Play: not uploaded (play_track none)"
+            else
+              echo "- Google Play: the \`upload-to-play\` job sends the AAB to the \`${R47_PLAY_TRACK}\` track"
+            fi
+            echo "- Next: commit the next release in \`android/r47-defaults.properties\`: \`R47_DEFAULT_ANDROID_VERSION_CODE=$((version_code + 1))\` and \`R47_DEFAULT_ANDROID_VERSION_NAME=${major}.${minor}.$((patch + 1))\` (\`${major}.$((minor + 1)).0\` once app code changes)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   upload-to-play:
     name: Upload signed AAB to Google Play
