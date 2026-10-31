@@ -371,10 +371,10 @@ jobs:
       # hash its requirements files too.
       # run_action_pin_consistency_contract.sh holds version and checksum.
       - name: Set up uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: '0.13.5'
-          checksum: 'f68d291c75783122dad58ab77def0e13f3233f358731db5d6d7e8715603b928f'
+          version: '0.13.6'
+          checksum: 'f29c3e94ffabd7e6f3ba521dba169a9b7ec12100bf3257087f0f24f6123f3645'
           enable-cache: true
           cache-dependency-glob: uv.lock
 
@@ -522,7 +522,7 @@ jobs:
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/github_ci' }}
@@ -1047,7 +1047,7 @@ jobs:
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/github_ci' }}

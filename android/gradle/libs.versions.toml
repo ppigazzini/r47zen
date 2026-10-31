@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.1"
+agp = "9.5.0"
 # Run AGP's built-in Kotlin on this KGP, through the root build.gradle. It must
 # read the Kotlin metadata of every library below: kotlinx-serialization is
 # built with a newer Kotlin than the KGP AGP depends on can read.

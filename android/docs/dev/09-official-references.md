@@ -52,7 +52,7 @@ flowchart TD
 
 ## Toolchain references
 
-- [Android Gradle plugin 9.4 release notes](https://developer.android.com/build/releases/agp-9-4-0-release-notes):
+- [Android Gradle plugin 9.5 release notes](https://developer.android.com/build/releases/agp-9-5-0-release-notes):
   official Android build release notes for the AGP line the `agp` entry of
   `android/gradle/libs.versions.toml` pins; one page covers every patch of a
   line, and `run_toolchain_pin_coherence_contract.sh` fails when this link
