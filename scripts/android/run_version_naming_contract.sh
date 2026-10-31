@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# Contract: the version rules a release is held to, and the upstream version it
-# shows.
+# Contract: the version and naming rules a release is held to.
 #
 # check_release_version.sh must take the PATCH step when android/app/src/main/
 # is unchanged since the previous release, even when only tests, CI, or docs
@@ -14,6 +13,10 @@
 # read_upstream_version.sh must print VERSION1 from a defines.h and print
 # nothing for a missing file or a malformed define.
 #
+# resolve_android_artifact_metadata.sh must name files
+# r47zen_<version>_<upstream8>_<android8>.<ext>, keep the commit-only dev tag
+# the skip gate keys on, and refuse a version holding the "_" field separator.
+#
 # Pure host test, needs git.
 
 set -Eeuo pipefail
@@ -24,6 +27,7 @@ source "$SCRIPT_DIR/../lib/ci_contract.sh"
 
 CHECKER="$SCRIPT_DIR/check_release_version.sh"
 READER="$SCRIPT_DIR/read_upstream_version.sh"
+NAMER="$SCRIPT_DIR/resolve_android_artifact_metadata.sh"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -94,4 +98,19 @@ printf '%s\n' '#define VERSION1 "00.109 beta"' >"$defines"
 [ -z "$(bash "$READER" "$defines")" ] ||
     contract_fail "read_upstream_version.sh printed a malformed VERSION1."
 
-contract_pass "release versions follow the SemVer steps, and read_upstream_version.sh reads VERSION1."
+names="$(bash "$NAMER" --upstream-commit d8f0c932085890d4a18699560f1fd234065e29b7 \
+    --android-commit cc7b9537e29750d75527b2ca306649c8f15d8df5 --version 0.1.13)"
+for want in \
+    "R47_ANDROID_RELEASE_APK_NAME=r47zen_0.1.13_d8f0c932_cc7b9537.apk" \
+    "R47_ANDROID_RELEASE_AAB_NAME=r47zen_0.1.13_d8f0c932_cc7b9537.aab" \
+    "R47_ANDROID_DEV_RELEASE_TAG=r47zen-d8f0c932-cc7b9537-dev"; do
+    grep -qxF -- "$want" <<<"$names" || contract_fail "artifact names lack '$want'."
+done
+names="$(bash "$NAMER" --upstream-commit d8f0c932 --android-commit cc7b9537 --version 0.1.14-53.1)"
+grep -qxF -- "R47_ANDROID_DEV_APK_NAME=r47zen_0.1.14-53.1_d8f0c932_cc7b9537.apk" <<<"$names" ||
+    contract_fail "the dev APK name does not carry the dev version."
+if bash "$NAMER" --upstream-commit d8f0c932 --android-commit cc7b9537 --version 0.1_13 >/dev/null 2>&1; then
+    contract_fail "resolve_android_artifact_metadata.sh accepted a version holding '_'."
+fi
+
+contract_pass "release versions follow the SemVer steps, and published files are named r47zen_<version>_<upstream8>_<android8>."

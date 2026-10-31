@@ -309,8 +309,8 @@ android {
     compileSdk = project.findProperty('r47.compileSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK')
     compileSdkMinor = project.findProperty('r47.compileSdkMinor')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR')
     def coreVersion = (project.findProperty('r47.coreVersion') ?: "unknown").toString()
-    // The dev token becomes a SemVer pre-release, <version>-<token>, so it
-    // keeps to [0-9A-Za-z.-].
+    // The dev token becomes a SemVer pre-release, <version>-<token>, and a field
+    // of the r47zen_<version>_... file name, so it keeps to [0-9A-Za-z.-].
     def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z.-]/, "-")
     def normalizedReleaseChannelBuildToken = releaseChannelBuildToken?.replaceAll(/[^0-9A-Za-z.-]/, "-")
     // The upstream core's own version (VERSION1 in src/c47/defines.h), read by

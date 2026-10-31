@@ -160,14 +160,16 @@ jobs:
           # when this release cannot update them, and the r47zen commit it was
           # built from, for the version check. Fail closed: a release that
           # cannot answer these would publish without the notice it may need
-          # or with an unchecked version.
+          # or with an unchecked version. The pattern matches the evidence of
+          # both name forms, r47zen-<u8>-<s8>-release-apk-packaging-evidence.zip
+          # and r47zen_<version>_<u8>_<s8>_apk-packaging-evidence.zip.
           previous_cert=""
           previous_android_commit=""
           if [[ -n "$previous_tag" ]]; then
             previous_evidence_dir="${RUNNER_TEMP}/previous-release-evidence"
             mkdir -p "$previous_evidence_dir"
             gh release download "$previous_tag" --repo "$GITHUB_REPOSITORY" \
-              --pattern '*-apk-packaging-evidence.zip' --dir "$previous_evidence_dir"
+              --pattern '*apk-packaging-evidence.zip' --dir "$previous_evidence_dir"
             shopt -s nullglob
             previous_zips=("$previous_evidence_dir"/*.zip)
             shopt -u nullglob
@@ -396,7 +398,8 @@ jobs:
 
           eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
             --upstream-commit "${{ steps.upstream.outputs.upstream_commit }}" \
-            --android-commit "${{ github.sha }}")"
+            --android-commit "${{ github.sha }}" \
+            --version "${{ needs.resolve-release-inputs.outputs.version_name }}")"
 
           echo "artifact_name=$R47_ANDROID_RELEASE_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
           echo "apk_artifact_name=${R47_ANDROID_RELEASE_ARTIFACT_STEM}-apk" >> "$GITHUB_OUTPUT"
@@ -1107,13 +1110,12 @@ jobs:
             exit 1
           fi
 
-          # Disambiguate by artifact type: stripping only the extension would
-          # collapse both to the same "<stem>-release-packaging-evidence.zip"
-          # name (the APK and AAB share the "<stem>-release" prefix), which
-          # silently overwrote one archive on upload and listed the same file
-          # twice in the release notes.
-          aab_evidence_archive_name="${aab_name%.aab}-aab-packaging-evidence.zip"
-          apk_evidence_archive_name="${apk_name%.apk}-apk-packaging-evidence.zip"
+          # Disambiguate by artifact type: the APK and AAB share the
+          # r47zen_<version>_<upstream8>_<android8> stem, so stripping only the
+          # extension would give both the same evidence name, and one archive
+          # would overwrite the other on upload.
+          aab_evidence_archive_name="${aab_name%.aab}_aab-packaging-evidence.zip"
+          apk_evidence_archive_name="${apk_name%.apk}_apk-packaging-evidence.zip"
 
           rm -f "release-aab/${aab_evidence_archive_name}" "release-apk/${apk_evidence_archive_name}"
           (
@@ -1155,8 +1157,8 @@ jobs:
           subject-path: |
             release-apk/*.apk
             release-aab/*.aab
-            release-apk/*-packaging-evidence.zip
-            release-aab/*-packaging-evidence.zip
+            release-apk/*packaging-evidence.zip
+            release-aab/*packaging-evidence.zip
 
       - name: Verify build provenance attestation
         env:
@@ -1172,7 +1174,7 @@ jobs:
           # workflow's identity so an attestation produced by any OTHER workflow
           # in the repo cannot satisfy the check.
           for artifact in release-apk/*.apk release-aab/*.aab \
-            release-apk/*-packaging-evidence.zip release-aab/*-packaging-evidence.zip; do
+            release-apk/*packaging-evidence.zip release-aab/*packaging-evidence.zip; do
             echo "Verifying build provenance for ${artifact}"
             gh attestation verify "${artifact}" \
               --repo "${GITHUB_REPOSITORY}" \

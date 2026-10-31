@@ -30,7 +30,7 @@ grep -q 'gh attestation verify' <<<"$live" ||
 # The packaging-evidence archives ship on the release too, so each is attested
 # and re-verified: its pattern appears once in subject-path and once in the
 # verify loop.
-for evidence in 'release-apk/*-packaging-evidence.zip' 'release-aab/*-packaging-evidence.zip'; do
+for evidence in 'release-apk/*packaging-evidence.zip' 'release-aab/*packaging-evidence.zip'; do
     [ "$(grep -cF -- "$evidence" <<<"$live")" -ge 2 ] ||
         missing="$missing attest-and-verify:$evidence"
 done

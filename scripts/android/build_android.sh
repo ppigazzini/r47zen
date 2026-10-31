@@ -1032,6 +1032,12 @@ artifact_metadata_args=(
     --upstream-commit "${UPSTREAM_SOURCE_COMMIT_OVERRIDE:-}"
     --android-commit "${SOURCE_COMMIT_OVERRIDE:-}"
 )
+if [ "$RELEASE_CHANNEL_OVERRIDE" = "dev" ]; then
+    # The same <version>-<token> Gradle builds: the token is the CI run, or the
+    # core commit when none is given, normalized as android/app/build.gradle does.
+    DEV_VERSION_TOKEN=$(printf '%s' "${RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE:-${COMMIT_HASH:-unknown}}" | sed 's/[^0-9A-Za-z.-]/-/g')
+    artifact_metadata_args+=(--version "${VERSION_NAME_OVERRIDE:-$R47_DEFAULT_ANDROID_VERSION_NAME}-${DEV_VERSION_TOKEN}")
+fi
 eval "$(bash "$ANDROID_SCRIPTS_DIR/resolve_android_artifact_metadata.sh" "${artifact_metadata_args[@]}")"
 COMPILE_SDK_VALUE=${COMPILE_SDK_OVERRIDE:-$R47_DEFAULT_ANDROID_COMPILE_SDK}
 ASSEMBLE_TASK="assembleDebug"

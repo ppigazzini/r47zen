@@ -596,7 +596,8 @@ jobs:
 
           eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
             --upstream-commit "$upstream_commit" \
-            --android-commit "$android_commit")"
+            --android-commit "$android_commit" \
+            --version "${{ needs.upstream-release-gate.outputs.dev_version }}")"
 
           echo "artifact_name=$R47_ANDROID_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
           echo "unsigned_artifact_name=${R47_ANDROID_ARTIFACT_STEM}-unsigned" >> "$GITHUB_OUTPUT"
@@ -1311,7 +1312,7 @@ jobs:
             echo "BUILD-METADATA.txt did not contain artifact_name." >&2
             exit 1
           fi
-          evidence_archive_name="${dev_apk_name%.apk}-packaging-evidence.zip"
+          evidence_archive_name="${dev_apk_name%.apk}_packaging-evidence.zip"
 
           rm -f "release-assets/${evidence_archive_name}"
           (
@@ -1348,7 +1349,7 @@ jobs:
           fi
           upstream_short_commit="${upstream_commit:0:8}"
           android_short_commit="${android_commit:0:8}"
-          evidence_archive_name="${dev_apk_name%.apk}-packaging-evidence.zip"
+          evidence_archive_name="${dev_apk_name%.apk}_packaging-evidence.zip"
           upstream_version=$(sed -n 's/^upstream_version=//p' release-assets/BUILD-METADATA.txt)
           version_name=$(sed -n 's/^version_name=//p' release-assets/BUILD-METADATA.txt)
           version_code=$(sed -n 's/^version_code=//p' release-assets/BUILD-METADATA.txt)
@@ -1402,6 +1403,26 @@ jobs:
           https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
           EOF
 
+      - name: Remove an earlier build's assets from the tag
+        # A rebuild of the same commit pair reuses the tag but names its APK by
+        # its own run, so the earlier build's files would otherwise stay
+        # beside the new ones. Until the publish below lands, the tag carries
+        # no APK, which upstream-release-gate reads as unpublished.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.android-build-test-package.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          if assets="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            while IFS= read -r asset; do
+              [[ -n "$asset" ]] || continue
+              gh release delete-asset "$RELEASE_TAG" "$asset" --repo "$GITHUB_REPOSITORY" --yes
+            done <<<"$assets"
+          fi
+
       - name: Create and publish prerelease
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
@@ -1417,6 +1438,25 @@ jobs:
           prerelease: true
           draft: false
           make_latest: false
+
+      - name: Summarize the dev pre-release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.android-build-test-package.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          dev_apk_name=$(sed -n 's/^artifact_name=//p' release-assets/BUILD-METADATA.txt)
+          version_name=$(sed -n 's/^version_name=//p' release-assets/BUILD-METADATA.txt)
+          upstream_commit=$(sed -n 's/^upstream_commit=//p' release-assets/BUILD-METADATA.txt)
+          upstream_version=$(sed -n 's/^upstream_version=//p' release-assets/BUILD-METADATA.txt)
+          {
+            echo "### Dev pre-release ${version_name}"
+            echo
+            echo "- Release: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG}"
+            echo "- APK: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${dev_apk_name}"
+            echo "- Upstream commit: \`${upstream_commit}\`${upstream_version:+ (C47 ${upstream_version})}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   ci-required:
     name: CI required checks

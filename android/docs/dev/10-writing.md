@@ -255,6 +255,12 @@ rules ([the gates](#the-gates)); the release procedure is
 - **A dev build is a pre-release of the next version**,
   `<version>-<run>.<attempt>`: `0.1.14-53.1` sorts after `0.1.13` and before
   `0.1.14`. The `-` already makes it a pre-release, so it carries no label.
+- **A published file name puts the version first**,
+  `r47zen_<version>_<upstream8>_<android8>.<ext>`. `_` separates the fields:
+  SemVer identifiers allow only `[0-9A-Za-z-]`, so a reader takes the version
+  field exactly, where `r47zen-0.1.13-d8f0c932` would read as a pre-release.
+  [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md#artifacts-and-logs)
+  lists every name.
 
 ## The gates
 

@@ -137,9 +137,9 @@ dispatch again with the same numbers.
 ## Re-releasing a past build
 
 Every published build records the upstream core revision it was built from in
-`BUILD-METADATA.txt` (`upstream_commit=<sha>`), inside its
-`*-packaging-evidence.zip` archive and linked from the release notes. The
-`upstream_commit` dispatch input feeds that commit back
+`BUILD-METADATA.txt` (`upstream_commit=<sha>`), inside its packaging-evidence
+archive and linked from the release notes. The `upstream_commit` dispatch
+input feeds that commit back
 ([`build-production-release-bundle`](07-ci-and-release-workflow.md#build-production-release-bundle)).
 
 1. **Find the upstream commit.** Read the linked upstream commit in the

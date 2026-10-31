@@ -415,7 +415,8 @@ It:
   `android/r47-defaults.properties`, so a dev APK signed by any other key is
   never published; a pull request's throwaway key is not held to it
 - uploads the Android packaging artifact bundle
-  `r47zen-<upstream short>-<android short>`
+  `r47zen-<upstream short>-<android short>`, which ships the APK
+  `r47zen_<dev version>_<upstream short>_<android short>.apk`
 
 ### `android-tests`
 
@@ -506,10 +507,16 @@ It publishes on `main` for push, schedule, and manual-dispatch CI runs after
 the required verification lanes pass.
 
 It downloads the packaging artifact bundle `sign-dev-prerelease` uploaded,
-archives the packaging evidence, and publishes the signed dev-prerelease tagged
-`r47zen-<upstream short>-<android short>-dev`.
-The notes name the dev version, the upstream commit with its `C47 <version>`,
-and the signing certificate.
+archives the packaging evidence as
+`r47zen_<dev version>_<upstream short>_<android short>_packaging-evidence.zip`,
+and publishes the signed dev-prerelease tagged
+`r47zen-<upstream short>-<android short>-dev` and titled with the APK's stem.
+The tag stays commit-only because `upstream-release-gate` keys on it. A rebuild
+of the same commit pair names its APK by its own run, so the job first deletes
+the tag's earlier assets; until the new ones land the tag carries no APK,
+which the gate reads as unpublished. The notes name the dev version, the
+upstream commit with its `C47 <version>`, and the signing certificate, and
+the run summary links the release and the APK.
 
 This prerelease is intentionally separate from the manual production release
 channel. The APK uses a dedicated prerelease signing key and never reuses the
@@ -647,7 +654,7 @@ This workflow:
   `r47.upstreamVersion`, which the About line shows beside the core commit
 - uploads the release build logs, the host-core PGO artifact bundle, and the
   unsigned APK, unsigned AAB, `mapping.txt`, and `native-debug-symbols.zip` as
-  `r47zen-<upstream short>-<android short>-release-unsigned`
+  `r47zen_<version>_<upstream short>_<android short>-unsigned`
 
 ### `sign-production-release`
 
@@ -666,10 +673,10 @@ The only job that reads the release upload key, and the only job bound to the
   `if: always()` step
 - collects packaging evidence over the signed bytes, the upstream version
   included, and uploads the signed AAB artifact bundle
-  `r47zen-<upstream short>-<android short>-release` and the signed APK
-  artifact bundle `r47zen-<upstream short>-<android short>-release-apk`,
-  which ship `r47zen-<upstream short>-<android short>-release.aab`,
-  `r47zen-<upstream short>-<android short>-release.apk`,
+  `r47zen_<version>_<upstream short>_<android short>` and the signed APK
+  artifact bundle `r47zen_<version>_<upstream short>_<android short>-apk`,
+  which ship `r47zen_<version>_<upstream short>_<android short>.aab`,
+  `r47zen_<version>_<upstream short>_<android short>.apk`,
   `BUILD-METADATA.txt`, `SHA256SUMS.txt`, `mapping.txt`,
   `native-debug-symbols.zip`, and the compliance-assets payload
 
@@ -680,9 +687,10 @@ This workflow job:
 - downloads the signed AAB and APK workflow artifact bundles after
   `sign-production-release`, `verify-production-release`, and
   `verify-signed-artifacts` succeed
-- repacks maintainers' packaging-evidence zips for the AAB and APK from the
-  collected compliance assets, provenance, mapping, symbols, and packaging
-  reports
+- repacks maintainers' packaging-evidence zips for the AAB and APK,
+  `<stem>_aab-packaging-evidence.zip` and `<stem>_apk-packaging-evidence.zip`,
+  from the collected compliance assets, provenance, mapping, symbols, and
+  packaging reports
 - attests SLSA build provenance for the APK, the AAB, and both
   packaging-evidence zips, then verifies each attestation against this
   workflow's identity with `gh attestation verify`, before anything is
@@ -999,14 +1007,22 @@ The Android workflows publish these artifact classes:
 - the unsigned `*-unsigned` hand-off bundles each build job uploads for its
   signing job, on a short retention (`retention-days` in each upload step)
 
-Android artifact names use the two-commit Android identity
-`upstream short + Android short`, which
-`scripts/android/resolve_android_artifact_metadata.sh` derives for both
-Android workflows and `build_android.sh`. Linux and Windows simulator package workflows
-stay upstream-only because they ship the synced core without the Android
-overlay. The public production GitHub release tag uses the sanitized
-`version_name` instead so user-facing version discovery does not depend on the
-two commit tokens.
+Android names come from `scripts/android/resolve_android_artifact_metadata.sh`,
+which both Android workflows and `build_android.sh` call, and
+`scripts/android/run_version_naming_contract.sh` locks them:
+
+- a published file is `r47zen_<version>_<upstream short>_<android short>.<ext>`:
+  the version first, then both short commits, joined by `_`, so a SemVer
+  reader takes the version field exactly
+  ([version rules](10-writing.md#version-numbers)). The production version is
+  `0.1.13`-shaped, the dev version `0.1.14-53.1`-shaped
+- a production tag is `r47zen-v<version>`
+- a dev tag and every workflow artifact of the Android CI lane keep the
+  commit-only stem `r47zen-<upstream short>-<android short>`, because
+  `upstream-release-gate` keys its rebuild check on the dev tag
+
+Linux and Windows simulator package workflows stay upstream-only because they
+ship the synced core without the Android overlay.
 
 The build lane also records packaging metadata such as expected ABIs and source
 provenance. Packaging-sensitive doc changes should stay aligned with those
