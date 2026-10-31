@@ -32,6 +32,13 @@ NAMER="$SCRIPT_DIR/resolve_android_artifact_metadata.sh"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+# Run from a pre-commit hook, git exports GIT_INDEX_FILE and the other
+# repository-local variables; `git commit <path>` makes it an absolute path to
+# this repository's commit index, so `git -C "$repo" add` would rewrite that
+# index. githooks(5): clear them before driving a foreign repository.
+mapfile -t git_local_vars < <(git rev-parse --local-env-vars)
+unset "${git_local_vars[@]}"
+
 # A repository with one commit per kind of change.
 repo="$work/repo"
 git init -q "$repo"

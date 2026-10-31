@@ -104,6 +104,12 @@ expect_fail "empty message" $'# only a comment\n\n' "the message is empty"
 # --range reads committed messages through git, so prove it on a scratch
 # repository: one good commit, one bad, and only the bad one is named.
 repo="$SCRATCH/repo"
+# Run from a pre-commit hook, git exports GIT_INDEX_FILE and the other
+# repository-local variables; `git commit <path>` makes it an absolute path to
+# this repository's commit index, so a commit here would build its tree from
+# that index. githooks(5): clear them before driving a foreign repository.
+mapfile -t git_local_vars < <(git rev-parse --local-env-vars)
+unset "${git_local_vars[@]}"
 git_scratch() {
     git -C "$repo" -c user.name=contract -c user.email=contract@example.org \
         -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"
