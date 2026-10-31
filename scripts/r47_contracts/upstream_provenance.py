@@ -109,7 +109,10 @@ class RecordedSnapshot(TypedDict, closed=True):
 
     upstream_url: str
     upstream_commit: Literal["unknown"] | Annotated[str, Regex(r"[0-9a-f]{40}")]
-    recorded_on: Annotated[str, Regex(r"\d{4}-\d{2}-\d{2}")]
+    # valgebra's pattern engine reads `\d` as any Unicode decimal digit, so
+    # `\d{4}` would admit a year in Arabic-Indic digits; `build_ledger` writes
+    # `date.isoformat()`, which is ASCII digits only.
+    recorded_on: Annotated[str, Regex(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")]
 
 
 class Ledger(TypedDict, closed=True):

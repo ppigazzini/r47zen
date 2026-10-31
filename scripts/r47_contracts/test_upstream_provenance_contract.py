@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, ClassVar, Final
 from r47_contracts import _repo_paths
 from r47_contracts._repo_paths import PACKAGE_ROOT, REPO_ROOT
 from r47_contracts.upstream_provenance import (
+    LEDGER,
     SCHEMA_VERSION,
     Finding,
     InputRecord,
@@ -175,6 +176,21 @@ class UpstreamProvenanceLedgerTest(unittest.TestCase):
             if not any(contract.endswith(".py") for contract in contracts)
         )
         _assert_equal(unguarded, [])
+
+
+class UpstreamProvenanceLedgerSchemaTest(unittest.TestCase):
+    """Hold the ledger schema to the values `build_ledger` writes."""
+
+    def test_recorded_on_is_an_ascii_date(self) -> None:
+        """A date in Arabic-Indic digits is refused; ASCII digits pass."""
+        if not LEDGER.is_valid(_synthetic_ledger([])):
+            message = "an ASCII recorded_on was refused"
+            raise AssertionError(message)
+        arabic_indic = _synthetic_ledger([])
+        arabic_indic["recorded"]["recorded_on"] = "\u0662\u0660\u0662\u0666-01-01"
+        if LEDGER.is_valid(arabic_indic):
+            message = "a recorded_on in Arabic-Indic digits was admitted"
+            raise AssertionError(message)
 
 
 class UpstreamProvenanceEvaluatorTest(unittest.TestCase):
