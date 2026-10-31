@@ -14,14 +14,15 @@ on:
         required: true
         type: string
       play_track:
-        description: Google Play track that receives the signed AAB after the GitHub release (internal testing, the closed Alpha track, or none to skip)
+        description: Google Play track that receives the signed AAB after the GitHub release (none publishes on GitHub only)
         required: false
-        default: internal
+        default: none
         type: choice
         options:
+          - none
           - internal
           - alpha
-          - none
+          - production
       play_release_notes:
         description: Play release notes in en-US, at most 500 characters (blank = the version and the calculator core)
         required: false
@@ -1393,6 +1394,7 @@ jobs:
           version_code=$(sed -n 's/^version_code=//p' release-aab/BUILD-METADATA.txt)
           upstream_commit=$(sed -n 's/^upstream_commit=//p' release-aab/BUILD-METADATA.txt)
           upstream_version=$(sed -n 's/^upstream_version=//p' release-aab/BUILD-METADATA.txt)
+          android_commit=$(sed -n 's/^android_source_commit=//p' release-aab/BUILD-METADATA.txt)
           if [[ "$version_code" != "$R47_VERSION_CODE_INPUT" ]]; then
             echo "The AAB records version_code '$version_code', the run resolved '$R47_VERSION_CODE_INPUT'." >&2
             exit 1
@@ -1415,7 +1417,8 @@ jobs:
           bundles=(release-aab/*.aab)
           {
             echo "package_name=${R47_DEFAULT_ANDROID_APPLICATION_ID}"
-            echo "release_name=${version_name} (${version_code})"
+            # The release name shows only in Play Console, never to users.
+            echo "release_name=${version_name} (${version_code}) core ${upstream_commit:0:8} overlay ${android_commit:0:8}"
             echo "bundle_path=${bundles[0]}"
           } >> "$GITHUB_OUTPUT"
 
@@ -1438,3 +1441,23 @@ jobs:
           whatsNewDirectory: play-whatsnew
           mappingFile: release-aab/mapping.txt
           debugSymbols: release-aab/native-debug-symbols.zip
+
+      - name: Summarize the Play upload
+        shell: bash
+        env:
+          R47_PLAY_TRACK: ${{ inputs.play_track }}
+          R47_RELEASE_NAME: ${{ steps.play.outputs.release_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$R47_PLAY_TRACK" == "production" ]]; then
+            next="Google reviews the release; it reaches every user once approved."
+          else
+            next="promote it in Play Console when it should reach production."
+          fi
+          {
+            echo "### Google Play"
+            echo
+            echo "- Uploaded ${R47_RELEASE_NAME} to the \`${R47_PLAY_TRACK}\` track."
+            echo "- Next: ${next}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -566,7 +566,7 @@ flowchart TD
   I[publish-production-release]
   J[versioned GitHub release]
   P[upload-to-play<br/>play-upload environment, keyless]
-  K[Google Play testing track]
+  K[the selected Google Play track]
 
   A --> B
   A --> C
@@ -700,7 +700,7 @@ This workflow job:
 - attaches the signed installable APK, the signed Play upload AAB, and both
   packaging-evidence archives to that GitHub release
 - hands the signed AAB to [`upload-to-play`](#upload-to-play), which sends it
-  to a Play testing track
+  to the selected Play track
 - writes release notes that state what was checked against which bytes: the
   published APK and AAB for signer, version, ABIs, and checksums; lint, the
   JVM tests, and the instrumentation tests against the non-minified,
@@ -726,7 +726,8 @@ Play Console still owns the publication inputs that no workflow holds:
 - final store title, description, screenshots, and feature graphic
 - any account-level testing or production-access prerequisites enforced by the
   Play developer account type
-- every promotion between tracks, production included
+- every promotion between tracks; a release dispatched with
+  `play_track=production` needs none
 
 The `production-release` environment holds the four `R47_RELEASE_*` secrets
 (see [Signing isolation](#signing-isolation)) and admits only `main`, through a
@@ -743,8 +744,8 @@ live configuration.
 ### `upload-to-play`
 
 Runs on `main` after `publish-production-release` unless the dispatch sets
-`play_track` to `none`. It is the only job bound to the `play-upload`
-environment and the only job that can release to Google Play. It:
+`play_track` to `none`, the input's default. It is the only job bound to the
+`play-upload` environment and the only job that can release to Google Play. It:
 
 - checks out this repository only, downloads the signed AAB artifact bundle,
   and verifies the AAB's provenance attestation with `gh attestation verify`
@@ -762,13 +763,16 @@ environment and the only job that can release to Google Play. It:
   and the job names no secret
 - uploads the AAB, `mapping.txt`, and `native-debug-symbols.zip` with
   `r0adkll/upload-google-play` to the `play_track` track as a `completed`
-  release named `<version_name> (<version_code>)`. `internal`, the input's
-  default, is the internal testing track; `alpha` is the closed testing track
-  Play Console creates for every app
+  release named `<version> (<code>) core <upstream short> overlay <android
+  short>`; Play Console shows the release name only to the developer.
+  `internal` is the internal testing track, `alpha` the closed testing track
+  Play Console creates for every app, and `production` the production track,
+  where `completed` rolls out to every user once Google approves it
+- writes a run summary naming the track and the next step: a promotion in
+  Play Console for `internal` and `alpha`, Google's review for `production`
 
-Production is not a `play_track` value: a release reaches production only by a
-promotion in Play Console. A release on a closed track still goes through Play
-review; the API does not skip it.
+A release on any track still goes through Play review; the API does not skip
+it.
 
 `scripts/android/setup_play_upload_identity.sh <project>` builds the Google
 Cloud half in one run, from Google Cloud Shell or any shell where `gcloud` is
@@ -785,9 +789,10 @@ logged in as the project owner, and converges on a rerun:
 Federation impersonates a service account instead of granting the federated
 principal directly, because Play Console grants access only to an email
 address. The account reaches Play through Play Console, Users and permissions,
-with the R47 Zen app permission "Release apps to testing tracks" and no account
-permission. Releasing to production through the API would need a further
-permission, which the job has no use for.
+with the R47 Zen app permissions "Release apps to testing tracks" and "Release
+to production, exclude devices, and use Play App Signing", and no account
+permission. Without the second, a `production` upload fails after the GitHub
+release is published.
 
 The `play-upload` environment admits only `main` through a custom deployment
 branch policy, as `production-release` does, and holds two variables:

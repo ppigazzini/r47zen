@@ -125,7 +125,8 @@ Google Cloud is ready. Two steps remain:
 
 1. Play Console, Users and permissions, Invite new users:
      ${service_account}
-   App permissions: R47 Zen only, with "Release apps to testing tracks".
+   App permissions: R47 Zen only, with "Release apps to testing tracks" and
+   "Release to production, exclude devices, and use Play App Signing".
    Leave account permissions empty.
 
 2. On a machine where gh is logged in to GitHub:

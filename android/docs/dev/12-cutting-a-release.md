@@ -39,10 +39,10 @@ resolve jobs runs only on `main`.
    previous release and the file still names a PATCH step, commit the MINOR
    step first.
 
-3. **Choose the Play track.** `internal` is the default, `alpha` is the closed
-   testing track, and `none` publishes the GitHub release alone
+3. **Choose the Play track.** `none`, the default, publishes the GitHub
+   release alone; `internal` is the internal testing track, `alpha` the
+   closed testing track, and `production` the production track
    ([`upload-to-play`](07-ci-and-release-workflow.md#upload-to-play)).
-   Production is never a dispatch value: promote in Play Console.
 
 ## Dispatch
 
@@ -94,8 +94,9 @@ until it passes.
 2. Check one downloaded APK the way the README tells users to
    (`apksigner verify --print-certs`), against the value in
    `android/r47-defaults.properties`.
-3. With a Play track set, the release is on that track. Promote it in Play
-   Console when it should reach production.
+3. With `internal` or `alpha`, the release is on that track; promote it in
+   Play Console when it should reach production. With `production`, Google
+   reviews it, and it reaches every user once approved.
 4. **Open the next release.** Commit the next code (this one plus one) and
    the next PATCH step in `android/r47-defaults.properties`; the run summary
    prints both lines:
@@ -128,6 +129,7 @@ cause.
 | `Expected one APK evidence archive on <tag>, found <n>.`, `The APK evidence of <tag> records no signing certificate ...`, or `... records no android_source_commit ...` | the previous release lacks the evidence the reinstall notice and the version check read | restore the previous release's APK packaging-evidence asset; the workflow will not publish without it |
 | `Missing required production release signing secret for <name>.` | an `R47_RELEASE_*` secret is missing from the `production-release` environment | see [Repository settings](07-ci-and-release-workflow.md#repository-settings) |
 | `upload-to-play` fails with "Precondition check failed" | an edit was open in Play Console | close it, then rerun the failed job alone; the GitHub release is already published ([limits](07-ci-and-release-workflow.md#upload-to-play)) |
+| `upload-to-play` fails on `production` with a permission error | the Play upload account lacks the production release permission | grant it in Play Console ([`upload-to-play`](07-ci-and-release-workflow.md#upload-to-play)), then rerun the failed job alone |
 | Play answers that the track does not exist | the track name | the first value to check is `internal` versus `qa` ([limits](07-ci-and-release-workflow.md#upload-to-play)) |
 
 A failure in a build, sign, or verify job is a regression, not a refusal:
