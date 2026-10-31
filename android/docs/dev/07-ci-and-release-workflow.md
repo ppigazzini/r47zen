@@ -398,6 +398,10 @@ It:
   certificate digest, and the upstream core's own version
   (`upstream_version`, `VERSION1` from `src/c47/defines.h`, read by
   `scripts/android/read_upstream_version.sh` in the build job)
+- off `pull_request`, fails unless that digest equals
+  `R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256` in
+  `android/r47-defaults.properties`, so a dev APK signed by any other key is
+  never published; a pull request's throwaway key is not held to it
 - uploads the Android packaging artifact bundle
   `r47zen-<upstream short>-<android short>`
 
@@ -492,7 +496,8 @@ the required verification lanes pass.
 It downloads the packaging artifact bundle `sign-dev-prerelease` uploaded,
 archives the packaging evidence, and publishes the signed dev-prerelease tagged
 `r47zen-<upstream short>-<android short>-dev`.
-The notes name the upstream commit with its `C47 <version>`.
+The notes name the upstream commit with its `C47 <version>` and the signing
+certificate.
 
 This prerelease is intentionally separate from the manual production release
 channel. The APK uses a dedicated prerelease signing key and never reuses the

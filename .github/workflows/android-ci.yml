@@ -876,6 +876,7 @@ jobs:
       - name: Collect packaging evidence
         shell: bash
         env:
+          IS_PR: ${{ github.event_name == 'pull_request' }}
           DEV_APK_NAME: ${{ needs.android-build-test-package.outputs.dev_apk_name }}
           UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
@@ -918,6 +919,17 @@ jobs:
             --sha "${GITHUB_SHA}" \
             --run-id "${GITHUB_RUN_ID}" \
             --run-attempt "${GITHUB_RUN_ATTEMPT}"
+
+          # A push, schedule, or dispatch build signs with the prerelease key,
+          # so the APK must carry its pinned certificate; a pull request signs
+          # with a throwaway key and is not held to it.
+          if [ "$IS_PR" != "true" ]; then
+            signer_cert="$(sed -n 's/^artifact_signing_cert_sha256=//p' ci-artifacts/release/BUILD-METADATA.txt)"
+            if [[ "$signer_cert" != "$R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256" ]]; then
+              echo "The dev APK is signed by '${signer_cert}', not the pinned R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256 ${R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256}." >&2
+              exit 1
+            fi
+          fi
 
       - name: Upload Android build artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -1294,6 +1306,7 @@ jobs:
           android_short_commit="${android_commit:0:8}"
           evidence_archive_name="${dev_apk_name%.apk}-packaging-evidence.zip"
           upstream_version=$(sed -n 's/^upstream_version=//p' release-assets/BUILD-METADATA.txt)
+          signer_cert=$(sed -n 's/^artifact_signing_cert_sha256=//p' release-assets/BUILD-METADATA.txt)
           core_label=""
           if [[ -n "$upstream_version" ]]; then
             core_label=" (C47 ${upstream_version})"
@@ -1303,6 +1316,7 @@ jobs:
           - Snapshot tag ${release_tag}
           - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})${core_label}
           - Build Android overlay commit [${android_short_commit}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${android_commit})
+          - Signing certificate SHA-256 ${signer_cert}
 
           This prerelease contains the signed dev-channel APK ${dev_apk_name}
           built from the release variant by ./scripts/android/build_android.sh
