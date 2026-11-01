@@ -16,6 +16,8 @@
 # resolve_android_artifact_metadata.sh must name files
 # r47zen_<version>_<upstream8>_<android8>.<ext>, keep the commit-only dev tag
 # the skip gate keys on, and refuse a version holding the "_" field separator.
+# A dev release title is that stem and a production one "R47 Zen <version>",
+# so the README's Obtainium filter ^r47zen_ tells the two apart.
 #
 # Pure host test, needs git.
 
@@ -116,8 +118,17 @@ done
 names="$(bash "$NAMER" --upstream-commit d8f0c932 --android-commit cc7b9537 --version 0.1.14-53.1)"
 grep -qxF -- "R47_ANDROID_DEV_APK_NAME=r47zen_0.1.14-53.1_d8f0c932_cc7b9537.apk" <<<"$names" ||
     contract_fail "the dev APK name does not carry the dev version."
+
+# The README's Obtainium filter for the -dev app, ^r47zen_, keeps every dev
+# release title and drops every production one: dev titles are the
+# r47zen_<version>_... stem, production titles "R47 Zen <version>".
+grep -qxF -- "R47_ANDROID_DEV_RELEASE_TITLE=r47zen_0.1.14-53.1_d8f0c932_cc7b9537" <<<"$names" ||
+    contract_fail "the dev release title is not r47zen_<version>_<upstream8>_<android8>, which the README's Obtainium filter ^r47zen_ selects."
+release_workflow="$(strip_hash_comments <"$PROJECT_ROOT/.github/workflows/android-release.yml")"
+grep -qF -- 'echo "release_title=R47 Zen $version_name"' <<<"$release_workflow" ||
+    contract_fail "android-release.yml no longer titles a production release 'R47 Zen <version>', which the README's Obtainium filter ^r47zen_ must not select."
 if bash "$NAMER" --upstream-commit d8f0c932 --android-commit cc7b9537 --version 0.1_13 >/dev/null 2>&1; then
     contract_fail "resolve_android_artifact_metadata.sh accepted a version holding '_'."
 fi
 
-contract_pass "release versions follow the SemVer steps, and published files are named r47zen_<version>_<upstream8>_<android8>."
+contract_pass "release versions follow the SemVer steps, published files are named r47zen_<version>_<upstream8>_<android8>, and dev and production release titles stay apart under ^r47zen_."

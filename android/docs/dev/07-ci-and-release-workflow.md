@@ -928,9 +928,13 @@ the two equal, and the release notes of the first release under the new key
 carry the reinstall notice, which also tells an Obtainium user to replace the
 hash they set.
 
-The README's Obtainium section sends users to that same copy for Obtainium's
+The README's Obtainium section sends users to that same copy, and a user who
+follows the `-dev` pre-releases to the prerelease pin's copy, for Obtainium's
 "Expected signing certificate hashes" setting, which refuses any other signer
-with no override, so the README holds no second copy. It offers no one-tap
+with no override, so the README holds no second copy of either. Its `-dev`
+entry tells the two apps' releases apart with the title filter `^r47zen_`;
+`scripts/android/run_version_naming_contract.sh` holds the dev and production
+title shapes that filter relies on. It offers no one-tap
 Obtainium link: GitHub's renderer drops an `obtainium://` link, Obtainium's
 https redirect page carries that site's analytics and ad script, and either
 link would hold a URL-encoded copy of the pin that the contract does not read.

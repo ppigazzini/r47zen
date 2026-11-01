@@ -128,14 +128,17 @@ any download signed by another key, and offers no way to install it anyway.
 - On Android 8.0 and 8.1, leave that field empty. Obtainium cannot read a
   download's signer there, so with the field set it blocks every install;
   Android itself still refuses an update from another signer.
-- Leave "Include prereleases" off. The `-dev` pre-releases are another app,
-  signed by the prerelease certificate, and the field refuses them.
+- To follow the `-dev` pre-releases too, the snapshot builds of `main`, add
+  the same URL a second time with "Include prereleases" on, "Filter release
+  titles by regex" set to `^r47zen_`, and "Expected signing certificate
+  hashes" set to the prerelease certificate. Obtainium keeps it as a separate
+  app, `io.github.ppigazzini.r47zen.dev`, beside the release.
 - A release whose notes carry a "Reinstall required" notice is signed by a new
   certificate: uninstall, put the new certificate those notes name in the
   field, then install.
 - When Obtainium shares a new install with Verified Apps and Verified Apps
   cannot vouch for R47 Zen, compare the certificate it shows with the release
-  certificate.
+  or the prerelease certificate.
 
 ## Documentation
 
