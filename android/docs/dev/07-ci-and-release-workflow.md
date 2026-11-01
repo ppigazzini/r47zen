@@ -832,6 +832,15 @@ Runs on `main` after `publish-production-release` unless the dispatch sets
 A release on any track still goes through Play review; the API does not skip
 it.
 
+Play signs the APKs it delivers with the app-signing key that Play App Signing
+holds, a key Google generated; to Play, the release key that signs the AAB is
+only the upload key. The two keys stay separate by maintainer decision, and
+Play Console's App integrity page shows both certificates. Android updates an
+app only with the signer it was installed with, so a Play install and a GitHub
+install cannot replace each other; the README tells users so. It publishes
+only the release key's certificate: Play's is in no tracked file, so no
+contract could hold a README copy of it to the live value.
+
 `scripts/android/setup_play_upload_identity.sh <project>` builds the Google
 Cloud half in one run, from Google Cloud Shell or any shell where `gcloud` is
 logged in as the project owner, and converges on a rerun:
@@ -912,7 +921,17 @@ signed by any other key fails before publication. The pin is tracked, so
 rotating the signing key is a commit that changes it and the README's copy
 together; `scripts/android/run_published_artifacts_verifier_contract.sh` holds
 the two equal, and the release notes of the first release under the new key
-carry the reinstall notice.
+carry the reinstall notice, which also tells an Obtainium user to replace the
+hash they set.
+
+The README's Obtainium section sends users to that same copy for Obtainium's
+"Expected signing certificate hashes" setting, which refuses any other signer
+with no override, so the README holds no second copy. It offers no one-tap
+Obtainium link: GitHub's renderer drops an `obtainium://` link, Obtainium's
+https redirect page carries that site's analytics and ad script, and either
+link would hold a URL-encoded copy of the pin that the contract does not read.
+The section quotes Obtainium's setting names and its Android 8.0 and 8.1
+limit, which Obtainium can change with no commit here.
 
 ## Other workflows
 

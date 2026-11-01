@@ -16,8 +16,10 @@ GitLab path keeps the older `c43` name.
 Download the APK from the
 [latest release](https://github.com/ppigazzini/r47zen/releases/latest) and
 install it; [Verify a downloaded APK](#verify-a-downloaded-apk) says how to
-check it was signed here. The `-dev` pre-releases on the same page are
-snapshot builds of `main`: they install as a separate app, beside the release.
+check it was signed here, and [Update with Obtainium](#update-with-obtainium)
+how to keep it current with that check on every update. The `-dev`
+pre-releases on the same page are snapshot builds of `main`: they install as a
+separate app, beside the release.
 
 ## Support
 
@@ -83,8 +85,8 @@ signing-key policy, retention, and published artifacts.
 
 ## Verify a downloaded APK
 
-Every production release APK and AAB is signed by one certificate. Its
-SHA-256, as `apksigner verify --print-certs` prints it:
+The APK and the AAB of every production release on GitHub are signed by one
+certificate. Its SHA-256, as `apksigner verify --print-certs` prints it:
 
     fa001b0b6a847335806c5ba5094a07c38b1962b0b983e1b07407bbe5628aacc6
 
@@ -92,12 +94,40 @@ The release workflow refuses to publish a build that carries any other signer,
 and each release's notes repeat the value. The `-dev` pre-releases install as
 a separate app, `io.github.ppigazzini.r47zen.dev`, signed by a prerelease key.
 
+Google Play signs the APKs it delivers with its own app-signing key, so an
+install from Play does not carry this certificate. Android updates an app only
+with the signer it was installed with: a Play install and a GitHub install
+cannot replace each other, and moving from one to the other means
+uninstalling, which deletes the app's data.
+
 Android refuses to update an install of a production release older than
 0.1.10-signed.2026100904: those carry a date-shaped version code (2026092802
 to 2026100903), higher than any later release's, and all but
 0.1.10-signed.2026100903 an earlier certificate, SHA-256
 7514186154f3789499eddd8e2b656b986dc801462fc5571293202ec5f0e92d71. Uninstall it,
 which deletes the app's data, then install the current release.
+
+## Update with Obtainium
+
+[Obtainium](https://github.com/ImranR98/Obtainium) installs the APK from this
+repository's releases and keeps it current. Add
+`https://github.com/ppigazzini/r47zen` as an app, and on the same screen set
+"Expected signing certificate hashes" to the release certificate, the line on
+its own under [Verify a downloaded APK](#verify-a-downloaded-apk). Obtainium
+then refuses any download signed by another key, and offers no way to install
+it anyway.
+
+- On Android 8.0 and 8.1, leave that field empty. Obtainium cannot read a
+  download's signer there, so with the field set it blocks every install;
+  Android itself still refuses an update from another signer.
+- Leave "Include prereleases" off. The `-dev` pre-releases are another app
+  with another signer, and the field refuses them.
+- A release whose notes carry a "Reinstall required" notice is signed by a new
+  certificate: uninstall, put the new certificate those notes name in the
+  field, then install.
+- When Obtainium shares a new install with Verified Apps and Verified Apps
+  cannot vouch for R47 Zen, compare the certificate it shows with the release
+  certificate.
 
 ## Documentation
 
