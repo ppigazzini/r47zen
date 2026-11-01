@@ -287,6 +287,13 @@ Current repository icon surfaces:
 - [Building and testing Java with Gradle](https://docs.github.com/en/actions/tutorials/build-and-test-code/java-with-gradle):
   GitHub Actions guidance for Gradle cache setup, Java toolchain setup, and
   Gradle-oriented workflow structure.
+- [setup-gradle cache providers](https://github.com/gradle/actions/blob/main/docs/setup-gradle.md#selecting-a-cache-provider):
+  the `enhanced`, `basic`, and `external` providers, the files the `basic` key
+  hashes, and how `external` hands Gradle User Home to another cache; read it
+  before changing the Gradle cache steps in the Android workflows.
+- [Dependency caching reference](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching):
+  GitHub's rules for cache keys, immutable entries, branch scope, and
+  eviction, which the Gradle and SDK caches in the Android workflows rely on.
 - [Security hardening for GitHub Actions](https://docs.github.com/en/actions/reference/security/secure-use):
   GitHub Actions guidance for least-privilege `GITHUB_TOKEN` policy, action
   pinning, trusted-code boundaries, and secret-exposure minimization in

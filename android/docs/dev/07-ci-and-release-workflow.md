@@ -242,6 +242,63 @@ alone, and no repository copy may exist;
 is held to `sign-dev-prerelease` only by the signing-scope contract, not by
 GitHub.
 
+## Gradle cache
+
+The four jobs that run Gradle, `android-build-test-package` and
+`android-tests` in `android-ci.yml` and `build-production-release-bundle` and
+`verify-production-release` in `android-release.yml`, cache Gradle User Home
+(`~/.gradle/caches` and `~/.gradle/wrapper`) with their own steps:
+`actions/cache/restore` before `gradle/actions/setup-gradle`, and
+`actions/cache/save` after the job's last Gradle step. `setup-gradle` runs with
+`cache-provider: external`, so it neither restores nor saves.
+
+The invariant: the key hashes every tracked Gradle build input under
+`android/`, the `*.gradle` scripts, `gradle.properties`, the version catalog,
+and the wrapper properties. An Actions cache entry is immutable, and a restore
+that hits its key exactly saves nothing, so an input the key misses keeps
+every later run on the entry saved before that input changed. Gradle then
+downloads what the change added on every run, from Google Maven, Maven
+Central, and the Gradle Plugin Portal, and one refused request fails the job.
+That is why the cache is not `setup-gradle`'s: its `basic` provider, like
+`setup-java`'s `cache: gradle`, hashes `gradle/*.versions.toml` at the
+repository root, where this repo has no catalog, so a bump of
+`android/gradle/libs.versions.toml` leaves that key unchanged.
+`android/r47-defaults.properties` is read by `android/app/build.gradle` and is
+left out on purpose: it moves with every release number, and the Gradle and
+AGP versions it repeats are held to the wrapper and the catalog by
+`scripts/android/run_toolchain_pin_coherence_contract.sh`.
+
+A save runs only on a restore miss, only when every earlier step passed, and
+only on `main` or `github_ci` (`main` alone in `android-release.yml`); other
+refs read those entries and write none. A failed run writes nothing, so an
+entry never holds a half-finished resolution.
+
+`scripts/android/run_gradle_cache_contract.sh` holds this, after proving
+itself on seeded workflow fixtures. It fails a `setup-gradle` step whose
+provider is not `external`, a `setup-java` step with a `cache:` input, a job
+that runs `setup-gradle` without both steps, a tracked Gradle build input that
+no `hashFiles` pattern of the restore key matches, and a save that is not
+gated on its restore's miss or that changes its path or key. It finds inputs
+by name (`*.gradle`, `*.gradle.kts`, `gradle.properties`, `*.versions.toml`,
+`gradle-wrapper.properties`), so a file Gradle reads under another name is
+outside its set.
+
+The limits:
+
+- A key change starts from an empty cache. The first run after any change to
+  a Gradle build input downloads the whole dependency set, and a registry that
+  refuses the runner fails that run. A passing rerun saves the entry that
+  later runs restore.
+- The two jobs of a workflow share one key and resolve different dependency
+  sets: lint and detekt run only in `android-build-test-package`, the JVM,
+  coverage, and instrumentation tests only in `android-tests`. The first job
+  to save writes the entry and the other's save finds the key taken, so what
+  only the other job resolves is downloaded on every run until the key
+  changes.
+- The save runs after the job synced and built upstream code, so an entry can
+  hold whatever that code wrote under `~/.gradle`. No signing job restores it
+  ([Signing isolation](#signing-isolation)).
+
 ## Job graph
 
 ### `upstream-simulator-sanity`
@@ -299,7 +356,8 @@ This is the main Android build, packaging, and artifact lane.
 
 It:
 
-- provisions Java, the Gradle cache, the Android SDK, NDK, CMake, and xlsxio.
+- provisions Java, the [Gradle cache](#gradle-cache), the Android SDK, NDK,
+  CMake, and xlsxio.
   The Android SDK provisioning (writable SDK root, setup-android for adb,
   license acceptance, pinned-package install, and SDK cache) is centralized in
   the `./.github/actions/setup-android-sdk` composite action shared by every

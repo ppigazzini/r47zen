@@ -521,11 +521,25 @@ jobs:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
-      - name: Set up Gradle cache
+      # Key on every tracked Gradle build input: an entry is immutable, so an
+      # input the key misses keeps later runs on the entry saved before it
+      # changed. run_gradle_cache_contract.sh holds the key to those inputs.
+      - name: Restore Gradle cache
+        id: gradle-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-${{ runner.arch }}-gradle-${{ hashFiles('android/**/*.gradle', 'android/gradle.properties', 'android/gradle/*.versions.toml', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      # setup-gradle's own providers key on files this repo does not choose;
+      # the basic one hashes gradle/*.versions.toml at the root, never the
+      # catalog in android/gradle/. Leave the cache to the steps around it.
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
-          cache-provider: basic
-          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/github_ci' }}
+          cache-provider: external
 
       - name: Set up Android SDK
         id: android-sdk
@@ -744,6 +758,18 @@ jobs:
             echo "Build-only staged outputs must stay under android/.staged-native/cpp/, while the retired app-module snapshot paths remain absent." >&2
             exit 1
           fi
+
+      # Save on a miss after the last Gradle step, and only when every earlier
+      # step passed (the implicit success()), so a failed resolution stores no
+      # partial entry under an immutable key. Other refs only read.
+      - name: Save Gradle cache
+        if: steps.gradle-cache.outputs.cache-hit != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/github_ci')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ steps.gradle-cache.outputs.cache-primary-key }}
 
       - name: Upload Android build log
         if: always()
@@ -1046,11 +1072,25 @@ jobs:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
-      - name: Set up Gradle cache
+      # Key on every tracked Gradle build input: an entry is immutable, so an
+      # input the key misses keeps later runs on the entry saved before it
+      # changed. run_gradle_cache_contract.sh holds the key to those inputs.
+      - name: Restore Gradle cache
+        id: gradle-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-${{ runner.arch }}-gradle-${{ hashFiles('android/**/*.gradle', 'android/gradle.properties', 'android/gradle/*.versions.toml', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      # setup-gradle's own providers key on files this repo does not choose;
+      # the basic one hashes gradle/*.versions.toml at the root, never the
+      # catalog in android/gradle/. Leave the cache to the steps around it.
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
-          cache-provider: basic
-          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/github_ci' }}
+          cache-provider: external
 
       - name: Set up Android SDK
         id: android-sdk
@@ -1254,6 +1294,18 @@ jobs:
           working-directory: ./android
           script: >-
             bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh
+
+      # Save on a miss after the last Gradle step, and only when every earlier
+      # step passed (the implicit success()), so a failed resolution stores no
+      # partial entry under an immutable key. Other refs only read.
+      - name: Save Gradle cache
+        if: steps.gradle-cache.outputs.cache-hit != 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/github_ci')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ steps.gradle-cache.outputs.cache-primary-key }}
 
       - name: Upload Android test reports
         if: always()

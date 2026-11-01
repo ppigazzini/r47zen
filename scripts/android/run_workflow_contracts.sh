@@ -33,6 +33,7 @@ CONTRACTS=(
     run_wrap_safe_time_contract.sh
     run_setup_android_packages_contract.sh
     run_setup_android_composite_contract.sh
+    run_gradle_cache_contract.sh
     run_bridge_tsan_lane_contract.sh
     run_lock_free_signal_atomicity_contract.sh
     run_mini_gmp_accounting_contract.sh
