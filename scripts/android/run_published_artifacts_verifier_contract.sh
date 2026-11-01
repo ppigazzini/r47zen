@@ -15,9 +15,11 @@
 # (artifact_signing_cert_sha256) is recorded at build time by
 # collect_packaging_evidence via apksigner/keytool.
 #
-# Then it holds the tracked pin: R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256 in
-# android/r47-defaults.properties is 64 lowercase hex digits, the README states
-# that value, and the release workflow hands it to the verifier.
+# Then it holds the tracked pins: R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256 and
+# R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256 in android/r47-defaults.properties
+# are 64 lowercase hex digits each and the README states both; the release
+# workflow hands the first to the verifier, and sign-dev-prerelease in
+# android-ci.yml refuses a dev APK signed by anything but the second.
 
 set -Eeuo pipefail
 
@@ -165,3 +167,22 @@ if ! grep -qF -- '--expected-cert-sha256 "$R47_DEFAULT_RELEASE_SIGNER_CERT_SHA25
     exit 1
 fi
 echo "OK: the release signer pin is $pin in r47-defaults.properties, README.md, and the release verifier."
+
+# The prerelease pin, the same way: one owner, the defaults file; the README
+# repeats it for people who verify a -dev APK by hand; and sign-dev-prerelease
+# refuses a dev APK whose recorded signer differs from it.
+dev_pin="$(sed -n 's/^R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256=//p' "$DEFAULTS_FILE")"
+if [[ ! "$dev_pin" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "FAIL: R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256 in $DEFAULTS_FILE must be one line of 64 lowercase hex digits, got '$dev_pin'." >&2
+    exit 1
+fi
+if ! grep -qxF -- "    $dev_pin" <<<"$readme"; then
+    echo "FAIL: README.md does not state the prerelease signer pin $dev_pin as an indented line of its own." >&2
+    exit 1
+fi
+ci_workflow="$(grep -vE '^[[:space:]]*#' "$PROJECT_ROOT/.github/workflows/android-ci.yml")"
+if ! grep -qF -- '"$signer_cert" != "$R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256"' <<<"$ci_workflow"; then
+    echo "FAIL: android-ci.yml does not hold the dev APK's signer to R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256." >&2
+    exit 1
+fi
+echo "OK: the prerelease signer pin is $dev_pin in r47-defaults.properties, README.md, and the dev-prerelease signing check."

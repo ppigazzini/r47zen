@@ -86,13 +86,22 @@ signing-key policy, retention, and published artifacts.
 ## Verify a downloaded APK
 
 The APK and the AAB of every production release on GitHub are signed by one
-certificate. Its SHA-256, as `apksigner verify --print-certs` prints it:
+certificate, the release certificate. Its SHA-256, as
+`apksigner verify --print-certs` prints it:
 
     fa001b0b6a847335806c5ba5094a07c38b1962b0b983e1b07407bbe5628aacc6
 
 The release workflow refuses to publish a build that carries any other signer,
-and each release's notes repeat the value. The `-dev` pre-releases install as
-a separate app, `io.github.ppigazzini.r47zen.dev`, signed by a prerelease key.
+and each release's notes repeat the value.
+
+The `-dev` pre-releases install as a separate app,
+`io.github.ppigazzini.r47zen.dev`, signed by the prerelease certificate. Its
+SHA-256:
+
+    3e205018f6b622fc382be665efec9c06c231d8f8aec2027e4014800573c43ab1
+
+The CI workflow refuses to publish a pre-release that carries any other
+signer, and each pre-release's notes repeat the value.
 
 Google Play signs the APKs it delivers with its own app-signing key, so an
 install from Play does not carry this certificate. Android updates an app only
@@ -112,16 +121,15 @@ which deletes the app's data, then install the current release.
 [Obtainium](https://github.com/ImranR98/Obtainium) installs the APK from this
 repository's releases and keeps it current. Add
 `https://github.com/ppigazzini/r47zen` as an app, and on the same screen set
-"Expected signing certificate hashes" to the release certificate, the line on
-its own under [Verify a downloaded APK](#verify-a-downloaded-apk). Obtainium
-then refuses any download signed by another key, and offers no way to install
-it anyway.
+"Expected signing certificate hashes" to the release certificate from
+[Verify a downloaded APK](#verify-a-downloaded-apk). Obtainium then refuses
+any download signed by another key, and offers no way to install it anyway.
 
 - On Android 8.0 and 8.1, leave that field empty. Obtainium cannot read a
   download's signer there, so with the field set it blocks every install;
   Android itself still refuses an update from another signer.
-- Leave "Include prereleases" off. The `-dev` pre-releases are another app
-  with another signer, and the field refuses them.
+- Leave "Include prereleases" off. The `-dev` pre-releases are another app,
+  signed by the prerelease certificate, and the field refuses them.
 - A release whose notes carry a "Reinstall required" notice is signed by a new
   certificate: uninstall, put the new certificate those notes name in the
   field, then install.

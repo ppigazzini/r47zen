@@ -471,7 +471,11 @@ It:
 - off `pull_request`, fails unless that digest equals
   `R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256` in
   `android/r47-defaults.properties`, so a dev APK signed by any other key is
-  never published; a pull request's throwaway key is not held to it
+  never published; a pull request's throwaway key is not held to it. The
+  README repeats the pin for people who verify a dev APK by hand, so rotating
+  the prerelease key is a commit that changes both;
+  `scripts/android/run_published_artifacts_verifier_contract.sh` holds the
+  two equal and this comparison in place
 - uploads the Android packaging artifact bundle
   `r47zen-<upstream short>-<android short>`, which ships the APK
   `r47zen_<dev version>_<upstream short>_<android short>.apk`
