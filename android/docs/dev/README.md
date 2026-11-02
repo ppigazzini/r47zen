@@ -131,7 +131,7 @@ owns the fix.
 | a key label, a softkey, or the keypad layout looks wrong | scene export, render spec, or projection | [debug by symptom](05-ui-rendering-and-gtk-mapping.md#debug-by-symptom) |
 | the UI stalls while a program runs | a long native run that does not yield | [yield and SAF I/O boundary](06-runtime-hot-paths.md#yield-and-saf-io-boundary) and [the residual hang](06-runtime-hot-paths.md#residual-hang-nan-driven-non-yielding-runs) |
 | a release dispatch, or its Play upload, fails | an input refusal, or Play state | [when the workflow refuses](12-cutting-a-release.md#when-the-workflow-refuses) |
-| Obtainium blocks a user's install or update, or reports a signing certificate mismatch | the expected hash set on Android 8.0 or 8.1, a Play install, or a release under a new key | the README's [Obtainium section](../../../README.md#update-with-obtainium) and [the signer pin](07-ci-and-release-workflow.md#verify-signed-artifacts) |
+| Obtainium finds no APK, picks the other app, or reads no version for R47 Zen | an APK name, the `-dev` release title, or the production tag changed shape | the README's [Obtainium section](../../../README.md#update-with-obtainium) and `run_version_naming_contract.sh` in [Host CI Contracts](08-tests-and-contracts.md#host-ci-contracts) |
 
 ## Glossary
 

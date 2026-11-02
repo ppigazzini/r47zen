@@ -17,9 +17,8 @@ Download the APK from the
 [latest release](https://github.com/ppigazzini/r47zen/releases/latest) and
 install it; [Verify a downloaded APK](#verify-a-downloaded-apk) says how to
 check it was signed here, and [Update with Obtainium](#update-with-obtainium)
-how to keep it current with that check on every update. The `-dev`
-pre-releases on the same page are snapshot builds of `main`: they install as a
-separate app, beside the release.
+how to keep it current. The `-dev` pre-releases on the same page are snapshot
+builds of `main`: they install as a separate app, beside the release.
 
 ## Support
 
@@ -109,36 +108,52 @@ with the signer it was installed with: a Play install and a GitHub install
 cannot replace each other, and moving from one to the other means
 uninstalling, which deletes the app's data.
 
-Android refuses to update an install of a production release older than
-0.1.10-signed.2026100904: those carry a date-shaped version code (2026092802
-to 2026100903), higher than any later release's, and all but
-0.1.10-signed.2026100903 an earlier certificate, SHA-256
-7514186154f3789499eddd8e2b656b986dc801462fc5571293202ec5f0e92d71. Uninstall it,
-which deletes the app's data, then install the current release.
-
 ## Update with Obtainium
 
 [Obtainium](https://github.com/ImranR98/Obtainium) installs the APK from this
-repository's releases and keeps it current. Add
-`https://github.com/ppigazzini/r47zen` as an app, and on the same screen set
-"Expected signing certificate hashes" to the release certificate from
-[Verify a downloaded APK](#verify-a-downloaded-apk). Obtainium then refuses
-any download signed by another key, and offers no way to install it anyway.
+repository's releases and keeps it current. The release and the `-dev`
+pre-releases are two apps, so each takes its own entry: add
+`https://github.com/ppigazzini/r47zen` once for each app you want, and set
+these fields on the same screen.
 
-- On Android 8.0 and 8.1, leave that field empty. Obtainium cannot read a
-  download's signer there, so with the field set it blocks every install;
-  Android itself still refuses an update from another signer.
-- To follow the `-dev` pre-releases too, the snapshot builds of `main`, add
-  the same URL a second time with "Include prereleases" on, "Filter release
-  titles by regex" set to `^r47zen_`, and "Expected signing certificate
-  hashes" set to the prerelease certificate. Obtainium keeps it as a separate
-  app, `io.github.ppigazzini.r47zen.dev`, beside the release.
-- A release whose notes carry a "Reinstall required" notice is signed by a new
-  certificate: uninstall, put the new certificate those notes name in the
-  field, then install.
-- When Obtainium shares a new install with Verified Apps and Verified Apps
-  cannot vouch for R47 Zen, compare the certificate it shows with the release
-  or the prerelease certificate.
+For the release, `io.github.ppigazzini.r47zen`:
+
+- "Filter links by regex":
+
+  ```text
+  ^r47zen_[0-9]+\.[0-9]+\.[0-9]+_[0-9a-f]{8}_[0-9a-f]{8}\.apk$
+  ```
+
+- "Trim version string with RegEx":
+
+  ```text
+  [0-9]+\.[0-9]+\.[0-9]+
+  ```
+
+For the `-dev` pre-releases, the snapshot builds of `main`,
+`io.github.ppigazzini.r47zen.dev`:
+
+- "Include prereleases": on.
+- "Filter links by regex":
+
+  ```text
+  ^r47zen_[0-9]+\.[0-9]+\.[0-9]+-[0-9]+\.[0-9]+_[0-9a-f]{8}_[0-9a-f]{8}\.apk$
+  ```
+
+- "Use release title as version string": on; a `-dev` tag carries no version.
+- "Trim version string with RegEx":
+
+  ```text
+  [0-9]+\.[0-9]+\.[0-9]+-[0-9]+\.[0-9]+
+  ```
+
+The link filter picks the app: a release APK is named
+`r47zen_<version>_<upstream8>_<android8>.apk`, a `-dev` APK carries
+`<version>-<run>.<attempt>` in place of `<version>`, and Obtainium skips a
+release with no matching APK. The version regex cuts the release tag, or the
+`-dev` title, down to the version name the installed app reports. One entry
+cannot follow both apps: Obtainium refuses a download whose package differs
+from the entry's.
 
 ## Documentation
 

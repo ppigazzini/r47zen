@@ -925,21 +925,23 @@ signed by any other key fails before publication. The pin is tracked, so
 rotating the signing key is a commit that changes it and the README's copy
 together; `scripts/android/run_published_artifacts_verifier_contract.sh` holds
 the two equal, and the release notes of the first release under the new key
-carry the reinstall notice, which also tells an Obtainium user to replace the
-hash they set.
+carry the reinstall notice.
 
-The README's Obtainium section sends users to that same copy, and a user who
-follows the `-dev` pre-releases to the prerelease pin's copy, for Obtainium's
-"Expected signing certificate hashes" setting, which refuses any other signer
-with no override, so the README holds no second copy of either. Its `-dev`
-entry tells the two apps' releases apart with the title filter `^r47zen_`;
-`scripts/android/run_version_naming_contract.sh` holds the dev and production
-title shapes that filter relies on. It offers no one-tap
-Obtainium link: GitHub's renderer drops an `obtainium://` link, Obtainium's
-https redirect page carries that site's analytics and ad script, and either
-link would hold a URL-encoded copy of the pin that the contract does not read.
-The section quotes Obtainium's setting names and its Android 8.0 and 8.1
-limit, which Obtainium can change with no commit here.
+The README's Obtainium section gives only the settings that depend on this
+repository's names, and leaves the rest of Obtainium's configuration, its
+signer checks among them, to Obtainium; it does not point at the pinned
+certificates. It gives each app its own entry, because Obtainium refuses a
+download whose package differs from the entry's: a link filter on the APK name
+picks the app, and a version regex cuts the version name out of the production
+tag `r47zen-v<version>` or the `-dev` title.
+`scripts/android/run_version_naming_contract.sh` holds the README's four
+regexes and runs them against the names `resolve_android_artifact_metadata.sh`
+gives and the tag `android-release.yml` cuts. It offers no one-tap Obtainium
+link: GitHub's renderer drops an `obtainium://` link, Obtainium's https
+redirect page carries that site's analytics and ad script, and either link
+would hold a URL-encoded copy of the regexes that the contract does not read.
+The section quotes Obtainium's setting names, which Obtainium can change with
+no commit here.
 
 ## Other workflows
 

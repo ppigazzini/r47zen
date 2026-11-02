@@ -16,8 +16,10 @@
 # resolve_android_artifact_metadata.sh must name files
 # r47zen_<version>_<upstream8>_<android8>.<ext>, keep the commit-only dev tag
 # the skip gate keys on, and refuse a version holding the "_" field separator.
-# A dev release title is that stem and a production one "R47 Zen <version>",
-# so the README's Obtainium filter ^r47zen_ tells the two apart.
+# The README's Obtainium regexes must split those names: each link filter
+# selects only its own app's APK, and each version regex cuts the version out
+# of what Obtainium reads, the production tag r47zen-v<version> or the dev
+# title, which is the file stem.
 #
 # Pure host test, needs git.
 
@@ -107,28 +109,58 @@ printf '%s\n' '#define VERSION1 "00.109 beta"' >"$defines"
 [ -z "$(bash "$READER" "$defines")" ] ||
     contract_fail "read_upstream_version.sh printed a malformed VERSION1."
 
-names="$(bash "$NAMER" --upstream-commit d8f0c932085890d4a18699560f1fd234065e29b7 \
+release_names="$(bash "$NAMER" --upstream-commit d8f0c932085890d4a18699560f1fd234065e29b7 \
     --android-commit cc7b9537e29750d75527b2ca306649c8f15d8df5 --version 0.1.13)"
 for want in \
     "R47_ANDROID_RELEASE_APK_NAME=r47zen_0.1.13_d8f0c932_cc7b9537.apk" \
     "R47_ANDROID_RELEASE_AAB_NAME=r47zen_0.1.13_d8f0c932_cc7b9537.aab" \
     "R47_ANDROID_DEV_RELEASE_TAG=r47zen-d8f0c932-cc7b9537-dev"; do
-    grep -qxF -- "$want" <<<"$names" || contract_fail "artifact names lack '$want'."
+    grep -qxF -- "$want" <<<"$release_names" || contract_fail "artifact names lack '$want'."
 done
-names="$(bash "$NAMER" --upstream-commit d8f0c932 --android-commit cc7b9537 --version 0.1.14-53.1)"
-grep -qxF -- "R47_ANDROID_DEV_APK_NAME=r47zen_0.1.14-53.1_d8f0c932_cc7b9537.apk" <<<"$names" ||
-    contract_fail "the dev APK name does not carry the dev version."
+dev_names="$(bash "$NAMER" --upstream-commit d8f0c932 --android-commit cc7b9537 --version 0.1.14-53.1)"
+for want in \
+    "R47_ANDROID_DEV_APK_NAME=r47zen_0.1.14-53.1_d8f0c932_cc7b9537.apk" \
+    "R47_ANDROID_DEV_RELEASE_TITLE=r47zen_0.1.14-53.1_d8f0c932_cc7b9537"; do
+    grep -qxF -- "$want" <<<"$dev_names" || contract_fail "dev names lack '$want'."
+done
 
-# The README's Obtainium filter for the -dev app, ^r47zen_, keeps every dev
-# release title and drops every production one: dev titles are the
-# r47zen_<version>_... stem, production titles "R47 Zen <version>".
-grep -qxF -- "R47_ANDROID_DEV_RELEASE_TITLE=r47zen_0.1.14-53.1_d8f0c932_cc7b9537" <<<"$names" ||
-    contract_fail "the dev release title is not r47zen_<version>_<upstream8>_<android8>, which the README's Obtainium filter ^r47zen_ selects."
+# The README's Obtainium settings, one entry per app. Obtainium compiles each
+# regex as a Dart RegExp and searches with it; for the constructs used here
+# grep -E matches the same strings, and tail -n 1 takes the last match, as
+# Obtainium's version extraction does.
+release_apk_regex='^r47zen_[0-9]+\.[0-9]+\.[0-9]+_[0-9a-f]{8}_[0-9a-f]{8}\.apk$'
+dev_apk_regex='^r47zen_[0-9]+\.[0-9]+\.[0-9]+-[0-9]+\.[0-9]+_[0-9a-f]{8}_[0-9a-f]{8}\.apk$'
+release_version_regex='[0-9]+\.[0-9]+\.[0-9]+'
+dev_version_regex='[0-9]+\.[0-9]+\.[0-9]+-[0-9]+\.[0-9]+'
+readme_lines="$(sed 's/^[[:space:]]*//' "$PROJECT_ROOT/README.md")"
+for regex in "$release_apk_regex" "$dev_apk_regex" "$release_version_regex" "$dev_version_regex"; do
+    grep -qxF -- "$regex" <<<"$readme_lines" ||
+        contract_fail "README.md does not hold the Obtainium regex '$regex' on a line of its own."
+done
+release_apk="$(sed -n 's/^R47_ANDROID_RELEASE_APK_NAME=//p' <<<"$release_names")"
+dev_apk="$(sed -n 's/^R47_ANDROID_DEV_APK_NAME=//p' <<<"$dev_names")"
+dev_title="$(sed -n 's/^R47_ANDROID_DEV_RELEASE_TITLE=//p' <<<"$dev_names")"
+grep -qE -- "$release_apk_regex" <<<"$release_apk" ||
+    contract_fail "the README's release link filter does not select $release_apk."
+if grep -qE -- "$release_apk_regex" <<<"$dev_apk"; then
+    contract_fail "the README's release link filter selects the dev APK $dev_apk."
+fi
+grep -qE -- "$dev_apk_regex" <<<"$dev_apk" ||
+    contract_fail "the README's dev link filter does not select $dev_apk."
+if grep -qE -- "$dev_apk_regex" <<<"$release_apk"; then
+    contract_fail "the README's dev link filter selects the release APK $release_apk."
+fi
+got="$(grep -oE -- "$dev_version_regex" <<<"$dev_title" | tail -n 1)"
+[ "$got" = "0.1.14-53.1" ] ||
+    contract_fail "the README's dev version regex cuts '$got' from the title $dev_title, not 0.1.14-53.1."
 release_workflow="$(strip_hash_comments <"$PROJECT_ROOT/.github/workflows/android-release.yml")"
-grep -qF -- 'echo "release_title=R47 Zen $version_name"' <<<"$release_workflow" ||
-    contract_fail "android-release.yml no longer titles a production release 'R47 Zen <version>', which the README's Obtainium filter ^r47zen_ must not select."
+grep -qF -- 'release_tag="r47zen-v${version_name}"' <<<"$release_workflow" ||
+    contract_fail "android-release.yml no longer tags a production release r47zen-v<version>, the string the README's release version regex reads."
+got="$(grep -oE -- "$release_version_regex" <<<"r47zen-v0.1.13" | tail -n 1)"
+[ "$got" = "0.1.13" ] ||
+    contract_fail "the README's release version regex cuts '$got' from the tag r47zen-v0.1.13, not 0.1.13."
 if bash "$NAMER" --upstream-commit d8f0c932 --android-commit cc7b9537 --version 0.1_13 >/dev/null 2>&1; then
     contract_fail "resolve_android_artifact_metadata.sh accepted a version holding '_'."
 fi
 
-contract_pass "release versions follow the SemVer steps, published files are named r47zen_<version>_<upstream8>_<android8>, and dev and production release titles stay apart under ^r47zen_."
+contract_pass "release versions follow the SemVer steps, published files are named r47zen_<version>_<upstream8>_<android8>, and the README's Obtainium regexes split the release from the dev APKs and cut out each version."

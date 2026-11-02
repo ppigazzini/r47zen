@@ -347,21 +347,16 @@ Current repository icon surfaces:
   is why the tracked defaults file must hold the released numbers at each
   release tag.
 - [Obtainium](https://github.com/ImranR98/Obtainium): the updater the README's
-  Obtainium section describes. Its signer checks live in
-  `lib/providers/apps_provider_install.dart`: a per-app "Expected signing
-  certificate hashes" list refuses any other signer with no override, and
-  refuses every install when it cannot read the signer (Android before 9);
-  "Warn about signing certificate changes" compares a download with the
-  installed app, lets the user continue in the foreground, and blocks a
-  background update.
+  Obtainium section configures, read for the settings the section gives. In
+  `lib/app_sources/github.dart`, a release with no asset matching "Filter
+  links by regex" is skipped, and the version is the tag unless "Use release
+  title as version string" is on; `lib/services/version_service.dart` applies
+  "Trim version string with RegEx" and keeps the last match;
+  `lib/providers/apps_provider_install.dart` refuses a download whose package
+  differs from the app's ID, so one entry follows one app.
 - [Obtainium deep links and badges](https://github.com/ImranR98/apps.obtainium.imranr.dev/blob/main/BADGING.md):
   the `obtainium://app/` and redirect-page link forms, and the redirect page's
   analytics and ad script, one reason the README offers no one-tap link.
-- [Verified Apps](https://github.com/privacyguides/verified-apps): Privacy
-  Guides' database of known signing fingerprints, which Obtainium shares a new
-  install with when Verified Apps is installed. The README tells a user it
-  cannot vouch for R47 Zen to compare against the README's release
-  certificate.
 
 ## Google Play setup and policy
 
