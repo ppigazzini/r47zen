@@ -723,9 +723,17 @@ Android compatibility layer.
   check the assertion still fires. `R47_GRAPH_HARNESS_ITERS` bounds the run;
   the `host-workload-regressions` job of `linux-ci.yml` runs 4000 re-solves.
 - `scripts/workload-regressions/build_clipboard_overflow_harness.sh` builds
-  `clipboard_overflow_harness.c` with the same tree under AddressSanitizer and drives the clipboard register dumps past
-  their buffer caps in the same CI job. It is a memory-safety probe: AddressSanitizer
-  aborts on an overrun, and nothing checks the dumped text itself.
+  `clipboard_overflow_harness.c` with the same tree under AddressSanitizer
+  and runs it in the same CI job. First it gates the copy of the
+  statistical-sum names in `android_helpers.c`. The script extracts the
+  initializer of upstream's `StatSumNames` from the staged `screen.c`, and
+  fails when it cannot find it. After one Sigma+ of x = 2 and y = 3, the
+  harness fails every `SR` row of the all-registers dump that lacks
+  upstream's name for its sum, and fails `SR14` and `SR23` unless they hold
+  4 ln 3 and 16, which ties each name to the sum it labels. Then it drives the
+  all-registers dump past its buffer cap and calls the stack and X getters as
+  a memory-safety probe: AddressSanitizer aborts on an overrun. No other part
+  of the dumped text is checked.
 - `scripts/android/run_keypad_generation_contract.sh` links `hal/lcd.c` alone on
   the host -- no emulator, no device -- and runs
   `scripts/android/keypad_generation_contract_test.c`. It asserts six

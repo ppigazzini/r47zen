@@ -224,10 +224,21 @@ runtime init and for instrumentation only (see
 The clipboard-export getters are Android-owned bridge seams. They mirror the
 upstream desktop clipboard payload shapes for `Copy X Register`, `Copy Stack
 Registers`, and `Copy All Registers` without moving Android menu policy into
-the upstream core. When those payloads change, keep
-`DisplayActionController.kt`, `jni_clipboard.c`, and the formatter helpers in
-`android_helpers.c` aligned with the upstream reference behavior in
-`src/c47/screen.c`.
+the upstream core. Upstream's own builders in `src/c47/screen.c`,
+`copyRegisterToClipboardString`, `copyStackRegistersToClipboardString`, and
+`copyAllRegistersToClipboard`, compile into the app but hand their text to
+`gtk_clipboard_set_text`, which `android_mocks.h` turns into a no-op. So
+`android_helpers.c` formats from its own copy of that code, cut to its
+`ANDROID_CLIPSTR` buffer.
+
+One part of the copy is gated: the names of the statistical sums. A
+`_Static_assert` fails the build when the table leaves a sum unnamed, and
+`clipboard_overflow_harness.c` fails when a row's name differs from upstream's
+`StatSumNames` ([08](08-tests-and-contracts.md#host-regression-and-build-contracts)).
+Nothing holds the rest of the copy to upstream. An upstream change to how a
+register is formatted reaches Android only when someone ports it, so when
+`screen.c`'s builders change, port the change to `android_helpers.c` and keep
+`DisplayActionController.kt` and `jni_clipboard.c` aligned with it.
 
 Shared helpers in `jni_bridge.h` centralize `JNIEnv` acquisition,
 detach-on-scope-exit for native-owned threads, exception detection and clearing

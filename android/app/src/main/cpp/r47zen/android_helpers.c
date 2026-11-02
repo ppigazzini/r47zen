@@ -479,7 +479,12 @@ char *getClipboardAllRegistersString() {
   }
 
   if (statisticalSumsPointer != NULL) {
-    const char *const statSumNames[NUMBER_OF_STATISTICAL_SUMS] = {
+    // Keep this table equal to StatSumNames, which upstream keeps local to
+    // copyAllRegistersToClipboard in screen.c. The assert fails a table that
+    // leaves a sum unnamed, whose NULL the strcpy below would read, and
+    // scripts/workload-regressions/clipboard_overflow_harness.c fails a name
+    // that differs from upstream's.
+    const char *const statSumNames[] = {
         /* 0*/ "n             ",
         /* 1*/ STD_SIGMA "(x)          ",
         /* 2*/ STD_SIGMA "(y)          ",
@@ -494,19 +499,23 @@ char *getClipboardAllRegistersString() {
         /*11*/ STD_SIGMA "(ln(y))      ",
         /*12*/ STD_SIGMA "(ln" STD_SUP_2 "(y))     ",
         /*13*/ STD_SIGMA "(x ln(y))    ",
-        /*14*/ STD_SIGMA "(ln(y)/x)    ",
-        /*15*/ STD_SIGMA "(x" STD_SUP_2 "/y)       ",
-        /*16*/ STD_SIGMA "(1/x)        ",
-        /*17*/ STD_SIGMA "(1/x" STD_SUP_2 ")       ",
-        /*18*/ STD_SIGMA "(x/y)        ",
-        /*19*/ STD_SIGMA "(1/y)        ",
-        /*20*/ STD_SIGMA "(1/y" STD_SUP_2 ")       ",
-        /*21*/ STD_SIGMA "(x" STD_SUP_3 ")         ",
-        /*22*/ STD_SIGMA "(x" STD_SUP_4 ")         ",
-        /*23*/ "x min         ",
-        /*24*/ "x max         ",
-        /*25*/ "y min         ",
-        /*26*/ "y max         "};
+        /*14*/ STD_SIGMA "(x" STD_SUP_2 "ln(y))    ",
+        /*15*/ STD_SIGMA "(ln(y)/x)    ",
+        /*16*/ STD_SIGMA "(x" STD_SUP_2 "/y)       ",
+        /*17*/ STD_SIGMA "(1/x)        ",
+        /*18*/ STD_SIGMA "(1/x" STD_SUP_2 ")       ",
+        /*19*/ STD_SIGMA "(x/y)        ",
+        /*20*/ STD_SIGMA "(1/y)        ",
+        /*21*/ STD_SIGMA "(1/y" STD_SUP_2 ")       ",
+        /*22*/ STD_SIGMA "(x" STD_SUP_3 ")         ",
+        /*23*/ STD_SIGMA "(x" STD_SUP_4 ")         ",
+        /*24*/ "x min         ",
+        /*25*/ "x max         ",
+        /*26*/ "y min         ",
+        /*27*/ "y max         "};
+    _Static_assert(sizeof(statSumNames) / sizeof(statSumNames[0]) ==
+                       NUMBER_OF_STATISTICAL_SUMS,
+                   "statSumNames must name every statistical sum");
     char sumName[40];
     char statValue[256];
 
