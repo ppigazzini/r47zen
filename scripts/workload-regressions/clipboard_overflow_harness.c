@@ -19,16 +19,11 @@
 #include <string.h>
 #include <sys/stat.h>
 
-extern void r47_initialize_native_bridge_state(void);
-extern void r47_native_preinit_path(const char *path);
-extern void r47_init_runtime(int slotId);
-
+// The clipboard getters in android_helpers.c, which no header declares.
 extern char *getClipboardAllRegistersString(void);
 extern char *getClipboardStackRegistersString(void);
 extern char *getClipboardXRegisterString(void);
 extern char *getXRegisterString(void);
-extern void convertLongIntegerToLongIntegerRegister(const longInteger_t lgInt,
-                                                    calcRegister_t regist);
 
 int main(void) {
   const char *runtime_dir = "/tmp/r47-clipboard-overflow-harness";

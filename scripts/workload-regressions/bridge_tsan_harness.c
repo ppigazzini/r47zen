@@ -44,10 +44,6 @@
 // upstream tree also has a hal/lcd.h, and it comes first on the include path.
 #include "../../android/app/src/main/cpp/r47zen/hal/lcd.h"
 
-extern void r47_initialize_native_bridge_state(void);
-extern void r47_native_preinit_path(const char *path);
-extern void r47_init_runtime(int slotId);
-
 // The live fixed-width key input path. It ignores its JNIEnv/jobject arguments
 // (jni_input.c), so the harness drives it with NULL the way the instrumentation
 // fixtures in jni_program_load_test.c already do.

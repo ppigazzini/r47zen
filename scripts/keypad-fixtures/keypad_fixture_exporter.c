@@ -10,8 +10,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-extern void showSoftmenu(int16_t id);
-
 typedef struct {
   const char *name;
   const char *description;

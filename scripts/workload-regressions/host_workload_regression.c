@@ -17,26 +17,10 @@
 #define PROGRAMS_DIR "PROGRAMS"
 #endif
 
-extern pthread_mutex_t screenMutex;
-extern uint8_t lastErrorCode;
-extern uint8_t programRunStop;
-extern uint8_t temporaryInformation;
-extern uint16_t currentLocalStepNumber;
-extern uint16_t currentProgramNumber;
-extern uint16_t numberOfPrograms;
-
-extern void runFunction(int16_t func);
-extern void reallyRunFunction(int16_t func, uint16_t param);
-extern void fnLoadProgram(uint16_t unusedButMandatoryParameter);
-// Bytes of GMP memory the core holds, counted by the allocGmp / reallocGmp /
-// freeGmp hooks it installs with mp_set_memory_functions.
-extern size_t gmpMemInBytes;
-extern int16_t dynamicMenuItem;
-extern calcRegister_t findNamedLabel(const char *labelName, uint8_t labelType);
-extern void reallocateRegister(calcRegister_t regist, uint32_t dataType,
-                               uint16_t dataSizeWithoutDataLenBlocks,
-                               uint32_t tag);
-extern bool_t lcd_buffer_pixel_on(uint32_t x, uint32_t y);
+// Take every core declaration from the headers: c47.h, through
+// keypad_fixture_bridge.h, declares the core symbols this harness uses, and
+// android_mocks.h declares screenMutex. A private copy of an upstream
+// prototype stops this file compiling when upstream changes the signature.
 
 // Height of the upstream status bar, in pixel rows. Upstream carries no named
 // constant for it: screen.h hardcodes the same geometry in its clear macros,
@@ -173,8 +157,6 @@ typedef enum {
   WORKLOAD_RESULT_FAIL,
   WORKLOAD_RESULT_STOP_TIMEOUT,
 } workload_result_t;
-
-extern void fnStopProgram(uint16_t unusedButMandatoryParameter);
 
 static void usage(const char *argv0) {
   fprintf(stderr,

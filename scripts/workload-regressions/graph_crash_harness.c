@@ -21,25 +21,12 @@
 #include <string.h>
 #include <sys/stat.h>
 
-extern void r47_initialize_native_bridge_state(void);
-extern void r47_native_preinit_path(const char *path);
-extern void r47_init_runtime(int slotId);
-
-extern void fnEqNew(uint16_t param);
-extern void setEquation(uint16_t equationId, const char *equationString);
-extern void parseEquation(uint16_t equationId, uint16_t parseMode, char *buffer,
-                          char *mvarBuffer);
-extern void fnEqSolvGraph(uint16_t func);
-extern void convertDoubleToReal34Register(double value, calcRegister_t regist);
-
-// currentFormula, currentSolverVariable, graphVariabl1, currentSolverStatus,
-// calcMode, lastErrorCode, aimBuffer, tmpString, getNthString,
-// findOrAllocateNamedVariable and the graph window bounds x_min/x_max/y_min/
-// y_max (real_t *const decNumber pointers) are declared by the included core
-// headers. r47_graph_bound_from_float writes a float into such a bound.
-extern void r47_graph_bound_from_float(float value, real_t *dst);
-extern int8_t PLOT_ZMY;
-extern int32_t numberOfFreeMemoryRegions;
+// Take every declaration from the headers: c47.h, through
+// keypad_fixture_bridge.h, declares the core symbols this harness uses, and
+// jni_bridge.h r47_graph_bound_from_float, which writes a float into one of
+// the graph window bounds. A private copy of an upstream prototype stops this
+// file compiling when upstream changes the signature.
+#include "jni_bridge.h"
 
 static long long_env(const char *name, long fallback) {
   const char *text = getenv(name);
