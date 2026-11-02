@@ -5,9 +5,9 @@
 // Concatenating a span of registers holding large long integers with unbounded
 // sprintf/strcat/stringToUtf8 would exceed that cap.
 //
-// This harness stuffs the global numbered registers with a huge long integer
-// (2^60000, ~18000 decimal digits each) so the concatenated dump is megabytes,
-// far past the 30000-byte cap, then calls each clipboard getter. Built under
+// This harness fills ten numbered registers, X, and Y with a huge long integer
+// (2^60000, 18062 decimal digits) so the all-registers and stack dumps run far
+// past the 30000-byte cap, then calls each clipboard getter. Built under
 // AddressSanitizer: any overrun aborts with a stack trace. The dump is bounded
 // (truncated at the cap) and the run stays clean.
 //
@@ -95,17 +95,25 @@ int main(void) {
 
   int failures = check_statistical_sum_rows();
 
-  // 2^60000 is about 18000 decimal digits; storing it in 100 global registers
-  // makes the all-registers dump ~1.8 MB, ~60x the ANDROID_CLIPSTR cap.
+  // Ten numbered registers of 2^60000 make the all-registers dump about 180 KB,
+  // six times the ANDROID_CLIPSTR cap, and X and Y of it run the stack dump past
+  // the cap as well. Keep the set inside the register pool, and fail when a
+  // register does not take the value: the core then leaves the register as it
+  // was, a real after the reset, and the dumps would stop short of the cap.
+  const calcRegister_t filled[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, REGISTER_X,
+                                   REGISTER_Y};
   longInteger_t big;
   longIntegerInit(big);
   longInteger2Pow(60000, big);
-  for (calcRegister_t r = 0; r < 100; r++) {
-    convertLongIntegerToLongIntegerRegister(big, r);
+  for (size_t i = 0; i < sizeof(filled) / sizeof(filled[0]); i++) {
+    convertLongIntegerToLongIntegerRegister(big, filled[i]);
+    if (getRegisterDataType(filled[i]) != dtLongInteger) {
+      fprintf(stderr, "FAIL: register %d did not take 2^60000; the pool is full\n",
+              filled[i]);
+      longIntegerFree(big);
+      return 1;
+    }
   }
-  // Also overfill the X stack register so the stack and X getters are exercised.
-  convertLongIntegerToLongIntegerRegister(big, REGISTER_X);
-  convertLongIntegerToLongIntegerRegister(big, REGISTER_Y);
   longIntegerFree(big);
 
   char *all = getClipboardAllRegistersString();
@@ -136,7 +144,11 @@ int main(void) {
     strdata[p++] = 0x48;
   }
   strdata[p] = '\0';
-  reallocateRegister(REGISTER_X, dtString, TO_BLOCKS(p + 1), amNone);
+  if (!reallocateRegister(REGISTER_X, dtString, TO_BLOCKS(p + 1), amNone)) {
+    fprintf(stderr, "FAIL: the pool cannot hold the %zu-byte string in X\n",
+            p + 1);
+    return 1;
+  }
   memcpy(REGISTER_STRING_DATA(REGISTER_X), strdata, p + 1);
   char *xreg = getXRegisterString();
   fprintf(stderr, "getXRegisterString length = %zu\n", strlen(xreg));
