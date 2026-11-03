@@ -363,20 +363,24 @@ char *getXRegisterString() {
 
   calcRegister_t regist = REGISTER_X;
   uint8_t dataType = getRegisterDataType(regist);
-  uint8_t tag = getRegisterTag(regist);
 
+  // Read the tag only through the registers.h accessors, which own its layout.
+  // A narrower local copy or a hand-written mask breaks when upstream widens or
+  // moves a field.
   switch (dataType) {
   case dtReal34:
-    real34ToDisplayString((const real34_t *)getRegisterDataPointer(regist), tag,
-                          coreBuf, &standardFont, 9999, 34, false, false,
-                          NOIRFRAC);
+    real34ToDisplayString((const real34_t *)getRegisterDataPointer(regist),
+                          getRegisterTag(regist), coreBuf, &standardFont, 9999,
+                          34, false, false, NOIRFRAC);
     break;
 
   case dtComplex34:
     complex34ToDisplayString(
         (const complex34_t *)getRegisterDataPointer(regist), coreBuf,
-        &standardFont, 9999, 34, false, false, NOIRFRAC, tag & amAngleMask,
-        (tag & amPolar) != 0);
+        &standardFont, 9999, 34, false, false, NOIRFRAC,
+        getComplexRegisterAngularMode(regist),
+        getComplexRegisterPolarMode(regist) == amPolar,
+        getRegisterExpStep(regist));
     break;
 
   case dtString:
