@@ -12,8 +12,8 @@ same JNI signature. `updateNativeActivityRef` drops every cached callback when a
 single lookup fails, so one renamed callback silently cuts off file requests,
 tones, and the yield into queued Android work.
 
-The shell codes Kotlin passes to sendSimMenuNative and sendSimFuncNative are the
-remaining JNI-level agreement: `jni_bridge.h` defines them, `NativeShellCodes.kt`
+The shell codes Kotlin passes to sendSimMenuNative are the remaining JNI-level
+agreement: `jni_bridge.h` defines them, `NativeShellCodes.kt`
 mirrors them, and `jni_input.c` resolves each to an upstream item symbol, never
 a number, since items.h renumbers between upstream revisions.
 """
