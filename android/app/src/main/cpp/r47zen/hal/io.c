@@ -5,16 +5,19 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <android/log.h>
 
 // Android HAL definition of the upstream PC_BUILD filename-override slot.
-// fnScreenDump (gated by PC_BUILD) checks this array first; if non-empty it
-// uses the value as the BMP output filename instead of the timestamp default.
-// Screen dumps are not meaningful on Android, so this is always left empty.
+// fnScreenDump (gated by PC_BUILD) writes its BMP to this name and clears it; left
+// empty, it would write a timestamped name relative to the working directory, which
+// an Android app cannot count on writing. r47_arm_snap and r47_offer_snap keep a
+// private path here, so a SNAP lands in a file the save picker can then pass on.
 // Use PATH_MAX from <limits.h> to match the upstream C47_PATH_MAX mapping on
 // POSIX hosts (C47_PATH_MAX resolves to PATH_MAX when PATH_MAX is defined).
 #include <limits.h>
 char _ioFileNameOverride[PATH_MAX] = {0};
+static char snapPath[PATH_MAX] = "";
 
 int create_dir(char *dir) {
   int ret;
@@ -43,6 +46,8 @@ static FILE *openedFile = NULL;
 // reported, once per file, through r47_report_file_write_failure.
 static bool openedFileWritable = false;
 static bool openedFileWriteFailed = false;
+// The folder WorkDirectory.kt starts the save picker in, for a screen capture.
+#define FILE_CATEGORY_SCREENS 3
 extern int requestAndroidFile(int isSave, const char *defaultName,
                               int fileType);
 extern void r47_report_file_write_failure(void);
@@ -102,6 +107,18 @@ static bool openedFileCanSeek(void) {
   fclose(openedFile);
   openedFile = NULL;
   return false;
+}
+
+// Make a descriptor the picker returned the open file.
+static bool openPickedFile(int fd, int isSave) {
+  openedFile = fdopen(fd, isSave ? "wb" : "rb");
+  if (!openedFile) {
+    close(fd);
+    return false;
+  }
+  openedFileWritable = isSave;
+  openedFileWriteFailed = false;
+  return true;
 }
 
 int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
@@ -174,13 +191,9 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     if (fd < 0)
       return FILE_CANCEL;
 
-    openedFile = fdopen(fd, isSave ? "wb" : "rb");
-    if (!openedFile) {
-      close(fd);
+    if (!openPickedFile(fd, isSave)) {
       return FILE_ERROR;
     }
-    openedFileWritable = isSave;
-    openedFileWriteFailed = false;
     return isSave || openedFileCanSeek() ? FILE_OK : FILE_ERROR;
   }
 #endif
@@ -302,6 +315,50 @@ void ioFileClose(void) {
   if (failed) {
     r47_report_file_write_failure();
   }
+}
+
+// Name the private file the next SNAP writes, and drop a capture left by a process
+// that died before offering it.
+void r47_arm_snap(void) {
+  if (!has_android_base_path()) {
+    return;
+  }
+  snprintf(snapPath, sizeof(snapPath), "%s/snap.bmp", android_base_path);
+  unlink(snapPath);
+  snprintf(_ioFileNameOverride, PATH_MAX, "%s", snapPath);
+}
+
+// Offer a finished capture through the save picker, then arm the next. fnScreenDump
+// clearing the name is the signal. The tick calls this on the core thread with
+// screenMutex held, and an armed name returns on the first test. A running program
+// reaches no tick, so of the SNAPs it takes before it stops only the first is kept.
+void r47_offer_snap(void) {
+  if (_ioFileNameOverride[0] != '\0' || snapPath[0] == '\0' || openedFile) {
+    return;
+  }
+  FILE *capture = fopen(snapPath, "rb");
+  if (capture) {
+    char name[32];
+    struct tm when;
+    time_t now = time(NULL);
+    strftime(name, sizeof(name), "%Y%m%d-%H%M%S00.bmp",
+             localtime_r(&now, &when));
+    int fd = requestAndroidFile(1, name, FILE_CATEGORY_SCREENS);
+    if (fd >= 0 && openPickedFile(fd, 1)) {
+      // A short read means the end of the file or an error, so it is the last.
+      char chunk[4096];
+      size_t count;
+      do {
+        count = fread(chunk, 1, sizeof(chunk), capture);
+        ioFileWrite(chunk, (uint32_t)count);
+      } while (count == sizeof(chunk));
+      openedFileWriteFailed = openedFileWriteFailed || ferror(capture);
+      ioFileClose();
+    }
+    fclose(capture);
+    unlink(snapPath);
+  }
+  snprintf(_ioFileNameOverride, PATH_MAX, "%s", snapPath);
 }
 
 int ioEof(void) { return openedFile ? feof(openedFile) : 1; }

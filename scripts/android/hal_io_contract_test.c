@@ -27,6 +27,14 @@ extern void set_android_base_path(const char *path);
 static int reports = 0;
 
 // The host side of the report: the bridge's real one calls into MainActivity.
+// r47_offer_snap asks for a file; hal_io_saf_contract_test.c holds that to account.
+int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
+  (void)isSave;
+  (void)defaultName;
+  (void)fileType;
+  return -1;
+}
+
 void r47_report_file_write_failure(void) {
   reports++;
 }

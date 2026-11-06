@@ -243,6 +243,10 @@ yield behavior.
 
 - `hal/io.c::ioFileOpen(...)` intercepts state, program, RTF-export, and manual
   save paths into `requestAndroidFile(...)` when the Android build is active.
+- `hal/io.c::r47_offer_snap()` reaches `requestAndroidFile(...)` from `tick()`
+  for the capture upstream's `fnScreenDump` wrote to `_ioFileNameOverride`. That
+  function clearing the name is the signal, so a change there stops the offer with
+  no build error; `clipboard_overflow_harness.c` holds the live core to it.
 - `requestAndroidFile(...)` in `jni_storage.c` fully releases the recursive
   `screenMutex`, marks `isCoreBlockingForIo = true`, calls back into
   `MainActivity.requestFile(...)`, waits on `fileCond`, then reacquires
