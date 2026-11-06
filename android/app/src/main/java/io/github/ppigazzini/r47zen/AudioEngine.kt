@@ -3,7 +3,6 @@ package io.github.ppigazzini.r47zen
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import android.os.Build
 import android.util.Log
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -28,14 +27,6 @@ object AudioEngine {
 
     @Volatile
     private var runningCheck: () -> Boolean = { false }
-
-    // Streaming starts only once the written audio reaches the track's start
-    // threshold, and a short key click writes less than that, so it would wait for
-    // the next tone. API 31 sets the threshold to one frame; below that, the silence
-    // the tone loop writes past the note fills the track.
-    internal fun samplesToWrite(toneSamples: Int, minimumWrite: Int, capacity: Int): Int {
-        return minOf(maxOf(toneSamples, minimumWrite), capacity)
-    }
 
     fun updateSettings(enabled: Boolean, volume: Int) {
         isBeeperEnabled = enabled
@@ -79,11 +70,6 @@ object AudioEngine {
                     .setBufferSizeInBytes(maxOf(minBufSize, 4096))
                     .setTransferMode(AudioTrack.MODE_STREAM)
                     .build()
-                    .also { track ->
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            track.setStartThresholdInFrames(1)
-                        }
-                    }
             } catch (error: Exception) {
                 Log.e(TAG, "Failed to create AudioTrack; beeper disabled for this session", error)
                 clearThreadHandleIfCurrent()
@@ -92,11 +78,6 @@ object AudioEngine {
 
             val bufferSize = 48000
             val buffer = ShortArray(bufferSize)
-            val minimumWrite = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                1
-            } else {
-                audioTrack.bufferSizeInFrames
-            }
 
             audioTrack.play()
             try {
@@ -112,7 +93,7 @@ object AudioEngine {
                         (beeperVolume * FULL_VOLUME_AMPLITUDE / MAX_BEEPER_VOLUME).toShort()
                     val totalSamples = (durationMs + 20) * sampleRate / 1000
                     val noteSamples = durationMs * sampleRate / 1000
-                    val actualSamples = samplesToWrite(totalSamples, minimumWrite, bufferSize)
+                    val actualSamples = minOf(totalSamples, bufferSize)
                     val period = if (frequency > 0) sampleRate / frequency else 0
 
                     if (period > 0) {

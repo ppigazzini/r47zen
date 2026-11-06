@@ -161,9 +161,7 @@ appears below; `run_docs_lint.sh` fails when one does not:
 - `hal/io.c` for file I/O through the SAF handoff, state and program files,
   and the `hal/io.h` exports
 - `hal/audio.c` for the buzzer and volume calls, routed to
-  `MainActivity.playTone`; `AudioEngine.kt` must make a tone shorter than the
-  track's buffer start on its own, through a one-frame start threshold on API
-  31 and trailing silence below it
+  `MainActivity.playTone`
 - `hal/gui.c` for `setupUI()`'s core allocations, plus the `calcMode*Gui`
   hooks upstream's `calcMode.c` calls, which Android leaves empty
 - `hal/print_ir.c` for the infrared-printer hooks, which send nothing
