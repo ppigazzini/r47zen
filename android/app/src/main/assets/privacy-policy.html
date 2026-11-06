@@ -79,6 +79,7 @@
     <ul>
       <li><strong>Calculator state and settings.</strong> The stack, registers, programs, and other calculator memory, plus your preferences (keypad layout, display colors, haptics, and similar). They are kept in Android app-private storage so the app can restore your last session.</li>
       <li><strong>Files you open or save.</strong> Through Android's system file picker you can open and save calculator files (STATE, PROGRAMS, SAVFILES, DATA) and screenshots of the calculator display (SCREENS). A file passes through a temporary copy in app-private storage, deleted when the transfer ends. If you choose a Work Directory, the app can read and write files in that one folder only.</li>
+      <li><strong>Saved manual.</strong> If you choose a saved copy of the manual, the app keeps read access to that one PDF and remembers its name. It shows the name in Settings and hands the file to your PDF app when you ask. It does not read, copy, or send the file's contents.</li>
       <li><strong>Clipboard.</strong> The Copy actions put the X register, the stack registers, or all registers on the Android clipboard, only when you choose them. Paste Number reads the clipboard once, only when you choose it, and enters the number it holds into the calculator; it refuses anything else and keeps no copy. On Android 13 and later the system shows a notice when the app reads the clipboard.</li>
       <li><strong>Vibration.</strong> The app asks Android for the vibration permission, for haptic key feedback only.</li>
     </ul>
@@ -132,6 +133,7 @@
       <li>App-private data stays on your device until you use Reset to Factory Defaults in Settings, clear the app's storage in Android settings, or uninstall the app. Each of these deletes it.</li>
       <li>Reset to Factory Defaults does not delete files you saved in a Work Directory or elsewhere with the file picker. They stay until you delete them with a file manager or with the provider that holds them.</li>
       <li>Use Android Default Folder in Settings makes the app forget the saved Work Directory and gives up its access to that folder.</li>
+      <li>Choose Another Saved Manual in Settings gives up access to the previous file. Reset to Factory Defaults makes the app forget the saved manual and the Work Directory and gives up its access to both.</li>
       <li>Messages you send to the developer are kept only as long as needed to answer you. Ask, and a private message will be deleted.</li>
     </ul>
 
@@ -140,8 +142,9 @@
       Android may copy the app's calculator state and settings to your Google
       account backup and to a new device during a device transfer. These
       copies are managed by Android and Google, and the developer cannot read
-      them. The app leaves its Work Directory choice and its saved-slot
-      settings out of backup and transfer. On Android 12 and later, the app
+      them. The app leaves its Work Directory choice, its saved manual choice,
+      and its saved-slot settings out of backup and transfer. On Android 12 and
+      later, the app
       allows a cloud backup only when your device can encrypt it end to end,
       which needs a screen lock. You can turn backup off in your device's
       Android settings.

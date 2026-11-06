@@ -147,6 +147,15 @@
             app:title="@string/about_manual_title"
             app:summary="@string/about_manual_summary" />
         <Preference
+            app:key="open_saved_manual"
+            app:title="@string/about_saved_manual_title"
+            app:summary="@string/about_saved_manual_summary_unset" />
+        <Preference
+            app:key="choose_saved_manual"
+            app:title="@string/about_saved_manual_choose_title"
+            app:summary="@string/about_saved_manual_choose_summary"
+            app:isPreferenceVisible="false" />
+        <Preference
             app:key="view_privacy_policy"
             app:title="@string/about_privacy_policy_title"
             app:summary="@string/about_privacy_policy_summary" />

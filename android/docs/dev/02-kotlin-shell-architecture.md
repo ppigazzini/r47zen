@@ -46,8 +46,9 @@ grouped by role; the directory itself is the authority when a file is added:
   `C47TextRenderer.kt`, `C47TypefacePolicy.kt`, `MainKeyLabelMirrors.kt`,
   `SoftkeyOverlayPainter.kt`, `SettingsMenuGlyph.kt`, `R47Geometry.kt`,
   `R47KeypadPolicy.kt`, `TopLabelLaneLayout.kt`, and `LcdThemePolicy.kt`
-- storage and slots: `StorageAccessCoordinator.kt`, `WorkDirectory.kt`,
-  `SlotSessionController.kt`, and `SlotStore.kt`
+- storage and slots: `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`,
+  `WorkDirectory.kt`, `SavedManual.kt`, `SlotSessionController.kt`, and
+  `SlotStore.kt`
 - keyboard and keypad models: `PhysicalKeyboardInputController.kt`,
   `PhysicalKeyboardInput.kt`, `PhysicalKeyboardBindingTables.kt`,
   `PhysicalKeyboardShortcutId.kt`, `KeypadSnapshot.kt`,
@@ -79,7 +80,7 @@ flowchart LR
 | activity and settings coordination | `MainActivity`, `SettingsActivity`, `SettingsSwitchPreference` | startup, preferences, PiP, intent routing, helper wiring, and explicit settings-switch widget tinting | `03-upstream-interface-surfaces.md` |
 | native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `06-runtime-hot-paths.md` |
 | overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `05-ui-rendering-and-gtk-mapping.md` |
-| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, slot metadata, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
+| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SavedManual`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, the saved manual's read grant, slot metadata, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
 | Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `03-upstream-interface-surfaces.md` |
 
 ## Architecture boundary
@@ -303,9 +304,23 @@ while matching the desktop simulator's stop-key parity during an active run.
   selection paths
 - the work-directory contract is a user-facing SAF tree, not a replacement for
   the app-internal native base path
-- manifest backup rules intentionally exclude `R47Slots` and the work-directory
-  URI preferences because slot URIs and SAF grants are device-specific; general
-  shell preferences remain migratable
+- `SavedManual` keeps a read grant to the one PDF the user picks in Settings and
+  the name it had, and `SavedManualEntries` hands it to a PDF app with
+  `ACTION_VIEW`, so a downloaded manual reopens in one tap with no network and
+  no storage permission. A tap asks the provider for the file's name, on the
+  main thread as the Work Directory check does, and opening Settings asks
+  nothing. A document it cannot reach stays remembered until the user picks
+  another, because a removed card can come back; a new pick releases the old
+  grant. A provider can answer for a file that is gone, as Downloads does for a
+  raw path, and the PDF app then reports it. A picker that gives no lasting
+  grant opens the file once. With no PDF app a dialog offers the hosted manual
+  and opens nothing until asked, because that copy needs a network and may be
+  another version
+- deleting the preferences does not end a grant, so a factory reset also releases
+  every persisted grant through `FactoryResetController`
+- manifest backup rules intentionally exclude `R47Slots` and the preferences file
+  holding the work-directory and saved-manual URIs because slot URIs and SAF grants
+  are device-specific; general shell preferences remain migratable
 
 ## Current platform shape
 

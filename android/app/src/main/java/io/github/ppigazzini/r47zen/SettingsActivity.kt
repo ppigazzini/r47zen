@@ -97,11 +97,16 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
     }
 
+    private val savedManualEntries = SavedManualEntries(this) {
+        openUrl(getString(R.string.about_manual_url))
+    }
+
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.sharedPreferencesName = SlotStore.APP_PREFS_NAME
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
         updateStoragePreferences()
+        savedManualEntries.bind()
         updateKeypadDesignPreferences()
         configureHapticPreferences()
 

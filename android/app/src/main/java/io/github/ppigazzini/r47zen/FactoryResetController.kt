@@ -94,6 +94,7 @@ internal class FactoryResetController(
     }
 
     private fun clearInternalAppData() {
+        releaseDocumentGrants()
         activity.deleteSharedPreferences(SlotStore.APP_PREFS_NAME)
         activity.deleteSharedPreferences(SlotStore.SLOT_PREFS_NAME)
         activity.deleteSharedPreferences(WorkDirectory.PREFS_NAME)
@@ -102,6 +103,22 @@ internal class FactoryResetController(
         clearDirectoryContents(activity.cacheDir)
         clearDirectoryContents(activity.codeCacheDir)
         clearDirectoryContents(activity.noBackupFilesDir)
+    }
+
+    // Deleting the preferences forgets a Work Directory and a saved manual, but the
+    // access behind them lives in the system and would outlast the reset.
+    private fun releaseDocumentGrants() {
+        val contentResolver = activity.contentResolver
+        contentResolver.persistedUriPermissions.toList().forEach { grant ->
+            try {
+                contentResolver.releasePersistableUriPermission(
+                    grant.uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            } catch (error: SecurityException) {
+                Log.w(TAG, "Factory reset could not release a document grant", error)
+            }
+        }
     }
 
     private fun clearDirectoryContents(directory: File?) {
