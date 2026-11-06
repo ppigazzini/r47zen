@@ -205,6 +205,12 @@ Render split:
   text sit behind `MainKeyLabelMirrors.kt`, so `CalculatorKeyView` keeps the
   render-spec and painter ownership while the mirror bridge stays one explicitly
   disposable compatibility seam
+- a softkey view always takes its press, as the GTK simulator's does. The
+  scene's `enabled` flag, false on a blank slot or a struck-through item, only
+  tells the painter what to draw; the core decides what the press means. `ASSIGN`
+  fills a blank slot, and `reallyRunFunction` answers a struck-through item with
+  its own Not Available message. A main key whose scene says disabled still
+  swallows the press
 - `CalculatorSoftkeyPainter` owns softkey value-field bounds, overlay center,
   preview accents, reverse-video states, strike marks, and the final softkey
   `KeyRenderSpec`

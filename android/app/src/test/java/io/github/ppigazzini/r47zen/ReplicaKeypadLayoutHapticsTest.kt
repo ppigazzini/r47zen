@@ -80,6 +80,34 @@ class ReplicaKeypadLayoutHapticsTest {
         assertEquals(listOf(1, 0), twoFingerKeyEvents(firstLifted = 0))
     }
 
+    @Test
+    fun blankSoftkey_stillSendsItsPress() {
+        assertEquals(listOf(38, 0), keyEventsPressingDisabledKey(code = 38))
+    }
+
+    @Test
+    fun disabledMainKey_swallowsItsPress() {
+        assertEquals(emptyList<Int>(), keyEventsPressingDisabledKey(code = 1))
+    }
+
+    private fun keyEventsPressingDisabledKey(code: Int): List<Int> {
+        val keyEvents = mutableListOf<Int>()
+        val overlay = buildOverlay(onPress = {}, onKeyEvent = keyEvents::add)
+        val keyView = findKeyView(overlay, code)
+        keyView.updateLabels(keypadSnapshotWith(code to KeypadKeySnapshot.EMPTY.copy(isEnabled = false)))
+        val pointers = arrayOf(pointer(0, centerOf(keyView)))
+        val events = listOf(
+            multiPointer(0L, MotionEvent.ACTION_DOWN, 0, pointers),
+            multiPointer(10L, MotionEvent.ACTION_UP, 0, pointers),
+        )
+        try {
+            events.forEach { overlay.dispatchTouchEvent(it) }
+        } finally {
+            events.forEach(MotionEvent::recycle)
+        }
+        return keyEvents
+    }
+
     /**
      * Native input keeps one pressed-key slot, as the hardware scans one key at
      * a time. Touch key 1, touch key 2 with a second finger, then lift the

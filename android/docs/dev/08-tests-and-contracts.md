@@ -479,7 +479,8 @@ source is missing from this page:
   when the user opts into a custom keypress-duration override, or when custom
   mode is set to `0 ms`; the haptics test also sends a real two-pointer
   sequence through the overlay and requires one key per touch, in either lift
-  order
+  order, and requires that a blank softkey still sends its press while a
+  disabled main key swallows it
 - `AudioEngineTest.kt`: locks how much of the tone buffer a tone writes: a short
   key click reaches the track's buffer below API 31, writes only itself once the
   start threshold is one frame, and never passes the buffer

@@ -625,7 +625,10 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun applyEnabledState(enabled: Boolean) {
-        isEnabled = enabled
+        // A softkey always takes the press: the core decides what it means, and a
+        // blank one must reach it, because ASSIGN fills that slot. The snapshot's
+        // flag still tells the painter the slot is empty.
+        isEnabled = isFnKey || enabled
         alpha = if (isFnKey || enabled) 1f else 0.45f
         if (!isFnKey) {
             buttonView.alpha = if (enabled) 1f else 0.45f
