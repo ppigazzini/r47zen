@@ -87,6 +87,9 @@ Note: This will NOT delete any files in a saved Work Directory. External STATE, 
     <string name="about_android_library_licenses_summary" translatable="false">Shows notices collected from Android runtime dependency POM metadata</string>
     <string name="about_spdx_inventory_title" translatable="false">View SPDX Inventory</string>
     <string name="about_spdx_inventory_summary" translatable="false">Shows the packaged machine-readable third-party inventory</string>
+    <string name="about_manual_title" translatable="false">View Owner\'s Manual</string>
+    <string name="about_manual_summary" translatable="false">Opens the cropped PDF of the upstream manual in your browser</string>
+    <string name="about_manual_url" translatable="false">https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf</string>
     <string name="about_upstream_project_title" translatable="false">Visit Upstream C47 Project Page</string>
     <string name="lcd_luminance_title" translatable="false">LCD Luminance</string>
     <string name="repo_notice_catalog_title" translatable="false">Bundled Native and Vendored Notices</string>

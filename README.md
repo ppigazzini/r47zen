@@ -157,6 +157,8 @@ from the entry's.
 
 ## Documentation
 
+- [Owner's manual](https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf):
+  the cropped PDF of the upstream manual, which Settings also opens.
 - [`AGENTS.md`](AGENTS.md): the one-page short form for contributors and
   coding agents: the commands, the traps, and the rules.
 - [`android/docs/dev/README.md`](android/docs/dev/README.md): the maintainer

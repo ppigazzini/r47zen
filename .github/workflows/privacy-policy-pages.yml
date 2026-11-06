@@ -1,18 +1,30 @@
-name: Privacy Policy Pages
+name: Pages
 
-# Publishes the privacy policy the app ships,
+# Publishes the GitHub Pages site as one artifact, because a deploy replaces the
+# whole site: two workflows would erase each other's pages.
+#
+# The privacy policy the app ships,
 # android/app/src/main/assets/privacy-policy.html, unchanged, as
 # https://ppigazzini.github.io/r47zen/privacy-policy.html, the URL in Play
 # Console's privacy-policy field. The page the app shows and the page Play
 # links to are one file, so they cannot drift;
 # run_privacy_policy_single_source_contract.sh holds this workflow to that
-# file. The deployment is the Actions-based Pages flow: an uploaded artifact,
-# no gh-pages branch.
+# file.
+#
+# Upstream's cropped manual, as
+# https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf, the URL the app
+# opens. scripts/docs/prepare_manual_site.sh builds it from upstream HEAD when its
+# inputs change; run_manual_site_contract.sh holds both to that URL. When a build fails
+# outside the nightly run, the live PDF goes out again and the run stays red, so a
+# broken manual does not hold back the policy.
+#
+# The deployment is the Actions-based Pages flow: an uploaded artifact, no
+# gh-pages branch.
 #
 # One-time setup: Settings, Pages, Build and deployment, Source "GitHub
 # Actions". GitHub then creates the github-pages environment, whose
-# deployment branch policy admits main only; a run on any other branch fails
-# at deploy.
+# deployment branch policy admits main only, so the deploy job runs only there;
+# a dispatch on another branch stops before it, and builds only if an input differs.
 on:
   push:
     branches:
@@ -20,6 +32,9 @@ on:
     paths:
       - android/app/src/main/assets/privacy-policy.html
       - .github/workflows/privacy-policy-pages.yml
+      - scripts/docs/prepare_manual_site.sh
+  schedule:
+    - cron: '54 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -31,8 +46,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  resolve-upstream-core:
+    name: Resolve authoritative upstream core revision
+    uses: ./.github/workflows/resolve-upstream-core.yml
+    with:
+      mode: latest
+
+  # Runs upstream's Makefile, whose TeX can run commands, so it holds no write
+  # permission and no secret, and the container gets no network.
+  manual:
+    name: Prepare the cropped manual
+    needs: resolve-upstream-core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      deploy: ${{ steps.prepare.outputs.deploy }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Hydrate upstream
+        shell: bash
+        env:
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
+            --url "$UPSTREAM_URL" --commit "$UPSTREAM_COMMIT"
+
+      - name: Prepare the manual
+        id: prepare
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          bash ./scripts/docs/prepare_manual_site.sh _manual "$EVENT_NAME" >>"$GITHUB_OUTPUT"
+
+      - name: Upload the manual
+        if: ${{ always() && steps.prepare.outputs.deploy == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: manual
+          path: _manual
+          if-no-files-found: error
+          retention-days: 1
+
   build:
-    name: Stage the shipped privacy policy
+    name: Stage the site
+    needs: manual
+    if: ${{ always() && needs.manual.outputs.deploy == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -41,12 +107,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Stage the asset as the site
+      - name: Download the manual
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: manual
+          path: _site/manual
+
+      - name: Stage the privacy policy
         shell: bash
         # cp fails the job when the asset is missing, so a move that skips
         # this workflow never publishes an empty site.
         run: |
-          mkdir -p _site
           cp android/app/src/main/assets/privacy-policy.html _site/privacy-policy.html
 
       - name: Upload the Pages artifact
@@ -55,6 +126,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
+    if: ${{ always() && needs.build.result == 'success' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # deploy-pages publishes the artifact and mints the OIDC token Pages verifies.

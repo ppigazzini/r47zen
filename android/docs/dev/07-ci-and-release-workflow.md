@@ -950,7 +950,7 @@ The rest, and what each one gates:
 
 | workflow | runs on | what it does | blocks |
 |---|---|---|---|
-| `resolve-upstream-core.yml` | `workflow_call` from `android-ci.yml`, `android-release.yml`, `linux-ci.yml`, and `windows-ci.yml`, the lanes that build upstream code | resolves one upstream URL and commit per run through `upstream.sh resolve`, refusing any mode but `latest` unless a commit pin is passed | -- (a callee) |
+| `resolve-upstream-core.yml` | `workflow_call` from `android-ci.yml`, `android-release.yml`, `linux-ci.yml`, `windows-ci.yml`, and `privacy-policy-pages.yml`, the lanes that build upstream code or its manual | resolves one upstream URL and commit per run through `upstream.sh resolve`, refusing any mode but `latest` unless a commit pin is passed | -- (a callee) |
 | `linux-ci.yml` | push to `main` and `github_ci`, pull request, nightly schedule | `upstream-resolver-policy` runs `test_resolver_policy.sh` and `test_fetch_retry.sh`; `linux-simulator` builds `make dist_linux`; `host-workload-regressions` runs the host harnesses and `run_workflow_contracts.sh` (see [08-tests-and-contracts.md](08-tests-and-contracts.md)); a green schedule or `main` push records the nightly marker | nothing requires it; it reports |
 | `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`, adding the `c47.cmd` and `r47.cmd` launchers from `.github/project/windows-launchers/`; same nightly marker as Linux | nothing requires it; it reports |
 | `shell-lint.yml` | push to `main` and `github_ci`, pull request | `shellcheck` and `shfmt -i 4 -ci -d` over `scripts/**/*.sh`, then `actionlint` and `zizmor --no-online-audits --min-severity=medium` over the workflows, the composite actions, and `.github/dependabot.yml`; both jobs download the one `shellcheck` release the workflow-level `SHELLCHECK_VERSION` pins, never the runner image's copy | nothing requires it; it reports |
@@ -958,7 +958,30 @@ The rest, and what each one gates:
 | `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL `c-cpp` with `build-mode: none` over repo-owned C, ignoring `src`, `dep`, and the staged tree; findings go to the Security tab. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
 | `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
-| `privacy-policy-pages.yml` | push to `main` that touches the policy asset or the workflow, dispatch | publishes `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html` through the Actions-based Pages flow, so the in-app and the Play Console policy are one file; `run_privacy_policy_single_source_contract.sh` holds the workflow to that file | -- |
+| `privacy-policy-pages.yml` | daily schedule, push to `main` that touches the policy asset, the workflow, or `scripts/docs/prepare_manual_site.sh`, dispatch | publishes the Pages site as one artifact: `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html`, the URL in Play Console's privacy-policy field; and upstream's cropped manual to `https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf`, the URL Settings opens; `run_privacy_policy_single_source_contract.sh` and `run_manual_site_contract.sh` hold the workflow to both | -- |
+
+The manual is built here, not fetched from upstream's releases: GitLab offers no
+fixed URL for the latest PDF, and its job artifacts are closed to anonymous readers
+(measured 2026-11-06). `scripts/docs/prepare_manual_site.sh` hashes the inputs that
+upstream's `docs-manual` gate lists, less its CI files, plus the TeX image digest, and
+compares the hash with `manual/VERSION` on the live site. A new input directory
+upstream adds goes unseen until that list is updated by hand. A scheduled run with the same hash
+stops there; any other event with the same hash republishes the live PDF, because a
+deploy replaces the whole site. A changed hash builds with upstream's own command in
+a container with no network and no credentials, since `.latexmkrc` passes
+`-shell-escape`. Only the PDF and `VERSION` are published, whatever the container
+leaves behind; the container can still write the rest of the checkout. A failed
+build reports red and leaves the last good PDF live: a scheduled run deploys nothing,
+and any other event republishes the live PDF, so a broken manual does not hold back
+the policy page. If upstream cannot be resolved, nothing deploys until it can, policy
+page included.
+
+The PDF follows upstream HEAD, so it can carry manual text upstream has not released,
+and an installed app can lag the manual it opens. The TeX image is pinned by digest
+in that script, and a bump is by hand. Whether upstream's build works in that image
+shows only in a run of the lane: `run_manual_site_contract.sh` stubs `docker`. A
+dispatch on `github_ci` builds only if an input differs, such as after a digest bump,
+and stops before the deploy, whose environment admits only `main`.
 
 `ci-required` in `android-ci.yml` is the one aggregate verdict, and even it is
 not a required status check: `main` takes direct pushes, so every row above
@@ -1046,7 +1069,7 @@ wrong, because a setting changes with no commit.
 | Actions `sha_pinning_required` on | a tag-pinned action fails the run, beyond what the pin contract checks in the tree | `gh api repos/ppigazzini/r47zen/actions/permissions` |
 | no branch protection on `main` | direct pushes; `ci-required` reports and blocks nothing | `gh api repos/ppigazzini/r47zen/branches/main/protection` answers 404 |
 | environments `production-release` and `play-upload`, each with a custom deployment branch policy naming only `main` | the release key and the Play identity reach only [`sign-production-release`](#sign-production-release) and [`upload-to-play`](#upload-to-play) | `gh api repos/ppigazzini/r47zen/environments/<name>/deployment-branch-policies` |
-| Pages source "GitHub Actions" (`build_type` `workflow`) | `privacy-policy-pages.yml` deploys the privacy policy; under any other source its deploy job fails and the Play Console URL keeps the last page | `gh api repos/ppigazzini/r47zen/pages` |
+| Pages source "GitHub Actions" (`build_type` `workflow`) | `privacy-policy-pages.yml` deploys the privacy policy and the manual; under any other source its deploy job fails and the Play Console URL keeps the last page | `gh api repos/ppigazzini/r47zen/pages` |
 | environment `github-pages` with a custom deployment branch policy naming only `main` | the privacy-policy page publishes only what `main` holds | `gh api repos/ppigazzini/r47zen/environments/github-pages/deployment-branch-policies` |
 | no repository-scoped `R47_RELEASE_*` secret | the production key is readable only inside its environment ([Signing isolation](#signing-isolation)) | `gh api repos/ppigazzini/r47zen/actions/secrets` |
 | private vulnerability reporting on | `.github/SECURITY.md` sends reporters to it | `gh api repos/ppigazzini/r47zen/private-vulnerability-reporting` |
