@@ -66,8 +66,8 @@ int register_main_activity_natives(JNIEnv *env) {
        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative},
       {"sendSimMenuNative", "(I)V",
        (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimMenuNative},
-      {"sendSimFuncNative", "(I)V",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimFuncNative},
+      {"pasteNumberNative", "(Ljava/lang/String;)Z",
+       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_pasteNumberNative},
       {"applyGraphPanNative", "(FF)Z",
        (void *)
            Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative},

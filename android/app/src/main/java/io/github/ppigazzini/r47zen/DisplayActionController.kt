@@ -19,8 +19,7 @@ internal class DisplayActionController(
     private val getClipboardXRegisterNative: () -> String,
     private val getClipboardStackRegistersNative: () -> String,
     private val getClipboardAllRegistersNative: () -> String,
-    private val sendSimFuncNative: (Int) -> Unit,
-    private val sendSimKeyNative: (String, Boolean, Boolean) -> Unit,
+    private val pasteNumberNative: (String) -> Boolean,
     private val enterPiP: () -> Unit,
 ) {
     companion object {
@@ -33,8 +32,6 @@ internal class DisplayActionController(
         const val MENU_PASTE_NUMBER = 6
         const val MENU_PICTURE_IN_PICTURE = 7
     }
-
-    private val paster = ClipboardPaster(mainHandler, offerCoreTask, sendSimFuncNative, sendSimKeyNative)
 
     internal fun popupMenuThemeContext(): Context {
         return ContextThemeWrapper(context, R.style.Theme_R47_PopupMenu)
@@ -203,91 +200,17 @@ internal class DisplayActionController(
         }
         val text = clip.getItemAt(0)?.text?.toString() ?: return
 
-        paster.paste(text)
-    }
-}
-
-// Types a pasted number into the core one keystroke at a time, the way the
-// keypad would: each press, release, or function is its own core task,
-// STEP_DELAY_MS apart, and the next is scheduled from the main thread, so the
-// core thread runs keys and timer ticks between them instead of sleeping
-// through the clip. Every method runs on the main thread.
-internal class ClipboardPaster(
-    private val mainHandler: Handler,
-    private val offerCoreTask: (Runnable) -> Unit,
-    private val sendSimFuncNative: (Int) -> Unit,
-    private val sendSimKeyNative: (String, Boolean, Boolean) -> Unit,
-) {
-    companion object {
-        // A clip replays at up to two steps per character. Only numeric-entry
-        // glyphs are meaningful, so a few hundred characters is far more than
-        // any real pasted number; anything longer is truncated.
-        const val MAX_CHARS = 256
-        const val STEP_DELAY_MS = 50L
-
-        // The core's key ids for the glyphs a pasted number can hold.
-        private val KEY_IDS = mapOf(
-            '0' to "33", '1' to "28", '2' to "29", '3' to "30", '4' to "23",
-            '5' to "24", '6' to "25", '7' to "18", '8' to "19", '9' to "20",
-            '.' to "34", ',' to "34", '-' to "35", 'e' to SimKeyIds.EEX, '+' to "37",
-        )
-
-        // The keystrokes that enter text: i and j as their functions, every
-        // other known glyph as a press and a release of its key, the rest
-        // skipped.
-        fun steps(text: String): List<Step> {
-            val steps = ArrayList<Step>()
-            for (char in text) {
-                when (char) {
-                    'i' -> steps.add(Step.Function(NativeShellCodes.FUNC_OP_I))
-                    'j' -> steps.add(Step.Function(NativeShellCodes.FUNC_OP_J))
-                    else -> KEY_IDS[char.lowercaseChar()]?.let { keyId ->
-                        steps.add(Step.Key(keyId, isRelease = false))
-                        steps.add(Step.Key(keyId, isRelease = true))
-                    }
-                }
-            }
-            return steps
-        }
-    }
-
-    sealed interface Step {
-        data class Function(val funcId: Int) : Step
-        data class Key(val keyId: String, val isRelease: Boolean) : Step
-    }
-
-    // Bumped by every paste, so a paste started while another is replaying
-    // stops the older one; pendingRelease is the release of a key that paste
-    // pressed and has not let go, which the new paste offers first so no key
-    // stays down.
-    private var generation = 0
-    private var pendingRelease: Step.Key? = null
-
-    fun paste(text: String) {
-        val steps = steps(text.take(MAX_CHARS))
-        if (steps.isEmpty()) {
+        val tokens = PasteNumber.tokens(text)
+        if (tokens == null) {
+            Toast.makeText(context, R.string.main_menu_paste_not_a_number, Toast.LENGTH_SHORT).show()
             return
         }
-        generation += 1
-        pendingRelease?.let { offer(it) }
-        run(steps, 0, generation)
-    }
-
-    private fun run(steps: List<Step>, index: Int, runGeneration: Int) {
-        if (runGeneration != generation || index >= steps.size) {
-            return
-        }
-        offer(steps[index])
-        mainHandler.postDelayed({ run(steps, index + 1, runGeneration) }, STEP_DELAY_MS)
-    }
-
-    private fun offer(step: Step) {
-        pendingRelease = if (step is Step.Key && !step.isRelease) step.copy(isRelease = true) else null
         offerCoreTask(
             Runnable {
-                when (step) {
-                    is Step.Function -> sendSimFuncNative(step.funcId)
-                    is Step.Key -> sendSimKeyNative(step.keyId, false, step.isRelease)
+                if (!pasteNumberNative(tokens)) {
+                    mainHandler.post {
+                        Toast.makeText(context, R.string.main_menu_paste_not_ready, Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         )

@@ -238,18 +238,29 @@ the first touched key view as `ACTION_POINTER_*`, which the key listeners
 ignore. Native input keeps one pressed-key slot, so a second `ACTION_DOWN` on
 another key would leave the first key pressed with no release.
 
-The physical-keyboard HOME and MYMENU shortcuts and the paste path's `i` and
-`j` pass `NativeShellCodes` values, never upstream item numbers: `items.h`
-renumbers between upstream revisions, so `jni_input.c` resolves each code to
-its `MNU_*` or `ITM_*` symbol at build time.
+The physical-keyboard HOME and MYMENU shortcuts pass `NativeShellCodes` values,
+never upstream item numbers: `items.h` renumbers between upstream revisions, so
+`jni_input.c` resolves each code to its `MNU_*` symbol at build time.
 
-`Paste Number` types the clip through `ClipboardPaster`, in
-`DisplayActionController.kt`: each press, release, or function is its own core
-task, 50 ms apart, scheduled from the main thread, so the core thread runs
-keys and timer ticks between keystrokes rather than sleeping through the clip.
-A second paste stops the first, and first releases any key the first one
-pressed. `DisplayActionControllerTest.kt` locks the steps, the spacing, and
-both supersede cases.
+`Paste Number` enters one real or complex number, or refuses the clip whole, since
+a number typed from part of a clip is a wrong number on the stack. `PasteNumber.kt`
+refuses text it cannot read as one number: a date, two numbers, `1,234` (1.234 or
+1234 by locale). One core task then calls `pasteNumberNative`, whose
+`r47_paste_number` enters the items through `processKeyAction`, below the key
+tables, under one lock, so USER assignments, a pending shift, and the multi-press
+timers cannot turn a digit into a function and no key press can land inside the
+number.
+
+It refuses when the core would read digits as something else: alpha entry, a
+parameter prompt, a catalog, a running program. It also backs the entry out when
+the core drops a token, which number entry does with no error: a digit past the
+display width, an exponent digit past the `RNG` setting, the radix mark in integer
+input mode. The width depends on the grouping settings, so no fixed length guards
+it. `PasteNumberTest.kt` locks clip text to tokens,
+`DisplayActionControllerTest.kt` locks the core task and the refusals, and
+`clipboard_overflow_harness.c` locks tokens to stack values against the live core
+([08](08-tests-and-contracts.md)). It does not paste dates, times, tagged angles,
+matrices, or strings.
 
 `ReplicaOverlay` also owns the shell-level focus policy for the physical-
 keyboard path. It stays focusable in touch mode, blocks descendant focus

@@ -85,6 +85,252 @@ static int check_statistical_sum_rows(void) {
   return failures;
 }
 
+// The imaginary unit U+2148, as the clipboard text writes it in UTF-8.
+#define PASTE_I "\xE2\x85\x88"
+
+// Reset the stack to known values with no entry open and no prompt pending.
+static void reset_paste_state(void) {
+  if (calcMode == CM_NIM) {
+    closeNim();
+  }
+  calcMode = CM_NORMAL;
+  tam.mode = 0;
+  lastErrorCode = 0;
+  temporaryInformation = TI_NO_INFO;
+  clearSystemFlag(FLAG_USER);
+  convertDoubleToReal34Register(9.0, REGISTER_Z);
+  convertDoubleToReal34Register(8.0, REGISTER_Y);
+  convertDoubleToReal34Register(7.0, REGISTER_X);
+  setSystemFlag(FLAG_ASLIFT);
+}
+
+static const char *paste_register_text(calcRegister_t regist) {
+  static char text[4096];
+  if (calcMode == CM_NIM) {
+    closeNim();
+  }
+  copyRegisterToClipboardString(regist, text, false);
+  return text;
+}
+
+static int expect_register(const char *label, calcRegister_t regist,
+                           const char *expected) {
+  const char *actual = paste_register_text(regist);
+  if (strcmp(actual, expected) == 0) {
+    return 0;
+  }
+  fprintf(stderr, "FAIL: %s: register %d is '%s', want '%s'\n", label, regist,
+          actual, expected);
+  return 1;
+}
+
+// A refused paste must leave the stack as reset_paste_state wrote it, with no
+// entry open: a half-typed number or a lifted stack is the wrong number by another
+// route.
+static int expect_paste_backed_out(const char *label) {
+  int failures = 0;
+  if (calcMode != CM_NORMAL) {
+    fprintf(stderr, "FAIL: %s left the core in mode %d\n", label, calcMode);
+    failures++;
+  }
+  failures += expect_register(label, REGISTER_X, "7.");
+  failures += expect_register(label, REGISTER_Y, "8.");
+  failures += expect_register(label, REGISTER_Z, "9.");
+  return failures;
+}
+
+// Hold r47_paste_number to the core at this commit. PasteNumberTest.kt holds
+// PasteNumber.kt to the same token strings, so the two together cover clip text
+// to stack value. Return the number of failures.
+static int check_paste_number(void) {
+  static const struct {
+    const char *tokens;
+    const char *x;
+  } numbers[] = {
+      {"12", "12"},
+      {"1.5", "1.5"},
+      {"0.5", "0.5"},
+      {"1.5~", "-1.5"},
+      {"2~", "-2"},
+      {"1.5e3", "1.5E+3"},
+      {"1.5e3~", "0.0015"},
+      {"1.5~e3~", "-0.0015"},
+      {"1~e100~", "-1E-100"},
+      {"1.234567890123456789012345678901234",
+       "1.234567890123456789012345678901234"},
+      {"3j4", "3. + " PASTE_I "4."},
+      {"3j4~", "3. - " PASTE_I "4."},
+      {"3~j4~", "-3. - " PASTE_I "4."},
+      {"1.5e3j2e1~", "1.5E+3 + " PASTE_I "0.2"},
+      {"0j4", "0. + " PASTE_I "4."},
+      {"0j4~", "0. - " PASTE_I "4."},
+      {"7.", "7."},
+      {"12345~", "-12345"},
+      {"1e100", "1E+100"},
+      {"3.j4.", "3. + " PASTE_I "4."},
+      {"3.j4.~", "3. - " PASTE_I "4."},
+      {"3.~j4.~", "-3. - " PASTE_I "4."},
+      {"1.5e3j0.2", "1.5E+3 + " PASTE_I "0.2"},
+      {"1.5e3j2~e1~", "1.5E+3 - " PASTE_I "0.2"},
+  };
+  int failures = 0;
+  for (size_t i = 0; i < sizeof(numbers) / sizeof(numbers[0]); i++) {
+    reset_paste_state();
+    if (!r47_paste_number(numbers[i].tokens)) {
+      fprintf(stderr, "FAIL: paste '%s' was refused\n", numbers[i].tokens);
+      failures++;
+      continue;
+    }
+    failures += expect_register(numbers[i].tokens, REGISTER_X, numbers[i].x);
+    failures += expect_register(numbers[i].tokens, REGISTER_Y, "7.");
+  }
+
+  // USER assignments and a pending shift must not turn a digit into a function.
+  reset_paste_state();
+  setSystemFlag(FLAG_USER);
+  calcKey_t savedKey = kbd_usr[28];
+  kbd_usr[28].primary = ITM_sin;
+  shiftF = true;
+  if (!r47_paste_number("1")) {
+    fprintf(stderr, "FAIL: paste under USER and f-shift was refused\n");
+    failures++;
+  }
+  shiftF = false;
+  kbd_usr[28] = savedKey;
+  failures += expect_register("USER and f-shift", REGISTER_X, "1");
+
+  // An open entry closes first, so the clip never merges into typed digits.
+  reset_paste_state();
+  r47_send_sim_key("29", false, false);
+  r47_send_sim_key("29", false, true);
+  if (!r47_paste_number("3")) {
+    fprintf(stderr, "FAIL: paste over an open entry was refused\n");
+    failures++;
+  }
+  failures += expect_register("open entry", REGISTER_X, "3");
+  failures += expect_register("open entry", REGISTER_Y, "2");
+
+  // The modes that read digits as something else refuse the whole clip.
+  const uint8_t modeSaved = calcMode;
+  reset_paste_state();
+  calcMode = CM_AIM;
+  if (r47_paste_number("1")) {
+    fprintf(stderr, "FAIL: paste in alpha entry was accepted\n");
+    failures++;
+  }
+  calcMode = modeSaved;
+  reset_paste_state();
+  tam.mode = TM_VALUE;
+  if (r47_paste_number("1")) {
+    fprintf(stderr, "FAIL: paste under a parameter prompt was accepted\n");
+    failures++;
+  }
+  reset_paste_state();
+  failures += expect_register("refused paste leaves X", REGISTER_X, "7.");
+
+  // A token outside the alphabet refuses the clip before anything runs.
+  if (r47_paste_number("12x")) {
+    fprintf(stderr, "FAIL: a bad token was accepted\n");
+    failures++;
+  }
+  failures += expect_register("bad token leaves X", REGISTER_X, "7.");
+
+  // Number entry drops what it will not take with no error, so each of these must
+  // refuse the clip and back the entry out, leaving the stack as it was.
+  static const struct {
+    const char *label;
+    const char *tokens;
+  } dropped[] = {
+      // Past the display width: the negative exponents here take one digit too many.
+      {"full-precision negative complex",
+       "1.234567890123456789012345678901234~e6144~"
+       "j1.234567890123456789012345678901234~e6144~"},
+      {"exponent past the default RNG", "1e99999"},
+      {"imaginary exponent past the default RNG", "1j1e99999"},
+  };
+  for (size_t i = 0; i < sizeof(dropped) / sizeof(dropped[0]); i++) {
+    reset_paste_state();
+    if (r47_paste_number(dropped[i].tokens)) {
+      fprintf(stderr, "FAIL: %s was accepted\n", dropped[i].label);
+      failures++;
+    }
+    failures += expect_paste_backed_out(dropped[i].label);
+  }
+
+  char longDigits[257];
+  memset(longDigits, '7', sizeof(longDigits) - 1);
+  longDigits[sizeof(longDigits) - 1] = '\0';
+  reset_paste_state();
+  if (r47_paste_number(longDigits)) {
+    fprintf(stderr, "FAIL: digits past the display width were accepted\n");
+    failures++;
+  }
+  failures += expect_paste_backed_out("digits past the display width");
+
+  const uint8_t savedInputDefault = Input_Default;
+  Input_Default = ID_LI;
+  reset_paste_state();
+  if (r47_paste_number("1.5")) {
+    fprintf(stderr, "FAIL: a radix mark in integer input mode was accepted\n");
+    failures++;
+  }
+  failures += expect_paste_backed_out("radix mark in integer input mode");
+  Input_Default = savedInputDefault;
+
+  const int16_t savedLimit = exponentLimit;
+  fnRange(99);
+  reset_paste_state();
+  if (r47_paste_number("1e100")) {
+    fprintf(stderr, "FAIL: an exponent past RNG was accepted\n");
+    failures++;
+  }
+  failures += expect_paste_backed_out("exponent past RNG");
+  if (!r47_paste_number("1e99")) {
+    fprintf(stderr, "FAIL: an exponent at RNG was refused\n");
+    failures++;
+  }
+  failures += expect_register("exponent at RNG", REGISTER_X, "1E+99");
+  fnRange(savedLimit);
+
+  // In a program, a number is one step, and a refused one leaves none behind.
+  reset_paste_state();
+  fnPem(NOPARAM);
+  const uint16_t stepsBefore = getNumberOfSteps();
+  if (!r47_paste_number("1.5~")) {
+    fprintf(stderr, "FAIL: a paste in program entry was refused\n");
+    failures++;
+  }
+  pemCloseNumberInput();
+  decodeOneStep(findPreviousStep(currentStep));
+  if (strcmp(tmpString, "-1.5") != 0 || getNumberOfSteps() != stepsBefore + 1) {
+    fprintf(stderr, "FAIL: the program holds '%s' at %u steps, want '-1.5' at %u\n",
+            tmpString, getNumberOfSteps(), stepsBefore + 1u);
+    failures++;
+  }
+  if (r47_paste_number("1e99999")) {
+    fprintf(stderr, "FAIL: a program step past the limit was accepted\n");
+    failures++;
+  }
+  if (aimBuffer[0] != '\0' || getNumberOfSteps() != stepsBefore + 1) {
+    fprintf(stderr, "FAIL: a refused paste changed the program\n");
+    failures++;
+  }
+  reset_paste_state();
+
+  // Out-of-range key ids must not reach the core's key tables: AddressSanitizer
+  // fails this run on a read past them.
+  static const char *const badKeys[] = {"37", "99", "", "3", "-1", "280"};
+  reset_paste_state();
+  for (size_t i = 0; i < sizeof(badKeys) / sizeof(badKeys[0]); i++) {
+    r47_send_sim_key(badKeys[i], false, false);
+    r47_send_sim_key(badKeys[i], false, true);
+  }
+  r47_send_sim_key("7", true, false);
+  r47_send_sim_key("7", true, true);
+  failures += expect_register("bad key ids leave X", REGISTER_X, "7.");
+  return failures;
+}
+
 int main(void) {
   const char *runtime_dir = "/tmp/r47-clipboard-overflow-harness";
   mkdir(runtime_dir, 0700);
@@ -94,6 +340,7 @@ int main(void) {
   r47_init_runtime(0);
 
   int failures = check_statistical_sum_rows();
+  failures += check_paste_number();
 
   // Ten numbered registers of 2^60000 make the all-registers dump about 180 KB,
   // six times the ANDROID_CLIPSTR cap, and X and Y of it run the stack dump past
@@ -154,8 +401,7 @@ int main(void) {
   fprintf(stderr, "getXRegisterString length = %zu\n", strlen(xreg));
 
   if (failures != 0) {
-    fprintf(stderr, "FAIL: %d statistical sum row(s) differ from upstream\n",
-            failures);
+    fprintf(stderr, "FAIL: %d check(s) failed\n", failures);
     return 1;
   }
   fprintf(stderr, "DONE: clipboard register dumps produced no memory fault\n");

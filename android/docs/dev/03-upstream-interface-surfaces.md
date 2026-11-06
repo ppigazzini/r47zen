@@ -19,7 +19,7 @@ verification surfaces.
 | --- | --- | --- | --- | --- |
 | runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and, on reattach, `updateNativeActivityRef()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `r47_init_runtime()` holds `screenMutex` throughout and publishes `r47_runtime_ready()` last, and the UI-thread entry points return early until it is true; `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach neither redraws nor touches the packed snapshot |
 | lifecycle save and load | `saveStateNative()`, `loadStateNative()` | `jni_lifecycle.c` | `saveCalc()`, `restoreCalc()`, `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` | `saveStateNative()` must stay display-passive for background save; redraw belongs only to real state loads |
-| direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `sendSimFuncNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
+| direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `pasteNumberNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `processKeyAction(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c`, `keypad_scene.c`, and `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()`, `onFileWriteFailed()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned (`test_jni_registration_contract.py`), and reattach must not redraw the LCD |
@@ -122,13 +122,21 @@ flowchart LR
   control surface, not the hot keypad path. `r47_send_sim_key` bails out when
   `isCoreBlockingForIo` is set; the app calls it only as a core task, which
   cannot run while the core thread is the one parked in a SAF file request, so
-  the guard stops the instrumentation bridge's threads, not the app.
+  the guard stops the instrumentation bridge's threads, not the app. It also
+  refuses an id that names no key: `determineItem` indexes the core's key tables
+  with no bound of its own.
 - `sendSimMenuNative(int)` resolves a shell menu code (`R47_SHELL_MENU_*` in
   `jni_bridge.h`, mirrored by `NativeShellCodes.kt`) to its `-MNU_*` softmenu,
-  calls `showSoftmenu(...)`, and forces a screen refresh. `sendSimFuncNative(int)`
-  resolves a shell function code (`R47_SHELL_FUNC_*`) to its `ITM_*` item and
-  calls `runFunction(...)`. An unknown code logs and does nothing. Neither takes
-  an upstream item number, since `items.h` renumbers between upstream revisions.
+  calls `showSoftmenu(...)`, and forces a screen refresh. An unknown code logs and
+  does nothing. It takes no upstream item number, since `items.h` renumbers
+  between upstream revisions.
+- `pasteNumberNative(String)` takes the tokens `PasteNumber.kt` writes and resolves
+  each to its `ITM_*` item, again never a number across JNI. `r47_paste_number`
+  enters them through `processKeyAction(...)`, and `runFunction(...)` when the core
+  leaves the item unprocessed, as the key path does. That is below `determineItem`,
+  so the key tables, USER assignments, and the shift state do not apply. It depends
+  on `processKeyAction(...)` accepting these items in the normal and program-entry
+  modes; `clipboard_overflow_harness.c` fails when it stops.
 - All of these paths lock `screenMutex`, so they must stay short and must not
   add Android-side blocking work inside the native critical section.
 

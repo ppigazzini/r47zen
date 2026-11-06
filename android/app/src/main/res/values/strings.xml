@@ -12,6 +12,8 @@
     <string name="main_menu_copy_stack_registers_copied" translatable="false">Copied Stack Registers</string>
     <string name="main_menu_copy_all_registers_copied" translatable="false">Copied All Registers</string>
     <string name="main_menu_paste_number" translatable="false">Paste Number</string>
+    <string name="main_menu_paste_not_a_number" translatable="false">The clipboard does not hold one number</string>
+    <string name="main_menu_paste_not_ready" translatable="false">The calculator cannot take this number now</string>
     <string name="main_menu_picture_in_picture" translatable="false">Picture in Picture</string>
     <string name="settings_entry_hint_message" translatable="false">Welcome to R47 Zen\nTap the orange and blue rectangles at top right to open the menu for Settings, Copy Actions, and Paste Number.\nSet Keypad Layout and Working Directory there.</string>
     <string name="settings_session_storage_title" translatable="false">Session Restore Storage</string>

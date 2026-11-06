@@ -13,6 +13,7 @@ import androidx.core.graphics.ColorUtils
 import com.google.android.material.color.MaterialColors
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -20,7 +21,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import java.time.Duration
+import org.robolectric.shadows.ShadowToast
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "notnight")
@@ -149,85 +150,54 @@ class DisplayActionControllerTest {
     }
 
     @Test
-    fun pasteSteps_pressAndReleaseEachKnownGlyph() {
+    fun paste_entersTheWholeNumberInOneCoreTask() {
+        val offered = ArrayList<Runnable>()
+        val pasted = ArrayList<String>()
+        val controller = createController(
+            offerCoreTask = { offered.add(it) },
+            pasteNumberNative = { tokens ->
+                pasted.add(tokens)
+                true
+            },
+        )
+        clipboard.setPrimaryClip(ClipData.newPlainText("paste", "-1.5e-3"))
+
+        controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
+
+        assertEquals(1, offered.size)
+        assertTrue(pasted.isEmpty())
+        offered.single().run()
+        assertEquals(listOf("1.5~e3~"), pasted)
+        assertNull(ShadowToast.getLatestToast())
+    }
+
+    @Test
+    fun paste_refusesAClipThatIsNotOneNumberWithoutTouchingTheCore() {
+        val offered = ArrayList<Runnable>()
+        val controller = createController(offerCoreTask = { offered.add(it) })
+        clipboard.setPrimaryClip(ClipData.newPlainText("paste", "2026-11-06"))
+
+        controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
+
+        assertTrue(offered.isEmpty())
         assertEquals(
-            listOf(
-                ClipboardPaster.Step.Key("28", isRelease = false),
-                ClipboardPaster.Step.Key("28", isRelease = true),
-                ClipboardPaster.Step.Key("34", isRelease = false),
-                ClipboardPaster.Step.Key("34", isRelease = true),
-                ClipboardPaster.Step.Key(SimKeyIds.EEX, isRelease = false),
-                ClipboardPaster.Step.Key(SimKeyIds.EEX, isRelease = true),
-                ClipboardPaster.Step.Function(NativeShellCodes.FUNC_OP_I),
-            ),
-            ClipboardPaster.steps("1.x E i"),
+            context.getString(R.string.main_menu_paste_not_a_number),
+            ShadowToast.getTextOfLatestToast(),
         )
     }
 
     @Test
-    fun paste_offersOneCoreTaskPerKeystroke_spacedOnTheMainThread() {
-        val offered = ArrayList<Runnable>()
-        val keys = ArrayList<Pair<String, Boolean>>()
-        val controller = createController(
-            offerCoreTask = { offered.add(it) },
-            sendSimKeyNative = { id, _, release -> keys.add(id to release) },
-        )
+    fun paste_tellsTheUserWhenTheCoreRefusesTheNumber() {
+        val controller = createController(pasteNumberNative = { false })
         clipboard.setPrimaryClip(ClipData.newPlainText("paste", "12"))
 
         controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
-        // One short task, not the whole clip on the core thread.
-        assertEquals(1, offered.size)
-        val mainLooper = shadowOf(Looper.getMainLooper())
-        repeat(3) {
-            mainLooper.idleFor(Duration.ofMillis(50))
-        }
-        assertEquals(4, offered.size)
-        mainLooper.idleFor(Duration.ofMillis(500))
-        assertEquals(4, offered.size)
+        shadowOf(Looper.getMainLooper()).idle()
 
-        offered.forEach { it.run() }
-        assertEquals(listOf("28" to false, "28" to true, "29" to false, "29" to true), keys)
-    }
-
-    @Test
-    fun paste_aNewPasteReleasesTheKeyTheOldOneHeld() {
-        val offered = ArrayList<Runnable>()
-        val keys = ArrayList<Pair<String, Boolean>>()
-        val controller = createController(
-            offerCoreTask = { offered.add(it) },
-            sendSimKeyNative = { id, _, release -> keys.add(id to release) },
+        assertEquals(
+            context.getString(R.string.main_menu_paste_not_ready),
+            ShadowToast.getTextOfLatestToast(),
         )
-
-        // The second paste lands between the first one's press and release.
-        clipboard.setPrimaryClip(ClipData.newPlainText("paste", "111"))
-        controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
-        clipboard.setPrimaryClip(ClipData.newPlainText("paste", "2"))
-        controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000))
-
-        offered.forEach { it.run() }
-        assertEquals(listOf("28" to false, "28" to true, "29" to false, "29" to true), keys)
-    }
-
-    @Test
-    fun paste_aNewPasteStopsTheOneStillReplaying() {
-        val offered = ArrayList<Runnable>()
-        val keys = ArrayList<Pair<String, Boolean>>()
-        val controller = createController(
-            offerCoreTask = { offered.add(it) },
-            sendSimKeyNative = { id, _, release -> keys.add(id to release) },
-        )
-        val mainLooper = shadowOf(Looper.getMainLooper())
-
-        clipboard.setPrimaryClip(ClipData.newPlainText("paste", "111"))
-        controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
-        mainLooper.idleFor(Duration.ofMillis(50))
-        clipboard.setPrimaryClip(ClipData.newPlainText("paste", "2"))
-        controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
-        mainLooper.idleFor(Duration.ofMillis(1000))
-
-        offered.forEach { it.run() }
-        assertEquals(listOf("28" to false, "28" to true, "29" to false, "29" to true), keys)
     }
 
     private fun createController(
@@ -236,7 +206,7 @@ class DisplayActionControllerTest {
         allText: String = "K = 9.\nJ = 8.\nR00 = 0.",
         enterPiP: () -> Unit = {},
         offerCoreTask: (Runnable) -> Unit = { runnable -> runnable.run() },
-        sendSimKeyNative: (String, Boolean, Boolean) -> Unit = { _, _, _ -> },
+        pasteNumberNative: (String) -> Boolean = { true },
     ): DisplayActionController {
         return DisplayActionController(
             context = context,
@@ -245,8 +215,7 @@ class DisplayActionControllerTest {
             getClipboardXRegisterNative = { xText },
             getClipboardStackRegistersNative = { stackText },
             getClipboardAllRegistersNative = { allText },
-            sendSimFuncNative = {},
-            sendSimKeyNative = sendSimKeyNative,
+            pasteNumberNative = pasteNumberNative,
             enterPiP = enterPiP,
         )
     }

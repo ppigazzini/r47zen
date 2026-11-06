@@ -411,10 +411,29 @@ void r47_send_sim_menu(int menuId) {
   pthread_mutex_unlock(&screenMutex);
 }
 
+// Report whether an id names a key. determineItem indexes the core's key tables
+// with the id and no bound of its own, so an id past them reads outside the
+// array. Softkeys take "1" to "6", the main keys "00" up to the table size.
+static bool r47_sim_key_id_valid(const char *keyId, bool isFn) {
+  if (isFn) {
+    return keyId[0] >= '1' && keyId[0] <= '6' && keyId[1] == '\0';
+  }
+  if (keyId[0] < '0' || keyId[0] > '9' || keyId[1] < '0' || keyId[1] > '9' ||
+      keyId[2] != '\0') {
+    return false;
+  }
+  int key = (keyId[0] - '0') * 10 + (keyId[1] - '0');
+  return key < (int)(sizeof(kbd_usr) / sizeof(kbd_usr[0]));
+}
+
 void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
   if (!ram ||
       atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed) ||
       keyId == NULL) {
+    return;
+  }
+  if (!r47_sim_key_id_valid(keyId, isFn)) {
+    LOGE("r47_send_sim_key: refused key id '%s'", keyId);
     return;
   }
 
@@ -441,18 +460,6 @@ void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
   pthread_mutex_unlock(&screenMutex);
 }
 
-// Resolve a shell function code from jni_bridge.h to its upstream item, or 0.
-static int r47_shell_function_item(int shellFunc) {
-  switch (shellFunc) {
-  case R47_SHELL_FUNC_OP_I:
-    return ITM_op_i_char;
-  case R47_SHELL_FUNC_OP_J:
-    return ITM_op_j_char;
-  default:
-    return 0;
-  }
-}
-
 // Resolve a shell menu code from jni_bridge.h to its upstream softmenu id, or 0.
 static int r47_shell_menu_item(int shellMenu) {
   switch (shellMenu) {
@@ -463,19 +470,6 @@ static int r47_shell_menu_item(int shellMenu) {
   default:
     return 0;
   }
-}
-
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_sendSimFuncNative(
-    JNIEnv *env, jobject thiz, jint shellFunc) {
-  (void)env;
-  (void)thiz;
-  int item = r47_shell_function_item((int)shellFunc);
-  if (item == 0) {
-    LOGE("sendSimFuncNative: unknown shell function code %d", (int)shellFunc);
-    return;
-  }
-  r47_send_sim_function(item);
 }
 
 JNIEXPORT jboolean JNICALL
@@ -614,6 +608,131 @@ JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
 // request while *prevStop == PGM_RUNNING.
 bool r47_direct_stop_allowed(uint16_t runState) {
   return runState == PGM_RUNNING || runState == PGM_PAUSED;
+}
+
+_Static_assert(ITM_9 == ITM_0 + 9, "the paste tokens assume contiguous digits");
+
+// Resolve one PasteNumber.kt token to its upstream item, or 0. Tokens cross JNI
+// instead of item numbers, which items.h renumbers between upstream revisions.
+static int16_t r47_paste_token_item(char token) {
+  if (token >= '0' && token <= '9') {
+    return (int16_t)(ITM_0 + (token - '0'));
+  }
+  switch (token) {
+  case '.':
+    return ITM_PERIOD;
+  case 'e':
+    return ITM_EXPONENT;
+  case '~':
+    return ITM_CHS;
+  case 'j':
+    return ITM_op_j;
+  default:
+    return 0;
+  }
+}
+
+// Report whether the core reads digits as a number now. Alpha entry, a parameter
+// prompt, a catalog, or a browser would read the same items as something else.
+static bool r47_ready_for_number_locked(void) {
+  if (tam.mode != 0 || catalog != 0 ||
+      r47_direct_stop_allowed(programRunStop)) {
+    return false;
+  }
+  return calcMode == CM_NORMAL || calcMode == CM_NIM ||
+         (calcMode == CM_PEM && !getSystemFlag(FLAG_ALPHA));
+}
+
+// Enter one item the way a key press does once determineItem has resolved it.
+static void r47_enter_paste_item_locked(int16_t item) {
+  processKeyAction(item);
+  if (!keyActionProcessed) {
+    runFunction(item);
+  }
+}
+
+// Report whether the core kept an entered token. Number entry drops what it will
+// not take with no error: a digit past the display width or the RNG exponent limit,
+// and the radix mark in integer input mode. CHS rewrites a sign in place, so it
+// keeps the length unless the wider sign pushed the last digit past the width.
+static bool r47_paste_token_kept_locked(char token, size_t lengthBefore) {
+  size_t length = strlen(aimBuffer);
+  return token == '~' ? length == lengthBefore : length > lengthBefore;
+}
+
+// Report whether a number entry is still open. In program entry the buffer tells:
+// a backspace on an empty one deletes the program step above the cursor.
+static bool r47_paste_entry_open_locked(void) {
+  return calcMode == CM_NIM || (calcMode == CM_PEM && aimBuffer[0] != '\0');
+}
+
+// Back out an open entry, one character per backspace as the key does, which also
+// undoes the stack lift the entry made.
+static void r47_back_out_paste_locked(void) {
+  for (size_t left = strlen(aimBuffer) + 1;
+       left > 0 && r47_paste_entry_open_locked(); left--) {
+    r47_enter_paste_item_locked(ITM_BACKSPACE);
+  }
+}
+
+// Enter one number as one operation under the lock, or refuse it whole. The items
+// go in below determineItem, so USER assignments, a pending shift, and the
+// multi-press timers cannot turn a digit into a function, and no key press from
+// the user can land inside the number. A token the core drops backs the entry out,
+// because what it kept would be a different number.
+bool r47_paste_number(const char *tokens) {
+  if (!ram ||
+      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed) ||
+      tokens == NULL || tokens[0] == '\0') {
+    return false;
+  }
+  for (const char *token = tokens; *token != '\0'; token++) {
+    if (r47_paste_token_item(*token) == 0) {
+      LOGE("r47_paste_number: refused token '%c'", *token);
+      return false;
+    }
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  bool pasted = r47_ready_for_number_locked();
+  if (pasted && calcMode == CM_NIM) {
+    // Appending would merge the clip into the digits the user is typing.
+    closeNim();
+    pasted = calcMode == CM_NORMAL;
+  }
+  if (pasted) {
+    aimBuffer[0] = '\0';
+    for (const char *token = tokens; pasted && *token != '\0'; token++) {
+      size_t lengthBefore = strlen(aimBuffer);
+      r47_enter_paste_item_locked(r47_paste_token_item(*token));
+      pasted = r47_paste_token_kept_locked(*token, lengthBefore);
+    }
+    if (!pasted) {
+      r47_back_out_paste_locked();
+    }
+    refreshScreen(1);
+  }
+  pthread_mutex_unlock(&screenMutex);
+  return pasted;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_pasteNumberNative(
+    JNIEnv *env, jobject thiz, jstring tokens) {
+  (void)thiz;
+  const char *nativeTokens = (*env)->GetStringUTFChars(env, tokens, 0);
+  if (jni_check_and_clear_exception(env,
+                                    "pasteNumberNative GetStringUTFChars") ||
+      !nativeTokens) {
+    if (nativeTokens) {
+      (*env)->ReleaseStringUTFChars(env, tokens, nativeTokens);
+    }
+    return JNI_FALSE;
+  }
+
+  bool pasted = r47_paste_number(nativeTokens);
+  (*env)->ReleaseStringUTFChars(env, tokens, nativeTokens);
+  return pasted ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL

@@ -67,6 +67,7 @@ void r47_force_refresh(void);
 void r47_send_sim_function(int funcId);
 void r47_send_sim_menu(int menuId);
 void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease);
+bool r47_paste_number(const char *tokens);
 void r47_fill_keyboard_state(int32_t *fill);
 void r47_get_keypad_meta(int32_t *fill, bool isDynamic);
 bool r47_try_copy_app_keypad_snapshot(

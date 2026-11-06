@@ -265,8 +265,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             getClipboardXRegisterNative = ::getClipboardXRegisterNative,
             getClipboardStackRegistersNative = ::getClipboardStackRegistersNative,
             getClipboardAllRegistersNative = ::getClipboardAllRegistersNative,
-            sendSimFuncNative = ::sendSimFuncNative,
-            sendSimKeyNative = ::sendSimKeyNative,
+            pasteNumberNative = ::pasteNumberNative,
             enterPiP = windowModeController::enterPictureInPicture,
         )
     }
@@ -579,7 +578,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun sendKey(keyCode: Int)
     private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)
     private external fun sendSimMenuNative(shellMenu: Int)
-    private external fun sendSimFuncNative(shellFunc: Int)
+    private external fun pasteNumberNative(tokens: String): Boolean
     private external fun applyGraphPanNative(dxNorm: Float, dyNorm: Float): Boolean
     private external fun applyGraphPinchZoomNative(scaleFactor: Float): Boolean
     private external fun applyGraphPanZoomNative(dxNorm: Float, dyNorm: Float, scaleFactor: Float): Boolean
