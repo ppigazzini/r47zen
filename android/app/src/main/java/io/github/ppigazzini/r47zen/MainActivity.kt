@@ -111,6 +111,17 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
+    // A process killed behind the picker comes back with the answer and no request.
+    private fun answerNativeFileRequest(fd: Int): Boolean {
+        val taken = onFileSelectedNative(fd)
+        if (!taken) {
+            mainHandler.post {
+                Toast.makeText(applicationContext, R.string.file_request_lost, Toast.LENGTH_LONG).show()
+            }
+        }
+        return taken
+    }
+
     private fun applyLcdTheme(theme: String, luminancePercent: Int, isNegative: Boolean) {
         replicaOverlay.setLcdPalette(LcdThemePolicy.resolve(theme, luminancePercent, isNegative))
     }
@@ -196,7 +207,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         nativeFileRequestGate = NativeFileRequestGate(
             post = { mainHandler.post(it) },
             launch = storageAccessCoordinator::requestNativeFile,
-            selectNative = ::onFileSelectedNative,
+            selectNative = ::answerNativeFileRequest,
             cancelNative = ::onFileCanceledNative,
         )
         displayActionController = createDisplayActionController()
@@ -252,6 +263,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             activity = this,
             onNativeFileSelected = { fd -> nativeFileRequestGate.deliverSelected(fd) },
             onNativeFileCanceled = { nativeFileRequestGate.deliverCanceled() },
+            onLoadTransferStarted = { nativeFileRequestGate.beginTransfer() },
         ).also { coordinator ->
             coordinator.registerLaunchers()
         }
@@ -599,6 +611,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     ): Boolean
     private external fun requestStopProgramNative(): Boolean
 
-    private external fun onFileSelectedNative(fd: Int)
+    private external fun onFileSelectedNative(fd: Int): Boolean
     private external fun onFileCanceledNative()
 }

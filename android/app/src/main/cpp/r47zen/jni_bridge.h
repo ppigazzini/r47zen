@@ -268,7 +268,7 @@ JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative(
     JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
     jobjectArray labelsBuffer);
-JNIEXPORT void JNICALL
+JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(JNIEnv *env,
                                                                    jobject thiz,
                                                                    jint fd);

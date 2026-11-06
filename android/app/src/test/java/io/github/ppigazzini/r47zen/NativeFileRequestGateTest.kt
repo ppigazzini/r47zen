@@ -9,12 +9,67 @@ class NativeFileRequestGateTest {
     private val launches = mutableListOf<Triple<Boolean, String, Int>>()
     private var cancels = 0
     private val selections = mutableListOf<Int>()
+    private val closedFds = mutableListOf<Int>()
+    private var nativeWaiting = true
     private val gate = NativeFileRequestGate(
         post = { posted.addLast(it) },
         launch = { isSave, defaultName, fileType -> launches += Triple(isSave, defaultName, fileType) },
-        selectNative = { selections += it },
+        selectNative = {
+            selections += it
+            nativeWaiting
+        },
         cancelNative = { cancels++ },
+        closeLateFd = { closedFds += it },
     )
+
+    @Test
+    fun aTransferredDocument_reachesNative() {
+        gate.request(isSave = false, defaultName = "", fileType = 1)
+        posted.removeFirst().run()
+        gate.beginTransfer()
+
+        gate.deliverSelected(7)
+
+        assertEquals(listOf(7), selections)
+        assertTrue(closedFds.isEmpty())
+        assertEquals(0, cancels)
+    }
+
+    @Test
+    fun stoppingDuringATransfer_cancelsNativeOnce_andClosesTheLateDescriptor() {
+        gate.request(isSave = false, defaultName = "", fileType = 1)
+        posted.removeFirst().run()
+        gate.beginTransfer()
+
+        gate.cancelUnanswered()
+        assertEquals(1, cancels)
+
+        gate.deliverSelected(7)
+        assertTrue(selections.isEmpty())
+        assertEquals(listOf(7), closedFds)
+    }
+
+    @Test
+    fun stoppingDuringATransfer_aLateFailureCancelsNothingMore() {
+        gate.request(isSave = false, defaultName = "", fileType = 1)
+        posted.removeFirst().run()
+        gate.beginTransfer()
+
+        gate.cancelUnanswered()
+        gate.deliverCanceled()
+
+        assertEquals(1, cancels)
+    }
+
+    @Test
+    fun aDocumentAnsweredAfterRecreation_stillReachesNative() {
+        // The recreated Activity's gate never launched the picker its answer reaches.
+        gate.beginTransfer()
+
+        gate.deliverSelected(7)
+
+        assertEquals(listOf(7), selections)
+    }
 
     @Test
     fun postedRequest_launchesOnce_andALaterDestroyCancelsNothing() {
@@ -83,6 +138,16 @@ class NativeFileRequestGateTest {
 
         assertEquals(listOf(7), selections)
         assertEquals(1, cancels)
+    }
+
+    @Test
+    fun anAnswerNoCoreThreadTakes_closesItsDescriptor() {
+        // A process killed behind the picker comes back with the answer and no request.
+        nativeWaiting = false
+
+        gate.deliverSelected(7)
+
+        assertEquals(listOf(7), closedFds)
     }
 
     @Test

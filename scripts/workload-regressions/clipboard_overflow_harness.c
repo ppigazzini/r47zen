@@ -14,9 +14,11 @@
 // First, before any register is large, it dumps the statistical sums and holds
 // each SR row to the name upstream gives that sum (check_statistical_sum_rows).
 
+#include "jni_bridge.h"
 #include "keypad_fixture_bridge.h"
 #include "screen.h"
 
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -422,6 +424,30 @@ static int check_paste_number(void) {
   return failures;
 }
 
+// A picker can answer after the process died behind it, with no request waiting. A
+// descriptor left in native would never close, and a save's worker reads until it does.
+static int check_file_answer_with_no_request(void) {
+  int failures = 0;
+  if (Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(NULL, NULL, 77)) {
+    fprintf(stderr, "FAIL: native took a file answer with no request waiting\n");
+    failures++;
+  }
+  if (fileReady || fileDescriptor == 77) {
+    fprintf(stderr, "FAIL: native kept a file answer with no request waiting\n");
+    failures++;
+  }
+  atomic_store(&isCoreBlockingForIo, true);
+  if (!Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(NULL, NULL, 77) ||
+      !fileReady || fileDescriptor != 77) {
+    fprintf(stderr, "FAIL: native dropped a file answer a request was waiting for\n");
+    failures++;
+  }
+  atomic_store(&isCoreBlockingForIo, false);
+  fileReady = false;
+  fileDescriptor = -1;
+  return failures;
+}
+
 int main(void) {
   const char *runtime_dir = "/tmp/r47-clipboard-overflow-harness";
   mkdir(runtime_dir, 0700);
@@ -432,6 +458,7 @@ int main(void) {
 
   int failures = check_statistical_sum_rows();
   failures += check_paste_number();
+  failures += check_file_answer_with_no_request();
 
   // Ten numbered registers of 2^60000 make the all-registers dump about 180 KB,
   // six times the ANDROID_CLIPSTR cap, and X and Y of it run the stack dump past

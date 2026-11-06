@@ -134,7 +134,11 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   return restoreScreenMutexAndReturn(lockCount, fd);
 }
 
-JNIEXPORT void JNICALL
+// Report whether a core thread took the descriptor. A process killed behind the
+// picker comes back with the answer and no request, and the next request would drop
+// a descriptor left here without closing it. A save's worker reads until that
+// descriptor closes, so it would wait for the life of the process.
+JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(JNIEnv *env,
                                                                    jobject thiz,
                                                                    jint fd) {
@@ -142,10 +146,15 @@ Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(JNIEnv *env,
   (void)thiz;
   LOGI("onFileSelectedNative(fd=%d)", fd);
   pthread_mutex_lock(&fileMutex);
-  fileDescriptor = fd;
-  fileReady = true;
-  pthread_cond_signal(&fileCond);
+  bool waiting =
+      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed);
+  if (waiting) {
+    fileDescriptor = fd;
+    fileReady = true;
+    pthread_cond_signal(&fileCond);
+  }
   pthread_mutex_unlock(&fileMutex);
+  return waiting ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

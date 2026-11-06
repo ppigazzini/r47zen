@@ -96,12 +96,14 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   }
 
 #if !defined(HOST_TOOL_BUILD)
-  // Intercept State, Program and Manual Save File operations for Android SAF
+  // Intercept State, Program, Manual Save, and register data file operations for
+  // Android SAF
   if (path == ioPathSaveStateFile || path == ioPathLoadStateFile ||
       path == ioPathSaveProgram || path == ioPathLoadProgram ||
       path == ioPathExportRTFProgram || path == ioPathSaveAllPrograms ||
       path == ioPathExportRTFAllPrograms || path == ioPathManualSave ||
-      path == ioPathPgmFile) {
+      path == ioPathPgmFile || path == ioPathRegExport ||
+      path == ioPathRegImport) {
 
     int isSave = (mode == ioModeWrite);
     char defaultName[256];
@@ -128,6 +130,8 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
 #else
       snprintf(defaultName, sizeof(defaultName), "%s", "C47.sav");
 #endif
+    } else if (path == ioPathRegExport || path == ioPathRegImport) {
+      snprintf(defaultName, sizeof(defaultName), "%s", "data.d47");
     } else {
       // For programs, try to use the current label name
       if (tmpStringLabelOrVariableName &&
@@ -148,6 +152,8 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
       category = 0; // STATE
     } else if (path == ioPathManualSave) {
       category = 2; // SAVFILES
+    } else if (path == ioPathRegExport || path == ioPathRegImport) {
+      category = 4; // DATA
     }
 
     int fd = requestAndroidFile(isSave, defaultName, category);
@@ -227,7 +233,10 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   openedFile = fopen(fullpath, modeStr);
   openedFileWritable = openedFile != NULL && mode != ioModeRead;
   openedFileWriteFailed = false;
-  return openedFile ? FILE_OK : FILE_ERROR;
+  if (!openedFile) {
+    return FILE_ERROR;
+  }
+  return FILE_OK;
 }
 
 void ioFileWrite(const void *buffer, uint32_t size) {
@@ -261,9 +270,9 @@ void ioFileClose(void) {
       LOGE("ioFileClose: flush failed: %s", strerror(errno));
       failed = true;
     }
-    // fsync makes a SAF document durable before the provider sees the close.
-    // A pipe or a character device cannot be synced and answers EINVAL,
-    // which loses nothing.
+    // fsync makes a private file durable. A SAF save writes a pipe, which cannot be
+    // synced and answers EINVAL, as a character device does: DocumentTransfer syncs
+    // the document itself.
     if (fsync(fileno(openedFile)) != 0 && errno != EINVAL) {
       LOGE("ioFileClose: fsync failed: %s", strerror(errno));
       failed = true;

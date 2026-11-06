@@ -145,28 +145,79 @@ class StorageAccessCoordinatorTest {
     }
 
     @Test
-    fun deliverNativeFileResult_cancelsWhenDescriptorOpenFails() {
+    fun deliverLoadResult_marksTheTransferAndCancelsWhenTheDocumentCannotBeRead() {
         val activity = buildActivity()
         var cancelCount = 0
         var selectedFd: Int? = null
+        var transfersStarted = 0
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
             onNativeFileSelected = { selectedFd = it },
             onNativeFileCanceled = { cancelCount += 1 },
-            openFileDescriptor = { _, _ -> throw IllegalStateException("open failed") },
+            onLoadTransferStarted = { transfersStarted += 1 },
+            documentTransfer = DocumentTransfer(
+                openInput = { throw SecurityException("no grant") },
+                openOutput = { null },
+                tempDir = activity.cacheDir,
+                worker = Runnable::run,
+                reportFailure = {},
+            ),
             providedSaveIntentLauncher = {},
             providedLoadIntentLauncher = {},
         )
 
-        coordinator.deliverNativeFileResult(
+        coordinator.deliverLoadResult(
             resultCode = android.app.Activity.RESULT_OK,
             uri = Uri.parse("content://io.github.ppigazzini.r47zen.documents/document/programs"),
-            mode = "r",
         )
 
         assertNull(selectedFd)
         assertEquals(1, cancelCount)
+        assertEquals(1, transfersStarted)
+    }
+
+    @Test
+    fun deliverResults_cancelWithoutATransferWhenThePickerWasDismissed() {
+        val activity = buildActivity()
+        var cancelCount = 0
+        var transfersStarted = 0
+
+        val coordinator = StorageAccessCoordinator(
+            activity = activity,
+            onNativeFileSelected = {},
+            onNativeFileCanceled = { cancelCount += 1 },
+            onLoadTransferStarted = { transfersStarted += 1 },
+            providedSaveIntentLauncher = {},
+            providedLoadIntentLauncher = {},
+        )
+
+        coordinator.deliverSaveResult(android.app.Activity.RESULT_CANCELED, null)
+        coordinator.deliverLoadResult(android.app.Activity.RESULT_CANCELED, null)
+
+        assertEquals(2, cancelCount)
+        assertEquals(0, transfersStarted)
+    }
+
+    @Test
+    fun buildNativeFileRequestIntent_savesRegisterDataAsABinaryDocument() {
+        val coordinator = StorageAccessCoordinator(
+            activity = buildActivity(),
+            onNativeFileSelected = {},
+            onNativeFileCanceled = {},
+            readWorkDirectoryTreeUri = { null },
+            providedSaveIntentLauncher = {},
+            providedLoadIntentLauncher = {},
+        )
+
+        val intent = coordinator.buildNativeFileRequestIntent(
+            isSave = true,
+            defaultName = "data.d47",
+            fileType = 4,
+        )
+
+        assertEquals("application/octet-stream", intent.type)
+        assertEquals("data.d47", intent.getStringExtra(Intent.EXTRA_TITLE))
     }
 
     private fun buildActivity(): ComponentActivity {

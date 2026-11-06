@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47zen
 
+import android.os.ParcelFileDescriptor
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -15,17 +16,27 @@ import java.util.concurrent.atomic.AtomicInteger
  * the result never arrives, and [cancelUnanswered] cancels instead. A request
  * posted after `onDestroy` needs no help: its launcher is already unregistered,
  * the launch throws, and [StorageAccessCoordinator.requestNativeFile] cancels.
+ *
+ * A picked document to load reaches native later, from the transfer worker, so
+ * [beginTransfer] marks it in flight. If the app stops first, [cancelUnanswered]
+ * cancels the request and the late descriptor is closed rather than answering a
+ * request that is gone, or a newer one with the wrong file. A process killed behind
+ * the picker has no request either: [selectNative] refuses the answer, and its
+ * descriptor closes the same way.
  */
 internal class NativeFileRequestGate(
     private val post: (Runnable) -> Unit,
     private val launch: (isSave: Boolean, defaultName: String, fileType: Int) -> Unit,
-    private val selectNative: (Int) -> Unit,
+    private val selectNative: (Int) -> Boolean,
     private val cancelNative: () -> Unit,
+    private val closeLateFd: (Int) -> Unit = { fd -> ParcelFileDescriptor.adoptFd(fd).close() },
 ) {
     private companion object {
         const val IDLE = 0
         const val POSTED = 1
         const val LAUNCHED = 2
+        const val TRANSFERRING = 3
+        const val ABANDONED = 4
     }
 
     private val state = AtomicInteger(IDLE)
@@ -45,13 +56,19 @@ internal class NativeFileRequestGate(
     // recreation the answer reaches the new Activity's gate, which never
     // launched, while the core thread still waits for it.
     fun deliverSelected(fd: Int) {
-        state.set(IDLE)
-        selectNative(fd)
+        if (state.getAndSet(IDLE) == ABANDONED || !selectNative(fd)) {
+            closeLateFd(fd)
+        }
     }
 
     fun deliverCanceled() {
-        state.set(IDLE)
-        cancelNative()
+        if (state.getAndSet(IDLE) != ABANDONED) {
+            cancelNative()
+        }
+    }
+
+    fun beginTransfer() {
+        state.set(TRANSFERRING)
     }
 
     fun cancelPending() {
@@ -61,7 +78,7 @@ internal class NativeFileRequestGate(
     }
 
     fun cancelUnanswered() {
-        if (state.compareAndSet(LAUNCHED, IDLE)) {
+        if (state.compareAndSet(LAUNCHED, IDLE) || state.compareAndSet(TRANSFERRING, ABANDONED)) {
             cancelNative()
         }
     }

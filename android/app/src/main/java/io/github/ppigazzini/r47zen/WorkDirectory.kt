@@ -105,6 +105,9 @@ private object AndroidWorkDirectoryDocumentAccess : WorkDirectoryDocumentAccess 
 internal object WorkDirectory {
     private const val TAG = "R47WorkDir"
 
+    // The category hal/io.c passes for register data files.
+    private const val FILE_TYPE_DATA = 4
+
     const val PREFS_NAME = "R47WorkDirPrefs"
     private const val LEGACY_PREFS_NAME = SlotStore.APP_PREFS_NAME
     const val KEY_TREE_URI = "work_directory_uri"
@@ -239,6 +242,7 @@ internal object WorkDirectory {
             1 -> "PROGRAMS"
             2 -> "SAVFILES"
             3 -> "SCREENS"
+            FILE_TYPE_DATA -> "DATA"
             else -> null
         }
     }

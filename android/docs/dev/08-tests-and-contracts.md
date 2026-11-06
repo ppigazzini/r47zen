@@ -57,7 +57,7 @@ flowchart TD
 | beeper volume normalization and audio settings dispatch | `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `MainActivityPreferenceControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest` |
 | LCD display theme normalization, inverse polarity, palette contrast, palette ownership, and the LCD raster | `LcdThemePolicy.kt`, `PackedLcdRaster.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `PackedLcdRasterTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `scripts/r47_contracts/test_lcd_palette_owner_contract.py` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.PackedLcdRasterTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest`, then the grouped `scripts/r47_contracts` lane |
 | system-bar and cutout insets on every screen, fixed shell-menu copy, orange-blue touch-target placement, copy-popup shape, first-touch discovery-hint dismissal, and any retained discovery-hint surfaces | `MainActivity.kt`, `DisplayActionController.kt`, `WindowModeController.kt`, `SystemBarInsets.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/strings.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `MainShellThemeTest.kt`, `ReplicaOverlayVisualPolicyTest.kt`, `SystemBarInsetsTest.kt`, `WindowModeControllerTest.kt`, `SystemBarInsetsInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest --tests io.github.ppigazzini.r47zen.SystemBarInsetsTest --tests io.github.ppigazzini.r47zen.WindowModeControllerTest`, then the `SystemBarInsetsInstrumentedTest` connected selection |
-| SAF picker, startup work-directory routing, detached-fd handoff, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
+| SAF picker, startup work-directory routing, document transfer, and work-directory tree persistence | `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`, `NativeFileRequestGate.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `DocumentTransferTest.kt`, `NativeFileRequestGateTest.kt`, `WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt`, `scripts/android/run_hal_io_contract.sh` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `stageProgramFixtureAssets` (androidTest assets only), `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
 | pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
 | Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved. A signature change fails the build, but a changed *meaning* behind an unchanged signature does not: `scripts/android/run_keypad_generation_contract.sh` is the behavioral half for `hal/lcd.c`, and locks the `bitblt24` blit semantics documented in `src/c47/hal/lcd.h`; `scripts/android/run_hal_io_contract.sh` locks the write-failure report of `hal/io.c` | rerun the narrow native Gradle build first, then `run_keypad_generation_contract.sh` and `run_hal_io_contract.sh`, then the latest-upstream Android build lane when new upstream HAL symbols appear |
@@ -445,13 +445,19 @@ source is missing from this page:
   semantics on the UI observer loop
 - `StorageAccessCoordinatorTest.kt` and `WorkDirectoryTest.kt`: lock the
   first-run welcome-dialog picker route, missing-directory recovery,
-  work-directory tree persistence, detached-fd cancellation, and work-directory
-  tree subfolder rules
+  work-directory tree persistence, a load failure and a dismissed picker
+  canceling the native request, and work-directory tree subfolder rules
+- `DocumentTransferTest.kt`: locks that a load hands native a private copy,
+  reports and cancels when the provider fails or the document is past the limit,
+  and that a save opens the provider only once all the data exists, closes the
+  provider's stream after the last byte, saves to a document that cannot sync, leaves
+  the document alone when native wrote nothing, and leaves no temp file behind. A
+  real pipe needs a device: `StorageAccessCoordinatorInstrumentedTest.kt` covers it
 - `NativeFileRequestGateTest.kt`: locks that a native file request ends in
   exactly one result or cancel: a dropped launch is canceled on destroy, a
   launched picker with no answer is canceled once when the app stops, an
-  answered one is not, and an answer reaching a recreated Activity's gate still
-  reaches native
+  answered one is not, an answer reaching a recreated Activity's gate still
+  reaches native, and an answer no core thread takes closes its descriptor
 - `SettingsLinkTest.kt`: locks that the two external links in Settings show a
   toast instead of crashing when no app can open them
 - `SettingsActivityThemeTest.kt`: locks the settings-owned dark surface theme
@@ -613,8 +619,9 @@ Each instrumentation source and what it covers:
   completion and leaves X in the expected result type
 - `GraphRedrawInstrumentedTest.kt`: locks the redraw-gate contract behind
   `ProgramLoadTestBridge.forceRefresh()`, which runs `r47_force_refresh()`
-- `StorageAccessCoordinatorInstrumentedTest.kt`: locks detached-fd handoff and
-  cancellation behavior through the Android file-descriptor seam
+- `StorageAccessCoordinatorInstrumentedTest.kt`: locks a save through a real pipe,
+  a load through a private copy, and cancellation, on the Android
+  file-descriptor seam
 - `SystemBarInsetsInstrumentedTest.kt`: with fullscreen off, requires the main
   calculator view and the Settings toolbar and list to lie inside the real
   system-bar and cutout insets, and requires a non-zero status-bar inset so the
@@ -740,7 +747,8 @@ Android compatibility layer.
   paste enters the cell and refuses a cell still being typed. A paste in alpha entry,
   under a parameter prompt, in a catalog, during a run, or with a bad token must leave
   X alone. A token the core drops, past the display width or `RNG` or in integer input
-  mode, must back the entry out and leave the stack and the program as they were.
+  mode, must back the entry out and leave the stack and the program as they were. A
+  file answer with no request waiting must be refused and leave nothing in native.
   Then it fills ten
   numbered registers, X, and Y with 2^60000, which drives the all-registers
   and stack dumps past their buffer caps, and calls every getter as a
@@ -790,8 +798,11 @@ Android compatibility layer.
   `scripts/android/hal_io_contract_test.c`. The autosave file is made a link to
   the device under test: a write `/dev/full` refuses is reported once per file,
   whether the flush or the writes themselves find it, and a regular file, a
-  read, and `/dev/null`, whose `fsync` answers `EINVAL`, are not reported. It
-  runs in the `host-workload-regressions` lane of `linux-ci.yml`.
+  read, and `/dev/null`, whose `fsync` answers `EINVAL`, are not reported. It also
+  builds `hal/io.c` with that branch compiled in and runs
+  `scripts/android/hal_io_saf_contract_test.c`: each file path asks for its name and
+  folder, and a save through a pipe arrives whole with nothing reported. It runs in
+  the `host-workload-regressions` lane of `linux-ci.yml`.
 - `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds
   `bridge_tsan_harness.c` with the staged core and Android bridge under
   ThreadSanitizer and races the UI read path
