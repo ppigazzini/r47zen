@@ -186,6 +186,8 @@ void r47_graph_bound_from_float(float value, real_t *dst);
 void yieldToAndroidWithMs(int ms);
 void yieldToAndroid(void);
 int requestAndroidFile(int isSave, const char *defaultName, int fileType);
+void r47_arm_snap(void);
+void r47_offer_snap(void);
 void r47_set_file_request_override(int fd, int isSave, int fileType);
 void r47_clear_file_request_override(void);
 void triggerQuit(void);

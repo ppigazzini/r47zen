@@ -296,7 +296,7 @@ supports that model by keeping shared synchronization in native code:
   fails on any unsynchronized access
 - `Java_io_github_ppigazzini_r47zen_MainActivity_tick(...)` keeps
   `pthread_mutex_trylock(&screenMutex)` semantics, advances due timer and LCD
-  work, and returns the next required wake delay through
+  work, offers a finished `SNAP`, and returns the next required wake delay through
   `r47_next_tick_delay_ms(...)`; when the lock is busy it returns `1` so the
   Kotlin side stays responsive without reviving the rejected async scheduler
 - `yieldToAndroidWithMs()` refreshes the LCD, releases the recursive screen
@@ -599,6 +599,8 @@ device question.
 | the document | the provider | the worker, at the end of a save | the worker, at a load | none; the worker runs transfers in order |
 | private temp file | `DocumentTransfer` | the worker | the worker; native reads a load through its descriptor | deleted when its transfer ends; a new process clears the directory |
 | pipe of a save | `DocumentTransfer` | the core thread, through `hal/io.c` | the worker | native's `fclose` is end of file |
+| capture file, `<base>/snap.bmp` | `hal/io.c` | upstream's `fnScreenDump` | `r47_offer_snap` | deleted when its offer ends; arming at init drops one a dead process left |
+| capture name, `_ioFileNameOverride` | `hal/io.c` | `r47_arm_snap`, `r47_offer_snap`; `fnScreenDump` clears it | `fnScreenDump`, `r47_offer_snap` | going empty; all on the core thread under `screenMutex` |
 | `NativeFileRequestGate.state` | the gate | core, main, and worker threads | main and worker threads | atomic; `TRANSFERRING` marks a load in flight |
 | `fileDescriptor`, `fileReady`, `fileCanceled` | `jni_storage.c` | the core thread at a request; the main or worker thread at an answer | the core thread | `fileCond` under `fileMutex`; `isCoreBlockingForIo` tells an answer whether a request is waiting |
 
@@ -614,6 +616,23 @@ is the signal. `scripts/android/run_hal_io_contract.sh`
 links `hal/io.c` alone on the host and locks the report against `/dev/full` and
 its absence against a regular file, a read, and `/dev/null`. A failure in the
 worker, after native has closed the pipe, reports through `DocumentTransfer`.
+
+`SNAP` and `PRLCD` reach upstream's `fnScreenDump`, which writes a BMP to the name in
+`_ioFileNameOverride` and clears the name. Holding `EXIT` for about a second runs
+`SNAP` too, so it also opens the picker. `r47_init_runtime` arms that
+name with `<base>/snap.bmp` through `r47_arm_snap()`. `tick()` calls
+`r47_offer_snap()`, which returns on its first test while the name is armed. Once
+the name is empty it asks `requestAndroidFile(...)` for a document in category 3,
+SCREENS, named `YYYYMMDD-HHMMSS00.bmp` like upstream's default, copies the capture
+to that descriptor, deletes the private file, and arms again. A canceled picker
+drops the capture, and a lost write reports as above. Upstream's `SNAP` also appends
+the stack to a text file relative to the working directory. That file is not offered,
+so the user gets the picture and not the stack text.
+
+The offer waits for a tick, so it never starts while the host is stopped or a core
+function is running. A running program reaches no tick, so of the `SNAP`s it takes
+before it stops only the first is kept; the rest find no name and go to upstream's
+relative default, which the app never collects.
 
 Android instrumentation uses a one-shot detached-fd override in
 `jni_storage.c` so `ProgramFixtureInstrumentedTest` can drive `READP` through

@@ -164,6 +164,7 @@ void r47_init_runtime(int slotId) {
   fnTimerConfig(TO_TIMER_APP, execTimerApp, 0);
   fnTimerConfig(TO_ASM_ACTIVE, refreshFn, TO_ASM_ACTIVE);
 
+  r47_arm_snap();
   r47_force_refresh();
   atomic_store_explicit(&g_r47_runtime_ready, true, memory_order_release);
   pthread_mutex_unlock(&screenMutex);
@@ -207,6 +208,7 @@ Java_io_github_ppigazzini_r47zen_MainActivity_tick(JNIEnv *env, jobject thiz) {
     lcd_refresh();
     nextScreenRefresh = now + 100;
   }
+  r47_offer_snap();
 
   pthread_mutex_unlock(&screenMutex);
 

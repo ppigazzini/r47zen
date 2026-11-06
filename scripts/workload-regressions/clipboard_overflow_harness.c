@@ -18,18 +18,24 @@
 #include "keypad_fixture_bridge.h"
 #include "screen.h"
 
+#include <fcntl.h>
+#include <limits.h>
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 // The clipboard getters in android_helpers.c, which no header declares.
 extern char *getClipboardAllRegistersString(void);
 extern char *getClipboardStackRegistersString(void);
 extern char *getClipboardXRegisterString(void);
 extern char *getXRegisterString(void);
+
+// The SNAP slot of hal/io.c.
+extern char _ioFileNameOverride[];
 
 // The initializer of upstream's StatSumNames, local to
 // copyAllRegistersToClipboard in screen.c, which
@@ -448,6 +454,56 @@ static int check_file_answer_with_no_request(void) {
   return failures;
 }
 
+// hal/io.c offers a SNAP on two upstream behaviors, so hold them to the live core:
+// fnSNAP writes a BMP of the whole screen to the name it was given, and clears the
+// name. With no picker in this harness, the offer then drops the capture and arms.
+static int check_snap(const char *runtime_dir) {
+  int failures = 0;
+  char capture[PATH_MAX];
+  snprintf(capture, sizeof(capture), "%s/snap.bmp", runtime_dir);
+  if (strcmp(_ioFileNameOverride, capture) != 0) {
+    fprintf(stderr, "FAIL: init armed '%s', want '%s'\n", _ioFileNameOverride, capture);
+    failures++;
+  }
+
+  // fnSNAP's register export writes relative to the working directory.
+  int previous = open(".", O_RDONLY);
+  if (previous < 0 || chdir(runtime_dir) != 0) {
+    fprintf(stderr, "FATAL: cannot enter %s\n", runtime_dir);
+    exit(2);
+  }
+  fnSNAP(NOPARAM);
+  if (fchdir(previous) != 0) {
+    fprintf(stderr, "FATAL: cannot leave %s\n", runtime_dir);
+    exit(2);
+  }
+  close(previous);
+
+  long wantSize = 0x82L + (long)(SCREEN_WIDTH / 8 + 2) * SCREEN_HEIGHT;
+  char magic[3] = "";
+  struct stat info;
+  FILE *bmp = fopen(capture, "rb");
+  size_t read = bmp ? fread(magic, 1, 2, bmp) : 0;
+  if (bmp) {
+    fclose(bmp);
+  }
+  if (_ioFileNameOverride[0] != '\0' || read != 2 || strcmp(magic, "BM") != 0 ||
+      stat(capture, &info) != 0 || info.st_size != wantSize) {
+    fprintf(stderr, "FAIL: SNAP left name '%s' and a file of %ld bytes, magic '%s'; want %ld\n",
+            _ioFileNameOverride, stat(capture, &info) == 0 ? (long)info.st_size : -1L,
+            magic, wantSize);
+    failures++;
+  }
+
+  // tick runs the offer, so this fails too if tick stops calling it.
+  Java_io_github_ppigazzini_r47zen_MainActivity_tick(NULL, NULL);
+  if (stat(capture, &info) == 0 || strcmp(_ioFileNameOverride, capture) != 0) {
+    fprintf(stderr, "FAIL: the tick left the capture or name '%s'\n", _ioFileNameOverride);
+    failures++;
+  }
+  return failures;
+}
+
 int main(void) {
   const char *runtime_dir = "/tmp/r47-clipboard-overflow-harness";
   mkdir(runtime_dir, 0700);
@@ -458,6 +514,7 @@ int main(void) {
 
   int failures = check_statistical_sum_rows();
   failures += check_paste_number();
+  failures += check_snap(runtime_dir);
   failures += check_file_answer_with_no_request();
 
   // Ten numbered registers of 2^60000 make the all-registers dump about 180 KB,

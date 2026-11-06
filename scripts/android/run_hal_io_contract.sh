@@ -8,8 +8,9 @@
 # file at ioFileClose, and nothing else is.
 #
 # scripts/android/hal_io_saf_contract_test.c, with that branch compiled in: each
-# file path asks for the name and folder it should, and a save through a pipe
-# arrives whole with nothing reported.
+# file path asks for the name and folder it should, a save through a pipe arrives
+# whole with nothing reported, and a finished SNAP goes to the picker once and
+# leaves the next one a name.
 
 set -Eeuo pipefail
 
