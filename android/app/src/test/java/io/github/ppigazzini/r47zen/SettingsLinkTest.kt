@@ -1,6 +1,7 @@
 package io.github.ppigazzini.r47zen
 
 import android.app.Application
+import android.content.Intent
 import androidx.preference.Preference
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
@@ -23,7 +24,7 @@ class SettingsLinkTest {
         val activity = Robolectric.buildActivity(SettingsActivity::class.java).setup().get()
         val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
 
-        for (key in listOf("view_android_source", "visit_gitlab")) {
+        for (key in listOf("view_android_source", "visit_gitlab", "view_manual")) {
             ShadowToast.reset()
             val preference = requireNotNull(fragment.findPreference<Preference>(key)) { key }
 
@@ -35,5 +36,19 @@ class SettingsLinkTest {
                 ShadowToast.getTextOfLatestToast(),
             )
         }
+    }
+
+    @Test
+    fun manualEntry_opensTheFixedUrlInABrowser() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java).setup().get()
+        val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings) as SettingsFragment
+        val preference = requireNotNull(fragment.findPreference<Preference>("view_manual"))
+
+        requireNotNull(preference.onPreferenceClickListener).onPreferenceClick(preference)
+
+        val intent = shadowOf(application).nextStartedActivity
+        assertEquals(Intent.ACTION_VIEW, intent.action)
+        assertEquals(application.getString(R.string.about_manual_url), intent.dataString)
     }
 }

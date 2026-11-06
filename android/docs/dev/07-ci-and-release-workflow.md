@@ -958,7 +958,25 @@ The rest, and what each one gates:
 | `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL `c-cpp` with `build-mode: none` over repo-owned C, ignoring `src`, `dep`, and the staged tree; findings go to the Security tab. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
 | `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
-| `privacy-policy-pages.yml` | push to `main` that touches the policy asset or the workflow, dispatch | publishes `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html` through the Actions-based Pages flow, so the in-app and the Play Console policy are one file; `run_privacy_policy_single_source_contract.sh` holds the workflow to that file | -- |
+| `privacy-policy-pages.yml` | daily schedule, push to `main` that touches the policy asset, the workflow, or `scripts/docs/prepare_manual_site.sh`, dispatch | publishes the Pages site as one artifact: `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html`, the URL in Play Console's privacy-policy field; and upstream's cropped manual to `https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf`, the URL Settings opens; `run_privacy_policy_single_source_contract.sh` and `run_manual_site_contract.sh` hold the workflow to both | -- |
+
+The manual is built here, not fetched from upstream's releases: GitLab offers no
+fixed URL for the latest PDF, and its job artifacts are closed to anonymous readers
+(measured 2026-11-06). `scripts/docs/prepare_manual_site.sh` hashes the inputs that
+upstream's `docs-manual` gate lists, plus the TeX image digest, and compares the
+hash with `manual/VERSION` on the live site. A scheduled run with the same hash
+stops there; any other event with the same hash republishes the live PDF, because a
+deploy replaces the whole site. A changed hash builds with upstream's own command in
+a container with no network and no credentials, since `.latexmkrc` passes
+`-shell-escape`. A failure deploys nothing, so the last good PDF stays live and the
+lane reports red.
+
+The PDF follows upstream HEAD, so it can carry manual text upstream has not
+released; so can the core this repo ships. The TeX image is pinned by digest in that
+script, and a bump is by hand. Whether upstream's build works in that image shows
+only in a run of the lane: `run_manual_site_contract.sh` stubs `docker`. A dispatch
+on `github_ci` proves the build and skips the deploy, whose environment admits only
+`main`.
 
 `ci-required` in `android-ci.yml` is the one aggregate verdict, and even it is
 not a required status check: `main` takes direct pushes, so every row above

@@ -143,6 +143,10 @@
             app:title="@string/about_version_title"
             app:summary="@string/about_version_summary" />
         <Preference
+            app:key="view_manual"
+            app:title="@string/about_manual_title"
+            app:summary="@string/about_manual_summary" />
+        <Preference
             app:key="view_privacy_policy"
             app:title="@string/about_privacy_policy_title"
             app:summary="@string/about_privacy_policy_summary" />

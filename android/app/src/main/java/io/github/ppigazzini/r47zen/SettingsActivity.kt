@@ -105,6 +105,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
         updateKeypadDesignPreferences()
         configureHapticPreferences()
 
+        findPreference<Preference>("view_manual")?.setOnPreferenceClickListener {
+            openUrl(getString(R.string.about_manual_url))
+            true
+        }
+
         findPreference<Preference>("view_privacy_policy")?.setOnPreferenceClickListener {
             startActivity(
                 NoticeAssetActivity.createIntent(

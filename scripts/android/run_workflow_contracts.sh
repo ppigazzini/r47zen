@@ -41,6 +41,7 @@ CONTRACTS=(
     run_program_load_bridge_default_contract.sh
     run_test_integrity_contract.sh
     run_privacy_policy_single_source_contract.sh
+    run_manual_site_contract.sh
     run_commit_message_contract.sh
     run_quiet_grep_pipeline_contract.sh
     run_jni_surface_check_contract.sh
