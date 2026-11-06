@@ -1,8 +1,10 @@
 package io.github.ppigazzini.r47zen
 
 import androidx.activity.ComponentActivity
+import androidx.core.net.toUri
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,6 +56,33 @@ class FactoryResetControllerTest {
         assertEquals(0, sharedStateResets)
         assertEquals(1, releases)
         assertTrue(savedState.exists())
+    }
+
+    @Test
+    fun resetDestroy_forgetsTheSavedManualAndReleasesEveryDocumentGrant() {
+        val manual = "content://test.documents/document/manual".toUri()
+        val workDirectory = "content://test.documents/tree/work".toUri()
+        SavedManual.remember(activity, manual)
+        WorkDirectory.persistSelectedTreeUri(activity, workDirectory)
+        val controller = resettingController(coreThreadRunning = false)
+
+        controller.handleDestroy(shouldStopApp = true)
+
+        assertNull(SavedManual.read(activity))
+        assertNull(WorkDirectory.readTreeUriString(activity))
+        assertTrue(activity.contentResolver.persistedUriPermissions.isEmpty())
+    }
+
+    @Test
+    fun destroyWithoutAWipe_keepsTheDocumentGrants() {
+        val manual = "content://test.documents/document/manual".toUri()
+        SavedManual.remember(activity, manual)
+
+        controller(coreThreadRunning = false).handleDestroy(shouldStopApp = true)
+        resettingController(coreThreadRunning = true).handleDestroy(shouldStopApp = true)
+
+        assertEquals(manual, SavedManual.read(activity))
+        assertEquals(listOf(manual), activity.contentResolver.persistedUriPermissions.map { it.uri })
     }
 
     private fun seedSavedState(): File {
