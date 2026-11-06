@@ -4,19 +4,18 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import java.io.IOException
 
 internal class StorageAccessCoordinator(
     private val activity: ComponentActivity,
     private val onNativeFileSelected: (Int) -> Unit,
     private val onNativeFileCanceled: () -> Unit,
-    private val openFileDescriptor: (Uri, String) -> ParcelFileDescriptor? = { uri, mode ->
-        activity.contentResolver.openFileDescriptor(uri, mode)
-    },
+    private val onLoadTransferStarted: () -> Unit = {},
+    private val documentTransfer: DocumentTransfer = DocumentTransfer.shared(activity),
     private val readWorkDirectoryTreeUri: () -> String? = {
         WorkDirectory.readTreeUriString(activity)
     },
@@ -46,11 +45,7 @@ internal class StorageAccessCoordinator(
             val launcher = activity.registerForActivityResult(
                 ActivityResultContracts.StartActivityForResult()
             ) { result ->
-                deliverNativeFileResult(
-                    resultCode = result.resultCode,
-                    uri = result.data?.data,
-                    mode = "wt",
-                )
+                deliverSaveResult(result.resultCode, result.data?.data)
             }
             saveIntentLauncher = launcher::launch
         }
@@ -59,11 +54,7 @@ internal class StorageAccessCoordinator(
             val launcher = activity.registerForActivityResult(
                 ActivityResultContracts.StartActivityForResult()
             ) { result ->
-                deliverNativeFileResult(
-                    resultCode = result.resultCode,
-                    uri = result.data?.data,
-                    mode = "r",
-                )
+                deliverLoadResult(result.resultCode, result.data?.data)
             }
             loadIntentLauncher = launcher::launch
         }
@@ -106,20 +97,28 @@ internal class StorageAccessCoordinator(
         }
     }
 
-    internal fun deliverNativeFileResult(resultCode: Int, uri: Uri?, mode: String) {
+    internal fun deliverSaveResult(resultCode: Int, uri: Uri?) {
         if (resultCode != Activity.RESULT_OK || uri == null) {
             onNativeFileCanceled()
             return
         }
 
         try {
-            openFileDescriptor(uri, mode)?.use { fileDescriptor ->
-                onNativeFileSelected(fileDescriptor.detachFd())
-            } ?: onNativeFileCanceled()
-        } catch (error: Exception) {
-            Log.e(TAG, "Failed to open selected SAF file", error)
+            onNativeFileSelected(documentTransfer.openForSave(uri))
+        } catch (error: IOException) {
+            Log.e(TAG, "Failed to open the save pipe", error)
             onNativeFileCanceled()
         }
+    }
+
+    internal fun deliverLoadResult(resultCode: Int, uri: Uri?) {
+        if (resultCode != Activity.RESULT_OK || uri == null) {
+            onNativeFileCanceled()
+            return
+        }
+
+        onLoadTransferStarted()
+        documentTransfer.load(uri, onNativeFileSelected, onNativeFileCanceled)
     }
 
     private fun buildSaveIntent(defaultName: String, initialUri: Uri?): Intent {
@@ -131,6 +130,7 @@ internal class StorageAccessCoordinator(
                 defaultName.endsWith(".s47") -> "application/octet-stream"
                 defaultName.endsWith(".p47") -> "application/octet-stream"
                 defaultName.endsWith(".sav") -> "application/octet-stream"
+                defaultName.endsWith(".d47") -> "application/octet-stream"
                 else -> "*/*"
             }
             putExtra(Intent.EXTRA_TITLE, defaultName)

@@ -541,18 +541,59 @@ path can prove that calculator state really changed.
 
 - a runtime base path set by `set_android_base_path(...)` for app-internal files
   and subdirectories
-- SAF handoff for state, program, RTF export, manual save, and related
-  user-facing file operations
+- SAF handoff for state, program, RTF export, manual save, register data
+  (`EXPreg` and its family, `IMPORTr`), and related user-facing file operations
 
 The SAF path works as follows:
 
 1. Native code calls `requestAndroidFile(...)` with save or load mode, default
    name, and category.
 2. Kotlin launches the correct SAF intent through `StorageAccessCoordinator`.
-3. The selected file descriptor is detached from the
-   `ParcelFileDescriptor` and returned to native code.
+3. `DocumentTransfer` returns a descriptor native may hold: for a save the write
+   end of a pipe, for a load a private copy of the document.
 4. Native code wraps the descriptor with `fdopen(...)` and continues using
    standard file I/O.
+
+Native never holds a provider's descriptor. Android documents that a descriptor
+opened in `r` or `w` mode may be a pipe, and upstream's `READP` reads a file twice
+and seeks back between the passes. It also documents that a descriptor must not be
+detached when its creator expects a reliable signal through `close()`; AOSP's
+`FileSystemProvider` starts its media scan from that signal, and a cloud provider
+may start an upload from it. So the provider's stream stays in Kotlin and closes
+there.
+
+`DocumentTransfer` is process-wide and runs every transfer in order on one worker
+thread, so a load picked right after a save reads the finished document.
+
+- **Save:** the worker drains the pipe to a private file, because a slow provider
+  must not stall the core thread in `fwrite`. At end of file, which is native's
+  `fclose`, it opens the document with `wt` and copies. `wt` empties the document,
+  so it runs only once all the data exists. An empty pipe leaves the document
+  alone. A failure shows `file_write_failed`, after upstream's own saved message,
+  which the HAL cannot withdraw.
+- **Load:** the worker copies the document to a private file, refusing one past
+  `MAX_LOAD_BYTES`, hands native a descriptor, and unlinks the file. The core stays
+  parked in `requestAndroidFile` meanwhile, with no progress shown, for as long as
+  the provider takes; a failure shows `file_read_failed` and cancels. Canceling a
+  stuck provider call is not implemented: `NativeFileRequestGate` can release the
+  core when the app stops, but the worker stays blocked until the provider returns.
+- **A load that cannot seek:** `hal/io.c` refuses it rather than trust the above,
+  since `READP` would otherwise load a program of zeros and report success.
+
+`DocumentTransferTest.kt` and `NativeFileRequestGateTest.kt` hold the transfer and
+its one answer per request. `scripts/android/run_hal_io_contract.sh` holds the
+native side: each file path's name and folder, a save through a pipe arriving whole
+with nothing reported, and a load refusing a pipe. None of them runs a real cloud
+provider; whether a given provider accepts `wt` is a device question.
+
+### Document transfer state
+
+| copy | owner | written by | read by | change signal |
+|---|---|---|---|---|
+| the document | the provider | the worker, at the end of a save | the worker, at a load | none; the worker runs transfers in order |
+| private temp file | `DocumentTransfer` | the worker | the worker; native reads a load through its descriptor | deleted when its transfer ends; a new process clears the directory |
+| pipe of a save | `DocumentTransfer` | the core thread, through `hal/io.c` | the worker | native's `fclose` is end of file |
+| `NativeFileRequestGate.state` | the gate | main and worker threads | main and worker threads | atomic; `TRANSFERRING` marks a load in flight |
 
 Upstream's HAL write and close return nothing, and upstream reports only a
 failed open, so `hal/io.c` checks every write, the flush, `fsync`, and the
@@ -564,7 +605,8 @@ reported. A program save still shows upstream's own saved message
 (`TI_SAVED`, set after the close), which the HAL cannot withdraw, so the toast
 is the signal. `scripts/android/run_hal_io_contract.sh`
 links `hal/io.c` alone on the host and locks the report against `/dev/full` and
-its absence against a regular file, a read, and `/dev/null`.
+its absence against a regular file, a read, and `/dev/null`. A failure in the
+worker, after native has closed the pipe, reports through `DocumentTransfer`.
 
 Android instrumentation uses a one-shot detached-fd override in
 `jni_storage.c` so `ProgramFixtureInstrumentedTest` can drive `READP` through
@@ -572,9 +614,9 @@ the same native load boundary with staged canonical fixtures instead of
 launching a real SAF picker. The override is test-owned and must be cleared
 after each load.
 
-After `detachFd()`, the `ParcelFileDescriptor` wrapper no longer owns that file
-descriptor. Native closes it on the existing `fdopen()` failure path or through
-`fclose()` on success.
+Native owns the descriptor it receives, and closes it on the `fdopen()` failure
+path or through `fclose()`. The detach is safe here because no provider is on the
+other end: the descriptor is a pipe or a private file.
 
 The runtime base path is separate from the user-selected work directory. The
 base path supports internal files; the work-directory contract supports user

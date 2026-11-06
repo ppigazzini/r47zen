@@ -161,6 +161,23 @@ class WorkDirectoryTest {
         assertEquals("SAVFILES", documents.createdDirectoryName)
     }
 
+    @Test
+    fun resolveSubfolder_keepsRegisterDataInItsOwnFolder() {
+        val documents = FakeWorkDirectoryDocuments(
+            parsedUri = treeUri,
+            createdDirectoryUri = null,
+        )
+
+        WorkDirectory.resolveSubfolder(
+            contentResolver = contentResolver,
+            treeUriString = treeUri.toString(),
+            fileType = 4,
+            documentAccess = documents,
+        )
+
+        assertEquals("DATA", documents.createdDirectoryName)
+    }
+
     private class FakeWorkDirectoryDocuments(
         private val parsedUri: Uri?,
         private val hasWritePermission: Boolean = true,

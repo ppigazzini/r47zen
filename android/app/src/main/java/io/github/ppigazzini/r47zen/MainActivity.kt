@@ -252,6 +252,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             activity = this,
             onNativeFileSelected = { fd -> nativeFileRequestGate.deliverSelected(fd) },
             onNativeFileCanceled = { nativeFileRequestGate.deliverCanceled() },
+            onLoadTransferStarted = { nativeFileRequestGate.beginTransfer() },
         ).also { coordinator ->
             coordinator.registerLaunchers()
         }

@@ -23,7 +23,7 @@ verification surfaces.
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c`, `keypad_scene.c`, and `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()`, `onFileWriteFailed()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned (`test_jni_registration_contract.py`), and reattach must not redraw the LCD |
-| storage and yield boundary | `StorageAccessCoordinator` returns detached file descriptors through `onFileSelectedNative()` or `onFileCanceledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
+| storage and yield boundary | `StorageAccessCoordinator` and `DocumentTransfer` return a pipe or a private file through `onFileSelectedNative()`, or cancel through `onFileCanceledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
 
 ## Bridge Flow
 
@@ -228,8 +228,9 @@ flowchart LR
   launch it dropped, and a finishing `onDestroy` cancels a launched picker that
   never answered, so the core thread parked in `requestAndroidFile` always gets
   a result or a cancel (`NativeFileRequestGateTest`). The launch hands control to
-  `StorageAccessCoordinator`, which owns the SAF launcher registration and the
-  detached file-descriptor handoff. The same coordinator also owns the
+  `StorageAccessCoordinator`, which owns the SAF launcher registration and hands
+  the picked document to `DocumentTransfer` (see
+  [04](04-native-core-and-jni.md#file-io-boundary)). The same coordinator also owns the
   first-run welcome-dialog handoff into the direct work-directory tree picker
   and the missing-directory recovery picker path, while `SettingsActivity`
   remains the explicit manual work-directory surface.
@@ -264,7 +265,7 @@ yield behavior.
 - The startup and missing-directory work-directory tree picker route stays on
   the Kotlin side in `StorageAccessCoordinator` and `WorkDirectory`; it does
   not cross the native bridge unless a later file open request reaches the
-  detached-fd SAF seam.
+  SAF seam.
 
 ## Event-Loop Compatibility Contract
 

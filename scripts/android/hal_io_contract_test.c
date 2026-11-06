@@ -113,6 +113,26 @@ int main(void) {
       "an fsync that answers EINVAL loses nothing and is not reported",
       write_autosave(4096), 0);
 
+  // READP seeks between its two passes, so a load must refuse a pipe rather than
+  // hand back a program of zeros.
+  int pipeEnds[2];
+  if (pipe(pipeEnds) != 0) {
+    fprintf(stderr, "FATAL: pipe: %s\n", strerror(errno));
+    return 2;
+  }
+  char pipePath[64];
+  snprintf(pipePath, sizeof(pipePath), "/proc/self/fd/%d", pipeEnds[0]);
+  point_autosave_at(pipePath);
+  if (ioFileOpen(ioPathAutoSave, ioModeRead) != FILE_ERROR) {
+    fprintf(stderr, "FAIL: a load from a pipe was not refused\n");
+    failures |= 1;
+  } else {
+    printf("OK: a load from a pipe is refused\n");
+  }
+  ioFileClose();
+  close(pipeEnds[0]);
+  close(pipeEnds[1]);
+
   point_autosave_at(NULL);
   rmdir(save_dir);
   rmdir(base);

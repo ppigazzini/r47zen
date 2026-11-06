@@ -210,7 +210,8 @@ callbacks.
 Activity Result launchers are registered during
 `initializeStartupControllers()` when `createStorageAccessCoordinator()` calls
 `StorageAccessCoordinator.registerLaunchers()`. Helper construction must stay
-side-effect free after resume so tests can call `deliverNativeFileResult()`
+side-effect free after resume so tests can call `deliverLoadResult()` and
+`deliverSaveResult()`
 without violating the Activity Result lifecycle contract.
 
 Focused verification for this lifecycle contract lives in

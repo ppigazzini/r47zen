@@ -90,18 +90,34 @@ void set_android_base_path(const char *path) {
   ensure_android_subdir(SAVE_DIR);
 }
 
+// Close a file opened for reading that cannot seek, and report it. READP reads a
+// file twice and ioFileSeek can report nothing, so a pipe would load a program of
+// zeros and call it a success. DocumentTransfer hands native a regular file, so
+// this holds only if that stops being true.
+static bool openedFileCanSeek(void) {
+  if (fseek(openedFile, 0, SEEK_SET) == 0) {
+    return true;
+  }
+  LOGE("ioFileOpen: the file cannot seek: %s", strerror(errno));
+  fclose(openedFile);
+  openedFile = NULL;
+  return false;
+}
+
 int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   if (openedFile) {
     ioFileClose();
   }
 
 #if !defined(HOST_TOOL_BUILD)
-  // Intercept State, Program and Manual Save File operations for Android SAF
+  // Intercept State, Program, Manual Save, and register data file operations for
+  // Android SAF
   if (path == ioPathSaveStateFile || path == ioPathLoadStateFile ||
       path == ioPathSaveProgram || path == ioPathLoadProgram ||
       path == ioPathExportRTFProgram || path == ioPathSaveAllPrograms ||
       path == ioPathExportRTFAllPrograms || path == ioPathManualSave ||
-      path == ioPathPgmFile) {
+      path == ioPathPgmFile || path == ioPathRegExport ||
+      path == ioPathRegImport) {
 
     int isSave = (mode == ioModeWrite);
     char defaultName[256];
@@ -128,6 +144,8 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
 #else
       snprintf(defaultName, sizeof(defaultName), "%s", "C47.sav");
 #endif
+    } else if (path == ioPathRegExport || path == ioPathRegImport) {
+      snprintf(defaultName, sizeof(defaultName), "%s", "data.d47");
     } else {
       // For programs, try to use the current label name
       if (tmpStringLabelOrVariableName &&
@@ -148,6 +166,8 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
       category = 0; // STATE
     } else if (path == ioPathManualSave) {
       category = 2; // SAVFILES
+    } else if (path == ioPathRegExport || path == ioPathRegImport) {
+      category = 4; // DATA
     }
 
     int fd = requestAndroidFile(isSave, defaultName, category);
@@ -161,7 +181,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     }
     openedFileWritable = isSave;
     openedFileWriteFailed = false;
-    return FILE_OK;
+    return isSave || openedFileCanSeek() ? FILE_OK : FILE_ERROR;
   }
 #endif
 
@@ -227,7 +247,10 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   openedFile = fopen(fullpath, modeStr);
   openedFileWritable = openedFile != NULL && mode != ioModeRead;
   openedFileWriteFailed = false;
-  return openedFile ? FILE_OK : FILE_ERROR;
+  if (!openedFile) {
+    return FILE_ERROR;
+  }
+  return mode != ioModeRead || openedFileCanSeek() ? FILE_OK : FILE_ERROR;
 }
 
 void ioFileWrite(const void *buffer, uint32_t size) {

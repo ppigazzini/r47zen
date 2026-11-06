@@ -63,6 +63,7 @@ not only on the diff, and run them before reading for smells.
 |---|---|
 | the LCD frame from the core to the screen, and its palette | [06-runtime-hot-paths.md](06-runtime-hot-paths.md#lcd-frame-state-inventory) |
 | the activity reference and cached method IDs across the core and main threads | [04-native-core-and-jni.md](04-native-core-and-jni.md#activity-reference-writers-and-readers) |
+| a document between a provider and native file I/O | [04-native-core-and-jni.md](04-native-core-and-jni.md#document-transfer-state) |
 
 A seam with no inventory yet gets one in its owner page before the review, not
 in the review notes.

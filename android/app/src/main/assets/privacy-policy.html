@@ -78,7 +78,7 @@
     </p>
     <ul>
       <li><strong>Calculator state and settings.</strong> The stack, registers, programs, and other calculator memory, plus your preferences (keypad layout, display colors, haptics, and similar). They are kept in Android app-private storage so the app can restore your last session.</li>
-      <li><strong>Files you open or save.</strong> Through Android's system file picker you can open and save calculator files (STATE, PROGRAMS, SAVFILES) and screenshots of the calculator display (SCREENS). If you choose a Work Directory, the app can read and write files in that one folder only.</li>
+      <li><strong>Files you open or save.</strong> Through Android's system file picker you can open and save calculator files (STATE, PROGRAMS, SAVFILES, DATA) and screenshots of the calculator display (SCREENS). A file passes through a temporary copy in app-private storage, deleted when the transfer ends. If you choose a Work Directory, the app can read and write files in that one folder only.</li>
       <li><strong>Clipboard.</strong> The Copy actions put the X register, the stack registers, or all registers on the Android clipboard, only when you choose them. Paste Number reads the clipboard once, only when you choose it, and enters the number it holds into the calculator; it refuses anything else and keeps no copy. On Android 13 and later the system shows a notice when the app reads the clipboard.</li>
       <li><strong>Vibration.</strong> The app asks Android for the vibration permission, for haptic key feedback only.</li>
     </ul>

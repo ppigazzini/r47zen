@@ -25,9 +25,9 @@
 
 %1$s
 
-This app-managed location is separate from the optional external Work Directory. The Work Directory is only for portable STATE, PROGRAMS, SAVFILES, and SCREENS files opened or created through Android\'s document browser.</string>
+This app-managed location is separate from the optional external Work Directory. The Work Directory is only for portable STATE, PROGRAMS, SAVFILES, DATA, and SCREENS files opened or created through Android\'s document browser.</string>
     <string name="settings_work_directory_set_title" translatable="false">Work Directory Set</string>
-    <string name="settings_work_directory_set_message" translatable="false">Open and save will start in %1$s. R47 Zen will create portable STATE, PROGRAMS, SAVFILES, and SCREENS folders here as needed. Session restore stays in private app storage.</string>
+    <string name="settings_work_directory_set_message" translatable="false">Open and save will start in %1$s. R47 Zen will create portable STATE, PROGRAMS, SAVFILES, DATA, and SCREENS folders here as needed. Session restore stays in private app storage.</string>
     <string name="settings_work_directory_browser_title" translatable="false">Set Work Directory</string>
     <string name="settings_work_directory_browser_message" translatable="false">The Work Directory is optional. Set a custom external folder only if you want READP, portable STATE files, manual saves, and screenshots to start in one place.
 
@@ -35,12 +35,12 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_work_directory_browser_set_action" translatable="false">Set Work Directory</string>
     <string name="settings_work_directory_browser_default_action" translatable="false">Use Android Default Folder</string>
     <string name="settings_work_directory_summary_unset" translatable="false">Optional. Session restore stays in private app storage. Open and save start in Android\'s last-used folder until you choose a Work Directory.</string>
-    <string name="settings_work_directory_summary_set" translatable="false">Using %1$s for portable STATE, PROGRAMS, SAVFILES, and SCREENS files. Session restore still stays in private app storage.</string>
+    <string name="settings_work_directory_summary_set" translatable="false">Using %1$s for portable STATE, PROGRAMS, SAVFILES, DATA, and SCREENS files. Session restore still stays in private app storage.</string>
     <string name="settings_work_directory_summary_inaccessible" translatable="false">The saved Work Directory is no longer accessible. Set a new folder or use Android\'s default folder.</string>
     <string name="settings_work_directory_summary_unknown_folder" translatable="false">the saved folder</string>
     <string name="settings_files_and_storage_category_title" translatable="false">Files and Storage</string>
     <string name="settings_work_directory_title" translatable="false">Work Directory</string>
-    <string name="settings_work_directory_preference_summary" translatable="false">Optional external folder for portable STATE, PROGRAMS, SAVFILES, and SCREENS files.</string>
+    <string name="settings_work_directory_preference_summary" translatable="false">Optional external folder for portable STATE, PROGRAMS, SAVFILES, DATA, and SCREENS files.</string>
     <string name="settings_display_and_layout_category_title" translatable="false">Display and Layout</string>
     <string name="settings_fullscreen_mode_title" translatable="false">Full Screen Mode</string>
     <string name="settings_fullscreen_mode_summary" translatable="false">Hide the Android status and navigation bars.</string>
@@ -71,7 +71,7 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_factory_reset_confirm_title" translatable="false">Confirm Reset</string>
     <string name="settings_factory_reset_confirm_message" translatable="false">Wipe all internal app data and relaunch R47 Zen?
 
-Note: This will NOT delete any files in a saved Work Directory. External STATE, PROGRAMS, SAVFILES, and SCREENS folders stay untouched.</string>
+Note: This will NOT delete any files in a saved Work Directory. External STATE, PROGRAMS, SAVFILES, DATA, and SCREENS folders stay untouched.</string>
     <string name="settings_factory_reset_confirm_action" translatable="false">Reset</string>
     <string name="settings_about_category_title" translatable="false">About R47 Zen</string>
     <string name="about_version_title" translatable="false">Version</string>
@@ -104,4 +104,5 @@ Distributors of APKs must also provide the exact corresponding source for the bu
     <string name="slot_switched" translatable="false">Switched to %1$s</string>
     <string name="settings_no_app_for_link" translatable="false">No app on this device can open the link.</string>
     <string name="file_write_failed" translatable="false">The file could not be written completely. It may be cut short.</string>
+    <string name="file_read_failed" translatable="false">The file could not be read.</string>
 </resources>
