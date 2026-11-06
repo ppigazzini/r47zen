@@ -480,7 +480,8 @@ source is missing from this page:
   when the user opts into a custom keypress-duration override, or when custom
   mode is set to `0 ms`; the haptics test also sends a real two-pointer
   sequence through the overlay and requires one key per touch, in either lift
-  order
+  order, and requires that a blank softkey sends its press only in `ASSIGN` and that
+  a softkey turning blank while held still sends its release
 - `MainActivityPreferenceControllerTest.kt`: locks persisted `beeper_volume`
   normalization against the XML-declared `0..100` range, plus `lcd_theme`
   fallback to the supported display-theme set, legacy `lcd_mode` migration,

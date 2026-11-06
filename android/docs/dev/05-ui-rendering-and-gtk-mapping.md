@@ -205,6 +205,12 @@ Render split:
   text sit behind `MainKeyLabelMirrors.kt`, so `CalculatorKeyView` keeps the
   render-spec and painter ownership while the mirror bridge stays one explicitly
   disposable compatibility seam
+- a touch on a softkey the scene marks disabled, a blank slot or a struck-through
+  item, reaches the core only in `ASSIGN`, which fills that slot. This departs from
+  the GTK simulator, which sends every press: there a blank press runs `NOP`, which
+  adds a program step in program entry, ends a number being typed, and consumes a
+  shift. A key the core has pressed always gets its release, even if it turned
+  disabled while held. Physical `F1` to `F6` and Picture in Picture skip this gate
 - `CalculatorSoftkeyPainter` owns softkey value-field bounds, overlay center,
   preview accents, reverse-video states, strike marks, and the final softkey
   `KeyRenderSpec`

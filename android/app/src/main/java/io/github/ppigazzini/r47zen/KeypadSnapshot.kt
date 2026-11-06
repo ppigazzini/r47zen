@@ -35,6 +35,9 @@ internal data class KeypadKeySnapshot(
 }
 
 internal object KeypadSceneContract {
+    // upstream's CM_ASSIGN; keypad_scene.c fails the build if upstream renumbers it.
+    const val CALC_MODE_ASSIGN = 4
+
     const val LABEL_PRIMARY = 0
     const val LABEL_F = 1
     const val LABEL_G = 2

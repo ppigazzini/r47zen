@@ -5,6 +5,7 @@ package io.github.ppigazzini.r47zen
 internal fun keypadSnapshotWith(
     vararg states: Pair<Int, KeypadKeySnapshot>,
     sceneContractVersion: Int = 5,
+    calcMode: Int = KeyboardStateSnapshot.EMPTY.calcMode,
 ): KeypadSnapshot {
     val keyStates = MutableList(43) { KeypadKeySnapshot.EMPTY }
     states.forEach { (code, keyState) ->
@@ -12,7 +13,7 @@ internal fun keypadSnapshotWith(
     }
 
     return KeypadSnapshot(
-        keyboardState = KeyboardStateSnapshot.EMPTY,
+        keyboardState = KeyboardStateSnapshot.EMPTY.copy(calcMode = calcMode),
         sceneContractVersion = sceneContractVersion,
         softmenuId = 0,
         softmenuFirstItem = 0,

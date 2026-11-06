@@ -624,8 +624,13 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
     }
 
-    private fun applyEnabledState(enabled: Boolean) {
-        isEnabled = enabled
+    private fun applyEnabledState(enabled: Boolean, calcMode: Int) {
+        // ASSIGN fills a blank softkey, so it takes the press there. Anywhere else the
+        // core would run NOP on it, which adds a program step or ends a number being
+        // typed, so a key that looks dead stays dead. A held key stays enabled, because
+        // Android gives a disabled view's touch listener no release, and a long press
+        // can move a softkey's preview to a blank f row.
+        isEnabled = enabled || isPressed || (isFnKey && calcMode == KeypadSceneContract.CALC_MODE_ASSIGN)
         alpha = if (isFnKey || enabled) 1f else 0.45f
         if (!isFnKey) {
             buttonView.alpha = if (enabled) 1f else 0.45f
@@ -638,7 +643,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         val resolvedShiftFOn = snapshot.shiftF
         val resolvedShiftGOn = snapshot.shiftG || snapshot.alphaOn
 
-        applyEnabledState(keyState.isEnabled)
+        applyEnabledState(keyState.isEnabled, snapshot.calcMode)
 
         if (isFnKey) {
             softkeyState = keyState

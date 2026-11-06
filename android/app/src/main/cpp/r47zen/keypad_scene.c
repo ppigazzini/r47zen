@@ -15,6 +15,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+_Static_assert(CM_ASSIGN == 4,
+               "KeypadSceneContract.CALC_MODE_ASSIGN mirrors CM_ASSIGN");
+
 enum {
   KEYPAD_LABEL_PRIMARY = R47_KEYPAD_LABEL_PRIMARY,
   KEYPAD_LABEL_F = R47_KEYPAD_LABEL_F,

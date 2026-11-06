@@ -16,6 +16,12 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "xxhdpi")
 class ReplicaKeypadLayoutHapticsTest {
+    private companion object {
+        const val BLANK_SOFTKEY = 38
+        const val CM_NORMAL = 0
+        const val CM_PEM = 3
+    }
+
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
@@ -78,6 +84,61 @@ class ReplicaKeypadLayoutHapticsTest {
     @Test
     fun secondFinger_onAnotherKey_neverPressesIt_firstLiftedFirst() {
         assertEquals(listOf(1, 0), twoFingerKeyEvents(firstLifted = 0))
+    }
+
+    @Test
+    fun blankSoftkey_inAssign_sendsItsPress() {
+        assertEquals(
+            listOf(BLANK_SOFTKEY, 0),
+            keyEventsPressingBlankSoftkey(calcMode = KeypadSceneContract.CALC_MODE_ASSIGN),
+        )
+    }
+
+    @Test
+    fun blankSoftkey_outsideAssign_swallowsItsPress() {
+        assertEquals(emptyList<Int>(), keyEventsPressingBlankSoftkey(calcMode = CM_NORMAL))
+        assertEquals(emptyList<Int>(), keyEventsPressingBlankSoftkey(calcMode = CM_PEM))
+    }
+
+    @Test
+    fun softkeyTurningBlankWhileHeld_stillSendsItsRelease() {
+        val keyEvents = mutableListOf<Int>()
+        val overlay = buildOverlay(onPress = {}, onKeyEvent = keyEvents::add)
+        val keyView = findKeyView(overlay, BLANK_SOFTKEY)
+        keyView.updateLabels(keypadSnapshotWith(BLANK_SOFTKEY to KeypadKeySnapshot.EMPTY.copy(isEnabled = true)))
+        val pointers = arrayOf(pointer(0, centerOf(keyView)))
+        val down = multiPointer(0L, MotionEvent.ACTION_DOWN, 0, pointers)
+        val up = multiPointer(10L, MotionEvent.ACTION_UP, 0, pointers)
+        try {
+            overlay.dispatchTouchEvent(down)
+            keyView.updateLabels(keypadSnapshotWith(BLANK_SOFTKEY to KeypadKeySnapshot.EMPTY))
+            overlay.dispatchTouchEvent(up)
+        } finally {
+            down.recycle()
+            up.recycle()
+        }
+
+        assertEquals(listOf(BLANK_SOFTKEY, 0), keyEvents)
+        keyView.updateLabels(keypadSnapshotWith(BLANK_SOFTKEY to KeypadKeySnapshot.EMPTY))
+        assertEquals(false, keyView.isEnabled)
+    }
+
+    private fun keyEventsPressingBlankSoftkey(calcMode: Int): List<Int> {
+        val keyEvents = mutableListOf<Int>()
+        val overlay = buildOverlay(onPress = {}, onKeyEvent = keyEvents::add)
+        val keyView = findKeyView(overlay, BLANK_SOFTKEY)
+        keyView.updateLabels(keypadSnapshotWith(BLANK_SOFTKEY to KeypadKeySnapshot.EMPTY, calcMode = calcMode))
+        val pointers = arrayOf(pointer(0, centerOf(keyView)))
+        val events = listOf(
+            multiPointer(0L, MotionEvent.ACTION_DOWN, 0, pointers),
+            multiPointer(10L, MotionEvent.ACTION_UP, 0, pointers),
+        )
+        try {
+            events.forEach { overlay.dispatchTouchEvent(it) }
+        } finally {
+            events.forEach(MotionEvent::recycle)
+        }
+        return keyEvents
     }
 
     /**
