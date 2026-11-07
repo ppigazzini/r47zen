@@ -264,6 +264,11 @@ class ProgramFixtureInstrumentedTest {
         var lastObservedState = loadState
         var sawAcceptedDirectStop = false
 
+        // An R/S that lands inside the solver raises Solver abort: that is how the
+        // calculator answers the stop this test pressed, not a fault of the program.
+        fun answersTheStop(errorCode: Int): Boolean =
+            requestedDirectStop && errorCode == ERROR_SOLVER_ABORT
+
         fun maybeRequestDirectStop(now: Long, observedRunStop: Int?) {
             if (fixture.scenario.stopPolicy != StopPolicy.DIRECT_STOP_AFTER_ACTIVITY) {
                 return
@@ -341,7 +346,8 @@ class ProgramFixtureInstrumentedTest {
 
             wasPaused = isPaused
 
-            state.lastErrorCode != ERROR_NONE || !ProgramLoadTestBridge.isSimFunctionRunning()
+            (state.lastErrorCode != ERROR_NONE && !answersTheStop(state.lastErrorCode)) ||
+                !ProgramLoadTestBridge.isSimFunctionRunning()
         }
 
         val workerStillRunning = ProgramLoadTestBridge.isSimFunctionRunning()
@@ -363,7 +369,7 @@ class ProgramFixtureInstrumentedTest {
                 details = "RUN did not return within ${fixture.scenario.timeoutMs} ms (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh, directStopAccepted=$sawAcceptedDirectStop, resumeAttempts=$resumeAttempts, snapshotMisses=$snapshotMisses, finalRunStop=${finalState.programRunStop}, finalStep=${finalState.currentLocalStepNumber})",
             )
         }
-        if (finalState.lastErrorCode != ERROR_NONE) {
+        if (finalState.lastErrorCode != ERROR_NONE && !answersTheStop(finalState.lastErrorCode)) {
             return buildFailure(
                 fixture = fixture,
                 phase = "run",
@@ -558,6 +564,7 @@ class ProgramFixtureInstrumentedTest {
         private const val ITM_READP = 1567
         private const val RS_KEY_CODE = 36
         private const val ERROR_NONE = 0
+        private const val ERROR_SOLVER_ABORT = 60 // upstream src/c47/defines.h
         private const val EMPTY_RESET_PROGRAM_COUNT = 1
         private const val TI_VIEW_REGISTER = 15
         private const val TI_PROGRAM_LOADED = 86
