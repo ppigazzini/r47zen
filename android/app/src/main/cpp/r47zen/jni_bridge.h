@@ -190,6 +190,10 @@ char *r47_capture_clipboard(void (*copy)(void));
 // *isError says the text is the error the screen shows.
 #define R47_DISPLAY_TEXT_MAX 400
 char *r47_display_text(bool *isError);
+#if defined(R47_TEST_BRIDGE)
+// The calculator thread: copy out what an instrumented test watches.
+void r47_test_bridge_publish_state(void);
+#endif
 void r47_restore_guard_begin(void);
 void r47_restore_guard_end(void);
 void r47_calculator_main(void);
