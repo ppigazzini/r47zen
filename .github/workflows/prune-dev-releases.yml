@@ -68,15 +68,17 @@ jobs:
 
           cutoff=$(date -u -d "-${KEEP_DAYS} days" +%s)
 
-          # Newest-first list of `-dev` pre-releases as "tag<TAB>createdAt".
+          # Newest-first list of `-dev` pre-releases as "tag<TAB>publishedAt".
+          # createdAt is the date of the release's commit, so builds of one commit
+          # share it and sort in no set order; publishedAt is when each went out.
           # --limit is high so the oldest releases (the prune targets) are not
           # silently truncated (the default is 30).
           mapfile -t rows < <(
             gh release list --repo "$GH_REPO" --limit 500 \
-              --json tagName,isPrerelease,createdAt \
+              --json tagName,isPrerelease,publishedAt \
               --jq '[.[] | select(.isPrerelease and (.tagName | endswith("-dev")))]
-                    | sort_by(.createdAt) | reverse
-                    | .[] | "\(.tagName)\t\(.createdAt)"'
+                    | sort_by(.publishedAt) | reverse
+                    | .[] | "\(.tagName)\t\(.publishedAt)"'
           )
 
           echo "Found ${#rows[@]} -dev pre-release(s); keep newest ${KEEP_MIN}, TTL ${KEEP_DAYS}d, dry_run=${DRY_RUN}."
@@ -87,7 +89,7 @@ jobs:
           for row in "${rows[@]}"; do
             idx=$((idx + 1))
             tag="${row%%$'\t'*}"
-            created="${row#*$'\t'}"
+            published="${row#*$'\t'}"
 
             # Unconditionally keep the newest KEEP_MIN (protects the build gate).
             if [ "$idx" -le "$KEEP_MIN" ]; then
@@ -96,15 +98,15 @@ jobs:
             fi
 
             # Among the rest, keep anything still inside the TTL window.
-            if [ "$(date -u -d "$created" +%s)" -ge "$cutoff" ]; then
+            if [ "$(date -u -d "$published" +%s)" -ge "$cutoff" ]; then
               kept=$((kept + 1))
               continue
             fi
 
             if [ "$DRY_RUN" = "true" ]; then
-              echo "[dry-run] would delete $tag (created $created)"
+              echo "[dry-run] would delete $tag (published $published)"
             else
-              echo "Deleting $tag (created $created)"
+              echo "Deleting $tag (published $published)"
               gh release delete "$tag" --repo "$GH_REPO" --cleanup-tag --yes
             fi
             removed=$((removed + 1))

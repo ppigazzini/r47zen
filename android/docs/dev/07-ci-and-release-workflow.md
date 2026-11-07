@@ -134,8 +134,9 @@ Because a new `-dev` pre-release is minted for every new upstream/overlay
 pair, the set grows over time. GitHub has no native release or tag TTL, so
 `.github/workflows/prune-dev-releases.yml` enforces one. It runs on a daily
 schedule (after the nightly build lanes) and on manual dispatch, and deletes
-`-dev` pre-releases older than a TTL (default 7 days) while always retaining
-the newest few (default 3). It removes each deleted release's git tag with
+`-dev` pre-releases published more than a TTL ago (default 7 days) while always
+retaining the newest few (default 3), newest by `publishedAt`: `createdAt` is the
+date of the release's commit, which builds of one commit share. It removes each deleted release's git tag with
 `gh release delete --cleanup-tag`, so no orphan tags remain.
 
 The filter matches only `isPrerelease` releases whose tag ends in `-dev`, so
