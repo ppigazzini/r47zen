@@ -18,6 +18,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.R47">
+        <!-- The license and notice pages render in a WebView, whose provider can upload
+             usage metrics of its own unless the app opts out. The privacy policy says no
+             data is sent; run_privacy_policy_single_source_contract.sh holds this line. -->
+        <meta-data
+            android:name="android.webkit.WebView.MetricsOptOut"
+            android:value="true" />
         <!-- The calculator replica is a portrait product. From targetSdk 36 the
              platform ignores the portrait lock on large screens (smallest width
              600 dp and up), where the replica letterboxes into the window it

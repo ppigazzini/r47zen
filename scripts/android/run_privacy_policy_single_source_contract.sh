@@ -12,13 +12,18 @@
 # - SettingsActivity stops opening that asset;
 # - the workflow stops copying it into the site, or its push filter stops
 #   naming it, so an edit would ship in the app and never reach the web page;
-# - a second tracked privacy-policy file appears beside it.
+# - a second tracked privacy-policy file appears beside it;
+# - the policy says no data is sent while the manifest stops opting the WebView
+#   out of its provider's metrics upload.
 #
 # Pure-host text check: no SDK, no build, no network.
 
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Print stdin with <!-- ... --> comments removed, so a commented-out line does not count.
+strip_xml_comments() { perl -0pe 's/<!--.*?-->//gs'; }
 # shellcheck source=scripts/lib/ci_contract.sh
 source "$SCRIPT_DIR/../lib/ci_contract.sh"
 
@@ -60,4 +65,11 @@ tracked="$(git -C "$PROJECT_ROOT" ls-files '*privacy-policy.*')"
 [ "$tracked" = "$ASSET_REL" ] ||
     contract_fail "the privacy policy must be one tracked file, $ASSET_REL; found:" "$tracked"
 
-contract_pass "the app and the Pages workflow use one privacy-policy file, $ASSET_REL."
+manifest="$(strip_xml_comments <"$PROJECT_ROOT/android/app/src/main/AndroidManifest.xml")"
+policy="$(cat "$PROJECT_ROOT/$ASSET_REL")"
+if [[ "$policy" == *"No data is sent"* ]] &&
+    ! grep -Pzoq 'android:name="android\.webkit\.WebView\.MetricsOptOut"\s+android:value="true"' <<<"$manifest"; then
+    contract_fail "the policy says no data is sent, but the manifest does not opt the WebView out of metrics."
+fi
+
+contract_pass "the app and the Pages workflow use one privacy-policy file, $ASSET_REL, and its WebView sends no metrics."
