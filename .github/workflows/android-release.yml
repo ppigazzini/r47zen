@@ -1139,6 +1139,14 @@ jobs:
       id-token: write
       attestations: write
     steps:
+      # read_build_metadata.sh alone: the build job's metadata is untrusted input, and
+      # this job reads it through that reader. No other repository file is needed here.
+      - name: Check out the metadata reader
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/android/read_build_metadata.sh
+          sparse-checkout-cone-mode: false
       - name: Download release AAB artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -1157,13 +1165,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          aab_name=$(sed -n 's/^artifact_name=//p' release-aab/BUILD-METADATA.txt)
-          apk_name=$(sed -n 's/^artifact_name=//p' release-apk/BUILD-METADATA.txt)
-
-          if [[ -z "$aab_name" || -z "$apk_name" ]]; then
-            echo "Release build metadata did not contain both artifact names." >&2
-            exit 1
-          fi
+          # The build job ran upstream code, so its metadata is untrusted input here:
+          # read_build_metadata.sh refuses a value that is not the shape of its kind.
+          aab_name=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt artifact_name name)
+          apk_name=$(bash ./scripts/android/read_build_metadata.sh release-apk/BUILD-METADATA.txt artifact_name name)
 
           # Disambiguate by artifact type: the APK and AAB share the
           # r47zen_<version>_<upstream8>_<android8> stem, so stripping only the
@@ -1248,17 +1253,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          upstream_commit=$(sed -n 's/^upstream_commit=//p' release-aab/BUILD-METADATA.txt)
-          upstream_url=$(sed -n 's/^upstream_url=//p' release-aab/BUILD-METADATA.txt)
-          upstream_version=$(sed -n 's/^upstream_version=//p' release-aab/BUILD-METADATA.txt)
-          android_commit=$(sed -n 's/^android_source_commit=//p' release-aab/BUILD-METADATA.txt)
-          version_name=$(sed -n 's/^version_name=//p' release-aab/BUILD-METADATA.txt)
-          version_code=$(sed -n 's/^version_code=//p' release-aab/BUILD-METADATA.txt)
-          xlsxio_commit=$(sed -n 's/^xlsxio_commit=//p' release-aab/BUILD-METADATA.txt)
-          xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-aab/BUILD-METADATA.txt)
-          aab_name=$(sed -n 's/^artifact_name=//p' release-aab/BUILD-METADATA.txt)
-          apk_name=$(sed -n 's/^artifact_name=//p' release-apk/BUILD-METADATA.txt)
-          signer_cert=$(sed -n 's/^artifact_signing_cert_sha256=//p' release-apk/BUILD-METADATA.txt)
+          upstream_commit=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt upstream_commit commit)
+          upstream_url=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt upstream_url url)
+          upstream_version=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt upstream_version text)
+          android_commit=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt android_source_commit commit)
+          version_name=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt version_name version-name)
+          version_code=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt version_code version-code)
+          xlsxio_commit=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt xlsxio_commit commit)
+          xlsxio_url=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt xlsxio_url url)
+          aab_name=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt artifact_name name)
+          apk_name=$(bash ./scripts/android/read_build_metadata.sh release-apk/BUILD-METADATA.txt artifact_name name)
+          signer_cert=$(bash ./scripts/android/read_build_metadata.sh release-apk/BUILD-METADATA.txt artifact_signing_cert_sha256 sha256)
           upstream_short_commit="${upstream_commit:0:8}"
           android_short_commit="${android_commit:0:8}"
           core_label=""
@@ -1356,12 +1361,23 @@ jobs:
         env:
           R47_RELEASE_TAG: ${{ needs.resolve-release-inputs.outputs.release_tag }}
           R47_PLAY_TRACK: ${{ inputs.play_track }}
+          R47_VERSION_NAME: ${{ needs.resolve-release-inputs.outputs.version_name }}
+          R47_VERSION_CODE: ${{ needs.resolve-release-inputs.outputs.version_code }}
         run: |
           set -euo pipefail
 
-          version_name=$(sed -n 's/^version_name=//p' release-aab/BUILD-METADATA.txt)
-          version_code=$(sed -n 's/^version_code=//p' release-aab/BUILD-METADATA.txt)
-          signer_cert=$(sed -n 's/^artifact_signing_cert_sha256=//p' release-apk/BUILD-METADATA.txt)
+          # The arithmetic below takes the version resolve-release-inputs read from this
+          # repository, not the build job's metadata, which ran upstream code; the
+          # metadata must agree with it.
+          version_name=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt version_name version-name)
+          version_code=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt version_code version-code)
+          if [[ "$version_name" != "$R47_VERSION_NAME" || "$version_code" != "$R47_VERSION_CODE" ]]; then
+            echo "The build's metadata names ${version_name} (${version_code}), not ${R47_VERSION_NAME} (${R47_VERSION_CODE})." >&2
+            exit 1
+          fi
+          version_name="$R47_VERSION_NAME"
+          version_code="$R47_VERSION_CODE"
+          signer_cert=$(bash ./scripts/android/read_build_metadata.sh release-apk/BUILD-METADATA.txt artifact_signing_cert_sha256 sha256)
           IFS=. read -r major minor patch <<<"$version_name"
           {
             echo "### R47 Zen ${version_name} (${version_code})"
@@ -1444,11 +1460,11 @@ jobs:
           fi
 
           . ./android/r47-defaults.properties
-          version_name=$(sed -n 's/^version_name=//p' release-aab/BUILD-METADATA.txt)
-          version_code=$(sed -n 's/^version_code=//p' release-aab/BUILD-METADATA.txt)
-          upstream_commit=$(sed -n 's/^upstream_commit=//p' release-aab/BUILD-METADATA.txt)
-          upstream_version=$(sed -n 's/^upstream_version=//p' release-aab/BUILD-METADATA.txt)
-          android_commit=$(sed -n 's/^android_source_commit=//p' release-aab/BUILD-METADATA.txt)
+          version_name=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt version_name version-name)
+          version_code=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt version_code version-code)
+          upstream_commit=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt upstream_commit commit)
+          upstream_version=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt upstream_version text)
+          android_commit=$(bash ./scripts/android/read_build_metadata.sh release-aab/BUILD-METADATA.txt android_source_commit commit)
           if [[ "$version_code" != "$R47_VERSION_CODE_INPUT" ]]; then
             echo "The AAB records version_code '$version_code', the run resolved '$R47_VERSION_CODE_INPUT'." >&2
             exit 1

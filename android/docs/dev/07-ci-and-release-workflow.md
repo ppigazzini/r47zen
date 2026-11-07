@@ -749,6 +749,14 @@ This workflow job:
 - downloads the signed AAB and APK workflow artifact bundles after
   `sign-production-release`, `verify-production-release`, and
   `verify-signed-artifacts` succeed
+- reads every `BUILD-METADATA.txt` value through `read_build_metadata.sh`, its only
+  checked-out file. The build job that wrote the metadata compiled and ran upstream
+  code, so a value of the wrong shape for its kind is refused, not used: bash
+  arithmetic on a crafted version would run a command in this job. The release summary takes
+  the version from `resolve-release-inputs`, which read it from this repository, and
+  fails when the metadata disagrees. `upload-to-play`, `sign-dev-prerelease`, and
+  `publish-main-snapshot` read it the same way, and `run_build_metadata_reader_contract.sh`
+  fails on a bare read in any workflow
 - repacks maintainers' packaging-evidence zips for the AAB and APK,
   `<stem>_aab-packaging-evidence.zip` and `<stem>_apk-packaging-evidence.zip`,
   from the collected compliance assets, provenance, mapping, symbols, and
