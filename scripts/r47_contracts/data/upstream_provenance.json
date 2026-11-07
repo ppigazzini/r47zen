@@ -18,7 +18,7 @@
     },
     {
       "path": "src/c47/items.c",
-      "sha256": "cc24b87c8672c7b556913a8254c4bbd228931d15cc1edacbbf734f514ae04486"
+      "sha256": "6169c528a66391a632f9ebaf93365fb258ef4a7088b2d0e9a896a06279c51b6c"
     },
     {
       "path": "src/c47/programming/input.c",
@@ -26,8 +26,8 @@
     }
   ],
   "recorded": {
-    "recorded_on": "2026-11-03",
-    "upstream_commit": "af7e540a1b82300917c503258dad5690156645dd",
+    "recorded_on": "2026-11-07",
+    "upstream_commit": "bb8af99e21095c7e60258b6438757d48a3f61cd7",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 2
