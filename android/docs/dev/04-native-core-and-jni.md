@@ -435,10 +435,13 @@ on it, but neither looks for a race.
   inputs without mutating the current graph bounds, and a restore-path helper that
   injects invalid graph bounds and proves the Android-owned restore sanitizer repairs
   them before refresh.
-- `snapshotStateNative()` in that bridge blocks until the calculator reaches rest.
-  Use it only after the READP or key sequence has returned. While one has not, callers
-  must use the non-blocking `snapshotStateIfAvailableNative()` or Kotlin
-  `trySnapshotState()` path, which answers null.
+- `snapshotStateNative()` in that bridge reads what the calculator thread last
+  published, through `r47_test_bridge_publish_state()` in `sys_sleep()`, in
+  `key_empty()`, which every poll of a running program calls, and after each probe.
+  It never waits: a program paused for a key the test sends would never reach rest.
+  `snapshotStateIfAvailableNative()`, Kotlin `trySnapshotState()`, reads the same copy,
+  during a run too, since the test must see a pause to send the key that ends it.
+  Release builds compile none of it.
 - The lifecycle snapshot helper hashes only visible packed LCD bytes. It does
   not hash the row-dirty transport flag that `getPackedDisplayBuffer(...)`
   clears after each successful UI poll.

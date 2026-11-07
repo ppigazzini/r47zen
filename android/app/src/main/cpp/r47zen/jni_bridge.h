@@ -181,6 +181,10 @@ bool r47_reset_graph(void);
 void r47_show_shell_menu(int shellMenu);
 const char *r47_clipboard_text(int what);
 void r47_switch_slot_and_restore(int slot);
+#if defined(R47_TEST_BRIDGE)
+// The calculator thread: copy out what an instrumented test watches.
+void r47_test_bridge_publish_state(void);
+#endif
 void r47_restore_guard_begin(void);
 void r47_restore_guard_end(void);
 void r47_calculator_main(void);

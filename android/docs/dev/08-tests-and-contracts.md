@@ -723,9 +723,10 @@ Each instrumentation source and what it covers:
   mid-solve, and `SPIRALk` leaves in X its own loop limit, not a result
 - `scripts/android/run_connected_android_tests.sh`: owns the hosted emulator
   wrapper that runs each non-fixture instrumentation class in a selection of
-  its own and the complete `ProgramFixtureInstrumentedTest` class under one
-  bounded outer timeout, failing the lane if a selection hangs, runs no test,
-  or reports a class other than the one it asked for
+  its own, each bounded by `R47_CONNECTED_ANDROID_SELECTION_TIMEOUT` (10 minutes;
+  each took under two on `main`), and the complete `ProgramFixtureInstrumentedTest`
+  class under its own bounded outer timeout, failing the lane if a selection hangs,
+  runs no test, or reports a class other than the one it asked for
 - `GraphTouchStressInstrumentedTest.kt`: launches `MainActivity`, waits for
   runtime readiness, runs extreme native graph-touch stress iterations through
   `ProgramLoadTestBridge.runExtremeGraphTouchStress(...)` to prove
@@ -759,9 +760,8 @@ Each instrumentation source and what it covers:
   `ProgramLoadTestBridge.pressRunStopKey()`, the same key on the same FIFO as the
   live keypad. The Android fixture resets every staged run to the upstream
   `doFnReset(CONFIRMED, false)` baseline before load and reads state through
-  `trySnapshotState()`, which answers null while the run has not returned rather than
-  stalling the test thread until rest. Blocking `snapshotState()` is only safe after
-  the run returned. The hosted wrapper fails the lane if `MANSLV2` times out rather
+  `trySnapshotState()`, the state the calculator thread published, during the run
+  too. The hosted wrapper fails the lane if `MANSLV2` times out rather
   than downgrading it to degraded coverage. The grouped PROGRAMS harness performs
   cleanup before the activity closes: it presses `R/S` while a `PGM_RUNNING` or
   `PGM_PAUSED` fixture has not returned, and the forceful `resetRuntime()`

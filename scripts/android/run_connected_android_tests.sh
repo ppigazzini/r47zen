@@ -17,6 +17,9 @@ PROGRAM_FIXTURE_TEST_CLASS="io.github.ppigazzini.r47zen.ProgramFixtureInstrument
 R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT="${R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT:-6m}"
 R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER="${R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER:-30s}"
 R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT_SIGNAL="${R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT_SIGNAL:-TERM}"
+# A device test that hangs, on a picker or a lock, fails its own selection at
+# this bound, with its log, instead of the job's.
+R47_CONNECTED_ANDROID_SELECTION_TIMEOUT="${R47_CONNECTED_ANDROID_SELECTION_TIMEOUT:-10m}"
 # Each class runs as a selection of its own. A comma-joined -e class list ran
 # only its first class under connectedReleaseAndroidTest, so one filter names
 # one class, and each selection must report results for exactly that class.
@@ -292,7 +295,9 @@ R47_CONNECTED_ANDROID_TEST_APPLICATION_ID="${R47_CONNECTED_ANDROID_APPLICATION_I
 
 TEST_SELECTION_SPECS=()
 for test_class in "${NON_FIXTURE_TEST_CLASSES[@]}"; do
-    TEST_SELECTION_SPECS+=("${test_class##*.}|$test_class||")
+    TEST_SELECTION_SPECS+=(
+        "${test_class##*.}|$test_class|$R47_CONNECTED_ANDROID_SELECTION_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
+    )
 done
 TEST_SELECTION_SPECS+=(
     "ProgramFixtureInstrumentation|${PROGRAM_FIXTURE_TEST_CLASS}|$R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT|$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER"
