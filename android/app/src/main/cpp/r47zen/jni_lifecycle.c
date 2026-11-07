@@ -183,6 +183,7 @@ Java_io_github_ppigazzini_r47zen_CalculatorEngine_saveStateNative(
 // saveCalc is written for a calculator that is shutting down: it resets the graph
 // variable and dismisses a confirmation. This one keeps running, so both come back.
 void r47_save_settled(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (atomic_load(&g_r47_stop_without_save)) {
     return; // a factory reset is deleting the file
   }
@@ -220,6 +221,7 @@ void r47_save_settled(void) {
 }
 
 void r47_force_refresh(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (!ram) {
     return;
   }
