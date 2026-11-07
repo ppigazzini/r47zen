@@ -197,6 +197,12 @@ foreach(R47_PRINTF_ENTRY IN ITEMS sprintf snprintf vsprintf vsnprintf
     target_link_options(r47zen PRIVATE "-Wl,--wrap=${R47_PRINTF_ENTRY}")
 endforeach()
 
+# exit() on an error the core does not recover from would end the app with no log and
+# no crash report, so __wrap_exit in r47zen/android_runtime.c logs and aborts. remove()
+# of DELBkup names a relative path, so __wrap_remove in r47zen/hal/io.c removes the
+# slot's save files.
+target_link_options(r47zen PRIVATE "-Wl,--wrap=exit" "-Wl,--wrap=remove")
+
 target_link_libraries(r47zen PRIVATE log m)
 
 # Hardening this file does not set: the NDK toolchain adds

@@ -398,7 +398,7 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_restoreSanitizesInvalidGr
   r47_graph_bound_from_float(savedXMax, x_max);
   r47_graph_bound_from_float(savedYMin, y_min);
   r47_graph_bound_from_float(savedYMax, y_max);
-  r47_sanitize_graph_bounds_locked();
+  r47_sync_graph_bounds_reserved_vars_locked();
 
   pthread_mutex_unlock(&screenMutex);
   return ok ? JNI_TRUE : JNI_FALSE;

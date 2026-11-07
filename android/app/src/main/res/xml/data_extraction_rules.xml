@@ -3,9 +3,13 @@
     <cloud-backup disableIfNoEncryptionCapabilities="true">
         <exclude domain="sharedpref" path="R47WorkDirPrefs.xml" />
         <exclude domain="sharedpref" path="R47Slots.xml" />
+    <exclude domain="file" path="backupR47_0.cfg.tmp" />
+    <exclude domain="file" path="backupR47_0.cfg.restoring" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="R47WorkDirPrefs.xml" />
         <exclude domain="sharedpref" path="R47Slots.xml" />
+    <exclude domain="file" path="backupR47_0.cfg.tmp" />
+    <exclude domain="file" path="backupR47_0.cfg.restoring" />
     </device-transfer>
 </data-extraction-rules>

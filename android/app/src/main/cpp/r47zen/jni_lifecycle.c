@@ -156,6 +156,7 @@ void r47_init_runtime(int slotId) {
   void doFnReset(uint16_t confirmation, bool_t autoSav);
   doFnReset(CONFIRMED, false);
   extern void restoreCalc(void);
+  r47_restore_guard_begin();
   restoreCalc();
   if (r47_sanitize_graph_bounds_locked()) {
     LOGI("r47_init_runtime: sanitized restored graph bounds");
@@ -176,6 +177,7 @@ void r47_init_runtime(int slotId) {
 
   r47_arm_snap();
   r47_force_refresh();
+  r47_restore_guard_end();
   atomic_store_explicit(&g_r47_runtime_ready, true, memory_order_release);
   pthread_mutex_unlock(&screenMutex);
 }
@@ -254,6 +256,7 @@ Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative(JNIEnv *env,
 
   pthread_mutex_lock(&screenMutex);
   extern void restoreCalc(void);
+  r47_restore_guard_begin();
   restoreCalc();
   if (r47_sanitize_graph_bounds_locked()) {
     LOGI("loadStateNative: sanitized restored graph bounds");
@@ -281,10 +284,35 @@ Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative(JNIEnv *env,
   refreshScreen(190);
   refreshLcd(NULL);
   lcd_refresh();
+  r47_restore_guard_end();
   pthread_mutex_unlock(&screenMutex);
 }
 
-void r47_save_background_state_locked(void) { saveCalc(); }
+void r47_save_background_state_locked(void) {
+  // Upstream's own saves stop a running stopwatch first, which folds its elapsed time
+  // into timerValue; timerStartTime is not saved, so a file saved running would restore
+  // as running with nothing behind it and the time lost. The copy is saved stopped, and
+  // the live stopwatch gets back the fields it had, so the save costs it no time.
+  const bool stopwatchRunning = timerStartTime != TIMER_APP_STOPPED;
+  const uint32_t startTime = timerStartTime;
+  const uint32_t value = timerValue;
+  const uint32_t totalTime = timerTotalTime;
+  const bool_t firstDigit = rbr1stDigit;
+  const bool_t watchIcon = watchIconEnabled;
+  if (stopwatchRunning) {
+    fnStopTimerApp();
+  }
+  saveCalc();
+  if (stopwatchRunning) {
+    timerStartTime = startTime;
+    timerValue = value;
+    timerTotalTime = totalTime;
+    rbr1stDigit = firstDigit;
+    watchIconEnabled = watchIcon;
+    setSystemFlag(FLAG_RUNTIM);
+    fnTimerStart(TO_TIMER_APP, TO_TIMER_APP, TIMER_APP_PERIOD);
+  }
+}
 
 void r47_force_refresh(void) {
   if (!ram) {

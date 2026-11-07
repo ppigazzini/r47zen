@@ -76,9 +76,21 @@ flowchart LR
   `NativeCoreRuntime.saveStateOnPause(...)`, which posts `saveStateNative()` to
   the core thread and waits for completion.
 - `saveStateNative()` locks `screenMutex` and delegates to
-  `r47_save_background_state_locked()`, which performs only `saveCalc()`.
+  `r47_save_background_state_locked()`, which wraps `saveCalc()`.
   That path must stay display-passive for a normal background save or
   Settings-entry transition.
+- `hal/io.c` writes the state file whole or not at all: `ioFileOpen(ioPathBackup, ...)`
+  opens `<file>.tmp`, `ioFileClose()` renames it over `backupR47_<slot>.cfg` and syncs
+  the directory, and a save that cannot start returns `FILE_CANCEL`, because
+  `saveCalc` ends the process on an error. A kill during a save leaves the last
+  complete file. Before the restore, a file that is cut, older than upstream's floor,
+  for another RAM size, or newer than this core's `BACKUP_VERSION`, or whose restore
+  did not finish twice, is moved aside and kept
+  ([04](04-native-core-and-jni.md)). The version range is upstream's: `BACKUP_VERSION`
+  and the floor in `restoreCalc()`, read at staging.
+- `r47_save_background_state_locked()` folds a running stopwatch into the saved copy,
+  as upstream's own saves do by stopping it, and starts it again: `timerStartTime` is
+  not saved, so a file saved running would restore as running with its time lost.
 - `MainActivity.onResume()` must not trigger a native redraw for a normal
   Settings return: the display loop and the overlay resume hook already preserve
   the current snapshot, so a redraw there is redundant.

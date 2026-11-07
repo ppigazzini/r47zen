@@ -563,7 +563,9 @@ Build-safety rule:
   reconfigures `build.sim` through Meson with Android-owned options and then
   builds `ninja sim` directly.
 3. `scripts/android/stage_native_sources.sh` copies the synced core tree,
-  `dep/decNumberICU`, generated outputs, `vcs.h`, and mini-gmp inputs into
+  `dep/decNumberICU`, generated outputs, `vcs.h`, `r47_backup_version.h` (the state
+  file versions `restoreCalc()` takes, read from `saveRestoreBackup.c`), and mini-gmp
+  inputs into
   `android/.staged-native/cpp`, then regenerates
   `STAGED-SOURCE-MANIFEST.txt`, `staged_native_sources.cmake`, and
   `STAGED-INPUTS.properties` there.

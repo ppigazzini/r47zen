@@ -130,6 +130,28 @@ EOF
 copy_file_if_changed "$generated_vcs" "$GENERATED_DEST/vcs.h"
 rm -f "$generated_vcs"
 
+# The state-file versions the core restores, which hal/io.c reads to move a file the
+# core would refuse aside before the restore, so that the next save cannot overwrite
+# the only copy. Both numbers live in saveRestoreBackup.c alone, so a change upstream
+# makes to either line stops the staging here rather than leaving a stale copy.
+backup_source="$PROJECT_ROOT/src/c47/saveRestoreBackup.c"
+backup_version="$(sed -n 's/^#define BACKUP_VERSION[[:space:]]\{1,\}\([0-9]\{1,\}\).*/\1/p' "$backup_source")"
+backup_floor="$(sed -n 's/.*backupVersion == 0 || backupVersion < \([0-9]\{1,\}\)).*/\1/p' "$backup_source")"
+if [[ ! "$backup_version" =~ ^[0-9]+$ || ! "$backup_floor" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: cannot read BACKUP_VERSION and the restore floor from $backup_source" >&2
+    exit 1
+fi
+generated_backup="$(mktemp)"
+cat >"$generated_backup" <<EOF
+#if !defined(R47_BACKUP_VERSION_H)
+  #define R47_BACKUP_VERSION_H
+  #define R47_BACKUP_VERSION        $backup_version
+  #define R47_BACKUP_VERSION_FLOOR  $backup_floor
+#endif
+EOF
+copy_file_if_changed "$generated_backup" "$GENERATED_DEST/r47_backup_version.h"
+rm -f "$generated_backup"
+
 echo "--- Staging mini-gmp ---"
 GMP_SOURCE_DIR="$MINI_GMP_FALLBACK_DIR"
 

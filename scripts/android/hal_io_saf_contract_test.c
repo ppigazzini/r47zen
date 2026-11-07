@@ -30,10 +30,13 @@ static char labelStorage[32];
 void stringToASCII(const char *in, char *out) { strcpy(out, in); }
 
 static int reports = 0;
-// The host side of a core warning: the bridge's real one calls into MainActivity.
+// show_warning in hal/io.c reports through it, and so does a capture cut short; the
+// bridge's real one calls into MainActivity.
 static char warned[256] = "";
+static int warnings = 0;
 void r47_show_warning(const char *text) {
   snprintf(warned, sizeof(warned), "%s", text);
+  warnings++;
 }
 
 void r47_report_file_write_failure(void) { reports++; }
@@ -96,9 +99,10 @@ static void expect_snap_settled(const char *what, const char *capture,
 }
 
 // What fnSNAP leaves behind: the capture at the name it was given, and no name.
-static void take_snap(const char *content) {
+static void take_snap_bytes(const char *content, size_t length) {
   FILE *capture = fopen(_ioFileNameOverride, "wb");
-  if (capture == NULL || fputs(content, capture) < 0 || fclose(capture) != 0) {
+  if (capture == NULL || fwrite(content, 1, length, capture) != length ||
+      fclose(capture) != 0) {
     fprintf(stderr, "FATAL: cannot write '%s': %s\n", _ioFileNameOverride,
             strerror(errno));
     exit(2);
@@ -106,8 +110,22 @@ static void take_snap(const char *content) {
   _ioFileNameOverride[0] = '\0';
 }
 
+static void take_snap(const char *content) { take_snap_bytes(content, strlen(content)); }
+
+// A capture of length bytes whose header, as fnScreenDump writes it, says it holds
+// declared bytes.
+static void write_bitmap(char *content, size_t length, uint32_t declared) {
+  memset(content, 'x', length);
+  content[0] = 'B';
+  content[1] = 'M';
+  for (int i = 0; i < 4; i++) {
+    content[2 + i] = (char)(declared >> (8 * i));
+  }
+}
+
 static void check_snap(void) {
-  static const char bitmap[] = "BM a screen";
+  static char bitmap[11];
+  write_bitmap(bitmap, sizeof(bitmap), sizeof(bitmap));
   char base[] = "/tmp/hal-io-snap-XXXXXX";
   if (mkdtemp(base) == NULL) {
     fprintf(stderr, "FATAL: mkdtemp: %s\n", strerror(errno));
@@ -147,21 +165,23 @@ static void check_snap(void) {
   unlink(capture);
 
   // A short capture, the size SNAP writes, and exact multiples of the copy's chunk.
-  static const size_t sizes[] = {sizeof(bitmap) - 1, 12610, 4096, 8192};
+  static const size_t sizes[] = {sizeof(bitmap), 12610, 4096, 8192};
   for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
     static char content[16384];
     static char received[sizeof(content)];
-    memset(content, 'x', sizes[i]);
-    memcpy(content, bitmap, sizeof(bitmap) - 1);
-    content[sizes[i]] = '\0';
+    write_bitmap(content, sizes[i], (uint32_t)sizes[i]);
     int ends[2];
     if (pipe(ends) != 0) {
       fprintf(stderr, "FATAL: pipe: %s\n", strerror(errno));
       exit(2);
     }
-    take_snap(content);
+    take_snap_bytes(content, sizes[i]);
     requestAnswer = ends[1];
+    const int requestsBefore = requests;
     r47_offer_snap();
+    if (requests == requestsBefore) {
+      close(ends[1]); // nothing took the picker's end, so nothing will close it
+    }
     ssize_t count = read(ends[0], received, sizeof(received) - 1);
     char extra;
     ssize_t atEnd = read(ends[0], &extra, 1);
@@ -182,12 +202,25 @@ static void check_snap(void) {
                         capture, 1, 0);
   }
 
-  take_snap(bitmap);
+  // A capture the disk cut short: its header names more bytes than the file holds.
+  static char cut[4096];
+  write_bitmap(cut, sizeof(cut), 12610);
+  take_snap_bytes(cut, sizeof(cut));
+  requestAnswer = -1;
+  warnings = 0;
+  r47_offer_snap();
+  expect_snap_settled("a capture cut short asks for nothing", capture, 0, 0);
+  if (warnings != 1) {
+    fprintf(stderr, "FAIL: a capture cut short gave %d warnings, not 1\n", warnings);
+    failures++;
+  }
+
+  take_snap_bytes(bitmap, sizeof(bitmap));
   requestAnswer = -1;
   r47_offer_snap();
   expect_snap_settled("a canceled picker drops the capture", capture, 1, 0);
 
-  take_snap(bitmap);
+  take_snap_bytes(bitmap, sizeof(bitmap));
   requestAnswer = open("/dev/full", O_WRONLY);
   r47_offer_snap();
   expect_snap_settled("a capture the file refuses is reported", capture, 1, 1);

@@ -178,6 +178,7 @@ bool r47_direct_stop_allowed(uint16_t runState);
 bool r47_apply_pending_stop_refresh_locked(void);
 bool r47_graph_touch_no_nan_stress_locked(int iterations);
 bool r47_sanitize_graph_bounds_locked(void);
+void r47_sync_graph_bounds_reserved_vars_locked(void);
 // The graph window bounds (x_min/x_max/y_min/y_max) are real_t *const decNumber
 // pointers. These helpers bridge the float-based touch and test math to the
 // real API: read a bound into a float, and write a float (including NaN/Inf)
@@ -194,6 +195,8 @@ void r47_clear_file_request_override(void);
 void triggerQuit(void);
 int register_main_activity_natives(JNIEnv *env);
 void releaseNativeActivityReferences(JNIEnv *env);
+void r47_restore_guard_begin(void);
+void r47_restore_guard_end(void);
 
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(

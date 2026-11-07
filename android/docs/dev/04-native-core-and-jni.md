@@ -230,8 +230,9 @@ APK whose dex lacks one. The entries cover:
   `+/-1.0e38f` domain before state is written
 - restore-time graph-bounds sanitization after `restoreCalc()` on startup and
   explicit state load so a bad saved graph window cannot poison the first
-  refresh of the next launch or slot switch; repaired bounds are resynced into
-  `LX`, `UX`, `LY`, and `UY` before refresh
+  refresh of the next launch or slot switch; only repaired bounds are written back
+  into `LX`, `UX`, `LY`, and `UY`, each in place, so a start leaves what the user
+  stored and borrows no stack register
 - state save and load
 - packed LCD generation reads and packed LCD transfer
 - keypad snapshot generation reads and whole-snapshot copy
@@ -575,6 +576,38 @@ The SAF path works as follows:
    end of a pipe, for a load a private copy of the document.
 4. Native code wraps the descriptor with `fdopen(...)` and continues using
    standard file I/O.
+
+The restore reads it back only after `ioFileOpen(ioPathBackup, ioModeRead)` checks
+the file's structure. Upstream writes `name:type:value` lines, each `hexDump` followed
+by its bytes at 32 to a line, so a cut file is one whose last dump runs out or whose
+last line has no end; that holds for every file a past core wrote, so no trailer is
+needed, and a field the check does not know passes. A cut at a line's end after the
+memory image passes, and the fields it lost take their defaults, as upstream's restore
+gives any field a file lacks; a cut inside a line would restore a wrong value, so it is
+refused. A file that is cut, older than the restore's floor, for another RAM size, or
+newer than this core's `BACKUP_VERSION`, is moved to `<file>.v<version>.<time>`, never
+over a copy kept before, the user is told, and the restore finds no file and starts
+afresh. Upstream's restore refuses the first three itself and has no ceiling; a newer
+file is refused here, because upstream migrates a file only forward, by its version,
+so a layout a later core wrote, such as renumbered items, reads as this core's. `stage_native_sources.sh` reads both versions from `saveRestoreBackup.c` into
+the staged `generated/r47_backup_version.h`, and fails when either line moves.
+
+A file can also crash its own restore through a value no structure check judges, and
+then every launch crashes the same way. `r47_restore_guard_begin()` counts, in
+`<file>.restoring`, the starts that began a restore and did not finish it and the
+first refresh of what it restored, where `r47_restore_guard_end()` clears it, before
+`AUTXEQ` or a key can run anything; a start that finds two moves the file to
+`<file>.crashed.<time>`, tells the user, and starts afresh. One is not enough, since a
+start also dies when the user closes the app. Auto Backup leaves slot 0's marker and
+temporary file out, so a restored install counts from zero; slot switching has no
+caller today, so no other slot writes either. The kept files are in the app's private
+storage, which the user cannot reach: they are there for a later release to recover.
+
+Two libc calls the core makes are linked to the glue (`-Wl,--wrap=` in
+`CMakeLists.txt`). `__wrap_exit()` logs and aborts, so an error the core does not
+recover from leaves a crash report, not a silent stop. `__wrap_remove()` turns
+`DELBkup`'s relative path into the slot's SAVE and automatic save. The calculator
+thread harness links both the same way.
 
 Native never holds a provider's descriptor. Android documents that a descriptor
 opened in `r` or `w` mode may be a pipe, and upstream's `READP` reads a file twice

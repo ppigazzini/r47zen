@@ -3,6 +3,7 @@
 
 #include <stdatomic.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 pthread_mutex_t fileMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t fileCond = PTHREAD_COND_INITIALIZER;
@@ -246,4 +247,14 @@ gboolean g_main_context_iteration(GMainContext *context, gboolean may_block) {
   (void)context;
   driveAndroidMockEventLoop(may_block);
   return TRUE;
+}
+
+// The core ends the process on the few errors it does not recover from: memory or the
+// free list run out, or a test-program image does not fit. On a phone a plain exit
+// leaves no trace, neither a log line nor a crash report, so every exit in this library
+// is linked here (-Wl,--wrap=exit in CMakeLists.txt): it logs why and aborts, which
+// Android records as a crash.
+_Noreturn void __wrap_exit(int status) {
+  LOGE("the calculator core ended the process with exit(%d)", status);
+  abort();
 }

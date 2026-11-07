@@ -53,6 +53,7 @@ build_contract() {
         -include "$TRACKED_CPP_DIR/android_mocks.h" \
         "$source" \
         "$TRACKED_CPP_DIR/hal/io.c" \
+        -Wl,--wrap=remove \
         -lm \
         -o "$output"
 }

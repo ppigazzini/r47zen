@@ -9,6 +9,8 @@
 #include <time.h>
 #include <android/log.h>
 
+#include "r47_backup_version.h"
+
 // Android HAL definition of the upstream PC_BUILD filename-override slot.
 // fnScreenDump (gated by PC_BUILD) writes its BMP to this name and clears it; left
 // empty, it would write a timestamped name relative to the working directory, which
@@ -56,6 +58,44 @@ extern int requestAndroidFile(int isSave, const char *defaultName,
                               int fileType);
 extern void r47_report_file_write_failure(void);
 extern void r47_show_warning(const char *text);
+
+static bool setAsideUnusableStateFile(const char *path);
+static int has_android_base_path(void);
+
+// Where a SAVE and an automatic save of this slot live.
+static void savePath(char *out, size_t size, bool automatic) {
+#if (CALCMODEL == USER_R47)
+  snprintf(out, size, "%s/%s/R47%s_%d.sav", android_base_path, SAVE_DIR,
+           automatic ? "auto" : "", current_slot_id);
+#else
+  snprintf(out, size, "%s/%s/C47%s_%d.sav", android_base_path, SAVE_DIR,
+           automatic ? "auto" : "", current_slot_id);
+#endif
+}
+
+// DELBkup removes SAVE_DIR "/" SAVE_FILE, a path relative to a working directory an app
+// does not have, so on Android it removed nothing and said nothing. Every remove in this
+// library is linked here (-Wl,--wrap=remove in CMakeLists.txt): that one removes the
+// slot's SAVE and automatic save, both of which the hardware's DELBkup deletes. Any other
+// path is removed as remove() would, so a build that links the glue without the wrap
+// needs nothing from it.
+int __wrap_remove(const char *path) {
+  if (strcmp(path, SAVE_DIR "/" SAVE_FILE) != 0 || !has_android_base_path()) {
+    if (unlink(path) == 0) {
+      return 0;
+    }
+    return errno == EISDIR || errno == EPERM ? rmdir(path) : -1;
+  }
+  int result = 0;
+  for (int automatic = 0; automatic <= 1; automatic++) {
+    char save[1024];
+    savePath(save, sizeof(save), automatic);
+    if (unlink(save) != 0 && errno != ENOENT) {
+      result = -1;
+    }
+  }
+  return result;
+}
 
 static void ensure_android_subdir(const char *subdir) {
   char buf[1024];
@@ -199,22 +239,10 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
 
   switch (path) {
   case ioPathManualSave:
-#if (CALCMODEL == USER_R47)
-    snprintf(fullpath, 1024, "%s/%s/R47_%d.sav", android_base_path, SAVE_DIR,
-             current_slot_id);
-#else
-    snprintf(fullpath, 1024, "%s/%s/C47_%d.sav", android_base_path, SAVE_DIR,
-             current_slot_id);
-#endif
+    savePath(fullpath, sizeof(fullpath), false);
     break;
   case ioPathAutoSave:
-#if (CALCMODEL == USER_R47)
-    snprintf(fullpath, 1024, "%s/%s/R47auto_%d.sav", android_base_path,
-             SAVE_DIR, current_slot_id);
-#else
-    snprintf(fullpath, 1024, "%s/%s/C47auto_%d.sav", android_base_path,
-             SAVE_DIR, current_slot_id);
-#endif
+    savePath(fullpath, sizeof(fullpath), true);
     break;
   case ioPathBackup:
 #if (CALCMODEL == USER_R47)
@@ -267,6 +295,11 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     return FILE_OK;
   }
 
+  if (path == ioPathBackup && mode == ioModeRead &&
+      setAsideUnusableStateFile(fullpath)) {
+    return FILE_CANCEL;
+  }
+
   openedFile = fopen(fullpath, modeStr);
   openedFileWritable = openedFile != NULL && mode != ioModeRead;
   openedFileWriteFailed = false;
@@ -295,6 +328,185 @@ uint32_t ioFileRead(void *buffer, uint32_t size) {
 void ioFileSeek(uint32_t position) {
   if (openedFile)
     fseek(openedFile, position, SEEK_SET);
+}
+
+// Why the core cannot take the state file at path, or NULL when it can, or when the file
+// cannot be read, which upstream's restore reports itself. The file is upstream's
+// "name:type:value" lines, each hexDump followed by its bytes at 32 to a line, so a file
+// cut short is one whose last dump runs out or whose last line has no end. That holds
+// for every file a past core wrote, so nothing needs a trailer, and a field this check
+// does not know passes.
+static const char *stateFileProblem(const char *path, long *version) {
+  FILE *file = fopen(path, "rb");
+  if (file == NULL) {
+    return NULL;
+  }
+  long ramBlocks = -1;
+  bool sawRam = false;
+  bool lineEnded = true;
+  unsigned long dumpBytesLeft = 0;
+  char *line = NULL;
+  size_t capacity = 0;
+  ssize_t length;
+  const char *problem = NULL;
+  *version = -1;
+  while (problem == NULL && (length = getline(&line, &capacity, file)) > 0) {
+    lineEnded = line[length - 1] == '\n';
+    while (length > 0 &&
+           (line[length - 1] == '\n' || line[length - 1] == '\r')) {
+      line[--length] = '\0';
+    }
+    if (dumpBytesLeft > 0) {
+      const unsigned long bytes = dumpBytesLeft < 32 ? dumpBytesLeft : 32;
+      if ((unsigned long)length < 7 + 3 * bytes - 1) {
+        problem = "it is cut short";
+      }
+      dumpBytesLeft -= bytes;
+      continue;
+    }
+    char *type = strchr(line, ':');
+    char *value = type == NULL ? NULL : strchr(type + 1, ':');
+    if (value == NULL) {
+      continue; // upstream's restore skips a line it cannot read
+    }
+    *type++ = '\0';
+    *value++ = '\0';
+    if (strcmp(type, "hexDump") == 0) {
+      dumpBytesLeft = strtoul(value, NULL, 10);
+      sawRam = sawRam || strcmp(line, "ram") == 0;
+    } else if (strcmp(line, "backupVersion") == 0) {
+      *version = strtol(value, NULL, 10);
+    } else if (strcmp(line, "ramSizeInBlocks") == 0) {
+      ramBlocks = strtol(value, NULL, 10);
+    }
+  }
+  const bool readFailed = ferror(file) != 0;
+  free(line);
+  fclose(file);
+  if (problem != NULL || readFailed) {
+    return problem;
+  }
+  if (dumpBytesLeft > 0 || !lineEnded || !sawRam) {
+    return "it is cut short";
+  }
+  if (*version < R47_BACKUP_VERSION_FLOOR) {
+    return "it is from a version too old to read";
+  }
+  if (*version > R47_BACKUP_VERSION) {
+    return "it is from a newer version";
+  }
+  if (ramBlocks != RAM_SIZE_IN_BLOCKS) {
+    return "its memory size does not match";
+  }
+  return NULL;
+}
+
+// Move path aside as <path>.<tag>.<time>, never over a copy kept before it.
+static bool keepAside(const char *path, const char *tag, char *kept,
+                      size_t size) {
+  char stamp[32];
+  struct tm when;
+  const time_t now = time(NULL);
+  strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", localtime_r(&now, &when));
+  for (int attempt = 0; attempt < 100; attempt++) {
+    if (attempt == 0) {
+      snprintf(kept, size, "%s.%s.%s", path, tag, stamp);
+    } else {
+      snprintf(kept, size, "%s.%s.%s-%d", path, tag, stamp, attempt);
+    }
+    if (link(path, kept) == 0) {
+      unlink(path);
+      return true;
+    }
+    if (errno != EEXIST) {
+      return false;
+    }
+  }
+  return false;
+}
+
+// A state file the core cannot take would be restored as garbage, or refused and then
+// overwritten by the next save. Move it aside under a name the next save does not touch
+// and say so; the restore then finds no file and starts from a reset.
+static bool setAsideUnusableStateFile(const char *path) {
+  long version;
+  const char *problem = stateFileProblem(path, &version);
+  if (problem == NULL) {
+    return false;
+  }
+  char tag[24];
+  snprintf(tag, sizeof(tag), "v%ld", version < 0 ? 0 : version);
+  char kept[PATH_MAX + 64] = "";
+  char warning[160];
+  if (keepAside(path, tag, kept, sizeof(kept))) {
+    snprintf(warning, sizeof(warning),
+             "The saved state was not restored: %s. A copy is kept, and the "
+             "calculator starts afresh.",
+             problem);
+  } else {
+    LOGE("ioFileOpen: cannot keep %s: %s", path, strerror(errno));
+    snprintf(warning, sizeof(warning), "The saved state was not restored: %s.",
+             problem);
+  }
+  LOGE("%s (%s)", warning, kept);
+  r47_show_warning(warning);
+  return true;
+}
+
+// A state file can crash its own restore, through a value the structure check cannot
+// judge, and then every launch crashes the same way, since nothing replaces the file
+// before the crash. A marker beside it counts the starts that began a restore and did
+// not finish it and the first refresh of what it restored. A start that finds two such
+// starts sets the file aside and begins afresh. One is not enough: a start can also die
+// because the user closed the app, and that file is good. The marker is gone before an
+// AUTXEQ program or anything else the user started runs.
+#define R47_FAILED_RESTORES_BEFORE_SET_ASIDE 2
+static char restoreMarker[PATH_MAX];
+
+void r47_restore_guard_begin(void) {
+  if (!has_android_base_path()) {
+    return;
+  }
+  char state[PATH_MAX];
+#if (CALCMODEL == USER_R47)
+  snprintf(state, sizeof(state), "%s/backupR47_%d.cfg", android_base_path,
+           current_slot_id);
+#else
+  snprintf(state, sizeof(state), "%s/backup_%d.cfg", android_base_path,
+           current_slot_id);
+#endif
+  snprintf(restoreMarker, sizeof(restoreMarker), "%s.restoring", state);
+
+  int failed = 0;
+  FILE *marker = fopen(restoreMarker, "r");
+  if (marker != NULL) {
+    if (fscanf(marker, "%d", &failed) != 1) {
+      failed = 0;
+    }
+    fclose(marker);
+  }
+  if (failed >= R47_FAILED_RESTORES_BEFORE_SET_ASIDE) {
+    char kept[PATH_MAX + 64];
+    if (keepAside(state, "crashed", kept, sizeof(kept))) {
+      LOGE("restore failed %d times: kept %s", failed, kept);
+      r47_show_warning("The saved state did not restore, twice. A copy is "
+                       "kept, and the calculator starts afresh.");
+    }
+    failed = 0;
+  }
+  marker = fopen(restoreMarker, "w");
+  if (marker != NULL) {
+    fprintf(marker, "%d\n", failed + 1);
+    fclose(marker);
+  }
+}
+
+// The calculator thread, once the restored state has been refreshed on screen.
+void r47_restore_guard_end(void) {
+  if (restoreMarker[0] != '\0') {
+    unlink(restoreMarker);
+    restoreMarker[0] = '\0';
+  }
 }
 
 // Replace the state file with the whole new copy, or leave it as it was.
@@ -377,7 +589,24 @@ void r47_offer_snap(void) {
     return;
   }
   FILE *capture = fopen(snapPath, "rb");
-  if (capture) {
+  // fnScreenDump writes the file's size into its header before the pixels, so a
+  // capture a full disk cut short says how long it should have been, and is not offered.
+  unsigned char header[6] = {0};
+  long size = -1;
+  struct stat st;
+  if (capture && fread(header, 1, sizeof(header), capture) == sizeof(header) &&
+      header[0] == 'B' && header[1] == 'M' &&
+      fstat(fileno(capture), &st) == 0) {
+    size = (long)st.st_size;
+  }
+  const uint32_t declared = (uint32_t)header[2] | (uint32_t)header[3] << 8 |
+                            (uint32_t)header[4] << 16 |
+                            (uint32_t)header[5] << 24;
+  if (capture && (size < 0 || (uint32_t)size != declared)) {
+    LOGE("r47_offer_snap: capture holds %ld bytes of %u", size, declared);
+    r47_show_warning("The screen capture was not written in full, so it is not "
+                     "offered.");
+  } else if (capture && fseek(capture, 0, SEEK_SET) == 0) {
     char name[32];
     struct tm when;
     time_t now = time(NULL);
@@ -395,6 +624,8 @@ void r47_offer_snap(void) {
       openedFileWriteFailed = openedFileWriteFailed || ferror(capture);
       ioFileClose();
     }
+  }
+  if (capture) {
     fclose(capture);
     unlink(snapPath);
   }

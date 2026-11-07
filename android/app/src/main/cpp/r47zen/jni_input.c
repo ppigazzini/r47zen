@@ -95,27 +95,19 @@ static bool r47_reset_graph_locked(void) {
   return true;
 }
 
-static void r47_sync_graph_bounds_reserved_vars_locked(void) {
+// LX, UX, LY, and UY are what a user stores and reads back. Each is written in place, a
+// real34 reserved variable keeping its type, so no stack register is borrowed: a matrix
+// in X too large to copy aside would not survive a round trip through TEMP_REGISTER_1.
+void r47_sync_graph_bounds_reserved_vars_locked(void) {
   double bound;
-  copySourceRegisterToDestRegister(REGISTER_X, TEMP_REGISTER_1);
-
   realToDouble(x_min, &bound);
-  convertDoubleToReal34Register(bound, REGISTER_X);
-  copySourceRegisterToDestRegister(REGISTER_X, RESERVED_VARIABLE_LX);
-
+  convertDoubleToReal34Register(bound, RESERVED_VARIABLE_LX);
   realToDouble(x_max, &bound);
-  convertDoubleToReal34Register(bound, REGISTER_X);
-  copySourceRegisterToDestRegister(REGISTER_X, RESERVED_VARIABLE_UX);
-
+  convertDoubleToReal34Register(bound, RESERVED_VARIABLE_UX);
   realToDouble(y_min, &bound);
-  convertDoubleToReal34Register(bound, REGISTER_X);
-  copySourceRegisterToDestRegister(REGISTER_X, RESERVED_VARIABLE_LY);
-
+  convertDoubleToReal34Register(bound, RESERVED_VARIABLE_LY);
   realToDouble(y_max, &bound);
-  convertDoubleToReal34Register(bound, REGISTER_X);
-  copySourceRegisterToDestRegister(REGISTER_X, RESERVED_VARIABLE_UY);
-
-  copySourceRegisterToDestRegister(TEMP_REGISTER_1, REGISTER_X);
+  convertDoubleToReal34Register(bound, RESERVED_VARIABLE_UY);
 }
 
 static void r47_reset_graph_bounds_defaults_locked(void) {
@@ -161,7 +153,12 @@ bool r47_sanitize_graph_bounds_locked(void) {
     }
   }
 
-  r47_sync_graph_bounds_reserved_vars_locked();
+  // A window that needed no repair leaves the variables alone. It is the plot's window,
+  // not what the user stored, and copying it over them on every start widened their
+  // range about 10% a launch.
+  if (changed) {
+    r47_sync_graph_bounds_reserved_vars_locked();
+  }
   return changed;
 }
 
