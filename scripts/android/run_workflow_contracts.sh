@@ -46,6 +46,7 @@ CONTRACTS=(
     run_quiet_grep_pipeline_contract.sh
     run_jni_surface_check_contract.sh
     run_glue_sources_contract.sh
+    run_merge_request_watch_contract.sh
 )
 
 failed=()

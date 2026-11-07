@@ -1,7 +1,16 @@
 name: Windows CI
 
+# A dispatch that pins an upstream commit says so in the run list; any other
+# run keeps GitHub's default title (an empty run-name falls back to it).
+run-name: ${{ inputs.upstream_commit && format('Windows CI upstream {0}', inputs.upstream_commit) || '' }}
+
 on:
   workflow_dispatch:
+    inputs:
+      upstream_commit:
+        description: GitLab commit to build (full 40 characters; blank = upstream's latest)
+        required: false
+        type: string
   schedule:
     - cron: '34 3 * * *'
   # main runs the lane on every landed commit; github_ci is the on-demand
@@ -23,7 +32,10 @@ jobs:
     name: Resolve authoritative upstream core revision
     uses: ./.github/workflows/resolve-upstream-core.yml
     with:
+      # Normal runs follow the latest upstream HEAD. A manual dispatch may pin an
+      # explicit commit (roadblock); push/schedule leave the input blank.
       mode: latest
+      upstream_commit: ${{ inputs.upstream_commit }}
 
   nightly-change-gate:
     name: Decide whether the nightly rebuild should run

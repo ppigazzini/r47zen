@@ -951,12 +951,13 @@ The rest, and what each one gates:
 | workflow | runs on | what it does | blocks |
 |---|---|---|---|
 | `resolve-upstream-core.yml` | `workflow_call` from `android-ci.yml`, `android-release.yml`, `linux-ci.yml`, `windows-ci.yml`, and `privacy-policy-pages.yml`, the lanes that build upstream code or its manual | resolves one upstream URL and commit per run through `upstream.sh resolve`, refusing any mode but `latest` unless a commit pin is passed | -- (a callee) |
-| `linux-ci.yml` | push to `main` and `github_ci`, pull request, nightly schedule | `upstream-resolver-policy` runs `test_resolver_policy.sh` and `test_fetch_retry.sh`; `linux-simulator` builds `make dist_linux`; `host-workload-regressions` runs the host harnesses and `run_workflow_contracts.sh` (see [08-tests-and-contracts.md](08-tests-and-contracts.md)); a green schedule or `main` push records the nightly marker | nothing requires it; it reports |
-| `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`, adding the `c47.cmd` and `r47.cmd` launchers from `.github/project/windows-launchers/`; same nightly marker as Linux | nothing requires it; it reports |
+| `linux-ci.yml` | push to `main` and `github_ci`, pull request, nightly schedule, dispatch, which may pin `upstream_commit` | `upstream-resolver-policy` runs `test_resolver_policy.sh` and `test_fetch_retry.sh`; `linux-simulator` builds `make dist_linux`; `host-workload-regressions` runs the host harnesses and `run_workflow_contracts.sh` (see [08-tests-and-contracts.md](08-tests-and-contracts.md)); a green schedule or `main` push records the nightly marker | nothing requires it; it reports |
+| `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule, dispatch, which may pin `upstream_commit` | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`, adding the `c47.cmd` and `r47.cmd` launchers from `.github/project/windows-launchers/`; same nightly marker as Linux | nothing requires it; it reports |
 | `shell-lint.yml` | push to `main` and `github_ci`, pull request | `shellcheck` and `shfmt -i 4 -ci -d` over `scripts/**/*.sh`, then `actionlint` and `zizmor --no-online-audits --min-severity=medium` over the workflows, the composite actions, and `.github/dependabot.yml`; both jobs download the one `shellcheck` release the workflow-level `SHELLCHECK_VERSION` pins, never the runner image's copy | nothing requires it; it reports |
 | `docs-lint.yml` | push to `main` and `github_ci`, pull request, weekly schedule | `scripts/docs/run_docs_lint.sh` (see [10-writing.md](10-writing.md#the-gates)); on the schedule and on dispatch, `external-links` runs `scripts/docs/check_external_links.sh` | nothing requires it; it reports |
 | `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL `c-cpp` with `build-mode: none` over repo-owned C, ignoring `src`, `dep`, and the staged tree; findings go to the Security tab. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
+| `merge-request-watch.yml` | daily schedule, dispatch | `scripts/upstream-sync/watch_merge_request.sh` dispatches the `android-ci.yml`, `linux-ci.yml`, and `windows-ci.yml` of branch `port-mr-2033` on the merge ref of upstream MR !2033, once for each pair of branch commit and merge commit, and fails once the MR is merged or closed | nothing requires it; a dispatched lane reports in its own run |
 | `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
 | `privacy-policy-pages.yml` | daily schedule, push to `main` that touches the policy asset, the workflow, or `scripts/docs/prepare_manual_site.sh`, dispatch | publishes the Pages site as one artifact: `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html`, the URL in Play Console's privacy-policy field; and upstream's cropped manual to `https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf`, the URL Settings opens; `run_privacy_policy_single_source_contract.sh` and `run_manual_site_contract.sh` hold the workflow to both | -- |
 
@@ -982,6 +983,15 @@ in that script, and a bump is by hand. Whether upstream's build works in that im
 shows only in a run of the lane: `run_manual_site_contract.sh` stubs `docker`. A
 dispatch on `github_ci` builds only if an input differs, such as after a digest bump,
 and stops before the deploy, whose environment admits only `main`.
+
+MR !2033 removes what the glue calls, so this repo stops building the day it merges,
+and `port-mr-2033` holds the port. A push to that branch runs no lane, and a push to
+`github_ci` hydrates upstream HEAD, where it cannot build, so the watch runs the
+branch's own lanes on `refs/merge-requests/2033/merge`. That ref does not follow upstream
+HEAD on its own (measured 2026-11-07: it did not carry HEAD's newest commit), so the
+lanes prove the branch against the merge ref, not against today's upstream.
+`publish-main-snapshot` needs `refs/heads/main`, so a watched run publishes nothing, and
+the APK `sign-dev-prerelease` signs stays a run artifact.
 
 `ci-required` in `android-ci.yml` is the one aggregate verdict, and even it is
 not a required status check: `main` takes direct pushes, so every row above

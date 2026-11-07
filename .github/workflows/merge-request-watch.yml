@@ -1,0 +1,39 @@
+name: Upstream MR Watch
+
+# Upstream merge request !2033 moves the simulator's calculator code onto its own
+# thread and removes what this repo's glue calls, so this repo stops building the
+# day it merges. Branch port-mr-2033 holds the port to it. A push to that branch runs
+# no lane and a push to github_ci hydrates upstream HEAD, where it cannot build, so
+# this runs the branch's own lanes on the request's merge ref. A schedule runs only
+# from the default branch, which is why this file lives here and not on the branch.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '54 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    name: Run port-mr-2033's lanes on the merge ref of !2033
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Dispatch the lanes for a new branch or merge commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bash ./scripts/upstream-sync/watch_merge_request.sh 2033 port-mr-2033 \
+            android-ci.yml linux-ci.yml windows-ci.yml
