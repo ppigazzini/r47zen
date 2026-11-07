@@ -71,6 +71,7 @@ static void failAndroidFileRequest(void) {
 // process can die behind a picker, and no save can run while this thread waits, so
 // the state goes to disk first.
 int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
+  R47_CALCULATOR_THREAD_ONLY();
   LOGI("requestAndroidFile(isSave=%d, fileType=%d)", isSave, fileType);
 
   pickedFileName[0] = '\0';

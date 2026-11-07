@@ -540,6 +540,16 @@ jobs:
           bash ./scripts/workload-regressions/build_calculator_thread_harness.sh 2>&1 \
             | tee ci-artifacts/logs/calculator-thread-harness.log
 
+      - name: Hold the HAL copy and the core's language flags against the synced core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The host contracts above run before the sync, where these two find no
+          # core and check only their checkers. Here they read what was hydrated.
+          bash ./scripts/android/run_upstream_hal_contract.sh "$PWD/src"
+          bash ./scripts/android/run_core_language_flags_contract.sh "$PWD/src"
+
       - name: Run lcd HAL contract test
         shell: bash
         run: |

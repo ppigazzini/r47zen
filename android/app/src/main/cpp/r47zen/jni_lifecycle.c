@@ -183,6 +183,7 @@ Java_io_github_ppigazzini_r47zen_CalculatorEngine_saveStateNative(
 // saveCalc is written for a calculator that is shutting down: it resets the graph
 // variable and dismisses a confirmation. This one keeps running, so both come back.
 void r47_save_settled(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (atomic_load(&g_r47_stop_without_save)) {
     return; // a factory reset is deleting the file
   }
@@ -219,39 +220,8 @@ void r47_save_settled(void) {
   r47_services_note_saved();
 }
 
-void r47_switch_slot_and_restore(int slot) {
-  extern int current_slot_id;
-  current_slot_id = slot;
-
-  restoreCalc();
-  clearInterruptedRun();
-  if (r47_sanitize_graph_bounds()) {
-    LOGI("r47_switch_slot_and_restore: sanitized restored graph bounds");
-  }
-  extern void scanLabelsAndPrograms(void);
-  extern void defineCurrentProgramFromGlobalStepNumber(
-      int16_t globalStepNumber);
-  extern void defineCurrentStep(void);
-  extern void defineFirstDisplayedStep(void);
-  extern void defineCurrentProgramFromCurrentStep(void);
-  extern void updateMatrixHeightCache(void);
-  extern uint16_t currentLocalStepNumber;
-  extern uint16_t currentProgramNumber;
-  extern programList_t *programList;
-  scanLabelsAndPrograms();
-  if (currentProgramNumber > 0) {
-    defineCurrentProgramFromGlobalStepNumber(
-        currentLocalStepNumber +
-        abs(programList[currentProgramNumber - 1].step) - 1);
-  }
-  defineCurrentStep();
-  defineFirstDisplayedStep();
-  defineCurrentProgramFromCurrentStep();
-  updateMatrixHeightCache();
-  refreshScreen(190);
-}
-
 void r47_force_refresh(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (!ram) {
     return;
   }

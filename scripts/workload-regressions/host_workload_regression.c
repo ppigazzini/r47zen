@@ -278,8 +278,11 @@ static bool stage_program_file(const char *runtime_dir, const char *program_root
   return copy_file(source_path, destination_path);
 }
 
+// The worker owns the core while it runs, and this thread reads only what it left and
+// pushes keys; the core passes back at the join.
 static void *run_function_worker(void *user_data) {
   function_worker_t *worker = (function_worker_t *)user_data;
+  r47_keys_claim_calculator_thread();
   if (worker->uses_param) {
     reallyRunFunction(worker->func_id, worker->param);
   } else {
@@ -475,7 +478,10 @@ static workload_result_t run_program_fixture_workload(
       break;
     }
 
-    if (fail_last_error(scenario->program_name)) {
+    // A stop this loop sent can land inside the solver, which then reports
+    // "Solver abort": the answer to that stop, not a fault of the workload.
+    if (!(requested_direct_stop && lastErrorCode == ERROR_SOLVER_ABORT) &&
+        fail_last_error(scenario->program_name)) {
       return WORKLOAD_RESULT_FAIL;
     }
 
@@ -544,6 +550,7 @@ static workload_result_t run_program_fixture_workload(
             scenario->program_name);
     return WORKLOAD_RESULT_FAIL;
   }
+  r47_keys_claim_calculator_thread();
 
   saw_pause = saw_pause || programRunStop == PGM_PAUSED;
   saw_waiting = saw_waiting || programRunStop == PGM_WAITING;

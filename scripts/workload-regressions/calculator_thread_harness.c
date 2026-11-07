@@ -1554,7 +1554,29 @@ typedef struct {
   void (*run)(void);
 } testCase_t;
 
+// The rule a debug build checks: a core path on any other thread aborts at its first
+// call into the HAL. This thread is not the calculator's, so these must not return.
+static void caseACoreCallOffItsThreadAborts(void) {
+  startCalculator();
+  void (*const coreCalls[])(void) = {sys_sleep, key_pop_all, r47_force_refresh};
+  for (size_t i = 0; i < sizeof(coreCalls) / sizeof(coreCalls[0]); i++) {
+    fflush(NULL);
+    const pid_t child = fork();
+    if (child == 0) {
+      alarm(5); // with no check to abort it, sys_sleep would wait for good
+      coreCalls[i]();
+      _exit(CASE_PASSED);
+    }
+    int status = 0;
+    waitpid(child, &status, 0);
+    if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGABRT) {
+      CHECK(false, "a core call off the calculator thread returned");
+    }
+  }
+}
+
 static const testCase_t cases[] = {
+    {"a core call off its thread aborts", caseACoreCallOffItsThreadAborts},
     {"key goes through the buffer", caseKeyGoesThroughTheBuffer},
     {"keys keep their order", caseKeysKeepTheirOrder},
     {"a service runs behind earlier keys", caseServiceRunsBehindEarlierKeys},

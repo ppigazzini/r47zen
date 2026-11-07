@@ -224,6 +224,7 @@ int r47_services_checkpoint_due_ms(bool hostStopped) {
 }
 
 bool r47_services_checkpoint(bool hostStopped) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (r47_services_checkpoint_due_ms(hostStopped) != 0) {
     return false;
   }
@@ -243,6 +244,7 @@ static void completeSaves(unsigned long upTo) {
 }
 
 void r47_services_save_in_pause(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   pthread_mutex_lock(&serviceMutex);
   const unsigned long ticket = savesRequested;
   const bool pending = savesDone < ticket;
@@ -254,6 +256,7 @@ void r47_services_save_in_pause(void) {
 }
 
 void r47_save_before_picker(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (atomic_load(&autosaveEnabled)) {
     r47_save_settled();
   }
@@ -321,6 +324,7 @@ void r47_services_set_checkpoint_timing(uint32_t intervalMs, uint32_t quietMs) {
 #endif // HOST_TOOL_BUILD || R47_TEST_BRIDGE
 
 static void runService(const service_t *service) {
+  R47_CALCULATOR_THREAD_ONLY();
   switch (service->kind) {
   case servicePaste:
     r47_upcall_paste_result(r47_paste_number(service->text));
@@ -357,6 +361,7 @@ static void runService(const service_t *service) {
 }
 
 bool r47_services_run(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   bool ran = false;
 
   for (;;) {

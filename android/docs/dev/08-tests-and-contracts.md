@@ -256,6 +256,8 @@ runs. What each one locks:
   `robolectric.properties` sets `sdk`, `minSdk`, or `maxSdk`, so every
   Robolectric class runs at the targetSdk; it proves its scanner on seeded
   text first
+- `jni_core_reach.py` is a tool, not a test: `build_calculator_thread_harness.sh` runs
+  it over the glue it compiles, because it needs the staged core's objects
 - `test_upstream_provenance_contract.py`: the provenance ledger covers exactly
   the upstream inputs the contract modules declare (see below)
 
@@ -855,7 +857,11 @@ Android compatibility layer.
   real `mainLoop()` on a thread started as `CalculatorEngine` starts it. Each case runs
   in its own process, and the main thread only pushes keys and service requests and
   reads core state on the calculator thread at rest, so the harness holds the app's
-  rule too. The cases are its `cases[]` table: keys keep their order; `FACTORS` gives
+  rule too. Before it links, the script compiles the glue again with a section per
+  definition and runs `jni_core_reach.py` over it, which fails on any route from a
+  JNI entry to a core symbol and first proves itself on a seeded entry. The cases are its
+  `cases[]` table: a core call off the calculator thread aborts in a debug build; keys
+  keep their order; `FACTORS` gives
   the right factors, and a digit during it does nothing; `EXIT` and `R/S` stop a computation, and `R/S` runs nothing
   afterward; both stop a program loop; a stop key survives the buffer wipe; a tone
   takes its time and stops with the program; a cancel takes back a key, leaves no
@@ -1406,7 +1412,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_core_language_flags_contract.sh` | `CMakeLists.txt` and `collect_host_pgo_profile.sh` compile the core with `-fsigned-char -fno-strict-aliasing`, both firmware cross files still hold them, every other `-f` flag in their c_args and in the `dmcp_cargs` of their `meson.build` is one the contract lists as code layout, and `CMakeLists.txt` never names the opposite flag; comments do not count. With no hydrated core it checks the copies and its reader, and `linux-ci.yml` runs it again on the synced `src` | yes, a seeded cross file |
 | `run_merge_request_watch_contract.sh` | `watch_merge_request.sh` dispatches a branch's lanes on a merge ref only for a branch or merge commit no lane has seen, dispatches for a request that is open or locked while it merges, fails on one that is merged or closed or has no merge ref, and every lane it names takes `upstream_commit` and shows it in its run title | yes, runs the script against stub `curl`, `git`, and `gh` |
 | `run_jni_surface_check_contract.sh` | `check_jni_surface.sh`, which `collect_packaging_evidence.sh` runs over every signed APK, fails a dex that lost a registered native, a native flag, a `bindMethod` callback, a callback signature, or the `CalculatorEngine` class name | yes, fixtures built from the C sources' names |
-| `run_upstream_hal_contract.sh` | upstream's `sys_sleep` callers outside DMCP-only code are exactly `mainLoop` and `goToSleepForMs`, the two `calculatorAtRest` in `hal/keys.c` assumes, so a new caller fails until someone reads it; a service could otherwise run inside a computation. It needs the hydrated `src/c47` and fails without it, so on a clone not yet synced it fails the `pre-commit` hook too | yes, a seeded caller and a DMCP-only one |
+| `run_upstream_hal_contract.sh` | upstream's `sys_sleep` callers outside DMCP-only code are exactly `mainLoop` and `goToSleepForMs`, the two `calculatorAtRest` in `hal/keys.c` assumes, so a new caller fails until someone reads it; a service could otherwise run inside a computation. It also hashes what the hand copy in `hal/keys.c` follows, with comments and spacing left out: upstream's `src/c47-gtk/hal/keys.c`, `src/c47/hal/keys.h`, and the key loop and poll functions it lists, so a change there fails until someone reads it. A hash is a freshness guard, not an oracle; the calculator thread harness tests the behavior. With no argument, a clone with no hydrated core checks only the checkers, which is all the `run_workflow_contracts.sh` group sees in `linux-ci.yml`, since it runs before the sync; a later step of the host lane names `src`, and a named core that is absent fails | yes, a seeded caller and a DMCP-only one, a seeded comment, a seeded statement, and a function that is gone |
 | `run_quiet_grep_pipeline_contract.sh` | no script, workflow, or composite action pipes a command into `grep -q`: grep exits at its first match, the command feeding it dies of SIGPIPE, and under `pipefail` the match reads as a miss, so the output is captured first and matched with `<<<` | yes, fixtures |
 | `run_upstream_sync_contract.sh` | `upstream.sh sync` never writes a path this repo owns: tracked edits, staged and not, survive a sync with and without `--force`, and upstream's `AGENTS.md` never lands; a forward sync writes the changed files with the current time, keeps an unchanged file's mtime, and removes what the commit no longer holds, and a backward sync brings it back; it refuses, writing nothing, to overwrite a hydrated file edited since the last sync or a file of yours where the commit adds one, unless `--force`, and a path a build rewrites is not an edit; `--if-missing`, the build's sync, skips a hydrated tree only when the last complete sync wrote the resolved commit, and syncs one at another commit or with no record; a sync stopped halfway leaves the tracked tree clean and the lock unwritten, and the next sync completes it without `--force`; export-ignore'd files stay out and an executable keeps its bit. `hydrate_submodules.sh` leaves a submodule already at its commit alone, offline, with its edits, and a failed fetch keeps the old checkout | yes, runs both against a throwaway `file://` upstream and submodule and a throwaway copy of this repo |
 
