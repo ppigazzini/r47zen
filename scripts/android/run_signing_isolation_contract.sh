@@ -6,7 +6,9 @@
 # upload identity (vars.R47_PLAY_*, which a job exchanges through
 # google-github-actions/auth for a token that can release to Play), and a
 # workflow token with contents, id-token, or attestations write, which can
-# publish a release or sign an attestation. Those steps
+# publish a release or sign an attestation. A job holds one when it names it, reads
+# every secret (toJSON(secrets), secrets[...], secrets: inherit), or binds the
+# production-release or play-upload environment. Those steps
 # execute unreviewed upstream code, and a compile step alone can embed any
 # readable file (a decoded keystore, the auth action's credentials file,
 # /proc/self/environ) into the shipped library, so a credential on that runner
@@ -81,7 +83,7 @@ find_signing_isolation_violations() {
         run_indent >= 0 {
             match($0, /^ */)
             if ($0 ~ /^[[:space:]]*$/ || RLENGTH > run_indent) {
-                if ($0 ~ /secrets\.R47_(RELEASE|PRERELEASE)_|vars\.R47_PLAY_/) {
+                if ($0 ~ /secrets\.R47_(RELEASE|PRERELEASE)_|toJSON\(secrets\)|secrets\[|vars\.R47_PLAY_/) {
                     has_secret = 1
                 }
                 if ($0 ~ /\$\{\{/) {
@@ -104,7 +106,13 @@ find_signing_isolation_violations() {
             nhits = 0
             next
         }
-        /secrets\.R47_(RELEASE|PRERELEASE)_|vars\.R47_PLAY_|google-github-actions\/auth@|^[[:space:]]+(contents|id-token|attestations):[[:space:]]*write/ {
+        # A job bound to an environment that holds a release credential holds it too,
+        # whether or not a step names it, and so does a call handed every secret.
+        injobs && job != "" && /^[[:space:]]+secrets:[[:space:]]*inherit/ {
+            has_secret = 1
+            hits[++nhits] = "hands every secret to a called workflow at line " FNR
+        }
+        /secrets\.R47_(RELEASE|PRERELEASE)_|toJSON\(secrets\)|secrets\[|vars\.R47_PLAY_|google-github-actions\/auth@|^[[:space:]]+(contents|id-token|attestations):[[:space:]]*write|^[[:space:]]+(environment|name):[[:space:]]*(production-release|play-upload)[[:space:]]*$/ {
             if (!injobs || job == "") {
                 printf "%s: workflow-level release credential reaches every job at line %d: %s\n", short, FNR, $0
             } else {
@@ -267,6 +275,39 @@ jobs:
       - run: gh release create "${{ needs.build.outputs.release_tag }}"
 EOF
 
+cat >"$fixture_dir/all-secrets-json.yml" <<'EOF'
+jobs:
+  sign:
+    steps:
+      - run: ./gradlew :app:bundleRelease
+        env:
+          ALL: ${{ toJSON(secrets) }}
+EOF
+
+cat >"$fixture_dir/indexed-secret.yml" <<'EOF'
+jobs:
+  sign:
+    steps:
+      - run: make sim
+        env:
+          PW: ${{ secrets['R47_RELEASE_KEY_PASSWORD'] }}
+EOF
+
+cat >"$fixture_dir/inherit-secrets.yml" <<'EOF'
+jobs:
+  build:
+    uses: ./.github/workflows/linux-ci.yml
+    secrets: inherit
+EOF
+
+cat >"$fixture_dir/release-environment.yml" <<'EOF'
+jobs:
+  sign:
+    environment: production-release
+    steps:
+      - run: ./gradlew :app:bundleRelease
+EOF
+
 cat >"$fixture_dir/clean.yml" <<'EOF'
 jobs:
   build:
@@ -311,7 +352,8 @@ EOF
 
 for fixture in release-gradle prerelease-sync release-make workflow-env play-gradle play-workflow-env \
     release-sdk-cache prerelease-cache release-java-cache release-run-expression \
-    prerelease-comment-expression publish-inline-expression; do
+    prerelease-comment-expression publish-inline-expression all-secrets-json indexed-secret \
+    inherit-secrets release-environment; do
     if [ -z "$(find_signing_isolation_violations "$fixture_dir/$fixture.yml")" ]; then
         contract_fail "signing isolation checker missed the seeded violation in fixture $fixture.yml."
     fi

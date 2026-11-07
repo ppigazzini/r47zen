@@ -206,8 +206,10 @@ it can fail on seeded fixtures:
   or when any file hands the upload action a stored service-account key,
   scanning every workflow and composite action;
 - `scripts/android/run_signing_isolation_contract.sh` fails when a job that
-  names a signing secret or the Play upload identity, or holds a token with
-  `contents`, `id-token`, or `attestations` write, also runs the upstream
+  names a signing secret or the Play upload identity, reads every secret
+  (`toJSON(secrets)`, `secrets[...]`), binds the `production-release` or
+  `play-upload` environment, or holds a token with `contents`, `id-token`, or
+  `attestations` write, also runs the upstream
   sync, the build wrapper, Gradle, a compiler, the simulator build, or the
   emulator; when a credential sits in workflow-level `env`; when such a job
   uses an action off its allowlist (checkout, `setup-java` without a `cache:`
