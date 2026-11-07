@@ -235,6 +235,9 @@ void keyDispatchHostEvent(int key) {
 
 int key_empty(void) {
   R47_CALCULATOR_THREAD_ONLY();
+#if defined(R47_TEST_BRIDGE)
+  r47_test_bridge_publish_state(); // every poll of a running program asks this
+#endif                             // R47_TEST_BRIDGE
   pthread_mutex_lock(&keyMutex);
   // The ring's wipe can lose a quit a redraw moved there, so an operation's poll looks
   // for it here, and key_pop brings it back.
@@ -398,6 +401,9 @@ static void saveIfInPause(void) {
 
 void sys_sleep(void) {
   R47_CALCULATOR_THREAD_ONLY();
+#if defined(R47_TEST_BRIDGE)
+  r47_test_bridge_publish_state();
+#endif // R47_TEST_BRIDGE
   const bool atRest = calculatorAtRest();
   // A request can change what the main loop must do next, such as switch off, so
   // the loop looks again before anything sleeps.

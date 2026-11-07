@@ -477,8 +477,24 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isSimFunctionRunningNativ
   return atomic_load(&r47_program_load_busy) ? JNI_TRUE : JNI_FALSE;
 }
 
-static void readStateAtRest(void *arg) {
-  r47_fill_program_load_state_values((jint *)arg);
+// What a test watches while a program runs. The calculator thread copies it out at
+// every sleep, every poll of a running program, and after every test script, so a
+// read never waits for rest: a program paused for a key the test is about to send
+// never reaches rest.
+static _Atomic jint publishedState[R47_PROGRAM_LOAD_STATE_LENGTH];
+
+void r47_test_bridge_publish_state(void) {
+  jint values[R47_PROGRAM_LOAD_STATE_LENGTH];
+  r47_fill_program_load_state_values(values);
+  for (int i = 0; i < R47_PROGRAM_LOAD_STATE_LENGTH; i++) {
+    atomic_store(&publishedState[i], values[i]);
+  }
+}
+
+static void readPublishedState(jint values[R47_PROGRAM_LOAD_STATE_LENGTH]) {
+  for (int i = 0; i < R47_PROGRAM_LOAD_STATE_LENGTH; i++) {
+    values[i] = atomic_load(&publishedState[i]);
+  }
 }
 
 JNIEXPORT jintArray JNICALL
@@ -487,23 +503,19 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_snapshotStateNative(
   (void)thiz;
 
   jint values[R47_PROGRAM_LOAD_STATE_LENGTH];
-  memset(values, 0, sizeof(values));
-  r47_run_at_rest(readStateAtRest, values);
+  readPublishedState(values);
   return r47_new_program_load_state_array(env, values);
 }
 
-// The busy test's read: during a computation there is no state to read.
+// The same published copy. A test reads it during a run too, since a program that
+// pauses for the test's key only resumes once the test has seen the pause.
 JNIEXPORT jintArray JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_snapshotStateIfAvailableNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
 
-  if (atomic_load(&r47_program_load_busy)) {
-    return NULL;
-  }
   jint values[R47_PROGRAM_LOAD_STATE_LENGTH];
-  memset(values, 0, sizeof(values));
-  r47_run_at_rest(readStateAtRest, values);
+  readPublishedState(values);
   return r47_new_program_load_state_array(env, values);
 }
 
