@@ -280,6 +280,9 @@ bool r47_services_pending(void) {
 #if defined(HOST_TOOL_BUILD) || defined(R47_TEST_BRIDGE)
 static void runHostScript(hostScript_t *script) {
   script->fn(script->arg);
+#if defined(R47_TEST_BRIDGE)
+  r47_test_bridge_publish_state(); // before the test that waits on it reads it
+#endif                             // R47_TEST_BRIDGE
   pthread_mutex_lock(&scriptMutex);
   const bool wait = script->wait;
   script->done = true;

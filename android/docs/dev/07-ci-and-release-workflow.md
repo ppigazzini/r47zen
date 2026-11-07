@@ -711,10 +711,8 @@ The hosted instrumentation lane relies on:
   upstream `doFnReset(CONFIRMED, false)` baseline before load, presses `R/S` on the
   same key buffer as the live keypad, and fails the
   Android lane if the grouped fixture selection hits the outer timeout. The
-  fixture harness itself must not call blocking `snapshotState()` while a
-  `READP` or key sequence has not returned, because that call waits for the
-  calculator to reach rest. The grouped harness falls back to non-blocking state
-  reads and performs bounded stop-and-reset cleanup before the
+  grouped harness reads the state the calculator thread publishes, which never
+  waits for rest, and performs bounded stop-and-reset cleanup before the
   activity closes so one long-running fixture cannot strand the next grouped
   case on CI
 - the one-class release-path selections of `FactorsInstrumentedTest`,
