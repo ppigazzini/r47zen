@@ -1,6 +1,6 @@
 // The display JNI surface: the keypad snapshot and the packed LCD, each a
-// generation read plus a copy that never blocks the UI thread on the core.
-// keypad_scene.c resolves the scene these calls copy out.
+// generation read plus a copy of what the calculator thread published, so neither
+// reads core state or waits for the core. keypad_scene.c publishes the snapshot.
 #include "jni_bridge.h"
 
 #include "hal/lcd.h"
@@ -51,21 +51,18 @@ static bool writeExportedKeypadLabelsToArray(
 }
 
 JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration(
-    JNIEnv *env, jobject thiz) {
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_getKeypadSnapshotGeneration(
+    JNIEnv *env, jclass clazz) {
   (void)env;
-  (void)thiz;
-  extern _Atomic uint32_t keypadSnapshotGeneration;
-
-  return (jint)atomic_load_explicit(&keypadSnapshotGeneration,
-                                    memory_order_relaxed);
+  (void)clazz;
+  return (jint)r47_keypad_published_generation();
 }
 
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative(
-    JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_copyKeypadSnapshotNative(
+    JNIEnv *env, jclass clazz, jint mainKeyDynamicMode, jintArray metaBuffer,
     jobjectArray labelsBuffer) {
-  (void)thiz;
+  (void)clazz;
   if (metaBuffer == NULL || labelsBuffer == NULL) {
     return JNI_FALSE;
   }
@@ -96,19 +93,19 @@ Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative(
 }
 
 JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration(
-    JNIEnv *env, jobject thiz) {
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_getPackedDisplayGeneration(
+    JNIEnv *env, jclass clazz) {
   (void)env;
-  (void)thiz;
+  (void)clazz;
   extern _Atomic uint32_t packedDisplayGeneration;
 
   return (jint)atomic_load_explicit(&packedDisplayGeneration,
                                     memory_order_relaxed);
 }
 
-// The UI-thread copy behind getPackedDisplayBuffer, and the one the TSan
-// harness races against the core: the ready gate's acquire load publishes the
-// packedDisplayBuffer pointer that init_lcd_buffers writes on the core thread.
+// The UI-thread copy behind getPackedDisplayBuffer, and the one the TSan harness
+// races against the calculator thread: the ready gate's acquire load publishes the
+// packedDisplayBuffer pointer that init_lcd_buffers writes on that thread.
 bool r47_try_take_packed_display(uint8_t *dst) {
   if (!r47_runtime_ready()) {
     return false;
@@ -120,9 +117,9 @@ bool r47_try_take_packed_display(uint8_t *dst) {
 // does a trylock, a memcpy and a flag clear, never a JNI call or a blocking
 // wait, which is what a critical region allows.
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(
-    JNIEnv *env, jobject thiz, jbyteArray buffer) {
-  (void)thiz;
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_getPackedDisplayBuffer(
+    JNIEnv *env, jclass clazz, jbyteArray buffer) {
+  (void)clazz;
   const jsize packedBytes = (jsize)(SCREEN_HEIGHT * LCD_ROW_SIZE_BYTES);
   if ((*env)->GetArrayLength(env, buffer) < packedBytes) {
     return JNI_FALSE;

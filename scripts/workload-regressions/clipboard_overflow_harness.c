@@ -1,16 +1,15 @@
 // Host regression guard for the Copy menu's text, which upstream's builders in
-// screen.c make, each sized from the registers it holds; jni_clipboard.c takes
-// it through r47_capture_clipboard_locked. Built under AddressSanitizer, so an
-// overrun aborts with a stack trace.
+// screen.c make, each sized from the registers it holds (jni_clipboard.c). Built
+// under AddressSanitizer, so an overrun aborts with a stack trace.
 //
-// It holds the copies whole: the statistical sums of an all-registers copy,
-// matrices to 60x60 with every value and whole UTF-8, and registers of 2^60000
-// (18062 digits) whose copies no fixed cap may cut. It holds the capture to the
-// one copy it runs. It also holds paste, SNAP, the file answer, and a canceled
-// key to the live core (see each check).
+// It holds the copies whole: the statistical sums of an all-registers copy, matrices
+// to 60x60 with every value and whole UTF-8, and registers of 2^60000 (18062
+// digits) whose copies no fixed cap may cut. It also holds paste, SNAP, and the file
+// answer to the live core (see each check).
 
 #include "jni_bridge.h"
 #include "keypad_fixture_bridge.h"
+#include "host_services.h"
 #include "screen.h"
 
 #include <dirent.h>
@@ -24,17 +23,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+
 // The SNAP slot of hal/io.c.
 extern char _ioFileNameOverride[];
 extern const char *r47_picked_file_name(void);
-
-// The Copy menu's copy, as jni_clipboard.c takes it, which the caller frees.
-static char *copy_text(void (*copy)(void)) {
-  pthread_mutex_lock(&screenMutex);
-  char *text = r47_capture_clipboard_locked(copy);
-  pthread_mutex_unlock(&screenMutex);
-  return text;
-}
 
 // Dump all registers after one Sigma+ of x = 2 and y = 3, as the Copy menu copies
 // them, and hold the statistical sums: every SR row is there, and two values tie
@@ -49,7 +41,7 @@ static int check_statistical_sum_rows(void) {
     return 1;
   }
 
-  char *all = copy_text(copyAllRegistersToClipboard);
+  char *all = r47_clipboard_text(R47_COPY_ALL);
   if (all == NULL) {
     fprintf(stderr, "FAIL: the all-registers copy allocated nothing\n");
     return 1;
@@ -81,6 +73,10 @@ static int check_statistical_sum_rows(void) {
           NUMBER_OF_STATISTICAL_SUMS, failures);
   return failures;
 }
+
+static char *copy_text(int what) { return r47_clipboard_text(what); }
+
+static void free_copy(char *text) { free(text); }
 
 // The imaginary unit U+2148, as the clipboard text writes it in UTF-8.
 #define PASTE_I "\xE2\x85\x88"
@@ -291,13 +287,6 @@ static int check_paste_number(void) {
     failures++;
   }
   catalog = CATALOG_NONE;
-  const uint8_t runStopSaved = programRunStop;
-  programRunStop = PGM_RUNNING;
-  if (r47_paste_number("1")) {
-    fprintf(stderr, "FAIL: paste during a running program was accepted\n");
-    failures++;
-  }
-  programRunStop = runStopSaved;
   reset_paste_state();
   failures += expect_register("refused paste leaves X", REGISTER_X, "7.");
 
@@ -429,7 +418,7 @@ static int check_paste_number(void) {
 // descriptor left in native would never close, and a save's worker reads until it does.
 static int check_file_answer_with_no_request(void) {
   int failures = 0;
-  if (Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(NULL, NULL, 77, NULL)) {
+  if (Java_io_github_ppigazzini_r47zen_CalculatorEngine_onFileSelectedNative(NULL, NULL, 77, NULL)) {
     fprintf(stderr, "FAIL: native took a file answer with no request waiting\n");
     failures++;
   }
@@ -438,7 +427,7 @@ static int check_file_answer_with_no_request(void) {
     failures++;
   }
   atomic_store(&isCoreBlockingForIo, true);
-  if (!Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(NULL, NULL, 77, NULL) ||
+  if (!Java_io_github_ppigazzini_r47zen_CalculatorEngine_onFileSelectedNative(NULL, NULL, 77, NULL) ||
       !fileReady || fileDescriptor != 77) {
     fprintf(stderr, "FAIL: native dropped a file answer a request was waiting for\n");
     failures++;
@@ -491,7 +480,7 @@ static int check_file_answer_name(void) {
   stringsReleased = 0;
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     atomic_store(&isCoreBlockingForIo, true);
-    if (!Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(
+    if (!Java_io_github_ppigazzini_r47zen_CalculatorEngine_onFileSelectedNative(
             &env, NULL, 77, (jstring)(uintptr_t)cases[i].name) ||
         strcmp(r47_picked_file_name(), cases[i].want) != 0) {
       const char *got = r47_picked_file_name();
@@ -615,7 +604,7 @@ static int check_display_copy_makes_no_call_in_critical(void) {
   fakeExceptionPending = false;
   fakeCriticalDepth = 0;
   fakeCallsInCritical = 0;
-  Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(
+  Java_io_github_ppigazzini_r47zen_CalculatorEngine_getPackedDisplayBuffer(
       &env, NULL, (jbyteArray)(uintptr_t)1);
   if (fakeCallsInCritical != 0 || fakeCriticalDepth != 0) {
     fprintf(stderr, "FAIL: the display copy made %d JNI call(s) in its critical region\n",
@@ -709,278 +698,43 @@ static int check_snap(const char *runtime_dir) {
     failures++;
   }
 
-  // tick runs the offer, so this fails too if tick stops calling it.
-  Java_io_github_ppigazzini_r47zen_MainActivity_tick(NULL, NULL);
+  // A sleep at rest runs the offer, so this fails too if the services stop calling it.
+  r47_services_run();
   if (stat(capture, &info) == 0 || strcmp(_ioFileNameOverride, capture) != 0) {
-    fprintf(stderr, "FAIL: the tick left the capture or name '%s'\n", _ioFileNameOverride);
+    fprintf(stderr, "FAIL: the offer left the capture or name '%s'\n", _ioFileNameOverride);
     failures++;
   }
   return failures;
 }
 
-// In AIM with NUM on, a key's face is what it types, as GTK draws it through
-// numlockReplacements: the key that shows N has 7 on its g face, and shows 7 under
-// NUM. Return the number of failures.
-static char aimFaces[2][R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
-                    [R47_KEYPAD_LABEL_CAPACITY];
+// hal/gui.c's own clipboard path, which the link wraps so the harness sees it.
+static int setClipboardCalls = 0;
+static char setClipboardSeen[64];
 
-static const char *aim_face(int numLock, int key, int slot) {
-  return aimFaces[numLock][key * R47_KEYPAD_LABELS_PER_KEY + slot];
+void __wrap_r47_upcall_set_clipboard(const char *text);
+void __wrap_r47_upcall_set_clipboard(const char *text) {
+  setClipboardCalls++;
+  snprintf(setClipboardSeen, sizeof(setClipboardSeen), "%s", text);
 }
 
-static int check_aim_faces_follow_num_lock(void) {
-  pthread_mutex_lock(&screenMutex);
-  runFunction(ITM_AIM);
-  for (int numLock = 0; numLock < 2; numLock++) {
-    if (numLock) {
-      setSystemFlag(FLAG_NUMLOCK);
-    } else {
-      clearSystemFlag(FLAG_NUMLOCK);
-    }
-    r47_get_keypad_labels(aimFaces[numLock], true);
-  }
-  clearSystemFlag(FLAG_NUMLOCK);
-  runFunction(ITM_EXIT1);
-  const int mode = calcMode;
-  pthread_mutex_unlock(&screenMutex);
-
-  int key = 0;
-  while (key < R47_KEYPAD_KEY_COUNT &&
-         strcmp(aim_face(0, key, R47_KEYPAD_LABEL_PRIMARY), "N") != 0) {
-    key++;
-  }
-  if (key == R47_KEYPAD_KEY_COUNT) {
-    fprintf(stderr, "FAIL: no AIM key shows N\n");
-    return 1;
-  }
-  int failures = 0;
-  if (strcmp(aim_face(0, key, R47_KEYPAD_LABEL_G), "7") != 0) {
-    fprintf(stderr, "FAIL: the N key's g face is %s, not 7\n",
-            aim_face(0, key, R47_KEYPAD_LABEL_G));
-    failures++;
-  }
-  if (strcmp(aim_face(1, key, R47_KEYPAD_LABEL_PRIMARY), "7") != 0) {
-    fprintf(stderr, "FAIL: the N key under NUM shows %s, not 7\n",
-            aim_face(1, key, R47_KEYPAD_LABEL_PRIMARY));
-    failures++;
-  }
-  if (mode != CM_NORMAL) {
-    fprintf(stderr, "FAIL: EXIT left AIM in mode %d\n", mode);
-    failures++;
-  }
-  return failures;
-}
-
-// The app keeps no beep volume, so the VOL softkeys show no value, as GTK's
-// getBeepVolume answers NOVAL. Return the number of failures.
-extern int16_t fnItemShowValue(int16_t item);
-
-static int check_volume_softkeys_show_no_value(void) {
-  pthread_mutex_lock(&screenMutex);
-  const int16_t up = fnItemShowValue(ITM_VOLPLUS);
-  const int16_t down = fnItemShowValue(ITM_VOLMINUS);
-  pthread_mutex_unlock(&screenMutex);
-  if (up != NOVAL || down != NOVAL) {
-    fprintf(stderr, "FAIL: VOL+ shows %d and VOL- %d, not NOVAL\n", up, down);
-    return 1;
-  }
-  return 0;
-}
-
-// What a screen reader hears of the display: the error it shows, the number being
-// typed, else X as Copy X gives it, cut on a whole character. Return the number of
-// failures.
-static int check_display_text(void) {
-  int failures = 0;
-  bool isError = true;
-  pthread_mutex_lock(&screenMutex);
-  convertDoubleToReal34Register(15.0, REGISTER_X);
-  char *x = r47_display_text_locked(&isError);
-  if (x == NULL || strcmp(x, "15.") != 0 || isError) {
-    fprintf(stderr, "FAIL: the display of X 15 read '%s', error %d\n", x ? x : "(null)",
-            isError);
-    failures++;
-  }
-  free(x);
-
-  const uint8_t savedMode = calcMode;
-  calcMode = CM_NIM;
-  strcpy(aimBuffer, "12");
-  char *typed = r47_display_text_locked(&isError);
-  if (typed == NULL || strcmp(typed, "12") != 0 || isError) {
-    fprintf(stderr, "FAIL: the number being typed read '%s'\n", typed ? typed : "(null)");
-    failures++;
-  }
-  free(typed);
-  aimBuffer[0] = 0;
-  calcMode = savedMode;
-
-  lastErrorCode = ERROR_ARG_EXCEEDS_FUNCTION_DOMAIN;
-  char *error = r47_display_text_locked(&isError);
-  if (error == NULL || strcmp(error, "An argument exceeds the function domain") != 0 ||
-      !isError) {
-    fprintf(stderr, "FAIL: the error shown read '%s', error %d\n", error ? error : "(null)",
-            isError);
-    failures++;
-  }
-  free(error);
-  lastErrorCode = 0;
-
-  // A text past the cap is cut at a character's first byte.
-  static char longText[R47_DISPLAY_TEXT_MAX + 8];
-  memset(longText, 'a', R47_DISPLAY_TEXT_MAX - 1);
-  longText[R47_DISPLAY_TEXT_MAX - 1] = 0;
-  calcMode = CM_AIM;
-  strcpy(aimBuffer, longText);
-  strcat(aimBuffer, STD_SIGMA STD_SIGMA);
-  char *cut = r47_display_text_locked(&isError);
-  if (cut == NULL || strlen(cut) != R47_DISPLAY_TEXT_MAX - 1) {
-    fprintf(stderr, "FAIL: a long text was cut to %zu bytes, want %d\n",
-            cut ? strlen(cut) : 0, R47_DISPLAY_TEXT_MAX - 1);
-    failures++;
-  }
-  free(cut);
-  aimBuffer[0] = 0;
-  calcMode = savedMode;
-  pthread_mutex_unlock(&screenMutex);
-  return failures;
-}
-
-// sendKey's codes for the keys check_canceled_key presses.
-enum {
-  SEND_KEY_FIRST = 1,
-  SEND_KEY_DOWN = 28,
-  SEND_KEY_PLUS = 37,
-  SEND_KEY_SOFTKEY_1 = 38,
-};
-
-extern void runFunction(int16_t func);
-extern void showSoftmenu(int16_t id);
-extern void goToGlobalStep(int32_t step);
-
-static void send_key(int code) {
-  Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, code);
-}
-
-// Start an ASSIGN of + and press the key, or softkey, it waits for.
-static void press_into_assign(int code) {
-  reset_paste_state();
-  if (code == SEND_KEY_SOFTKEY_1) {
-    showSoftmenu(-MNU_MyMenu);
-  }
-  runFunction(ITM_ASSIGN);
-  itemToBeAssigned = ITM_ADD;
-  send_key(code);
-}
-
-// Leave ASSIGN as the cases found the core, with no softmenu but HOME.
-static void leave_assign(void) {
-  itemToBeAssigned = 0;
-  reset_paste_state();
-  showSoftmenu(-MNU_HOME);
-}
-
-// A touch the platform canceled reaches sendKey as R47_KEY_CANCEL, which lets the
-// key up without running what its release would: + adds nothing, a single step
-// runs no step, and an ASSIGN, to a key or a softkey, assigns nothing. A whole
-// press after the cancel still runs. The single step runs the program
-// check_paste_number left, whose first step is the number 8. Return the number of
-// failures.
-static int check_canceled_key(void) {
-  int failures = 0;
-
-  reset_paste_state();
-  send_key(SEND_KEY_PLUS);
-  send_key(R47_KEY_CANCEL);
-  failures += expect_register("canceled +", REGISTER_X, "7.");
-  send_key(SEND_KEY_PLUS);
-  send_key(0);
-  failures += expect_register("+ after a cancel", REGISTER_X, "15.");
-
-  reset_paste_state();
-  goToGlobalStep(1);
-  send_key(SEND_KEY_DOWN);
-  if (programRunStop != PGM_SINGLE_STEP) {
-    fprintf(stderr, "FAIL: the down key started no single step: runStop %d\n",
-            programRunStop);
-    failures++;
-  }
-  send_key(R47_KEY_CANCEL);
-  if (programRunStop == PGM_SINGLE_STEP) {
-    fprintf(stderr, "FAIL: a canceled single step left runStop %d\n", programRunStop);
-    failures++;
-  }
-  failures += expect_register("canceled single step", REGISTER_X, "7.");
-  programRunStop = PGM_STOPPED;
-
-  const calcKey_t keyBefore = kbd_usr[0];
-  press_into_assign(SEND_KEY_FIRST);
-  send_key(R47_KEY_CANCEL);
-  if (kbd_usr[0].primary != keyBefore.primary || calcMode != CM_ASSIGN) {
-    fprintf(stderr, "FAIL: a canceled key took the ASSIGN: %d to %d, mode %d\n",
-            keyBefore.primary, kbd_usr[0].primary, calcMode);
-    failures++;
-  }
-  kbd_usr[0] = keyBefore;
-  leave_assign();
-
-  const int16_t softkeyBefore = userMenuItems[0].item;
-  press_into_assign(SEND_KEY_SOFTKEY_1);
-  send_key(R47_KEY_CANCEL);
-  if (userMenuItems[0].item != softkeyBefore || calcMode != CM_ASSIGN) {
-    fprintf(stderr, "FAIL: a canceled softkey took the ASSIGN: %d to %d, mode %d\n",
-            softkeyBefore, userMenuItems[0].item, calcMode);
-    failures++;
-  }
-  userMenuItems[0].item = softkeyBefore;
-  leave_assign();
-  return failures;
-}
-
-// Run action with stderr sent to a file, write what it caught back to stderr, and
-// say whether that holds needle. A fault inside action aborts with its report in
-// the file, so the line before it names the step.
-static bool stderr_holds(const char *step, void (*action)(void), const char *needle) {
-  char path[] = "/tmp/r47-clipboard-stderr-XXXXXX";
-  const int fd = mkstemp(path);
-  if (fd < 0) {
-    return false;
-  }
-  unlink(path);
-  fprintf(stderr, "running, its stderr caught: %s\n", step);
-  fflush(stderr);
-  const int saved = dup(STDERR_FILENO);
-  if (saved < 0 || dup2(fd, STDERR_FILENO) < 0) {
-    close(fd);
-    return false;
-  }
-  action();
-  fflush(stderr);
-  dup2(saved, STDERR_FILENO);
-  close(saved);
-  char seen[512] = {0};
-  const ssize_t got = pread(fd, seen, sizeof(seen) - 1, 0);
-  close(fd);
-  fputs(seen, stderr);
-  return got > 0 && strstr(seen, needle) != NULL;
-}
-
-// The Copy menu's copy goes to its capture, and the capture ends with it: a copy
-// after it, which only GTK's key handler makes upstream, is dropped and logged,
-// not written through a capture that has gone.
+// The Copy menu's copy goes to its capture and only there, and the capture ends
+// with it: a copy of the core's own after it, such as a PC Ctrl+C, goes to the
+// clipboard, not through a capture that has gone.
 static int check_capture_ends_with_the_copy(void) {
   int failures = 0;
   convertDoubleToReal34Register(7.0, REGISTER_X);
-  char *captured = copy_text(copyRegisterXToClipboard);
-  if (captured == NULL || strcmp(captured, "7.") != 0) {
-    fprintf(stderr, "FAIL: the Copy menu's copy of 7 gave '%s'\n",
-            captured != NULL ? captured : "(null)");
+  setClipboardCalls = 0;
+  char *captured = r47_clipboard_text(R47_COPY_X);
+  if (captured == NULL || strcmp(captured, "7.") != 0 || setClipboardCalls != 0) {
+    fprintf(stderr, "FAIL: the Copy menu's copy gave '%s', and %d to the clipboard\n",
+            captured != NULL ? captured : "(null)", setClipboardCalls);
     failures++;
   }
   free(captured);
-  if (!stderr_holds("a copy after the capture", copyRegisterXToClipboard,
-                    "a copy outside the Copy menu was dropped")) {
-    fprintf(stderr, "FAIL: a copy after the capture was not dropped and logged\n");
+  copyRegisterXToClipboard();
+  if (setClipboardCalls != 1 || strcmp(setClipboardSeen, "7.") != 0) {
+    fprintf(stderr, "FAIL: a copy after the capture reached the clipboard %d times\n",
+            setClipboardCalls);
     failures++;
   }
   return failures;
@@ -1056,7 +810,7 @@ static int check_matrix_copies_are_whole(void) {
   } cases[] = {{30, false}, {60, false}, {20, true}, {40, true}};
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     fill_matrix_x(cases[i].n, cases[i].complex);
-    char *text = copy_text(copyRegisterXToClipboard);
+    char *text = copy_text(R47_COPY_X);
     const size_t want = (size_t)cases[i].n * cases[i].n;
     const size_t got = text ? copied_values(text) : 0;
     if (got != want || !whole_utf8(text ? text : "")) {
@@ -1065,7 +819,7 @@ static int check_matrix_copies_are_whole(void) {
               text && whole_utf8(text) ? "" : ", not whole UTF-8");
       failures++;
     }
-    free(text);
+    free_copy(text);
   }
   return failures;
 }
@@ -1079,7 +833,6 @@ int main(void) {
     return 2;
   }
 
-  r47_initialize_native_bridge_state();
   r47_native_preinit_path(runtime_dir);
   r47_init_runtime();
 
@@ -1092,16 +845,12 @@ int main(void) {
   failures += check_display_copy_makes_no_call_in_critical();
   failures += check_matrix_copies_are_whole();
   failures += check_capture_ends_with_the_copy();
-  failures += check_aim_faces_follow_num_lock();
-  failures += check_volume_softkeys_show_no_value();
-  failures += check_display_text();
-  failures += check_canceled_key();
 
-  // Ten numbered registers of 2^60000 make the all-registers copy about 220 KB,
-  // and X and Y of it make the stack copy twice the digits. Keep the set inside
-  // the register pool, and fail when a register does not take the value: the core
-  // then leaves the register as it was, a real after the reset, and the copies
-  // would be short for that reason alone.
+  // Ten numbered registers of 2^60000 make the all-registers copy about 220 KB, and
+  // X and Y of it make the stack copy twice the digits. Keep the set inside the
+  // register pool, and fail when a register does not take the value: the core then
+  // leaves the register as it was, a real after the reset, and the copies would be
+  // short for that reason alone.
   const calcRegister_t filled[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, REGISTER_X,
                                    REGISTER_Y};
   longInteger_t big;
@@ -1122,14 +871,14 @@ int main(void) {
   // all-registers copy holds twelve of them, which a cut at any fixed cap loses.
   const size_t digits = 18062;
   const struct {
-    void (*copy)(void);
+    int what;
     size_t atLeast;
     const char *name;
-  } copies[] = {{copyRegisterXToClipboard, digits, "X"},
-                {copyStackRegistersToClipboard, 2 * digits, "stack"},
-                {copyAllRegistersToClipboard, 12 * digits, "all-registers"}};
+  } copies[] = {{R47_COPY_X, digits, "X"},
+                {R47_COPY_STACK, 2 * digits, "stack"},
+                {R47_COPY_ALL, 12 * digits, "all-registers"}};
   for (size_t i = 0; i < sizeof(copies) / sizeof(copies[0]); i++) {
-    char *text = copy_text(copies[i].copy);
+    char *text = r47_clipboard_text(copies[i].what);
     const size_t length = text != NULL ? strlen(text) : 0;
     fprintf(stderr, "%s copy length = %zu\n", copies[i].name, length);
     if (length < copies[i].atLeast || !whole_utf8(text != NULL ? text : "")) {

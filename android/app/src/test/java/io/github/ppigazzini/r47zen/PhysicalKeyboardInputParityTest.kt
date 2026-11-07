@@ -9,9 +9,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.util.Collections
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 class PhysicalKeyboardInputParityTest {
@@ -109,29 +106,23 @@ class PhysicalKeyboardInputParityTest {
                 "key:17:false:false",
                 "key:17:false:true",
             ),
-            dispatchShortcut(PhysicalKeyboardShortcutId.ALPHA, expectedOperations = 4),
+            dispatchShortcut(PhysicalKeyboardShortcutId.ALPHA),
         )
 
         assertEquals(
             listOf("menu:${NativeShellCodes.MENU_HOME}"),
-            dispatchShortcut(PhysicalKeyboardShortcutId.HOME, expectedOperations = 1),
+            dispatchShortcut(PhysicalKeyboardShortcutId.HOME),
         )
         assertEquals(
             listOf("menu:${NativeShellCodes.MENU_MY_MENU}"),
-            dispatchShortcut(PhysicalKeyboardShortcutId.MYMENU, expectedOperations = 1),
+            dispatchShortcut(PhysicalKeyboardShortcutId.MYMENU),
         )
     }
 
     @Test
     fun shiftTapOnlyFiresWhenModifierWasNotUsed() {
         val sentKeys = mutableListOf<String>()
-        val controller = PhysicalKeyboardInputController(
-            offerCoreTask = { runnable -> runnable.run() },
-            sendSimKeyNative = { id, isFunctionKey, isRelease ->
-                sentKeys += "${id}:${isFunctionKey}:${isRelease}"
-            },
-            sendSimMenuNative = { _ -> },
-        )
+        val controller = recordingController(sentKeys)
 
         assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_SHIFT_LEFT, keyEvent(KeyEvent.KEYCODE_SHIFT_LEFT)))
         assertTrue(controller.onKeyUp(KeyEvent.KEYCODE_SHIFT_LEFT))
@@ -153,43 +144,9 @@ class PhysicalKeyboardInputParityTest {
     }
 
     @Test
-    fun modifierTapIsRoutedThroughTheCoreQueue_notTheCallerThread() {
-        val queued = mutableListOf<Runnable>()
-        val sentKeys = mutableListOf<String>()
-        val controller = PhysicalKeyboardInputController(
-            // Record instead of running inline, so a direct UI-thread call is
-            // distinguishable from a core-queue dispatch.
-            offerCoreTask = { runnable -> queued += runnable },
-            sendSimKeyNative = { id, isFunctionKey, isRelease ->
-                sentKeys += "${id}:${isFunctionKey}:${isRelease}"
-            },
-            sendSimMenuNative = { _ -> },
-        )
-
-        assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_SHIFT_LEFT, keyEvent(KeyEvent.KEYCODE_SHIFT_LEFT)))
-        assertTrue(controller.onKeyUp(KeyEvent.KEYCODE_SHIFT_LEFT))
-
-        // The modifier tap must not have run the native handler on the caller
-        // thread; it must be queued for the core thread.
-        assertTrue("modifier tap ran on the caller thread", sentKeys.isEmpty())
-        assertEquals(1, queued.size)
-
-        queued.forEach { it.run() }
-        assertEquals(listOf("10:false:false", "10:false:true"), sentKeys)
-    }
-
-    @Test
     fun ctrlTapOnlyFiresWhenModifierWasNotUsed() {
         val sentActions = mutableListOf<String>()
-        val controller = PhysicalKeyboardInputController(
-            offerCoreTask = { runnable -> runnable.run() },
-            sendSimKeyNative = { id, isFunctionKey, isRelease ->
-                sentActions += "${id}:${isFunctionKey}:${isRelease}"
-            },
-            sendSimMenuNative = { menuId ->
-                sentActions += "menu:${menuId}"
-            },
-        )
+        val controller = recordingController(sentActions)
 
         assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_CTRL_LEFT, keyEvent(KeyEvent.KEYCODE_CTRL_LEFT)))
         assertTrue(controller.onKeyUp(KeyEvent.KEYCODE_CTRL_LEFT))
@@ -213,13 +170,7 @@ class PhysicalKeyboardInputParityTest {
     @Test
     fun keyEventEntryPointDispatchesDownAndUpActions() {
         val sentActions = mutableListOf<String>()
-        val controller = PhysicalKeyboardInputController(
-            offerCoreTask = { runnable -> runnable.run() },
-            sendSimKeyNative = { id, isFunctionKey, isRelease ->
-                sentActions += "${id}:${isFunctionKey}:${isRelease}"
-            },
-            sendSimMenuNative = { _ -> },
-        )
+        val controller = recordingController(sentActions)
 
         assertTrue(controller.onKeyEvent(keyEvent(KeyEvent.KEYCODE_0, action = KeyEvent.ACTION_DOWN)))
         assertTrue(controller.onKeyEvent(keyEvent(KeyEvent.KEYCODE_0, action = KeyEvent.ACTION_UP)))
@@ -231,11 +182,7 @@ class PhysicalKeyboardInputParityTest {
 
     @Test
     fun keyEventEntryPointIgnoresUnsupportedActions() {
-        val controller = PhysicalKeyboardInputController(
-            offerCoreTask = { runnable -> runnable.run() },
-            sendSimKeyNative = { _, _, _ -> },
-            sendSimMenuNative = { _ -> },
-        )
+        val controller = recordingController(mutableListOf())
 
         assertFalse(
             controller.onKeyEvent(
@@ -248,26 +195,38 @@ class PhysicalKeyboardInputParityTest {
         )
     }
 
-    private fun dispatchShortcut(id: PhysicalKeyboardShortcutId, expectedOperations: Int): List<String> {
-        val operations = Collections.synchronizedList(mutableListOf<String>())
-        val latch = CountDownLatch(expectedOperations)
+    // Spells each key code as the id it came from, and a release as the key it lets go.
+    private fun recordKeys(record: (String) -> Unit): (Int) -> Unit {
+        var pressed = ""
+        return { code ->
+            if (code == CalculatorEngine.KEY_RELEASE) {
+                record("$pressed:true")
+            } else {
+                pressed = if (code >= 38) {
+                    "${code - 37}:true"
+                } else {
+                    "%02d:false".format(java.util.Locale.ROOT, code - 1)
+                }
+                record("$pressed:false")
+            }
+        }
+    }
 
+    private fun recordingController(sent: MutableList<String>): PhysicalKeyboardInputController {
+        return PhysicalKeyboardInputController(
+            sendKey = recordKeys { sent += it },
+            showShellMenu = { menuId -> sent += "menu:$menuId" },
+        )
+    }
+
+    private fun dispatchShortcut(id: PhysicalKeyboardShortcutId): List<String> {
+        val operations = mutableListOf<String>()
         PhysicalKeyboardShortcuts.dispatch(
             PhysicalKeyboardAction.Shortcut(id),
-            offerCoreTask = { runnable ->
-                runnable.run()
-                latch.countDown()
-            },
-            sendKey = { keyId, isFunctionKey, isRelease ->
-                operations += "key:${keyId}:${isFunctionKey}:${isRelease}"
-            },
-            sendMenu = { menuId ->
-                operations += "menu:${menuId}"
-            },
+            sendKey = recordKeys { operations += "key:$it" },
+            showShellMenu = { menuId -> operations += "menu:$menuId" },
         )
-
-        assertTrue("Timed out waiting for $id", latch.await(2, TimeUnit.SECONDS))
-        return operations.toList()
+        return operations
     }
 
     private fun keyEvent(

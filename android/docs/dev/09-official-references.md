@@ -178,10 +178,10 @@ flowchart TD
   single-source-of-truth guidance.
 - [Better performance through threading](https://developer.android.com/topic/performance/threads):
   main-thread budget, worker-thread ownership, and queue-based background-work
-  guidance behind the deadline-driven core-thread design. The keypad refresh
-  itself runs on the UI thread;
+  guidance behind the calculator-thread design. The keypad refresh itself runs on
+  the UI thread and only copies what the calculator thread published;
   [06-runtime-hot-paths.md](06-runtime-hot-paths.md#hot-path-change-rules) owns
-  the rule that it never blocks behind `screenMutex`.
+  the rule that it never blocks on the calculator thread.
 - [Choreographer.FrameCallback](https://developer.android.com/reference/android/view/Choreographer.FrameCallback):
   official frame-callback contract for `doFrame(...)`. The callback runs on the
   `Looper` thread attached to the `Choreographer` when a new display frame is
@@ -190,7 +190,7 @@ flowchart TD
 - [ANRs](https://developer.android.com/topic/performance/issues/anr):
   official foreground input-dispatch timeout, main-thread lock-contention, and
   ANR trace guidance used when Android-specific hangs look like UI-thread
-  stalls rather than pure core-thread starvation.
+  stalls rather than a computation on the calculator thread.
 - [Fundamentals of testing Android apps](https://developer.android.com/training/testing/fundamentals):
   official Android guidance for local versus instrumented tests, test scope,
   and dependency decoupling; use this when deciding whether a repo contract
@@ -316,7 +316,7 @@ Current repository icon surfaces:
   to build "with a version script (preferred) or use -fvisibility=hidden" so only
   `JNI_OnLoad` is exported. `android/app/src/main/cpp/CMakeLists.txt` links
   `r47zen/exports.map`, which keeps `JNI_OnLoad` and every `Java_` function
-  global, `MainActivity`'s natives, which `JNI_OnLoad` also registers by pointer,
+  global, `CalculatorEngine`'s natives, which `JNI_OnLoad` also registers by pointer,
   and in a test build the bridge's, and makes the rest local; a tombstone then
   names only those, so a crash in the core needs
   `ndk-stack` and the release's `native-debug-symbols.zip`.

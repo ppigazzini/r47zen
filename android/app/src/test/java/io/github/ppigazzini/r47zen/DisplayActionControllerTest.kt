@@ -90,81 +90,29 @@ class DisplayActionControllerTest {
     }
 
     @Test
-    fun handleCopyMenuSelection_copyActionsWriteExpectedClipboardPayloads() {
+    fun handleCopyMenuSelection_asksTheCalculatorForEachKind() {
+        val requested = ArrayList<Int>()
         val controller = createController(
-            xText = "1.234",
-            stackText = "K = 9.\nJ = 8.\nX = 1.234",
-            allText = "K = 9.\nJ = 8.\nR00 = 0.",
+            copyRegisters = { what ->
+                requested.add(what)
+                true
+            },
         )
 
         assertTrue(controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_X_REGISTER))
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals("1.234", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
-
         assertTrue(controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_STACK_REGISTERS))
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals("K = 9.\nJ = 8.\nX = 1.234", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
-
         assertTrue(controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_ALL_REGISTERS))
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals("K = 9.\nJ = 8.\nR00 = 0.", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
-    }
-
-    @Test
-    fun fromAndroid13TheSystemAloneConfirmsACopy() {
-        val onAndroid13 = createController(xText = "2.5", sdkInt = 33)
-
-        assertTrue(onAndroid13.handleCopyMenuSelection(DisplayActionController.MENU_COPY_X_REGISTER))
-        shadowOf(Looper.getMainLooper()).idle()
-
-        assertEquals("2.5", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
-        assertNull(ShadowToast.getLatestToast())
-    }
-
-    @Test
-    fun belowAndroid13TheAppConfirmsACopy() {
-        val onAndroid12L = createController(xText = "2.5", sdkInt = 32)
-
-        assertTrue(onAndroid12L.handleCopyMenuSelection(DisplayActionController.MENU_COPY_X_REGISTER))
-        shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(
-            context.getString(R.string.main_menu_copy_x_register_copied),
-            ShadowToast.getTextOfLatestToast(),
+            listOf(CalculatorEngine.COPY_X, CalculatorEngine.COPY_STACK, CalculatorEngine.COPY_ALL),
+            requested,
         )
-    }
-
-    @Test
-    fun aCopyTheClipboardRefusesSaysSoAndDoesNotCrash() {
-        // Android throws from setPrimaryClip when the text is over the binder limit.
-        val controller = createController(
-            putClip = { throw IllegalStateException("android.os.TransactionTooLargeException") },
-            sdkInt = 33,
-        )
-
-        assertTrue(controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_ALL_REGISTERS))
-        shadowOf(Looper.getMainLooper()).idle()
-
-        assertEquals(context.getString(R.string.main_menu_copy_failed), ShadowToast.getTextOfLatestToast())
-    }
-
-    @Test
-    fun aCopyTheCalculatorCouldNotBuildLeavesTheClipboardAndSaysSo() {
-        clipboard.setPrimaryClip(ClipData.newPlainText("kept", "kept"))
-        // The calculator answers null when it could not allocate the copy.
-        val controller = createController(allText = null)
-
-        assertTrue(controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_ALL_REGISTERS))
-        shadowOf(Looper.getMainLooper()).idle()
-
-        assertEquals("kept", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
-        assertEquals(context.getString(R.string.main_menu_copy_failed), ShadowToast.getTextOfLatestToast())
     }
 
     @Test
     fun aMenuItemTheControllerDoesNotKnowIsLeftToAndroid() {
-        val asked = mutableListOf<Runnable>()
-        val controller = createController(offerCoreTask = { asked.add(it) })
+        val asked = mutableListOf<Int>()
+        val controller = createController(copyRegisters = { asked.add(it) })
 
         assertTrue(controller.handleMainMenuSelection(DisplayActionController.MENU_COPY) {})
         assertFalse(controller.handleMainMenuSelection(UNKNOWN_ITEM) {})
@@ -213,11 +161,9 @@ class DisplayActionControllerTest {
     }
 
     @Test
-    fun paste_entersTheWholeNumberInOneCoreTask() {
-        val offered = ArrayList<Runnable>()
+    fun paste_sendsTheWholeNumberAsOneRequest() {
         val pasted = ArrayList<String>()
         val controller = createController(
-            offerCoreTask = { offered.add(it) },
             pasteNumberNative = { tokens ->
                 pasted.add(tokens)
                 true
@@ -227,22 +173,24 @@ class DisplayActionControllerTest {
 
         controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
 
-        assertEquals(1, offered.size)
-        assertTrue(pasted.isEmpty())
-        offered.single().run()
         assertEquals(listOf("1.5~e3~"), pasted)
         assertNull(ShadowToast.getLatestToast())
     }
 
     @Test
     fun paste_refusesAClipThatIsNotOneNumberWithoutTouchingTheCore() {
-        val offered = ArrayList<Runnable>()
-        val controller = createController(offerCoreTask = { offered.add(it) })
+        val pasted = ArrayList<String>()
+        val controller = createController(
+            pasteNumberNative = { tokens ->
+                pasted.add(tokens)
+                true
+            },
+        )
         clipboard.setPrimaryClip(ClipData.newPlainText("paste", "2026-11-06"))
 
         controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
 
-        assertTrue(offered.isEmpty())
+        assertTrue(pasted.isEmpty())
         assertEquals(
             context.getString(R.string.main_menu_paste_not_a_number),
             ShadowToast.getTextOfLatestToast(),
@@ -250,12 +198,11 @@ class DisplayActionControllerTest {
     }
 
     @Test
-    fun paste_tellsTheUserWhenTheCoreRefusesTheNumber() {
+    fun paste_tellsTheUserWhenTheRequestIsRefused() {
         val controller = createController(pasteNumberNative = { false })
         clipboard.setPrimaryClip(ClipData.newPlainText("paste", "12"))
 
         controller.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
-        shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(
             context.getString(R.string.main_menu_paste_not_ready),
@@ -268,26 +215,15 @@ class DisplayActionControllerTest {
     }
 
     private fun createController(
-        xText: String = "1.234",
-        stackText: String = "K = 9.\nJ = 8.\nX = 1.234",
-        allText: String? = "K = 9.\nJ = 8.\nR00 = 0.",
         enterPiP: () -> Unit = {},
-        offerCoreTask: (Runnable) -> Unit = { runnable -> runnable.run() },
+        copyRegisters: (Int) -> Boolean = { true },
         pasteNumberNative: (String) -> Boolean = { true },
-        putClip: (ClipData) -> Unit = { clip -> clipboard.setPrimaryClip(clip) },
-        sdkInt: Int = 32,
     ): DisplayActionController {
         return DisplayActionController(
             context = context,
-            mainHandler = Handler(Looper.getMainLooper()),
-            offerCoreTask = offerCoreTask,
-            getClipboardXRegisterNative = { xText },
-            getClipboardStackRegistersNative = { stackText },
-            getClipboardAllRegistersNative = { allText },
+            copyRegisters = copyRegisters,
             pasteNumberNative = pasteNumberNative,
             enterPiP = enterPiP,
-            putClip = putClip,
-            sdkInt = sdkInt,
         )
     }
 }

@@ -15,8 +15,7 @@ internal class FactoryResetController(
     private val onResetRequested: () -> Unit,
     private val onDestroyFactoryReset: () -> Unit,
     private val onDestroyFinish: () -> Unit,
-    private val isCoreThreadRunning: () -> Boolean,
-    private val stopRunningProgram: () -> Unit,
+    private val killProcess: () -> Unit = { Process.killProcess(Process.myPid()) },
 ) {
     companion object {
         private const val TAG = "R47FactoryReset"
@@ -41,10 +40,6 @@ internal class FactoryResetController(
     var isResetInProgress = false
         private set
 
-    // Ends the process when a reset cannot run; a test replaces it, since ending the
-    // test's own process would end the run.
-    internal var killProcess: () -> Unit = { Process.killProcess(Process.myPid()) }
-
     fun isFactoryResetIntent(intent: Intent?): Boolean {
         return intent?.action == ACTION_FACTORY_RESET &&
             intent.getStringExtra(EXTRA_RESET_TOKEN) == resetToken
@@ -66,30 +61,19 @@ internal class FactoryResetController(
 
         isResetInProgress = true
         scheduleRestart(relaunchIntent)
-        // A running program keeps the core thread inside its task, past the join fence
-        // onResetRequested waits on, and the reset would be skipped. Stop it first, as
-        // R/S does.
-        stopRunningProgram()
         onResetRequested()
         activity.finishAffinity()
         activity.finishAndRemoveTask()
     }
 
     fun handleDestroy(shouldStopApp: Boolean) {
-        if (isResetInProgress && isCoreThreadRunning()) {
-            // The core thread outlived the dispose join fence: a long operation the
-            // stop did not reach, or a file request still waiting. Wiping now would
-            // race the autosave it runs on its way out, and resetting the shared
-            // runtime state would let the relaunch start a second core thread beside
-            // it. Keep the data, and end the process: a relaunch into it would attach
-            // to the busy thread, which answers no keypad snapshot. The relaunch
-            // starts fresh on the old state, and the reset can be retried.
-            Log.e(TAG, "Factory reset skipped: the core thread is still running")
-            onDestroyFinish()
-            killProcess()
-        } else if (isResetInProgress) {
+        if (isResetInProgress) {
+            // The calculator was told to save nothing more, even if it is stuck in a
+            // program that never polls, so the wipe is safe either way. Ending the
+            // process then makes every native static fresh for the relaunch.
             onDestroyFactoryReset()
             clearInternalAppData()
+            killProcess()
         } else if (shouldStopApp) {
             onDestroyFinish()
         }

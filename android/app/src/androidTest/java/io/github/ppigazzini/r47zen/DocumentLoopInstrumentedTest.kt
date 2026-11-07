@@ -19,12 +19,11 @@ import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-// The real file loop on the real MainActivity: SAVEST or LOADST runs as a core task,
-// the core asks for a file, the activity launches the picker, a stub answers it with a
-// document of RecordingDocumentProvider, and DocumentTransfer moves the bytes between
-// that provider and the core thread, which waits in requestAndroidFile until the
-// answer comes. No descriptor is handed in through the test bridge. The failure Toast
-// is not observed.
+// The real file loop on the real MainActivity: the core asks for a file, the activity
+// launches the picker, a stub answers it with a document of RecordingDocumentProvider,
+// and DocumentTransfer moves the bytes between that provider and the core, which
+// waits in requestAndroidFile until the answer comes. No descriptor is handed in
+// through the test bridge. The failure Toast is not observed.
 // ActivityMonitor's onStartActivity, which answers the picker, is API 26.
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = 26)
@@ -45,18 +44,19 @@ class DocumentLoopInstrumentedTest {
     }
 
     // A save asks the provider for "wt" and replaces the whole document, a longer one
-    // left there included; the loaded state then gives X back.
+    // left there included; the loaded state then gives X back, and STATE# the name
+    // the provider shows for the document.
     @Test
     fun stateSavedThroughAProviderLoadsBack() {
         val stale = RecordingDocumentProvider.document(context.filesDir, "state")
         stale.parentFile?.mkdirs()
         stale.writeBytes(ByteArray(STALE_BYTES) { STALE_BYTE })
 
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        ActivityScenario.launch(MainActivity::class.java).use {
             startFromReset()
             assertTrue("seed X", ProgramLoadTestBridge.seedXLongInteger("4242"))
             answerPicker(Intent.ACTION_CREATE_DOCUMENT, documentUri("state"))
-            runOnCore(scenario, ITM_SAVEST, "SAVEST")
+            runToRest(ITM_SAVEST, "SAVEST")
 
             val saved = finishedDocument(documentUri("state"))
             assertEquals("every write open asked for", listOf("wt"), writeModes())
@@ -65,20 +65,23 @@ class DocumentLoopInstrumentedTest {
 
             assertTrue("seed X", ProgramLoadTestBridge.seedXLongInteger("0"))
             answerPicker(Intent.ACTION_OPEN_DOCUMENT, documentUri("state"))
-            runOnCore(scenario, ITM_LOADST, "LOADST")
+            runToRest(ITM_LOADST, "LOADST")
             assertEquals("LOADST restored X", "4242", ProgramLoadTestBridge.getXRegisterClipboardText().trim())
+            runToRest(ITM_LOADEDFILE, "STATE#")
+            val reported = ProgramLoadTestBridge.getXRegisterClipboardText().trim()
+            assertTrue("STATE# reported '$reported'", reported.endsWith(": state"))
             assertEquals("each picker asked once", 2, synchronized(pickerIntents) { pickerIntents.size })
         }
     }
 
     // requestAndroidFile waits until the activity answers; a document the provider
-    // refuses must answer it with a cancel, or the core thread waits for ever.
+    // refuses must answer it with a cancel, or the calculator thread waits for ever.
     @Test
     fun aRefusedLoadLeavesTheCalculatorRunning() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        ActivityScenario.launch(MainActivity::class.java).use {
             startFromReset()
             answerPicker(Intent.ACTION_OPEN_DOCUMENT, documentUri(RecordingDocumentProvider.FAILING_DOCUMENT))
-            runOnCore(scenario, ITM_LOADST, "LOADST of a refused document")
+            runToRest(ITM_LOADST, "LOADST of a refused document")
             assertEquals("the picker was asked", 1, synchronized(pickerIntents) { pickerIntents.size })
             assertEquals("the provider was asked to read", listOf("r"), RecordingDocumentProvider.modes())
             assertTrue("seed X after the refusal", ProgramLoadTestBridge.seedXLongInteger("7"))
@@ -109,24 +112,12 @@ class DocumentLoopInstrumentedTest {
         picker = monitor
     }
 
-    // Run function on the core thread, as a key's function runs, so requestAndroidFile
-    // waits there and reaches the activity as the app's own requests do. The activity's
-    // private offerCoreTask is read by name, which the connected lane's unminified
-    // release keeps.
-    private fun runOnCore(scenario: ActivityScenario<MainActivity>, function: Int, label: String) {
-        val done = CountDownLatch(1)
-        scenario.onActivity { activity ->
-            val offer = MainActivity::class.java.getDeclaredMethod("offerCoreTask", Runnable::class.java)
-            offer.isAccessible = true
-            offer.invoke(
-                activity,
-                Runnable {
-                    ProgramLoadTestBridge.sendSimFunction(function)
-                    done.countDown()
-                },
-            )
-        }
-        assertTrue("$label did not return within $RUN_TIMEOUT_MS ms", done.await(RUN_TIMEOUT_MS, TimeUnit.MILLISECONDS))
+    private fun runToRest(function: Int, label: String) {
+        assertTrue("$label did not start", ProgramLoadTestBridge.beginSimFunction(function))
+        assertTrue(
+            "$label did not return within $RUN_TIMEOUT_MS ms",
+            waitUntil(RUN_TIMEOUT_MS) { !ProgramLoadTestBridge.isSimFunctionRunning() },
+        )
     }
 
     // DocumentTransfer runs every transfer on one thread in order, so a load queued
@@ -169,6 +160,7 @@ class DocumentLoopInstrumentedTest {
     private companion object {
         const val ITM_SAVEST = 2387
         const val ITM_LOADST = 2388
+        const val ITM_LOADEDFILE = 1446
         // Longer than the state file the save writes, which the size check holds.
         const val STALE_BYTES = 4 * 1024 * 1024
         const val STALE_BYTE: Byte = 0x7F

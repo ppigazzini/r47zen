@@ -1,21 +1,14 @@
 #include "jni_bridge.h"
+#include "host_services.h"
 
 #include <math.h>
 #include <stdatomic.h>
 #include <stdio.h>
 
-extern void btnFnPressed(GtkWidget *notUsed, GdkEvent *event, gpointer data);
-extern void btnFnReleased(GtkWidget *notUsed, GdkEvent *event, gpointer data);
-extern void btnPressed(GtkWidget *notUsed, GdkEvent *event, gpointer data);
-extern void btnReleased(GtkWidget *notUsed, GdkEvent *event, gpointer data);
-extern void fnStopProgram(uint16_t unusedButMandatoryParameter);
-
-static char currentPressedKeyStr[4] = {0};
-static int currentPressedKeyCode = 0;
-
 // Keep sensitivity calibration in one layer (native) for deterministic tuning.
 static const float r47_graph_pan_gain = 1.00f;
 static const float r47_graph_zoom_gain = 1.00f;
+static const float r47_graph_pan_epsilon = 0.0005f;
 static const float r47_graph_scale_epsilon = 0.0001f;
 static const float r47_graph_pan_input_limit = 1.0f;
 static const float r47_graph_scale_factor_min = 0.4f;
@@ -54,10 +47,8 @@ void r47_graph_bound_from_float(float value, real_t *dst) {
   }
 }
 
-static bool r47_graph_touch_supported_locked(void) {
-  if (!ram ||
-      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed) ||
-      calcMode != CM_GRAPH) {
+static bool r47_graph_touch_supported(void) {
+  if (!ram || calcMode != CM_GRAPH) {
     return false;
   }
 
@@ -65,7 +56,7 @@ static bool r47_graph_touch_supported_locked(void) {
   return menuId == -MNU_PLOT_FUNC || menuId == -MNU_GRAPHS;
 }
 
-static void r47_draw_graph_from_lu_locked(void) {
+static void r47_draw_graph_from_lu(void) {
   // Upstream graph rendering only honors LY/UY when ZOOM is in override mode.
   // Keep touch-driven Y bounds on that path before Draw-LU solve.
   PLOT_ZMY = zoomOverride;
@@ -73,26 +64,26 @@ static void r47_draw_graph_from_lu_locked(void) {
 
   // Draw-LU already marks redraw state and refresh reasons. Force only LCD
   // transport here to avoid competing refresh reason paths.
-  refreshLcd(NULL);
+  refreshLcd();
   lcd_refresh();
 }
 
 // Double-tap graph reset for function (EQN) plots only. It is a gesture
 // shortcut for the PLTRST menu key on the same surface as pinch/pan
-// (r47_graph_touch_supported_locked): graph_reset() restores auto Y-scaling and
+// (r47_graph_touch_supported): graph_reset() restores auto Y-scaling and
 // clears the zoom override and plot decorations - the LX/UX X domain is
 // preserved, matching PLTRST - then the standard Draw-LU solve re-renders.
 // Statistical and program-drawn (.p47) plots are deliberately excluded: their
 // stat redraw does not transport to the Android display from this JNI context
 // so reset there stays on the softkey.
-static bool r47_reset_graph_locked(void) {
-  if (!r47_graph_touch_supported_locked()) {
+bool r47_reset_graph(void) {
+  if (!r47_graph_touch_supported()) {
     return false;
   }
 
   graph_reset();
   fnEqSolvGraph(EQ_PLOT_LU);
-  refreshLcd(NULL);
+  refreshLcd();
   lcd_refresh();
   return true;
 }
@@ -100,7 +91,7 @@ static bool r47_reset_graph_locked(void) {
 // LX, UX, LY, and UY are what a user stores and reads back. Each is written in place, a
 // real34 reserved variable keeping its type, so no stack register is borrowed: a matrix
 // in X too large to copy aside would not survive a round trip through TEMP_REGISTER_1.
-void r47_sync_graph_bounds_reserved_vars_locked(void) {
+void r47_sync_graph_bounds_reserved_vars(void) {
   double bound;
   realToDouble(x_min, &bound);
   convertDoubleToReal34Register(bound, RESERVED_VARIABLE_LX);
@@ -112,14 +103,14 @@ void r47_sync_graph_bounds_reserved_vars_locked(void) {
   convertDoubleToReal34Register(bound, RESERVED_VARIABLE_UY);
 }
 
-static void r47_reset_graph_bounds_defaults_locked(void) {
+static void r47_reset_graph_bounds_defaults(void) {
   r47_graph_bound_from_float(r47_graph_default_min, x_min);
   r47_graph_bound_from_float(r47_graph_default_max, x_max);
   r47_graph_bound_from_float(r47_graph_default_min, y_min);
   r47_graph_bound_from_float(r47_graph_default_max, y_max);
 }
 
-bool r47_sanitize_graph_bounds_locked(void) {
+bool r47_sanitize_graph_bounds(void) {
   bool changed = false;
   float lx = r47_graph_bound_to_float(x_min);
   float ux = r47_graph_bound_to_float(x_max);
@@ -132,7 +123,7 @@ bool r47_sanitize_graph_bounds_locked(void) {
       ux <= -r47_graph_bounds_limit || ux >= r47_graph_bounds_limit ||
       ly <= -r47_graph_bounds_limit || ly >= r47_graph_bounds_limit ||
       uy <= -r47_graph_bounds_limit || uy >= r47_graph_bounds_limit) {
-    r47_reset_graph_bounds_defaults_locked();
+    r47_reset_graph_bounds_defaults();
     changed = true;
   } else {
     if (lx > ux) {
@@ -159,7 +150,7 @@ bool r47_sanitize_graph_bounds_locked(void) {
   // not what the user stored, and copying it over them on every start widened their
   // range about 10% a launch.
   if (changed) {
-    r47_sync_graph_bounds_reserved_vars_locked();
+    r47_sync_graph_bounds_reserved_vars();
   }
   return changed;
 }
@@ -182,7 +173,7 @@ static bool r47_graph_bounds_in_range(float nextXMin, float nextXMax,
 // Apply a pan to the graph window in place. Pure bounds math: no gate (the
 // caller gates) and no redraw (the caller redraws once). Returns true if the
 // window changed.
-static bool r47_pan_update_bounds_locked(float dxNorm, float dyNorm) {
+static bool r47_pan_update_bounds(float dxNorm, float dyNorm) {
   if (!isfinite(dxNorm) || !isfinite(dyNorm) ||
       fabsf(dxNorm) > r47_graph_pan_input_limit ||
       fabsf(dyNorm) > r47_graph_pan_input_limit) {
@@ -225,7 +216,7 @@ static bool r47_pan_update_bounds_locked(float dxNorm, float dyNorm) {
 
 // Apply a center-preserving pinch zoom to the graph window in place. Pure
 // bounds math: no gate and no redraw. Returns true if the window changed.
-static bool r47_zoom_update_bounds_locked(float scaleFactor) {
+static bool r47_zoom_update_bounds(float scaleFactor) {
   if (!isfinite(scaleFactor) || scaleFactor <= 0.0f ||
       scaleFactor < r47_graph_scale_factor_min ||
       scaleFactor > r47_graph_scale_factor_max) {
@@ -275,23 +266,21 @@ static bool r47_zoom_update_bounds_locked(float scaleFactor) {
   return true;
 }
 
-static bool r47_apply_graph_pan_locked(float dxNorm, float dyNorm) {
-  if (!r47_graph_touch_supported_locked() ||
-      !r47_pan_update_bounds_locked(dxNorm, dyNorm)) {
+static bool r47_apply_graph_pan(float dxNorm, float dyNorm) {
+  if (!r47_graph_touch_supported() || !r47_pan_update_bounds(dxNorm, dyNorm)) {
     return false;
   }
-  r47_sync_graph_bounds_reserved_vars_locked();
-  r47_draw_graph_from_lu_locked();
+  r47_sync_graph_bounds_reserved_vars();
+  r47_draw_graph_from_lu();
   return true;
 }
 
-static bool r47_apply_graph_pinch_zoom_locked(float scaleFactor) {
-  if (!r47_graph_touch_supported_locked() ||
-      !r47_zoom_update_bounds_locked(scaleFactor)) {
+static bool r47_apply_graph_pinch_zoom(float scaleFactor) {
+  if (!r47_graph_touch_supported() || !r47_zoom_update_bounds(scaleFactor)) {
     return false;
   }
-  r47_sync_graph_bounds_reserved_vars_locked();
-  r47_draw_graph_from_lu_locked();
+  r47_sync_graph_bounds_reserved_vars();
+  r47_draw_graph_from_lu();
   return true;
 }
 
@@ -301,29 +290,29 @@ static bool r47_apply_graph_pinch_zoom_locked(float scaleFactor) {
 // play. Pan is applied first, then a center-preserving zoom around the panned
 // center, matching the prior sequential apply minus the discarded intermediate
 // draw.
-static bool r47_apply_graph_pan_zoom_locked(float dxNorm, float dyNorm,
-                                            float scaleFactor) {
-  if (!r47_graph_touch_supported_locked()) {
+static bool r47_apply_graph_pan_zoom(float dxNorm, float dyNorm,
+                                     float scaleFactor) {
+  if (!r47_graph_touch_supported()) {
     return false;
   }
 
   bool changed = false;
-  if (r47_pan_update_bounds_locked(dxNorm, dyNorm)) {
+  if (r47_pan_update_bounds(dxNorm, dyNorm)) {
     changed = true;
   }
-  if (r47_zoom_update_bounds_locked(scaleFactor)) {
+  if (r47_zoom_update_bounds(scaleFactor)) {
     changed = true;
   }
   if (!changed) {
     return false;
   }
 
-  r47_sync_graph_bounds_reserved_vars_locked();
-  r47_draw_graph_from_lu_locked();
+  r47_sync_graph_bounds_reserved_vars();
+  r47_draw_graph_from_lu();
   return true;
 }
 
-bool r47_graph_touch_no_nan_stress_locked(int iterations) {
+bool r47_graph_touch_no_nan_stress(int iterations) {
   if (!ram || iterations <= 0) {
     return false;
   }
@@ -338,7 +327,7 @@ bool r47_graph_touch_no_nan_stress_locked(int iterations) {
   if (!isfinite(savedXMin) || !isfinite(savedXMax) || !isfinite(savedYMin) ||
       !isfinite(savedYMax) || fabsf(savedXMax - savedXMin) < 1.0e-6f ||
       fabsf(savedYMax - savedYMin) < 1.0e-6f) {
-    r47_reset_graph_bounds_defaults_locked();
+    r47_reset_graph_bounds_defaults();
   }
 
   extern void showSoftmenu(int16_t id);
@@ -354,8 +343,8 @@ bool r47_graph_touch_no_nan_stress_locked(int iterations) {
     const float beforeYMin = r47_graph_bound_to_float(y_min);
     const float beforeYMax = r47_graph_bound_to_float(y_max);
 
-    bool panApplied = r47_apply_graph_pan_locked(extremePan, -extremePan);
-    bool pinchApplied = r47_apply_graph_pinch_zoom_locked(extremeScale);
+    bool panApplied = r47_apply_graph_pan(extremePan, -extremePan);
+    bool pinchApplied = r47_apply_graph_pinch_zoom(extremeScale);
 
     const float afterXMin = r47_graph_bound_to_float(x_min);
     const float afterXMax = r47_graph_bound_to_float(x_max);
@@ -395,49 +384,30 @@ bool r47_graph_touch_no_nan_stress_locked(int iterations) {
   return ok;
 }
 
-void r47_send_sim_function(int funcId) {
-  pthread_mutex_lock(&screenMutex);
-  extern void runFunction(int16_t id);
-  runFunction((int16_t)funcId);
-  pthread_mutex_unlock(&screenMutex);
+static float r47_clamp_float(float value, float low, float high) {
+  return value < low ? low : (value > high ? high : value);
 }
 
-void r47_send_sim_menu(int menuId) {
-  pthread_mutex_lock(&screenMutex);
-  extern void showSoftmenu(int16_t id);
-  showSoftmenu((int16_t)menuId);
-  refreshScreen(1);
-  pthread_mutex_unlock(&screenMutex);
-}
-
-void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
-  if (!ram ||
-      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed) ||
-      keyId == NULL) {
-    return;
+// One gesture batch from the service queue. A drag and a pinch that arrive together
+// share one bounds commit and one re-solve. Batches merge while the calculator is busy,
+// and a merged one can pass the limits the bounds code refuses whole, so it is clamped.
+void r47_apply_graph_gesture(float dxNorm, float dyNorm, float scale) {
+  dxNorm = r47_clamp_float(dxNorm, -r47_graph_pan_input_limit,
+                           r47_graph_pan_input_limit);
+  dyNorm = r47_clamp_float(dyNorm, -r47_graph_pan_input_limit,
+                           r47_graph_pan_input_limit);
+  scale = r47_clamp_float(scale, r47_graph_scale_factor_min,
+                          r47_graph_scale_factor_max);
+  const bool hasPan = fabsf(dxNorm) > r47_graph_pan_epsilon ||
+                      fabsf(dyNorm) > r47_graph_pan_epsilon;
+  const bool hasScale = fabsf(scale - 1.0f) > r47_graph_scale_epsilon;
+  if (hasPan && hasScale) {
+    r47_apply_graph_pan_zoom(dxNorm, dyNorm, scale);
+  } else if (hasPan) {
+    r47_apply_graph_pan(dxNorm, dyNorm);
+  } else if (hasScale) {
+    r47_apply_graph_pinch_zoom(scale);
   }
-
-  // This string bridge stays as a cold simulation/test surface. Live keypad
-  // input uses the fixed-width sendKey() press/release path below.
-  pthread_mutex_lock(&screenMutex);
-  if (isFn) {
-    if (isRelease) {
-      extern void btnFnClickedR(void *w, void *data);
-      btnFnClickedR(NULL, (void *)keyId);
-    } else {
-      extern void btnFnClickedP(void *w, void *data);
-      btnFnClickedP(NULL, (void *)keyId);
-    }
-  } else {
-    if (isRelease) {
-      extern void btnClickedR(void *w, void *data);
-      btnClickedR(NULL, (void *)keyId);
-    } else {
-      extern void btnClickedP(void *w, void *data);
-      btnClickedP(NULL, (void *)keyId);
-    }
-  }
-  pthread_mutex_unlock(&screenMutex);
 }
 
 // Resolve a shell menu code from jni_bridge.h to its upstream softmenu id, or 0.
@@ -452,177 +422,23 @@ static int r47_shell_menu_item(int shellMenu) {
   }
 }
 
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative(
-    JNIEnv *env, jobject thiz, jfloat dxNorm, jfloat dyNorm) {
-  (void)env;
-  (void)thiz;
-  pthread_mutex_lock(&screenMutex);
-  bool applied = r47_apply_graph_pan_locked((float)dxNorm, (float)dyNorm);
-  pthread_mutex_unlock(&screenMutex);
-  return applied ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative(
-    JNIEnv *env, jobject thiz, jfloat scaleFactor) {
-  (void)env;
-  (void)thiz;
-  pthread_mutex_lock(&screenMutex);
-  bool applied = r47_apply_graph_pinch_zoom_locked((float)scaleFactor);
-  pthread_mutex_unlock(&screenMutex);
-  return applied ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative(
-    JNIEnv *env, jobject thiz, jfloat dxNorm, jfloat dyNorm,
-    jfloat scaleFactor) {
-  (void)env;
-  (void)thiz;
-  pthread_mutex_lock(&screenMutex);
-  bool applied = r47_apply_graph_pan_zoom_locked((float)dxNorm, (float)dyNorm,
-                                                 (float)scaleFactor);
-  pthread_mutex_unlock(&screenMutex);
-  return applied ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative(JNIEnv *env,
-                                                               jobject thiz) {
-  (void)env;
-  (void)thiz;
-  pthread_mutex_lock(&screenMutex);
-  bool applied = r47_reset_graph_locked();
-  pthread_mutex_unlock(&screenMutex);
-  return applied ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_sendSimMenuNative(
-    JNIEnv *env, jobject thiz, jint shellMenu) {
-  (void)env;
-  (void)thiz;
-  int item = r47_shell_menu_item((int)shellMenu);
+// What upstream's shortCutCommand does before it shows a menu.
+void r47_show_shell_menu(int shellMenu) {
+  const int item = r47_shell_menu_item(shellMenu);
   if (item == 0) {
-    LOGE("sendSimMenuNative: unknown shell menu code %d", (int)shellMenu);
+    LOGE("r47_show_shell_menu: unknown shell menu code %d", shellMenu);
     return;
   }
-  r47_send_sim_menu(item);
-}
-
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative(
-    JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
-    jboolean isRelease) {
-  (void)thiz;
-  if (!ram) {
-    return;
+  if (temporaryInformation == TI_WHO) {
+    closeShowMenu();
   }
-
-  const char *nativeKeyId = (*env)->GetStringUTFChars(env, keyId, 0);
-  if (jni_check_and_clear_exception(env,
-                                    "sendSimKeyNative GetStringUTFChars") ||
-      !nativeKeyId) {
-    // Release before bailing: GetStringUTFChars can return a valid copy even
-    // when an exception is pending, and an early return must not leak it.
-    if (nativeKeyId) {
-      (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
-    }
-    return;
+  temporaryInformation = TI_NO_INFO;
+  if (calcMode == CM_NIM) {
+    closeNim();
   }
-
-  r47_send_sim_key(nativeKeyId, isFn == JNI_TRUE, isRelease == JNI_TRUE);
-  (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
-}
-
-// Run upstream's release of the key sendKey last pressed. Caller holds screenMutex.
-static void r47_release_pressed_key_locked(void) {
-  if (currentPressedKeyCode >= 38 && currentPressedKeyCode <= 43) {
-    btnFnReleased(NULL, &releaseEvent, currentPressedKeyStr);
-  } else if (currentPressedKeyCode >= 1 && currentPressedKeyCode <= 37) {
-    btnReleased(NULL, &releaseEvent, currentPressedKeyStr);
-  }
-}
-
-// Let the key sendKey last pressed up, for a touch the platform canceled, without
-// running what its release would. A function name on show is what the press has
-// left to do, so clearing it is the abort upstream's release path already knows.
-// A single step and an ASSIGN act on the release without reading that name, so
-// those two are stopped here. What the press did, such as a digit, stays done.
-// Caller holds screenMutex.
-static void r47_cancel_pressed_key_locked(void) {
-  if (currentPressedKeyCode == 0) {
-    return;
-  }
-  if (programRunStop == PGM_SINGLE_STEP) {
-    programRunStop = PGM_STOPPED;
-  }
-  // A softkey's press writes "ASSIGN " to tamBuffer, so its test is the key still down.
-  const bool assigning = calcMode == CM_ASSIGN && itemToBeAssigned != 0 &&
-                         (tamBuffer[0] == 0 || FN_key_pressed != 0);
-  showFunctionNameItem = ITM_NOP;
-  FN_timed_out_to_NOP_or_Executed = true;
-  if (!assigning) {
-    r47_release_pressed_key_locked();
-  }
-}
-
-JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
-    JNIEnv *env, jobject thiz, jint keyCode) {
-  (void)env;
-  (void)thiz;
-  if (!ram) {
-    return;
-  }
-
-  if (keyCode > 0) {
-    LOGD("sendKey: DOWN %d", keyCode);
-
-    currentPressedKeyCode = keyCode;
-    pthread_mutex_lock(&screenMutex);
-    // A softkey's one digit, or a key's two, always fits the key name.
-    if (keyCode >= 38 && keyCode <= 43) {
-      if (r47_format(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%c",
-                     keyCode - 38 + '1')) {
-        btnFnPressed(NULL, &pressEvent, currentPressedKeyStr);
-      }
-    } else if (keyCode >= 1 && keyCode <= 37) {
-      if (r47_format(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%02u",
-                     keyCode - 1)) {
-        btnPressed(NULL, &pressEvent, currentPressedKeyStr);
-      }
-    }
-    pthread_mutex_unlock(&screenMutex);
-    return;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  if (keyCode == R47_KEY_CANCEL) {
-    LOGD("sendKey: CANCEL (last=%d)", currentPressedKeyCode);
-    r47_cancel_pressed_key_locked();
-  } else {
-    LOGD("sendKey: UP (last=%d)", currentPressedKeyCode);
-    r47_release_pressed_key_locked();
-  }
-  pthread_mutex_unlock(&screenMutex);
-  currentPressedKeyCode = 0;
-  currentPressedKeyStr[0] = 0;
-}
-
-// Only the genuinely-busy run states justify the out-of-band direct stop: a
-// program that is RUNNING (executing) or PAUSED (inside a timed PSE loop) cannot
-// drain the queued sendKey in time, so the keypad's stop must be delivered out
-// of band. PGM_WAITING and PGM_RESUMING are interactive states where the core is
-// parked waiting for the *next* keystroke (a graphing program holding its plot,
-// a program between PSE/VIEW steps, an open f/g/I/O menu). In those states the
-// queued sendKey IS processed, and R/S must resume / EXIT must navigate the
-// menus -- short-circuiting them here swallows the keystroke and strands the
-// user. Keep aligned with
-// src/c47/programming/input.c, which only treats R/S(36)/EXIT(33) as a stop
-// request while *prevStop == PGM_RUNNING.
-bool r47_direct_stop_allowed(uint16_t runState) {
-  return runState == PGM_RUNNING || runState == PGM_PAUSED;
+  screenUpdatingMode = SCRUPD_AUTO;
+  showSoftmenu((int16_t)item);
+  refreshScreen(1);
 }
 
 _Static_assert(ITM_9 == ITM_0 + 9, "the paste tokens assume contiguous digits");
@@ -650,9 +466,8 @@ static int16_t r47_paste_token_item(char token) {
 // Report whether the core reads digits as a number now. Alpha entry, a parameter
 // prompt, a catalog, or a browser would read the same items as something else, and
 // the digits of a matrix cell the user is typing would merge with the clip.
-static bool r47_ready_for_number_locked(void) {
-  if (tam.mode != 0 || catalog != 0 ||
-      r47_direct_stop_allowed(programRunStop)) {
+static bool r47_ready_for_number(void) {
+  if (tam.mode != 0 || catalog != 0) {
     return false;
   }
   return calcMode == CM_NORMAL || calcMode == CM_NIM ||
@@ -661,7 +476,7 @@ static bool r47_ready_for_number_locked(void) {
 }
 
 // Enter one item the way a key press does once determineItem has resolved it.
-static void r47_enter_paste_item_locked(int16_t item) {
+static void r47_enter_paste_item(int16_t item) {
   processKeyAction(item);
   if (!keyActionProcessed) {
     runFunction(item);
@@ -672,7 +487,7 @@ static void r47_enter_paste_item_locked(int16_t item) {
 // not take with no error: a digit past the display width or the RNG exponent limit,
 // and the radix mark in integer input mode. CHS rewrites a sign in place, so it
 // keeps the length unless the wider sign pushed the last digit past the width.
-static bool r47_paste_token_kept_locked(char token, size_t lengthBefore) {
+static bool r47_paste_token_kept(char token, size_t lengthBefore) {
   size_t length = strlen(aimBuffer);
   return token == '~' ? length == lengthBefore : length > lengthBefore;
 }
@@ -680,29 +495,27 @@ static bool r47_paste_token_kept_locked(char token, size_t lengthBefore) {
 // Report whether a number entry is still open. In program entry and the matrix
 // editor the buffer tells: a backspace on an empty one deletes the program step
 // above the cursor or zeroes the cell.
-static bool r47_paste_entry_open_locked(void) {
+static bool r47_paste_entry_open(void) {
   return calcMode == CM_NIM ||
          ((calcMode == CM_PEM || calcMode == CM_MIM) && aimBuffer[0] != '\0');
 }
 
 // Back out an open entry, one character per backspace as the key does, which also
 // undoes the stack lift the entry made.
-static void r47_back_out_paste_locked(void) {
-  for (size_t left = strlen(aimBuffer) + 1;
-       left > 0 && r47_paste_entry_open_locked(); left--) {
-    r47_enter_paste_item_locked(ITM_BACKSPACE);
+static void r47_back_out_paste(void) {
+  for (size_t left = strlen(aimBuffer) + 1; left > 0 && r47_paste_entry_open();
+       left--) {
+    r47_enter_paste_item(ITM_BACKSPACE);
   }
 }
 
-// Enter one number as one operation under the lock, or refuse it whole. The items
-// go in below determineItem, so USER assignments, a pending shift, and the
-// multi-press timers cannot turn a digit into a function, and no key press from
-// the user can land inside the number. A token the core drops backs the entry out,
-// because what it kept would be a different number.
+// Enter one number as one operation at rest, or refuse it whole. The items go in
+// below determineItem, so USER assignments, a pending shift, and the multi-press
+// timers cannot turn a digit into a function, and no key press from the user can
+// land inside the number. A token the core drops backs the entry out, because what
+// it kept would be a different number.
 bool r47_paste_number(const char *tokens) {
-  if (!ram ||
-      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed) ||
-      tokens == NULL || tokens[0] == '\0') {
+  if (!ram || tokens == NULL || tokens[0] == '\0') {
     return false;
   }
   for (const char *token = tokens; *token != '\0'; token++) {
@@ -712,8 +525,7 @@ bool r47_paste_number(const char *tokens) {
     }
   }
 
-  pthread_mutex_lock(&screenMutex);
-  bool pasted = r47_ready_for_number_locked();
+  bool pasted = r47_ready_for_number();
   if (pasted && calcMode == CM_NIM) {
     // Appending would merge the clip into the digits the user is typing.
     closeNim();
@@ -728,24 +540,88 @@ bool r47_paste_number(const char *tokens) {
     aimBuffer[0] = '\0';
     for (const char *token = tokens; pasted && *token != '\0'; token++) {
       size_t lengthBefore = strlen(aimBuffer);
-      r47_enter_paste_item_locked(r47_paste_token_item(*token));
-      pasted = r47_paste_token_kept_locked(*token, lengthBefore);
+      r47_enter_paste_item(r47_paste_token_item(*token));
+      pasted = r47_paste_token_kept(*token, lengthBefore);
     }
     if (pasted) {
       resetShiftState();
     } else {
-      r47_back_out_paste_locked();
+      r47_back_out_paste();
     }
     refreshScreen(1);
   }
-  pthread_mutex_unlock(&screenMutex);
   return pasted;
 }
 
+#if defined(HOST_TOOL_BUILD)
+// A host harness has no calculator thread: it presses a key and runs what the main
+// loop would run, on its own thread. "00" to "36" is a key and "1" to "6" a softkey.
+void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
+  (void)isFn;
+  if (!ram || keyId == NULL) {
+    return;
+  }
+  const int code = keyId[1] == 0 ? keyId[0] - '1' + 38
+                                 : (keyId[0] - '0') * 10 + keyId[1] - '0' + 1;
+  r47_key_push(isRelease ? 0 : code);
+  keyDispatchNow();
+}
+#endif // HOST_TOOL_BUILD
+
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_sendKey(JNIEnv *env,
+                                                          jclass clazz,
+                                                          jint keyCode) {
+  (void)env;
+  (void)clazz;
+  r47_key_push((int)keyCode);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_cancelKey(JNIEnv *env,
+                                                            jclass clazz) {
+  (void)env;
+  (void)clazz;
+  r47_key_cancel();
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_releaseKeyIfDown(
+    JNIEnv *env, jclass clazz) {
+  (void)env;
+  (void)clazz;
+  r47_key_release_if_down();
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_showShellMenuNative(
+    JNIEnv *env, jclass clazz, jint shellMenu) {
+  (void)env;
+  (void)clazz;
+  r47_service_shell_menu((int)shellMenu);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_graphGestureNative(
+    JNIEnv *env, jclass clazz, jfloat dxNorm, jfloat dyNorm, jfloat scale) {
+  (void)env;
+  (void)clazz;
+  r47_service_graph_gesture((float)dxNorm, (float)dyNorm, (float)scale);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_resetGraphNative(
+    JNIEnv *env, jclass clazz) {
+  (void)env;
+  (void)clazz;
+  r47_service_graph_reset();
+}
+
+// A true return means queued: the answer comes through onPasteResult.
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_pasteNumberNative(
-    JNIEnv *env, jobject thiz, jstring tokens) {
-  (void)thiz;
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_pasteNumberNative(
+    JNIEnv *env, jclass clazz, jstring tokens) {
+  (void)clazz;
   const char *nativeTokens = (*env)->GetStringUTFChars(env, tokens, 0);
   if (jni_check_and_clear_exception(env,
                                     "pasteNumberNative GetStringUTFChars") ||
@@ -756,25 +632,7 @@ Java_io_github_ppigazzini_r47zen_MainActivity_pasteNumberNative(
     return JNI_FALSE;
   }
 
-  bool pasted = r47_paste_number(nativeTokens);
+  const bool queued = r47_service_paste(nativeTokens);
   (*env)->ReleaseStringUTFChars(env, tokens, nativeTokens);
-  return pasted ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(
-    JNIEnv *env, jobject thiz) {
-  (void)env;
-  (void)thiz;
-  if (!r47_runtime_ready()) {
-    return JNI_FALSE;
-  }
-
-  if (!r47_direct_stop_allowed(programRunStop)) {
-    return JNI_FALSE;
-  }
-
-  fnStopProgram(0);
-  r47_request_stop_refresh();
-  return JNI_TRUE;
+  return queued ? JNI_TRUE : JNI_FALSE;
 }

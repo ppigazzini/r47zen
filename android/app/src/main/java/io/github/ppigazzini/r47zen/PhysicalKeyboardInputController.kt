@@ -2,18 +2,9 @@ package io.github.ppigazzini.r47zen
 
 import android.view.KeyEvent
 
-/**
- * Maps a physical keyboard's keys to the calculator through the binding tables, and
- * keeps two for the app's own menu, which GTK has no counterpart of: Ctrl+V pastes as
- * the menu's Paste Number does, in place of the V key, and the keyboard's Menu key
- * opens the main menu.
- */
 internal class PhysicalKeyboardInputController(
-    private val offerCoreTask: (Runnable) -> Unit,
-    private val sendSimKeyNative: (String, Boolean, Boolean) -> Unit,
-    private val sendSimMenuNative: (Int) -> Unit,
-    private val onPaste: () -> Unit = {},
-    private val onMainMenu: () -> Unit = {},
+    private val sendKey: (Int) -> Unit,
+    private val showShellMenu: (Int) -> Unit,
 ) {
     private var isPhysicalShiftHeld = false
     private var isPhysicalCtrlHeld = false
@@ -21,21 +12,9 @@ internal class PhysicalKeyboardInputController(
     private val activeKeyIdMap = mutableMapOf<Int, PhysicalKeyboardAction>()
 
     fun onKeyEvent(event: KeyEvent): Boolean {
-        return when {
-            event.keyCode == KeyEvent.KEYCODE_MENU -> {
-                if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
-                    onMainMenu()
-                }
-                true
-            }
-            isPasteChord(event) -> {
-                // A Ctrl used for a chord shifts nothing on its release.
-                interceptedWhileHeld = true
-                onPaste()
-                true
-            }
-            event.action == KeyEvent.ACTION_DOWN -> onKeyDown(event.keyCode, event)
-            event.action == KeyEvent.ACTION_UP -> onKeyUp(event.keyCode)
+        return when (event.action) {
+            KeyEvent.ACTION_DOWN -> onKeyDown(event.keyCode, event)
+            KeyEvent.ACTION_UP -> onKeyUp(event.keyCode)
             else -> false
         }
     }
@@ -65,23 +44,15 @@ internal class PhysicalKeyboardInputController(
             return true
         }
 
-
         PhysicalKeyboardMapper.resolve(keyCode, event)?.let { action ->
             activeKeyIdMap[keyCode] = action
             when (action) {
                 is PhysicalKeyboardAction.NativeKey -> {
-                    offerCoreTask(Runnable {
-                        sendSimKeyNative(action.id, action.isFunctionKey, false)
-                    })
+                    sendKey(SimKeyIds.code(action.id, action.isFunctionKey))
                 }
 
                 is PhysicalKeyboardAction.Shortcut -> {
-                    PhysicalKeyboardShortcuts.dispatch(
-                        action,
-                        offerCoreTask,
-                        sendSimKeyNative,
-                        sendSimMenuNative,
-                    )
+                    PhysicalKeyboardShortcuts.dispatch(action, sendKey, showShellMenu)
                 }
             }
             return true
@@ -113,9 +84,7 @@ internal class PhysicalKeyboardInputController(
 
         activeKeyIdMap.remove(keyCode)?.let { action ->
             if (action is PhysicalKeyboardAction.NativeKey) {
-                offerCoreTask(Runnable {
-                    sendSimKeyNative(action.id, action.isFunctionKey, true)
-                })
+                sendKey(CalculatorEngine.KEY_RELEASE)
             }
             return true
         }
@@ -124,15 +93,8 @@ internal class PhysicalKeyboardInputController(
     }
 
     private fun tapModifier(id: String) {
-        // Route through the core task queue like every other input path. The
-        // native key handler takes screenMutex and executes the full btnClicked
-        // handler; calling it directly on the UI thread would let a modifier tap
-        // block there while a program holds the mutex on the core thread, risk an
-        // ANR, and run core key handling on the wrong thread.
-        offerCoreTask(Runnable {
-            sendSimKeyNative(id, false, false)
-            sendSimKeyNative(id, false, true)
-        })
+        sendKey(SimKeyIds.code(id, false))
+        sendKey(CalculatorEngine.KEY_RELEASE)
     }
 
     private fun isPasteChord(event: KeyEvent): Boolean {

@@ -1,7 +1,7 @@
-# The JNI bridge reaches MainActivity by name. JNI_OnLoad registers its
-# external functions by name and signature, so they keep both; the native core
-# calls its @Keep methods through GetMethodID, which the AndroidX annotation
-# library's consumer rules keep; the manifest keeps the class name.
+# The JNI bridge reaches CalculatorEngine by name. JNI_OnLoad finds the class and
+# registers its external functions by name and signature, so they keep both; the
+# native core calls its @Keep methods through GetStaticMethodID, which the AndroidX
+# annotation library's consumer rules keep.
 # scripts/android/check_jni_surface.sh checks every one in the minified dex.
 -keepclasseswithmembers class * {
     native <methods>;

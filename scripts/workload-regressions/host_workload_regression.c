@@ -1,4 +1,5 @@
 #include "keypad_fixture_bridge.h"
+#include "host_services.h"
 #include "screen.h"
 
 #include <errno.h>
@@ -19,7 +20,7 @@
 
 // Take every core declaration from the headers: c47.h, through
 // keypad_fixture_bridge.h, declares the core symbols this harness uses, and
-// android_mocks.h declares screenMutex. A private copy of an upstream
+// A private copy of an upstream
 // prototype stops this file compiling when upstream changes the signature.
 
 // Height of the upstream status bar, in pixel rows. Upstream carries no named
@@ -107,10 +108,6 @@ typedef struct {
   bool uses_param;
   volatile bool done;
 } function_worker_t;
-
-typedef struct {
-  unsigned int firings;
-} timeout_probe_t;
 
 typedef enum {
   STOP_POLICY_NONE = 0,
@@ -283,13 +280,11 @@ static bool stage_program_file(const char *runtime_dir, const char *program_root
 
 static void *run_function_worker(void *user_data) {
   function_worker_t *worker = (function_worker_t *)user_data;
-  pthread_mutex_lock(&screenMutex);
   if (worker->uses_param) {
     reallyRunFunction(worker->func_id, worker->param);
   } else {
     runFunction(worker->func_id);
   }
-  pthread_mutex_unlock(&screenMutex);
   worker->done = true;
   return NULL;
 }
@@ -319,44 +314,6 @@ static bool fail_last_error(const char *scenario_name) {
 
   fprintf(stderr, "ERROR: %s hit calculator error code %u\n", scenario_name,
           (unsigned int)lastErrorCode);
-  return true;
-}
-
-static gboolean timeout_probe_callback(gpointer data) {
-  timeout_probe_t *probe = (timeout_probe_t *)data;
-  probe->firings++;
-  return probe->firings < 3u;
-}
-
-static bool run_android_wait_shim_probe(void) {
-  timeout_probe_t probe = {0};
-  guint timer_id = g_timeout_add(5u, timeout_probe_callback, &probe);
-  bool saw_pending = false;
-  uint64_t deadline = monotonic_ms() + 1000u;
-
-  if (timer_id == 0u) {
-    fprintf(stderr, "ERROR: android wait shim failed to register timer\n");
-    return false;
-  }
-
-  while (probe.firings < 3u && monotonic_ms() < deadline) {
-    if (gtk_events_pending()) {
-      saw_pending = true;
-    }
-    g_main_context_iteration(NULL, TRUE);
-  }
-
-  if (probe.firings < 3u) {
-    fprintf(stderr,
-            "ERROR: android wait shim timed out before three timer firings\n");
-    return false;
-  }
-  if (!saw_pending) {
-    fprintf(stderr,
-            "ERROR: android wait shim never reported pending GTK work\n");
-    return false;
-  }
-
   return true;
 }
 
@@ -533,9 +490,9 @@ static workload_result_t run_program_fixture_workload(
     if (programRunStop == PGM_PAUSED) {
       saw_pause = true;
       if (scenario->resume_pause_with_zero_key && !sent_resume_key) {
-        r47_send_sim_key("00", false, false);
+        r47_key_push(1);
         usleep(20000);
-        r47_send_sim_key("00", false, true);
+        r47_key_push(0);
         sent_resume_key = true;
       }
     }
@@ -551,7 +508,9 @@ static workload_result_t run_program_fixture_workload(
         now - activity_started_at >= scenario->stop_after_activity_ms &&
         now - last_direct_stop_request_at >= 250u &&
         (programRunStop == PGM_RUNNING || programRunStop == PGM_PAUSED)) {
-      fnStopProgram(0);
+      // R/S, as the keypad sends it: the running program polls for it.
+      r47_key_push(36);
+      r47_key_push(0);
       requested_direct_stop = true;
       last_direct_stop_request_at = now;
       direct_stop_requests++;
@@ -841,14 +800,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  r47_initialize_native_bridge_state();
   r47_native_preinit_path(runtime_dir);
   r47_init_runtime();
-
-  if (!run_android_wait_shim_probe()) {
-    return 1;
-  }
-  fprintf(stderr, "PASS: Android PC_BUILD wait/progress shim probe\n");
 
   if (program_name != NULL) {
     workload_result_t result;

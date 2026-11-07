@@ -15,10 +15,8 @@ import org.junit.runner.RunWith
 
 // The display for a screen reader, from the core to the LCD's node: the number
 // being typed, which X does not hold yet, then X, then the error the screen shows,
-// each through the overlay's ask, describeDisplayNative as a core task,
-// onDisplayText, and the node MainActivity hands it to. The error is the factorial of
-// a negative long integer, which factLonI refuses whatever the flags; 1/x of 0 is
-// not one, since the R47 profile sets special results and answers Infinity.
+// each through describeDisplayNative, the calculator thread, onDisplayText, and the
+// node MainActivity hands it to.
 @RunWith(AndroidJUnit4::class)
 class DisplayDescriptionInstrumentedTest {
     @Test
@@ -36,13 +34,8 @@ class DisplayDescriptionInstrumentedTest {
             tapAll(scenario, KEY_ENTER, KEY_3, KEY_PLUS)
             assertNodeSays(scenario, "X after 1 2 ENTER 3 +", isError = false) { it == "15" }
 
-            assertTrue("seed X", ProgramLoadTestBridge.seedXLongInteger("-1"))
-            assertTrue("x! did not start", ProgramLoadTestBridge.beginSimFunction(ITM_XFACT))
-            assertTrue(
-                "x! did not return",
-                waitUntil(TIMEOUT_MS) { !ProgramLoadTestBridge.isSimFunctionRunning() },
-            )
-            assertNodeSays(scenario, "x! of -1", isError = true) {
+            tapAll(scenario, KEY_0, KEY_INVERT)
+            assertNodeSays(scenario, "1/x of 0", isError = true) {
                 it == "An argument exceeds the function domain"
             }
         }
@@ -60,10 +53,8 @@ class DisplayDescriptionInstrumentedTest {
     ) {
         var said = ""
         var invalid = !isError
-        // The ask is a core task, run behind the touched keys queued before it.
-        scenario.onActivity { activity ->
-            activity.findViewById<ReplicaOverlay>(R.id.replica_overlay).onDisplayDescriptionWanted?.invoke()
-        }
+        // The read runs at rest, behind the keys pushed before it.
+        assertTrue("the request queue refused the read", CalculatorEngine.describeDisplayNative())
         val heard = waitUntil(TIMEOUT_MS) {
             scenario.onActivity { activity ->
                 val node = activity.findViewById<ReplicaOverlay>(R.id.replica_overlay).lcdAccessibilityNode
@@ -77,6 +68,7 @@ class DisplayDescriptionInstrumentedTest {
 
     private companion object {
         const val TIMEOUT_MS = 15_000L
-        const val ITM_XFACT = 108 // src/c47/items.h
+        const val KEY_0 = 34
+        const val KEY_INVERT = 3
     }
 }

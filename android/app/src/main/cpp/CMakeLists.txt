@@ -115,6 +115,7 @@ target_compile_definitions(r47zen PRIVATE
     LINUX                       # the closest upstream platform
     ${R47_ANDROID_BITNESS_DEFINE}
     CALCMODEL=USER_R47
+    $<$<BOOL:${R47_INCLUDE_PROGRAM_LOAD_TEST_BRIDGE}>:R47_TEST_BRIDGE>
 )
 
 # Every translation unit sees the Android mocks first, the core included.
@@ -205,22 +206,21 @@ if(ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
     target_compile_options(r47zen PRIVATE "-fstack-clash-protection")
 endif()
 
+# Libc calls the core makes are linked to the glue instead; a wrap reaches only this
+# library's own objects. exit() on an error the core does not recover from would end the
+# app with no log and no crash report, so __wrap_exit in r47zen/android_runtime.c logs and
+# aborts. remove() of DELBkup names a relative path, so __wrap_remove in r47zen/hal/io.c
+# removes the slot's save files.
+target_link_options(r47zen PRIVATE "-Wl,--wrap=exit" "-Wl,--wrap=remove")
 # Android 7.0 to 8.1 read a format string as UTF-8, so the core's glyph bytes in one
 # fail it, and a fortified sprintf aborts on that: each sprintf and snprintf form goes
 # to the glue's legacy_printf.c, which hands the call to the platform from API 28.
 # fprintf and printf stay the platform's: stdout and stderr go nowhere in an app, and
-# each fprintf to a file has an ASCII format. A wrap reaches only this library's own
-# objects.
+# each fprintf to a file has an ASCII format.
 foreach(R47_PRINTF_ENTRY IN ITEMS sprintf snprintf vsprintf vsnprintf
         __sprintf_chk __snprintf_chk __vsprintf_chk __vsnprintf_chk)
     target_link_options(r47zen PRIVATE "-Wl,--wrap=${R47_PRINTF_ENTRY}")
 endforeach()
-
-# exit() on an error the core does not recover from would end the app with no log and
-# no crash report, so __wrap_exit in r47zen/android_runtime.c logs and aborts. remove()
-# of DELBkup names a relative path, so __wrap_remove in r47zen/hal/io.c removes the
-# slot's save files.
-target_link_options(r47zen PRIVATE "-Wl,--wrap=exit" "-Wl,--wrap=remove")
 
 target_link_libraries(r47zen PRIVATE log m)
 

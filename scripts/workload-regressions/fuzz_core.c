@@ -88,9 +88,6 @@ int LLVMFuzzerInitialize(int *argc, char ***argv) {
   const char *tmp = getenv("FUZZ_TMP");
   snprintf(dir, sizeof(dir), "%s/fuzz-%d", tmp != NULL ? tmp : "/tmp", (int)getpid());
   mkdir(dir, 0700);
-  // screenMutex is recursive, as the app makes it: the runtime takes it again inside
-  // its own first refresh.
-  r47_initialize_native_bridge_state();
   r47_native_preinit_path(dir);
   r47_init_runtime();
 
@@ -152,9 +149,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     break;
   case targetBackup:
     restoreCalc();
-    pthread_mutex_lock(&screenMutex);
-    r47_sanitize_graph_bounds_locked();
-    pthread_mutex_unlock(&screenMutex);
+    r47_sanitize_graph_bounds();
     fnRefreshState();
     r47_force_refresh();
     dropKeptStateFiles();

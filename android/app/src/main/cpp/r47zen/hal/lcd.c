@@ -1,5 +1,6 @@
 #include "c47.h"
 #include "lcd.h"
+#include "host_services.h"
 #include <pthread.h>
 #include <stdatomic.h>
 #include <string.h>
@@ -7,33 +8,23 @@
 
 extern uint8_t *lcd_buffer;
 
-// screenData is a NULL compatibility symbol kept only so the compiled PC_BUILD
-// GTK screenshot/clipboard helpers (drawScreen, copyScreenToClipboard,
-// copyMenuToClipboard) link. None of those helpers are reachable on Android, and
-// the live screen/menu dump reads lcd_buffer via lcd_buffer_pixel_on, so the
-// 384 KB framebuffer is never allocated: it is neither written nor read on
-// Android. Leaving it NULL keeps the symbol
-// valid for linking without holding dead resident memory.
-uint32_t *screenData = NULL;
-
 // Android consumes a packed LCD snapshot. Keep it separate from the live
 // lcd_buffer so native refresh paths can still clear row dirty flags.
 uint8_t *packedDisplayBuffer = NULL;
 pthread_mutex_t packedDisplayMutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Lock-free display-change signals. The core thread writes them under
-// packedDisplayMutex (LCD_write_line) while the Android UI thread samples them
-// with no display mutex held (getPackedDisplayGeneration and
-// getKeypadSnapshotGeneration in jni_display.c). The mutex carries the
-// happens-before for the packed buffer payload itself; these two are only the
-// "something changed" hints the reader polls, so a stale sample at most skips or
-// repeats one copy and self-corrects. Plain volatile leaves that concurrent
+// Lock-free display-change signal. The calculator thread writes it under
+// packedDisplayMutex (LCD_write_line) while the Android UI thread samples it with
+// no display mutex held (getPackedDisplayGeneration in jni_display.c). The mutex
+// carries the happens-before for the packed buffer payload itself; this is only
+// the "something changed" hint the reader polls, so a stale sample at most skips
+// or repeats one copy and self-corrects. Plain volatile leaves that concurrent
 // access a data race under the C memory model (ThreadSanitizer flags it via
-// build_bridge_tsan_harness.sh); C11 relaxed atomics make every access
-// well-defined at identical arm64 codegen without imposing any ordering the
-// mutex does not already provide.
+// build_bridge_tsan_harness.sh); a C11 relaxed atomic makes every access
+// well-defined at identical arm64 codegen without imposing any ordering the mutex
+// does not already provide.
 _Atomic uint32_t packedDisplayGeneration = 0;
-_Atomic uint32_t keypadSnapshotGeneration = 0;
+static int lcdBufCleared = 0;
 
 static uint64_t hostLcdRefreshCount = 0;
 
@@ -85,8 +76,6 @@ void init_lcd_buffers() {
   }
 
   atomic_fetch_add_explicit(&packedDisplayGeneration, 1u, memory_order_relaxed);
-  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u,
-                            memory_order_relaxed);
 }
 
 uint8_t *lcd_line_addr(int row) {
@@ -131,16 +120,11 @@ void LCD_write_line(uint8_t *line_buf) {
     atomic_fetch_add_explicit(&packedDisplayGeneration, 1u,
                               memory_order_relaxed);
   }
-  // The keypad snapshot generation MUST bump on every screen refresh, not only
-  // on input. Dynamic softmenus (notably the EQN editor, MNU_EQN) rebuild their
-  // softkey labels on the refresh path (refreshScreen -> LCD_write_line), with
-  // no key event at the moment the labels change. Bumping only on input left the
-  // EQN softkeys stale (wrong buttons) until the display loop's 500 ms fallback.
-  // Keep this coupled to the refresh so the consumer re-reads the keypad whenever
-  // the screen -- and therefore possibly the softkeys -- changes.
-  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u,
-                            memory_order_relaxed);
   pthread_mutex_unlock(&packedDisplayMutex);
+  // Dynamic softmenus (notably the EQN editor, MNU_EQN) rebuild their softkey labels
+  // on the refresh path, with no key event at the moment the labels change, so any
+  // screen write may have changed the keypad.
+  r47_keypad_mark_dirty();
 }
 
 void lcd_clear_buf() {
@@ -166,6 +150,29 @@ void lcd_refresh() {
       LCD_write_line(&lcd_buffer[LCD_ROW_SIZE_BYTES * row]);
     }
   }
+  r47_keypad_publish_if_due();
+}
+
+void lcd_refresh_dma(void) { lcd_refresh(); }
+
+void lcd_refresh_wait(void) { lcd_refresh(); }
+
+void lcd_forced_refresh(void) {
+  if (!lcd_buffer)
+    return;
+  for (uint8_t row = 0; row < SCREEN_HEIGHT; row++) {
+    LCD_write_line(&lcd_buffer[LCD_ROW_SIZE_BYTES * row]);
+  }
+}
+
+void lcd_set_buf_cleared(int val) { lcdBufCleared = val; }
+
+int lcd_get_buf_cleared(void) { return lcdBufCleared; }
+
+int create_screenshot(int report_error) {
+  (void)report_error;
+  fnScreenDump(0);
+  return 0;
 }
 
 void lcd_refresh_lines(uint8_t ln, uint8_t cnt) {
@@ -244,15 +251,6 @@ void lcd_fill_rect(uint32_t x, uint32_t y, uint32_t dx, uint32_t dy, int val) {
     }
   }
 }
-
-void _lcdRefresh(void) { lcd_refresh(); }
-void _lcdBandRefresh(uint32_t y, uint32_t dy) {
-  (void)y;
-  (void)dy;
-  lcd_refresh();
-}
-void _lcdSBRefresh(void) { lcd_refresh(); }
-void refresh_gui(void) {}
 
 // Android HAL implementation of the upstream PC_BUILD pixel-read helper.
 // Called by fnMenuDump and fnScreenDump (both gated by PC_BUILD, which the

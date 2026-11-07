@@ -7,32 +7,32 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-// The app's two keyboard entries beside the calculator's keys: Ctrl+V pastes in place
-// of the V key, and a Ctrl so used shifts nothing on its release; the Menu key opens
-// the main menu and reaches nothing else.
+// The app's two keyboard entries beside the PC keys GTK has: Ctrl+V pastes and
+// still reaches the calculator, which marks Ctrl as used; the Menu key opens the main
+// menu and reaches nothing else.
 @RunWith(RobolectricTestRunner::class)
 class PhysicalKeyboardInputControllerTest {
-    private val sent = mutableListOf<Pair<String, Boolean>>()
+    private val sent = mutableListOf<Triple<Int, Int, Boolean>>()
     private var pastes = 0
     private var menus = 0
     private val controller = PhysicalKeyboardInputController(
-        offerCoreTask = { it.run() },
-        sendSimKeyNative = { id, _, release -> sent += id to release },
-        sendSimMenuNative = {},
+        sendPcKey = { keysym, state, press -> sent += Triple(keysym, state, press) },
         onPaste = { pastes++ },
         onMainMenu = { menus++ },
     )
 
     @Test
-    fun ctrlV_pastesOnce_andSendsNoKey() {
-        assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CTRL_LEFT, CTRL)))
+    fun ctrlV_pastesOnce_andStillSendsTheKey() {
         assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_V, CTRL)))
         assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_V, CTRL, repeat = 1)))
-        controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_V, CTRL))
-        assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CTRL_LEFT)))
+        assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_V, CTRL)))
 
         assertEquals(1, pastes)
-        assertEquals(emptyList<Pair<String, Boolean>>(), sent)
+        assertEquals(
+            listOf('v'.code to true, 'v'.code to true, 'v'.code to false),
+            sent.map { it.first to it.third },
+        )
+        assertTrue(sent.all { it.second and PcKeys.CONTROL_MASK != 0 })
     }
 
     @Test
@@ -52,7 +52,7 @@ class PhysicalKeyboardInputControllerTest {
         assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MENU)))
 
         assertEquals(1, menus)
-        assertEquals(emptyList<Pair<String, Boolean>>(), sent)
+        assertEquals(emptyList<Triple<Int, Int, Boolean>>(), sent)
     }
 
     private fun key(action: Int, code: Int, meta: Int = 0, repeat: Int = 0): KeyEvent {

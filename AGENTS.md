@@ -82,7 +82,7 @@ and limits.
 | call into upstream-owned runtime behavior | [03-upstream-interface-surfaces.md](android/docs/dev/03-upstream-interface-surfaces.md) |
 | change JNI, SAF, the HAL, or native packaging | [04-native-core-and-jni.md](android/docs/dev/04-native-core-and-jni.md) |
 | chase renderer, geometry, or keypad-scene drift | [05-ui-rendering-and-gtk-mapping.md](android/docs/dev/05-ui-rendering-and-gtk-mapping.md) |
-| touch a hot loop, a redraw path, or a lock boundary | [06-runtime-hot-paths.md](android/docs/dev/06-runtime-hot-paths.md) |
+| touch the calculator thread, a hot loop, or a redraw path | [06-runtime-hot-paths.md](android/docs/dev/06-runtime-hot-paths.md) |
 | understand or add a CI lane | [07-ci-and-release-workflow.md](android/docs/dev/07-ci-and-release-workflow.md) |
 | find what locks a contract, or which lane to rerun | [08-tests-and-contracts.md](android/docs/dev/08-tests-and-contracts.md) |
 | find an authoritative external reference | [09-official-references.md](android/docs/dev/09-official-references.md) |
@@ -171,6 +171,10 @@ make repeattest                                      # the same, keeping build.s
 
 ## Facts that surprise people
 
+- **Only the calculator thread runs core code.** Kotlin pushes a key, queues a service
+  request, or copies what that thread published, and no lock covers core state, so a
+  new native that reads it from another thread is a race.
+  [06-runtime-hot-paths.md](android/docs/dev/06-runtime-hot-paths.md#calculator-thread)
 - **A lane failing does not mean this repo changed.** Every lane that builds or
   tests the core resolves upstream HEAD at runtime, so an upstream commit breaks
   CI here with no commit here. Pin `upstream.lock` locally to tell the two apart.

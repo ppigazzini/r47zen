@@ -466,8 +466,8 @@ Public maintainer entry points:
   how CI runs it) and `connectedDebugAndroidTest` otherwise.
   `ProgramFixtureInstrumentedTest` loads each program through the Android
   `READP` path, and the `MANSLV2` case remains bounded: once the harness
-  observes real run activity it publishes a direct stop through the same
-  native stop seam that backs live `R/S` and `EXIT`. The required emulator
+  observes real run activity it presses `R/S` on the same key buffer as the live
+  keypad. The required emulator
   coverage also includes `DisplayLifecycleInstrumentedTest`, which proves that
   background save and a Settings-style pause or resume preserve the visible
   packed LCD snapshot on a staged `SPIRALk` graph, and
@@ -482,7 +482,7 @@ Public maintainer entry points:
   repo treats it as a bounded interrupt contract rather than a completion
   contract.
   Both the host and Android-owned lanes must let it show post-load activity,
-  then publish a direct stop inside a maintained budget and require a clean
+  then stop on a pushed `R/S` inside a maintained budget and require a clean
   stop verdict without calculator error.
 - `make sim` is the canonical root simulator and generator validation path for
   the upstream-shaped desktop lane. Android full builds drive the same
@@ -807,7 +807,7 @@ names, and release gating.
   `ProgramFixtureInstrumentedTest` selection that covers
   `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
   `SPIRALk.p47`. That grouped PROGRAMS selection must still observe run
-  activity, stop cleanly through the direct-stop seam, and fail the Android
+  activity, stop cleanly on `R/S`, and fail the Android
   lane if its outer timeout is hit. When the change touches background save,
   Settings return, or packed-LCD lifecycle preservation, the same release-path
   wrapper lane must also pass `DisplayLifecycleInstrumentedTest`.

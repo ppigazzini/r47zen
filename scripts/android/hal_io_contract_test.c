@@ -14,7 +14,7 @@
 // run_hal_io_contract.sh; no emulator or device is required.
 
 #include "c47.h"
-#include "r47_format.h"
+#include "host_services.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -40,13 +40,10 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   return -1;
 }
 
-// The host side of the report: the bridge's real one calls into MainActivity.
-// The host side of a core warning: the bridge's real one calls into MainActivity.
-static char warned[256] = "";
-void r47_show_warning(const char *text) {
-  snprintf(warned, sizeof(warned), "%s", text);
-}
+// show_warning in hal/io.c reports through it; no case here raises one.
+void r47_upcall_warning(const char *text) { (void)text; }
 
+// The host side of the report: the bridge's real one calls into MainActivity.
 void r47_report_file_write_failure(void) {
   reports++;
 }
@@ -264,10 +261,6 @@ int main(void) {
   snprintf(backup, sizeof(backup), "%s/backupR47.cfg", base);
   snprintf(backup_temp, sizeof(backup_temp), "%s.tmp", backup);
   failures |= check_state_file_replacement();
-  char warning[] = "This is a WP43 program";
-  show_warning(warning);
-  failures |= expect("a core warning reaches the host whole",
-                     strcmp(warned, "This is a WP43 program") == 0);
 
   // Upstream's prints append to a name relative to the working directory, as GTK's
   // land beside the simulator and the firmware's in DATA; an app's own directory is

@@ -526,8 +526,8 @@ dependencies {
 }
 
 // Coverage report. Kover instruments the JVM unit tests and writes a per-class
-// report of what the JNI-facing Kotlin (for example MainActivity.dispatchLiveKey,
-// LiveKeyRouter) actually exercises. No Kover `verify` rule gates here: the
+// report of what the JNI-facing Kotlin (for example MainActivity.dispatchLiveKey)
+// actually exercises. No Kover `verify` rule gates here: the
 // threshold lives in scripts/android/coverage_gate.sh, which the android-tests CI
 // lane runs over koverXmlReportRelease and fails on a drop below
 // R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT. The report tasks run only when

@@ -24,47 +24,30 @@ class FactoryResetControllerTest {
         .get()
     private var sharedStateResets = 0
     private var releases = 0
-    private var kills = 0
+    private var processKills = 0
 
     @Test
-    fun resetDestroy_withTheCoreStopped_resetsSharedStateAndWipesFiles() {
+    fun resetDestroy_wipesFilesAndEndsTheProcess() {
         val savedState = seedSavedState()
-        val controller = resettingController(coreThreadRunning = false)
+        val controller = resettingController()
 
         controller.handleDestroy(shouldStopApp = true)
 
         assertEquals(1, sharedStateResets)
         assertEquals(0, releases)
-        assertEquals(0, kills)
         assertFalse(savedState.exists())
-    }
-
-    @Test
-    fun resetDestroy_withTheCoreStillRunning_keepsFilesAndEndsTheProcess() {
-        val savedState = seedSavedState()
-        val controller = resettingController(coreThreadRunning = true)
-
-        controller.handleDestroy(shouldStopApp = true)
-
-        // A live core thread would autosave into a wiped directory, and a shared
-        // state reset would let the relaunch start a second core thread. A relaunch
-        // into this process would attach to the busy thread instead, so it ends.
-        assertEquals(0, sharedStateResets)
-        assertEquals(1, releases)
-        assertEquals(1, kills)
-        assertTrue(savedState.exists())
+        assertEquals(1, processKills)
     }
 
     @Test
     fun finishingDestroy_withoutAReset_releasesOnlyAndKeepsFiles() {
         val savedState = seedSavedState()
-        val controller = controller(coreThreadRunning = false)
+        val controller = controller()
 
         controller.handleDestroy(shouldStopApp = true)
 
         assertEquals(0, sharedStateResets)
         assertEquals(1, releases)
-        assertEquals(0, kills)
         assertTrue(savedState.exists())
     }
 
@@ -74,7 +57,7 @@ class FactoryResetControllerTest {
         val workDirectory = "content://test.documents/tree/work".toUri()
         SavedManual.remember(activity, manual)
         WorkDirectory.persistSelectedTreeUri(activity, workDirectory)
-        val controller = resettingController(coreThreadRunning = false)
+        val controller = resettingController()
 
         controller.handleDestroy(shouldStopApp = true)
 
@@ -88,8 +71,7 @@ class FactoryResetControllerTest {
         val manual = "content://test.documents/document/manual".toUri()
         SavedManual.remember(activity, manual)
 
-        controller(coreThreadRunning = false).handleDestroy(shouldStopApp = true)
-        resettingController(coreThreadRunning = true).handleDestroy(shouldStopApp = true)
+        controller().handleDestroy(shouldStopApp = true)
 
         assertEquals(manual, SavedManual.read(activity))
         assertEquals(listOf(manual), activity.contentResolver.persistedUriPermissions.map { it.uri })
@@ -97,14 +79,12 @@ class FactoryResetControllerTest {
 
     @Test
     fun anIntentFromAnotherAppDoesNotReset() {
-        // MainActivity is exported: any app can send the action, with any extra it guesses.
-        val fromOtherApp = Intent().apply {
+        val fromOtherApp = Intent(activity, MainActivity::class.java).apply {
             action = FactoryResetController.createIntent(activity).action
         }
-        assertFalse(controller(coreThreadRunning = false).isFactoryResetIntent(fromOtherApp))
-        assertFalse(
-            controller(coreThreadRunning = false).isFactoryResetIntent(fromOtherApp.putExtra("token", "guess")),
-        )
+
+        assertFalse(controller().isFactoryResetIntent(fromOtherApp))
+        assertFalse(controller().isFactoryResetIntent(fromOtherApp.putExtra("token", "guess")))
     }
 
     @Test
@@ -124,34 +104,16 @@ class FactoryResetControllerTest {
     }
 
     @Test
-    fun aResetRequestStopsARunningProgramBeforeItStopsTheCore() {
-        // A running program keeps the core thread in its task, past the dispose fence,
-        // and the reset would then be skipped.
-        registerLaunchActivity()
-        val calls = mutableListOf<String>()
-        val controller = controller(
-            onResetRequested = { calls += "dispose" },
-            stopRunningProgram = { calls += "stop" },
-        )
-
-        controller.handleResetRequest()
-
-        assertEquals(listOf("stop", "dispose"), calls)
-    }
-
-    @Test
     fun anIntentFromSettingsResets() {
-        assertTrue(
-            controller(coreThreadRunning = false).isFactoryResetIntent(FactoryResetController.createIntent(activity)),
-        )
+        assertTrue(controller().isFactoryResetIntent(FactoryResetController.createIntent(activity)))
     }
 
     private fun seedSavedState(): File {
         return File(activity.filesDir, "r47-saved-state.bin").apply { writeText("state") }
     }
 
-    private fun resettingController(coreThreadRunning: Boolean): FactoryResetController {
-        return controller(coreThreadRunning).also { it.markResetInProgressForTest() }
+    private fun resettingController(): FactoryResetController {
+        return controller().also { it.markResetInProgressForTest() }
     }
 
     private fun registerLaunchActivity() {
@@ -167,18 +129,13 @@ class FactoryResetControllerTest {
         shadowOf(activity.packageManager).addResolveInfoForIntent(launcher, info)
     }
 
-    private fun controller(
-        coreThreadRunning: Boolean = false,
-        onResetRequested: () -> Unit = {},
-        stopRunningProgram: () -> Unit = {},
-    ): FactoryResetController {
+    private fun controller(onResetRequested: () -> Unit = {}): FactoryResetController {
         return FactoryResetController(
             activity = activity,
             onResetRequested = onResetRequested,
             onDestroyFactoryReset = { sharedStateResets++ },
             onDestroyFinish = { releases++ },
-            isCoreThreadRunning = { coreThreadRunning },
-            stopRunningProgram = stopRunningProgram,
-        ).also { it.killProcess = { kills++ } }
+            killProcess = { processKills += 1 },
+        )
     }
 }

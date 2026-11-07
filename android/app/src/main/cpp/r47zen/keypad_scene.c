@@ -1,9 +1,11 @@
 // The keypad scene resolver: from the core's keyboard, shift, mode, and
 // softmenu state, the labels, roles, and flags of every key the overlay draws,
-// plus the C entry points that read a whole scene under screenMutex. It makes
+// plus the C entry points that publish and read a whole scene. It makes
 // no JNI call, so the keypad fixture exporter and the TSan harness run the same
 // code the app does; jni_display.c turns a scene into Java arrays.
 #include "jni_bridge.h"
+#include "host_services.h"
+#include <pthread.h>
 
 #include "core_label.h"
 
@@ -1425,7 +1427,7 @@ static void overlayUserModeKeypadSnapshot(
   }
 }
 
-static void fillAppKeypadSnapshotLocked(
+static void fillAppKeypadSnapshot(
     jint *fill,
     char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
                [R47_KEYPAD_LABEL_CAPACITY],
@@ -1479,9 +1481,7 @@ void r47_get_keypad_meta(int32_t *fill, bool isDynamic) {
     return;
   }
 
-  pthread_mutex_lock(&screenMutex);
   fillKeypadMeta((jint *)fill, isDynamic ? JNI_TRUE : JNI_FALSE);
-  pthread_mutex_unlock(&screenMutex);
 }
 
 void r47_get_keypad_labels(
@@ -1499,7 +1499,6 @@ void r47_get_keypad_labels(
     return;
   }
 
-  pthread_mutex_lock(&screenMutex);
   bool_t alphaOn = isAlphaKeyboardActive();
   bool_t userKeyboardEnabled = isUserKeyboardEnabled();
   keypadMainLabelPresentation_t presentation = buildLegacyMainLabelPresentation(
@@ -1524,13 +1523,93 @@ void r47_get_keypad_labels(
                            scene.primaryLabel);
     setExportedKeypadLabel(labels, keyCode, KEYPAD_LABEL_AUX, scene.auxLabel);
   }
-
-  pthread_mutex_unlock(&screenMutex);
 }
 
-// The UI-thread keypad read: never blocks on the core thread, which can hold
-// screenMutex for a whole running program. bridge_tsan_harness.c calls this
-// same function, so the harness races the production gate, not a copy of it.
+// The keypad as the main thread sees it. The calculator thread resolves the scene
+// into the back copy and swaps it in, so the main thread never reads core state and
+// never waits for a computation. A snapshot equal to the last one is not published,
+// so the generation moves only when a label or state really changed.
+typedef struct {
+  int32_t mode;
+  int32_t fill[R47_KEYPAD_META_LENGTH];
+  char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+             [R47_KEYPAD_LABEL_CAPACITY];
+} publishedKeypad_t;
+
+#define R47_KEYPAD_ACTIVITY_WINDOW_MS 1500u
+#define R47_KEYPAD_BUSY_PUBLISH_MS 100u
+
+static publishedKeypad_t publishedKeypads[2];
+static publishedKeypad_t *frontKeypad = &publishedKeypads[0];
+static publishedKeypad_t *backKeypad = &publishedKeypads[1];
+static pthread_mutex_t publishedKeypadMutex = PTHREAD_MUTEX_INITIALIZER;
+static _Atomic uint32_t publishedKeypadGeneration = 0;
+static _Atomic int32_t requestedKeypadMode = -1;
+static int32_t publishedMode = 0;
+static bool keypadDirty = true;
+static uint32_t lastInputMs = 0;
+static uint32_t lastPublishMs = 0;
+
+uint32_t r47_keypad_published_generation(void) {
+  return atomic_load_explicit(&publishedKeypadGeneration, memory_order_relaxed);
+}
+
+void r47_keypad_mark_dirty(void) { keypadDirty = true; }
+
+void r47_keypad_mark_input(void) {
+  keypadDirty = true;
+  lastInputMs = sys_current_ms();
+}
+
+static void publishKeypad(void) {
+  fillAppKeypadSnapshot((jint *)backKeypad->fill, backKeypad->labels,
+                        (jint)publishedMode);
+  backKeypad->mode = publishedMode;
+  keypadDirty = false;
+  lastPublishMs = sys_current_ms();
+
+  pthread_mutex_lock(&publishedKeypadMutex);
+  if (memcmp(backKeypad, frontKeypad, sizeof(publishedKeypad_t)) != 0) {
+    publishedKeypad_t *previous = frontKeypad;
+    frontKeypad = backKeypad;
+    backKeypad = previous;
+    atomic_fetch_add_explicit(&publishedKeypadGeneration, 1u,
+                              memory_order_relaxed);
+  }
+  pthread_mutex_unlock(&publishedKeypadMutex);
+}
+
+// A timer can change a softkey with no key and no draw (a long press), so the
+// snapshot is also taken while the last input is recent.
+void r47_keypad_publish_at_rest(void) {
+  if (!ram) {
+    return;
+  }
+  const uint32_t now = sys_current_ms();
+  if (keypadDirty || now - lastInputMs < R47_KEYPAD_ACTIVITY_WINDOW_MS) {
+    publishKeypad();
+  }
+}
+
+// From a refresh during a long operation: labels may follow the screen, at a pace
+// that does not slow the computation down.
+void r47_keypad_publish_if_due(void) {
+  if (ram && keypadDirty &&
+      sys_current_ms() - lastPublishMs >= R47_KEYPAD_BUSY_PUBLISH_MS) {
+    publishKeypad();
+  }
+}
+
+void r47_keypad_set_mode(int mode) {
+  publishedMode = (int32_t)mode;
+  atomic_store_explicit(&requestedKeypadMode, -1, memory_order_relaxed);
+  if (ram) {
+    publishKeypad();
+  }
+}
+
+// Any thread, normally the main one. A copy in a label mode the calculator has not
+// published yet asks for it and returns false; the generation moves when it is ready.
 bool r47_try_copy_app_keypad_snapshot(
     int32_t *fill,
     char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
@@ -1539,10 +1618,21 @@ bool r47_try_copy_app_keypad_snapshot(
   if (!r47_runtime_ready()) {
     return false;
   }
-  if (pthread_mutex_trylock(&screenMutex) != 0) {
+  if (pthread_mutex_trylock(&publishedKeypadMutex) != 0) {
     return false;
   }
-  fillAppKeypadSnapshotLocked((jint *)fill, labels, (jint)mainKeyDynamicMode);
-  pthread_mutex_unlock(&screenMutex);
-  return true;
+  const bool sameMode = frontKeypad->mode == mainKeyDynamicMode;
+  if (sameMode) {
+    memcpy(fill, frontKeypad->fill, sizeof(frontKeypad->fill));
+    memcpy(labels, frontKeypad->labels, sizeof(frontKeypad->labels));
+  }
+  pthread_mutex_unlock(&publishedKeypadMutex);
+  if (!sameMode &&
+      atomic_exchange_explicit(&requestedKeypadMode, mainKeyDynamicMode,
+                               memory_order_relaxed) != mainKeyDynamicMode &&
+      !r47_service_keypad_mode((int)mainKeyDynamicMode)) {
+    // The queue is full: the next copy asks again.
+    atomic_store_explicit(&requestedKeypadMode, -1, memory_order_relaxed);
+  }
+  return sameMode;
 }
