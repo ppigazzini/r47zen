@@ -27,6 +27,7 @@ void guiSetClipboardText(const char *text) {
 // The calculator thread. Runs one of upstream's clipboard copies and returns its
 // text, which the caller frees, or NULL when the copy could not allocate.
 char *r47_capture_clipboard(void (*copy)(void)) {
+  R47_CALCULATOR_THREAD_ONLY();
   char *text = NULL;
   clipboardCapture = &text;
   copy();

@@ -62,6 +62,7 @@ static void cutToWholeCharacter(char *text, size_t max) {
 }
 
 char *r47_display_text(bool *isError) {
+  R47_CALCULATOR_THREAD_ONLY();
   *isError = false;
   if (!ram) {
     return NULL;

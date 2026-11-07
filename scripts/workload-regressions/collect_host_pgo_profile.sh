@@ -783,7 +783,9 @@ RESOURCE_DIR_SHIM=$(prepare_resource_dir_shim "$NDK_RESOURCE_DIR" "$HOST_PROFILE
 
 configure_instrumented_build
 
-PROGRAM_FIXTURE_CFLAGS="-O3 $INSTRUMENT_CFLAGS"
+# The release build defines NDEBUG, which drops the glue's debug thread checks; a profile
+# taken with them in would not match the release functions it is meant for.
+PROGRAM_FIXTURE_CFLAGS="-O3 -DNDEBUG $INSTRUMENT_CFLAGS"
 PROGRAM_FIXTURE_LDFLAGS="$INSTRUMENT_LDFLAGS"
 
 TRAINING_RUNTIME_CWD=$(resolve_training_runtime_cwd)

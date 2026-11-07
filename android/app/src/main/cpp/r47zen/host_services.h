@@ -39,6 +39,22 @@ enum {
   R47_COPY_ALL = 2,
 };
 
+// The app's one threading rule is that only the calculator thread runs core code. A debug
+// build checks it where the core calls the HAL and where a request starts, so a path that
+// breaks the rule aborts at its first call, not as a race much later. A release build
+// compiles this out. jni_core_reach.py holds the JNI entries to the same rule.
+#if defined(NDEBUG)
+#define R47_CALCULATOR_THREAD_ONLY() ((void)0)
+#else
+void r47_assert_calculator_thread(const char *caller);
+#define R47_CALCULATOR_THREAD_ONLY() r47_assert_calculator_thread(__func__)
+#endif
+#if defined(HOST_TOOL_BUILD)
+// A host tool that hands the core to another thread, across a thread start or a join,
+// names the thread that owns it from here on.
+void r47_keys_claim_calculator_thread(void);
+#endif
+
 // Any thread. A false return means the queue is full and the request was refused.
 bool r47_service_paste(const char *tokens);
 bool r47_service_shell_menu(int shellMenu);

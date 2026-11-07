@@ -109,9 +109,11 @@ echo 'void aDefinitionNothingCalls(void) {}' >"$SEED_DIR/seed.c"
 }
 
 # Each of these has its caller in a build this harness does not link: the program-load
-# test bridge for the display buffer and its lock, and the workload harness for the counter.
+# test bridge for the display buffer and its lock, and the workload harness for the counter
+# and for handing the core to its worker thread.
 USED_OUTSIDE_THIS_HARNESS='packedDisplayBuffer
 packedDisplayMutex
+r47_keys_claim_calculator_thread
 r47_reset_host_lcd_refresh_count'
 unreferenced="$(unreferenced_hal_definitions "$OBJECT_DIR"/*_r47zen_hal_*.o -- "$OBJECT_DIR"/*.o)"
 unexpected="$(comm -23 <(printf '%s\n' "$unreferenced") <(printf '%s\n' "$USED_OUTSIDE_THIS_HARNESS" | LC_ALL=C sort -u))"
@@ -120,6 +122,41 @@ unexpected="$(comm -23 <(printf '%s\n' "$unreferenced") <(printf '%s\n' "$USED_O
     echo "$unexpected" >&2
     exit 1
 }
+
+# Only the calculator thread runs core code, and a JNI entry runs on its caller's thread,
+# so no route from one may name a core symbol. Each glue definition gets its own section,
+# so a relocation section names what that definition refers to. The check sees its seed
+# first: an entry reaching a core global through a static helper, among the real glue.
+core_reach() {
+    python3 -I "$SCRIPT_DIR/../r47_contracts/jni_core_reach.py" "$@"
+}
+REACH_DIR="$BUILD_DIR/reach"
+rm -rf "$REACH_DIR"
+mkdir -p "$REACH_DIR/glue" "$REACH_DIR/core" "$REACH_DIR/seeded-glue"
+REACH_FLAGS=(-fno-sanitize=all -O0 -g0 -ffunction-sections -fdata-sections)
+for source in "${ANDROID_BRIDGE_SOURCES[@]}"; do
+    "$CC_BIN" "@$BUILD_DIR/compile.rsp" "${REACH_FLAGS[@]}" -c "$source" \
+        -o "$REACH_DIR/glue/$(printf '%s' "$source" | tr '/' '_').o"
+done
+# The core is what the staged tree compiled; an object name is its source path.
+find "$OBJECT_DIR" -name '*_.staged-native_cpp_*.o' -exec ln -s {} "$REACH_DIR/core/" \;
+cp "$REACH_DIR"/glue/*.o "$REACH_DIR/seeded-glue/"
+cat >"$REACH_DIR/seed.c" <<'C'
+extern int programRunStop;
+static int helper(void) { return programRunStop; }
+int Java_seed_entry(void) { return helper(); }
+C
+"$CC_BIN" "${REACH_FLAGS[@]}" -c "$REACH_DIR/seed.c" -o "$REACH_DIR/seeded-glue/seed.o"
+seed_routes="$(core_reach "$REACH_DIR/seeded-glue" "$REACH_DIR/core" || true)"
+[ "$seed_routes" = "Java_seed_entry -> helper -> programRunStop" ] || {
+    echo "ERROR: the JNI reach check did not see its seed: $seed_routes" >&2
+    exit 1
+}
+if ! routes="$(core_reach "$REACH_DIR/glue" "$REACH_DIR/core")"; then
+    echo "ERROR: a JNI entry reaches core code off the calculator thread:" >&2
+    echo "$routes" >&2
+    exit 1
+fi
 
 "$CC_BIN" -pthread -fsanitize=address,undefined \
     -Wl,--wrap=exit \

@@ -120,6 +120,23 @@ class PhysicalKeyboardInputParityTest {
     }
 
     @Test
+    fun everyShortcutReleasesEachKeyItPresses() {
+        assertEquals(
+            listOf("key:09:false:false", "key:09:false:true"),
+            dispatchShortcut(PhysicalKeyboardShortcutId.DRG),
+        )
+
+        for (id in PhysicalKeyboardShortcutId.entries) {
+            val keys = dispatchShortcut(id).filter { it.startsWith("key:") }
+            keys.chunked(2).forEach { pair ->
+                assertEquals("$id presses and releases in pairs: $keys", 2, pair.size)
+                assertTrue("$id holds a press: $keys", pair[0].endsWith(":false"))
+                assertTrue("$id releases what it pressed: $keys", pair[1].endsWith(":true"))
+            }
+        }
+    }
+
+    @Test
     fun shiftTapOnlyFiresWhenModifierWasNotUsed() {
         val sentKeys = mutableListOf<String>()
         val controller = recordingController(sentKeys)
