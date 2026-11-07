@@ -50,6 +50,7 @@ CONTRACTS=(
     run_glue_sources_contract.sh
     run_merge_request_watch_contract.sh
     run_build_metadata_reader_contract.sh
+    run_core_language_flags_contract.sh
 )
 
 failed=()

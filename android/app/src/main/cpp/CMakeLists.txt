@@ -114,6 +114,13 @@ target_compile_options(r47zen PRIVATE
     "SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/r47zen/android_mocks.h"
 )
 
+# The language the shipping firmware is compiled in, from the c_args of upstream's
+# src/c47-dmcp/cross_arm_gcc.build. arm64 makes a plain char unsigned and clang's -O3
+# relies on strict aliasing; without both, the app would run the core in a dialect the
+# shipping calculator never runs. run_core_language_flags_contract.sh holds this list
+# to the cross files.
+target_compile_options(r47zen PRIVATE -fsigned-char -fno-strict-aliasing)
+
 # r47zen/stubs comes first: its GTK, GDK and cairo stand-ins satisfy upstream's
 # includes without rewriting the staged tree. Its android/log.h defers to the
 # NDK's own on Android.

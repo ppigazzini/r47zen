@@ -41,6 +41,7 @@ mapfile -t ANDROID_BRIDGE_SOURCES < <(r47_glue_sources "$TRACKED_CPP_DIR")
 "$CC_BIN" -std=gnu17 -O1 -g -pthread \
     -fsanitize=address,undefined -fno-sanitize=alignment \
     -fno-omit-frame-pointer \
+    -fsigned-char -fno-strict-aliasing \
     -D_GNU_SOURCE -D_DEFAULT_SOURCE \
     -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47 \
     -I"$JDK_HOME/include" \

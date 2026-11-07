@@ -681,6 +681,19 @@ the Android-only runtime seam.
 The repo also keeps non-device contract surfaces for the shared core and the
 Android compatibility layer.
 
+- `build_fuzz_core.sh` builds `fuzz_core.c` with the staged core and the glue under
+  libFuzzer, AddressSanitizer, and UndefinedBehaviorSanitizer, and fuzzes each reader of a
+  file a user hands the calculator: READP, the state file every start restores, LOADST, and
+  a data file. Seeds are upstream's `res/PROGRAMS`, `res/STATE`, and `res/DATA`, a state file
+  this core saves and a SAVEST file it writes, both with a program and registers in
+  them, and the released cores' fixtures, with the section names of the seeds as a
+  dictionary. A restore input is followed, as at the app's start, by the graph-bound
+  repair, the state refresh, and the first redraw, and starts from a folder with no file
+  set aside before it. A crash prints only the fault's kind and stack to the log: for an
+  out-of-memory finding libFuzzer prints a short input itself.
+  A core `exit` is a finding, which libFuzzer reports itself, so the fuzzer does not link
+  `exit` to the logged abort the app does: that wrap would reach libFuzzer's own `exit`.
+  `linux-ci.yml`'s `fuzz-core` runs it for 15 minutes a reader.
 - `scripts/workload-regressions/run_workload_regressions.sh` builds the staged
   core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then runs the
   canonical host workload set through the host compatibility path: the
@@ -1048,6 +1061,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_commit_message_contract.sh` | `scripts/docs/check_commit_message.sh` accepts and rejects seeded messages on both sides of each commit rule it holds, for a message file and for `--range` | yes, seeded messages and a scratch repository |
 | `run_glue_sources_contract.sh` | `r47zen/glue_sources.txt` lists every glue `.c` but the program-load test bridge, each listed file exists, and no build file names three or more glue sources by hand | yes, a seeded hand list |
 | `run_build_metadata_reader_contract.sh` | `read_build_metadata.sh` prints the real values of a release's and a dev build's `BUILD-METADATA.txt`, refuses without evaluating a value of the wrong shape, a key that is missing or given twice, and an unknown kind, and no workflow reads that file with a bare `sed` | yes, hostile values that would run a command, and a seeded bare read |
+| `run_core_language_flags_contract.sh` | `CMakeLists.txt` and `collect_host_pgo_profile.sh` compile the core with `-fsigned-char -fno-strict-aliasing`, both firmware cross files still hold them, every other `-f` flag in their c_args and in the `dmcp_cargs` of their `meson.build` is one the contract lists as code layout, and `CMakeLists.txt` never names the opposite flag; comments do not count. With no hydrated core it checks the copies and its reader, and `linux-ci.yml` runs it again on the synced `src` | yes, a seeded cross file |
 | `run_merge_request_watch_contract.sh` | `watch_merge_request.sh` dispatches a branch's lanes on a merge ref only for a branch or merge commit no lane has seen, dispatches for a request that is open or locked while it merges, fails on one that is merged or closed or has no merge ref, and every lane it names takes `upstream_commit` and shows it in its run title | yes, runs the script against stub `curl`, `git`, and `gh` |
 | `run_jni_surface_check_contract.sh` | `check_jni_surface.sh`, which `collect_packaging_evidence.sh` runs over every signed APK, fails a dex that lost a registered native, a native flag, a `GetMethodID` callback, a callback signature, or the `MainActivity` class name | yes, fixtures built from the C sources' names |
 | `run_quiet_grep_pipeline_contract.sh` | no script, workflow, or composite action pipes a command into `grep -q`: grep exits at its first match, the command feeding it dies of SIGPIPE, and under `pipefail` the match reads as a miss, so the output is captured first and matched with `<<<` | yes, fixtures |

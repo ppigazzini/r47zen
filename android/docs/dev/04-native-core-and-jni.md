@@ -50,7 +50,17 @@ with `r47zen/.clang-tidy`, which enables the static analyzer and the bugprone
 checks and says why each check it turns off is noise here, and fails on any
 finding. The whole library builds as gnu17, set on the target: upstream's meson
 build names no C standard, so the core compiles as the compiler default, and
-the host harnesses build the same sources as gnu17 too. The glue compiles
+the host harnesses build the same sources as gnu17 too. The whole library
+compiles with `-fsigned-char -fno-strict-aliasing`, the language flags of the
+firmware's two `cross_arm_gcc.build` files: arm64 makes a plain `char` unsigned
+and clang's `-O3` assumes strict aliasing, so without them the app would run the
+core in a dialect the shipping calculator never runs. The PGO collector, the fuzzer,
+and the calculator thread harness compile with both too.
+`run_core_language_flags_contract.sh` holds the app and the collector to the list,
+and sorts every other `-f` flag of the cross files as code layout only. With the
+flags, the arm64 ThinLTO library's `.text` is 604 bytes smaller (measured, no PGO);
+its speed on arm64 was not measured, and on x86-64, where `char` is already signed,
+upstream's suite at `-O3` moved within its run-to-run spread. The glue compiles
 with `-Wall -Wextra`; the staged upstream sources keep upstream's
 warning level. The flags stop short of `-Werror` because the glue includes
 upstream headers, so a new warning from an upstream commit would otherwise break

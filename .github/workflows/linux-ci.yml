@@ -13,6 +13,8 @@ on:
         type: string
   schedule:
     - cron: '24 3 * * *'
+    # Sundays: the fuzz-core job, which no other event but a dispatch runs.
+    - cron: '44 4 * * 0'
   # main runs the lanes on every landed commit; github_ci is the on-demand
   # pre-merge branch (git push --force-with-lease origin main:github_ci) that
   # runs every lane on a change before it reaches main.
@@ -28,8 +30,10 @@ permissions:
 env:
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
 
+# The Sunday fuzz schedule has a group of its own, so it neither cancels a late
+# nightly run nor is canceled by one; every other event shares the usual group.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.schedule == '44 4 * * 0' && 'fuzz' || 'event' }}
   cancel-in-progress: true
 
 jobs:
@@ -92,11 +96,15 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
           MARKER_HIT: ${{ steps.marker.outputs.cache-hit }}
           UPSTREAM_SHORT: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
         run: |
           set -euo pipefail
-          if [ "$EVENT_NAME" != "schedule" ]; then
+          if [ "$EVENT_SCHEDULE" = "44 4 * * 0" ]; then
+            echo "should_run=false" >>"$GITHUB_OUTPUT"
+            echo "The Sunday schedule runs fuzz-core, not the nightly rebuild." >&2
+          elif [ "$EVENT_NAME" != "schedule" ]; then
             echo "should_run=true" >>"$GITHUB_OUTPUT"
             echo "Event $EVENT_NAME always builds." >&2
           elif [ "$MARKER_HIT" = "true" ]; then
@@ -531,6 +539,15 @@ jobs:
           bash ./scripts/workload-regressions/build_state_durability_harness.sh 2>&1 \
             | tee ci-artifacts/logs/state-durability-harness.log
 
+      - name: Hold the core's language flags against the synced core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The host contracts above run before the sync, where this one finds no
+          # core and checks only its checker. Here it reads what was hydrated.
+          bash ./scripts/android/run_core_language_flags_contract.sh "$PWD/src"
+
       - name: Run lcd HAL contract test
         shell: bash
         run: |
@@ -571,6 +588,81 @@ jobs:
             ci-artifacts/logs/hal-io-contract.log
           if-no-files-found: warn
           retention-days: 14
+
+  fuzz-core:
+    name: Fuzz the readers of files a user opens
+    # Weekly, and on a dispatch, which is how merge-request-watch.yml runs the port
+    # branch's lanes; a push does not wait an hour for it.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '44 4 * * 0'
+    needs:
+      - resolve-upstream-core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Load shared Android defaults
+        id: defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          . ./android/r47-defaults.properties
+
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "jobs=$(nproc)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux build dependencies and libFuzzer
+        shell: bash
+        run: |
+          set -euo pipefail
+          # llvm-18 brings the symbolizer, so a crash's stack names its functions.
+          bash ./scripts/android/install_linux_build_deps.sh clang-18 libclang-rt-18-dev llvm-18
+
+      - name: Set up xlsxio toolchain
+        uses: ./.github/actions/setup-xlsxio-toolchain
+        with:
+          url: ${{ steps.defaults.outputs.xlsxio_url }}
+          commit: ${{ steps.defaults.outputs.xlsxio_commit }}
+          prefix: ${{ steps.defaults.outputs.xlsxio_prefix }}
+          jobs: ${{ steps.defaults.outputs.jobs }}
+
+      - name: Sync and stage the authoritative upstream core
+        shell: bash
+        env:
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
+            --url "$UPSTREAM_URL" --commit "$UPSTREAM_COMMIT"
+          bash ./scripts/upstream-sync/hydrate_submodules.sh "$UPSTREAM_COMMIT" "$UPSTREAM_URL"
+          bash ./scripts/android/prepare_native_build_inputs.sh
+
+      - name: Fuzz each reader for 15 minutes
+        shell: bash
+        env:
+          CC: clang-18
+          R47_FUZZ_SECONDS: '900'
+          ASAN_SYMBOLIZER_PATH: /usr/lib/llvm-18/bin/llvm-symbolizer
+        run: |
+          set -euo pipefail
+          # A crash fails the job with its sanitizer report, stack included, in this
+          # log. The crashing input stays on the runner: it would be a working
+          # reproducer, published.
+          bash ./scripts/workload-regressions/build_fuzz_core.sh
 
   record-nightly-marker:
     name: Record the nightly build marker

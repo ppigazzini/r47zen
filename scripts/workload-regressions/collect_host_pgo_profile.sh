@@ -640,7 +640,9 @@ configure_instrumented_build() {
 
     rm -rf "$HOST_BUILD_DIR"
 
-    INSTRUMENT_CFLAGS="-flto=thin -fprofile-generate=$RAW_PROFILE_DIR -fprofile-update=atomic -resource-dir=$RESOURCE_DIR_SHIM"
+    # -fsigned-char and -fno-strict-aliasing as the app compiles the core, so the profile
+    # describes the code the release runs (run_core_language_flags_contract.sh).
+    INSTRUMENT_CFLAGS="-fsigned-char -fno-strict-aliasing -flto=thin -fprofile-generate=$RAW_PROFILE_DIR -fprofile-update=atomic -resource-dir=$RESOURCE_DIR_SHIM"
     INSTRUMENT_LDFLAGS="-flto=thin -fuse-ld=lld -fprofile-generate=$RAW_PROFILE_DIR -resource-dir=$RESOURCE_DIR_SHIM"
 
     env \
@@ -660,7 +662,7 @@ configure_instrumented_build() {
         -DRASPBERRY=false \
         -DDECNUMBER_FASTMUL=true
 
-    validate_effective_cflags "$HOST_BUILD_DIR" "-flto=thin -fprofile-generate=$RAW_PROFILE_DIR"
+    validate_effective_cflags "$HOST_BUILD_DIR" "-fsigned-char -fno-strict-aliasing -flto=thin -fprofile-generate=$RAW_PROFILE_DIR"
 
     ninja -C "$HOST_BUILD_DIR" -j "$JOBS" src/c47/vcs.h
     ninja -C "$HOST_BUILD_DIR" -j "$JOBS" src/testSuite/testSuite
