@@ -9,6 +9,7 @@
 
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -54,7 +55,34 @@ static int64_t realUs(void) {
   return (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
 }
 
+#if !defined(NDEBUG)
+static pthread_t calculatorThread;
+static _Atomic bool calculatorThreadKnown = false;
+
+void r47_assert_calculator_thread(const char *caller) {
+  if (atomic_load_explicit(&calculatorThreadKnown, memory_order_acquire) &&
+      !pthread_equal(pthread_self(), calculatorThread)) {
+    LOGE("%s ran off the calculator thread", caller);
+    abort();
+  }
+}
+#endif // !NDEBUG
+
+#if defined(HOST_TOOL_BUILD)
+void r47_keys_claim_calculator_thread(void) {
+#if !defined(NDEBUG)
+  calculatorThread = pthread_self();
+  atomic_store_explicit(&calculatorThreadKnown, true, memory_order_release);
+#endif // !NDEBUG
+}
+#endif // HOST_TOOL_BUILD
+
+// The calculator thread, before it runs anything else.
 void r47_keys_init(void) {
+#if !defined(NDEBUG)
+  calculatorThread = pthread_self();
+  atomic_store_explicit(&calculatorThreadKnown, true, memory_order_release);
+#endif // !NDEBUG
   processStartUs = monotonicUs();
 
   pthread_condattr_t attr;
@@ -182,6 +210,7 @@ static void cancelPressedKey(void) {
 }
 
 void keyDispatchHostEvent(int key) {
+  R47_CALCULATOR_THREAD_ONLY();
   switch (hostEvents[key - KEY_HOST_EVENT_FIRST]) {
   case hostShiftF:
     shiftF = true;
@@ -205,6 +234,7 @@ void keyDispatchHostEvent(int key) {
 }
 
 int key_empty(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   pthread_mutex_lock(&keyMutex);
   // The ring's wipe can lose a quit a redraw moved there, so an operation's poll looks
   // for it here, and key_pop brings it back.
@@ -219,6 +249,7 @@ int key_push(int k1) {
 }
 
 int key_tail(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   pthread_mutex_lock(&keyMutex);
   const int key = keyCount == 0 ? -1 : keyBuffer[0];
   pthread_mutex_unlock(&keyMutex);
@@ -248,6 +279,7 @@ static int popKey(void) {
 // program moves nothing, and the ring holds one key at a time: the second of two quick
 // taps stays here, where a program the first one starts can see it.
 int keyPopForMainLoop(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (programRunStop == PGM_RUNNING || !emptyKeyBuffer()) {
     return -1;
   }
@@ -262,6 +294,7 @@ int keyPopForMainLoop(void) {
 }
 
 int key_pop(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   for (;;) {
     const int key = popKey();
     if (!keyIsHostEvent(key)) {
@@ -274,6 +307,7 @@ int key_pop(void) {
 // Upstream calls this after a poll found no stop key, so an EXIT or R/S pushed between
 // the poll and this call would be lost: those two survive, with a release behind them.
 void key_pop_all(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   pthread_mutex_lock(&keyMutex);
   int kept = 0;
   for (int i = 0; i < keyCount; i++) {
@@ -310,6 +344,7 @@ void keyDispatchNow(void) {
 #endif // HOST_TOOL_BUILD
 
 void wait_for_key_release(int tout) {
+  R47_CALCULATOR_THREAD_ONLY();
   pthread_mutex_lock(&keyMutex);
   const int64_t deadline = tout > 0 ? monotonicUs() + (int64_t)tout * 1000 : 0;
   while (keysFromHost && pushedKeyDown) {
@@ -362,6 +397,7 @@ static void saveIfInPause(void) {
 }
 
 void sys_sleep(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   const bool atRest = calculatorAtRest();
   // A request can change what the main loop must do next, such as switch off, so
   // the loop looks again before anything sleeps.
@@ -437,6 +473,7 @@ void sys_sleep(void) {
 }
 
 void sys_delay(uint32_t ms_delay) {
+  R47_CALCULATOR_THREAD_ONLY();
   saveIfInPause();
   struct timespec ts = {(time_t)(ms_delay / 1000),
                         (long)(ms_delay % 1000) * 1000000};
@@ -452,6 +489,7 @@ uint32_t sys_current_ms(void) {
 }
 
 void sys_timer_start(int timer_ix, uint32_t ms_value) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (timer_ix < 0 || timer_ix >= SYS_TIMERS) {
     return;
   }
@@ -461,6 +499,7 @@ void sys_timer_start(int timer_ix, uint32_t ms_value) {
 }
 
 void sys_timer_disable(int timer_ix) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (timer_ix < 0 || timer_ix >= SYS_TIMERS) {
     return;
   }

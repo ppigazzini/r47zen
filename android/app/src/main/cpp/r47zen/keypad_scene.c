@@ -1582,6 +1582,7 @@ static void publishKeypad(void) {
 // A timer can change a softkey with no key and no draw (a long press), so the
 // snapshot is also taken while the last input is recent.
 void r47_keypad_publish_at_rest(void) {
+  R47_CALCULATOR_THREAD_ONLY();
   if (!ram) {
     return;
   }

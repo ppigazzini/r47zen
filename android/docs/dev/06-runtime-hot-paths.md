@@ -55,6 +55,19 @@ There is no lock around core state, because one thread owns it, and no Kotlin ta
 queue. Nothing services Android work from inside a computation, so a key can never
 re-enter one.
 
+Two checks hold the rule. In a debug build, `R47_CALCULATOR_THREAD_ONLY()` in
+`host_services.h` aborts when a key, sleep, or timer function of `hal/keys.c` that the
+core calls, or a service, a save, the keypad publish, or a file request, runs on another
+thread; `r47_keys_init()` records the thread, and a release build compiles the check out.
+The rest of the HAL, such as `hal/lcd.c` and `hal/io.c`, carries no check.
+`jni_core_reach.py`, which `build_calculator_thread_harness.sh` runs, follows what each
+glue definition's relocations name, from every JNI entry: a call, a function pointer
+taken, a global read. It fails on any core symbol it reaches, so the rule holds on paths
+no test runs, with three limits: a pointer stored at run time and called later, the
+Android-only branch of `hal/io.c`, which the host build compiles out, and the
+instrumentation bridge, which it does not compile. `runCalculatorNative` is the one
+exception: it is the calculator thread.
+
 - `CalculatorEngine.start()` runs `runCalculatorNative` on the `R47Calculator`
   thread, once per process, with a stack of `THREAD_STACK_BYTES`, the size upstream's
   simulator main thread gets.
