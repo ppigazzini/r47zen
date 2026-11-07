@@ -2,7 +2,10 @@
 <!-- MonochromeLauncherIcon: no monochrome artwork exists yet. The foreground
      draws its digits in opaque black on an opaque panel, so its alpha used as
      the monochrome layer would tint into a blank panel; until a knock-out
-     drawing exists, a themed-icon launcher tints the color icon instead. -->
+     drawing exists, Android 16 QPR 2 and later theme the icon automatically when
+     the user enables themed icons and the launcher supports them; otherwise, and
+     on earlier versions, the launcher shows the color icon. How automatic theming
+     renders this opaque foreground is not measured. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="MonochromeLauncherIcon">

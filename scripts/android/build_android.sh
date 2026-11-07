@@ -733,8 +733,8 @@ print_doctor_report() {
     print_doctor_line "defaults" "$DEFAULTS_FILE"
 
     # The build JDK is a toolchain requirement, not a JAVA_HOME requirement:
-    # Gradle fails with "No matching toolchains found" when no installation
-    # matches the pin, however the host launched Gradle.
+    # Gradle fails with "Cannot find a Java installation on your machine" when
+    # no installation matches the pin, however the host launched Gradle.
     if build_jdk_home=$(find_jdk_home_for_major "$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION"); then
         print_doctor_line "build jdk" "$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION present ($build_jdk_home)"
     else

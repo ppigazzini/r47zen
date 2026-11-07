@@ -125,7 +125,7 @@ owns the fix.
 | a CI lane fails with no commit here | upstream HEAD moved; every lane resolves it | pin `upstream.lock` to the last good commit to tell the two apart ([00](00-project-and-upstream.md#what-the-upstream-project-is)) |
 | `--android-only` refuses to build | the staged inputs no longer match the sources | the full build ([build entry points](01-build-and-source-layout.md#build-entry-points)) |
 | a contract golden fails after a sync | an upstream input it derives from moved | the [provenance ledger](08-tests-and-contracts.md#upstream-provenance-ledger), before any re-bless |
-| Gradle says "No matching toolchains found" | the pinned build JDK is not installed | [checked-in defaults](01-build-and-source-layout.md#checked-in-defaults); `build_android.sh --doctor` names it |
+| Gradle says "Cannot find a Java installation on your machine" | the pinned build JDK is not installed | [checked-in defaults](01-build-and-source-layout.md#checked-in-defaults); `build_android.sh --doctor` names it |
 | lint fails in CI on a change that built locally | builds do not run lint | `cd android && ./gradlew lint` ([the gates](10-writing.md#the-gates)) |
 | docs lint fails on a page you did not edit | a path you renamed or a file you added is named, or missing, there | [the gates](10-writing.md#the-gates) lists each check |
 | a key label, a softkey, or the keypad layout looks wrong | scene export, render spec, or projection | [debug by symptom](05-ui-rendering-and-gtk-mapping.md#debug-by-symptom) |
@@ -180,13 +180,13 @@ Each term links the page that owns it.
 Use one promotion workflow when a non-trivial task changes Android behavior,
 contracts, or verification.
 
-1. Draft the task analysis, options, implementation notes, and verification
-  outside the maintained pages first; nothing a reader needs may live only in
-  a draft.
+1. When a draft helps, keep the task analysis, options, implementation notes,
+  and verification outside the maintained pages; nothing a reader needs may
+  live only in a draft.
 2. Keep exploratory notes and provisional claims in the draft while the code
   and test result are still moving.
-3. After the implementation and focused verification settle, promote the final
-  contract changes into every affected maintained page in one pass.
+3. Promote the final contract changes into every affected maintained page in
+  the commit that makes the change, never after it.
 4. Keep these pages authoritative and durable. Leave dead ends, experiments,
   and superseded commit ideas in the draft instead of carrying them into
   the maintained reference set.
@@ -216,6 +216,12 @@ owns which tree to edit.
 - `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
   `scripts/workload-regressions/` own the fixture export, notice generation,
   and host workload lanes.
+- `scripts/docs/` owns the docs gates, the commit message check, and the manual
+  site step.
+- `scripts/lib/` owns the shell helpers these scripts source, including the
+  banned spelling list.
+- `scripts/security/` owns the native hardening check.
+- `scripts/windows/` owns the Windows simulator runtime bundle.
 
 If a change crosses Kotlin, JNI, and rendering ownership at the same time, read
 the project page, the build page, the Kotlin page, the JNI page, and the

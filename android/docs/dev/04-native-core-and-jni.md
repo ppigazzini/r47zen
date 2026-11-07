@@ -674,13 +674,17 @@ round trip.
 
 ## 16 KB and packaging contract
 
-The checked-in Android build uses the supported NDK flexible-page-size path:
+The checked-in Android build relies on the NDK's default 16 KB alignment, which
+[the 16 KB page](09-official-references.md#native-and-build-integration) states
+for NDK r28 and higher:
 
-- `android/app/build.gradle` passes
-  `-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON` to CMake
 - the NDK is `R47_DEFAULT_ANDROID_NDK_VERSION` in
   `android/r47-defaults.properties`, and AGP is the `agp` entry of
   `android/gradle/libs.versions.toml`
+- `android/app/build.gradle` also passes
+  `-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON`, which only restates that default:
+  the pinned NDK's `build/cmake/flags.cmake` reads the variable to turn 16 KB
+  off when it is false
 
 The default checked-in APK target is `arm64-v8a`. The workflow and local
 Gradle invocations can temporarily add `x86_64` through `r47.abiFilters` for
@@ -689,7 +693,14 @@ emulator-backed test runs, but the shipped debug artifact remains
 the 16 KB requirements for ELF and APK alignment.
 
 The CI lane verifies that contract by checking zip alignment and native library
-`LOAD` segment alignment in the built debug APK. The `android-tests` lane uses
+`LOAD` segment alignment in the built APK. It does not check two things the
+16 KB page names: that a `GNU_RELRO` segment ends on a 16 KB boundary or has no
+writable data after it in its `LOAD`, and that an AAB requests
+`PAGE_ALIGNMENT_16K` (`bundletool dump config`).
+`scripts/security/check_native_hardening.sh` checks only that `GNU_RELRO`
+exists. The Play bundle, the artifact the 2027 Play rule applies to, therefore
+carries no alignment proof of its own, and a toolchain change that breaks either
+reaches Play unseen. The `android-tests` lane uses
 the temporary multi-ABI override only for hosted `x86_64` emulator execution.
 
 Local runtime proof for the same contract lives in

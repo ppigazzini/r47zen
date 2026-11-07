@@ -195,5 +195,5 @@ target_link_libraries(r47zen PRIVATE log m)
 # verifies the link-time half, and the BTI/PAC this file adds, on the packaged
 # library. This file adds stack-clash protection and AArch64 BTI/PAC above.
 
-# The Android module enables 16 KB support through the NDK toolchain argument
-# in app/build.gradle rather than a project-local raw linker flag.
+# Rely on the NDK toolchain's default 16 KB alignment; do not add a raw linker
+# flag here. scripts/android/collect_packaging_evidence.sh checks the packaged APK.

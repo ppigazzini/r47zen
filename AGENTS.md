@@ -92,15 +92,18 @@ and limits.
 ## This file, and CLAUDE.md
 
 `AGENTS.md` is the cross-tool convention (stewarded by the Agentic AI Foundation
-under the Linux Foundation; read natively by Codex, Cursor, Aider, Jules, and
-others). Claude Code reads it on its own only where no `CLAUDE.md` or
+under the Linux Foundation; read by Codex, Cursor, Jules, and others, and by
+Aider through a `read: AGENTS.md` line in its config). By default Claude Code
+reads it on its own only where no `CLAUDE.md`, `.claude/CLAUDE.md`, or
 `CLAUDE.local.md` sits in the working directory or above it, and not in every
-session: not before v2.1.277, and not with its built-in `AGENTS.md` plugin off
+session: not before v2.1.277, and not with its built-in `AGENTS.md` plugin off;
+its `Project instructions` setting changes that default
 ([how Claude remembers your project](https://code.claude.com/docs/en/memory#agents-md)).
-Where a `CLAUDE.md` exists, Claude Code reads that instead. The root
+Where a `CLAUDE.md` exists, Claude Code reads that instead by default. The root
 `CLAUDE.md` is therefore one line, an `@AGENTS.md` import, the shape Anthropic
 documents for a project that keeps a `CLAUDE.md` or a session that cannot read
-`AGENTS.md`: every Claude Code version and session then loads this file, once.
+`AGENTS.md`: a session then loads this file, once, on every Claude Code version,
+unless `Project instructions` is `managed-only`, which leaves out both files.
 The sibling zfish, z47, and c47-r47-ci repos use the same shape. It is not a
 duplicate: edit this file, never that one. A symlink would also work but
 breaks on Windows without Developer Mode.

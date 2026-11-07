@@ -112,12 +112,18 @@ hydrated on demand, or only exercised in CI before updating the docs.
   copies one is wrong the day the key moves.
 - two of those keys are about Java and they are not interchangeable. Read the
   values from the file; what matters here is which is which:
-  - `R47_DEFAULT_ANDROID_BUILD_JDK_VERSION` is the JDK that *runs* the build --
-    Gradle, AGP, javac, the Kotlin compiler, and the JVM unit tests. It is
-    declared as a Gradle Java toolchain in `android/app/build.gradle`, so it is
-    a requirement on the host rather than a description of it: a host with no
-    matching installation fails with "No matching toolchains found" instead of
-    silently compiling on whatever `JAVA_HOME` points at.
+  - `R47_DEFAULT_ANDROID_BUILD_JDK_VERSION` is the JDK the Gradle Java toolchain
+    in `android/app/build.gradle` resolves: javac and the JVM unit tests run on
+    it, and the Kotlin compile reads its JDK home. That makes it a requirement
+    on the host rather than a description of it: a host with no matching
+    installation fails with "Cannot find a Java installation on your machine"
+    instead of silently compiling on whatever `JAVA_HOME` points at. It does not
+    choose the JDK that runs Gradle, AGP, and the Kotlin compiler: `JAVA_HOME`
+    does, or `java` on `PATH` when it is unset, and no tracked file pins either
+    on a host. CI makes the two equal through
+    the `actions/setup-java` steps that
+    `run_build_jdk_pin_coherence_contract.sh` holds to this key, so a host that
+    launches Gradle on another JDK runs a build CI never ran.
     `./scripts/android/build_android.sh --doctor` reports it as the `build jdk`
     row, searching every installation Gradle would, not just `JAVA_HOME`.
   - `R47_DEFAULT_ANDROID_JAVA_VERSION` is the language and bytecode level the
@@ -205,8 +211,11 @@ hydrated on demand, or only exercised in CI before updating the docs.
   refuses it. Gradle upgrades a KGP older than AGP's to AGP's, so the entry
   can only raise the compiler; `./gradlew buildEnvironment` prints the
   resolution as `kotlin-gradle-plugin:<AGP's> -> <catalog's>`. No contract
-  holds the pair. Prove an AGP or `kotlin` bump with lint, the JVM unit
-  tests, detekt, and `:app:compileDebugAndroidTestKotlin`; running the
+  holds the pair. JetBrains states the Gradle and AGP range each KGP fully
+  supports
+  ([toolchain references](09-official-references.md#toolchain-references));
+  no contract compares the pins to it. Prove an AGP or `kotlin` bump with lint,
+  the JVM unit tests, detekt, and `:app:compileDebugAndroidTestKotlin`; running the
   instrumented tests is the connected lane's.
 - Review the xlsxio pin only when upstream font-generation behavior, security
   fixes, or CI breakage require it.
@@ -718,8 +727,9 @@ names, and release gating.
   protected release workflow on the same wrapper-owned host-core optimization
   flow as `android-build-test-package`, and keep the signed bundle on the
   collected `r47-host-core.profdata` path.
-- sync or restore-boundary changes: confirm restore logic still excludes `^src/`
-  and does not reintroduce tracked local overrides under `src/**`; confirm the
+- sync or restore-boundary changes: confirm
+  `restore_path_reowns_upstream_root_surface` still refuses `src` and `src/*`,
+  and that no tracked local override under `src/**` returns; confirm the
   build-only staged metadata under `android/.staged-native/cpp` regenerates and
   the retired `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}`
   snapshot paths stay absent.

@@ -3,13 +3,15 @@
 # Contract: every consumer of the build JDK reads the same pin.
 #
 # R47_DEFAULT_ANDROID_BUILD_JDK_VERSION in android/r47-defaults.properties is
-# the single source for the JDK that runs Gradle, AGP, javac, the Kotlin
-# compiler, and the JVM unit tests. Three consumers can drift from it silently:
+# the single source for the JDK the Gradle Java toolchain resolves (javac and the
+# JVM unit tests) and, through actions/setup-java in CI, the JDK that runs Gradle,
+# AGP, and the Kotlin compiler. Three consumers can drift from it silently:
 # the Gradle Java toolchain in android/app/build.gradle, the actions/setup-java
 # steps in the workflows, and the doctor in scripts/android/build_android.sh. A
 # workflow that hardcodes java-version is the dangerous case: CI would keep
 # building on the old JDK while the toolchain demanded the new one, and the
-# failure surfaces as an unrelated "No matching toolchains found" on the runner.
+# failure surfaces as an unrelated "Cannot find a Java installation on your
+# machine" on the runner.
 #
 # Also asserts the one invariant between the two JDK axes: the app language
 # level (R47_DEFAULT_ANDROID_JAVA_VERSION) can never exceed the build JDK,

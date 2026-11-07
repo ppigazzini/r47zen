@@ -19,9 +19,9 @@ not only on the diff, and run them before reading for smells.
    adds a copy adds a row to the inventory in the same commit.
 
    Example: one LCD frame lives in five copies between the core and the screen
-   ([06](06-runtime-hot-paths.md#lcd-frame-state-inventory)). A change to the
-   row cache is reviewed against the bitmap, the transport buffer, and the
-   native snapshot too.
+   ([06](06-runtime-hot-paths.md#lcd-frame-state-inventory)). A change to
+   `packedLcdBuffer` is reviewed against the frame in `PackedLcdRaster`,
+   `PackedLcdRaster.bitmap`, `packedDisplayBuffer`, and `lcd_buffer` too.
 
 2. **Find the owner of every literal and default.** For each constant,
    initial value, or default the change writes, name the one place that owns

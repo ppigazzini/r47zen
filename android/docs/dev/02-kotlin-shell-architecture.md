@@ -330,8 +330,11 @@ while matching the desktop simulator's stop-key parity during an active run.
   width 600 dp and up), so there the activity takes whatever window it gets and
   `ReplicaOverlay` letterboxes the replica into it; the lock still holds on
   phones
-- the application is explicitly resizable, so large screens and foldables may
-  letterbox or window the shell according to Android compatibility behavior
+- the application is explicitly resizable, which decides multi-window support
+  on screens below smallest width 600 dp. On larger screens the platform
+  ignores `resizeableActivity` and the portrait lock, the activity fills
+  whatever window it gets, and a system letterbox appears only if the user
+  picks one in the device's aspect ratio settings
 - Picture-in-Picture is enabled
 - settings live in a separate non-exported `SettingsActivity`
 - `MainActivity` installs one projected top-right orange-left and blue-right

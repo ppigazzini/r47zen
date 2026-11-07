@@ -155,8 +155,8 @@ better than the person who broke it.
 | [06-runtime-hot-paths.md](06-runtime-hot-paths.md) | the main hot loops, redraw paths, lock boundaries | hot - tracks this repo |
 | [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md) | every workflow and composite action, the lane split, release gating, artifacts, `dependabot.yml`, local reproduction | hot - tracks this repo |
 | [08-tests-and-contracts.md](08-tests-and-contracts.md) | verification surfaces, contract owners, focused suites, rerun lanes | hot - tracks this repo |
-| [09-official-references.md](09-official-references.md) | external links | cold |
-| this page | the rules | cold |
+| [09-official-references.md](09-official-references.md) | external links | hot - tracks pages outside this repo, which move with no commit here |
+| this page | the rules, the version rules, and the gates | cold for the rules; hot for [the gates](#the-gates), which track `scripts/docs/run_docs_lint.sh` and `.pre-commit-config.yaml` |
 | [11-reviewing-a-change.md](11-reviewing-a-change.md) | the four checks for a change that crosses a seam, and where each seam's inventory lives | cold |
 | [12-cutting-a-release.md](12-cutting-a-release.md) | the ordered release procedure, the refusals and their recovery, re-releasing a past build | hot - tracks `android-release.yml` |
 
@@ -235,17 +235,18 @@ rules ([the gates](#the-gates)); the release procedure is
 - **SemVer 2.0.0, and every release gets its own version.** A production
   version is a plain `major.minor.patch`, no suffix. A firmware-only release
   gets a new one too: "Any modifications MUST be released as a new version"
-  (SemVer item 3).
+  (SemVer item 3). SemVer owns the format and the sort order. The MINOR and
+  PATCH rules below are this repo's decision: SemVer item 4 leaves a `0.y.z`
+  version free, and items 6 and 7 bind a version from `1.0.0` on.
 - **App code changed since the previous release: MINOR, PATCH reset to 0.**
   App code is `android/app/src/main/`, what this repo ships in the APK. A
   change there takes `0.1.14` to `0.2.0`, whether it fixes or adds; a MAJOR
   step (`1.0.0`) also passes.
 - **Anything else: PATCH.** A release that changes only the upstream
   firmware, CI, the build, tests, or docs takes `0.1.13` to `0.1.14`.
-- **From a pre-release, drop the suffix.** Every release before these rules
-  carried one (`0.1.13-signed.2026102901`), so SemVer sorts it before the
-  plain `0.1.13`. The PATCH step from it is `0.1.13` and the MINOR step
-  `0.2.0`, as npm semver's `inc()` steps.
+- **From a pre-release, drop the suffix.** SemVer sorts
+  `0.1.13-signed.2026102901` before the plain `0.1.13`, so the PATCH step from
+  it is `0.1.13` and the MINOR step `0.2.0`, as npm semver's `inc()` steps.
 - **`android/r47-defaults.properties` names the next release**, not the last
   one: `R47_DEFAULT_ANDROID_VERSION_CODE`, the previous code plus one, and
   `R47_DEFAULT_ANDROID_VERSION_NAME`. Right after a release, a commit opens
@@ -269,10 +270,15 @@ The mechanical checks:
 - `pre-commit` runs the hooks `.pre-commit-config.yaml` declares; that file is
   the list. Besides formatting and linting it runs
   `scripts/android/run_workflow_contracts.sh`, the host CI contracts that
-  `android-ci.yml` also runs inside `ci-required`.
+  `android-ci.yml` also runs in `python-contracts`, whose result `ci-required`
+  checks, and `linux-ci.yml` in `host-workload-regressions`. A run whose release
+  gate skips the test lane skips them in `android-ci.yml`.
 - `scripts/upstream-sync/upstream.sh verify-source-policy` fails when the
   tracked `upstream.source` regains an `upstream_commit` pin. `pre-commit` runs
   it on any change to that file.
+- `scripts/upstream-sync/upstream.sh verify-restore-boundary` fails when a
+  tracked root entry is missing from the restore set, or when the set would
+  re-own an upstream root surface. `pre-commit` runs it on every commit.
 - `bash ./scripts/r47_contracts/run_contract_suite.sh` runs `ruff`, `ty`, and
   the Python contract suite that locks the derived geometry, layout, and font
   goldens.
@@ -306,11 +312,14 @@ The mechanical checks:
   `--range origin/main..HEAD` checks commits already made.
   `scripts/android/run_commit_message_contract.sh` proves it on seeded
   messages. It cannot tell whether a subject is imperative or a body carries
-  evidence.
+  evidence, and it knows agent attribution only as a `Co-authored-by:` line,
+  `noreply@anthropic.com`, or `Generated with [Claude Code]`; another tool's
+  footer passes.
 
 `bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook `docs-lint`, CI lane
 `Docs Lint`) gates the prose. It needs no upstream clone and no toolchain, so it
-runs in seconds on every push, and it settles these mechanical rot classes:
+runs in seconds on every pull request and on every push to `main` or
+`github_ci`, and it settles these mechanical rot classes:
 
 1. a dead internal link, resolved relative to the linking file's own directory,
 2. a `scripts/...`, `.github/...`, or `android/...` path, in prose, a code span,
@@ -321,12 +330,13 @@ runs in seconds on every push, and it settles these mechanical rot classes:
    or a variable marks a shape, not a file,
 3. a non-ASCII byte in a tracked doc, save the one documented placeholder
    codepoint U+00B7 that the keypad legend pages carry on purpose,
-4. a pointer to a file in the maintainer-local tree that AGENTS.md names -
-   citing a file inside it rests a claim on content no other reader has,
+4. a pointer to a file with an extension in the maintainer-local tree that
+   AGENTS.md names - citing a file inside it rests a claim on content no other
+   reader has; a name with no extension passes,
 5. a missing `AGENTS.md` or `CLAUDE.md`, or a `CLAUDE.md` whose `@AGENTS.md`
    import is backticked, fenced, or gone - where a `CLAUDE.md` exists, Claude
-   Code reads it and not `AGENTS.md`, so that one line carries the whole
-   contract,
+   Code by default reads it and not `AGENTS.md`, so that one line carries the
+   whole contract,
 6. a `page.md#anchor` or `#anchor` link whose anchor matches no heading of the
    target page, slugged as GitHub slugs it - a retitled heading otherwise lands
    the reader at the top of the page with no error,
@@ -342,8 +352,9 @@ runs in seconds on every push, and it settles these mechanical rot classes:
 8. a British spelling that `scripts/lib/american_spelling.sh` lists, in any
    tracked text file. A source file is read whole. In markdown a fenced block,
    a code span, and a quoted span are skipped, since a quotation keeps the
-   spelling of what it quotes, and `COPYING` is skipped as the license
-   verbatim. A span is read one line at a time, so keep a quoted British form
+   spelling of what it quotes. `COPYING` is skipped as the license verbatim,
+   and `scripts/lib/american_spelling.sh` because it names every banned form. A
+   span is read one line at a time, so keep a quoted British form
    and its quotation marks on one line. A self-test proves the matcher on
    seeded lines first.
 

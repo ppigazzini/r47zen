@@ -86,7 +86,7 @@ repos:
         # toolchains, test integrity) read workflows, scripts, Android build
         # inputs, and the tool pins in this file, pyproject.toml, and uv.lock.
         # They need no SDK and run in seconds, so a broken contract fails here
-        # before CI. android-ci runs the same group inside ci-required.
+        # before CI. android-ci runs the same group in python-contracts.
         name: host CI contracts
         entry: scripts/android/run_workflow_contracts.sh
         language: script

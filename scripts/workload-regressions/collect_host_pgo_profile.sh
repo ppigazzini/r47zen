@@ -64,9 +64,8 @@ Supported --training-workload values:
 --program-root is used only for the program-fixture overlay collected through
 run_workload_regressions.sh. It does not affect the upstream testSuite files.
 When the overlay is enabled and no explicit program root is supplied, the
-collector prefers generated Android fixture assets, then a synced workspace
-PROGRAMS tree, and finally stages canonical PROGRAMS fixtures into its own
-output directory.
+collector prefers a synced workspace PROGRAMS tree, and otherwise stages
+canonical PROGRAMS fixtures into its own output directory.
 EOF
 }
 
