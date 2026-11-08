@@ -428,15 +428,15 @@ Public maintainer entry points:
   `program-fixtures/PROGRAMS`. The app APK never carries them, and a lint,
   unit-test, or assemble run never stages them; the tests read them through
   the instrumentation context. The storage tests launch
-  `StorageAccessTestActivity` from `src/instrumentationHost`, which has to be in
-  the app's manifest: it joins the debug source set always and the release one
-  only with `-Pr47.includeInstrumentationHost=true`, which the instrumented
-  lanes pass, so a release androidTest build without it does not compile. The
-  same manifest sets `android:gwpAsanMode="always"`, so the debug build and
-  every instrumented run crash on a heap error GWP-ASan samples.
-  `collect_packaging_evidence.sh` fails a signed APK whose manifest declares
-  the test host or sets `gwpAsanMode`. The JVM tests host on a plain
-  `ComponentActivity`.
+  `StorageAccessTestActivity` and open documents of `RecordingDocumentProvider`,
+  both from `src/instrumentationHost`, which has to be in the app's manifest: it
+  joins the debug source set always and the release one only with
+  `-Pr47.includeInstrumentationHost=true`, which the instrumented lanes pass, so
+  a release androidTest build without it does not compile. The same manifest sets
+  `android:gwpAsanMode="always"`, so the debug build and every instrumented run
+  crash on a heap error GWP-ASan samples. `collect_packaging_evidence.sh` fails a
+  signed APK whose manifest declares either test host or sets `gwpAsanMode`. The
+  JVM tests host on a plain `ComponentActivity`.
   `:app:connectedDebugAndroidTest` requires a device or emulator, and
   `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
   emulator is `x86_64`. The current required emulator-backed coverage includes

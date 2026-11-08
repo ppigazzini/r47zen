@@ -223,8 +223,10 @@ without violating the Activity Result lifecycle contract.
 
 Focused verification for this lifecycle contract lives in
 `DisplayLifecycleInstrumentedTest.kt`, `StorageAccessCoordinatorTest.kt`,
-`WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt`, and
-`MainShellThemeTest.kt` as mapped in `08-tests-and-contracts.md`.
+`WorkDirectoryTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt`,
+`DocumentLoopInstrumentedTest.kt`, which drives the registered launchers through a
+real file request, and `MainShellThemeTest.kt` as mapped in
+`08-tests-and-contracts.md`.
 
 ## Input surfaces
 

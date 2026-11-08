@@ -8,6 +8,10 @@
         android:gwpAsanMode="always"
         tools:targetApi="30">
         <activity android:name="io.github.ppigazzini.r47zen.StorageAccessTestActivity" />
+        <provider
+            android:name="io.github.ppigazzini.r47zen.RecordingDocumentProvider"
+            android:authorities="${applicationId}.recording-documents"
+            android:exported="false" />
     </application>
 
 </manifest>
