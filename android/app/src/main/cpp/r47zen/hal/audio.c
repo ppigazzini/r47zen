@@ -5,7 +5,10 @@ void beep(uint16_t freq, uint16_t duration) {}
 void beep_tone(uint16_t freq, uint16_t duration) {}
 void stop_beep(void) {}
 
-uint16_t getBeepVolume(void) { return 80; }
+// The app keeps no beep volume of its own, so the VOL softkeys show no value:
+// NOVAL, as GTK's getBeepVolume answers, where a number would read as a volume
+// on a 0 to 11 scale.
+uint16_t getBeepVolume(void) { return (uint16_t)NOVAL; }
 
 void _Buzz(uint32_t frequency, uint32_t ms_delay) {
   if (!g_mainActivityObj || !g_jvm || !g_playToneId) {

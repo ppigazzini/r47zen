@@ -544,6 +544,22 @@ static int check_aim_faces_follow_num_lock(void) {
   return failures;
 }
 
+// The app keeps no beep volume, so the VOL softkeys show no value, as GTK's
+// getBeepVolume answers NOVAL. Return the number of failures.
+extern int16_t fnItemShowValue(int16_t item);
+
+static int check_volume_softkeys_show_no_value(void) {
+  pthread_mutex_lock(&screenMutex);
+  const int16_t up = fnItemShowValue(ITM_VOLPLUS);
+  const int16_t down = fnItemShowValue(ITM_VOLMINUS);
+  pthread_mutex_unlock(&screenMutex);
+  if (up != NOVAL || down != NOVAL) {
+    fprintf(stderr, "FAIL: VOL+ shows %d and VOL- %d, not NOVAL\n", up, down);
+    return 1;
+  }
+  return 0;
+}
+
 // Run action with stderr sent to a file, write what it caught back to stderr, and
 // say whether that holds needle. A fault inside action aborts with its report in
 // the file, so the line before it names the step.
@@ -697,6 +713,7 @@ int main(void) {
   failures += check_matrix_copies_are_whole();
   failures += check_capture_ends_with_the_copy();
   failures += check_aim_faces_follow_num_lock();
+  failures += check_volume_softkeys_show_no_value();
 
   // Ten numbered registers of 2^60000 make the all-registers copy about 220 KB,
   // and X and Y of it make the stack copy twice the digits. Keep the set inside

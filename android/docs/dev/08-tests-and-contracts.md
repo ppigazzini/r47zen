@@ -848,7 +848,8 @@ Android compatibility layer.
   matrix, and a 20x20 and a 40x40 complex one, must give every value and be whole
   UTF-8. The Copy menu's copy must reach its capture, and a copy after it must be
   dropped and logged, not written through a capture that has gone. In AIM the
-  key that shows N, whose `g` face is 7, must show 7 with NUM on, as GTK draws it.
+  key that shows N, whose `g` face is 7, must show 7 with NUM on, as GTK draws it,
+  and the VOL softkeys must show no value, `NOVAL`, as GTK's `getBeepVolume` answers.
   Then it fills
   ten numbered registers, X, and Y with 2^60000, 18062 digits, and each copy must
   hold all of them: X once, the stack twice, all registers twelve times.

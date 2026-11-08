@@ -183,8 +183,9 @@ appears below; `run_docs_lint.sh` fails when one does not:
   display-change generations
 - `hal/io.c` for file I/O through the SAF handoff, state and program files,
   and the `hal/io.h` exports
-- `hal/audio.c` for the buzzer and volume calls, routed to
-  `MainActivity.playTone`
+- `hal/audio.c` for the buzzer, routed to `MainActivity.playTone`, and the
+  volume calls: the setters do nothing, and `getBeepVolume` answers `NOVAL`, as
+  GTK's does, so the VOL softkeys show no value
 - `hal/gui.c` for `setupUI()`, which leaves the core allocations to
   `doFnReset`, the `calcMode*Gui` hooks upstream's `calcMode.c` calls, which
   Android leaves empty, and the capture that takes the text of upstream's
