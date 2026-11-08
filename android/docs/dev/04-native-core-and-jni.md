@@ -47,8 +47,10 @@ comments as written); `scripts/android/check_native_format.sh` checks it with
 the pinned NDK's `clang-format`, and `--fix` applies it.
 `scripts/android/run_native_clang_tidy.sh` runs the pinned NDK's `clang-tidy`
 with `r47zen/.clang-tidy`, which enables the static analyzer and the bugprone
-checks and says why each check it turns off is noise here, and fails on any
-finding. The whole library builds as gnu17, set on the target: upstream's meson
+checks and says why it turns each other check off, and fails on any finding. Of
+the analyzer's insecure-API checks, only the Annex K one and the `strcpy` one are
+off, so a new `gets` or `mktemp` fails it; `cert-err33-c`'s unchecked returns wait
+for handling one by one. The whole library builds as gnu17, set on the target: upstream's meson
 build names no C standard, so the core compiles as the compiler default, and
 the host harnesses build the same sources as gnu17 too. The whole library
 compiles with `-fsigned-char -fno-strict-aliasing`, the language flags of the

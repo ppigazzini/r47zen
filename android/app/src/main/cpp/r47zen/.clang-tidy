@@ -1,12 +1,13 @@
 # clang-tidy for the Android-owned native glue, run by
 # scripts/android/run_native_clang_tidy.sh with the pinned NDK's clang-tidy.
 # Every finding fails the run. The analyzer and the bugprone checks are on;
-# each check turned off below was measured on the glue and is noise here.
+# each check turned off below is listed with why and the count it reported.
 Checks: >
   -*,
   clang-analyzer-*,
   bugprone-*,
-  -clang-analyzer-security.insecureAPI.*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -clang-analyzer-security.insecureAPI.strcpy,
   -bugprone-easily-swappable-parameters,
   -bugprone-reserved-identifier,
   -bugprone-narrowing-conversions,
@@ -15,8 +16,12 @@ Checks: >
   -bugprone-signed-char-misuse,
   -bugprone-multi-level-implicit-pointer-conversion
 # Why each is off, with the count it reported when adopted:
-# - security.insecureAPI (87): it asks for C11 Annex K (snprintf_s, ...),
-#   which bionic does not provide; every flagged call is already bounded.
+# - security.insecureAPI.DeprecatedOrUnsafeBufferHandling (52): it asks for
+#   C11 Annex K (snprintf_s, ...), which bionic does not provide.
+# - security.insecureAPI.strcpy (17): strcpy and strcat in android_helpers.c's
+#   clipboard writer, whose helpers take no buffer size to bound them with; not
+#   triaged one by one. The other insecureAPI checks (gets, mktemp, vfork, ...)
+#   are on.
 # - easily-swappable-parameters (40): adjacent same-type parameters are the
 #   JNI and HAL signatures, which this repo does not choose.
 # - reserved-identifier (2): _Buzz and friends are names upstream's HAL
@@ -30,7 +35,8 @@ Checks: >
 #   suggested unsigned cast would turn NOVAL into 255.
 # - multi-level-implicit-pointer-conversion (8): the JNI AttachCurrentThread
 #   and GetEnv void ** handoff.
-# cert-* is not enabled: its err33-c (unchecked returns of snprintf and
-# friends, 65) duplicates nothing above and is noise for truncating calls.
+# cert-* is not enabled. Its err33-c reports 46 unchecked returns (31 snprintf,
+# 7 sprintf, 4 fclose, 2 strftime, an fseek, an fprintf), and one is a clipboard
+# copy whose truncation is a known defect, so each wants handling, not a (void).
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*/cpp/r47zen/.*'
