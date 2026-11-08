@@ -27,9 +27,6 @@ typedef struct {
   int key_code;
 } r47_program_load_key_sequence_t;
 
-static const char *const kR47LargeFactorsInput =
-    "5424563354566542698521412502251020304050";
-
 static void *r47_program_load_worker_main(void *arg) {
   int func_id = (int)(intptr_t)arg;
 
@@ -59,20 +56,6 @@ static void *r47_program_load_key_worker_main(void *arg) {
   pthread_mutex_unlock(&r47_program_load_worker_mutex);
 
   return NULL;
-}
-
-static bool r47_seed_large_factors_input(void) {
-  longInteger_t value;
-
-  longIntegerInit(value);
-  if (stringToLongInteger(kR47LargeFactorsInput, 10, value) != 0) {
-    longIntegerFree(value);
-    return false;
-  }
-
-  convertLongIntegerToLongIntegerRegister(value, REGISTER_X);
-  longIntegerFree(value);
-  return true;
 }
 
 static bool r47_seed_spiralk_input(void) {
@@ -141,23 +124,50 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isRuntimeReadyNative(
   return ram != NULL ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_seedLargeFactorsInputNative(
-    JNIEnv *env, jobject thiz) {
-  (void)env;
-  (void)thiz;
-  if (!ram) {
-    return JNI_FALSE;
+// Put a decimal number in X, as a long integer or a real, under screenMutex.
+static bool r47_seed_x_locked(const char *decimal, bool longInteger) {
+  bool seeded;
+  if (longInteger) {
+    longInteger_t value;
+    longIntegerInit(value);
+    seeded = stringToLongInteger(decimal, 10, value) == 0;
+    if (seeded) {
+      convertLongIntegerToLongIntegerRegister(value, REGISTER_X);
+    }
+    longIntegerFree(value);
+  } else {
+    reallocateRegister(REGISTER_X, dtReal34, 0, amNone);
+    stringToReal34(decimal, REGISTER_REAL34_DATA(REGISTER_X));
+    seeded = !real34IsNaN(REGISTER_REAL34_DATA(REGISTER_X));
   }
-
-  pthread_mutex_lock(&screenMutex);
-  bool seeded = r47_seed_large_factors_input();
   if (seeded) {
     fnRefreshState();
     r47_force_refresh();
   }
-  pthread_mutex_unlock(&screenMutex);
+  return seeded;
+}
 
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_seedXNative(
+    JNIEnv *env, jobject thiz, jstring decimal, jboolean longInteger) {
+  (void)thiz;
+  if (!ram || decimal == NULL) {
+    return JNI_FALSE;
+  }
+  const char *chars = (*env)->GetStringUTFChars(env, decimal, NULL);
+  if (chars == NULL) {
+    return JNI_FALSE;
+  }
+  char copy[64];
+  const bool fits = r47_format(copy, sizeof(copy), "%s", chars);
+  (*env)->ReleaseStringUTFChars(env, decimal, chars);
+  if (!fits) {
+    return JNI_FALSE;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  const bool seeded = r47_seed_x_locked(copy, longInteger == JNI_TRUE);
+  pthread_mutex_unlock(&screenMutex);
   return seeded ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -653,11 +663,12 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterTypeNative(
 }
 
 JNIEXPORT jstring JNICALL
-Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterStringNative(
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterClipboardTextNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
 
-  // X as the Copy menu copies it, whole.
+  // X as the Copy menu copies it, whole: a matrix as "RxC" and each element, row
+  // by row.
   char *text = NULL;
   if (ram) {
     pthread_mutex_lock(&screenMutex);
@@ -666,7 +677,7 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterStringNative(
   }
 
   jstring result = jni_new_string_utf(
-      env, text, "", "ProgramLoadTestBridge.getXRegisterString");
+      env, text, "", "ProgramLoadTestBridge.getXRegisterClipboardText");
   free(text);
   return result;
 }

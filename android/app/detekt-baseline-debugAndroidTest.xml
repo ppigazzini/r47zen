@@ -2,6 +2,7 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>ComplexCondition:FactorsInstrumentedTest.kt:FactorsInstrumentedTest$shape == null || shape.size != 2 || shape[0] != 2 || words.size != 1 + 2 * shape[1]</ID>
     <ID>ComplexCondition:ProgramFixtureInstrumentedTest.kt:ProgramFixtureInstrumentedTest$!loaded || currentLoadState.lastErrorCode != ERROR_NONE || (!programLoaded &amp;&amp; currentLoadState.numberOfPrograms &lt;= resetState.numberOfPrograms)</ID>
     <ID>ComplexCondition:ProgramFixtureInstrumentedTest.kt:ProgramFixtureInstrumentedTest$isPaused &amp;&amp; (!wasPaused || now - lastResumeAttemptAtMs &gt;= PAUSE_RESUME_RETRY_MS) &amp;&amp; fixture.scenario.pauseResumePolicy == PauseResumePolicy.RESUME_ZERO_ON_PAUSE_EDGE</ID>
     <ID>ComplexCondition:ProgramFixtureInstrumentedTest.kt:ProgramFixtureInstrumentedTest$maxStep &lt;= loadStep &amp;&amp; !sawPause &amp;&amp; !sawWaiting &amp;&amp; !sawView &amp;&amp; !sawLcdRefresh &amp;&amp; !sawAcceptedDirectStop</ID>
@@ -15,6 +16,9 @@
     <ID>MaxLineLength:ProgramFixtureInstrumentedTest.kt:ProgramFixtureInstrumentedTest$details = "RUN did not return within ${fixture.scenario.timeoutMs} ms (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh, directStopAccepted=$sawAcceptedDirectStop, resumeAttempts=$resumeAttempts, snapshotMisses=$snapshotMisses, finalRunStop=${finalState.programRunStop}, finalStep=${finalState.currentLocalStepNumber})"</ID>
     <ID>MaxLineLength:ProgramFixtureInstrumentedTest.kt:ProgramFixtureInstrumentedTest$details = "out-of-band direct stop was accepted while the program was parked in an interactive wait (not PGM_RUNNING/PGM_PAUSED); the native run-state gate has regressed and would swallow live R/S/EXIT"</ID>
     <ID>MaxLineLength:ProgramFixtureInstrumentedTest.kt:ProgramFixtureInstrumentedTest$details = "workload never showed run activity after load (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh, directStopAccepted=$sawAcceptedDirectStop)"</ID>
+    <ID>ReturnCount:FactorsInstrumentedTest.kt:FactorsInstrumentedTest$private fun checkFactorization: String?</ID>
+    <ID>ReturnCount:FactorsInstrumentedTest.kt:FactorsInstrumentedTest$private fun factor: String?</ID>
+    <ID>ReturnCount:ProgramFixtureInstrumentedTest.kt:ProgramFixtureInstrumentedTest$private fun checkXIntegers: String?</ID>
     <ID>ReturnCount:ProgramFixtureInstrumentedTest.kt:ProgramFixtureInstrumentedTest$private fun exerciseFixture: String?</ID>
     <ID>ReturnCount:ProgramFixtureInstrumentedTest.kt:ProgramFixtureInstrumentedTest$private fun runFixtureScenario: String?</ID>
     <ID>ReturnCount:SystemBarInsetsInstrumentedTest.kt:SystemBarInsetsInstrumentedTest$private fun measure: Sample?</ID>

@@ -742,10 +742,9 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // neither an X-register sequence nor a final-image hash. This fixture proves
      // the bounded-interrupt path stays responsive (it stops on request without
      // hanging), not that it computes a particular result. NQueens carries an
-     // independent value oracle and SPIRALk a recorded value pin (its final X is
-     // reproducible across machines even though its plot image is not, see
-     // below); MANSLV2 is the remaining known result-coverage gap because its
-     // direct-stop interrupt leaves no completed state to assert.
+     // independent value oracle; SPIRALk's X shows only where it ended (see
+     // below), and MANSLV2's direct-stop interrupt leaves no completed state to
+     // assert.
      // Keep the window a small fraction of MANSLV2's natural run: the solve
      // ends by itself once it converges, after a time set by the machine and
      // the optimization level (measured on upstream b847c584: 2.6-3.0 s at -O2
@@ -774,18 +773,16 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      .seed_runtime = seed_spiralk_runtime_registers,
      .stop_policy = STOP_POLICY_NONE,
      .stop_after_activity_ms = 0u,
-     // Runs to completion and leaves a deterministic long-integer result in X.
-     // The final X (150) is reproducible across environments -- verified equal on
-     // the dev host and on the CI runner (twice) -- so it carries a value pin,
-     // upgrading SPIRALk from liveness-only. A pin, not an independent oracle:
-     // 150 is this harness's own recorded result, not a value derived apart from
-     // the program; NQueens is the one fixture with an independent oracle. Its final plot IMAGE stays
+     // The final X, 150, is the program's own loop limit: step 38 enters 150 and
+     // x<=? Y jumps to EXIT once the size it computed, then in Y, reaches it. So
+     // the pin shows the run reached EXIT, not that the size is right; nothing
+     // here asserts Y. Its final plot IMAGE stays
      // un-oracled because it is NOT reproducible across machines: the number of
      // points plotted before it finishes depends on the pause/resume interleaving
      // (a pinned hash 0x8cfc1f2910613f3c locally failed CI with
      // 0xeae799e2c2ad6d93, and a later host run under the column mask produced a
-     // third value again), so expected_display_hash stays 0 while the X result
-     // gates the computed value. extract_int_sequence reads 150 from the
+     // third value again), so expected_display_hash stays 0.
+     // extract_int_sequence reads 150 from the
      // "longint:150" register string. SPIRALk does paint a softmenu despite
      // ending on a plot: its bottom softkey row (y 217..239) is byte-identical
      // to BinetV4's, so "a plot fixture has no menu" is not a safe assumption.

@@ -2,8 +2,8 @@
 
 # Contract: the androidTest program-load bridge is excluded from builds by
 # default. The bridge (jni_program_load_test.c) exports reset / inject /
-# fd-override native entry points and the getXRegisterString glyph path; it must
-# never ship to users. Only the instrumentation lanes opt in with
+# fd-override native entry points; it must never ship to users. Only the
+# instrumentation lanes opt in with
 # -Pr47.includeProgramLoadTestBridge=true, so a plain assembleRelease or
 # assembleDebug can never compile it. This guards against a future edit flipping
 # the Gradle default back to true (which is how the entry points would silently

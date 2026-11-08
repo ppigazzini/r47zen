@@ -19,7 +19,11 @@ object ProgramLoadTestBridge {
 
     fun isRuntimeReady(): Boolean = isRuntimeReadyNative()
 
-    fun seedLargeFactorsInput(): Boolean = seedLargeFactorsInputNative()
+    fun seedXLongInteger(decimal: String): Boolean = seedXNative(decimal, longInteger = true)
+
+    fun seedXReal(decimal: String): Boolean = seedXNative(decimal, longInteger = false)
+
+    fun getXRegisterClipboardText(): String = getXRegisterClipboardTextNative()
 
     fun seedSpiralkInput(): Boolean = seedSpiralkInputNative()
 
@@ -95,8 +99,6 @@ object ProgramLoadTestBridge {
 
     fun getXRegisterType(): Int = getXRegisterTypeNative()
 
-    fun getXRegisterString(): String = getXRegisterStringNative()
-
     fun snapshotState(): ProgramLoadState = decodeState(snapshotStateNative())
 
     private fun decodeState(raw: IntArray): ProgramLoadState {
@@ -115,7 +117,8 @@ object ProgramLoadTestBridge {
     }
 
     private external fun isRuntimeReadyNative(): Boolean
-    private external fun seedLargeFactorsInputNative(): Boolean
+    private external fun seedXNative(decimal: String, longInteger: Boolean): Boolean
+    private external fun getXRegisterClipboardTextNative(): String
     private external fun seedSpiralkInputNative(): Boolean
     private external fun forceRefreshNative()
     private external fun saveBackgroundStateForTestNative()
@@ -140,5 +143,4 @@ object ProgramLoadTestBridge {
     private external fun snapshotStateNative(): IntArray
     private external fun snapshotStateIfAvailableNative(): IntArray?
     private external fun getXRegisterTypeNative(): Int
-    private external fun getXRegisterStringNative(): String
 }
