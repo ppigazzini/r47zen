@@ -188,7 +188,8 @@ runs. What each one locks:
 - `test_keyboard_layout_contract.py`: `assign.c` layout-truth rules, `items.c`
   shift and display vocabulary for the audited slice, representative generated
   `assign.c` semantics, the Android single-badge `HOME` or `MyM`, blank-G,
-  visible-space `·_·` placeholder, and formatter assists, and drift between
+  visible-space `·_·` placeholder, and formatter assists (among them GTK's AIM
+  cut of `SUP UP` and `SUB DN` to `SUP` and `SUB`), and drift between
   the live payload and the checked-in `r47_keyboard_layout_contract.json`
   document
 - `derive_live_stop_key_policy.py` and `test_live_stop_key_policy_contract.py`:

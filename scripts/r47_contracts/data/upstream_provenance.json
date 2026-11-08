@@ -26,8 +26,8 @@
     }
   ],
   "recorded": {
-    "recorded_on": "2026-11-07",
-    "upstream_commit": "bb8af99e21095c7e60258b6438757d48a3f61cd7",
+    "recorded_on": "2026-11-08",
+    "upstream_commit": "25e6feb77766bdcd8050df78fa1b5a692be65776",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 2

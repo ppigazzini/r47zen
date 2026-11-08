@@ -163,6 +163,11 @@ _ANDROID_FORMATTER_ASSIST_PATTERNS: Final[dict[str, re.Pattern[str]]] = {
         r"presentation->showTamLabels.*?strcmp\(utf8, \"/\"\) == 0",
         re.DOTALL,
     ),
+    "sup_up_sub_dn_to_sup_sub_in_aim": re.compile(
+        r"presentation->showAlphaLabels && key && labelType == KEYPAD_LABEL_G &&\s*"
+        r"\(key->gShiftedAim == ITM_SUPUP \|\| "
+        r"key->gShiftedAim == ITM_SUBDN\)\) \{\s*keepLeadingBytes\(utf8, 3\);",
+    ),
 }
 
 

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 import unittest
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from r47_contracts._repo_paths import (
     ANDROID_CPP_ROOT,
+    KEYPAD_FIXTURES_ROOT,
     KOTLIN_R47ZEN_ROOT,
     STAGED_NATIVE_C47_ROOT,
     UPSTREAM_R47_ASSIGN_PATH,
@@ -20,6 +22,10 @@ if TYPE_CHECKING:
 KEYPAD_SCENE_PATH = ANDROID_CPP_ROOT / "keypad_scene.c"
 KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
 KEYPAD_LAYOUT_PATH = KOTLIN_R47ZEN_ROOT / "ReplicaKeypadLayout.kt"
+_ALPHA_SCENES: Final = ("alpha-upper", "alpha-lower", "alpha-prog-transition")
+# Five labels a key, the f label second: key 23's f label, and key 28's.
+_F_LANE_OF_KEY_23: Final = 22 * 5 + 1
+_F_LANE_OF_KEY_28: Final = 27 * 5 + 1
 
 
 def _resolve_contract_source(staged_path: Path, upstream_path: Path) -> Path:
@@ -84,9 +90,20 @@ class AlphaCaseExportContractTest(unittest.TestCase):
         _assert_true('"CASE UP"' in self.items)
         _assert_true('"CASE DN"' in self.items)
 
-    def test_jni_does_not_truncate_case_labels(self) -> None:
-        """Jni does not truncate case labels."""
-        _assert_true('"CASE "' not in self.keypad_scene)
+    def test_exported_alpha_scenes_keep_case_labels_whole(self) -> None:
+        """The exported alpha scenes keep CASE UP and CASE DN whole in the f lane.
+
+        GTK's AIM caption cuts both to CASE; the app keeps them whole by choice.
+        This reads what keypad_scene.c exported, so a cut in any form fails here
+        once the fixtures are exported again.
+        """
+        for scene in _ALPHA_SCENES:
+            payload = json.loads(
+                (KEYPAD_FIXTURES_ROOT / f"{scene}.json").read_text(encoding="utf-8"),
+            )
+            labels = payload["labels"]
+            _assert_true(labels[_F_LANE_OF_KEY_23] == "CASE UP")
+            _assert_true(labels[_F_LANE_OF_KEY_28] == "CASE DN")
 
     def test_jni_uses_core_case_selection_rule(self) -> None:
         """Jni uses core case selection rule."""

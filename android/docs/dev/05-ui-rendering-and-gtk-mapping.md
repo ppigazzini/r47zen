@@ -281,6 +281,19 @@ after decode. Softkey `graphic` and `off` remain renderer policy too, so the
 app applies them as decoded scene masks instead of widening the softkey draw
 logic in native code.
 
+`projectUtf8MainKeyLabel` in `keypad_scene.c` rewrites a few main-key labels as
+it exports them, and `test_keyboard_layout_contract.py` records each rule. Three
+follow GTK's simulator: the space placeholder `·_·`, `/` to the division sign in
+TAM, and GTK's AIM caption cut (`labelCaptionAim` in `gtkGui.c`) of `SUP UP` and
+`SUB DN` to `SUP` and `SUB` in the `g` lane. GTK also cuts `CASE UP` and `CASE DN`
+to `CASE` in the `f` lane (`labelCaptionAimFa`); the app keeps them whole, a choice
+made with the commit `fix(android-keypad): restore alpha legend parity`, and
+`test_alpha_case_export_contract.py` holds the exported alpha scenes to it. Two
+rules do not follow GTK. `MODE#` to `#` names a label no upstream item has, so it
+never fires. `LINPOL` to `LIN`, `g` lane only, differs from GTK, which shows `LNP`
+in the primary, `f`, and `g` lanes of its normal caption; no key of the default
+layouts in `assign.c` carries `LINPOL`, so only a user assignment reaches it.
+
 ## Top-label lane contract
 
 Owner chain:

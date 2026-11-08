@@ -374,6 +374,15 @@ static bool_t isLowercaseAlphaSelected(void) {
          (alphaCase == AC_UPPER && shiftF);
 }
 
+// Keep the first `length` bytes of a label, as GTK's byte cut does. Where that cut
+// would end inside a UTF-8 sequence, which would reach Kotlin as an invalid string,
+// keep the whole label instead; the labels cut today are ASCII.
+static void keepLeadingBytes(char *utf8, size_t length) {
+  if (strlen(utf8) > length && ((unsigned char)utf8[length] & 0xC0) != 0x80) {
+    utf8[length] = 0;
+  }
+}
+
 static void
 projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
                         const keypadMainLabel_t *label,
@@ -386,6 +395,15 @@ projectUtf8MainKeyLabel(const calcKey_t *key, jint labelType,
   int16_t item = mainLabelItemId(label->item);
   if (item == ITM_SPACE && strcmp(utf8, " ") == 0) {
     setUtf8Label(utf8, utf8Size, "\xC2\xB7_\xC2\xB7");
+    return;
+  }
+
+  // GTK's AIM caption (labelCaptionAim in gtkGui.c) shows SUP UP and SUB DN as
+  // SUP and SUB in the g lane. GTK also cuts CASE UP and CASE DN to CASE in the f
+  // lane; the app keeps those whole, by choice, and they fit beside SUP and SUB.
+  if (presentation->showAlphaLabels && key && labelType == KEYPAD_LABEL_G &&
+      (key->gShiftedAim == ITM_SUPUP || key->gShiftedAim == ITM_SUBDN)) {
+    keepLeadingBytes(utf8, 3);
     return;
   }
 

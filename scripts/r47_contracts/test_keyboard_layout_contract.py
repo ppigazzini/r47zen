@@ -211,6 +211,7 @@ class KeyboardLayoutContractTest(unittest.TestCase):
         _assert_true(self.android_formatter_assists["mode_hash_to_hash"])
         _assert_true(self.android_formatter_assists["linpol_to_lin"])
         _assert_true(self.android_formatter_assists["slash_to_divide_glyph_in_tam"])
+        _assert_true(self.android_formatter_assists["sup_up_sub_dn_to_sup_sub_in_aim"])
 
     def test_android_fixture_expectations_capture_representative_app_layouts(
         self,

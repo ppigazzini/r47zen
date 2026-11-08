@@ -153,7 +153,8 @@
     "linpol_to_lin": true,
     "mode_hash_to_hash": true,
     "slash_to_divide_glyph_in_tam": true,
-    "space_placeholder": true
+    "space_placeholder": true,
+    "sup_up_sub_dn_to_sup_sub_in_aim": true
   },
   "android_static_overrides": {},
   "assign_shift_rows": {
