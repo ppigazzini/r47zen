@@ -107,7 +107,7 @@ does, so each one has a check that runs it:
 | `stubs/gtk/gtk.h`, `stubs/gdk/gdk.h`, `stubs/cairo.h` | the GTK, GDK, and Cairo types the core's headers name; no GTK call runs on Android | the build: a call that reached them would not link |
 | `stubs/android/log.h` | the NDK's log header on the host; on Android it defers to the NDK's with `#include_next` | `check_native_hardening.sh` fails a packaged library that imports no `__android_log_print` |
 | `execinfo.h` | `<execinfo.h>`, below the NDK's API 33 | `run_native_stand_ins_contract.sh` reads `strs[1]` under AddressSanitizer and frees the array |
-| `mpz_fits_uint_p`, `mpz_nextprime`, `mpz_fib_ui`, `mpz_div_2exp` in `android_mocks.h` | GMP names mini-gmp lacks | `run_native_stand_ins_contract.sh`, on boundary values computed apart |
+| `mpz_fits_uint_p`, `mpz_nextprime`, `mpz_fib_ui`, `mpz_div_2exp` in `gmp_names.h`, which `android_mocks.h` includes | GMP names mini-gmp lacks | `run_native_stand_ins_contract.sh`, on boundary values computed apart |
 
 The Android native module compiles the staged upstream core in
 `PC_BUILD` mode. That means the Android-owned bridge layer must provide the
@@ -198,8 +198,9 @@ the NDK's header for the `<execinfo.h>` include upstream's `c47.h` makes on
 Linux: the NDK declares `backtrace()` only from API 33, above the app's
 `minSdk`, so the stub's `backtrace()` reports no frames, and its
 `backtrace_symbols()` returns a real two-entry array, since upstream's
-`freeList.c` prints `strs[1]` whatever the frame count. `android_mocks.h` maps
-the GMP names the core uses onto mini-gmp's: `mpz_fits_uint_p` holds the 32-bit
+`freeList.c` prints `strs[1]` whatever the frame count. `gmp_names.h`, which
+`android_mocks.h` includes and upstream's suite runner force-includes, maps the
+GMP names the core uses onto mini-gmp's: `mpz_fits_uint_p` holds the 32-bit
 bound, and `mpz_div_2exp` floors, as GMP's obsolete name does.
 `run_native_stand_ins_contract.sh` holds them to GMP and glibc on boundary values.
 

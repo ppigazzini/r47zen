@@ -327,9 +327,10 @@ Public maintainer entrypoints:
   `android/gradle/wrapper/`. Missing wrapper files are a repo-integrity
   failure, not a signal to fall back to host Gradle. It
   also exposes `--doctor` for SDK, NDK, CMake, xlsxio, upstream-lock, and
-  staged-input plus font-source status, `--run-sim-tests` for the explicit
-  Android and NDK parity lane that forwards test execution into
-  `scripts/android/build_sim_assets.sh --run-tests`, and `--android-only` for
+  staged-input plus font-source status, `--run-sim-tests` to run upstream's
+  stock suite from the full build, through
+  `scripts/android/build_sim_assets.sh --run-tests` (the suite on the app's own
+  configuration is `run_upstream_suite_android_config.sh`), and `--android-only` for
   the fast module-local lane that refuses stale staged native inputs.
   `--collect-host-pgo` and `--validate-release-pgo` are full-build-only flags
   that let the wrapper own the host-side PGO collector and the Android
@@ -344,13 +345,16 @@ Public maintainer entrypoints:
   `android/.staged-native/cpp/STAGED-INPUTS.properties` still matches the
   canonical root, generated inputs, the tracked Android mini-gmp staging
   source, and the current calculator font source.
-- `./scripts/android/build_android.sh --run-sim-tests` is the preferred local
-  reproduction path for Android-lane simulator parity. It requires the full
-  build path, stages `res/testPgms/testPgms.bin` before the suite runs, and is
-  intentionally incompatible with `--android-only`.
-- `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
-  is the CI-matching Android build lane when you need the wrapper to own the
-  host-core PGO collector and the release-native consumer check in one pass.
+- `./scripts/android/build_android.sh --run-sim-tests` runs upstream's stock
+  suite from the full build path, as the release lane does. It stages
+  `res/testPgms/testPgms.bin` before the suite runs, and is intentionally
+  incompatible with `--android-only`.
+- `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`,
+  then `bash scripts/workload-regressions/run_upstream_suite_android_config.sh`,
+  is the CI-matching Android build lane: the wrapper owns the host-core PGO
+  collector and the release-native consumer check in one pass, and the script
+  runs upstream's suite as the app builds the core
+  ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration)).
 - `cd android && ./gradlew assembleDebug` is appropriate only when the staged
   build-only native tree under `android/.staged-native/cpp` is already current
   and the change is isolated to the Android module.
@@ -423,11 +427,15 @@ Public maintainer entrypoints:
 - `make sim` is the canonical root simulator and generator validation path for
   the upstream-shaped desktop lane. Android full builds drive the same
   `build.sim` Meson/Ninja targets through `scripts/android/build_sim_assets.sh`
-  rather than routing through the root Makefile, while parity on the Android
-  build/test/package lane comes from
-  `./scripts/android/build_android.sh --run-sim-tests`, which stages the
-  generated `testPgms.bin` into `res/testPgms/` before running
-  `meson test -C build.sim`.
+  rather than routing through the root Makefile. Each `android-ci.yml` run that
+  the release gate lets build runs upstream's suite twice on the upstream commit
+  it resolves: as upstream builds
+  it, in `upstream-simulator-sanity`, and as the app builds the core, in the
+  build job, through `run_upstream_suite_android_config.sh`. The release lane runs
+  only the first, through `./scripts/android/build_android.sh --run-sim-tests`,
+  which stages the generated `testPgms.bin` into `res/testPgms/` before running
+  `meson test -C build.sim`; the second there would be a new gate on a release,
+  the maintainer's to add.
 
 Internal helpers:
 

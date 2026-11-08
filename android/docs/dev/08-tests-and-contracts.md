@@ -63,6 +63,7 @@ flowchart TD
 | program load and run through Android READP | `android/app/build.gradle` `stageProgramFixtureAssets` (androidTest assets only), `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
 | pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
 | Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved. A signature change fails the build, but a changed *meaning* behind an unchanged signature does not: `scripts/android/run_keypad_generation_contract.sh` is the behavioral half for `hal/lcd.c`, and locks the `bitblt24` blit semantics documented in `src/c47/hal/lcd.h`; `scripts/android/run_hal_io_contract.sh` locks the write-failure report and the `SNAP` offer of `hal/io.c`, and `clipboard_overflow_harness.c` holds `fnSNAP` to what the offer reads | rerun the narrow native Gradle build first, then `run_keypad_generation_contract.sh` and `run_hal_io_contract.sh`, then the latest-upstream Android build lane when new upstream HAL symbols appear |
+| upstream's own cases as the app builds the core: mini-gmp, the GMP names, R47, and the release's compiler and flags | `r47zen/gmp_names.h`, the staged mini-gmp, the release's `compile_commands.json`, upstream's `src/testSuite` | `scripts/workload-regressions/run_upstream_suite_android_config.sh` ([below](#upstream-suite-on-the-apps-configuration)) | an `R47_RELEASE_CHANNEL=dev` build, then that script; the `android-ci.yml` build job runs it |
 | upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
 | which upstream bytes the derived goldens came from | `scripts/r47_contracts/data/upstream_provenance.json`, `scripts/r47_contracts/upstream_provenance.py`, the `UPSTREAM_R47_*_PATH` constants in `scripts/r47_contracts/_repo_paths.py` | `scripts/r47_contracts/test_upstream_provenance_contract.py` | grouped `scripts/r47_contracts` validation lane; coverage fails there, drift only reports |
 
@@ -967,10 +968,14 @@ Android compatibility layer.
   (`--help` lists it), so the two are separate verification surfaces
 - `scripts/workload-regressions/host_workload_regression.c` is the harness that
   probes the wait, pause, progress, and workload-run behavior behind that lane
-- `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
-  is the normal pull-request owner of the Android wrapper testSuite rerun,
-  the host-side PGO collector, and the Android release-native PGO consumer
-  check in one lane. The lower-level collector script remains available for
+- `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
+  is the normal pull-request owner of the host-side PGO collector and the
+  Android release-native PGO consumer check in one lane; the same job then runs
+  upstream's suite on the app's configuration
+  ([below](#upstream-suite-on-the-apps-configuration)), not a second stock run.
+  The release lane, which has no sanity job, runs `--run-sim-tests`, the stock
+  suite; the app's configuration there would be a new gate on a release, the
+  maintainer's to add. The lower-level collector script remains available for
   focused debugging.
 - `scripts/upstream-sync/upstream.sh verify-restore-boundary` fails when the
   repo-owned restore allowlist would re-own authoritative upstream root
@@ -1015,6 +1020,88 @@ Android compatibility layer.
 When a change touches staged-core compatibility, `yieldToAndroidWithMs(...)`,
 or wait and progress behavior, start with the host workload harness before you
 assume the problem is Android UI code.
+
+### Upstream Suite On The App's Configuration
+
+`upstream-simulator-sanity` runs upstream's suite as upstream builds it: the full
+GMP, C47, and `-O0`. The app builds the core differently, and a fault that only
+the app's build has passes that run.
+`scripts/workload-regressions/run_upstream_suite_android_config.sh` builds the
+suite the app's way. It is a step of the `android-ci.yml` build job:
+
+- mini-gmp from `android/.staged-native/cpp/gmp`, with the GMP names of
+  `r47zen/gmp_names.h` force-included, the header `android_mocks.h` takes them from
+- `CALCMODEL=USER_R47`
+- the compiler and flags of the release's compile of `decNumber.c`, read from the
+  newest arm64 `RelWithDebInfo` `compile_commands.json`, in order and after the
+  suite's own flags so they win: the NDK's clang, `-O3`, ThinLTO linked with lld,
+  the PGO profile when the build used one, `-D` and `-U` of `_FORTIFY_SOURCE` and
+  `NDEBUG`, stack protection, and the firmware's `-fsigned-char
+  -fno-strict-aliasing`. It leaves out what names the target or the app's tree:
+  `--target`, `--sysroot`, the `-m` flags, include paths, and the other defines.
+  It adds `-fno-math-errno` when the release's target implies it, as Android's does
+
+Before it compiles, it has the release's compiler and the lane's command print
+their macros, and refuses to run unless `_FORTIFY_SOURCE`, `NDEBUG`, math errno,
+char signedness, and `__OPTIMIZE__` agree: a release that, say, dropped `-fsigned-char`
+gets arm64's unsigned `char`, which an x86_64 build cannot reproduce. In
+`android-ci.yml` the newest database is the one `--validate-release-pgo` builds
+with the collected profile, the release lane's configuration; the dev APK that job
+uploads is built without a profile.
+
+It asks ninja for the generated inputs of the suite's units, builds only those and
+the test programs in `build.sim`, compiles with `ccache` when it is on the path,
+and runs every case from the project root, for at most 30 minutes, its stderr
+kept apart. The run fails unless the suite ends on its own with its summary (an
+early exit or a signal leaves none), it ran as many cases as its test files hold
+`OUT:` lines, its failed count equals the cases, by file and line, that printed a
+failure, it holds no GMP memory at the end, and every failed case is in
+`KNOWN_FAILURES`. A failed case prints one record for each wrong value; a known
+case matches by file, its `IN:` and `OUT:` lines, and every mismatch across its
+records, so upstream adding lines above it changes nothing and another wrong value
+in the same case still fails. A known case that no longer fails as listed prints a
+note. `R47_SUITE_LOG` and `R47_SUITE_STATUS` check a saved log without building.
+
+The only known failure is an ALGDEP case in `algdep_cov.txt`: with mini-gmp, Y,
+the confidence it reports, is 13 where the case expects 10. Built with the full
+GMP and the app's flags, the suite fails no case, so mini-gmp causes it; that it
+is `mpz_sizeinbase`, exact in mini-gmp where GMP may answer one more, is read from
+`algdep.c`, not isolated.
+
+Seeded, it catches:
+
+- a release compiled with `-U_FORTIFY_SOURCE`, or with `-D_FORTIFY_SOURCE=0`:
+  about 80 to 90 cases near 1E6144 fail (`reToCx`, `xthRoot`, `lnbeta`, `10pow`, and
+  others), a count that varies from run to run, as do the wrong values, such as
+  6.4E+6137 where 0 is expected. Values that vary fit a read of memory the code
+  did not set, which decNumber's `decFinalize` would make: read, not proved. So a
+  pass here on glibc's `_FORTIFY_SOURCE` does not prove that Bionic's hides the
+  same fault on the phone
+- a release compiled without `-fsigned-char`: refused before it compiles
+- an `mpz_fib_ui` off by one, in eight cases of `fib.txt`
+- a list entry that does not exist, after the known failure: the suite exits
+  early, with no summary
+- the known case failing with another mismatch, before or after its own
+- a summary that counts fewer cases than the test files hold, and a record the
+  suite did not count
+
+The other three names pass a wrong stand-in here. No core code calls
+`mpz_nextprime`: its one use, in `prime.c`, is commented out. Every caller of
+`longIntegerDivide2` (`mpz_div_2exp`) passes a value that is not negative, where
+`fdiv` and `tdiv` agree. A `mpz_fits_uint_p` without its upper bound passes every
+case. The calculator thread harness's "the stand-ins agree with GMP" case holds
+those three instead.
+
+What it cannot see: it builds x86_64 against glibc, whose `_FORTIFY_SOURCE` checks
+are not Bionic's, without arm64's `-mbranch-protection`, so a fault only arm64
+code generation or Bionic shows passes it. It links an executable, where the
+release links a shared library with `--gc-sections` and its `--wrap` options, so
+ThinLTO may inline and drop symbols the release keeps. It runs on the suite's
+own HAL, not `r47zen/hal`, and through the core's other `TESTSUITE_BUILD` branches
+(in `prime.c`, `matrix.c`, `solve.c`, and others). x86_64 has no fused multiply-add
+contraction by default and a 64-bit `long double`, where arm64 has both. The
+release links with CMake's `-O2` and the lane with no `-O`, so both run ThinLTO's
+backend at level 2, lld's default: read, not measured.
 
 ## Host CI Contracts
 
@@ -1089,6 +1176,9 @@ when one of them guards something that matters.
   `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
 - staged-native, simulator, or CI-critical verification change: run
   `./scripts/android/build_android.sh --run-sim-tests`
+- GMP name, mini-gmp, or native compile flag change: after a release build
+  (`R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh`), run
+  `bash scripts/workload-regressions/run_upstream_suite_android_config.sh`
 - release identity, signing, or packaging change: run
   `bash scripts/android/run_workflow_contracts.sh`, lint,
   `:app:testDebugUnitTest`, `:app:assembleDebugAndroidTest`,

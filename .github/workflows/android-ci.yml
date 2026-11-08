@@ -646,7 +646,6 @@ jobs:
           mkdir -p ci-artifacts/logs
 
           ./scripts/android/build_android.sh \
-            --run-sim-tests \
             --collect-host-pgo \
             --validate-release-pgo \
             2>&1 | tee ci-artifacts/logs/build-android.log
@@ -812,6 +811,22 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      # upstream-simulator-sanity runs upstream's suite as upstream builds it; this
+      # builds it as the app builds the core (page 08, "Upstream Suite On The App's
+      # Configuration"). After the uploads, so a failure here, which an upstream
+      # commit alone can cause, skips no check and no upload; the job still fails,
+      # so nothing signs.
+      - name: Run upstream's suite on the app's configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=0
+          bash scripts/workload-regressions/run_upstream_suite_android_config.sh \
+            2>&1 | tee ci-artifacts/logs/upstream-suite-android-config.log || status=$?
+          cp android/build/upstream-suite-android-config/testSuite.log \
+            ci-artifacts/logs/upstream-suite-testSuite.log 2>/dev/null || true
+          exit "$status"
+
       # The JVM tests read keypad scenes exported at one upstream commit. Export
       # the scenes of the core this job built and report what moved. Drift from an
       # upstream move passes; drift with no upstream move, a failed export, or a
@@ -848,6 +863,8 @@ jobs:
           path: |
             ci-artifacts/logs/build-android.log
             ci-artifacts/logs/keypad-fixtures-export.log
+            ci-artifacts/logs/upstream-suite-android-config.log
+            ci-artifacts/logs/upstream-suite-testSuite.log
           if-no-files-found: warn
           retention-days: 14
 
@@ -1478,9 +1495,9 @@ jobs:
             workflow.
           - The workflow first sanity-checked the authoritative upstream
             simulator core with parallel make test.
-          - The Android lane rebuilt assets, reran the simulator-native suite
-            from ./scripts/android/build_android.sh --run-sim-tests, and then
-            packaged the signed dev-channel APK.
+          - The Android lane rebuilt assets and the APK, and ran upstream's
+            suite again as the app builds the core (mini-gmp, R47, the
+            release's compiler and flags); a separate job signed the APK.
           - The workflow verified the packaged ABIs, that the APK is zip-aligned
             for 16 KB pages (zipalign -c -P 16), and that every native library's
             ELF LOAD segments are 16 KB aligned.

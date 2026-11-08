@@ -374,7 +374,9 @@ It:
   `scripts/android/install_host_llvm_toolchain.sh` so the host PGO runtime
   shim does not drift onto the runner-default LLVM toolchain
 - syncs the authoritative upstream tree
-- runs `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
+- runs `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`;
+  `upstream-simulator-sanity` runs upstream's stock suite, so this job does not
+  run it again
 - runs `scripts/security/check_native_hardening.sh` on every packaged arm64
   `libr47zen.so` and fails the job when a mitigation is missing: AArch64
   branch protection (BTI/PAC), full RELRO, a non-executable stack, no
@@ -396,6 +398,12 @@ It:
   input, so AGP writes `app-release-unsigned.apk`, and the job fails if it
   reports anything else
 - after the APK and PGO uploads, runs
+  `scripts/workload-regressions/run_upstream_suite_android_config.sh`:
+  upstream's suite as the app builds the core, with mini-gmp, R47, and the
+  compiler and flags the release's `compile_commands.json` records
+  ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration)).
+  The job's build-log artifact carries its log and the suite's
+- then runs
   `scripts/keypad-fixtures/report_keypad_fixture_drift.sh`: it exports the
   keypad scenes of the core it built and lists in the log and the step summary
   what differs from the tracked fixtures the JVM tests read, up to 12 changes a
@@ -687,7 +695,10 @@ This workflow:
 - reruns `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
   so the protected release lane uses the same wrapper-owned host-core
   optimization flow as the Android CI release-path lane and writes
-  `ci-artifacts/pgo/r47-host-core.profdata`
+  `ci-artifacts/pgo/r47-host-core.profdata`; `--run-sim-tests` runs upstream's
+  stock suite, since this workflow has no sanity job; it does not run upstream's
+  suite on the app's configuration, which would be a new gate on a release
+  ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration))
 - holds no signing input: no environment, no secret, no keystore (see
   [Signing isolation](#signing-isolation))
 - takes the release's two numbers from `android/r47-defaults.properties`,
@@ -1188,7 +1199,9 @@ Use the smallest local lane that matches the failure surface:
   `./scripts/android/build_android.sh --run-sim-tests`
 - CI-matching Android build plus host-core PGO collection and release-native
   validation:
-  `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
+  `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
+- upstream's suite on the app's configuration, after that release build:
+  `bash scripts/workload-regressions/run_upstream_suite_android_config.sh`
 - CI-matching Android pre-emulator build plus JVM slice:
   `cd android && ./gradlew :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.releaseChannelBuildToken=<token> -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
 - Android lint-only regression with current staged inputs:
