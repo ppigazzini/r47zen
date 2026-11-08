@@ -57,7 +57,6 @@ void r47_keys_claim_calculator_thread(void);
 
 // Any thread. A false return means the queue is full and the request was refused.
 bool r47_service_paste(const char *tokens);
-bool r47_service_shell_menu(int shellMenu);
 bool r47_service_graph_reset(void);
 bool r47_service_copy(int what);
 bool r47_service_describe_display(void);
@@ -124,9 +123,20 @@ void r47_keys_wake(void);
 void r47_keys_on_host_stopped(bool stopped);
 void r47_key_push(int code);
 void r47_key_cancel(void);
+void r47_key_push_pc(uint32_t keyval, uint32_t state, bool press);
 void r47_key_release_if_down(void);
 void r47_key_push_quit(void);
 bool r47_keys_calculator_idle(void);
 bool r47_keys_pending(void);
+
+// hal/keys.c, the calculator thread: upstream's keyPushKey and keyPushClick, the keys
+// pc_keyboard.c gives. A button of 2 or 3 clicks with the f or g shift.
+void r47_key_push_key(const char *data, bool press, int button);
+void r47_key_push_click(const char *data, int button);
+
+// pc_keyboard.c, the calculator thread: upstream's pcKeyHandle, and whether a key
+// that arrives while the calculator is busy waits for it.
+void r47_pc_key_handle(uint32_t keyval, uint32_t state, bool press, bool busy);
+bool r47_pc_key_in_text_entry(void);
 
 #endif // HOST_SERVICES_H

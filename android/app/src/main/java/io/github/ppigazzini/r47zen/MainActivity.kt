@@ -133,20 +133,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         return super.dispatchKeyEvent(event)
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (physicalKeyboardInputController.onKeyDown(keyCode, event)) {
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
-    }
-
-    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (physicalKeyboardInputController.onKeyUp(keyCode)) {
-            return true
-        }
-        return super.onKeyUp(keyCode, event)
-    }
-
     private fun applyGraphGestureBatch(batch: GraphGestureBatch) {
         CalculatorEngine.graphGestureNative(batch.panDxNorm, batch.panDyNorm, batch.scaleFactor)
     }
@@ -231,8 +217,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun createPhysicalKeyboardInputController(): PhysicalKeyboardInputController {
         return PhysicalKeyboardInputController(
-            sendKey = CalculatorEngine::sendKey,
-            showShellMenu = CalculatorEngine::showShellMenuNative,
+            sendPcKey = CalculatorEngine::sendPcKeyNative,
             onPaste = { displayActionController.pasteFromClipboard() },
             onMainMenu = ::openMainMenu,
         )

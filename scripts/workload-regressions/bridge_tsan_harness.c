@@ -61,7 +61,8 @@ static void *producer_main(void *arg) {
     r47_key_push(keyCode);
     r47_key_push(0);
     if ((i % 16) == 0) {
-      r47_service_shell_menu(R47_SHELL_MENU_HOME);
+      r47_key_push_pc('H', 0x1u, true); // shifted H, the HOME menu
+      r47_key_push_pc('H', 0x1u, false);
       r47_service_graph_gesture(0.01f, 0.0f, 1.0f);
       r47_service_copy(R47_COPY_X);
       r47_service_save_and_wait(5000);

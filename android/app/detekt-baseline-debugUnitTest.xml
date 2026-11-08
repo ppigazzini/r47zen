@@ -15,6 +15,5 @@
     <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$(R47AndroidChromeGeometry.MAIN_MENU_BUTTON_LEFT + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_WIDTH) * projection.scale</ID>
     <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$(R47AndroidChromeGeometry.MAIN_MENU_BUTTON_TOP + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_HEIGHT) * projection.scale</ID>
     <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)</ID>
-    <ID>MaxLineLength:PhysicalKeyboardInputParityTest.kt:PhysicalKeyboardInputParityTest$assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, keyEvent(KeyEvent.KEYCODE_DPAD_UP, KeyEvent.META_CTRL_ON)))</ID>
   </CurrentIssues>
 </SmellBaseline>

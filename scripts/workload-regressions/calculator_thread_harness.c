@@ -32,6 +32,7 @@
 #define KEY_EXIT 33
 #define KEY_ZERO 34
 #define KEY_RS 36
+#define KEY_MINUS 32
 #define KEY_PLUS 37
 #define KEY_SOFTKEY_1 38
 
@@ -194,6 +195,8 @@ typedef struct {
   bool solving;
   char aim[64];
   int menu;
+  bool shiftF;
+  bool shiftG;
 } state_t;
 
 static void registerText(calcRegister_t r, char *out, size_t size) {
@@ -224,6 +227,8 @@ static void readStateAtRest(void *arg) {
   s->solving = getSystemFlag(FLAG_SOLVING);
   snprintf(s->aim, sizeof(s->aim), "%.60s", aimBuffer);
   s->menu = currentMenu();
+  s->shiftF = shiftF;
+  s->shiftG = shiftG;
 }
 
 // Blocks until the calculator is at rest again, so it is also the wait for "done".
@@ -549,6 +554,288 @@ static const keyReplay_t keyReplays[] = {
 static void resetAtRest(void *arg) {
   (void)arg;
   fnReset(CONFIRMED);
+}
+
+// The PC keyboard (pc_keyboard.c), as upstream's GTK simulator gives it. Kotlin sends
+// X11 keysyms with the modifiers before each event, as X11 reports them.
+#define PC_SHIFT_L 0xffe1u
+#define PC_SHIFT_MASK 0x1u
+#define PC_DEAD_ACUTE 0xfe51u
+#define PC_UNICODE(cp) (0x01000000u | (cp))
+#define PC_F1 0xffbeu
+#define PC_ESCAPE 0xff1bu
+#define PC_CONTROL_L 0xffe3u
+#define PC_CONTROL_MASK 0x4u
+
+static void pcTap(uint32_t keyval) {
+  r47_key_push_pc(keyval, 0, true);
+  r47_key_push_pc(keyval, 0, false);
+}
+
+static void pcTapShifted(uint32_t keyval) {
+  r47_key_push_pc(PC_SHIFT_L, 0, true);
+  r47_key_push_pc(keyval, PC_SHIFT_MASK, true);
+  r47_key_push_pc(keyval, PC_SHIFT_MASK, false);
+  r47_key_push_pc(PC_SHIFT_L, PC_SHIFT_MASK, false);
+}
+
+static void enterAimAtRest(void *arg) {
+  (void)arg;
+  runFunction(ITM_AIM);
+}
+
+static void aimTextAtRest(void *arg) { snprintf(arg, 64, "%.60s", aimBuffer); }
+
+static void aimAppendAtRest(void *arg) { processAimInput((int16_t)(intptr_t)arg); }
+
+// Keys and PC keys share one buffer, so a PC key keeps its place between two touch
+// keys: 1, a shifted PC E (the constant e, by item), then - is 1 - e, all pushed with
+// no wait. Either key overtaking the PC key gives another number.
+static void casePcKeyRunsInOrderWithTheKeys(void) {
+  startCalculator();
+  tap(KEY_ONE);
+  pcTapShifted('E');
+  tap(KEY_MINUS);
+  state_t s = readState();
+  CHECK(strncmp(s.x, "-1.71828182845904523536", 23) == 0, "1, E, - gave X=%s, not 1 - e", s.x);
+}
+
+// GTK's period is the R47's decimal point key; its x squared row is the Raspberry
+// Pi build's only: 1 . 5 is 1.5.
+static void casePcPeriodIsTheDecimalPoint(void) {
+  startCalculator();
+  pcTap('1');
+  pcTap('.');
+  pcTap('5');
+  pcTap(0xff0du); // Return, ENTER
+  state_t s = readState();
+  CHECK(strcmp(s.x, "1.5") == 0, "1 . 5 ENTER gave X=%s", s.x);
+}
+
+// A lone Shift is f and a lone Ctrl is g, on their release, as GTK's are.
+static void casePcLoneShiftAndCtrlAreTheShifts(void) {
+  startCalculator();
+  r47_key_push_pc(PC_SHIFT_L, 0, true);
+  r47_key_push_pc(PC_SHIFT_L, PC_SHIFT_MASK, false);
+  state_t s = readState();
+  CHECK(s.shiftF && !s.shiftG, "a lone Shift gave f=%d g=%d", s.shiftF, s.shiftG);
+  r47_key_push_pc(PC_CONTROL_L, 0, true);
+  r47_key_push_pc(PC_CONTROL_L, PC_CONTROL_MASK, false);
+  s = readState();
+  CHECK(!s.shiftF && s.shiftG, "a lone Ctrl gave f=%d g=%d", s.shiftF, s.shiftG);
+}
+
+static void setHexBaseAtRest(void *arg) {
+  (void)arg;
+  lastIntegerBase = 16;
+}
+
+// In integer entry with a base, a-f are digits, not their shortcuts: a is not SIGMA+.
+static void casePcLetterInHexEntryIsADigit(void) {
+  startCalculator();
+  r47_run_at_rest(setHexBaseAtRest, NULL);
+  pcTap('1');
+  pcTap('a');
+  state_t s = readState();
+  CHECK(s.calcMode == CM_NIM, "a closed number entry: calcMode=%d", s.calcMode);
+  CHECK(strchr(s.aim, 'A') != NULL, "a gave no hex digit: aim=%s", s.aim);
+}
+
+static void userModeWithExpOnThePiKeyAtRest(void *arg) {
+  (void)arg;
+  setSystemFlag(FLAG_USER);
+  kbd_usr[8].fShifted = ITM_EXP; // the default layout's f 8 is pi
+}
+
+// A shortcut to an item runs the item by name, as GTK's -01 rows do, so a user key
+// that moved the item does not change what the letter gives: p is pi.
+static void casePcLetterRunsItsItemInUserMode(void) {
+  startCalculator();
+  r47_run_at_rest(userModeWithExpOnThePiKeyAtRest, NULL);
+  setStack(0, 0, 0, 1);
+  pcTap('p');
+  state_t s = readState();
+  CHECK(strncmp(s.x, "3.14159265358979323846", 22) == 0, "p in USER mode gave X=%s, not pi",
+        s.x);
+}
+
+// A held shift stops a shortcut that runs an item, as GTK's shortCutCommand does: g
+// then t does nothing.
+static void casePcShiftThenLetterDoesNothing(void) {
+  startCalculator();
+  setStack(0, 0, 0, 1);
+  pcTap('g');
+  pcTap('t');
+  state_t s = readState();
+  CHECK(strcmp(s.x, "1.") == 0, "g then t changed X to %s", s.x);
+  CHECK(s.shiftG && !s.shiftF, "g then t left f=%d g=%d", s.shiftF, s.shiftG);
+}
+
+// The layout choice, as the calculator's own menu makes it. Two upstream behaviors
+// are put away, so each f press is a first press: the version screen the choice shows,
+// under which the release of a shift key returns before it ends the key's long press,
+// and the window in which a third shift press opens HOME and clears the shift.
+static void setModelAtRest(void *arg) {
+  fnKeysManagement((uint16_t)(intptr_t)arg);
+  temporaryInformation = TI_NO_INFO;
+  fnTimerStop(TO_3S_CTFF);
+  shiftF = false;
+  shiftG = false;
+}
+
+// The f letter finds the layout's own shift key, as GTK's does.
+static void casePcFLetterShiftsOnEveryLayout(void) {
+  startCalculator();
+  const int models[] = {USER_R47f_g, USER_R47bk_fg, USER_R47fg_bk, USER_R47fg_g};
+  for (size_t i = 0; i < sizeof(models) / sizeof(models[0]); i++) {
+    r47_run_at_rest(setModelAtRest, (void *)(intptr_t)models[i]);
+    pcTap('f');
+    state_t s = readState();
+    CHECK(s.shiftF && !s.shiftG, "model %d: f gave f=%d g=%d", models[i], s.shiftF, s.shiftG);
+  }
+}
+
+// Letters in AIM type what they say, in the case the calculator shows: q w e r t y
+// at AC_UPPER is QWERTY, and a shifted Q flips to q.
+static void casePcLettersInAimTypeWhatTheySay(void) {
+  startCalculator();
+  r47_run_at_rest(enterAimAtRest, NULL);
+  const uint32_t word[] = {'q', 'w', 'e', 'r', 't', 'y'};
+  for (size_t i = 0; i < sizeof(word) / sizeof(word[0]); i++) {
+    pcTap(word[i]);
+  }
+  pcTapShifted('Q');
+  state_t s = readState();
+  CHECK(s.calcMode == CM_AIM, "calcMode=%d", s.calcMode);
+  CHECK(strcmp(s.aim, "QWERTYq") == 0, "typed QWERTYq, aim=%s", s.aim);
+}
+
+static void readRegisterAAtRest(void *arg) { registerText(REGISTER_A, arg, 64); }
+
+// STO, then a letter, stores to that register, as GTK's STO and RCL chain does.
+static void casePcLetterAfterStoNamesTheRegister(void) {
+  startCalculator();
+  setStack(0, 0, 0, 5);
+  r47_run_at_rest(runFunctionAtRest, (void *)(intptr_t)ITM_STO);
+  pcTap('a');
+  char registerA[64] = "";
+  readState();
+  r47_run_at_rest(readRegisterAAtRest, registerA);
+  CHECK(strcmp(registerA, "5.") == 0, "STO a left A=%s", registerA);
+}
+
+// A character beyond Latin-1 comes as its Unicode keysym and types the item GTK's map
+// gives its legacy keysym; a dead key composes with the next letter.
+static void casePcCharactersBeyondAsciiType(void) {
+  startCalculator();
+  r47_run_at_rest(enterAimAtRest, NULL);
+  r47_run_at_rest(aimAppendAtRest, (void *)(intptr_t)ITM_a_OGONEK);
+  r47_run_at_rest(aimAppendAtRest, (void *)(intptr_t)ITM_E_ACUTE);
+  char expected[64] = "";
+  r47_run_at_rest(aimTextAtRest, expected);
+  r47_run_at_rest(resetAtRest, NULL);
+  r47_run_at_rest(enterAimAtRest, NULL);
+  pcTap(PC_UNICODE(0x0105));
+  pcTap(PC_DEAD_ACUTE);
+  pcTap('e');
+  char typed[64] = "";
+  readState();
+  r47_run_at_rest(aimTextAtRest, typed);
+  CHECK(expected[0] != 0 && strcmp(typed, expected) == 0, "typed %s, expected %s", typed,
+        expected);
+}
+
+static void readVolumeSoftkeyValueAtRest(void *arg) {
+  *(int16_t *)arg = fnItemShowValue(ITM_VOLPLUS);
+}
+
+// The app keeps no beep volume, so the VOL softkeys show no value, as GTK's
+// getBeepVolume answers NOVAL.
+static void caseVolumeSoftkeysShowNoValue(void) {
+  startCalculator();
+  int16_t value = 0;
+  r47_run_at_rest(readVolumeSoftkeyValueAtRest, &value);
+  CHECK(value == NOVAL, "VOL+ shows %d, not NOVAL", value);
+}
+
+typedef struct {
+  bool numLock;
+  char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY][R47_KEYPAD_LABEL_CAPACITY];
+} aimFaces_t;
+
+static void readAimFacesAtRest(void *arg) {
+  aimFaces_t *faces = arg;
+  runFunction(ITM_AIM);
+  if (faces->numLock) {
+    setSystemFlag(FLAG_NUMLOCK);
+  } else {
+    clearSystemFlag(FLAG_NUMLOCK);
+  }
+  r47_get_keypad_labels(faces->labels, true);
+}
+
+static const char *aimFace(const aimFaces_t *faces, int key, int slot) {
+  return faces->labels[key * R47_KEYPAD_LABELS_PER_KEY + slot];
+}
+
+// In AIM with NUM on, a key's face is what it types, as GTK draws it through
+// numlockReplacements: the N key shows its g face, 7, under NUM.
+static void caseAimFacesFollowNumLock(void) {
+  startCalculator();
+  static aimFaces_t letters = {.numLock = false};
+  static aimFaces_t digits = {.numLock = true};
+  r47_run_at_rest(readAimFacesAtRest, &letters);
+  r47_run_at_rest(readAimFacesAtRest, &digits);
+  int key = 0;
+  while (key < R47_KEYPAD_KEY_COUNT && strcmp(aimFace(&letters, key, R47_KEYPAD_LABEL_PRIMARY), "N") != 0) {
+    key++;
+  }
+  CHECK(key < R47_KEYPAD_KEY_COUNT, "no AIM key shows N");
+  if (key == R47_KEYPAD_KEY_COUNT) {
+    return;
+  }
+  CHECK(strcmp(aimFace(&letters, key, R47_KEYPAD_LABEL_G), "7") == 0, "the N key's g face is %s",
+        aimFace(&letters, key, R47_KEYPAD_LABEL_G));
+  CHECK(strcmp(aimFace(&digits, key, R47_KEYPAD_LABEL_PRIMARY), "7") == 0,
+        "the N key under NUM shows %s, not 7", aimFace(&digits, key, R47_KEYPAD_LABEL_PRIMARY));
+}
+
+// During a computation a PC key only pushes keys at the head of the buffer: s gives
+// the key sine sits on, which the computation's poll drops, and Escape gives EXIT,
+// which stops it.
+static void casePcKeyDuringAComputationOnlyPushesKeys(void) {
+  startCalculator();
+  startSlowFactors();
+  pcTap('s');
+  pcTap(PC_ESCAPE);
+  const int64_t start = nowMs();
+  state_t s = readState();
+  CHECK(nowMs() - start < 2000, "Escape took %d ms", (int)(nowMs() - start));
+  CHECK(s.calcMode == CM_NORMAL && s.lastError == 0, "calcMode=%d lastError=%d", s.calcMode,
+        s.lastError);
+}
+
+static atomic_bool releaseWaitEnded;
+
+static void waitForReleaseAtRest(void *arg) {
+  (void)arg;
+  wait_for_key_release(0);
+  atomic_store(&releaseWaitEnded, true);
+}
+
+// A softkey a PC F1 pressed during a computation, released once the computation is
+// over, leaves no key down: the next wait for a release does not wait.
+static void casePcSoftkeyReleasedAtRestLeavesNoKeyDown(void) {
+  startCalculator();
+  startSlowFactors();
+  r47_key_push_pc(PC_F1, 0, true);
+  readState();
+  r47_key_push_pc(PC_F1, 0, false);
+  readState();
+  atomic_store(&releaseWaitEnded, false);
+  r47_run_at_rest_async(waitForReleaseAtRest, NULL);
+  sleepMs(500);
+  CHECK(atomic_load(&releaseWaitEnded), "the calculator waits for a release no key will send");
 }
 
 static void caseKeySequencesGiveWhatTheKeysSay(void) {
@@ -1619,7 +1906,7 @@ static void caseCancelOfASoftkeyDoesNotAssign(void) {
 static void caseRefusedKeypadModeIsAskedForAgain(void) {
   startCalculator();
   startSlowFactors();
-  while (r47_service_shell_menu(1)) {
+  while (r47_service_copy(R47_COPY_X)) {
   }
   static int32_t fill[R47_KEYPAD_META_LENGTH];
   static char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY][R47_KEYPAD_LABEL_CAPACITY];
@@ -1658,61 +1945,6 @@ static void caseACoreCallOffItsThreadAborts(void) {
       CHECK(false, "a core call off the calculator thread returned");
     }
   }
-}
-
-static void readVolumeSoftkeyValueAtRest(void *arg) {
-  *(int16_t *)arg = fnItemShowValue(ITM_VOLPLUS);
-}
-
-// The app keeps no beep volume, so the VOL softkeys show no value, as GTK's
-// getBeepVolume answers NOVAL.
-static void caseVolumeSoftkeysShowNoValue(void) {
-  startCalculator();
-  int16_t value = 0;
-  r47_run_at_rest(readVolumeSoftkeyValueAtRest, &value);
-  CHECK(value == NOVAL, "VOL+ shows %d, not NOVAL", value);
-}
-
-typedef struct {
-  bool numLock;
-  char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY][R47_KEYPAD_LABEL_CAPACITY];
-} aimFaces_t;
-
-static void readAimFacesAtRest(void *arg) {
-  aimFaces_t *faces = arg;
-  runFunction(ITM_AIM);
-  if (faces->numLock) {
-    setSystemFlag(FLAG_NUMLOCK);
-  } else {
-    clearSystemFlag(FLAG_NUMLOCK);
-  }
-  r47_get_keypad_labels(faces->labels, true);
-}
-
-static const char *aimFace(const aimFaces_t *faces, int key, int slot) {
-  return faces->labels[key * R47_KEYPAD_LABELS_PER_KEY + slot];
-}
-
-// In AIM with NUM on, a key's face is what it types, as GTK draws it through
-// numlockReplacements: the N key shows its g face, 7, under NUM.
-static void caseAimFacesFollowNumLock(void) {
-  startCalculator();
-  static aimFaces_t letters = {.numLock = false};
-  static aimFaces_t digits = {.numLock = true};
-  r47_run_at_rest(readAimFacesAtRest, &letters);
-  r47_run_at_rest(readAimFacesAtRest, &digits);
-  int key = 0;
-  while (key < R47_KEYPAD_KEY_COUNT && strcmp(aimFace(&letters, key, R47_KEYPAD_LABEL_PRIMARY), "N") != 0) {
-    key++;
-  }
-  CHECK(key < R47_KEYPAD_KEY_COUNT, "no AIM key shows N");
-  if (key == R47_KEYPAD_KEY_COUNT) {
-    return;
-  }
-  CHECK(strcmp(aimFace(&letters, key, R47_KEYPAD_LABEL_G), "7") == 0, "the N key's g face is %s",
-        aimFace(&letters, key, R47_KEYPAD_LABEL_G));
-  CHECK(strcmp(aimFace(&digits, key, R47_KEYPAD_LABEL_PRIMARY), "7") == 0,
-        "the N key under NUM shows %s, not 7", aimFace(&digits, key, R47_KEYPAD_LABEL_PRIMARY));
 }
 
 // The app links every exit to a logged abort, and so does this harness, so a core that
@@ -2221,6 +2453,19 @@ static const testCase_t cases[] = {
     {"key goes through the buffer", caseKeyGoesThroughTheBuffer},
     {"keys keep their order", caseKeysKeepTheirOrder},
     {"key sequences give what the keys say", caseKeySequencesGiveWhatTheKeysSay},
+    {"a PC key runs in order with the keys", casePcKeyRunsInOrderWithTheKeys},
+    {"a PC period is the decimal point", casePcPeriodIsTheDecimalPoint},
+    {"a lone PC Shift is f and a lone Ctrl is g", casePcLoneShiftAndCtrlAreTheShifts},
+    {"a PC letter in hex entry is a digit", casePcLetterInHexEntryIsADigit},
+    {"a PC letter runs its item in USER mode", casePcLetterRunsItsItemInUserMode},
+    {"a PC shift then a letter does nothing", casePcShiftThenLetterDoesNothing},
+    {"the PC f letter shifts on every layout", casePcFLetterShiftsOnEveryLayout},
+    {"PC letters in AIM type what they say", casePcLettersInAimTypeWhatTheySay},
+    {"a PC letter after STO names the register", casePcLetterAfterStoNamesTheRegister},
+    {"PC characters beyond ASCII type", casePcCharactersBeyondAsciiType},
+    {"a PC key during a computation only pushes keys", casePcKeyDuringAComputationOnlyPushesKeys},
+    {"a PC softkey released at rest leaves no key down",
+     casePcSoftkeyReleasedAtRestLeavesNoKeyDown},
     {"AIM faces follow NUM", caseAimFacesFollowNumLock},
     {"the VOL softkeys show no value", caseVolumeSoftkeysShowNoValue},
     {"the display text is what the screen shows", caseDisplayTextIsWhatTheScreenShows},

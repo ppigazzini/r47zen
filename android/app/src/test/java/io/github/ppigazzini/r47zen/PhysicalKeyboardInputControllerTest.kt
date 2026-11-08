@@ -7,31 +7,32 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-// The app's two keyboard entries beside the calculator's keys: Ctrl+V pastes in place
-// of the V key, and a Ctrl so used shifts nothing on its release; the Menu key opens
-// the main menu and reaches nothing else.
+// The app's two keyboard entries beside the PC keys GTK has: Ctrl+V pastes and
+// still reaches the calculator, which marks Ctrl as used; the Menu key opens the main
+// menu and reaches nothing else.
 @RunWith(RobolectricTestRunner::class)
 class PhysicalKeyboardInputControllerTest {
-    private val sent = mutableListOf<Int>()
+    private val sent = mutableListOf<Triple<Int, Int, Boolean>>()
     private var pastes = 0
     private var menus = 0
     private val controller = PhysicalKeyboardInputController(
-        sendKey = { sent += it },
-        showShellMenu = {},
+        sendPcKey = { keysym, state, press -> sent += Triple(keysym, state, press) },
         onPaste = { pastes++ },
         onMainMenu = { menus++ },
     )
 
     @Test
-    fun ctrlV_pastesOnce_andSendsNoKey() {
-        assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CTRL_LEFT, CTRL)))
+    fun ctrlV_pastesOnce_andStillSendsTheKey() {
         assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_V, CTRL)))
         assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_V, CTRL, repeat = 1)))
-        controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_V, CTRL))
-        assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CTRL_LEFT)))
+        assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_V, CTRL)))
 
         assertEquals(1, pastes)
-        assertEquals(emptyList<Int>(), sent)
+        assertEquals(
+            listOf('v'.code to true, 'v'.code to true, 'v'.code to false),
+            sent.map { it.first to it.third },
+        )
+        assertTrue(sent.all { it.second and PcKeys.CONTROL_MASK != 0 })
     }
 
     @Test
@@ -51,37 +52,11 @@ class PhysicalKeyboardInputControllerTest {
         assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MENU)))
 
         assertEquals(1, menus)
-        assertEquals(emptyList<Int>(), sent)
-    }
-
-    // Android cancels a key's up when focus leaves the window, for a dialog, the main
-    // menu, or another app: the key was not let go on purpose.
-    @Test
-    fun aCanceledShiftOrCtrlUp_shiftsNothing() {
-        for (code in listOf(KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_CTRL_LEFT)) {
-            assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, code)))
-            assertTrue(controller.onKeyEvent(canceledUp(code)))
-        }
-
-        assertEquals(emptyList<Int>(), sent)
-    }
-
-    @Test
-    fun aCanceledShiftUp_leavesTheNextShiftWorking() {
-        controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT))
-        controller.onKeyEvent(canceledUp(KeyEvent.KEYCODE_SHIFT_LEFT))
-        controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT))
-        controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SHIFT_LEFT))
-
-        assertEquals(listOf(SimKeyIds.code(SimKeyIds.F_SHIFT, false), CalculatorEngine.KEY_RELEASE), sent)
+        assertEquals(emptyList<Triple<Int, Int, Boolean>>(), sent)
     }
 
     private fun key(action: Int, code: Int, meta: Int = 0, repeat: Int = 0): KeyEvent {
         return KeyEvent(0L, 0L, action, code, repeat, meta)
-    }
-
-    private fun canceledUp(code: Int): KeyEvent {
-        return KeyEvent(0L, 0L, KeyEvent.ACTION_UP, code, 0, 0, 0, 0, KeyEvent.FLAG_CANCELED)
     }
 
     private companion object {

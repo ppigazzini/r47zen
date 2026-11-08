@@ -18,24 +18,34 @@
 #define SYS_TIMERS 4
 
 typedef enum {
+  hostPcKeyPress,
+  hostPcKeyRelease,
   hostShiftF,
   hostShiftG,
   hostCancelPress,
   hostQuit
 } hostEventKind_t;
 
+typedef struct {
+  hostEventKind_t kind;
+  uint32_t keyval; // a PC key's keysym
+  uint32_t state;  // and its modifiers
+} hostEvent_t;
+
 static pthread_mutex_t keyMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t keyCond; // signaled on every push and service request
 static int keyBuffer[KEY_BUFFER_SIZE];
 static int keyCount = 0;
-static hostEventKind_t hostEvents[HOST_EVENT_SLOTS];
+static hostEvent_t hostEvents[HOST_EVENT_SLOTS];
 static int nextHostEvent = 0;
 static bool pushedKeyDown = false; // a press was pushed and its release not yet
+static bool pcPressPushed = false; // that press came from a PC key while busy
 static bool keysFromHost = false;  // false: a script pushes, then dispatches
 static bool quitPending = false;
 static bool quitInRing =
     false;                // the main loop's pop, or a redraw's, took the quit
 static int insertAt = -1; // while the calculator thread adds keys at the head
+static pthread_t insertThread;
 static int64_t timerDeadlineUs[SYS_TIMERS]; // monotonic, 0 while not running
 static int64_t lastMinute = 0;
 static _Atomic bool hostStopped = false;
@@ -103,7 +113,7 @@ static void pushLocked(int key) {
       KEY_BUFFER_SIZE) { // a full buffer drops the key, as DMCP does
     return;
   }
-  if (insertAt >= 0) {
+  if (insertAt >= 0 && pthread_equal(pthread_self(), insertThread)) {
     memmove(&keyBuffer[insertAt + 1], &keyBuffer[insertAt],
             (size_t)(keyCount - insertAt) * sizeof(int));
     keyBuffer[insertAt++] = key;
@@ -114,10 +124,23 @@ static void pushLocked(int key) {
   pthread_cond_broadcast(&keyCond);
 }
 
-static void pushHostLocked(hostEventKind_t kind) {
-  hostEvents[nextHostEvent] = kind;
+// A full buffer drops the event before it takes a slot, so a slot the buffer still
+// holds is never written over.
+static void pushHostLocked(hostEventKind_t kind, uint32_t keyval,
+                           uint32_t state) {
+  if (keyCount == KEY_BUFFER_SIZE) {
+    return;
+  }
+  hostEvents[nextHostEvent] = (hostEvent_t){kind, keyval, state};
   pushLocked(KEY_HOST_EVENT_FIRST + nextHostEvent);
   nextHostEvent = (nextHostEvent + 1) % HOST_EVENT_SLOTS;
+}
+
+// While the calculator thread takes a host event during a long operation, the keys
+// it gives go at the head of the buffer, ahead of what other threads push.
+static void beginInsertAtHeadLocked(void) {
+  insertAt = 0;
+  insertThread = pthread_self();
 }
 
 static int popLocked(void) {
@@ -135,20 +158,66 @@ bool_t keyIsHostEvent(int key) {
          key < KEY_HOST_EVENT_FIRST + HOST_EVENT_SLOTS;
 }
 
+static hostEvent_t hostEventOf(int key) {
+  pthread_mutex_lock(&keyMutex);
+  const hostEvent_t event = hostEvents[key - KEY_HOST_EVENT_FIRST];
+  pthread_mutex_unlock(&keyMutex);
+  return event;
+}
+
 // Any thread. A press is 1 to 43, a release is 0.
 void r47_key_push(int code) {
   pthread_mutex_lock(&keyMutex);
   pushLocked(code);
   pushedKeyDown = code > 0;
+  pcPressPushed = false;
   pthread_mutex_unlock(&keyMutex);
+}
+
+// Any thread. A PC key's press or release, as upstream's keyPushPcEvent sends it:
+// one host event, which pc_keyboard.c handles when the calculator thread pops it.
+void r47_key_push_pc(uint32_t keyval, uint32_t state, bool press) {
+  pthread_mutex_lock(&keyMutex);
+  pushHostLocked(press ? hostPcKeyPress : hostPcKeyRelease, keyval, state);
+  pthread_mutex_unlock(&keyMutex);
+}
+
+// "00" to "36" is a key and "1" to "6" a softkey, the strings btnPressed and
+// btnFnPressed take.
+static int keyCodeOf(const char *data) {
+  return data[1] == 0 ? data[0] - '1' + 38
+                      : (data[0] - '0') * 10 + data[1] - '0' + 1;
+}
+
+// The calculator thread, for pc_keyboard.c: upstream's keyPushKey. Button 2 or 3 is
+// a click with the f or g shift, which goes ahead of the press as a host event.
+void r47_key_push_key(const char *data, bool press, int button) {
+  R47_CALCULATOR_THREAD_ONLY();
+  pthread_mutex_lock(&keyMutex);
+  if (press && button == 2) {
+    pushHostLocked(hostShiftF, 0, 0);
+  } else if (press && button == 3) {
+    pushHostLocked(hostShiftG, 0, 0);
+  }
+  pushLocked(press ? keyCodeOf(data) : 0);
+  pushedKeyDown = press;
+  pcPressPushed = press;
+  pthread_mutex_unlock(&keyMutex);
+}
+
+void r47_key_push_click(const char *data, int button) {
+  R47_CALCULATOR_THREAD_ONLY();
+  r47_key_push_key(data, true, button);
+  r47_key_push_key(data, false, button);
 }
 
 // Any thread. Takes back a press the host will never release: the core then runs
 // the release with nothing to do, in order behind the press.
 void r47_key_cancel(void) {
   pthread_mutex_lock(&keyMutex);
-  pushHostLocked(hostCancelPress);
+  pushHostLocked(hostCancelPress, 0, 0);
   pushedKeyDown = false;
+  pcPressPushed = false;
   pthread_mutex_unlock(&keyMutex);
 }
 
@@ -157,8 +226,9 @@ void r47_key_cancel(void) {
 void r47_key_release_if_down(void) {
   pthread_mutex_lock(&keyMutex);
   if (pushedKeyDown) {
-    pushHostLocked(hostCancelPress);
+    pushHostLocked(hostCancelPress, 0, 0);
     pushedKeyDown = false;
+    pcPressPushed = false;
   }
   pthread_mutex_unlock(&keyMutex);
 }
@@ -167,19 +237,40 @@ void r47_key_release_if_down(void) {
 void r47_key_push_quit(void) {
   pthread_mutex_lock(&keyMutex);
   quitPending = true;
-  pushHostLocked(hostQuit);
+  pushHostLocked(hostQuit, 0, 0);
   pthread_mutex_unlock(&keyMutex);
 }
 
-// A host event popped during a long operation. Nothing here may run core code:
-// that is what keeps a computation from being re-entered. A cancel in this window
-// has no press left to take back, since the operation owns the keys now.
+// A host event popped during a long operation. Nothing here may run a calculator
+// function, which is what keeps a computation from being re-entered, but upstream's
+// one exception: a PC Ctrl command, a copy or a capture, in a program's pause. A
+// cancel in this window has no press left to take back, since the operation owns
+// the keys now, and a shift is dropped, as upstream drops it. A PC key in text entry
+// waits whole in the ring buffer for the main loop; any other gives only the keys
+// pc_keyboard.c pushes, at the head of the buffer, as upstream's translateHostEvent
+// does.
 static void translateHostEvent(int key) {
-  if (hostEvents[key - KEY_HOST_EVENT_FIRST] != hostQuit) {
+  const hostEvent_t event = hostEventOf(key);
+  if (event.kind == hostPcKeyPress || event.kind == hostPcKeyRelease) {
+    if (r47_pc_key_in_text_entry()) {
+      inKeyBuffer((uint8_t)key);
+      return;
+    }
+    pthread_mutex_lock(&keyMutex);
+    beginInsertAtHeadLocked();
+    pthread_mutex_unlock(&keyMutex);
+    r47_pc_key_handle(event.keyval, event.state, event.kind == hostPcKeyPress,
+                      true);
+    pthread_mutex_lock(&keyMutex);
+    insertAt = -1;
+    pthread_mutex_unlock(&keyMutex);
+    return;
+  }
+  if (event.kind != hostQuit) {
     return;
   }
   pthread_mutex_lock(&keyMutex);
-  insertAt = 0;
+  beginInsertAtHeadLocked();
   pushLocked(33);
   pushLocked(0);
   insertAt = -1;
@@ -203,7 +294,7 @@ static void cancelPressedKey(void) {
     return;
   }
   pthread_mutex_lock(&keyMutex);
-  insertAt = 0;
+  beginInsertAtHeadLocked();
   pushLocked(0);
   insertAt = -1;
   pthread_mutex_unlock(&keyMutex);
@@ -211,7 +302,8 @@ static void cancelPressedKey(void) {
 
 void keyDispatchHostEvent(int key) {
   R47_CALCULATOR_THREAD_ONLY();
-  switch (hostEvents[key - KEY_HOST_EVENT_FIRST]) {
+  const hostEvent_t event = hostEventOf(key);
+  switch (event.kind) {
   case hostShiftF:
     shiftF = true;
     shiftG = false;
@@ -219,6 +311,20 @@ void keyDispatchHostEvent(int key) {
   case hostShiftG:
     shiftF = false;
     shiftG = true;
+    break;
+  case hostPcKeyPress:
+    r47_pc_key_handle(event.keyval, event.state, true, false);
+    break;
+  case hostPcKeyRelease:
+    r47_pc_key_handle(event.keyval, event.state, false, false);
+    // A PC key's press pushed while busy is over once its release comes at rest,
+    // where the release runs and pushes nothing, so no wait for a release may hold.
+    pthread_mutex_lock(&keyMutex);
+    if (pcPressPushed) {
+      pushedKeyDown = false;
+      pcPressPushed = false;
+    }
+    pthread_mutex_unlock(&keyMutex);
     break;
   case hostCancelPress:
     cancelPressedKey();
@@ -264,7 +370,7 @@ int key_tail(void) {
 static int popKey(void) {
   pthread_mutex_lock(&keyMutex);
   if (keyCount == 0 && quitPending) {
-    pushHostLocked(hostQuit);
+    pushHostLocked(hostQuit, 0, 0);
     quitInRing = false;
   }
   const int key = popLocked();
@@ -287,8 +393,7 @@ int keyPopForMainLoop(void) {
     return -1;
   }
   const int key = popKey();
-  if (keyIsHostEvent(key) &&
-      hostEvents[key - KEY_HOST_EVENT_FIRST] == hostQuit) {
+  if (keyIsHostEvent(key) && hostEventOf(key).kind == hostQuit) {
     pthread_mutex_lock(&keyMutex);
     quitInRing = true;
     pthread_mutex_unlock(&keyMutex);
