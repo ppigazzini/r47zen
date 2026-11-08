@@ -22,7 +22,7 @@ concurrency:
 jobs:
   docs-lint:
     name: Docs rot gate over tracked text
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Check out repository
@@ -40,7 +40,7 @@ jobs:
   external-links:
     name: External links in tracked markdown
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Check out repository

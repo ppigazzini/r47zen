@@ -41,7 +41,7 @@ jobs:
     name: Decide whether the nightly rebuild should run
     needs:
       - resolve-upstream-core
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       should_run: ${{ steps.gate.outputs.should_run }}
@@ -319,7 +319,7 @@ jobs:
       - resolve-upstream-core
       - nightly-change-gate
       - windows-simulator
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Prepare marker

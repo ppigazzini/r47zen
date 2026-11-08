@@ -212,7 +212,7 @@ env:
   SHELLCHECK_VERSION: v0.11.0
 jobs:
   a:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       SHFMT_VERSION: v3.14.1
       ACTIONLINT_VERSION: 1.7.12
@@ -285,7 +285,7 @@ seed split-sha .github/actions/x/action.yml 's/3d3c42e5aac5ba805825da76410c18127
 seed split-tag .github/actions/x/action.yml 's/v6\.1\.0/v6.1.1/'
 seed tag-ref .github/workflows/shell-lint.yml 's/actions\/cache@[0-9a-f]* # v6.1.0/actions\/cache@v6/'
 seed no-comment .github/workflows/shell-lint.yml 's/ # v7.0.0$//'
-seed latest-runner .github/workflows/shell-lint.yml 's/runs-on: ubuntu-24.04/runs-on: ubuntu-latest/'
+seed latest-runner .github/workflows/shell-lint.yml 's/runs-on: ubuntu-26.04/runs-on: ubuntu-latest/'
 seed shfmt-split .pre-commit-config.yaml 's/v3.14.1-1/v3.15.0-1/'
 seed shfmt-twice .github/workflows/shell-lint.yml 's/^env:$/env:\n  SHFMT_VERSION: v3.14.1/'
 seed shellcheck-split .github/workflows/shell-lint.yml 's/SHELLCHECK_VERSION: v0.11.0/SHELLCHECK_VERSION: v0.10.0/'

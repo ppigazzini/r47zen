@@ -50,7 +50,7 @@ jobs:
     name: Decide whether the release lane should run
     needs:
       - resolve-upstream-core
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       should_run: ${{ steps.decide.outputs.should_run }}
@@ -222,7 +222,7 @@ jobs:
     needs:
       - resolve-upstream-core
       - upstream-release-gate
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     steps:
       - name: Configure Git init defaults
@@ -337,7 +337,7 @@ jobs:
     needs:
       - resolve-upstream-core
       - upstream-release-gate
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Configure Git init defaults
@@ -435,7 +435,7 @@ jobs:
       - resolve-upstream-core
       - upstream-release-gate
       - python-contracts
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 75
     outputs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
@@ -890,7 +890,7 @@ jobs:
       - resolve-upstream-core
       - upstream-release-gate
       - android-build-test-package
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - name: Check out repository
@@ -1069,7 +1069,7 @@ jobs:
       - resolve-upstream-core
       - upstream-release-gate
       - python-contracts
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
       - name: Configure Git init defaults
@@ -1419,7 +1419,7 @@ jobs:
       - android-build-test-package
       - sign-dev-prerelease
       - android-tests
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     # This group only keeps two publish jobs from running at once. It does not
     # shield this job from the workflow-level cancel-in-progress: a newer push
@@ -1621,7 +1621,7 @@ jobs:
       - android-build-test-package
       - sign-dev-prerelease
       - android-tests
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Verify the required test jobs succeeded

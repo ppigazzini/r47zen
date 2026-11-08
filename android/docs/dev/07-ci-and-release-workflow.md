@@ -1105,11 +1105,14 @@ A bump by hand takes the newest tagged release of every package, hook,
 action, and toolchain it touches, the day it runs. The `cooldown` in
 `.github/dependabot.yml` paces Dependabot's own pull requests and nothing else.
 
-Every job names a versioned runner image (`ubuntu-24.04`, `windows-2025`); the
+Every job names a versioned runner image (`ubuntu-26.04`, `windows-2025`); the
 same contract refuses a `-latest` label. A `-latest` label moves to a new OS on
 GitHub's schedule with no commit here, and the Linux lanes install their own
 LLVM and read apt packages whose versions change with the OS. Moving to a new
 image is a commit of its own, with a green run of every lane as its evidence.
+actionlint 1.7.12, the newest release, does not know the `ubuntu-26.04` labels,
+so `.github/actionlint.yaml` declares them, as actionlint documents for a label
+it does not know; the file goes once an actionlint release lists them.
 
 ## Repository settings
 

@@ -57,7 +57,7 @@ jobs:
   manual:
     name: Prepare the cropped manual
     needs: resolve-upstream-core
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     outputs:
       deploy: ${{ steps.prepare.outputs.deploy }}
@@ -99,7 +99,7 @@ jobs:
     name: Stage the site
     needs: manual
     if: ${{ always() && needs.manual.outputs.deploy == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Check out repository
@@ -127,7 +127,7 @@ jobs:
     name: Deploy to GitHub Pages
     needs: build
     if: ${{ always() && needs.build.result == 'success' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     # deploy-pages publishes the artifact and mints the OIDC token Pages verifies.
     permissions:

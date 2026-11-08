@@ -1,0 +1,8 @@
+# actionlint 1.7.12, the newest release, knows GitHub's runner labels up to
+# ubuntu-24.04; GitHub also hosts ubuntu-26.04 and ubuntu-26.04-arm. Declaring
+# them here is actionlint's documented way to accept a label it does not know.
+# Delete this file once an actionlint release lists them.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
+    - ubuntu-26.04-arm

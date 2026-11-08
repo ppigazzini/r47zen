@@ -219,7 +219,7 @@ android/gradle/wrapper/gradle-wrapper.properties"
 cat >"$fixture_dir/complete.yml" <<'EOF'
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Restore Gradle cache
         id: gradle-cache
