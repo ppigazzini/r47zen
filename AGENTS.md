@@ -169,9 +169,14 @@ make sim && make test                                # upstream simulator core
 - **A lane failing does not mean this repo changed.** Every lane resolves
   upstream HEAD at runtime, so an upstream commit breaks CI here with no commit
   here. Pin `upstream.lock` locally to tell the two apart.
-- **Switching upstream commits locally corrupts the staged tree**, and it
-  surfaces as unrelated clang/NDK errors. Remove `android/.staged-native`,
-  `build.sim`, `android/app/.cxx`, and `android/app/build` before re-staging.
+- **Switching upstream commits locally could corrupt the staged tree**, and it
+  surfaced as unrelated clang/NDK errors. The two causes measured were the
+  sync's: it kept files upstream had removed, and it gave changed files their
+  commit time, so ninja kept stale generated tables. A sync now removes the
+  first and gives the second the current time, but a checkout's first sync
+  under this rule has no record of what earlier syncs wrote and removes
+  nothing. If the errors appear, remove `android/.staged-native`, `build.sim`,
+  `android/app/.cxx`, and `android/app/build` before re-staging.
 - **The staged tree strips the `src/` and `dep/` prefixes**:
   `src/c47/assign.c` stages as `android/.staged-native/cpp/c47/assign.c`. A
   staged path is therefore not an upstream path. Do not cite it as one.

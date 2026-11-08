@@ -306,12 +306,25 @@ Public maintainer entrypoints:
   authoritative upstream hydration entry point. It
   reads Git-tracked defaults from `upstream.source`, uses a Git-ignored local
   `upstream.lock` only when it contains `upstream_commit`, otherwise resolves
-  the latest commit from the configured upstream ref, writes the resolved state
-  back to `upstream.lock`, overlays the resolved upstream tree, restores only
-  repo-owned files from `HEAD`, leaves shared upstream-shaped root files such as
-  `Makefile`, `meson.build`, `meson_options.txt`, `dep/`,
-  `docs/code/meson.build`, `subprojects/`, and `tools/` upstream-owned, and
-  refuses dirty tracked worktrees unless `--force` is passed.
+  the latest commit from the configured upstream ref, and writes the resolved
+  upstream tree into the working tree. It leaves out every path in
+  `REPO_OWNED_RESTORE_PATHS`, so it never writes a file this repo tracks, staged
+  or not, and a tracked edit needs no `--force`; shared upstream-shaped root
+  files such as `Makefile`, `meson.build`, `meson_options.txt`, `dep/`,
+  `docs/code/meson.build`, `subprojects/`, and `tools/` stay upstream-owned. It
+  writes only the files whose content differs, so an unchanged file keeps its
+  mtime and a changed one gets the current time, and it removes the files its
+  last sync wrote that the commit no longer holds. A manifest in the git
+  directory (`r47-upstream-manifest.json`) records what each sync wrote; a sync
+  refuses to overwrite a hydrated file edited since, or a file of yours where
+  the commit adds one, unless `--force`, and writes nothing when it refuses.
+  The upstream paths a build rewrites in place, the staged `testPgms.bin` and
+  upstream's own `constantsVerification.txt`, are in
+  `UPSTREAM_BUILD_REWRITTEN_PATHS` and do not count as edits. A sync that stops
+  halfway is resumed by the next one, without `--force`.
+  `--write-lock` writes the resolved state to `upstream.lock` only once the tree
+  is complete. `upstream.sh hydrated-commit` prints the commit the last complete
+  sync wrote. `run_upstream_sync_contract.sh` holds each rule.
 - `./scripts/android/build_android.sh` is the authoritative Android debug-build
   entry point. It detects Java and the Android NDK, resolves one shared
   upstream commit through `scripts/upstream-sync/upstream.sh`,
@@ -538,19 +551,19 @@ Build-safety rule:
 - The synced upstream `src/**` tree, including `src/**/meson.build`, is
   authoritative for the shared native build graph.
 - `scripts/upstream-sync/upstream.sh sync --auto --write-lock` and hosted CI
-  overlay the resolved upstream tree first and
-  then restore repo-owned files from Git, so restore allowlists and generic
-  restore loops must never restore `src/**` or other shared upstream-shaped
-  root files such as `Makefile`, `meson.build`, `meson_options.txt`, `dep/`,
-  `docs/code/meson.build`, `subprojects/`, or `tools/`.
+  write the resolved upstream tree leaving out the repo-owned paths of
+  `REPO_OWNED_RESTORE_PATHS`, so that list must never name `src/**` or other
+  shared upstream-shaped root files such as `Makefile`, `meson.build`,
+  `meson_options.txt`, `dep/`, `docs/code/meson.build`, `subprojects/`, or
+  `tools/`: a path on it is one upstream never writes.
 - `scripts/upstream-sync/upstream.sh verify-restore-boundary` is the focused
-  guard for that contract, and `sync` runs the same check before it restores
-  tracked repo-owned paths. It guards the allowlist from both sides: no entry
-  may re-own an upstream root surface, and every tracked root file must appear
-  in the allowlist. The second half matters because the overlay writes
-  upstream's root over ours, so a tracked root file left out of the list is
-  replaced by upstream's copy on the next sync with no diff to review; upstream
-  carries its own `AGENTS.md` and `CLAUDE.md`, so those two are the live case.
+  guard for that contract, and `sync` runs the same check before it fetches or
+  writes anything. It guards the list from both sides: no entry may re-own an
+  upstream root surface, and every tracked root file must appear in it. The
+  second half matters because a tracked root file left out of the list is
+  written over with upstream's copy on the next sync, with no diff to review;
+  upstream carries its own `AGENTS.md` and `CLAUDE.md`, so those two are the
+  live case.
 - Android-only native fixes belong under
   `android/app/src/main/cpp/r47zen` or in staging logic, not in tracked
   root `src/**` overrides.
@@ -560,13 +573,13 @@ Build-safety rule:
 
 ## Android build flow
 
-1. `scripts/upstream-sync/upstream.sh sync --auto --write-lock` overlays the
-   resolved upstream core into the working tree,
-  validates that the restore allowlist stays off upstream-owned root surfaces
-  and still covers every tracked root file,
-  hydrates the ignored upstream-owned root build inputs, restores tracked
-  Android-port files, and refreshes the local ignored `upstream.lock` with the
-  commit used for that run.
+1. `scripts/upstream-sync/upstream.sh sync --auto --write-lock` validates
+  that the restore list stays off upstream-owned root surfaces and still covers
+  every tracked root file, writes the resolved upstream core and the ignored
+  upstream-owned root build inputs into the working tree, leaving the tracked
+  Android-port files alone, removes the files upstream no longer holds, and,
+  once the tree is complete, refreshes the local ignored `upstream.lock` with
+  the commit used for that run.
 2. `scripts/android/build_android.sh` runs `scripts/android/build_sim_assets.sh`, which
   reconfigures `build.sim` through Meson with Android-owned options and then
   builds `ninja sim` directly.

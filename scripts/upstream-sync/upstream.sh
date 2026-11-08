@@ -8,18 +8,26 @@
 #            --commit, then an upstream_commit pin in the git-ignored
 #            upstream.lock, then the newest commit on upstream_ref; --latest
 #            ignores any pin; --locked requires one.
-#   sync     overlays that commit's tree onto the working tree, then restores
-#            every path in REPO_OWNED_RESTORE_PATHS from HEAD, so upstream never
-#            keeps a file this repo tracks. It refuses a dirty tracked worktree
-#            unless --force.
+#   sync     writes that commit's tree into the working tree, leaving out every
+#            path in REPO_OWNED_RESTORE_PATHS, so it never writes a file this
+#            repo tracks, staged or not. It writes only the files whose content
+#            differs, so an unchanged file keeps its mtime and a changed one
+#            gets the current time, and it removes the files the last sync
+#            wrote that the commit no longer holds. A manifest in the git
+#            directory records what each sync wrote; a sync refuses to
+#            overwrite a hydrated file edited since, unless --force. The lock
+#            is written only after the tree is complete.
+#   hydrated-commit  prints the commit the last complete sync wrote, or
+#            nothing when no sync recorded one or one stopped halfway.
 #   verify-restore-boundary  fails when the restore list would re-own an
 #            upstream root surface, or misses a tracked root path.
 #   verify-source-policy     fails when the tracked upstream.source pins an
 #            upstream_commit: the repo tracks upstream HEAD.
 #
-# test_resolver_policy.sh locks resolve's mode rules, and test_fetch_retry.sh
-# the retry_with_backoff every fetch goes through; the restore-boundary and
-# source-policy pre-commit hooks run the two verify commands.
+# test_resolver_policy.sh locks resolve's mode rules, test_fetch_retry.sh the
+# retry_with_backoff every fetch goes through, and
+# scripts/android/run_upstream_sync_contract.sh the sync; the restore-boundary
+# and source-policy pre-commit hooks run the two verify commands.
 # android/docs/dev/00-project-and-upstream.md owns the policy.
 
 set -Eeuo pipefail
@@ -60,11 +68,11 @@ UPSTREAM_REQUIRED_FILES=(
     "subprojects/packagefiles/gmp-6.2.1/meson.build"
 )
 # Every Git-tracked root file this repo owns, plus the repo-owned directories.
-# The upstream overlay writes whatever upstream ships at its own root, so a root
-# file missing from this list is silently replaced by the upstream copy on the
-# next sync. Upstream ships its own AGENTS.md and CLAUDE.md, so those two are
-# the live case. verify-restore-boundary fails when a tracked root path is
-# missing here; the tracked root set in AGENTS.md is a copy no check holds.
+# A sync leaves these out of what it writes. A root file missing from this list
+# would be replaced by upstream's copy on the next sync: upstream ships its own
+# AGENTS.md and CLAUDE.md, so those two are the live case.
+# verify-restore-boundary fails when a tracked root path is missing here; the
+# tracked root set in AGENTS.md is a copy no check holds.
 REPO_OWNED_RESTORE_PATHS=(
     .gitignore
     .pre-commit-config.yaml
@@ -81,6 +89,17 @@ REPO_OWNED_RESTORE_PATHS=(
     scripts/
 )
 
+# Upstream-tracked paths a build or test run rewrites in place, which a sync
+# overwrites without counting them as edits: build_sim_assets.sh and
+# run_upstream_suite_android_config.sh copy the built test programs to where
+# upstream's suite reads them, and upstream's own constantsCheck.py rewrites its
+# verification table. On a built checkout they are the only two hydrated files
+# that differ from the commit.
+UPSTREAM_BUILD_REWRITTEN_PATHS=(
+    res/testPgms/testPgms.bin
+    src/generated/constantsVerification.txt
+)
+
 RESOLVED_UPSTREAM_URL=""
 RESOLVED_UPSTREAM_REF=""
 RESOLVED_UPSTREAM_COMMIT=""
@@ -91,14 +110,17 @@ usage() {
 Usage:
     scripts/upstream-sync/upstream.sh resolve [--auto|--locked|--latest] [--write-lock] [--format shell|none] [--url <url>] [--ref <ref>] [--commit <sha>]
     scripts/upstream-sync/upstream.sh sync [--auto|--locked|--latest] [--write-lock] [--if-missing] [--force] [--url <url>] [--ref <ref>] [--commit <sha>]
-        scripts/upstream-sync/upstream.sh verify-restore-boundary
-        scripts/upstream-sync/upstream.sh verify-source-policy
+    scripts/upstream-sync/upstream.sh hydrated-commit
+    scripts/upstream-sync/upstream.sh verify-restore-boundary
+    scripts/upstream-sync/upstream.sh verify-source-policy
 
 Commands:
   resolve   Resolve the authoritative upstream URL/ref/commit through the shared policy.
-  sync      Overlay the resolved upstream C43 tree and restore repo-owned paths.
-    verify-restore-boundary  Fail when the restore allowlist would re-own upstream root surfaces.
-    verify-source-policy     Fail when upstream.source pins an upstream_commit (it must track the latest HEAD).
+  sync      Write the resolved upstream tree, leaving out repo-owned paths, and remove
+            the files the last sync wrote that it no longer holds.
+  hydrated-commit          Print the commit the last complete sync wrote, if any.
+  verify-restore-boundary  Fail when the restore allowlist would re-own upstream root surfaces.
+  verify-source-policy     Fail when upstream.source pins an upstream_commit (it must track the latest HEAD).
 
 Resolution modes:
   --auto    Use --commit first, then an optional pinned upstream_commit (upstream.lock over upstream.source), else the latest upstream_ref. Latest is the normal path. (default)
@@ -106,9 +128,11 @@ Resolution modes:
   --latest  Ignore any pinned upstream_commit and resolve the latest commit from upstream_ref.
 
 Options:
-  --write-lock  Refresh upstream.lock with the resolved URL/ref/commit.
-    --if-missing  Skip the sync when src/c47 and res/fonts are already hydrated.
-  --force       Allow syncing over a dirty tracked worktree.
+  --write-lock  Refresh upstream.lock with the resolved URL/ref/commit; a sync writes it
+                only once the tree is complete.
+  --if-missing  Skip the sync when src/c47 and res/fonts are already hydrated.
+  --force       Overwrite hydrated upstream files edited since the last sync, and a
+                file of yours at a path the new commit adds.
   --url         Override the upstream URL.
   --ref         Override the upstream ref. Defaults to upstream.source upstream_ref or HEAD.
   --commit      Override the upstream commit.
@@ -240,14 +264,6 @@ resolve_latest_commit() {
     printf '%s\n' "$upstream_commit"
 }
 
-ensure_clean_tracked_worktree() {
-    git -C "$PROJECT_ROOT" diff --quiet --ignore-submodules --no-ext-diff ||
-        fail "Tracked worktree changes detected. Commit, stash, or pass --force before syncing upstream."
-
-    git -C "$PROJECT_ROOT" diff --cached --quiet --ignore-submodules --no-ext-diff ||
-        fail "Staged changes detected. Commit, stash, or pass --force before syncing upstream."
-}
-
 ensure_remote() {
     local upstream_url="$1"
     local remotes
@@ -258,21 +274,6 @@ ensure_remote() {
     else
         git -C "$PROJECT_ROOT" remote add "$UPSTREAM_REMOTE_NAME" "$upstream_url"
     fi
-}
-
-path_exists_in_head() {
-    local path="$1"
-    local listing=""
-
-    # Distinguish "path is not tracked in HEAD" (empty listing -> return 1) from
-    # "git could not be queried" (broken HEAD/object -> fail closed). Swallowing
-    # the error would silently drop a repo-owned path from the restore set and
-    # leave the upstream overlay's copy in place.
-    if ! listing="$(git -C "$PROJECT_ROOT" ls-tree -r --name-only HEAD -- "$path")"; then
-        fail "Unable to query HEAD for repo-owned path '${path}' during restore. Refusing to continue rather than silently skip its restore and leave an upstream copy in place."
-    fi
-
-    [ -n "$listing" ]
 }
 
 restore_path_reowns_upstream_root_surface() {
@@ -345,22 +346,159 @@ verify_restore_boundary() {
     verify_restore_root_coverage
 }
 
-restore_repo_owned_paths() {
-    local tracked_restore_paths=()
-    local restore_path=""
+# Where a sync records what it wrote: the commit, and for each file the SHA-256
+# of the content written (a link, "link:" and its target). It lives in the git
+# directory, so no checkout tracks it and each worktree has its own.
+sync_manifest_path() {
+    git -C "$PROJECT_ROOT" rev-parse --path-format=absolute --git-path r47-upstream-manifest.json
+}
 
-    verify_restore_boundary
+print_hydrated_commit() {
+    local manifest=""
 
-    for restore_path in "${REPO_OWNED_RESTORE_PATHS[@]}"; do
-        if path_exists_in_head "$restore_path"; then
-            tracked_restore_paths+=("$restore_path")
-        fi
-    done
+    manifest="$(sync_manifest_path)"
+    [ -f "$manifest" ] || return 0
+    python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["commit"] or "")' "$manifest"
+}
 
-    if [ "${#tracked_restore_paths[@]}" -gt 0 ]; then
-        git -C "$PROJECT_ROOT" checkout HEAD -- "${tracked_restore_paths[@]}" ||
-            fail "Failed to restore repo-owned paths after the upstream overlay: ${tracked_restore_paths[*]}. The worktree may now hold upstream copies of repo-owned files; resolve the checkout error and rerun before building."
-    fi
+# Write the tree of the git archive $1, commit $2, into the working tree, with
+# --force ($3 = true) overwriting edits. Every path under REPO_OWNED_RESTORE_PATHS
+# is left out. Exits 3, writing nothing, on an edit it would overwrite.
+apply_upstream_archive() {
+    local archive="$1"
+    local commit="$2"
+    local force="$3"
+
+    python3 -I - "$PROJECT_ROOT" "$archive" "$(sync_manifest_path)" "$commit" "$force" \
+        "${R47_SYNC_TEST_FAIL_AFTER_WRITES:-}" "$(printf '%s\n' "${UPSTREAM_BUILD_REWRITTEN_PATHS[@]}")" \
+        "${REPO_OWNED_RESTORE_PATHS[@]}" <<'PY'
+import hashlib, json, os, sys, tarfile
+from pathlib import Path
+
+root, archive, manifest_path = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3])
+commit, force, fail_after = sys.argv[4], sys.argv[5] == "true", sys.argv[6]
+rewritten = set(sys.argv[7].split("\n")) - {""}
+owned = {path.rstrip("/") for path in sys.argv[8:]}
+
+
+def fail(message, status=1):
+    print(f"ERROR: {message}", file=sys.stderr)
+    sys.exit(status)
+
+
+def wanted_members(tar):
+    """Each file and link of the archive, outside this repo's own paths."""
+    for member in tar:
+        parts = member.name.split("/")
+        if parts[0] in owned or member.isdir():
+            continue
+        if member.name.startswith("/") or ".." in parts:
+            fail(f"the archive names {member.name}")
+        if not (member.isfile() or member.issym()):
+            fail(f"the archive holds {member.name}, neither a file, a link, nor a directory")
+        yield member
+
+
+def content(tar, member):
+    """A link's target, or a file's SHA-256 and, when executable, +x."""
+    if member.issym():
+        return "link:" + member.linkname
+    digest = hashlib.sha256(tar.extractfile(member).read()).hexdigest()
+    return digest + ("+x" if member.mode & 0o111 else "")
+
+
+def on_disk(name):
+    path = root / name
+    if path.is_symlink():
+        return "link:" + os.readlink(path)
+    if path.is_file():
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        return digest + ("+x" if path.stat().st_mode & 0o100 else "")
+    return None
+
+
+def owned_by_this_repo(name):
+    return name.split("/")[0] in owned
+
+
+def save(manifest):
+    temp = manifest_path.with_suffix(".tmp")
+    temp.write_text(json.dumps(manifest, indent=1, sort_keys=True))
+    os.replace(temp, manifest_path)
+
+
+with tarfile.open(archive) as tar:
+    new = {member.name: content(tar, member) for member in wanted_members(tar)}
+
+old = json.loads(manifest_path.read_text()) if manifest_path.exists() else None
+if old is None:
+    print("NOTE: no record of an earlier sync: files upstream has since removed stay, "
+          "and edits to hydrated files are not checked this time.")
+# A path this repo has owned since the last sync is never checked or removed.
+accepted = {name: set(digests) for name, digests in (old or {"files": {}})["files"].items()
+            if not owned_by_this_repo(name)}
+
+# A hydrated file edited since the last sync, or a file of yours where the commit
+# adds one, would be overwritten. A path a build rewrites is not an edit.
+edited = sorted(name for name in (set(accepted) | set(new)) - rewritten
+                if old is not None and (current := on_disk(name)) is not None
+                and current not in accepted.get(name, set()) and current != new.get(name))
+if edited and not force:
+    for name in edited[:20]:
+        print(f"  edited: {name}", file=sys.stderr)
+    fail(f"{len(edited)} hydrated file(s) differ from what the last sync wrote; move the "
+         "edits out of the hydrated tree, or pass --force to overwrite them. A file a "
+         "build rewrites belongs in UPSTREAM_BUILD_REWRITTEN_PATHS.", status=3)
+if edited:
+    print(f"NOTE: --force overwrites {len(edited)} edited hydrated file(s).")
+
+# While it writes, a file may hold its old or its new content, so a sync that
+# stops halfway is resumed, not refused, and its removals still happen.
+pending = {name: sorted(accepted.get(name, set()) | ({new[name]} if name in new else set()))
+           for name in set(accepted) | set(new)}
+save({"commit": None, "files": pending})
+
+# Removals first, so a path that turns from a file into a directory, or back,
+# is free before the write.
+removed = 0
+for name in sorted(set(pending) - set(new)):
+    path = root / name
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+        removed += 1
+    parent = path.parent
+    while parent != root and parent.is_dir() and not any(parent.iterdir()):
+        parent.rmdir()
+        parent = parent.parent
+
+written = unchanged = 0
+mask = os.umask(0)
+os.umask(mask)
+with tarfile.open(archive) as tar:
+    for member in wanted_members(tar):
+        if on_disk(member.name) == new[member.name]:
+            unchanged += 1
+            continue
+        if fail_after and written >= int(fail_after):
+            fail("stopped by R47_SYNC_TEST_FAIL_AFTER_WRITES")
+        path = root / member.name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.is_symlink() or path.exists():
+            if path.is_dir() and not path.is_symlink():
+                fail(f"{member.name} is a directory where the commit has a file")
+            path.unlink()
+        if member.issym():
+            os.symlink(member.linkname, path)
+        else:
+            temp = path.with_name(f".{path.name}.r47-sync")
+            temp.write_bytes(tar.extractfile(member).read())
+            temp.chmod((0o777 if member.mode & 0o111 else 0o666) & ~mask)
+            os.replace(temp, path)
+        written += 1
+
+save({"commit": commit, "files": {name: [digest] for name, digest in new.items()}})
+print(f"--- {written} file(s) written, {unchanged} unchanged, {removed} removed ---")
+PY
 }
 
 emit_resolved_output() {
@@ -503,12 +641,16 @@ resolve_upstream() {
 sync_upstream() {
     local if_missing="false"
     local force_sync="false"
+    local write_lock="false"
     local -a resolution_args=()
 
     while [ "$#" -gt 0 ]; do
         case "$1" in
-            --auto | --locked | --latest | --write-lock)
+            --auto | --locked | --latest)
                 resolution_args+=("$1")
+                ;;
+            --write-lock)
+                write_lock="true"
                 ;;
             --format)
                 shift
@@ -543,9 +685,9 @@ sync_upstream() {
         return 0
     fi
 
-    if [ "$force_sync" != "true" ]; then
-        ensure_clean_tracked_worktree
-    fi
+    # Before anything is fetched or written: a tracked root entry missing from
+    # the list would be written over.
+    verify_restore_boundary
 
     resolve_upstream "${resolution_args[@]}" --format none
     ensure_remote "$RESOLVED_UPSTREAM_URL"
@@ -555,11 +697,17 @@ sync_upstream() {
         git -C "$PROJECT_ROOT" fetch --depth 1 "$UPSTREAM_REMOTE_NAME" "$RESOLVED_UPSTREAM_COMMIT"
     git -C "$PROJECT_ROOT" cat-file -e "$RESOLVED_UPSTREAM_COMMIT^{commit}"
 
-    echo "--- Overlaying upstream core from $RESOLVED_UPSTREAM_COMMIT ---"
-    git -C "$PROJECT_ROOT" archive --format=tar "$RESOLVED_UPSTREAM_COMMIT" | tar -C "$PROJECT_ROOT" -xf -
+    # The whole archive first, so a failed archive writes nothing.
+    SYNC_ARCHIVE="$(mktemp)"
+    trap 'rm -f "$SYNC_ARCHIVE"' EXIT
+    git -C "$PROJECT_ROOT" archive --format=tar -o "$SYNC_ARCHIVE" "$RESOLVED_UPSTREAM_COMMIT"
 
-    echo "--- Restoring repo-owned files ---"
-    restore_repo_owned_paths
+    echo "--- Writing upstream core from $RESOLVED_UPSTREAM_COMMIT ---"
+    apply_upstream_archive "$SYNC_ARCHIVE" "$RESOLVED_UPSTREAM_COMMIT" "$force_sync"
+
+    if [ "$write_lock" = "true" ]; then
+        write_lockfile "$RESOLVED_UPSTREAM_URL" "$RESOLVED_UPSTREAM_REF" "$RESOLVED_UPSTREAM_COMMIT"
+    fi
 
     echo "--- Sync complete: upstream $RESOLVED_UPSTREAM_COMMIT hydrated through $UPSTREAM_REMOTE_NAME ---"
 }
@@ -577,6 +725,9 @@ main() {
         sync)
             shift
             sync_upstream "$@"
+            ;;
+        hydrated-commit)
+            print_hydrated_commit
             ;;
         verify-restore-boundary)
             verify_restore_boundary

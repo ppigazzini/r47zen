@@ -152,8 +152,8 @@ This repo interfaces with upstream in three layers.
 ### 1. Source Sync Boundary
 
 `scripts/upstream-sync/upstream.sh` resolves the authoritative upstream URL and
-commit, hydrates the required upstream-shaped root inputs, and restores only
-the repo-owned overlay paths from this repository.
+commit and hydrates the required upstream-shaped root inputs, leaving out the
+repo-owned overlay paths, which a sync never writes.
 
 That boundary is about source ownership and refresh policy.
 
