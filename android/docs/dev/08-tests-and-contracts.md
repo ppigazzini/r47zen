@@ -426,6 +426,10 @@ source is missing from this page:
   `mutation_spot_check.sh` holds it to two raster mutants `PackedLcdRasterTest`
   passes: a first frame decoded whole only when it flags no row, and a palette
   change that marks a frame received
+- `ReplicaOverlayLayoutDirectionTest.kt`: lays the keypad of an exported scene
+  out in an LTR and an RTL window and requires every main key's body at the
+  same place in both, so an RTL system language cannot mirror the bodies
+  inside their cells
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable. The
   LCD raster's composition into the frame is locked by a structural color
   oracle (`nativeChrome_compositesLcdRasterColors`), and the overlay requests

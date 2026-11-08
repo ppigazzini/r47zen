@@ -100,6 +100,13 @@ keypad all look correct locally but are globally misplaced together.
 - `ReplicaChromeLayout` owns the native LCD rectangle and shell projection.
   Change that geometry there instead of branching the draw path in
   `ReplicaOverlay`.
+- the replica is left to right in every language. `ReplicaOverlay` places its
+  children by absolute position and sets `LAYOUT_DIRECTION_LTR`, so its key
+  views do not inherit an RTL window's direction: each key's body is a
+  `ConstraintLayout` child at bias 0, which RTL resolves as bias 1, and the
+  bodies would move to the other side of their cells while the rows stayed put.
+  `ReplicaOverlayLayoutDirectionTest` holds every key body in an RTL window to
+  its place in an LTR one
 - `ReplicaOverlay.updatePackedLcd(...)` is the live LCD handoff. Its
   `PackedLcdRaster` decodes each packed row whose transport flag is set --
   native sets it only on rows whose pixels changed -- or every row of the

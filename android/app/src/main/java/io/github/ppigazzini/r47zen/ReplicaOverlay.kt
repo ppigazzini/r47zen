@@ -219,6 +219,11 @@ class ReplicaOverlay @JvmOverloads constructor(
         // of its own to another key. Extra pointers reach the first touched
         // view as ACTION_POINTER_*, which the key listeners ignore.
         isMotionEventSplittingEnabled = false
+        // The replica is the calculator's fixed physical layout, placed by
+        // absolute position, so it stays left to right in an RTL language: a
+        // key view that inherited RTL would mirror its body inside its cell and
+        // split the rows.
+        layoutDirection = LAYOUT_DIRECTION_LTR
         // Allow drawing outside individual key boundaries
         clipChildren = false
         clipToPadding = false
