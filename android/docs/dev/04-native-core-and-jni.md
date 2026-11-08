@@ -599,7 +599,10 @@ path can prove that calculator state really changed.
 - a runtime base path set by `set_android_base_path(...)` for app-internal files
   and subdirectories
 - SAF handoff for state, program, RTF export, manual save, register data
-  (`EXPreg` and its family, `IMPORTr`), and related user-facing file operations
+  (`EXPreg` and its family, `IMPORTr`), and related user-facing file operations.
+  `WRXPall`, upstream's bulk export for developers, is refused with `FILE_ERROR`,
+  as the hardware refuses the item: it would open the picker twice for each
+  program, and a cancel would not stop it
 
 The SAF path works as follows:
 

@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 extern char _ioFileNameOverride[];
@@ -77,6 +78,40 @@ static void expect_request(ioFilePath_t path, ioFileMode_t mode,
   } else {
     printf("OK: path %d asks for '%s' in folder %d\n", path, name, category);
   }
+}
+
+// WRXPall's bulk export writes one file per program; on Android each would open the
+// picker, two per program, and a cancel would not stop the loop. The HAL refuses it, as
+// the hardware refuses the item, so the loop asks for nothing.
+// Fail unless path is refused at once, with a work directory that takes files:
+// no picker request and no file written in it, where a path the SAF branch does
+// not take would go on to write the directory's default.dat.
+static void expect_refused_without_a_picker(ioFilePath_t path) {
+  char base[] = "/tmp/hal-io-refused-XXXXXX";
+  if (mkdtemp(base) == NULL) {
+    fprintf(stderr, "FATAL: mkdtemp: %s\n", strerror(errno));
+    exit(2);
+  }
+  set_android_base_path(base);
+  char written[sizeof(base) + 32];
+  snprintf(written, sizeof(written), "%s/default.dat", base);
+
+  const int requestsBefore = requests;
+  const int result = ioFileOpen(path, ioModeWrite);
+  ioFileClose();
+  struct stat info;
+  const bool wroteAFile = stat(written, &info) == 0;
+  if (result != FILE_ERROR || requests != requestsBefore || wroteAFile) {
+    fprintf(stderr, "FAIL: path %d: result %d after %d picker request(s)%s; want "
+                    "FILE_ERROR, none, and no file\n",
+            path, result, requests - requestsBefore,
+            wroteAFile ? ", and wrote default.dat" : "");
+    failures++;
+  } else {
+    printf("OK: path %d is refused without a picker or a file\n", path);
+  }
+  unlink(written);
+  rmdir(base);
 }
 
 // Fail unless the capture is gone, the next SNAP has its name, and the offer asked
@@ -252,6 +287,8 @@ int main(void) {
   expect_request(ioPathSaveProgram, ioModeWrite, "", "program.p47", 1);
   expect_request(ioPathLoadProgram, ioModeRead, "", "program.p47", 1);
   expect_request(ioPathExportRTFProgram, ioModeWrite, "PRIME", "PRIME.rtf", 1);
+  expect_refused_without_a_picker(ioPathSaveAllPrograms);
+  expect_refused_without_a_picker(ioPathExportRTFAllPrograms);
 
   int ends[2];
   if (pipe(ends) != 0) {

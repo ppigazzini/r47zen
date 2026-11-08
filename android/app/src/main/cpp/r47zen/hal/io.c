@@ -166,12 +166,18 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   }
 
 #if !defined(HOST_TOOL_BUILD)
+  // WRXPall, upstream's bulk export for developers, writes a file per program: here
+  // each would open the picker, two per program, and a cancel would not stop the
+  // loop. It is refused, as the hardware refuses the item, so each file fails at once.
+  if (path == ioPathSaveAllPrograms || path == ioPathExportRTFAllPrograms) {
+    return FILE_ERROR;
+  }
+
   // Intercept State, Program, Manual Save, and register data file operations for
   // Android SAF
   if (path == ioPathSaveStateFile || path == ioPathLoadStateFile ||
       path == ioPathSaveProgram || path == ioPathLoadProgram ||
-      path == ioPathExportRTFProgram || path == ioPathSaveAllPrograms ||
-      path == ioPathExportRTFAllPrograms || path == ioPathManualSave ||
+      path == ioPathExportRTFProgram || path == ioPathManualSave ||
       path == ioPathPgmFile || path == ioPathRegExport ||
       path == ioPathRegImport) {
 
@@ -180,10 +186,9 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     const char *ext = ".s47";
 
     if (path == ioPathSaveProgram || path == ioPathLoadProgram ||
-        path == ioPathSaveAllPrograms || path == ioPathPgmFile) {
+        path == ioPathPgmFile) {
       ext = ".p47";
-    } else if (path == ioPathExportRTFProgram ||
-               path == ioPathExportRTFAllPrograms) {
+    } else if (path == ioPathExportRTFProgram) {
       ext = ".rtf";
     } else if (path == ioPathManualSave) {
       ext = ".sav";

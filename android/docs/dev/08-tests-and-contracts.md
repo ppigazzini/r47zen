@@ -906,7 +906,9 @@ Android compatibility layer.
   and leaves nothing of it. It also
   builds `hal/io.c` with that branch compiled in and runs
   `scripts/android/hal_io_saf_contract_test.c`: each file path asks for its name and
-  folder, and a save through a pipe arrives whole with nothing reported. That test
+  folder, `WRXPall`'s two bulk paths are refused with no picker and, in a work
+  directory that takes files, no file written, and a save through a
+  pipe arrives whole with nothing reported. That test
   also holds the `SNAP` offer: an armed
   name asks for nothing, even with a file beside it; a finished capture reaches the
   picker's file as a dated `.bmp` in category 3; and a cancel, a refused write, and a
