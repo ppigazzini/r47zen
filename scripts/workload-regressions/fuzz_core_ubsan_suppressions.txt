@@ -1,0 +1,29 @@
+# UndefinedBehaviorSanitizer suppressions for build_fuzz_core.sh.
+#
+# Scope: the vendored decNumber only, one function to an entry, anchored, each with its
+# reason, for an idiom of its own that ordinary arithmetic or any long number reaches.
+# Undefined behavior in C47's readers is what the fuzzer is for and is never
+# suppressed here, nor anything in the Android-owned glue under
+# android/app/src/main/cpp/r47zen. build_fuzz_core.sh makes recoverable only the checks
+# named here, and halts on every other report, and on these checks in any other
+# function. An entry also covers what the compiler inlines into its function, which may
+# differ between compilers.
+#
+# decNumber's string reader (decFloatFromString in dep/decNumberICU/decCommon.c, which
+# decQuad.c and decDouble.c compile under the names below) gathers an exponent of any
+# length into an int and lets it wrap: once the digits outnumber any format's, it
+# replaces the wrapped value with an overflow value, as its own comment says, and the
+# number reads as infinity. A data or state file with a long exponent reaches it; the
+# fuzzer found it with 1E9235420190 in a register. The same functions hold two more
+# int overflows, reachable only with a string over 2^31 characters.
+signed-integer-overflow:^decQuadFromString$
+signed-integer-overflow:^decDoubleFromString$
+
+# decNumber's add (decFloatAdd's fast path in dep/decNumberICU/decBasic.c, compiled under
+# the names below) packs three 10-bit declets with BIN2DPD(...)<<30, <<28, and <<26; the
+# value promotes to int, and a declet of 2 or more shifts into the sign bit. Undefined
+# for an int, but clang compiles each to a plain shift, so the bits land in the unsigned
+# word as intended. Adding two numbers of ten or more digits with the same exponent
+# reaches it; the fuzzer found it adding a time value read from a data file.
+shift-base:^decQuadAdd$
+shift-base:^decDoubleAdd$

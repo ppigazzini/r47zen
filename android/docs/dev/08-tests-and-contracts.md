@@ -694,6 +694,13 @@ Android compatibility layer.
   out-of-memory finding libFuzzer prints a short input itself.
   A core `exit` is a finding, which libFuzzer reports itself, so the fuzzer does not link
   `exit` to the logged abort the app does: that wrap would reach libFuzzer's own `exit`.
+  Every sanitizer report halts the run but those `fuzz_core_ubsan_suppressions.txt`
+  names, each with its reason: today two of the vendored decNumber's, a wrapping
+  exponent in its string reader and the sign-bit shift it packs digits with, which
+  ordinary arithmetic reaches too. The fuzzer found both in data files. A fault in
+  C47's own readers is never suppressed, so a run that reaches one upstream has not
+  fixed yet, such as an out-of-range menu item id after LOADST, fails every time: read
+  the stack of a red run before counting it as new.
   `linux-ci.yml`'s `fuzz-core` runs it for 15 minutes a reader.
 - `scripts/workload-regressions/run_workload_regressions.sh` builds the staged
   core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then runs the

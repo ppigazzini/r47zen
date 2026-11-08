@@ -4,7 +4,8 @@
 # calculator, seeded from upstream's own files: res/PROGRAMS for programs, res/STATE for
 # state files, res/DATA for data files, and for the state file the app restores, one this
 # core saves and the released cores' fixtures. A crash fails the run and is kept under
-# android/build/fuzz-core/artifacts.
+# android/build/fuzz-core/artifacts. Every sanitizer report halts the run, but for the
+# upstream sites fuzz_core_ubsan_suppressions.txt names, each with its reason.
 #
 # R47_FUZZ_SECONDS sets the time per reader (default 60). R47_FUZZ_TARGETS limits the
 # readers (default "program backup state data").
@@ -38,7 +39,8 @@ mkdir -p "$OBJECT_DIR" "$BUILD_DIR/artifacts" "$BUILD_DIR/tmp"
 COMPILE_FLAGS=(
     -std=gnu17 -O1 -g -pthread -w -fsigned-char -fno-strict-aliasing
     "-fsanitize=fuzzer-no-link,address,undefined" -fno-sanitize=alignment
-    -fno-sanitize-recover=undefined -fno-omit-frame-pointer
+    -fno-sanitize-recover=undefined -fsanitize-recover=signed-integer-overflow -fsanitize-recover=shift-base
+    -fno-omit-frame-pointer
     -D_GNU_SOURCE -D_DEFAULT_SOURCE
     -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47
     -I"$JDK_HOME/include" -I"$JDK_HOME/include/linux"
@@ -69,7 +71,8 @@ printf '%s\0' "$SCRIPT_DIR/fuzz_core.c" "${SOURCES[@]}" |
     "$OBJECT_DIR"/*.o -lm -o "$BUILD_DIR/fuzz-core"
 
 export ASAN_OPTIONS="detect_leaks=0:allocator_may_return_null=1:abort_on_error=1"
-export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1"
+# Recoverable only so that a suppression can apply; halt_on_error stops on any other.
+export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1:suppressions=$SCRIPT_DIR/fuzz_core_ubsan_suppressions.txt"
 export FUZZ_TMP="$BUILD_DIR/tmp"
 
 corpus="$BUILD_DIR/corpus"
