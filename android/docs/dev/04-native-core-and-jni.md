@@ -174,11 +174,14 @@ appears below; `run_docs_lint.sh` fails when one does not:
 - `jni_storage.c` for SAF-backed blocking file handoff
 - `jni_registration.c` for `JNI_OnLoad()` and explicit native registration
 - `jni_activity_bridge.c` for shared JVM, activity callbacks, and bridge globals
-- `android_runtime.c` for the GLib and GTK main-loop, timeout, and clock calls
-  the `PC_BUILD` core makes, the `screenMutex` and `fileMutex` globals, and
+- `android_runtime.c` for the GLib and GTK main-loop and timeout calls the
+  `PC_BUILD` core makes, the `screenMutex` and `fileMutex` globals, and
   `yieldToAndroidWithMs()`, the yield boundary
   [06-runtime-hot-paths.md](06-runtime-hot-paths.md) calls the bridge's most
   sensitive re-entrancy boundary
+- `glib_clock.c` for `g_get_monotonic_time()` and `g_get_real_time()`, the two
+  GLib clocks the core reads. It needs no JNI, so the arm64 build of upstream's
+  suite links it as the app does
 - `hal/lcd.c` for the LCD buffer, the packed snapshot Kotlin copies, and the
   display-change generations
 - `hal/io.c` for file I/O through the SAF handoff, state and program files,

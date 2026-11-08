@@ -1,8 +1,8 @@
 // GMP names the staged core uses, mapped onto mini-gmp's, which lacks them. This is
 // their one definition: android_mocks.h includes it, so the app and every host harness
 // get it, and run_upstream_suite_android_config.sh force-includes it into upstream's
-// suite, which cannot take android_mocks.h's GTK stand-ins. The calculator thread
-// harness holds each name to GMP on boundary values.
+// suite, whose host build links GTK and so cannot take android_mocks.h's stand-ins.
+// The calculator thread harness holds each name to GMP on boundary values.
 #ifndef R47_GMP_NAMES_H
 #define R47_GMP_NAMES_H
 

@@ -297,6 +297,9 @@ yield behavior.
 The staged upstream core runs in `PC_BUILD` mode, so the Android bridge must
 provide the small GTK and GLib event-loop API surface that pause, wait,
 progress, and timer-driven code expects.
+Of GLib's clocks it supplies `g_get_monotonic_time()` and `g_get_real_time()` in
+`glib_clock.c`, apart from the JNI code, so the arm64 build of upstream's suite
+links them as the app does.
 
 `android_runtime.c` owns these compatibility symbols, and every GLib, GDK, or
 GTK function it defines is one of them:

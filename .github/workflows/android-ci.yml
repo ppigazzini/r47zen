@@ -832,6 +832,29 @@ jobs:
             ci-artifacts/logs/upstream-suite-testSuite.log 2>/dev/null || true
           exit "$status"
 
+      # The step above runs an x86_64 build. This builds the suite for the release's
+      # own target, arm64, with the same flags and PGO profile, for
+      # upstream-suite-arm64 to run. A failure marks the step, and the job goes on:
+      # a new gate on what a push to main publishes is the maintainer's to add.
+      - name: Build upstream's suite for the app's arm64 target
+        id: suite-arm64
+        continue-on-error: true
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          R47_SUITE_TARGET=app \
+            bash scripts/workload-regressions/run_upstream_suite_android_config.sh
+
+      - name: Upload upstream's suite for the app's arm64 target
+        if: steps.suite-arm64.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-upstream-suite-arm64
+          path: android/build/upstream-suite-app-target/upstream-suite-app-target.tar
+          if-no-files-found: error
+          retention-days: 7
+
       # The JVM tests read keypad scenes exported at one upstream commit. Export
       # the scenes of the core this job built and report what moved. Drift from an
       # upstream move passes; drift with no upstream move, a failed export, or a
@@ -870,6 +893,58 @@ jobs:
             ci-artifacts/logs/keypad-fixtures-export.log
             ci-artifacts/logs/upstream-suite-android-config.log
             ci-artifacts/logs/upstream-suite-testSuite.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  upstream-suite-arm64:
+    name: Run upstream's suite on the app's arm64 target
+    if: needs.upstream-release-gate.outputs.should_run == 'true'
+    # The one job that runs the arm64 code the app ships: the APK builds on x86-64,
+    # and android-tests runs an x86_64 build on an x86_64 emulator. It runs the
+    # static suite android-build-test-package built for the release's target on an
+    # arm64 runner (page 08, "Upstream Suite On The App's Configuration"), and
+    # checks it as the x86_64 step does. It builds nothing and holds no secret.
+    # ci-required does not wait on it: a new gate on what signs and publishes is
+    # the maintainer's to add.
+    needs:
+      - upstream-release-gate
+      - android-build-test-package
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download upstream's suite for the app's arm64 target
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.android-build-test-package.outputs.artifact_name }}-upstream-suite-arm64
+          path: ci-artifacts/upstream-suite-arm64
+
+      # The tar holds the suite and the files it reads, at their paths in the
+      # project root.
+      - name: Run upstream's suite on the app's arm64 target
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts/logs
+          tar -xf ci-artifacts/upstream-suite-arm64/upstream-suite-app-target.tar
+          status=0
+          R47_SUITE_RUN=android/build/upstream-suite-app-target/testSuite \
+            bash scripts/workload-regressions/run_upstream_suite_android_config.sh \
+            2>&1 | tee ci-artifacts/logs/upstream-suite-arm64.log || status=$?
+          cp android/build/upstream-suite-app-target/testSuite.log \
+            ci-artifacts/logs/upstream-suite-arm64-testSuite.log 2>/dev/null || true
+          exit "$status"
+
+      - name: Upload the arm64 suite logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ needs.android-build-test-package.outputs.artifact_name }}-upstream-suite-arm64-log
+          path: ci-artifacts/logs/
           if-no-files-found: warn
           retention-days: 14
 

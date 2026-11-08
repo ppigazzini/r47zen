@@ -24,6 +24,7 @@ flowchart TD
   E[python-contracts]
   F[android-build-test-package<br/>unsigned, no secrets]
   S[sign-dev-prerelease]
+  U[upstream-suite-arm64<br/>arm64 runner, outside ci-required]
   G[android-tests]
   H[publish-main-snapshot<br/>main branch]
   R[ci-required<br/>aggregate verdict, required by nothing]
@@ -33,6 +34,7 @@ flowchart TD
   C --> E
   E --> F
   F --> S
+  F --> U
   E --> G
   D --> H
   S --> H
@@ -404,6 +406,11 @@ It:
   compiler and flags the release's `compile_commands.json` records
   ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration)).
   The job's build-log artifact carries its log and the suite's
+- then builds that suite for the release's own target, arm64, with
+  `R47_SUITE_TARGET=app`, and uploads it as
+  `r47zen-<upstream short>-<android short>-upstream-suite-arm64` for
+  [`upstream-suite-arm64`](#upstream-suite-arm64). A failure marks the step and
+  leaves the job alone, so it stops no dev prerelease
 - then runs
   `scripts/keypad-fixtures/report_keypad_fixture_drift.sh`: it exports the
   keypad scenes of the core it built and lists in the log and the step summary
@@ -502,6 +509,28 @@ It:
 - uploads the Android packaging artifact bundle
   `r47zen-<upstream short>-<android short>`, which ships the APK
   `r47zen_<dev version>_<upstream short>_<android short>.apk`
+
+### `upstream-suite-arm64`
+
+This is the one job that runs the arm64 code the app ships. The APK builds on
+x86-64, and `android-tests` runs an x86_64 build on an x86_64 emulator, so no
+other job executes arm64 code, and the PGO profile the release applies to arm64
+code is collected on x86-64. The job runs on an `ubuntu-26.04-arm` runner:
+
+- checks out this repository alone: no upstream sync, no SDK, no compiler
+- downloads the tar `android-build-test-package` built, which holds upstream's
+  suite built for the release's target with the release's flags and profile,
+  linked static against the NDK's Bionic, and the files the suite reads
+- unpacks it in the project root and runs
+  `R47_SUITE_RUN=android/build/upstream-suite-app-target/testSuite bash scripts/workload-regressions/run_upstream_suite_android_config.sh`,
+  which checks the run as the x86_64 step does
+  ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration))
+- uploads its log and the suite's as
+  `r47zen-<upstream short>-<android short>-upstream-suite-arm64-log`
+
+It holds no secret. `ci-required` does not wait on it, so a failure here stops
+no dev prerelease: a new gate on what signs and publishes is the maintainer's to
+add.
 
 ### `android-tests`
 
@@ -1105,7 +1134,8 @@ A bump by hand takes the newest tagged release of every package, hook,
 action, and toolchain it touches, the day it runs. The `cooldown` in
 `.github/dependabot.yml` paces Dependabot's own pull requests and nothing else.
 
-Every job names a versioned runner image (`ubuntu-26.04`, `windows-2025`); the
+Every job names a versioned runner image (`ubuntu-26.04`, `ubuntu-26.04-arm`,
+`windows-2025`); the
 same contract refuses a `-latest` label. A `-latest` label moves to a new OS on
 GitHub's schedule with no commit here, and the Linux lanes install their own
 LLVM and read apt packages whose versions change with the OS. Moving to a new
@@ -1168,6 +1198,8 @@ and the docs together.
 The Android workflows publish these artifact classes:
 
 - Android build logs from the packaging lane
+- upstream's suite built for the arm64 target, and the logs of its run in
+  `upstream-suite-arm64`
 - signed dev-prerelease APK packaging evidence and compliance outputs
 - Android JVM and instrumentation test reports and logs
 - host-core PGO profiles from the Linux packaging lane and the protected
@@ -1213,7 +1245,11 @@ Use the smallest local lane that matches the failure surface:
   validation:
   `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
 - upstream's suite on the app's configuration, after that release build:
-  `bash scripts/workload-regressions/run_upstream_suite_android_config.sh`
+  `bash scripts/workload-regressions/run_upstream_suite_android_config.sh`;
+  for the arm64 target, `R47_SUITE_TARGET=app` before it builds the tar, and on
+  an arm64 Linux machine, after unpacking it in the project root,
+  `R47_SUITE_RUN=android/build/upstream-suite-app-target/testSuite` before it
+  runs the suite
 - CI-matching Android pre-emulator build plus JVM slice:
   `cd android && ./gradlew :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.releaseChannelBuildToken=<token> -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
 - Android lint-only regression with current staged inputs:

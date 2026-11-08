@@ -111,18 +111,6 @@ static void driveAndroidMockEventLoop(gboolean may_block) {
   pumpAndroidMockTimeout();
 }
 
-gint64 g_get_monotonic_time(void) {
-  struct timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (gint64)ts.tv_sec * 1000000LL + ts.tv_nsec / 1000LL;
-}
-
-gint64 g_get_real_time(void) {
-  struct timespec ts;
-  clock_gettime(CLOCK_REALTIME, &ts);
-  return (gint64)ts.tv_sec * 1000000LL + ts.tv_nsec / 1000LL;
-}
-
 uint32_t sys_current_ms(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);

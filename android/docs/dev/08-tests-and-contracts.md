@@ -63,7 +63,7 @@ flowchart TD
 | program load and run through Android READP | `android/app/build.gradle` `stageProgramFixtureAssets` (androidTest assets only), `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
 | pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
 | Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved. A signature change fails the build, but a changed *meaning* behind an unchanged signature does not: `scripts/android/run_keypad_generation_contract.sh` is the behavioral half for `hal/lcd.c`, and locks the `bitblt24` blit semantics documented in `src/c47/hal/lcd.h`; `scripts/android/run_hal_io_contract.sh` locks the write-failure report and the `SNAP` offer of `hal/io.c`, and `clipboard_overflow_harness.c` holds `fnSNAP` to what the offer reads | rerun the narrow native Gradle build first, then `run_keypad_generation_contract.sh` and `run_hal_io_contract.sh`, then the latest-upstream Android build lane when new upstream HAL symbols appear |
-| upstream's own cases as the app builds the core: mini-gmp, the GMP names, R47, and the release's compiler and flags | `r47zen/gmp_names.h`, the staged mini-gmp, the release's `compile_commands.json`, upstream's `src/testSuite` | `scripts/workload-regressions/run_upstream_suite_android_config.sh` ([below](#upstream-suite-on-the-apps-configuration)) | an `R47_RELEASE_CHANNEL=dev` build, then that script; the `android-ci.yml` build job runs it |
+| upstream's own cases as the app builds the core: mini-gmp, the GMP names, R47, and the release's compiler and flags | `r47zen/gmp_names.h`, the staged mini-gmp, the release's `compile_commands.json`, upstream's `src/testSuite` | `scripts/workload-regressions/run_upstream_suite_android_config.sh` ([below](#upstream-suite-on-the-apps-configuration)) | an `R47_RELEASE_CHANNEL=dev` build, then that script; the `android-ci.yml` build job runs it, and builds it for arm64 for `upstream-suite-arm64` to run |
 | upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
 | which upstream bytes the derived goldens came from | `scripts/r47_contracts/data/upstream_provenance.json`, `scripts/r47_contracts/upstream_provenance.py`, the `UPSTREAM_R47_*_PATH` constants in `scripts/r47_contracts/_repo_paths.py` | `scripts/r47_contracts/test_upstream_provenance_contract.py` | grouped `scripts/r47_contracts` validation lane; coverage fails there, drift only reports |
 
@@ -1151,6 +1151,24 @@ records, so upstream adding lines above it changes nothing and another wrong val
 in the same case still fails. A known case that no longer fails as listed prints a
 note. `R47_SUITE_LOG` and `R47_SUITE_STATUS` check a saved log without building.
 
+That run is x86_64. `R47_SUITE_TARGET=app` builds the suite for the release's own
+target instead, arm64, so that the code under test is the code the app ships. It
+keeps `--target`, `--sysroot`, and the `-m` flags; it takes the host's include
+paths, `-m` flags, `WITH_PULSEAUDIO`, and `-pthread` out of the suite's units; it
+puts the glue's GTK stand-ins (`r47zen/stubs`, and `android_mocks.h` with
+`HOST_TOOL_BUILD`) and its clocks (`glib_clock.c`) where GTK was; and it links
+static against the NDK's Bionic. It runs nothing. It packs the suite with what it
+reads at run time into
+`android/build/upstream-suite-app-target/upstream-suite-app-target.tar`, at their
+paths in the project root: `res/testPgms/testPgms.bin`, `src/testSuite/tests`, and
+`src/c47/items.h`, which the suite reads to resolve `ITM_` names.
+`R47_SUITE_RUN=<suite>` runs a suite so unpacked from the project root and checks
+it as above, building nothing. In `android-ci.yml` the build job builds the tar
+after its x86_64 run, and `upstream-suite-arm64` runs it on an arm64 runner
+([07](07-ci-and-release-workflow.md#upstream-suite-arm64)). Neither gates a
+release: the build step continues on error, and `ci-required` does not wait on the
+job.
+
 The only known failure is an ALGDEP case in `algdep_cov.txt`: with mini-gmp, Y,
 the confidence it reports, is 13 where the case expects 10. Built with the full
 GMP and the app's flags, the suite fails no case, so mini-gmp causes it; that it
@@ -1181,16 +1199,22 @@ The other three names pass a wrong stand-in here. No core code calls
 case. The calculator thread harness's "the stand-ins agree with GMP" case holds
 those three instead.
 
-What it cannot see: it builds x86_64 against glibc, whose `_FORTIFY_SOURCE` checks
-are not Bionic's, without arm64's `-mbranch-protection`, so a fault only arm64
-code generation or Bionic shows passes it. It links an executable, where the
-release links a shared library with `--gc-sections` and its `--wrap` options, so
-ThinLTO may inline and drop symbols the release keeps. It runs on the suite's
-own HAL, not `r47zen/hal`, and through the core's other `TESTSUITE_BUILD` branches
-(in `prime.c`, `matrix.c`, `solve.c`, and others). x86_64 has no fused multiply-add
-contraction by default and a 64-bit `long double`, where arm64 has both. The
-release links with CMake's `-O2` and the lane with no `-O`, so both run ThinLTO's
-backend at level 2, lld's default: read, not measured.
+What the x86_64 run cannot see: it builds against glibc, whose `_FORTIFY_SOURCE`
+checks are not Bionic's, without arm64's `-mbranch-protection`, and with no fused
+multiply-add and an x87 `long double` with a 64-bit mantissa, where arm64 has
+fused multiply-add and a `long double` with a 113-bit one (the NDK's clang prints
+both). A fault only arm64 code generation or Bionic shows passes it. The arm64 run
+covers those, with two limits of its own: its libc and libm are the NDK's static
+Bionic for the release's API level, not a device's `libc.so` and `libm.so`, and it
+runs on a Linux kernel, not Android's.
+
+What neither run sees: each links an executable, where the release links a shared
+library with `--gc-sections` and its `--wrap` options, so ThinLTO may inline and
+drop symbols the release keeps. Each runs on the suite's own HAL, not
+`r47zen/hal`, and through the core's other `TESTSUITE_BUILD` branches (in
+`prime.c`, `matrix.c`, `solve.c`, and others). The release links with CMake's
+`-O2` and the lane with no `-O`, so both run ThinLTO's backend at level 2, lld's
+default: read, not measured.
 
 ## Host CI Contracts
 
