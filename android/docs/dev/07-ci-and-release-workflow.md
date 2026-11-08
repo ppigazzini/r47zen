@@ -527,8 +527,12 @@ normal-pull-request host-core optimization sequence:
   `build_calculator_thread_harness.sh`, which rebuilds
   the staged core and Android bridge under AddressSanitizer and runs upstream's main
   loop on a thread of its own, as the app does: keys during a computation, `EXIT` and
-  `R/S`, cancel, OFF, and saves. It first fails on any route from a JNI entry to core
-  code. No emulator
+  `R/S`, cancel, OFF, saves, and key sequences through upstream's key path. It
+  first fails on any route from a JNI entry to core code. It runs with
+  `--coverage`, so the artifact also carries
+  `calculator-thread-harness-coverage.txt`, the share of lines the cases run in
+  upstream's key path and in each glue file, numbers that fail nothing. No
+  emulator
 - the same `host-workload-regressions` lane then runs
   `run_upstream_hal_contract.sh` on the synced `src`. The `run_workflow_contracts.sh`
   step runs it too, but before the sync, where it finds no core and checks only its
