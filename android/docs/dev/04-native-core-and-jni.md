@@ -285,8 +285,10 @@ copy, so a matrix or a UTF-8 sequence arrives whole, and an upstream change to a
 register's format reaches the app as it reaches the simulator; the stack copy runs
 from `W` down to `X`, upstream's range.
 
+A copy that lands is confirmed by a toast below Android 13 and by the system
+from 13, which confirms every copy itself, as Android's copy and paste guide asks.
 A copy can fail two ways, and `DisplayActionController.kt` says "Not copied" for
-each instead of "Copied". The calculator answers null when it could not allocate
+each at any level. The calculator answers null when it could not allocate
 the copy, which leaves the clipboard as it was. And Android's clipboard has its
 own limit: a copy of all registers that hold large matrices can exceed what one
 binder call carries, and `setPrimaryClip` then throws, which the controller

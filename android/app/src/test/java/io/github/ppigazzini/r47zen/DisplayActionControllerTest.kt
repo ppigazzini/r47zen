@@ -111,10 +111,35 @@ class DisplayActionControllerTest {
     }
 
     @Test
+    fun fromAndroid13TheSystemAloneConfirmsACopy() {
+        val onAndroid13 = createController(xText = "2.5", sdkInt = 33)
+
+        assertTrue(onAndroid13.handleCopyMenuSelection(DisplayActionController.MENU_COPY_X_REGISTER))
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("2.5", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+        assertNull(ShadowToast.getLatestToast())
+    }
+
+    @Test
+    fun belowAndroid13TheAppConfirmsACopy() {
+        val onAndroid12L = createController(xText = "2.5", sdkInt = 32)
+
+        assertTrue(onAndroid12L.handleCopyMenuSelection(DisplayActionController.MENU_COPY_X_REGISTER))
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(
+            context.getString(R.string.main_menu_copy_x_register_copied),
+            ShadowToast.getTextOfLatestToast(),
+        )
+    }
+
+    @Test
     fun aCopyTheClipboardRefusesSaysSoAndDoesNotCrash() {
         // Android throws from setPrimaryClip when the text is over the binder limit.
         val controller = createController(
             putClip = { throw IllegalStateException("android.os.TransactionTooLargeException") },
+            sdkInt = 33,
         )
 
         assertTrue(controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_ALL_REGISTERS))
@@ -250,6 +275,7 @@ class DisplayActionControllerTest {
         offerCoreTask: (Runnable) -> Unit = { runnable -> runnable.run() },
         pasteNumberNative: (String) -> Boolean = { true },
         putClip: (ClipData) -> Unit = { clip -> clipboard.setPrimaryClip(clip) },
+        sdkInt: Int = 32,
     ): DisplayActionController {
         return DisplayActionController(
             context = context,
@@ -261,6 +287,7 @@ class DisplayActionControllerTest {
             pasteNumberNative = pasteNumberNative,
             enterPiP = enterPiP,
             putClip = putClip,
+            sdkInt = sdkInt,
         )
     }
 }

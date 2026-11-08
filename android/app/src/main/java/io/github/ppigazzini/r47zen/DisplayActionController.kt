@@ -3,6 +3,7 @@ package io.github.ppigazzini.r47zen
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.util.Log
 import android.view.ContextThemeWrapper
@@ -24,6 +25,7 @@ internal class DisplayActionController(
     private val putClip: (ClipData) -> Unit = { clip ->
         (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
     },
+    private val sdkInt: Int = Build.VERSION.SDK_INT,
 ) {
     companion object {
         private const val TAG = "R47DisplayActions"
@@ -180,8 +182,13 @@ internal class DisplayActionController(
                     val clipboardText = textProvider()
                     mainHandler.post {
                         val copied = clipboardText != null && putOnClipboard(clipLabel, clipboardText)
-                        val answer = if (copied) confirmation else context.getString(R.string.main_menu_copy_failed)
-                        Toast.makeText(context, answer, Toast.LENGTH_SHORT).show()
+                        // From Android 13 the system confirms every copy itself, so a toast of
+                        // the app's would say it twice; a failure it does not report still gets one.
+                        if (!copied) {
+                            Toast.makeText(context, R.string.main_menu_copy_failed, Toast.LENGTH_SHORT).show()
+                        } else if (sdkInt < Build.VERSION_CODES.TIRAMISU) {
+                            Toast.makeText(context, confirmation, Toast.LENGTH_SHORT).show()
+                        }
                     }
                 } catch (error: Exception) {
                     Log.e(TAG, "Copy error", error)
