@@ -394,6 +394,8 @@ program, a save or load operation, or a progress or pause loop.
   `MANSLV2` interrupt scenario. Hosted CI runs the whole class as one
   connected selection under an outer GNU `timeout --kill-after`, and a timeout
   fails the lane (`scripts/android/run_connected_android_tests.sh`).
+- The instrumentation above runs on CI's `x86_64` emulator against this
+  model; no phone has run it.
 
 When a task changes one of these hot paths, update the narrowest relevant
 verification lane first and widen only if the first check does not cover the
