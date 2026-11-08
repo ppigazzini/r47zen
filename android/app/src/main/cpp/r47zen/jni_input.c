@@ -410,37 +410,6 @@ void r47_apply_graph_gesture(float dxNorm, float dyNorm, float scale) {
   }
 }
 
-// Resolve a shell menu code from jni_bridge.h to its upstream softmenu id, or 0.
-static int r47_shell_menu_item(int shellMenu) {
-  switch (shellMenu) {
-  case R47_SHELL_MENU_HOME:
-    return -MNU_HOME;
-  case R47_SHELL_MENU_MY_MENU:
-    return -MNU_MyMenu;
-  default:
-    return 0;
-  }
-}
-
-// What upstream's shortCutCommand does before it shows a menu.
-void r47_show_shell_menu(int shellMenu) {
-  const int item = r47_shell_menu_item(shellMenu);
-  if (item == 0) {
-    LOGE("r47_show_shell_menu: unknown shell menu code %d", shellMenu);
-    return;
-  }
-  if (temporaryInformation == TI_WHO) {
-    closeShowMenu();
-  }
-  temporaryInformation = TI_NO_INFO;
-  if (calcMode == CM_NIM) {
-    closeNim();
-  }
-  screenUpdatingMode = SCRUPD_AUTO;
-  showSoftmenu((int16_t)item);
-  refreshScreen(1);
-}
-
 _Static_assert(ITM_9 == ITM_0 + 9, "the paste tokens assume contiguous digits");
 
 // Resolve one PasteNumber.kt token to its upstream item, or 0. Tokens cross JNI
@@ -594,11 +563,11 @@ Java_io_github_ppigazzini_r47zen_CalculatorEngine_releaseKeyIfDown(
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_CalculatorEngine_showShellMenuNative(
-    JNIEnv *env, jclass clazz, jint shellMenu) {
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_sendPcKeyNative(
+    JNIEnv *env, jclass clazz, jint keyval, jint state, jboolean press) {
   (void)env;
   (void)clazz;
-  r47_service_shell_menu((int)shellMenu);
+  r47_key_push_pc((uint32_t)keyval, (uint32_t)state, press == JNI_TRUE);
 }
 
 JNIEXPORT void JNICALL

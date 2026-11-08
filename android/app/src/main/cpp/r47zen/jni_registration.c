@@ -49,9 +49,9 @@ int register_calculator_engine_natives(JNIEnv *env) {
       {"releaseKeyIfDown", "()V",
        (void *)
            Java_io_github_ppigazzini_r47zen_CalculatorEngine_releaseKeyIfDown},
-      {"showShellMenuNative", "(I)V",
+      {"sendPcKeyNative", "(IIZ)V",
        (void *)
-           Java_io_github_ppigazzini_r47zen_CalculatorEngine_showShellMenuNative},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_sendPcKeyNative},
       {"graphGestureNative", "(FFF)V",
        (void *)
            Java_io_github_ppigazzini_r47zen_CalculatorEngine_graphGestureNative},

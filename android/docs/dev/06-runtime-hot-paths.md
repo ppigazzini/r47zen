@@ -15,7 +15,7 @@ contract-to-regression map that proves these loops.
 | --- | --- | --- | --- | --- |
 | calculator thread | upstream's `mainLoop()` for the life of the process; sleeps in `sys_sleep` until a key, a timer, a service request, a change of host visibility, or the minute | `CalculatorEngine.kt`, `jni_lifecycle.c`, `hal/keys.c`, upstream `src/c47/c47.c` | every key and request ends here, and only this thread runs core code | core code run from another thread is a race no lock covers; a new upstream `sys_sleep` caller could run a service inside a computation |
 | stop during a run | the user presses `R/S` or `EXIT` while a program or long operation runs; the key goes on the FIFO and the operation's own poll sees it | `hal/keys.c`, upstream `runProgram`, `exitKeyWaiting`, `fnPause` | this is the only way Android stops a computation | a core loop that polls no keys ignores it and makes the app appear hung |
-| service requests | each `sys_sleep` at rest runs `r47_services_run()`: every queued request, the merged gesture, a pending save, and the `SNAP` offer, then the idle checkpoint | `host_services.c`, `jni_input.c`, `jni_clipboard.c`, `jni_lifecycle.c` | paste, shell menus, graph re-solves, copies, and saves all run here, on the thread that must also take the next key | a slow request delays the keys behind it; a full queue refuses; a finished `SNAP`, even one from a long-held `EXIT`, parks the thread on the save picker, as any file request does, and the `onStop` save waits behind it |
+| service requests | each `sys_sleep` at rest runs `r47_services_run()`: every queued request, the merged gesture, a pending save, and the `SNAP` offer, then the idle checkpoint | `host_services.c`, `jni_input.c`, `jni_clipboard.c`, `jni_lifecycle.c` | paste, graph re-solves, copies, and saves all run here, on the thread that must also take the next key | a slow request delays the keys behind it; a full queue refuses; a finished `SNAP`, even one from a long-held `EXIT`, parks the thread on the save picker, as any file request does, and the `onStop` save waits behind it |
 | main-loop timers and refresh | upstream's cadence: the loop wakes for its own deadlines, runs `refreshTimer()` when due and `refreshLcd()` plus `lcd_refresh()` every `SCREEN_REFRESH_PERIOD` | upstream `src/c47/c47.c`, `hal/keys.c`, `hal/lcd.c` | this is the steady-state heartbeat | heavy work in `sys_sleep` or the HAL lengthens every cycle |
 | frame refresh loop | one `Choreographer` callback per UI frame while active; each frame checks the packed-display and keypad generations | `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | breaking generation or busy-copy handling can regress to stale keypad refreshes |
 | keypad publish | at rest when marked dirty or just after input; during a long operation from `lcd_refresh`, when dirty, at most every `R47_KEYPAD_BUSY_PUBLISH_MS` | `keypad_scene.c`, `hal/lcd.c`, `hal/keys.c` | it resolves the whole scene on the calculator thread, inside a computation too | a publish that stops being marked leaves softkeys stale, because nothing re-reads on a clock; its cost on the calculator thread is not measured |
@@ -138,10 +138,14 @@ thread is doing:
 | in a program's `PSE` | `fnPause`, through `key_pop()` | stops a running program | ends the pause, except the `f` key |
 | parked in a file request, or in a core loop with no poll | nothing yet | waits in the FIFO | waits in the FIFO |
 
-- `key_pop()` runs no core code, which is what keeps a computation from being
-  re-entered. A host event popped during a long operation is dropped, since the
-  operation owns the keys and a cancel has no press left to take back, and a quit
-  becomes `EXIT` plus a release at the head of the FIFO.
+- `key_pop()` runs no calculator function, which is what keeps a computation from
+  being re-entered, with upstream's one exception: a PC Ctrl command, a copy or a
+  capture, during a program's pause. A shift or a cancel popped during a long
+  operation is dropped, since the operation owns the keys and a cancel has no press
+  left to take back; a quit becomes `EXIT` plus a release at the head of the FIFO;
+  and a PC key gives what upstream's busy `pcKeyHandle` gives, the key its row
+  clicks or its item sits on, pushed at the head of the FIFO, or, in text entry, the
+  whole event, which waits in the ring buffer for the main loop.
 - A refresh inside a long operation also runs `keyBuffer_pop()`, which moves keys and
   host events into upstream's ring buffer. `exitKeyWaiting()` finds `R/S` and `EXIT`
   there through `interruptKeyInBuffer()`, and `key_empty()` reports a quit that went
