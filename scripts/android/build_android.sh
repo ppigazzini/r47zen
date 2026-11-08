@@ -499,20 +499,17 @@ resolve_upstream_state() {
     RESOLVED_UPSTREAM_SHORT_COMMIT=$(printf '%.8s\n' "$RESOLVED_UPSTREAM_COMMIT")
 }
 
+# The build stamps RESOLVED_UPSTREAM_COMMIT on what it builds, so the tree must be
+# that commit: the sync skips only when the last complete sync wrote it, and
+# otherwise writes it, refusing hydrated edits.
 ensure_upstream_core_hydrated() {
-    if upstream_sim_inputs_are_hydrated; then
-        bash "$SCRIPTS_DIR/upstream-sync/hydrate_submodules.sh" \
-            "$RESOLVED_UPSTREAM_COMMIT" "$RESOLVED_UPSTREAM_URL"
-        return 0
-    fi
-
-    echo "--- Hydrating resolved upstream core, shared root build inputs, and canonical calculator fonts ---"
-    bash "$SCRIPTS_DIR/upstream-sync/upstream.sh" sync --auto --write-lock --if-missing
+    bash "$SCRIPTS_DIR/upstream-sync/upstream.sh" sync --if-missing \
+        --url "$RESOLVED_UPSTREAM_URL" --commit "$RESOLVED_UPSTREAM_COMMIT"
     bash "$SCRIPTS_DIR/upstream-sync/hydrate_submodules.sh" \
         "$RESOLVED_UPSTREAM_COMMIT" "$RESOLVED_UPSTREAM_URL"
 
     upstream_sim_inputs_are_hydrated ||
-        fail "Incomplete upstream core or shared root build inputs after sync. Run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock in a clean worktree before running ./scripts/android/build_android.sh."
+        fail "Incomplete upstream core or shared root build inputs after sync. Run ./scripts/upstream-sync/upstream.sh sync --auto --write-lock before running ./scripts/android/build_android.sh."
 }
 
 ensure_xlsxio_toolchain() {

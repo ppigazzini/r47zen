@@ -328,8 +328,10 @@ Public maintainer entrypoints:
 - `./scripts/android/build_android.sh` is the authoritative Android debug-build
   entry point. It detects Java and the Android NDK, resolves one shared
   upstream commit through `scripts/upstream-sync/upstream.sh`,
-  hydrates that resolved core when `src/c47`, the root Meson inputs,
-  `dep/decNumberICU`, or canonical calculator fonts are missing, runs
+  syncs that resolved core with `sync --if-missing --commit`, which skips only
+  when `src/c47`, the root Meson inputs, `dep/decNumberICU`, and the canonical
+  calculator fonts are present and the last complete sync wrote that commit,
+  so the commit the build stamps is the tree it builds, runs
   `scripts/android/build_sim_assets.sh` to reconfigure `build.sim` through
   Meson and build `ninja sim`,
   stages native inputs into

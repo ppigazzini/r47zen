@@ -130,7 +130,8 @@ Resolution modes:
 Options:
   --write-lock  Refresh upstream.lock with the resolved URL/ref/commit; a sync writes it
                 only once the tree is complete.
-  --if-missing  Skip the sync when src/c47 and res/fonts are already hydrated.
+  --if-missing  Skip the sync when src/c47 and res/fonts are hydrated and the last
+                complete sync wrote the resolved commit.
   --force       Overwrite hydrated upstream files edited since the last sync, and a
                 file of yours at a path the new commit adds.
   --url         Override the upstream URL.
@@ -680,16 +681,25 @@ sync_upstream() {
         shift
     done
 
-    if [ "$if_missing" = "true" ] && upstream_checkout_is_hydrated; then
-        echo "--- Upstream core and shared root build inputs already hydrated; skipping sync. ---"
-        return 0
-    fi
-
     # Before anything is fetched or written: a tracked root entry missing from
     # the list would be written over.
     verify_restore_boundary
 
     resolve_upstream "${resolution_args[@]}" --format none
+
+    # A tree that looks hydrated may be another commit's: one an earlier sync
+    # wrote, or one from before syncs kept a record. Skip only when the last
+    # complete sync wrote this commit.
+    if [ "$if_missing" = "true" ] && upstream_checkout_is_hydrated; then
+        local hydrated=""
+        hydrated="$(print_hydrated_commit)"
+        if [ "$hydrated" = "$RESOLVED_UPSTREAM_COMMIT" ]; then
+            echo "--- Upstream core already hydrated at $RESOLVED_UPSTREAM_COMMIT; skipping sync. ---"
+            return 0
+        fi
+        echo "--- The hydrated tree is ${hydrated:-not a recorded sync}, not $RESOLVED_UPSTREAM_COMMIT; syncing. ---"
+    fi
+
     ensure_remote "$RESOLVED_UPSTREAM_URL"
 
     echo "--- Fetching authoritative upstream core (${RESOLVED_UPSTREAM_MODE} @ ${RESOLVED_UPSTREAM_COMMIT}) ---"

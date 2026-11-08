@@ -57,6 +57,15 @@ printf 'kept out\n' >"$UP/docs/ignored.txt"
 printf 'docs/ignored.txt export-ignore\n' >"$UP/.gitattributes"
 printf '#!/bin/sh\n' >"$UP/tools/run.sh"
 chmod +x "$UP/tools/run.sh"
+# What makes a tree count as hydrated: UPSTREAM_REQUIRED_DIRS, _FILES, and the fonts.
+for required in meson.build meson_options.txt src/c47/meson.build dep/meson.build \
+    dep/decNumberICU/ICU-license.html tools/onARaspberry docs/code/meson.build \
+    subprojects/gmp-6.2.1.wrap subprojects/packagefiles/gmp-6.2.1/meson.build \
+    res/fonts/C47__NumericFont.ttf res/fonts/C47__StandardFont.ttf \
+    res/fonts/C47__TinyFont.ttf res/fonts/sortingOrder.xlsx; do
+    mkdir -p "$(dirname "$UP/$required")"
+    printf '%s\n' "$required" >"$UP/$required"
+done
 "${GIT[@]}" -C "$UP" add -A
 "${GIT[@]}" -C "$UP" commit -qm c1
 C1="$(git -C "$UP" rev-parse HEAD)"
@@ -135,6 +144,14 @@ rm "$ME/src/c47/new.c"
 check "a file of yours at no upstream path stays" "sync_to $C2 && [ \"\$(cat $ME/src/c47/loose.c)\" = loose ]"
 printf 'built programs\n' >"$ME/res/testPgms/testPgms.bin"
 check "a path a build rewrites is not an edit" "sync_to $C1 && [ \"\$(cat $ME/res/testPgms/testPgms.bin)\" = 'committed programs' ]"
+
+echo "a build's sync, --if-missing"
+fresh_repo
+check "an empty tree is synced" "sync_to $C1 --if-missing && [ \"\$(hydrated)\" = $C1 ]"
+check "a tree at the commit is skipped" "sync_to $C1 --if-missing && grep -q 'already hydrated' $WORK/out"
+check "a tree at another commit is synced" "sync_to $C2 --if-missing && [ \"\$(cat $ME/src/c47/a.c)\" = a2 ]"
+rm -f "$(git -C "$ME" rev-parse --path-format=absolute --git-path r47-upstream-manifest.json)"
+check "a tree with no record is synced" "sync_to $C2 --if-missing && [ \"\$(hydrated)\" = $C2 ]"
 
 echo "a sync that stops halfway"
 fresh_repo
