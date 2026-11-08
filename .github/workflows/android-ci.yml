@@ -1295,7 +1295,9 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: ${{ runner.os }}-android-avd-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-pixel_7-v1
+          # v2: a v1 entry holds the 16 KB smoke's AVD under this name, and an
+          # entry never changes, so v1 restores an AVD whose image is missing.
+          key: ${{ runner.os }}-android-avd-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-pixel_7-v2
 
       - name: Enable KVM access for Android emulator
         shell: bash
@@ -1364,6 +1366,9 @@ jobs:
         if: github.event_name == 'schedule' || inputs.sixteen_kb_smoke
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
+          # Its own AVD: under the default name it replaced the cached test AVD,
+          # which the cache then saved at the job's end.
+          avd-name: test-16kb
           api-level: ${{ steps.defaults.outputs.android_16kb_test_api_level }}
           target: google_apis_ps16k
           arch: x86_64
