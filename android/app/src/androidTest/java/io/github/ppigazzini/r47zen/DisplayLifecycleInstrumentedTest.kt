@@ -67,12 +67,14 @@ class DisplayLifecycleInstrumentedTest {
 
     @Test
     fun pauseResumePreservesSpiralkGraphSnapshot() {
-        // Pause and resume touch no native state: onResume only asks the overlay to
-        // lay out again. Drive this from SPIRALk state: pause/resume must preserve
-        // the calculator state, so a force-refresh render of that state is
-        // byte-identical before and after. forceRefresh on both sides routes both
-        // captures through the same render on the calculator thread at rest, so the
-        // comparison cannot race an async redraw.
+        // The main loop repaints packedDisplayBuffer from calculator state on its
+        // own cadence, so an injected arbitrary buffer would not survive it,
+        // whatever the lifecycle does. Drive this from SPIRALk state: pause/resume
+        // must preserve the calculator state, so a force-refresh render of that
+        // state is byte-identical before and after, whether or not anything
+        // redraws between. That onResume runs nothing native is not held here. forceRefresh on
+        // both sides routes both captures through the same render on the calculator
+        // thread at rest, so the comparison cannot race an async redraw.
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
         val spiralkFixture = testAssets().open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }

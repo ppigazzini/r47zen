@@ -482,8 +482,8 @@ over a state-derived image instead. It keeps a real `SPIRALk` graph, because a g
 display is cursor-free and byte-stable.
 `pauseResumePreservesSpiralkGraphSnapshot` drives the same `SPIRALk` graph and
 compares a `forceRefresh` render of the persisted state before and after the
-transition. The local 16 KB runtime smoke script reuses the recreation probe on a
-connected 16 KB target.
+transition, which holds the state, not the absence of a redraw. The local 16 KB
+runtime smoke script reuses the recreation probe on a connected 16 KB target.
 
 ### Up-call bindings
 

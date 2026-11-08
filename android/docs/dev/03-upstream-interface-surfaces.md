@@ -119,7 +119,10 @@ flowchart LR
   directly, and for instrumentation, which reaches it through
   `ProgramLoadTestBridge.forceRefresh()`. `CalculatorEngine` has no redraw entry
   point; a passive lifecycle callback that does not replace calculator state must
-  not gain one.
+  not gain one. `test_jni_registration_contract.py` fails a reference to
+  `r47_force_refresh` from any other glue source or header, or a second one in
+  runtime init. A stop's save still redraws once, since `r47_services_run`
+  refreshes the LCD after any service it ran.
 
 ## Input Dispatch Contract
 

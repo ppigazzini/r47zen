@@ -15,6 +15,11 @@ The shell codes Kotlin passes to showShellMenuNative are the remaining JNI-level
 agreement: `jni_bridge.h` defines them, `NativeShellCodes.kt`
 mirrors them, and `jni_input.c` resolves each to an upstream item symbol, never
 a number, since items.h renumbers between upstream revisions.
+
+`r47_force_refresh`, the forced full redraw, is referenced by runtime init, once,
+and by the instrumentation bridge, beside its definition and prototype; any other
+reference in the glue, in a source or a header, fails here. That is all this holds:
+the glue's other redraws, such as the one after any service request, are not its.
 """
 
 from __future__ import annotations
@@ -53,6 +58,12 @@ _JNI_INPUT: Final = ANDROID_CPP_ROOT / "jni_input.c"
 _NATIVE_SHELL_CODES: Final = KOTLIN_R47ZEN_ROOT / "NativeShellCodes.kt"
 _C_SHELL_CODE: Final = re.compile(r"^#define R47_SHELL_(\w+) (\d+)$", re.MULTILINE)
 _KOTLIN_SHELL_CODE: Final = re.compile(r"const val (\w+) = (\d+)")
+_FORCE_REFRESH: Final = re.compile(r"\br47_force_refresh\b")
+_FORCE_REFRESH_DECLARATION: Final = re.compile(
+    r"\bvoid\s+r47_force_refresh\s*\(\s*void\s*\)",
+)
+# Path under the glue root, and how many references it may hold; None is any number.
+_FORCE_REFRESH_ALLOWED: Final = {"jni_lifecycle.c": 1, "jni_program_load_test.c": None}
 _C_SHELL_CASE: Final = re.compile(
     r"case R47_SHELL_(\w+):\s*return (-?)([A-Za-z_]\w*|\d+);",
 )
@@ -237,6 +248,64 @@ class NativeShellCodeContractTest(unittest.TestCase):
                 "shell codes resolved to raw item numbers, not items.h symbols: "
                 f"{numeric}"
             )
+            raise AssertionError(message)
+
+
+def force_refresh_references(sources: dict[str, str]) -> dict[str, int]:
+    """Count references to `r47_force_refresh`, less its definition and prototype."""
+    counts = {
+        path: len(_FORCE_REFRESH.findall(text))
+        - len(_FORCE_REFRESH_DECLARATION.findall(text))
+        for path, text in sources.items()
+    }
+    return {path: count for path, count in counts.items() if count > 0}
+
+
+def misplaced_redraws(references: dict[str, int]) -> list[str]:
+    """Return the files, but init and the bridge, that reference the forced redraw."""
+    misplaced = [path for path in references if path not in _FORCE_REFRESH_ALLOWED]
+    init = references.get("jni_lifecycle.c", 0)
+    if init != _FORCE_REFRESH_ALLOWED["jni_lifecycle.c"]:
+        misplaced.append(f"jni_lifecycle.c ({init} references)")
+    return misplaced
+
+
+class RedrawEntryContractTest(unittest.TestCase):
+    """Only runtime init and the instrumentation bridge use the forced full redraw."""
+
+    def test_any_other_reference_is_caught(self) -> None:
+        """Seeded: a call, a pointer, a macro, and a header each fail."""
+        definition = (
+            "void r47_force_refresh(void) {}\nvoid init(void) { r47_force_refresh(); }"
+        )
+        seeded = {
+            "jni_lifecycle.c": definition,
+            "jni_input.c": "void b(void) { r47_force_refresh (); }",
+            "jni_display.c": "static void (*redraw)(void) = r47_force_refresh;",
+            "hal/lcd.h": "#define REDRAW() r47_force_refresh()",
+            "keypad_fixture_bridge.h": "void r47_force_refresh(void);",
+        }
+        found = sorted(misplaced_redraws(force_refresh_references(seeded)))
+        if found != ["hal/lcd.h", "jni_display.c", "jni_input.c"]:
+            message = f"the redraw check found {found} among seeded references"
+            raise AssertionError(message)
+        doubled = {"jni_lifecycle.c": definition + " r47_force_refresh();"}
+        if not misplaced_redraws(force_refresh_references(doubled)):
+            message = "the redraw check missed a second reference in init"
+            raise AssertionError(message)
+
+    def test_only_init_and_the_bridge_use_the_forced_redraw(self) -> None:
+        """No glue source or header but init and the bridge references it."""
+        sources = {
+            path.relative_to(ANDROID_CPP_ROOT).as_posix(): path.read_text(
+                encoding="utf-8",
+            )
+            for pattern in ("*.c", "*.h")
+            for path in ANDROID_CPP_ROOT.rglob(pattern)
+        }
+        misplaced = misplaced_redraws(force_refresh_references(sources))
+        if misplaced:
+            message = f"r47_force_refresh referenced from {misplaced}"
             raise AssertionError(message)
 
 
