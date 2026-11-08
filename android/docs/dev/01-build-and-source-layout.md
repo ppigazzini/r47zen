@@ -325,6 +325,12 @@ Public maintainer entrypoints:
   `--write-lock` writes the resolved state to `upstream.lock` only once the tree
   is complete. `upstream.sh hydrated-commit` prints the commit the last complete
   sync wrote. `run_upstream_sync_contract.sh` holds each rule.
+- `scripts/upstream-sync/hydrate_submodules.sh <commit> [<url>]` checks out
+  each submodule at the commit upstream pins, which a sync, built on
+  `git archive`, leaves out. A submodule already checked out at that commit is
+  left alone, edits and all, with no network; any other is fetched beside the
+  old checkout and swapped in only once checked out, so a failed fetch, offline
+  or not, keeps the old one. `build_android.sh` runs it on every full build.
 - `./scripts/android/build_android.sh` is the authoritative Android debug-build
   entry point. It detects Java and the Android NDK, resolves one shared
   upstream commit through `scripts/upstream-sync/upstream.sh`,

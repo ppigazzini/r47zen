@@ -1,4 +1,11 @@
 #!/bin/bash
+# scripts/upstream-sync/hydrate_submodules.sh <upstream-commit> [<upstream-url>]
+#
+# Check out each submodule of an upstream commit at the commit it pins, which
+# git archive, and so upstream.sh sync, leaves out. A submodule already checked
+# out at that commit is left alone, edits and all, with no network. Any other is
+# fetched beside the old checkout and swapped in only once checked out, so a
+# failed fetch keeps the old one. run_upstream_sync_contract.sh holds both.
 
 set -Eeuo pipefail
 
@@ -43,7 +50,8 @@ gitlinks=$(git -C "$PROJECT_ROOT" ls-tree -r "$upstream_commit" |
 [ -n "$gitlinks" ] || exit 0
 
 gitmodules_tmp=$(mktemp)
-trap 'rm -f "$gitmodules_tmp"' EXIT
+staging_path=""
+trap 'rm -f "$gitmodules_tmp"; [ -z "$staging_path" ] || rm -rf "$staging_path"' EXIT
 git -C "$PROJECT_ROOT" show "$upstream_commit:.gitmodules" >"$gitmodules_tmp" 2>/dev/null ||
     fail "Commit $upstream_commit contains submodules but .gitmodules is missing"
 
@@ -69,15 +77,30 @@ while IFS=$'\t' read -r submodule_commit submodule_path; do
         fail "Missing URL for submodule $module_name at path $submodule_path"
 
     target_path="$PROJECT_ROOT/$submodule_path"
-    rm -rf "$target_path"
-    mkdir -p "$target_path"
 
-    git -C "$target_path" init -q
-    git -C "$target_path" remote add origin "$module_url"
-    if ! retry_with_backoff "Fetch submodule ${module_name} (shallow)" \
-        git -C "$target_path" fetch --depth 1 origin "$submodule_commit"; then
-        retry_with_backoff "Fetch submodule ${module_name} (full)" \
-            git -C "$target_path" fetch origin "$submodule_commit"
+    # A checkout already at the commit stays, edits and all, and needs no
+    # network. From a directory that is not its own repository, rev-parse
+    # finds the parent's, so the git-dir test keeps that from matching.
+    if [ "$(git -C "$target_path" rev-parse --git-dir 2>/dev/null)" = ".git" ] &&
+        [ "$(git -C "$target_path" rev-parse HEAD 2>/dev/null)" = "$submodule_commit" ]; then
+        echo "--- Submodule $submodule_path already at $submodule_commit ---"
+        continue
     fi
-    git -C "$target_path" checkout --detach "$submodule_commit" >/dev/null
+
+    # Fetch into a directory beside it and swap it in once checked out, so a
+    # failed fetch, offline or not, leaves the old checkout in place.
+    staging_path="${target_path}.r47-hydrate"
+    rm -rf "$staging_path"
+    mkdir -p "$staging_path"
+    git -C "$staging_path" init -q
+    git -C "$staging_path" remote add origin "$module_url"
+    if ! retry_with_backoff "Fetch submodule ${module_name} (shallow)" \
+        git -C "$staging_path" fetch --depth 1 origin "$submodule_commit"; then
+        retry_with_backoff "Fetch submodule ${module_name} (full)" \
+            git -C "$staging_path" fetch origin "$submodule_commit"
+    fi
+    git -C "$staging_path" checkout --detach "$submodule_commit" >/dev/null
+    rm -rf "$target_path"
+    mv "$staging_path" "$target_path"
+    staging_path=""
 done <<<"$gitlinks"

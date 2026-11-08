@@ -77,11 +77,33 @@ printf 'new\n' >"$UP/src/c47/new.c"
 C2="$(git -C "$UP" rev-parse HEAD)"
 git -C "$UP" config uploadpack.allowAnySHA1InWant true
 
+# A submodule repository with two commits, and upstream C3 and C4, which pin
+# dep/sub at the first and at the second.
+SUB="$WORK/sub"
+"${GIT[@]}" init -q "$SUB"
+printf 's1\n' >"$SUB/file"
+"${GIT[@]}" -C "$SUB" add -A
+"${GIT[@]}" -C "$SUB" commit -qm s1
+S1="$(git -C "$SUB" rev-parse HEAD)"
+printf 's2\n' >"$SUB/file"
+"${GIT[@]}" -C "$SUB" commit -qam s2
+S2="$(git -C "$SUB" rev-parse HEAD)"
+git -C "$SUB" config uploadpack.allowAnySHA1InWant true
+printf '[submodule "sub"]\n\tpath = dep/sub\n\turl = file://%s\n' "$SUB" >"$UP/.gitmodules"
+"${GIT[@]}" -C "$UP" add .gitmodules
+"${GIT[@]}" -C "$UP" update-index --add --cacheinfo "160000,$S1,dep/sub"
+"${GIT[@]}" -C "$UP" commit -qm c3
+C3="$(git -C "$UP" rev-parse HEAD)"
+"${GIT[@]}" -C "$UP" update-index --cacheinfo "160000,$S2,dep/sub"
+"${GIT[@]}" -C "$UP" commit -qm c4
+C4="$(git -C "$UP" rev-parse HEAD)"
+
 # A fresh copy of this repo's sync, with its own tracked AGENTS.md and README.md.
 fresh_repo() {
     rm -rf "$ME"
     mkdir -p "$ME/scripts/upstream-sync" "$ME/scripts/lib"
-    cp "$PROJECT_ROOT/scripts/upstream-sync/upstream.sh" "$ME/scripts/upstream-sync/"
+    cp "$PROJECT_ROOT/scripts/upstream-sync/upstream.sh" \
+        "$PROJECT_ROOT/scripts/upstream-sync/hydrate_submodules.sh" "$ME/scripts/upstream-sync/"
     cp "$PROJECT_ROOT/scripts/lib/common.sh" "$ME/scripts/lib/"
     printf 'upstream_url=file://%s\nupstream_ref=HEAD\n' "$UP" >"$ME/upstream.source"
     printf 'our agents\n' >"$ME/AGENTS.md"
@@ -164,6 +186,24 @@ check "the next sync completes it without --force" "sync_to $C2 --write-lock"
 check "the tree is the commit's" "[ \"\$(cat $ME/src/c47/a.c)\" = a2 ] && [ ! -e $ME/src/c47/old.c ] && [ -e $ME/src/c47/new.c ]"
 check "the lock is written" "grep -q \"upstream_commit=$C2\" $ME/upstream.lock"
 check "upstream's AGENTS.md never landed" "[ \"\$(cat $ME/AGENTS.md)\" = 'our agents' ]"
+
+echo "submodules, hydrate_submodules.sh"
+# Called from the check strings, which check() evaluates.
+# shellcheck disable=SC2329
+hydrate() {
+    R47_NET_RETRY_ATTEMPTS=1 R47_NET_RETRY_DELAY=0 \
+        bash "$ME/scripts/upstream-sync/hydrate_submodules.sh" "$1" >"$WORK/out" 2>&1
+}
+fresh_repo
+sync_to "$C3"
+check "a submodule is checked out at its commit" "hydrate $C3 && [ \"\$(cat $ME/dep/sub/file)\" = s1 ]"
+printf 'my edit\n' >"$ME/dep/sub/file"
+mv "$SUB" "$SUB.offline"
+check "offline, a submodule already at its commit is left alone" "hydrate $C3 && [ \"\$(cat $ME/dep/sub/file)\" = 'my edit' ]"
+sync_to "$C4"
+check "offline, a failed fetch keeps the old checkout" "! hydrate $C4 && [ \"\$(cat $ME/dep/sub/file)\" = 'my edit' ] && [ ! -e $ME/dep/sub.r47-hydrate ]"
+mv "$SUB.offline" "$SUB"
+check "online, the new commit is swapped in" "hydrate $C4 && [ \"\$(cat $ME/dep/sub/file)\" = s2 ]"
 
 if [ "${#failures[@]}" -gt 0 ]; then
     contract_fail "the sync broke ${#failures[@]} rule(s):" "$(printf '%s\n' "${failures[@]}")"
