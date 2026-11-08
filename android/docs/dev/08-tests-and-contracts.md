@@ -232,6 +232,9 @@ runs. What each one locks:
   `robolectric.properties` sets `sdk`, `minSdk`, or `maxSdk`, so every
   Robolectric class runs at the targetSdk; it proves its scanner on seeded
   text first
+- `test_device_test_api_contract.py`: the major of
+  `R47_DEFAULT_ANDROID_TEST_API_LEVEL`, the emulator image the instrumented tests
+  run on, reaches `R47_DEFAULT_ANDROID_TARGET_SDK`; seeded first with 36 under 37
 - `test_upstream_provenance_contract.py`: the provenance ledger covers exactly
   the upstream inputs the contract modules declare (see below)
 

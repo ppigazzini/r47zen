@@ -533,7 +533,8 @@ It:
   installs: the emulator needs installable release-path APKs, not the
   published signing identity, and this job compiles and runs the upstream core,
   so it never receives the prerelease key
-- creates or restores an `x86_64` emulator snapshot
+- creates or restores an `x86_64` emulator snapshot at
+  `R47_DEFAULT_ANDROID_TEST_API_LEVEL`, whose major must reach the target SDK
 - runs `scripts/android/run_connected_android_tests.sh`, which invokes
   `connectedReleaseAndroidTest` once per non-fixture Android instrumentation
   class and once for the full `ProgramFixtureInstrumentedTest` class with the
