@@ -1,6 +1,7 @@
 package io.github.ppigazzini.r47zen
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -8,6 +9,7 @@ import android.provider.DocumentsContract
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.net.toUri
 import java.io.IOException
 
 internal class StorageAccessCoordinator(
@@ -16,19 +18,6 @@ internal class StorageAccessCoordinator(
     private val onNativeFileCanceled: () -> Unit,
     private val onLoadTransferStarted: () -> Unit = {},
     private val documentTransfer: DocumentTransfer = DocumentTransfer.shared(activity),
-    private val readWorkDirectoryTreeUri: () -> String? = {
-        WorkDirectory.readTreeUriString(activity)
-    },
-    private val resolveInitialUri: (String?, Int) -> Uri? = { treeUriString, fileType ->
-        WorkDirectory.resolveSubfolder(
-            contentResolver = activity.contentResolver,
-            treeUriString = treeUriString,
-            fileType = fileType,
-        )
-    },
-    private val isWorkDirectoryAccessible: (String?) -> Boolean = { treeUriString ->
-        WorkDirectory.isAccessible(activity.contentResolver, treeUriString)
-    },
     providedSaveIntentLauncher: ((Intent) -> Unit)? = null,
     providedLoadIntentLauncher: ((Intent) -> Unit)? = null,
 ) {
@@ -60,7 +49,7 @@ internal class StorageAccessCoordinator(
         }
     }
 
-    fun requestNativeFile(isSave: Boolean, defaultName: String, fileType: Int) {
+    fun requestNativeFile(isSave: Boolean, defaultName: String, start: Uri?) {
         val launcher = if (isSave) {
             checkNotNull(saveIntentLauncher) {
                 "StorageAccessCoordinator.registerLaunchers() must be called before requesting files."
@@ -72,28 +61,18 @@ internal class StorageAccessCoordinator(
         }
 
         try {
-            launcher(buildNativeFileRequestIntent(isSave, defaultName, fileType))
+            launcher(buildNativeFileRequestIntent(isSave, defaultName, start))
         } catch (error: Exception) {
             Log.e(TAG, "Failed to launch SAF", error)
             onNativeFileCanceled()
         }
     }
 
-    internal fun buildNativeFileRequestIntent(
-        isSave: Boolean,
-        defaultName: String,
-        fileType: Int,
-    ): Intent {
-        val treeUriString = readWorkDirectoryTreeUri()
-        val initialUri = if (treeUriString != null && isWorkDirectoryAccessible(treeUriString)) {
-            resolveInitialUri(treeUriString, fileType)
-        } else {
-            null
-        }
+    internal fun buildNativeFileRequestIntent(isSave: Boolean, defaultName: String, start: Uri?): Intent {
         return if (isSave) {
-            buildSaveIntent(defaultName, initialUri)
+            buildSaveIntent(defaultName, start)
         } else {
-            buildLoadIntent(initialUri)
+            buildLoadIntent(start)
         }
     }
 
@@ -147,6 +126,37 @@ internal class StorageAccessCoordinator(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && initialUri != null) {
                 putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri)
             }
+        }
+    }
+}
+
+/**
+ * Find the folder a picker starts in: the work directory's folder for the file type,
+ * made for a save, which writes there, and only found for a load, which a user may
+ * cancel and must leave no folder behind; with no such folder, the work directory.
+ * Every call asks a provider, so it never runs on the main thread.
+ */
+internal class PickerStart(
+    private val readTreeUri: () -> String?,
+    private val isAccessible: (treeUri: String) -> Boolean,
+    private val resolveFolder: (treeUri: String, fileType: Int, create: Boolean) -> Uri?,
+) {
+    fun find(fileType: Int, isSave: Boolean): Uri? {
+        return readTreeUri()?.takeIf(isAccessible)?.let { tree ->
+            resolveFolder(tree, fileType, isSave) ?: tree.toUri()
+        }
+    }
+
+    companion object {
+        fun of(context: Context): PickerStart {
+            val resolver = context.contentResolver
+            return PickerStart(
+                readTreeUri = { WorkDirectory.readTreeUriString(context) },
+                isAccessible = { WorkDirectory.isAccessible(resolver, it) },
+                resolveFolder = { treeUri, fileType, create ->
+                    WorkDirectory.resolveSubfolder(resolver, treeUri, fileType, create = create)
+                },
+            )
         }
     }
 }

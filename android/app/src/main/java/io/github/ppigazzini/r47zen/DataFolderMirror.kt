@@ -188,7 +188,7 @@ internal class TreeDocumentFolder(
         fun open(resolver: ContentResolver, treeUriString: String?, fileType: Int): DocumentFolder? {
             val treeUri = treeUriString?.takeIf { WorkDirectory.isAccessible(resolver, it) }?.toUri()
             return treeUri?.let { tree ->
-                WorkDirectory.resolveSubfolder(resolver, treeUriString, fileType, orTree = false)
+                WorkDirectory.resolveSubfolder(resolver, treeUriString, fileType)
                     ?.let { folder -> TreeDocumentFolder(resolver, tree, folder) }
             }
         }

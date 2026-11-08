@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47zen
 
+import android.net.Uri
 import android.os.ParcelFileDescriptor
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -9,9 +10,12 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * Native `requestAndroidFile` parks the core thread until a file result or a
  * cancel arrives, so every request must end in exactly one of the two. The
- * request reaches the main thread as a posted callback, and
- * `MainActivity.onDestroy` drops every pending callback: [cancelPending] cancels
- * a request whose launch never ran. A launched picker is answered through
+ * request comes on the core thread, which waits for the answer anyway, so the
+ * provider calls that find where the picker starts run there, and the main
+ * thread only launches it. The launch reaches the main thread as a posted
+ * callback, and `MainActivity.onDestroy` drops every pending callback:
+ * [cancelPending] cancels a request whose launch never ran. A launched picker is
+ * answered through
  * [deliverSelected] or [deliverCanceled]; when the app stops before it answers,
  * the result never arrives, and [cancelUnanswered] cancels instead. A request
  * posted after `onDestroy` needs no help: its launcher is already unregistered,
@@ -26,7 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 internal class NativeFileRequestGate(
     private val post: (Runnable) -> Unit,
-    private val launch: (isSave: Boolean, defaultName: String, fileType: Int) -> Unit,
+    private val findStart: (fileType: Int, isSave: Boolean) -> Uri?,
+    private val launch: (isSave: Boolean, defaultName: String, start: Uri?) -> Unit,
     private val selectNative: (fd: Int, name: String?) -> Boolean,
     private val cancelNative: () -> Unit,
     private val closeLateFd: (Int) -> Unit = { fd -> ParcelFileDescriptor.adoptFd(fd).close() },
@@ -43,10 +48,12 @@ internal class NativeFileRequestGate(
 
     fun request(isSave: Boolean, defaultName: String, fileType: Int) {
         state.set(POSTED)
+        // A lookup that fails must still end in a launch, or nothing answers the request.
+        val start = runCatching { findStart(fileType, isSave) }.getOrNull()
         post(
             Runnable {
                 if (state.compareAndSet(POSTED, LAUNCHED)) {
-                    launch(isSave, defaultName, fileType)
+                    launch(isSave, defaultName, start)
                 }
             },
         )

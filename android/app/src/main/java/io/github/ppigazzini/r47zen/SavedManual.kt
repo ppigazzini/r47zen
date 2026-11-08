@@ -114,14 +114,20 @@ internal class SavedManualEntries(
     private val viewOnline: () -> Unit,
 ) {
     // A picker that gives no lasting access still gave this one answer access, so the
-    // file opens now even though the app cannot reopen it later.
+    // file opens even though the app cannot reopen it later. Keeping it asks its provider
+    // for the name, which the lookup worker does; the file opens with that answer.
     private val picker = fragment.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            if (!SavedManual.remember(fragment.requireContext(), uri)) {
-                showToast(R.string.about_saved_manual_not_kept)
+            val context = fragment.requireContext().applicationContext
+            ProviderLookup.run({ SavedManual.remember(context, uri) }) { kept ->
+                if (fragment.isAdded) {
+                    if (!kept) {
+                        showToast(R.string.about_saved_manual_not_kept)
+                    }
+                    refresh()
+                    openDocument(uri)
+                }
             }
-            refresh()
-            openDocument(uri)
         }
     }
 
@@ -144,15 +150,23 @@ internal class SavedManualEntries(
         fragment.findPreference<Preference>(KEY_CHOOSE)?.isVisible = SavedManual.read(context) != null
     }
 
+    // Whether the copy can still be reached is its provider's answer, asked on the lookup
+    // worker: the tap opens the copy, or says it is gone, once the answer comes back.
     private fun openSaved() {
-        val context = fragment.requireContext()
+        val context = fragment.requireContext().applicationContext
         val uri = SavedManual.read(context)
-        when {
-            uri == null -> choose()
-            SavedManual.displayName(context, uri) != null -> openDocument(uri)
-            else -> {
-                showToast(R.string.about_saved_manual_missing)
-                choose()
+        if (uri == null) {
+            choose()
+            return
+        }
+        ProviderLookup.run({ SavedManual.displayName(context, uri) != null }) { reachable ->
+            when {
+                !fragment.isAdded -> Unit
+                reachable -> openDocument(uri)
+                else -> {
+                    showToast(R.string.about_saved_manual_missing)
+                    choose()
+                }
             }
         }
     }
@@ -180,14 +194,18 @@ internal class SavedManualEntries(
         MaterialAlertDialogBuilder(context)
             .setTitle(R.string.about_saved_manual_no_pdf_app_title)
             .setMessage(
-                context.getString(
-                    R.string.about_saved_manual_no_pdf_app_message,
-                    SavedManual.nameToShow(context, uri),
-                ),
+                context.getString(R.string.about_saved_manual_no_pdf_app_message, storedName(context, uri)),
             )
             .setNegativeButton(R.string.gpl_license_dialog_close, null)
             .setPositiveButton(R.string.about_saved_manual_view_online) { _, _ -> viewOnline() }
             .show()
+    }
+
+    // The name kept with the copy, so the dialog asks no provider; a file the app could
+    // not keep shows the end of its address instead.
+    private fun storedName(context: Context, uri: Uri): String {
+        return SavedManual.name(context)?.takeIf { SavedManual.read(context) == uri }
+            ?: uri.lastPathSegment.orEmpty()
     }
 
     private fun showToast(message: Int) {

@@ -13,114 +13,65 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class StorageAccessCoordinatorTest {
+    // The start folder comes found: building the intent asks no provider.
     @Test
-    fun buildNativeFileRequestIntent_routesSaveRequestsThroughResolvedSubfolder() {
-        val activity = buildActivity()
-        val resolvedUri = Uri.parse("content://io.github.ppigazzini.r47zen.documents/document/screens")
-        var capturedTreeUri: String? = null
-        var capturedFileType: Int? = null
+    fun buildNativeFileRequestIntent_startsASaveInTheFolderItIsGiven() {
+        val start = Uri.parse("content://io.github.ppigazzini.r47zen.documents/document/screens")
 
-        val coordinator = StorageAccessCoordinator(
-            activity = activity,
-            onNativeFileSelected = { _, _ -> },
-            onNativeFileCanceled = {},
-            readWorkDirectoryTreeUri = { "content://io.github.ppigazzini.r47zen.documents/tree/root" },
-            resolveInitialUri = { treeUriString, fileType ->
-                capturedTreeUri = treeUriString
-                capturedFileType = fileType
-                resolvedUri
-            },
-            isWorkDirectoryAccessible = { true },
-            providedSaveIntentLauncher = {},
-            providedLoadIntentLauncher = {},
-        )
-
-        val intent = coordinator.buildNativeFileRequestIntent(
+        val intent = coordinator().buildNativeFileRequestIntent(
             isSave = true,
             defaultName = "screen.bmp",
-            fileType = 3,
+            start = start,
         )
 
-        assertEquals("content://io.github.ppigazzini.r47zen.documents/tree/root", capturedTreeUri)
-        assertEquals(3, capturedFileType)
         assertEquals(Intent.ACTION_CREATE_DOCUMENT, intent.action)
         assertEquals("image/bmp", intent.type)
         assertEquals("screen.bmp", intent.getStringExtra(Intent.EXTRA_TITLE))
         assertEquals(
-            resolvedUri,
+            start,
             intent.getParcelableExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, Uri::class.java),
         )
     }
 
     @Test
-    fun buildNativeFileRequestIntent_routesLoadRequestsThroughResolvedSubfolder() {
-        val activity = buildActivity()
-        val resolvedUri = Uri.parse("content://io.github.ppigazzini.r47zen.documents/document/programs")
-        var capturedTreeUri: String? = null
-        var capturedFileType: Int? = null
+    fun buildNativeFileRequestIntent_startsALoadInTheFolderItIsGiven() {
+        val start = Uri.parse("content://io.github.ppigazzini.r47zen.documents/document/programs")
 
-        val coordinator = StorageAccessCoordinator(
-            activity = activity,
-            onNativeFileSelected = { _, _ -> },
-            onNativeFileCanceled = {},
-            readWorkDirectoryTreeUri = { "content://io.github.ppigazzini.r47zen.documents/tree/root" },
-            resolveInitialUri = { treeUriString, fileType ->
-                capturedTreeUri = treeUriString
-                capturedFileType = fileType
-                resolvedUri
-            },
-            isWorkDirectoryAccessible = { true },
-            providedSaveIntentLauncher = {},
-            providedLoadIntentLauncher = {},
-        )
-
-        val intent = coordinator.buildNativeFileRequestIntent(
+        val intent = coordinator().buildNativeFileRequestIntent(
             isSave = false,
             defaultName = "ignored.p47",
-            fileType = 1,
+            start = start,
         )
 
-        assertEquals("content://io.github.ppigazzini.r47zen.documents/tree/root", capturedTreeUri)
-        assertEquals(1, capturedFileType)
         assertEquals(Intent.ACTION_OPEN_DOCUMENT, intent.action)
         assertEquals("*/*", intent.type)
         assertNull(intent.getStringArrayExtra(Intent.EXTRA_MIME_TYPES))
         assertEquals(
-            resolvedUri,
+            start,
             intent.getParcelableExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, Uri::class.java),
         )
     }
 
     @Test
-    fun buildNativeFileRequestIntent_ignoresInaccessibleSavedWorkDirectory() {
-        val activity = buildActivity()
-        var resolveCallCount = 0
-
-        val coordinator = StorageAccessCoordinator(
-            activity = activity,
-            onNativeFileSelected = { _, _ -> },
-            onNativeFileCanceled = {},
-            readWorkDirectoryTreeUri = { "content://io.github.ppigazzini.r47zen.documents/tree/root" },
-            resolveInitialUri = { _, _ ->
-                resolveCallCount += 1
-                Uri.parse("content://io.github.ppigazzini.r47zen.documents/document/programs")
-            },
-            isWorkDirectoryAccessible = { false },
-            providedSaveIntentLauncher = {},
-            providedLoadIntentLauncher = {},
-        )
-
-        val intent = coordinator.buildNativeFileRequestIntent(
+    fun buildNativeFileRequestIntent_withNoStartFolder_leavesThePickerWhereItWas() {
+        val intent = coordinator().buildNativeFileRequestIntent(
             isSave = false,
             defaultName = "ignored.p47",
-            fileType = 1,
+            start = null,
         )
 
-        assertEquals(0, resolveCallCount)
         assertNull(
             intent.getParcelableExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, Uri::class.java),
         )
     }
+
+    private fun coordinator() = StorageAccessCoordinator(
+        activity = buildActivity(),
+        onNativeFileSelected = { _, _ -> },
+        onNativeFileCanceled = {},
+        providedSaveIntentLauncher = {},
+        providedLoadIntentLauncher = {},
+    )
 
     @Test
     fun requestNativeFile_cancelsWhenLauncherThrows() {
@@ -138,7 +89,7 @@ class StorageAccessCoordinatorTest {
         coordinator.requestNativeFile(
             isSave = true,
             defaultName = "state.s47",
-            fileType = 0,
+            start = null,
         )
 
         assertEquals(1, cancelCount)
@@ -200,20 +151,7 @@ class StorageAccessCoordinatorTest {
 
     @Test
     fun buildNativeFileRequestIntent_savesRegisterDataAsABinaryDocument() {
-        val coordinator = StorageAccessCoordinator(
-            activity = buildActivity(),
-            onNativeFileSelected = { _, _ -> },
-            onNativeFileCanceled = {},
-            readWorkDirectoryTreeUri = { null },
-            providedSaveIntentLauncher = {},
-            providedLoadIntentLauncher = {},
-        )
-
-        val intent = coordinator.buildNativeFileRequestIntent(
-            isSave = true,
-            defaultName = "data.d47",
-            fileType = 4,
-        )
+        val intent = coordinator().buildNativeFileRequestIntent(isSave = true, defaultName = "data.d47", start = null)
 
         assertEquals("application/octet-stream", intent.type)
         assertEquals("data.d47", intent.getStringExtra(Intent.EXTRA_TITLE))

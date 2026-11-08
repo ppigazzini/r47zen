@@ -119,6 +119,18 @@ class WorkDirectoryProviderTest {
         assertTrue(documents.created.isEmpty())
     }
 
+    // A load picker starts in its folder only if the folder is there: one the user
+    // cancels must leave none behind.
+    @Test
+    fun aMissingFileTypesFolderIsNotMade_whenTheCallerMakesNone() {
+        documents.children += "STATE" to "root/STATE"
+
+        val folder = WorkDirectory.resolveSubfolder(resolver, treeUri.toString(), fileType = 1, create = false)
+
+        assertNull(folder)
+        assertTrue(documents.created.isEmpty())
+    }
+
     @Test
     fun aMissingFileTypesFolderIsCreated() {
         documents.children += "STATE" to "root/STATE"

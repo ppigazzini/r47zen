@@ -129,7 +129,7 @@ class WorkDirectoryTest {
     }
 
     @Test
-    fun resolveSubfolder_returnsTreeUriForUnknownFileType() {
+    fun resolveSubfolder_returnsNoFolderForUnknownFileType() {
         val documents = FakeWorkDirectoryDocuments(parsedUri = treeUri)
 
         val resolvedUri = WorkDirectory.resolveSubfolder(
@@ -139,12 +139,12 @@ class WorkDirectoryTest {
             documentAccess = documents,
         )
 
-        assertEquals(treeUri, resolvedUri)
+        assertNull(resolvedUri)
         assertNull(documents.createdDirectoryName)
     }
 
     @Test
-    fun resolveSubfolder_fallsBackToTreeUriWhenCreateDirectoryReturnsNull() {
+    fun resolveSubfolder_returnsNoFolderWhenCreateDirectoryReturnsNull() {
         val documents = FakeWorkDirectoryDocuments(
             parsedUri = treeUri,
             createdDirectoryUri = null,
@@ -157,7 +157,7 @@ class WorkDirectoryTest {
             documentAccess = documents,
         )
 
-        assertEquals(treeUri, resolvedUri)
+        assertNull(resolvedUri)
         assertEquals("SAVFILES", documents.createdDirectoryName)
     }
 

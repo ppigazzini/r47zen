@@ -36,6 +36,7 @@ import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowContentResolver
 import org.robolectric.shadows.ShadowDialog
 import org.robolectric.shadows.ShadowToast
+import java.util.concurrent.Executor
 
 private const val AUTHORITY = "io.github.ppigazzini.r47zen.test.documents"
 
@@ -88,6 +89,21 @@ class SavedManualTest {
     private val documents = Robolectric.setupContentProvider(FakeDocuments::class.java, AUTHORITY)
     private val firstCopy = "content://$AUTHORITY/document/first".toUri()
     private val secondCopy = "content://$AUTHORITY/document/second".toUri()
+
+    private val queuedLookups = ArrayDeque<Runnable>()
+    private val originalLookupWorker = ProviderLookup.worker
+
+    // Each lookup runs where it is asked, and its answer when the main looper idles,
+    // unless a test queues it to see what the main thread does before the answer.
+    @Before
+    fun runLookupsInline() {
+        ProviderLookup.worker = Executor(Runnable::run)
+    }
+
+    @After
+    fun restoreLookups() {
+        ProviderLookup.worker = originalLookupWorker
+    }
 
     @Before
     @After
@@ -281,6 +297,28 @@ class SavedManualTest {
         assertEquals(listOf(secondCopy), application.contentResolver.persistedUriPermissions.map { it.uri })
     }
 
+    // A provider is another app, and a binder call to it can block: the tap asks it
+    // on the lookup worker, and opens the copy once the answer comes back.
+    @Test
+    fun openingTheSavedFile_asksTheProviderOffTheMainThread() {
+        documents.names[firstCopy] = "manual.pdf"
+        SavedManual.remember(application, firstCopy)
+        val settings = openSettings()
+        documents.queries = 0
+        ProviderLookup.worker = Executor { queuedLookups.addLast(it) }
+
+        settings.tap("open_saved_manual")
+
+        assertEquals(0, documents.queries)
+        assertNull(shadowOf(application).nextStartedActivity)
+
+        queuedLookups.removeFirst().run()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(1, documents.queries)
+        assertViewedInPdfApp(firstCopy)
+    }
+
     @Test
     fun openingAndReturningToSettings_asksTheProviderNothing() {
         documents.names[firstCopy] = "manual.pdf"
@@ -425,6 +463,7 @@ class SavedManualTest {
         fun tap(key: String) {
             val preference = preference(key)
             requireNotNull(preference.onPreferenceClickListener) { key }.onPreferenceClick(preference)
+            shadowOf(Looper.getMainLooper()).idle()
         }
 
         fun answerPicker(uri: Uri?) {
@@ -434,6 +473,7 @@ class SavedManualTest {
             } else {
                 shadowOf(activity).receiveResult(request, Activity.RESULT_OK, Intent().setData(uri))
             }
+            shadowOf(Looper.getMainLooper()).idle()
         }
     }
 }

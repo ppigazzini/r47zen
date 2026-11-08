@@ -236,8 +236,11 @@ flowchart LR
 - `processCoreTasksNative()` is the re-entry hook used by
   `yieldToAndroidWithMs(...)`. It calls back into `MainActivity.processCoreTasks()`
   so queued Android-side work can run while the native core is yielding.
-- `requestFile(...)` hands the request to `NativeFileRequestGate`, which posts
-  it onto the main handler exactly once and forwards the picker's answer: the
+- `requestFile(...)` hands the request to `NativeFileRequestGate`. Still on the
+  core thread, it finds where the picker starts through `PickerStart`, provider
+  calls that must not run on the main thread, then posts the launch onto the main
+  handler exactly once, with no start folder if the lookup fails, and forwards the
+  picker's answer: the
   posted launch runs, or `MainActivity.onDestroy` cancels the request whose
   launch it dropped, and a finishing `onDestroy` cancels a launched picker that
   never answered, so the core thread parked in `requestAndroidFile` always gets

@@ -48,7 +48,7 @@ grouped by role; the directory itself is the authority when a file is added:
   `SoftkeyOverlayPainter.kt`, `SettingsMenuGlyph.kt`, `R47Geometry.kt`,
   `R47KeypadPolicy.kt`, `TopLabelLaneLayout.kt`, and `LcdThemePolicy.kt`
 - storage and slots: `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`,
-  `DataFolderMirror.kt`, `WorkDirectory.kt`, `SavedManual.kt`,
+  `DataFolderMirror.kt`, `ProviderLookup.kt`, `WorkDirectory.kt`, `SavedManual.kt`,
   `SlotSessionController.kt`, and `SlotStore.kt`
 - keyboard and keypad models: `PhysicalKeyboardInputController.kt`,
   `PhysicalKeyboardInput.kt`, `PhysicalKeyboardBindingTables.kt`,
@@ -322,14 +322,23 @@ while matching the desktop simulator's stop-key parity during an active run.
 - `WorkDirectory.persistSelectedTreeUri(...)` centralizes the persistable URI
   grant plus the stored work-directory tree write shared by startup and manual
   selection paths
+- no provider call runs on the main thread, since a provider is another app and a
+  binder call to it can block for as long as it takes to answer. A file request finds
+  where its picker starts on the calculator thread, which waits for the answer anyway:
+  `PickerStart` gives the work directory's folder for the file type, made for a save
+  and only found for a load, so a canceled load leaves no folder, or the work
+  directory itself with no such folder. Settings shows the
+  stored Work Directory at once and changes the summary only if `ProviderLookup`'s
+  worker finds it gone; the saved manual's tap and pick ask on that worker too
 - the work-directory contract is a user-facing SAF tree, not a replacement for
   the app-internal native base path
 - `SavedManual` keeps a read grant to the one PDF the user picks in Settings and
   the name it had, and `SavedManualEntries` hands it to a PDF app with
   `ACTION_VIEW`, so a downloaded manual reopens in one tap with no network and
-  no storage permission. A tap asks the provider for the file's name, on the
-  main thread as the Work Directory check does, and opening Settings asks
-  nothing. A document it cannot reach stays remembered until the user picks
+  no storage permission. A tap asks the provider whether the file can be reached,
+  and a pick asks for its name, both on `ProviderLookup`'s worker, and the file
+  opens with the answer; opening Settings asks nothing, and the no-PDF dialog
+  shows the stored name. A document it cannot reach stays remembered until the user picks
   another, because a removed card can come back; a new pick releases the old
   grant. A provider can answer for a file that is gone, as Downloads does for a
   raw path, and the PDF app then reports it. A picker that gives no lasting

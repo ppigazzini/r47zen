@@ -613,7 +613,11 @@ The SAF path works as follows:
 
 1. Native code calls `requestAndroidFile(...)` with save or load mode, default
    name, and category.
-2. Kotlin launches the correct SAF intent through `StorageAccessCoordinator`.
+2. Inside that call, before the core thread parks, Kotlin finds where the picker
+   starts: the work directory's folder for the category, made for a save and only
+   found for a load. Those are binder calls to the provider, which must not run on
+   the main thread; the main thread then launches the correct SAF intent through
+   `StorageAccessCoordinator`.
 3. `DocumentTransfer` returns a descriptor native may hold: for a save the write
    end of a pipe, for a load a private copy of the document, with the name the
    provider shows for it.

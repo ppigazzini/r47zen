@@ -214,6 +214,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         storageAccessCoordinator = createStorageAccessCoordinator()
         nativeFileRequestGate = NativeFileRequestGate(
             post = { mainHandler.post(it) },
+            findStart = PickerStart.of(applicationContext)::find,
             launch = storageAccessCoordinator::requestNativeFile,
             selectNative = ::answerNativeFileRequest,
             cancelNative = ::onFileCanceledNative,

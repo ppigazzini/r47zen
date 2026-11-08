@@ -320,6 +320,10 @@ moved into the per-frame LCD path.
   the same number of times.
 - `requestAndroidFile(...)` in `jni_storage.c` uses the same release and later
   reacquire pattern around SAF file selection.
+  Its up-call first finds where the picker starts, on the core thread with the
+  lock released: a few provider calls, which take as long as the provider does,
+  while the thread would wait for the picker anyway and the main thread is not
+  held.
 - While a file request is pending, `isCoreBlockingForIo` is true, a C11
   atomic the lock-free signal contract holds. `r47_send_sim_key(...)` and the
   graph-touch gate check it. Their app callers run as core tasks, and the core

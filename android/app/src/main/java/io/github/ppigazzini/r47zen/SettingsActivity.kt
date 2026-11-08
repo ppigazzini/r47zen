@@ -58,11 +58,6 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
     }
 
-    private data class StorageLocationDetails(
-        val sessionSummary: String,
-        val workDirectorySummary: String,
-    )
-
     // A device or profile with no browser has nothing to resolve ACTION_VIEW, and
     // startActivity then throws instead of failing quietly.
     private fun openUrl(url: String) {
@@ -253,14 +248,26 @@ class SettingsFragment : PreferenceFragmentCompat() {
             .show()
     }
 
+    // Whether the stored folder can still be reached is a provider's answer, and a binder
+    // call to a provider can block: the summary shows the stored folder at once, and the
+    // lookup worker's answer changes it only if the folder is gone and still the stored one.
     private fun updateStoragePreferences() {
         val context = requireContext()
-        val sessionStoragePreference = findPreference<Preference>("session_restore_storage")
+        findPreference<Preference>("session_restore_storage")?.summary =
+            getString(R.string.settings_session_storage_summary)
         val workDirectoryPreference = findPreference<Preference>("work_directory") ?: return
-        val details = resolveStorageLocationDetails(context)
-
-        sessionStoragePreference?.summary = details.sessionSummary
-        workDirectoryPreference.summary = details.workDirectorySummary
+        val treeUriString = WorkDirectory.readTreeUriString(context)
+        if (treeUriString == null) {
+            workDirectoryPreference.summary = getString(R.string.settings_work_directory_summary_unset)
+            return
+        }
+        workDirectoryPreference.summary = workDirectorySetSummary(treeUriString)
+        val resolver = context.applicationContext.contentResolver
+        ProviderLookup.run({ WorkDirectory.isAccessible(resolver, treeUriString) }) { accessible ->
+            if (!accessible && isAdded && WorkDirectory.readTreeUriString(requireContext()) == treeUriString) {
+                workDirectoryPreference.summary = getString(R.string.settings_work_directory_summary_inaccessible)
+            }
+        }
     }
 
     private fun updateKeypadDesignPreferences() {
@@ -296,27 +303,13 @@ class SettingsFragment : PreferenceFragmentCompat() {
         hapticStrengthPreference.updatesContinuously = true
     }
 
-    private fun resolveStorageLocationDetails(context: android.content.Context): StorageLocationDetails {
-        val treeUriString = WorkDirectory.readTreeUriString(context)
-        val sessionSummary = getString(R.string.settings_session_storage_summary)
-
-        val workDirectorySummary = when {
-            treeUriString == null -> getString(R.string.settings_work_directory_summary_unset)
-            WorkDirectory.isAccessible(context.contentResolver, treeUriString) -> {
-                val unknownFolder = getString(R.string.settings_work_directory_summary_unknown_folder)
-                val displayPath = try {
-                    WorkDirectory.formatDisplayPath(treeUriString.toUri().path, unknownFolder)
-                } catch (_: Exception) {
-                    unknownFolder
-                }
-                getString(R.string.settings_work_directory_summary_set, displayPath)
-            }
-            else -> getString(R.string.settings_work_directory_summary_inaccessible)
+    private fun workDirectorySetSummary(treeUriString: String): String {
+        val unknownFolder = getString(R.string.settings_work_directory_summary_unknown_folder)
+        val displayPath = try {
+            WorkDirectory.formatDisplayPath(treeUriString.toUri().path, unknownFolder)
+        } catch (_: Exception) {
+            unknownFolder
         }
-
-        return StorageLocationDetails(
-            sessionSummary = sessionSummary,
-            workDirectorySummary = workDirectorySummary,
-        )
+        return getString(R.string.settings_work_directory_summary_set, displayPath)
     }
 }

@@ -1,12 +1,18 @@
 package io.github.ppigazzini.r47zen
 
+import android.net.Uri
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class NativeFileRequestGateTest {
     private val posted = ArrayDeque<Runnable>()
-    private val launches = mutableListOf<Triple<Boolean, String, Int>>()
+    private val launches = mutableListOf<Triple<Boolean, String, Uri?>>()
+    private val lookups = mutableListOf<Pair<Int, Boolean>>()
+    private var startFolder: (fileType: Int, isSave: Boolean) -> Uri? = { _, _ -> null }
     private var cancels = 0
     private val selections = mutableListOf<Int>()
     private val names = mutableListOf<String?>()
@@ -14,7 +20,11 @@ class NativeFileRequestGateTest {
     private var nativeWaiting = true
     private val gate = NativeFileRequestGate(
         post = { posted.addLast(it) },
-        launch = { isSave, defaultName, fileType -> launches += Triple(isSave, defaultName, fileType) },
+        findStart = { fileType, isSave ->
+            lookups += fileType to isSave
+            startFolder(fileType, isSave)
+        },
+        launch = { isSave, defaultName, start -> launches += Triple(isSave, defaultName, start) },
         selectNative = { fd, name ->
             selections += fd
             names += name
@@ -23,6 +33,39 @@ class NativeFileRequestGateTest {
         cancelNative = { cancels++ },
         closeLateFd = { closedFds += it },
     )
+
+    // The provider calls that find where a picker starts run on the thread that asks,
+    // the calculator thread, which waits for the answer anyway: the main thread only
+    // launches, with the folder already found.
+    @Test
+    fun theStartFolderIsFoundBeforeTheLaunchIsPosted() {
+        val programs = Uri.parse("content://tree/document/root%2FPROGRAMS")
+        startFolder = { _, _ ->
+            assertTrue("a launch was posted before the lookup ended", posted.isEmpty())
+            programs
+        }
+
+        gate.request(isSave = false, defaultName = "", fileType = 1)
+        assertEquals(listOf(1 to false), lookups)
+        assertTrue(launches.isEmpty())
+
+        posted.removeFirst().run()
+
+        assertEquals(listOf(Triple(false, "", programs)), launches)
+    }
+
+    // A request must end in one answer, so a lookup that fails still launches the
+    // picker, where it would have started with no work directory.
+    @Test
+    fun aLookupThatThrows_stillLaunches_withNoStartFolder() {
+        startFolder = { _, _ -> throw SecurityException("the grant is gone") }
+
+        gate.request(isSave = true, defaultName = "state.s47", fileType = 0)
+        posted.removeFirst().run()
+
+        assertEquals(listOf(Triple(true, "state.s47", null as Uri?)), launches)
+        assertEquals(0, cancels)
+    }
 
     @Test
     fun aTransferredDocument_reachesNative() {
@@ -80,8 +123,24 @@ class NativeFileRequestGateTest {
         posted.removeFirst().run()
         gate.cancelPending()
 
-        assertEquals(listOf(Triple(true, "state.s47", 3)), launches)
+        assertEquals(listOf(Triple(true, "state.s47", null)), launches)
+        assertEquals(listOf(3 to true), lookups)
         assertEquals(0, cancels)
+    }
+
+    // onDestroy can run while the core thread is still finding the start folder: its
+    // cancel is the request's one answer, and the launch posted after it does nothing.
+    @Test
+    fun aDestroyDuringTheLookupCancelsOnce_andTheLaterLaunchDoesNothing() {
+        startFolder = { _, _ ->
+            gate.cancelPending()
+            null
+        }
+        gate.request(isSave = true, defaultName = "state.s47", fileType = 0)
+        posted.removeFirst().run()
+
+        assertTrue(launches.isEmpty())
+        assertEquals(1, cancels)
     }
 
     @Test

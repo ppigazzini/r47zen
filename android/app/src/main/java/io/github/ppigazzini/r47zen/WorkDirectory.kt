@@ -205,16 +205,17 @@ internal object WorkDirectory {
     }
 
     /**
-     * Return the work directory's folder for [fileType], made if missing. When it
-     * cannot be found or made, return the work directory itself, or null with [orTree]
-     * false, for a caller that must not write in the tree's root.
+     * Return the work directory's folder for [fileType], made if missing unless
+     * [create] is false, or null when there is none and none is made: a caller that
+     * can use the work directory itself falls back to it, one that must not write in
+     * the tree's root does not.
      */
     fun resolveSubfolder(
         contentResolver: ContentResolver,
         treeUriString: String?,
         fileType: Int,
         documentAccess: WorkDirectoryDocumentAccess = AndroidWorkDirectoryDocumentAccess,
-        orTree: Boolean = true,
+        create: Boolean = true,
     ): Uri? {
         if (treeUriString.isNullOrEmpty()) {
             return null
@@ -226,18 +227,16 @@ internal object WorkDirectory {
             return null
         }
 
-        val fallback = treeUri.takeIf { orTree }
-        val subfolderName = subfolderNameFor(fileType) ?: return fallback
+        val subfolderName = subfolderNameFor(fileType) ?: return null
 
         return try {
             documentAccess.listChildren(contentResolver, treeUri)
                 .firstOrNull { it.displayName == subfolderName }
                 ?.let { documentAccess.buildDocumentUri(treeUri, it.documentId) }
-                ?: documentAccess.createDirectory(contentResolver, treeUri, subfolderName)
-                ?: fallback
+                ?: documentAccess.takeIf { create }?.createDirectory(contentResolver, treeUri, subfolderName)
         } catch (error: Exception) {
             Log.e(TAG, "Error resolving subfolder $subfolderName", error)
-            fallback
+            null
         }
     }
 
