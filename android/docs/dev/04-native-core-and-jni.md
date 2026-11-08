@@ -89,6 +89,16 @@ Tracked Android stub headers under `r47zen/stubs` and the forced include
 of `android_mocks.h` let the Android build satisfy upstream GTK, GDK, and Cairo
 includes without rewriting staged source files during the Gradle build.
 
+A stand-in that shadows a header upstream was written for compiles whatever it
+does, so each one has a check that runs it:
+
+| stand-in | what it replaces | held by |
+|---|---|---|
+| `stubs/gtk/gtk.h`, `stubs/gdk/gdk.h`, `stubs/cairo.h` | the GTK, GDK, and Cairo types the core's headers name; no GTK call runs on Android | the build: a call that reached them would not link |
+| `stubs/android/log.h` | the NDK's log header on the host; on Android it defers to the NDK's with `#include_next` | `check_native_hardening.sh` fails a packaged library that imports no `__android_log_print` |
+| `execinfo.h` | `<execinfo.h>`, below the NDK's API 33 | `run_native_stand_ins_contract.sh` reads `strs[1]` under AddressSanitizer and frees the array |
+| `mpz_fits_uint_p`, `mpz_nextprime`, `mpz_fib_ui`, `mpz_div_2exp` in `android_mocks.h` | GMP names mini-gmp lacks | `run_native_stand_ins_contract.sh`, on boundary values computed apart |
+
 The Android native module compiles the staged upstream core in
 `PC_BUILD` mode. That means the Android-owned bridge layer must provide the
 GLib and GTK compatibility behavior used by upstream pause, wait, and progress

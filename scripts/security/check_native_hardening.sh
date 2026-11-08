@@ -88,6 +88,23 @@ else
     pass "no text relocations"
 fi
 
+# The glue's android/log.h stand-in defers to the NDK's header: when it did not, the
+# library imported no __android_log_print and no native line reached logcat
+# (c7c52c932a). And every exit in the library is linked to a logged abort
+# (-Wl,--wrap=exit in CMakeLists.txt), so an import of exit is a core error that would
+# end the app with no trace.
+imports="$("$RE" --dyn-syms -W "$SO" | awk '$7 == "UND" { sub(/@.*/, "", $8); print $8 }')"
+if grep -qx '__android_log_print' <<<"$imports"; then
+    pass "imports __android_log_print"
+else
+    failc "imports no __android_log_print: native logging reaches nothing"
+fi
+if grep -qx 'exit' <<<"$imports"; then
+    failc "imports exit: a core error would end the app with no log"
+else
+    pass "imports no exit"
+fi
+
 # AArch64 branch protection: BTI landing pads + PAC return-address signing.
 case "$machine" in
     *AArch64* | *aarch64*)
