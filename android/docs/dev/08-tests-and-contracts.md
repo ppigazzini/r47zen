@@ -217,6 +217,12 @@ runs. What each one locks:
   resource copies one in any color notation; it proves the scanner on seeded
   copies first. Black is exempt, and a copy of a resolved palette is out of
   its reach
+- `test_settings_default_reads_contract.py`: every read of a setting, a
+  `get*` call whose key is the `KEY_` constant of a preference that declares a
+  default in `root_preferences.xml`, or a change handler's `key`, passes a named
+  `DEFAULT` constant, not a literal of its own; every such setting has a `KEY_`
+  constant, and the scanner is proven on seeded literals first. A read through
+  another variable or a helper is out of its reach
 - `test_keypad_snapshot_wire_contract.py`: key count, labels per key, scene
   contract version, label-slot order, total meta length, and every meta lane
   offset agree between `keypad_fixture_bridge.h`, `KeypadSnapshot.kt`, and the
@@ -544,7 +550,11 @@ source is missing from this page:
   depending on runtime on/off state, and holds the `lcd_luminance` range and
   the `lcd_luminance`, `lcd_theme`, and `lcd_negative` defaults in
   `root_preferences.xml` to the `MainActivityPreferenceController` constants
-  (`lcdPreferences_declareTheControllerLimitsAndDefaults`)
+  (`lcdPreferences_declareTheControllerLimitsAndDefaults`). It also walks every
+  preference that holds a value and holds the value Settings shows with nothing
+  stored to the `DEFAULT_` constant the shell reads, failing on one it does not
+  pair (`everySetting_showsTheDefaultTheShellReads`); the read contract above
+  holds the reads to those constants
 - `HapticFeedbackControllerTest.kt` and `ReplicaKeypadLayoutHapticsTest.kt`:
   lock the `haptic_enabled` gate, the `haptic_use_android_default` toggle, the
   `haptic_keypress_duration_ms` `0..100` clamp, the Android-default versus

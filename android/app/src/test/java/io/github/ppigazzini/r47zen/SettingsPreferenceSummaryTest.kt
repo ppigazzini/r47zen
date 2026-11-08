@@ -1,10 +1,13 @@
 package io.github.ppigazzini.r47zen
 
 import android.content.Context
+import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
+import androidx.preference.PreferenceGroup
 import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
+import androidx.preference.TwoStatePreference
 import androidx.test.core.app.ApplicationProvider
 import org.junit.After
 import org.junit.Assert.assertFalse
@@ -193,6 +196,62 @@ class SettingsPreferenceSummaryTest {
         assertEquals(MainActivityPreferenceController.DEFAULT_LCD_LUMINANCE, luminance.value)
         assertEquals(MainActivityPreferenceController.DEFAULT_LCD_THEME, theme.value)
         assertEquals(MainActivityPreferenceController.DEFAULT_LCD_NEGATIVE, negative.isChecked)
+    }
+
+    // Settings shows a preference's XML default while nothing is stored, and the shell
+    // reads the key with its own default: a drift shows one value and applies another,
+    // and a seek bar then stores the shown one on first open. Every preference that
+    // holds a value is paired here, so a new one cannot miss the check.
+    @Test
+    fun everySetting_showsTheDefaultTheShellReads() {
+        val main = MainActivityPreferenceController
+        val haptic = HapticFeedbackController
+        val shellDefaults = mapOf<String, Any>(
+            main.KEY_FULLSCREEN_MODE to main.DEFAULT_FULLSCREEN_MODE,
+            main.KEY_LCD_GRAPH_TOUCH_ENABLED to main.DEFAULT_LCD_GRAPH_TOUCH_ENABLED,
+            main.KEY_LCD_THEME to main.DEFAULT_LCD_THEME,
+            main.KEY_LCD_NEGATIVE to main.DEFAULT_LCD_NEGATIVE,
+            main.KEY_LCD_LUMINANCE to main.DEFAULT_LCD_LUMINANCE,
+            main.KEY_MAIN_KEY_DYNAMIC_MODE to main.DEFAULT_MAIN_KEY_DYNAMIC_MODE.storageValue,
+            main.KEY_SOFTKEY_DYNAMIC_MODE to main.DEFAULT_SOFTKEY_DYNAMIC_MODE.storageValue,
+            haptic.KEY_HAPTIC_ENABLED to haptic.DEFAULT_HAPTIC_ENABLED,
+            haptic.KEY_HAPTIC_USE_ANDROID_DEFAULT to haptic.DEFAULT_HAPTIC_USE_ANDROID_DEFAULT,
+            haptic.KEY_HAPTIC_KEYPRESS_DURATION_MS to haptic.DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
+            main.KEY_BEEPER_ENABLED to main.DEFAULT_BEEPER_ENABLED,
+            main.KEY_BEEPER_VOLUME to main.DEFAULT_BEEPER_VOLUME,
+            main.KEY_KEEP_SCREEN_ON to main.DEFAULT_KEEP_SCREEN_ON,
+            main.KEY_AUTO_SAVE_MINIMIZE to main.DEFAULT_AUTO_SAVE_MINIMIZE,
+            main.KEY_FORCE_CLOSE_ON_EXIT to main.DEFAULT_FORCE_CLOSE_ON_EXIT,
+            main.KEY_SHOW_DEVELOPER_PERFORMANCE_HUD to main.DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD,
+            main.KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS to main.DEFAULT_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
+            main.KEY_SHOW_TOUCH_ZONES to main.DEFAULT_SHOW_TOUCH_ZONES,
+        )
+
+        val shown = valuedPreferences(launchSettings().preferenceScreen).associate { it.key to shownValue(it) }
+
+        assertEquals(shellDefaults.keys, shown.keys)
+        shown.forEach { (key, value) -> assertEquals(key, shellDefaults[key], value) }
+    }
+
+    private fun valuedPreferences(group: PreferenceGroup): List<Preference> {
+        return (0 until group.preferenceCount).map(group::getPreference).flatMap { preference ->
+            when (preference) {
+                is PreferenceGroup -> valuedPreferences(preference)
+                is TwoStatePreference, is SeekBarPreference, is ListPreference, is EditTextPreference ->
+                    listOf(preference)
+                else -> emptyList()
+            }
+        }
+    }
+
+    private fun shownValue(preference: Preference): Any? {
+        return when (preference) {
+            is TwoStatePreference -> preference.isChecked
+            is SeekBarPreference -> preference.value
+            is ListPreference -> preference.value
+            is EditTextPreference -> preference.text
+            else -> error("${preference.key} holds no value this test reads")
+        }
     }
 
     @Test

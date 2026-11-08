@@ -551,7 +551,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         super.onPause()
         val isEnteringPiP = windowModeController.isEnteringPictureInPicture()
         Log.i(TAG, "onPause: isEnteringPiP=$isEnteringPiP")
-        if (!isEnteringPiP && !factoryResetController.isResetInProgress && appPreferences.getBoolean(MainActivityPreferenceController.KEY_AUTO_SAVE_MINIMIZE, true)) {
+        val autoSave = appPreferences.getBoolean(
+            MainActivityPreferenceController.KEY_AUTO_SAVE_MINIMIZE,
+            MainActivityPreferenceController.DEFAULT_AUTO_SAVE_MINIMIZE,
+        )
+        if (!isEnteringPiP && !factoryResetController.isResetInProgress && autoSave) {
             Log.i(TAG, "Auto-saving state on pause (synchronous via core thread)...")
             coreRuntime.saveStateOnPause(autoSaveEnabled = true)
         }
@@ -575,7 +579,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     fun quitApp() {
         Log.i(TAG, "quitApp called from native")
         mainHandler.post {
-            val forceClose = appPreferences.getBoolean(MainActivityPreferenceController.KEY_FORCE_CLOSE_ON_EXIT, false)
+            val forceClose = appPreferences.getBoolean(
+                MainActivityPreferenceController.KEY_FORCE_CLOSE_ON_EXIT,
+                MainActivityPreferenceController.DEFAULT_FORCE_CLOSE_ON_EXIT,
+            )
             if (forceClose) {
                 finishAndRemoveTask()
             } else {

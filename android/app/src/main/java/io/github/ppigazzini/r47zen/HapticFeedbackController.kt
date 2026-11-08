@@ -18,6 +18,7 @@ internal class HapticFeedbackController(
         internal const val KEY_HAPTIC_ENABLED = "haptic_enabled"
         internal const val KEY_HAPTIC_USE_ANDROID_DEFAULT = "haptic_use_android_default"
         internal const val KEY_HAPTIC_KEYPRESS_DURATION_MS = "haptic_keypress_duration_ms"
+        internal const val DEFAULT_HAPTIC_ENABLED = true
         internal const val DEFAULT_HAPTIC_USE_ANDROID_DEFAULT = true
         internal const val DEFAULT_HAPTIC_KEYPRESS_DURATION_MS = 0
         internal const val MAX_HAPTIC_KEYPRESS_DURATION_MS = 100
@@ -54,13 +55,13 @@ internal class HapticFeedbackController(
         }
     }
 
-    private var isEnabled = true
+    private var isEnabled = DEFAULT_HAPTIC_ENABLED
     private var useAndroidDefault = DEFAULT_HAPTIC_USE_ANDROID_DEFAULT
     private var customKeypressDurationMs = DEFAULT_HAPTIC_KEYPRESS_DURATION_MS
 
     fun syncFromPreferences(preferences: SharedPreferences) {
         normalizePreferences(preferences)
-        isEnabled = preferences.getBoolean(KEY_HAPTIC_ENABLED, true)
+        isEnabled = preferences.getBoolean(KEY_HAPTIC_ENABLED, DEFAULT_HAPTIC_ENABLED)
         useAndroidDefault = preferences.getBoolean(
             KEY_HAPTIC_USE_ANDROID_DEFAULT,
             DEFAULT_HAPTIC_USE_ANDROID_DEFAULT,
@@ -74,7 +75,7 @@ internal class HapticFeedbackController(
     fun onPreferenceChanged(preferences: SharedPreferences, key: String): Boolean {
         when (key) {
             KEY_HAPTIC_ENABLED -> {
-                isEnabled = preferences.getBoolean(key, true)
+                isEnabled = preferences.getBoolean(key, DEFAULT_HAPTIC_ENABLED)
                 return true
             }
             KEY_HAPTIC_USE_ANDROID_DEFAULT, KEY_HAPTIC_KEYPRESS_DURATION_MS -> {

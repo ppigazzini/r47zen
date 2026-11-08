@@ -11,7 +11,7 @@ object AudioEngine {
 
     // beeperVolume runs 0 to 100, and a full-volume beep peaks at 16384, half
     // of Short's range, so the square wave never clips.
-    private const val MAX_BEEPER_VOLUME = 100
+    private const val MAX_BEEPER_VOLUME = MainActivityPreferenceController.MAX_BEEPER_VOLUME
     private const val FULL_VOLUME_AMPLITUDE = 16384
 
     private val audioQueue = LinkedBlockingQueue<Long>()
@@ -19,11 +19,12 @@ object AudioEngine {
     @Volatile
     private var audioThread: Thread? = null
 
+    // The settings' defaults until syncAudioSettings brings the stored ones.
     @Volatile
-    private var isBeeperEnabled = true
+    private var isBeeperEnabled = MainActivityPreferenceController.DEFAULT_BEEPER_ENABLED
 
     @Volatile
-    private var beeperVolume = 20
+    private var beeperVolume = MainActivityPreferenceController.DEFAULT_BEEPER_VOLUME
 
     @Volatile
     private var runningCheck: () -> Boolean = { false }

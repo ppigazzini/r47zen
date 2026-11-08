@@ -332,6 +332,12 @@ while matching the desktop simulator's stop-key parity during an active run.
   worker finds it gone; the saved manual's tap and pick ask on that worker too
 - the work-directory contract is a user-facing SAF tree, not a replacement for
   the app-internal native base path
+- a setting's default has two holders that must agree: `root_preferences.xml`,
+  which Settings shows while nothing is stored, and the `DEFAULT_` constant of the
+  class that reads the key, which every read passes; `AudioEngine` starts from the
+  beeper's constants until the stored values arrive.
+  `SettingsPreferenceSummaryTest` holds the pairs and
+  `test_settings_default_reads_contract.py` the reads
 - `SavedManual` keeps a read grant to the one PDF the user picks in Settings and
   the name it had, and `SavedManualEntries` hands it to a PDF app with
   `ACTION_VIEW`, so a downloaded manual reopens in one tap with no network and

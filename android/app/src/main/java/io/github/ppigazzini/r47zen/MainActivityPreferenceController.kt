@@ -19,6 +19,13 @@ internal class MainActivityPreferenceController(
 ) {
     companion object {
         const val DEFAULT_BEEPER_VOLUME = 20
+        const val DEFAULT_BEEPER_ENABLED = true
+        const val DEFAULT_FULLSCREEN_MODE = true
+        const val DEFAULT_KEEP_SCREEN_ON = false
+        const val DEFAULT_AUTO_SAVE_MINIMIZE = true
+        const val DEFAULT_FORCE_CLOSE_ON_EXIT = false
+        const val DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD = false
+        const val DEFAULT_SHOW_TOUCH_ZONES = false
         const val MIN_BEEPER_VOLUME = 0
         const val MAX_BEEPER_VOLUME = 100
         const val DEFAULT_LCD_NEGATIVE = LcdThemePolicy.DEFAULT_NEGATIVE
@@ -35,18 +42,18 @@ internal class MainActivityPreferenceController(
 
         internal const val KEY_AUTO_SAVE_MINIMIZE = "auto_save_minimize"
         internal const val KEY_FORCE_CLOSE_ON_EXIT = "force_close_on_exit"
-        private const val KEY_BEEPER_ENABLED = "beeper_enabled"
-        private const val KEY_BEEPER_VOLUME = "beeper_volume"
+        internal const val KEY_BEEPER_ENABLED = "beeper_enabled"
+        internal const val KEY_BEEPER_VOLUME = "beeper_volume"
         internal const val KEY_FULLSCREEN_MODE = "fullscreen_mode"
-        private const val KEY_LCD_NEGATIVE = "lcd_negative"
-        private const val KEY_LCD_GRAPH_TOUCH_ENABLED = "lcd_graph_touch_enabled"
-        private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
-        private const val KEY_LCD_THEME = "lcd_theme"
-        private const val KEY_LCD_LUMINANCE = "lcd_luminance"
+        internal const val KEY_LCD_NEGATIVE = "lcd_negative"
+        internal const val KEY_LCD_GRAPH_TOUCH_ENABLED = "lcd_graph_touch_enabled"
+        internal const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        internal const val KEY_LCD_THEME = "lcd_theme"
+        internal const val KEY_LCD_LUMINANCE = "lcd_luminance"
         internal const val KEY_MAIN_KEY_DYNAMIC_MODE = "main_key_dynamic_mode"
-        private const val KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = "developer_performance_hud_window_millis"
-        private const val KEY_SHOW_DEVELOPER_PERFORMANCE_HUD = "show_developer_performance_hud"
-        private const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
+        internal const val KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = "developer_performance_hud_window_millis"
+        internal const val KEY_SHOW_DEVELOPER_PERFORMANCE_HUD = "show_developer_performance_hud"
+        internal const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
         internal const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
         private const val LEGACY_KEY_LCD_MODE = "lcd_mode"
     }
@@ -54,7 +61,7 @@ internal class MainActivityPreferenceController(
     var beeperVolume = DEFAULT_BEEPER_VOLUME
         private set
 
-    var isBeeperEnabled = true
+    var isBeeperEnabled = DEFAULT_BEEPER_ENABLED
         private set
 
     var lcdTheme = DEFAULT_LCD_THEME
@@ -75,10 +82,10 @@ internal class MainActivityPreferenceController(
     var mainKeyDynamicMode = DEFAULT_MAIN_KEY_DYNAMIC_MODE
         private set
 
-    var showDeveloperPerformanceHud = false
+    var showDeveloperPerformanceHud = DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD
         private set
 
-    var showTouchZones = false
+    var showTouchZones = DEFAULT_SHOW_TOUCH_ZONES
         private set
 
     var softkeyDynamicMode = DEFAULT_SOFTKEY_DYNAMIC_MODE
@@ -88,7 +95,7 @@ internal class MainActivityPreferenceController(
         hapticFeedbackController.syncFromPreferences(preferences)
 
         beeperVolume = readNormalizedBeeperVolume()
-        isBeeperEnabled = preferences.getBoolean(KEY_BEEPER_ENABLED, true)
+        isBeeperEnabled = preferences.getBoolean(KEY_BEEPER_ENABLED, DEFAULT_BEEPER_ENABLED)
         lcdTheme = readNormalizedLcdTheme()
         lcdLuminance = readNormalizedLcdLuminance()
         isLcdNegative = preferences.getBoolean(KEY_LCD_NEGATIVE, DEFAULT_LCD_NEGATIVE)
@@ -96,12 +103,12 @@ internal class MainActivityPreferenceController(
         developerPerformanceHudWindowMillis = readNormalizedDeveloperPerformanceHudWindowMillis()
         mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
         showDeveloperPerformanceHud =
-            preferences.getBoolean(KEY_SHOW_DEVELOPER_PERFORMANCE_HUD, false)
-        showTouchZones = preferences.getBoolean(KEY_SHOW_TOUCH_ZONES, false)
+            preferences.getBoolean(KEY_SHOW_DEVELOPER_PERFORMANCE_HUD, DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD)
+        showTouchZones = preferences.getBoolean(KEY_SHOW_TOUCH_ZONES, DEFAULT_SHOW_TOUCH_ZONES)
         softkeyDynamicMode = readNormalizedSoftkeyDynamicMode()
 
-        applyKeepScreenOn(preferences.getBoolean(KEY_KEEP_SCREEN_ON, false))
-        windowModeController.applyFullscreenMode(preferences.getBoolean(KEY_FULLSCREEN_MODE, true))
+        applyKeepScreenOn(preferences.getBoolean(KEY_KEEP_SCREEN_ON, DEFAULT_KEEP_SCREEN_ON))
+        windowModeController.applyFullscreenMode(preferences.getBoolean(KEY_FULLSCREEN_MODE, DEFAULT_FULLSCREEN_MODE))
         syncAudioSettings(isBeeperEnabled, beeperVolume)
         applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
         // Here, not in the deferred overlay pass: MainActivity runs this before
@@ -127,10 +134,10 @@ internal class MainActivityPreferenceController(
                 syncAudioSettings(isBeeperEnabled, beeperVolume)
             }
             KEY_KEEP_SCREEN_ON -> {
-                applyKeepScreenOn(preferences.getBoolean(key, false))
+                applyKeepScreenOn(preferences.getBoolean(key, DEFAULT_KEEP_SCREEN_ON))
             }
             KEY_BEEPER_ENABLED -> {
-                isBeeperEnabled = preferences.getBoolean(key, true)
+                isBeeperEnabled = preferences.getBoolean(key, DEFAULT_BEEPER_ENABLED)
                 syncAudioSettings(isBeeperEnabled, beeperVolume)
             }
             KEY_LCD_THEME,
@@ -159,11 +166,11 @@ internal class MainActivityPreferenceController(
                 applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
             }
             KEY_SHOW_DEVELOPER_PERFORMANCE_HUD -> {
-                showDeveloperPerformanceHud = preferences.getBoolean(key, false)
+                showDeveloperPerformanceHud = preferences.getBoolean(key, DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD)
                 applyShowDeveloperPerformanceHud(showDeveloperPerformanceHud)
             }
             KEY_SHOW_TOUCH_ZONES -> {
-                showTouchZones = preferences.getBoolean(key, false)
+                showTouchZones = preferences.getBoolean(key, DEFAULT_SHOW_TOUCH_ZONES)
                 applyShowTouchZones(showTouchZones)
             }
             KEY_SOFTKEY_DYNAMIC_MODE -> {
@@ -171,7 +178,7 @@ internal class MainActivityPreferenceController(
                 applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
             }
             KEY_FULLSCREEN_MODE -> {
-                windowModeController.applyFullscreenMode(preferences.getBoolean(key, true))
+                windowModeController.applyFullscreenMode(preferences.getBoolean(key, DEFAULT_FULLSCREEN_MODE))
             }
             else -> return false
         }
