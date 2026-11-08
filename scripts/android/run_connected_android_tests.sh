@@ -22,9 +22,11 @@ R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT_SIGNAL="${R47_CONNECTED_ANDROID_FIXTURE_TI
 # one class, and each selection must report results for exactly that class.
 NON_FIXTURE_TEST_CLASSES=(
     "io.github.ppigazzini.r47zen.FactorsInstrumentedTest"
+    "io.github.ppigazzini.r47zen.ClipboardRoundTripInstrumentedTest"
     "io.github.ppigazzini.r47zen.DisplayLifecycleInstrumentedTest"
     "io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest"
     "io.github.ppigazzini.r47zen.GraphTouchStressInstrumentedTest"
+    "io.github.ppigazzini.r47zen.KeypadTouchInstrumentedTest"
     "io.github.ppigazzini.r47zen.StorageAccessCoordinatorInstrumentedTest"
     "io.github.ppigazzini.r47zen.SystemBarInsetsInstrumentedTest"
 )
