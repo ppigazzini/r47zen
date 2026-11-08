@@ -105,8 +105,9 @@ private object AndroidWorkDirectoryDocumentAccess : WorkDirectoryDocumentAccess 
 internal object WorkDirectory {
     private const val TAG = "R47WorkDir"
 
-    // The category hal/io.c passes for register data files.
-    private const val FILE_TYPE_DATA = 4
+    // The categories hal/io.c passes for screen captures and register data files.
+    const val FILE_TYPE_SCREENS = 3
+    const val FILE_TYPE_DATA = 4
 
     const val PREFS_NAME = "R47WorkDirPrefs"
     private const val LEGACY_PREFS_NAME = SlotStore.APP_PREFS_NAME
@@ -203,11 +204,17 @@ internal object WorkDirectory {
         }
     }
 
+    /**
+     * Return the work directory's folder for [fileType], made if missing. When it
+     * cannot be found or made, return the work directory itself, or null with [orTree]
+     * false, for a caller that must not write in the tree's root.
+     */
     fun resolveSubfolder(
         contentResolver: ContentResolver,
         treeUriString: String?,
         fileType: Int,
         documentAccess: WorkDirectoryDocumentAccess = AndroidWorkDirectoryDocumentAccess,
+        orTree: Boolean = true,
     ): Uri? {
         if (treeUriString.isNullOrEmpty()) {
             return null
@@ -219,20 +226,18 @@ internal object WorkDirectory {
             return null
         }
 
-        val subfolderName = subfolderNameFor(fileType) ?: return treeUri
+        val fallback = treeUri.takeIf { orTree }
+        val subfolderName = subfolderNameFor(fileType) ?: return fallback
 
         return try {
-            var folderUri = documentAccess.listChildren(contentResolver, treeUri)
+            documentAccess.listChildren(contentResolver, treeUri)
                 .firstOrNull { it.displayName == subfolderName }
                 ?.let { documentAccess.buildDocumentUri(treeUri, it.documentId) }
-            if (folderUri == null) {
-                folderUri = documentAccess.createDirectory(contentResolver, treeUri, subfolderName)
-            }
-
-            folderUri ?: treeUri
+                ?: documentAccess.createDirectory(contentResolver, treeUri, subfolderName)
+                ?: fallback
         } catch (error: Exception) {
             Log.e(TAG, "Error resolving subfolder $subfolderName", error)
-            treeUri
+            fallback
         }
     }
 
@@ -241,7 +246,7 @@ internal object WorkDirectory {
             0 -> "STATE"
             1 -> "PROGRAMS"
             2 -> "SAVFILES"
-            3 -> "SCREENS"
+            FILE_TYPE_SCREENS -> "SCREENS"
             FILE_TYPE_DATA -> "DATA"
             else -> null
         }

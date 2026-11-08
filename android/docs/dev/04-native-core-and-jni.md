@@ -597,7 +597,12 @@ path can prove that calculator state really changed.
 `hal/io.c` uses two Android-specific paths:
 
 - a runtime base path set by `set_android_base_path(...)` for app-internal files
-  and subdirectories
+  and subdirectories, held as an absolute path. It also sets the core's working
+  directory, `<base>/DATA`: upstream's prints (the print commands, and the register
+  print a `SNAP` ends with) append to a dated `.TSV` named relative to it, and a `SNAP`
+  with no name armed writes its `.bmp` there, as GTK's land beside the simulator and
+  the firmware's in its DATA folder. `DataFolderMirror` copies them to the work
+  directory when the app stops
 - SAF handoff for state, program, RTF export, manual save, register data
   (`EXPreg` and its family, `IMPORTr`), and related user-facing file operations.
   `WRXPall`, upstream's bulk export for developers, is refused with `FILE_ERROR`,
@@ -733,13 +738,15 @@ the name is empty it asks `requestAndroidFile(...)` for a document in category 3
 SCREENS, named `YYYYMMDD-HHMMSS00.bmp` like upstream's default, copies the capture
 to that descriptor, deletes the private file, and arms again. A canceled picker
 drops the capture, and a lost write reports as above. Upstream's `SNAP` also appends
-the stack to a text file relative to the working directory. That file is not offered,
-so the user gets the picture and not the stack text.
+the stack to a dated `.REGS.TSV` relative to the working directory, `<base>/DATA`,
+which `DataFolderMirror` copies to the work directory's DATA folder when the app
+stops.
 
 The offer waits for a tick, so it never starts while the host is stopped or a core
 function is running. A running program reaches no tick, so of the `SNAP`s it takes
 before it stops only the first is kept; the rest find no name and go to upstream's
-relative default, which the app never collects.
+relative default, a dated `.bmp` in `<base>/DATA`, which `DataFolderMirror`
+copies to the work directory's SCREENS folder when the app stops.
 
 Android instrumentation uses a one-shot detached-fd override in
 `jni_storage.c` so `ProgramFixtureInstrumentedTest` can drive `READP` through

@@ -59,7 +59,7 @@ flowchart TD
 | beeper volume normalization and audio settings dispatch | `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `MainActivityPreferenceControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest` |
 | LCD display theme normalization, inverse polarity, palette contrast, palette ownership, and the LCD raster | `LcdThemePolicy.kt`, `PackedLcdRaster.kt`, `ReplicaOverlay.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `PackedLcdRasterTest.kt`, `ReplicaOverlayLcdOrderTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `scripts/r47_contracts/test_lcd_palette_owner_contract.py` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.PackedLcdRasterTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayLcdOrderTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest`, then the grouped `scripts/r47_contracts` lane |
 | system-bar and cutout insets on every screen, fixed shell-menu copy, orange-blue touch-target placement, copy-popup shape, first-touch discovery-hint dismissal, and any retained discovery-hint surfaces | `MainActivity.kt`, `DisplayActionController.kt`, `WindowModeController.kt`, `SystemBarInsets.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/strings.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `MainShellThemeTest.kt`, `ReplicaOverlayVisualPolicyTest.kt`, `SystemBarInsetsTest.kt`, `WindowModeControllerTest.kt`, `SystemBarInsetsInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest --tests io.github.ppigazzini.r47zen.SystemBarInsetsTest --tests io.github.ppigazzini.r47zen.WindowModeControllerTest`, then the `SystemBarInsetsInstrumentedTest` connected selection |
-| SAF picker, startup work-directory routing, document transfer, work-directory tree persistence, and the saved manual's grant | `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`, `NativeFileRequestGate.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `SavedManual.kt`, `FactoryResetController.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `DocumentTransferTest.kt`, `NativeFileRequestGateTest.kt`, `WorkDirectoryTest.kt`, `WorkDirectoryProviderTest.kt`, `SavedManualTest.kt`, `FactoryResetControllerTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt`, `scripts/android/run_hal_io_contract.sh` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
+| SAF picker, startup work-directory routing, document transfer, the copy of the core's prints, work-directory tree persistence, and the saved manual's grant | `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`, `DataFolderMirror.kt`, `NativeFileRequestGate.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `SavedManual.kt`, `FactoryResetController.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `DocumentTransferTest.kt`, `DataFolderMirrorTest.kt`, `NativeFileRequestGateTest.kt`, `WorkDirectoryTest.kt`, `WorkDirectoryProviderTest.kt`, `SavedManualTest.kt`, `FactoryResetControllerTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt`, `scripts/android/run_hal_io_contract.sh` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `stageProgramFixtureAssets` (androidTest assets only), `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
 | pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
 | Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved. A signature change fails the build, but a changed *meaning* behind an unchanged signature does not: `scripts/android/run_keypad_generation_contract.sh` is the behavioral half for `hal/lcd.c`, and locks the `bitblt24` blit semantics documented in `src/c47/hal/lcd.h`; `scripts/android/run_hal_io_contract.sh` locks the write-failure report and the `SNAP` offer of `hal/io.c`, and `clipboard_overflow_harness.c` holds `fnSNAP` to what the offer reads | rerun the narrow native Gradle build first, then `run_keypad_generation_contract.sh` and `run_hal_io_contract.sh`, then the latest-upstream Android build lane when new upstream HAL symbols appear |
@@ -487,7 +487,16 @@ source is missing from this page:
 - `WorkDirectoryProviderTest.kt`: runs `WorkDirectory` through the document
   calls the app makes on a device against a provider that answers as a tree
   provider does: a tree is accessible only with a write grant and children it can
-  list, a file type's folder is found by its name, and a missing one is created
+  list, a file type's folder is found by its name, and a missing one is created; a
+  print reaches the DATA folder as a new `application/octet-stream` document written
+  whole, replaces one already there, and with no writable work directory has no
+  folder at all
+- `DataFolderMirrorTest.kt`: locks that a print is copied whole and an unchanged one
+  not again, that one which grew is copied again whole, that a failed copy is made at
+  the next stop, that a print goes to DATA and an unnamed capture to SCREENS, that with
+  no work directory the user is told once for each new print and the files wait for
+  one, that a work directory that cannot be reached is tried again with no notice,
+  and that with nothing printed no provider is asked
 - `DocumentTransferTest.kt`: locks that a load hands native a private copy and
   the name the provider shows, loads under no name when the provider gives none or
   its query throws, reports and cancels when the provider fails or the document is
@@ -849,7 +858,9 @@ Android compatibility layer.
   bytes of a longer one, or none. It
   runs `fnSNAP` on the live core: a BMP of the whole screen must
   land at the name init armed, and the name must go empty, the two behaviors the
-  offer in `hal/io.c` reads. With no picker, a `tick`, the offer's one caller, must
+  offer in `hal/io.c` reads; its register print must land in `<base>/DATA`, the
+  core's working directory, with no help from the harness. With no picker, a
+  `tick`, the offer's one caller, must
   then drop the capture and arm again. A copy of X as a 30x30 and a 60x60 real
   matrix, and a 20x20 and a 40x40 complex one, must give every value and be whole
   UTF-8. The Copy menu's copy must reach its capture, and a copy after it must be
@@ -909,7 +920,9 @@ Android compatibility layer.
   that cannot open its `.tmp`, reports once and leaves the old file as it was,
   the second returning `FILE_CANCEL`. A read after a seek that fails, on a FIFO
   holding bytes, takes nothing, and `r47_format` fails a text that does not fit
-  and leaves nothing of it. A read of the autosave records its name,
+  and leaves nothing of it. The core must work in the base path's DATA folder,
+  and a base given as a relative path must still name the folder it named. A
+  read of the autosave records its name,
   `R47auto_0.sav`, as GTK's `ioFileOpen` records the file it reads. It also
   builds `hal/io.c` with that branch compiled in and runs
   `scripts/android/hal_io_saf_contract_test.c`: each file path asks for its name and
@@ -960,12 +973,14 @@ Android compatibility layer.
   `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `KeypadSnapshot.kt`,
   `LcdThemePolicy.kt`, `GraphGestureAccumulator.kt`, `PackedLcdRaster.kt`,
   `PasteNumber.kt`, `NativeFileRequestGate.kt`, `DocumentTransfer.kt`,
-  `SavedManual.kt`, and `CalculatorKeyView.kt`'s ASSIGN gate, and asserts each
+  `DataFolderMirror.kt`, `SavedManual.kt`, and `CalculatorKeyView.kt`'s ASSIGN
+  gate, and asserts each
   is killed by the matching JVM test (`LiveProgramStopKeyPolicyTest`,
   `LiveKeyRouterTest`, `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
   `GraphGestureAccumulatorTest`, `PackedLcdRasterTest`,
   `ReplicaOverlayLcdOrderTest`, `PasteNumberTest`, `NativeFileRequestGateTest`,
-  `DocumentTransferTest`, `SavedManualTest`, `ReplicaKeypadLayoutHapticsTest`).
+  `DocumentTransferTest`, `DataFolderMirrorTest`, `SavedManualTest`,
+  `ReplicaKeypadLayoutHapticsTest`).
   No mutant touches the native glue yet. A surviving mutant marks an assertion
   gap and fails the run. The `android-tests` job in `android-ci.yml` runs it on
   every event, so the push that weakens a seam test is the run that fails; run

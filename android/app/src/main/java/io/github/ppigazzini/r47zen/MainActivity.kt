@@ -557,6 +557,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     override fun onStop() {
+        // The user leaves the app to reach a print: the files go to the work directory now.
+        DataFolderMirror.shared(this).mirror()
         // After onPause, so the background save has already been queued: the
         // parked core thread still runs every task, it only stops ticking.
         NativeCoreRuntime.onHostStopped()

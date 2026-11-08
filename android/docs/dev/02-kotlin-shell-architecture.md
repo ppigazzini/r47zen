@@ -48,8 +48,8 @@ grouped by role; the directory itself is the authority when a file is added:
   `SoftkeyOverlayPainter.kt`, `SettingsMenuGlyph.kt`, `R47Geometry.kt`,
   `R47KeypadPolicy.kt`, `TopLabelLaneLayout.kt`, and `LcdThemePolicy.kt`
 - storage and slots: `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`,
-  `WorkDirectory.kt`, `SavedManual.kt`, `SlotSessionController.kt`, and
-  `SlotStore.kt`
+  `DataFolderMirror.kt`, `WorkDirectory.kt`, `SavedManual.kt`,
+  `SlotSessionController.kt`, and `SlotStore.kt`
 - keyboard and keypad models: `PhysicalKeyboardInputController.kt`,
   `PhysicalKeyboardInput.kt`, `PhysicalKeyboardBindingTables.kt`,
   `PhysicalKeyboardShortcutId.kt`, `KeypadSnapshot.kt`,
@@ -178,6 +178,8 @@ callbacks.
   visible. While it is not, the core thread parks: it still runs every queued
   task, including the background save, but stops the 5 ms tick. A running
   program is unaffected, because it runs inside a task.
+  `onStop()` first hands `DataFolderMirror` its copy of the core's prints and
+  unnamed captures, to run on that class's own worker.
 - `onResume()` lets the overlay-side resume path run without forcing a native
   LCD redraw, and queries no document provider: the work directory is checked
   when a file request needs it. On first run,
@@ -303,6 +305,17 @@ while matching the desktop simulator's stop-key parity during an active run.
 - slot switching follows one ordered background flow: save current state, update
   slot ID, load target state
 - SAF-backed user files remain outside the internal app directory contract
+- `DataFolderMirror` copies the files the core writes by a relative name in
+  `<filesDir>/DATA`, its working directory, to the work directory: prints to DATA and
+  captures a `SNAP` left unnamed to SCREENS, as the firmware files them. When the
+  Activity stops it copies, on its own worker, each file whose time or size changed
+  since its last copy, whole, making a new one as `application/octet-stream` so a
+  provider keeps its name. A copy that fails is made at the next stop. With no work
+  directory the app can write, the files wait, and the user is told once for each new
+  print that a Work Directory gets them. The private files are never deleted, so
+  Auto Backup leaves `DATA` and the record of copies out: a program that `SNAP`s in
+  a loop would grow them past the 25 MB an app's backup may hold, where Android
+  stops backing the app up, and the copies are the user's already
 - `StorageAccessCoordinator` owns the first-run welcome dialog, the direct
   startup picker path, and missing-work-directory recovery; `SettingsActivity`
   owns only explicit manual work-directory changes from the preferences UI

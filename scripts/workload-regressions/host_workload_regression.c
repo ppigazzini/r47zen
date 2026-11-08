@@ -813,10 +813,17 @@ int main(int argc, char **argv) {
   const char *program_root = NULL;
   const char *program_name = NULL;
   char runtime_dir[PATH_MAX];
+  char resolved_program_root[PATH_MAX];
 
   for (int index = 1; index < argc; index++) {
     if (strcmp(argv[index], "--program-root") == 0 && index + 1 < argc) {
-      program_root = argv[++index];
+      // The core moves the working directory to its DATA folder, so a relative root
+      // is resolved before it does.
+      program_root = realpath(argv[++index], resolved_program_root);
+      if (program_root == NULL) {
+        fprintf(stderr, "ERROR: %s names no folder\n", argv[index]);
+        return 1;
+      }
       continue;
     }
     if (strcmp(argv[index], "--program-name") == 0 && index + 1 < argc) {

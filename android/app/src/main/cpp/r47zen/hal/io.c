@@ -125,13 +125,39 @@ static int has_android_base_path(void) {
   return 0;
 }
 
+// Upstream's prints, the register print a SNAP ends with among them, append to a name
+// relative to the working directory: GTK's land beside the simulator, the firmware's
+// in DATA. An app's working directory is not its own, so the core works in the base
+// path's DATA folder, which the shell mirrors to the work directory's.
+static void workInDataDir(void) {
+  char dir[1024];
+  if (!r47_format(dir, sizeof(dir), "%s/%s", android_base_path, DATA_DIR) ||
+      chdir(dir) != 0) {
+    LOGE("The core cannot work in %s/%s: prints will fail", android_base_path,
+         DATA_DIR);
+  }
+}
+
 void set_android_base_path(const char *path) {
   int written;
+  char absolute[PATH_MAX];
 
   if (path == NULL || path[0] == '\0') {
     android_base_path[0] = '\0';
     android_base_path_ready = 0;
     return;
+  }
+
+  // The core works in <base>/DATA from here on, so a relative base would name another
+  // folder at the next open: it is held as the absolute path it names now.
+  if (path[0] != '/') {
+    if (realpath(path, absolute) == NULL) {
+      android_base_path[0] = '\0';
+      android_base_path_ready = 0;
+      LOGE("The base path %s names no folder.", path);
+      return;
+    }
+    path = absolute;
   }
 
   written = snprintf(android_base_path, sizeof(android_base_path), "%s", path);
@@ -146,6 +172,8 @@ void set_android_base_path(const char *path) {
   ensure_android_subdir(STATE_DIR);
   ensure_android_subdir(PROGRAMS_DIR);
   ensure_android_subdir(SAVE_DIR);
+  ensure_android_subdir(DATA_DIR);
+  workInDataDir();
 }
 
 // Make a descriptor the picker returned the open file.

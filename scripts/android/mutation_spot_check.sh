@@ -41,11 +41,13 @@ LCD_ORDER_TEST="io.github.ppigazzini.r47zen.ReplicaOverlayLcdOrderTest"
 PASTE_FILE="$KOTLIN_ROOT/PasteNumber.kt"
 GATE_FILE="$KOTLIN_ROOT/NativeFileRequestGate.kt"
 TRANSFER_FILE="$KOTLIN_ROOT/DocumentTransfer.kt"
+MIRROR_FILE="$KOTLIN_ROOT/DataFolderMirror.kt"
 MANUAL_FILE="$KOTLIN_ROOT/SavedManual.kt"
 KEY_VIEW_FILE="$KOTLIN_ROOT/CalculatorKeyView.kt"
 PASTE_TEST="io.github.ppigazzini.r47zen.PasteNumberTest"
 GATE_TEST="io.github.ppigazzini.r47zen.NativeFileRequestGateTest"
 TRANSFER_TEST="io.github.ppigazzini.r47zen.DocumentTransferTest"
+MIRROR_TEST="io.github.ppigazzini.r47zen.DataFolderMirrorTest"
 MANUAL_TEST="io.github.ppigazzini.r47zen.SavedManualTest"
 ASSIGN_TEST="io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest"
 
@@ -76,6 +78,7 @@ MUT_FILES=(
     "$TRANSFER_FILE"
     "$TRANSFER_FILE"
     "$TRANSFER_FILE"
+    "$MIRROR_FILE"
     "$MANUAL_FILE"
     "$KEY_VIEW_FILE"
 )
@@ -104,6 +107,7 @@ MUT_OLD=(
     "if (temp.length() > 0) {"
     "if (total > MAX_LOAD_BYTES) {"
     ".onSuccess { fd -> onLoaded(fd, nameOf(uri)) }"
+    ".onSuccess { copies.edit { putString(COPIED + file.name, stamp) } }"
     "if (previous != null && previous != uri) {"
     "isEnabled = enabled || isPressed || (isFnKey && calcMode == KeypadSceneContract.CALC_MODE_ASSIGN)"
 )
@@ -132,6 +136,7 @@ MUT_NEW=(
     "if (temp.length() >= 0) {"
     "if (total >= MAX_LOAD_BYTES) {"
     ".onSuccess { fd -> onLoaded(fd, null) }"
+    ".also { copies.edit { putString(COPIED + file.name, stamp) } }"
     "if (previous != null && previous == uri) {"
     "isEnabled = enabled || isPressed"
 )
@@ -160,6 +165,7 @@ MUT_TESTS=(
     "$TRANSFER_TEST"
     "$TRANSFER_TEST"
     "$TRANSFER_TEST"
+    "$MIRROR_TEST"
     "$MANUAL_TEST"
     "$ASSIGN_TEST"
 )
@@ -188,6 +194,7 @@ MUT_DESC=(
     "DocumentTransfer: write the provider when native wrote nothing"
     "DocumentTransfer: refuse a document of exactly the limit"
     "DocumentTransfer: a load hands native no name"
+    "DataFolderMirror: record a copy that failed as made"
     "SavedManual: release the new grant on a repick, keep the old one on a change"
     "CalculatorKeyView: a disabled f-key takes no press in ASSIGN"
 )

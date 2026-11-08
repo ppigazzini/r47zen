@@ -259,6 +259,8 @@ What each rule rests on:
 - `NativeCoreRuntime.saveStateOnPause(...)` posts `saveStateNative()` to the
   core thread and waits for completion. That makes the save helper part of the
   activity lifecycle boundary.
+- `MainActivity.onStop()` posts `DataFolderMirror`'s copy of the core's prints to
+  that class's own worker, so no provider call runs on the main thread.
 - `r47_save_background_state_locked()` must stay persistence-only. Background
   save and Settings entry are passive transitions and must not redraw the LCD.
 - `MainActivity.onResume()` for a normal Settings return must also stay passive

@@ -13,6 +13,7 @@
 #include "keypad_fixture_bridge.h"
 #include "screen.h"
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdatomic.h>
@@ -505,6 +506,49 @@ static int check_file_answer_name(void) {
   return failures;
 }
 
+// Upstream names a print file <date>.<kind>.TSV.
+static bool is_print_file(const char *name) {
+  const size_t length = strlen(name);
+  return length > 4 && strcmp(name + length - 4, ".TSV") == 0;
+}
+
+static void remove_print_files(const char *dir) {
+  DIR *folder = opendir(dir);
+  if (folder == NULL) {
+    return;
+  }
+  char path[PATH_MAX];
+  for (struct dirent *entry = readdir(folder); entry != NULL; entry = readdir(folder)) {
+    if (is_print_file(entry->d_name) &&
+        snprintf(path, sizeof(path), "%s/%s", dir, entry->d_name) < (int)sizeof(path)) {
+      unlink(path);
+    }
+  }
+  closedir(folder);
+}
+
+// The bytes of the one print file in dir, or -1 with none or more than one.
+static long print_file_bytes(const char *dir) {
+  DIR *folder = opendir(dir);
+  if (folder == NULL) {
+    return -1;
+  }
+  long bytes = -1;
+  int files = 0;
+  char path[PATH_MAX];
+  struct stat info;
+  for (struct dirent *entry = readdir(folder); entry != NULL; entry = readdir(folder)) {
+    if (is_print_file(entry->d_name) &&
+        snprintf(path, sizeof(path), "%s/%s", dir, entry->d_name) < (int)sizeof(path) &&
+        stat(path, &info) == 0) {
+      files++;
+      bytes = (long)info.st_size;
+    }
+  }
+  closedir(folder);
+  return files == 1 ? bytes : -1;
+}
+
 // hal/io.c offers a SNAP on two upstream behaviors, so hold them to the live core:
 // fnSNAP writes a BMP of the whole screen to the name it was given, and clears the
 // name. With no picker in this harness, the offer then drops the capture and arms.
@@ -517,18 +561,18 @@ static int check_snap(const char *runtime_dir) {
     failures++;
   }
 
-  // fnSNAP's register export writes relative to the working directory.
-  int previous = open(".", O_RDONLY);
-  if (previous < 0 || chdir(runtime_dir) != 0) {
-    fprintf(stderr, "FATAL: cannot enter %s\n", runtime_dir);
-    exit(2);
-  }
+  // fnSNAP ends with a register print, which appends to a name relative to the working
+  // directory: it must land in the base path's DATA folder, which the shell mirrors.
+  char data_dir[PATH_MAX];
+  snprintf(data_dir, sizeof(data_dir), "%s/DATA", runtime_dir);
+  remove_print_files(data_dir);
   fnSNAP(NOPARAM);
-  if (fchdir(previous) != 0) {
-    fprintf(stderr, "FATAL: cannot leave %s\n", runtime_dir);
-    exit(2);
+  const long printed = print_file_bytes(data_dir);
+  if (printed <= 0) {
+    fprintf(stderr, "FAIL: SNAP's register print left %ld bytes in %s\n", printed, data_dir);
+    failures++;
   }
-  close(previous);
+  remove_print_files(data_dir);
 
   long wantSize = 0x82L + (long)(SCREEN_WIDTH / 8 + 2) * SCREEN_HEIGHT;
   char magic[3] = "";

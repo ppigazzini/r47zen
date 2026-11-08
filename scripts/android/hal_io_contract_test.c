@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -165,7 +166,13 @@ static int check_state_file_replacement(void) {
 int main(void) {
   snprintf(base, sizeof(base), "/tmp/r47-hal-io-contract-%ld", (long)getpid());
   mkdir(base, 0700);
-  set_android_base_path(base);
+  // The core leaves the working directory for DATA, so a relative base is held as the
+  // absolute path it named: given from /tmp, it must still be the folder in /tmp.
+  if (chdir("/tmp") != 0) {
+    fprintf(stderr, "FATAL: cannot enter /tmp\n");
+    return 2;
+  }
+  set_android_base_path(strrchr(base, '/') + 1);
   snprintf(save_dir, sizeof(save_dir), "%s/%s", base, SAVE_DIR);
   snprintf(autosave, sizeof(autosave), "%s/R47auto_0.sav", save_dir);
 
@@ -177,6 +184,18 @@ int main(void) {
   show_warning(warning);
   failures |= expect("a core warning reaches the host whole",
                      strcmp(warned, "This is a WP43 program") == 0);
+
+  // Upstream's prints append to a name relative to the working directory, as GTK's
+  // land beside the simulator and the firmware's in DATA; an app's own directory is
+  // not writable, so the core must work in the base path's DATA folder.
+  char data_dir[PATH_MAX];
+  char cwd[PATH_MAX];
+  snprintf(data_dir, sizeof(data_dir), "%s/%s", base, DATA_DIR);
+  if (getcwd(cwd, sizeof(cwd)) == NULL || strcmp(cwd, data_dir) != 0) {
+    fprintf(stderr, "FAIL: the core works in '%s', want '%s'\n",
+            getcwd(cwd, sizeof(cwd)) ? cwd : "?", data_dir);
+    failures |= 1;
+  }
 
   point_autosave_at(NULL);
   failures |= expect_reports("a write the disk takes is not reported",
@@ -250,6 +269,11 @@ int main(void) {
   }
 
   point_autosave_at(NULL);
+  if (chdir("/") != 0) {
+    fprintf(stderr, "FAIL: cannot leave %s\n", data_dir);
+    failures |= 1;
+  }
+  rmdir(data_dir);
   rmdir(save_dir);
   rmdir(base);
   return failures;
