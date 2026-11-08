@@ -16,6 +16,7 @@ internal class CalculatorSoftkeyPainter(
     private val softkeyLightTextColor: Int,
     private val softkeyMetaLightColor: Int,
     private val softkeyValueLightColor: Int,
+    private val softkeyValueTextColor: Int,
     private val softkeyPreviewColor: Int,
 ) {
     private data class SoftkeyRenderSpecCacheKey(
@@ -139,7 +140,7 @@ internal class CalculatorSoftkeyPainter(
         val decorColor = if (reverseVideo) softkeyLightTextColor else defaultPrimaryColor
         val primaryTextColor = if (reverseVideo) softkeyLightTextColor else defaultPrimaryColor
         val metaTextColor = if (reverseVideo) softkeyMetaLightColor else letterColor
-        val valueTextColor = softkeyValueLightColor
+        val valueTextColor = softkeyValueTextColor
 
         softkeyDecorPaint.color = decorColor
         softkeyDotPaint.color = decorColor

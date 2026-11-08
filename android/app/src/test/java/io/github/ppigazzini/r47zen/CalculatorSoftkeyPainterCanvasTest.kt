@@ -241,6 +241,7 @@ class CalculatorSoftkeyPainterCanvasTest {
             softkeyLightTextColor = Color.parseColor("#F4F7F9"),
             softkeyMetaLightColor = Color.parseColor("#C9D0D6"),
             softkeyValueLightColor = Color.rgb(240, 191, 122),
+            softkeyValueTextColor = Color.parseColor("#FFD699"),
             softkeyPreviewColor = Color.rgb(229, 171, 90),
         )
     }

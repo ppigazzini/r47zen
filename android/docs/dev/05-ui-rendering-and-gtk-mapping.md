@@ -213,7 +213,13 @@ Render split:
   disabled while held. Physical `F1` to `F6` and Picture in Picture skip this gate
 - `CalculatorSoftkeyPainter` owns softkey value-field bounds, overlay center,
   preview accents, reverse-video states, strike marks, and the final softkey
-  `KeyRenderSpec`
+  `KeyRenderSpec`. Each text color it draws meets the 4.5:1 that Android's core
+  app quality asks of small text on every fill it is drawn on: the value has its
+  own `#FFD699`, since the amber the pressed highlight tints with is 3.72:1 on a
+  reverse softkey. Two limits stand. The check and radio marks are raw pixels
+  that do not grow with the key, and the replica scales to fit its window with no
+  minimum, so its touch targets fall under 48 dp in a window under about 609 dp
+  tall, such as a small split-screen pane: a minimum would cut those panes off
 - `CalculatorSoftkeyPainter` caches that softkey spec by snapshot, font set,
   size, pressed state, and draw-surface flag, then routes shared chrome,
   label, and line stages through `KeyRenderPainter` while delegating overlay-
@@ -575,6 +581,8 @@ The verification surface for this text-rendering split is:
 - `CalculatorSoftkeyPainterCanvasTest.kt` and
   `CalculatorSoftkeyPainterContractTest.kt` for softkey text, chrome output,
   and the empty-versus-populated capsule split
+- `SoftkeyTextContrastTest.kt` for the 4.5:1 of each softkey text color on
+  each fill it is drawn on, by WCAG 2's contrast ratio
 - `scripts/r47_contracts/test_key_label_geometry_contract.py` and
   `scripts/r47_contracts/test_key_font_policy_contract.py` for the checked-in
   geometry, shared painter-stage, and font-policy contracts

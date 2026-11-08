@@ -72,7 +72,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 ) : ConstraintLayout(context, attrs, defStyleAttr) {
 
     companion object {
-        private val defaultPrimaryColor = Color.WHITE
+        internal val defaultPrimaryColor = Color.WHITE
         private val defaultPrimaryDarkColor = Color.BLACK
         private val fAccentColor = Color.rgb(255, 195, 111)
         private val fPressedColor = Color.rgb(255, 216, 162)
@@ -84,14 +84,18 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val letterColor = "#A5A5A5".toColorInt()
         private val fourthLabelColor = Color.rgb(223, 223, 223)
         private val longPressColor = "#D4D8DD".toColorInt()
-        private val mainKeyFillColor = Color.rgb(64, 64, 64)
-        private val mainKeyPressedColor = "#744A2E".toColorInt()
+        internal val mainKeyFillColor = Color.rgb(64, 64, 64)
+        internal val mainKeyPressedColor = "#744A2E".toColorInt()
         private val softkeyEmptyColor = Color.rgb(32, 32, 32)
-        private val softkeyReverseColor = Color.rgb(96, 96, 96)
+        internal val softkeyReverseColor = Color.rgb(96, 96, 96)
         private val softkeyReversePressedColor = mainKeyPressedColor
-        private val softkeyLightTextColor = "#F4F7F9".toColorInt()
+        internal val softkeyLightTextColor = "#F4F7F9".toColorInt()
         private val softkeyMetaLightColor = "#C9D0D6".toColorInt()
         private val softkeyValueLightColor = Color.rgb(240, 191, 122)
+
+        // The value's own color, lighter than the amber the pressed highlight tints with:
+        // that amber is 3.72:1 on a reverse softkey, under the 4.5:1 small text needs.
+        internal val softkeyValueTextColor = "#FFD699".toColorInt()
         private val softkeyPreviewColor = Color.rgb(229, 171, 90)
     }
 
@@ -148,6 +152,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         softkeyLightTextColor = softkeyLightTextColor,
         softkeyMetaLightColor = softkeyMetaLightColor,
         softkeyValueLightColor = softkeyValueLightColor,
+        softkeyValueTextColor = softkeyValueTextColor,
         softkeyPreviewColor = softkeyPreviewColor,
     )
     init {
