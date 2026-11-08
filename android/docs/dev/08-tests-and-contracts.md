@@ -725,7 +725,11 @@ Each instrumentation source and what it covers:
   lane can batch `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`,
   and `SPIRALk.p47` inside the grouped `ProgramFixtureInstrumentation`
   selection while still reporting fixture-local progress through the
-  instrumentation stream
+  instrumentation stream. It seeds `NQueens` with `host_workload_regression.c`'s
+  `N = 8` and holds the integers in X to that harness's answer, `8 4 1 3 6 2 7 5`,
+  a valid 8-queens solution. The other four show only that they ran: `BinetV4` and
+  `GudrmPL` end on a plot, which only the host harness pins, `MANSLV2` is stopped
+  mid-solve, and `SPIRALk` leaves in X its own loop limit, not a result
 - `scripts/android/run_connected_android_tests.sh`: owns the hosted emulator
   wrapper that runs each non-fixture instrumentation class in a selection of
   its own and the complete `ProgramFixtureInstrumentedTest` class under one
@@ -791,8 +795,11 @@ Each instrumentation source and what it covers:
   injects each run state via `setProgramRunStop` and asserts the real
   `requestStopProgram()` accepts the busy states and declines the rest end to
   end, tying the predicate to the real seam without a program run.
-- `FactorsInstrumentedTest.kt`: asserts that the `FACTORS` runtime path runs to
-  completion and leaves X in the expected result type
+- `FactorsInstrumentedTest.kt`: factors three inputs on the device's core and
+  holds each answer to the input's factorization: distinct primes, each with a
+  multiplicity of at least 1, that multiply back to the input, so a composite left
+  as a factor fails. 4294971521 and 41622656721349609 have cofactors between 2^32
+  and 2^64, where a wrong mini-gmp `mpz_fits_uint_p` would factor the first wrongly
 - `GraphRedrawInstrumentedTest.kt`: locks the redraw-gate contract behind
   `ProgramLoadTestBridge.forceRefresh()`, which runs `r47_force_refresh()`
 - `StorageAccessCoordinatorInstrumentedTest.kt`: locks a save through a real pipe
@@ -872,9 +879,10 @@ Android compatibility layer.
   `-> 8., 4., 1., 3., 6., 2., 7., 5.`. A wrong result fails the lane (the harness
   exits non-zero, which `run_workload_regressions.sh` propagates; a timeout
   fails it too, unless a tolerate setting names that fixture, as the sanitized
-  lane does for `SPIRALk`). `SPIRALk.p47` carries an X-register pin (final
-  `X = 150`): the harness's own recorded result, checked equal across machines,
-  not a value derived apart from the program. Its plot image stays unpinned
+  lane does for `SPIRALk`). `SPIRALk.p47` ends with `X = 150`, its own loop limit:
+  the program enters 150 and jumps to its `EXIT` label once the size it computed,
+  then in Y, reaches it. So that pin shows the run reached `EXIT`, not that the
+  size is right, and nothing asserts Y. Its plot image stays unpinned
   because the number of points plotted before it finishes is not reproducible
   across machines. Only `MANSLV2` stays liveness-only, because its direct-stop
   interrupt leaves no completed state to assert; it fails if it finishes

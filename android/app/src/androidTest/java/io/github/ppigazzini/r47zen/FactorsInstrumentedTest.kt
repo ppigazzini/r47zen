@@ -8,65 +8,32 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.math.BigDecimal
+import java.math.BigInteger
 
+// FACTORS on the device's own build of the core, each answer held to the input's
+// factorization: distinct primes, each with a multiplicity of at least 1, that
+// multiply back to the input. By unique factorization nothing else passes, so a
+// composite left as a factor, which prime.c's SQUFOF fallback reports as prime,
+// fails. 4294971521 and 41622656721349609 have cofactors between 2^32 and 2^64,
+// where a wrong mini-gmp mpz_fits_uint_p once factored the first wrong.
 @RunWith(AndroidJUnit4::class)
 class FactorsInstrumentedTest {
     @Test
     fun factorsRunsThroughAndroidRuntime() {
         val failures = mutableListOf<String>()
 
-        ActivityScenario.launch(MainActivity::class.java).use {
+        ActivityScenario.launch(MainActivity::class.java).use { _ ->
             assertTrue(
                 "Native runtime did not become ready for FACTORS coverage",
                 waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
             )
-
-            ProgramLoadTestBridge.resetRuntime()
-            val resetState = ProgramLoadTestBridge.snapshotState()
-            if (resetState.lastErrorCode != ERROR_NONE) {
-                failures += buildFailure(
-                    phase = "reset",
-                    details = "reset left calculator error ${resetState.lastErrorCode}",
-                )
-            }
-
-            if (!ProgramLoadTestBridge.seedLargeFactorsInput()) {
-                failures += buildFailure(
-                    phase = "seed",
-                    details = "failed to seed the large FACTORS input into X",
-                )
-            }
-
-            if (failures.isEmpty()) {
-                val started = ProgramLoadTestBridge.beginSimFunction(ITM_FACTORS)
-                if (!started) {
-                    failures += buildFailure(
-                        phase = "run",
-                        details = "failed to start the asynchronous FACTORS worker",
-                    )
-                } else {
-                    val completed = waitUntil(FACTORS_TIMEOUT_MS) {
-                        !ProgramLoadTestBridge.isSimFunctionRunning()
-                    }
-                    val finalState = ProgramLoadTestBridge.snapshotState()
-                    val xRegisterType = ProgramLoadTestBridge.getXRegisterType()
-                    val xRegisterString = ProgramLoadTestBridge.getXRegisterString()
-                    if (!completed || ProgramLoadTestBridge.isSimFunctionRunning()) {
-                        failures += buildFailure(
-                            phase = "run",
-                            details = "FACTORS did not return within ${FACTORS_TIMEOUT_MS} ms",
-                        )
-                    } else if (finalState.lastErrorCode != ERROR_NONE) {
-                        failures += buildFailure(
-                            phase = "run",
-                            details = "FACTORS hit calculator error ${finalState.lastErrorCode}",
-                        )
-                    } else if (xRegisterType != DT_REAL34_MATRIX) {
-                        failures += buildFailure(
-                            phase = "result",
-                            details = "FACTORS left X in type $xRegisterType with value '$xRegisterString'",
-                        )
-                    }
+            for (input in INPUTS) {
+                factor(input)?.let { failures += it }
+                // A FACTORS still running holds screenMutex, and the next reset would
+                // wait for it with no end.
+                if (ProgramLoadTestBridge.isSimFunctionRunning()) {
+                    break
                 }
             }
         }
@@ -75,6 +42,66 @@ class FactorsInstrumentedTest {
             "FACTORS instrumentation failures:\n${failures.joinToString(separator = "\n")}",
             failures.isEmpty(),
         )
+    }
+
+    // Factor one input and return what was wrong, or null.
+    private fun factor(input: String): String? {
+        ProgramLoadTestBridge.resetRuntime()
+        val resetState = ProgramLoadTestBridge.snapshotState()
+        if (resetState.lastErrorCode != ERROR_NONE) {
+            return buildFailure(input, "reset", "reset left calculator error ${resetState.lastErrorCode}")
+        }
+        if (!ProgramLoadTestBridge.seedXLongInteger(input)) {
+            return buildFailure(input, "seed", "failed to put the input in X")
+        }
+        if (!ProgramLoadTestBridge.beginSimFunction(ITM_FACTORS)) {
+            return buildFailure(input, "run", "failed to start the asynchronous FACTORS worker")
+        }
+        val completed = waitUntil(FACTORS_TIMEOUT_MS) { !ProgramLoadTestBridge.isSimFunctionRunning() }
+        // Reading the result takes screenMutex, which a FACTORS still running holds:
+        // fail with no read.
+        if (!completed) {
+            return buildFailure(input, "run", "FACTORS did not return within $FACTORS_TIMEOUT_MS ms")
+        }
+        val text = ProgramLoadTestBridge.getXRegisterClipboardText()
+        val finalState = ProgramLoadTestBridge.snapshotState()
+        return when {
+            finalState.lastErrorCode != ERROR_NONE ->
+                buildFailure(input, "run", "FACTORS hit calculator error ${finalState.lastErrorCode}")
+            ProgramLoadTestBridge.getXRegisterType() != DT_REAL34_MATRIX ->
+                buildFailure(input, "result", "FACTORS left X as '$text', not a matrix")
+            else -> checkFactorization(BigInteger(input), text)
+        }
+    }
+
+    // The clipboard copies the 2 x n result as "2xn", then the n factors, then their n
+    // multiplicities, each a reduced decimal: 10 can read 1E+1.
+    private fun checkFactorization(input: BigInteger, text: String): String? {
+        val words = text.trim().split(Regex("\\s+"))
+        val shape = words.firstOrNull()?.split('x')?.mapNotNull { it.toIntOrNull() }
+        if (shape == null || shape.size != 2 || shape[0] != 2 || words.size != 1 + 2 * shape[1]) {
+            return buildFailure("$input", "result", "FACTORS left '$text', not a 2 x n matrix")
+        }
+        val values = words.drop(1).map { runCatching { BigDecimal(it).toBigIntegerExact() }.getOrNull() }
+        if (values.any { it == null }) {
+            return buildFailure("$input", "result", "FACTORS left '$text', not all integers")
+        }
+        val factors = values.take(shape[1]).filterNotNull()
+        val multiplicities = values.drop(shape[1]).filterNotNull()
+        if (factors.toSet().size != factors.size ||
+            factors.any { it <= BigInteger.ONE || !it.isProbablePrime(PRIME_CERTAINTY) }
+        ) {
+            return buildFailure("$input", "result", "'$text' holds a factor that is not a distinct prime")
+        }
+        // A factor is at least 2, so no multiplicity exceeds the input's bit length.
+        val maxMultiplicity = BigInteger.valueOf(input.bitLength().toLong())
+        if (multiplicities.any { it < BigInteger.ONE || it > maxMultiplicity }) {
+            return buildFailure("$input", "result", "'$text' holds a multiplicity out of range")
+        }
+        val product = factors.zip(multiplicities).fold(BigInteger.ONE) { product, (factor, power) ->
+            product * factor.pow(power.toInt())
+        }
+        return if (product == input) null else buildFailure("$input", "result", "'$text' multiplies back to $product")
     }
 
     private fun waitUntil(timeoutMs: Long, condition: () -> Boolean): Boolean {
@@ -88,11 +115,8 @@ class FactorsInstrumentedTest {
         return condition()
     }
 
-    private fun buildFailure(
-        phase: String,
-        details: String,
-    ): String {
-        val message = "FACTORS [$phase]: $details"
+    private fun buildFailure(input: String, phase: String, details: String): String {
+        val message = "FACTORS $input [$phase]: $details"
         reportStatus("$message\n")
         return message
     }
@@ -107,11 +131,17 @@ class FactorsInstrumentedTest {
     }
 
     companion object {
+        private val INPUTS = listOf(
+            "5424563354566542698521412502251020304050",
+            "4294971521",
+            "41622656721349609",
+        )
         private const val ITM_FACTORS = 1477
         private const val DT_REAL34_MATRIX = 6
         private const val ERROR_NONE = 0
         private const val RUNTIME_READY_TIMEOUT_MS = 15_000L
         private const val FACTORS_TIMEOUT_MS = 45_000L
         private const val POLL_INTERVAL_MS = 25L
+        private const val PRIME_CERTAINTY = 64
     }
 }

@@ -211,7 +211,25 @@ class ProgramFixtureInstrumentedTest {
         return when (fixture.scenario.seedMode) {
             SeedMode.NONE -> true
             SeedMode.SPIRALK_J_EQUALS_2 -> ProgramLoadTestBridge.seedSpiralkInput()
+            SeedMode.NQUEENS_N_EQUALS_8 -> ProgramLoadTestBridge.seedXReal("8")
         }
+    }
+
+    // The integers in X as the clipboard copies it, each run of digits one integer,
+    // so a change to how upstream writes a vector or a string keeps a right answer.
+    private fun checkXIntegers(fixture: ProgramFixture, state: ProgramLoadState): String? {
+        val expected = fixture.scenario.expectedXIntegers ?: return null
+        val text = ProgramLoadTestBridge.getXRegisterClipboardText()
+        val actual = Regex("[0-9]+").findAll(text).map { it.value.toBigInteger() }.toList()
+        if (actual == expected.map { it.toBigInteger() }) {
+            return null
+        }
+        return buildFailure(
+            fixture = fixture,
+            phase = "result",
+            state = state,
+            details = "X is '$text', integers $actual, not $expected",
+        )
     }
 
     private fun runFixtureScenario(
@@ -401,6 +419,7 @@ class ProgramFixtureInstrumentedTest {
                 details = "workload finished in unexpected run state ${finalState.programRunStop}",
             )
         }
+        checkXIntegers(fixture, finalState)?.let { return it }
 
         reportStatus(
             "${fixture.displayName} ran (load_step=$loadStep, max_step=$maxStep, pause=${yesNo(sawPause)}, waiting=${yesNo(sawWaiting)}, view=${yesNo(sawView)}, lcdRefresh=${yesNo(sawLcdRefresh)}, directStop=${yesNo(requestedDirectStop)}, directStopAccepted=${yesNo(sawAcceptedDirectStop)}, directStopRequests=$directStopRequests, snapshotMisses=$snapshotMisses)\n",
@@ -521,9 +540,11 @@ class ProgramFixtureInstrumentedTest {
             get() = when (scenario.seedMode) {
                 SeedMode.NONE -> "runtime seeding was not required"
                 SeedMode.SPIRALK_J_EQUALS_2 -> "failed to seed SPIRALk register J with 2"
+                SeedMode.NQUEENS_N_EQUALS_8 -> "failed to seed NQueens' board size 8 in X"
             }
     }
 
+    // expectedXIntegers is null where the run leaves no value to hold.
     private data class ProgramFixtureScenario(
         val fileName: String,
         val timeoutMs: Long,
@@ -531,11 +552,13 @@ class ProgramFixtureInstrumentedTest {
         val seedMode: SeedMode,
         val stopPolicy: StopPolicy,
         val stopAfterActivityMs: Long,
+        val expectedXIntegers: List<Long>?,
     )
 
     private enum class SeedMode {
         NONE,
         SPIRALK_J_EQUALS_2,
+        NQUEENS_N_EQUALS_8,
     }
 
     private enum class PauseResumePolicy {
@@ -567,6 +590,12 @@ class ProgramFixtureInstrumentedTest {
         private const val PAUSE_RESUME_SETTLE_MS = 50L
         private const val PAUSE_RESUME_RETRY_MS = 1_000L
         private const val FIXTURE_CLEANUP_TIMEOUT_MS = 5_000L
+        // NQueens takes host_workload_regression.c's seed, N = 8 in X, and must leave
+        // that harness's answer, a valid 8-queens solution checked apart from the
+        // program. The others hold no value: BinetV4 and GudrmPL end on a plot, whose
+        // image only the host harness pins; MANSLV2 is stopped mid-solve; and
+        // SPIRALk leaves in X its own loop limit, the 150 it compares the size with,
+        // not the size it computed.
         private val REQUIRED_FIXTURE_SCENARIOS = listOf(
             ProgramFixtureScenario(
                 fileName = "BinetV4.p47",
@@ -575,6 +604,7 @@ class ProgramFixtureInstrumentedTest {
                 seedMode = SeedMode.NONE,
                 stopPolicy = StopPolicy.NONE,
                 stopAfterActivityMs = 0L,
+                expectedXIntegers = null,
             ),
             ProgramFixtureScenario(
                 fileName = "GudrmPL.p47",
@@ -583,6 +613,7 @@ class ProgramFixtureInstrumentedTest {
                 seedMode = SeedMode.NONE,
                 stopPolicy = StopPolicy.NONE,
                 stopAfterActivityMs = 0L,
+                expectedXIntegers = null,
             ),
             ProgramFixtureScenario(
                 fileName = "MANSLV2.p47",
@@ -595,14 +626,16 @@ class ProgramFixtureInstrumentedTest {
                 // harness's MANSLV2 scenario holds the same window and the
                 // measured run times behind it.
                 stopAfterActivityMs = 500L,
+                expectedXIntegers = null,
             ),
             ProgramFixtureScenario(
                 fileName = "NQueens.p47",
                 timeoutMs = RUN_TIMEOUT_MS,
                 pauseResumePolicy = PauseResumePolicy.NONE,
-                seedMode = SeedMode.NONE,
+                seedMode = SeedMode.NQUEENS_N_EQUALS_8,
                 stopPolicy = StopPolicy.NONE,
                 stopAfterActivityMs = 0L,
+                expectedXIntegers = listOf(8L, 4L, 1L, 3L, 6L, 2L, 7L, 5L),
             ),
             ProgramFixtureScenario(
                 fileName = "SPIRALk.p47",
@@ -611,6 +644,7 @@ class ProgramFixtureInstrumentedTest {
                 seedMode = SeedMode.SPIRALK_J_EQUALS_2,
                 stopPolicy = StopPolicy.NONE,
                 stopAfterActivityMs = 0L,
+                expectedXIntegers = null,
             ),
         )
         private val REQUIRED_FIXTURE_SCENARIOS_BY_NAME = REQUIRED_FIXTURE_SCENARIOS.associateBy { it.fileName }

@@ -422,8 +422,10 @@ supports that model by keeping shared synchronization in native code:
   `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
   runs it and checks that the release native build consumes the profile
 - `jni_program_load_test.c` exposes the instrumentation-only bridge used by
-  `ProgramFixtureInstrumentedTest`, `DisplayLifecycleInstrumentedTest`, and
-  `GraphTouchStressInstrumentedTest`. It provides READP or RUN worker control,
+  `ProgramFixtureInstrumentedTest`, `FactorsInstrumentedTest`,
+  `DisplayLifecycleInstrumentedTest`, and `GraphTouchStressInstrumentedTest`. Each
+  call that touches core state takes `screenMutex`. It provides READP or RUN worker
+  control, a seed of X as a long integer or a real, X as the clipboard copies it,
   explicit refresh and background-save helpers, LCD refresh count, a
   packed-LCD snapshot hash, the synthetic `00` key path used to resume staged
   `SPIRALk` runs, the direct-stop publisher plus explicit refresh helper
