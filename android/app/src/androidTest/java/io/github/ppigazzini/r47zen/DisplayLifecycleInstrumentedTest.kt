@@ -67,12 +67,12 @@ class DisplayLifecycleInstrumentedTest {
 
     @Test
     fun pauseResumePreservesSpiralkGraphSnapshot() {
-        // onResume re-renders packedDisplayBuffer from calculator state, so an
-        // injected arbitrary buffer is overwritten by the state-derived render --
-        // the same display-active behavior the recreation test accounts for.
-        // Drive this from SPIRALk state: pause/resume must preserve the calculator
-        // state, so a force-refresh render of that state is byte-identical before
-        // and after, whether or not onResume itself re-renders. forceRefresh on
+        // The main loop repaints packedDisplayBuffer from calculator state on its
+        // own cadence, so an injected arbitrary buffer would not survive it,
+        // whatever the lifecycle does. Drive this from SPIRALk state: pause/resume
+        // must preserve the calculator state, so a force-refresh render of that
+        // state is byte-identical before and after, whether or not anything
+        // redraws between. That onResume runs nothing native is not held here. forceRefresh on
         // both sides routes both captures through the same render on the calculator
         // thread at rest, so the comparison cannot race an async redraw.
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
