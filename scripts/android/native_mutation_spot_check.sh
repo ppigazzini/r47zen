@@ -21,13 +21,13 @@ LCD_CONTRACT="$SCRIPT_DIR/run_keypad_generation_contract.sh"
 MUT_FILES=("$IO" "$IO" "$IO" "$LCD")
 MUT_OLD=(
     "    openedFileWriteFailed = true;"
-    'snprintf(defaultName, sizeof(defaultName), "%s", "state.s47");'
+    'r47_format(defaultName, sizeof(defaultName), "%s", "state.s47");'
     "if (fsync(fileno(openedFile)) != 0 && errno != EINVAL) {"
     $'  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u,\n                            memory_order_relaxed);\n  pthread_mutex_unlock(&packedDisplayMutex);\n}'
 )
 MUT_NEW=(
     "    openedFileWriteFailed = false;"
-    'snprintf(defaultName, sizeof(defaultName), "%s", "data.d47");'
+    'r47_format(defaultName, sizeof(defaultName), "%s", "data.d47");'
     "if (fsync(fileno(openedFile)) != 0) {"
     $'  pthread_mutex_unlock(&packedDisplayMutex);\n}'
 )

@@ -3,6 +3,7 @@
 
 #include "c47.h"
 #include "keypad_fixture_bridge.h"
+#include "r47_format.h"
 #include <jni.h>
 #include <pthread.h>
 #include <stdbool.h>

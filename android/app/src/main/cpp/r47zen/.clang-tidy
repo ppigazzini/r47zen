@@ -6,6 +6,7 @@ Checks: >
   -*,
   clang-analyzer-*,
   bugprone-*,
+  cert-err33-c,
   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
   -bugprone-easily-swappable-parameters,
   -bugprone-reserved-identifier,
@@ -31,8 +32,8 @@ Checks: >
 #   suggested unsigned cast would turn NOVAL into 255.
 # - multi-level-implicit-pointer-conversion (8): the JNI AttachCurrentThread
 #   and GetEnv void ** handoff.
-# cert-* is not enabled. Its err33-c reports 38 unchecked returns (30 snprintf,
-# 33 of all of them in hal/io.c's file names and files, 4 fclose, 2 strftime, an
-# fseek, an fprintf), and each wants handling, not a (void).
+# cert-err33-c is on: every return it names is handled, mostly through
+# r47_format in r47_format.h, which fails the operation on a cut. The rest of
+# cert-* is not enabled.
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*/cpp/r47zen/.*'

@@ -1,4 +1,5 @@
 #include "c47.h"
+#include "r47_format.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,6 +50,8 @@ static FILE *openedFile = NULL;
 // reported, once per file, through r47_report_file_write_failure.
 static bool openedFileWritable = false;
 static bool openedFileWriteFailed = false;
+// Whether a seek on openedFile failed; the file then reads as ended.
+static bool openedFileSeekFailed = false;
 // The state file a save is replacing, and the copy beside it the save writes.
 static char replaceTarget[PATH_MAX] = "";
 static char replaceTemp[PATH_MAX + 8] = "";
@@ -62,14 +65,16 @@ extern void r47_show_warning(const char *text);
 static bool setAsideUnusableStateFile(const char *path);
 static int has_android_base_path(void);
 
-// Where a SAVE and an automatic save of this slot live.
-static void savePath(char *out, size_t size, bool automatic) {
+// Where a SAVE and an automatic save of this slot live. Every path here is the base
+// path, which set_android_base_path holds to 511 bytes, and a short name, in a buffer
+// of 1024 bytes or more, so none is cut; a cut would still fail the operation.
+static bool savePath(char *out, size_t size, bool automatic) {
 #if (CALCMODEL == USER_R47)
-  snprintf(out, size, "%s/%s/R47%s_%d.sav", android_base_path, SAVE_DIR,
-           automatic ? "auto" : "", current_slot_id);
+  return r47_format(out, size, "%s/%s/R47%s_%d.sav", android_base_path,
+                    SAVE_DIR, automatic ? "auto" : "", current_slot_id);
 #else
-  snprintf(out, size, "%s/%s/C47%s_%d.sav", android_base_path, SAVE_DIR,
-           automatic ? "auto" : "", current_slot_id);
+  return r47_format(out, size, "%s/%s/C47%s_%d.sav", android_base_path,
+                    SAVE_DIR, automatic ? "auto" : "", current_slot_id);
 #endif
 }
 
@@ -89,8 +94,9 @@ int __wrap_remove(const char *path) {
   int result = 0;
   for (int automatic = 0; automatic <= 1; automatic++) {
     char save[1024];
-    savePath(save, sizeof(save), automatic);
-    if (unlink(save) != 0 && errno != ENOENT) {
+    if (!savePath(save, sizeof(save), automatic)) {
+      result = -1;
+    } else if (unlink(save) != 0 && errno != ENOENT) {
       result = -1;
     }
   }
@@ -104,8 +110,9 @@ static void ensure_android_subdir(const char *subdir) {
     return;
   }
 
-  snprintf(buf, sizeof(buf), "%s/%s", android_base_path, subdir);
-  mkdir(buf, 0777);
+  if (r47_format(buf, sizeof(buf), "%s/%s", android_base_path, subdir)) {
+    mkdir(buf, 0777);
+  }
 }
 
 static int has_android_base_path(void) {
@@ -149,6 +156,7 @@ static bool openPickedFile(int fd, int isSave) {
   }
   openedFileWritable = isSave;
   openedFileWriteFailed = false;
+  openedFileSeekFailed = false;
   return true;
 }
 
@@ -184,26 +192,29 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     extern char *tmpStringLabelOrVariableName;
     extern void stringToASCII(const char *in, char *out);
 
+    // The name the picker offers; a program's label too long for it gives the
+    // generic name.
+    bool named = false;
     if (path == ioPathSaveStateFile || path == ioPathLoadStateFile) {
-      snprintf(defaultName, sizeof(defaultName), "%s", "state.s47");
+      named = r47_format(defaultName, sizeof(defaultName), "%s", "state.s47");
     } else if (path == ioPathManualSave) {
 #if (CALCMODEL == USER_R47)
-      snprintf(defaultName, sizeof(defaultName), "%s", "R47.sav");
+      named = r47_format(defaultName, sizeof(defaultName), "%s", "R47.sav");
 #else
-      snprintf(defaultName, sizeof(defaultName), "%s", "C47.sav");
+      named = r47_format(defaultName, sizeof(defaultName), "%s", "C47.sav");
 #endif
     } else if (path == ioPathRegExport || path == ioPathRegImport) {
-      snprintf(defaultName, sizeof(defaultName), "%s", "data.d47");
-    } else {
-      // For programs, try to use the current label name
-      if (tmpStringLabelOrVariableName &&
-          tmpStringLabelOrVariableName[0] != 0) {
-        char asciiName[256];
-        stringToASCII(tmpStringLabelOrVariableName, asciiName);
-        snprintf(defaultName, sizeof(defaultName), "%s%s", asciiName, ext);
-      } else {
-        snprintf(defaultName, sizeof(defaultName), "program%s", ext);
-      }
+      named = r47_format(defaultName, sizeof(defaultName), "%s", "data.d47");
+    } else if (tmpStringLabelOrVariableName &&
+               tmpStringLabelOrVariableName[0] != 0) {
+      char asciiName[256];
+      stringToASCII(tmpStringLabelOrVariableName, asciiName);
+      named =
+          r47_format(defaultName, sizeof(defaultName), "%s%s", asciiName, ext);
+    }
+    if (!named &&
+        !r47_format(defaultName, sizeof(defaultName), "program%s", ext)) {
+      return FILE_ERROR;
     }
 
     LOGI("ioFileOpen SAF: path=%d, isSave=%d, defaultName=%s", path, isSave,
@@ -237,41 +248,47 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   const char *modeStr =
       (mode == ioModeRead) ? "rb" : ((mode == ioModeWrite) ? "wb" : "r+b");
 
+  bool named = false;
   switch (path) {
   case ioPathManualSave:
-    savePath(fullpath, sizeof(fullpath), false);
+    named = savePath(fullpath, sizeof(fullpath), false);
     break;
   case ioPathAutoSave:
-    savePath(fullpath, sizeof(fullpath), true);
+    named = savePath(fullpath, sizeof(fullpath), true);
     break;
   case ioPathBackup:
 #if (CALCMODEL == USER_R47)
-    snprintf(fullpath, 1024, "%s/backupR47_%d.cfg", android_base_path,
-             current_slot_id);
+    named = r47_format(fullpath, sizeof(fullpath), "%s/backupR47_%d.cfg",
+                       android_base_path, current_slot_id);
 #else
-    snprintf(fullpath, 1024, "%s/backup_%d.cfg", android_base_path,
-             current_slot_id);
+    named = r47_format(fullpath, sizeof(fullpath), "%s/backup_%d.cfg",
+                       android_base_path, current_slot_id);
 #endif
     break;
   case ioPathPgmFile:
   case ioPathSaveProgram:
   case ioPathLoadProgram:
-    snprintf(fullpath, 1024, "%s/%s/program.p47", android_base_path,
-             PROGRAMS_DIR);
+    named = r47_format(fullpath, sizeof(fullpath), "%s/%s/program.p47",
+                       android_base_path, PROGRAMS_DIR);
     break;
   default:
-    snprintf(fullpath, 1024, "%s/default.dat", android_base_path);
+    named = r47_format(fullpath, sizeof(fullpath), "%s/default.dat",
+                       android_base_path);
     break;
+  }
+  if (!named) {
+    return FILE_ERROR;
   }
 
   if (mode != ioModeRead) {
     char dir[1024];
-    if (path == ioPathManualSave || path == ioPathAutoSave) {
-      snprintf(dir, 1024, "%s/%s", android_base_path, SAVE_DIR);
+    if ((path == ioPathManualSave || path == ioPathAutoSave) &&
+        r47_format(dir, sizeof(dir), "%s/%s", android_base_path, SAVE_DIR)) {
       mkdir(dir, 0777);
-    } else if (path == ioPathPgmFile || path == ioPathSaveProgram ||
-               path == ioPathLoadProgram) {
-      snprintf(dir, 1024, "%s/%s", android_base_path, PROGRAMS_DIR);
+    } else if ((path == ioPathPgmFile || path == ioPathSaveProgram ||
+                path == ioPathLoadProgram) &&
+               r47_format(dir, sizeof(dir), "%s/%s", android_base_path,
+                          PROGRAMS_DIR)) {
       mkdir(dir, 0777);
     }
   }
@@ -281,11 +298,16 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   // cannot start is canceled, because saveCalc ends the process on an error, and the
   // file it would have replaced stays good.
   if (path == ioPathBackup && mode == ioModeWrite) {
-    snprintf(replaceTarget, sizeof(replaceTarget), "%s", fullpath);
-    snprintf(replaceTemp, sizeof(replaceTemp), "%s.tmp", fullpath);
+    if (!r47_format(replaceTarget, sizeof(replaceTarget), "%s", fullpath) ||
+        !r47_format(replaceTemp, sizeof(replaceTemp), "%s.tmp", fullpath)) {
+      replaceTarget[0] = '\0';
+      r47_report_file_write_failure();
+      return FILE_CANCEL;
+    }
     openedFile = fopen(replaceTemp, modeStr);
     openedFileWritable = openedFile != NULL;
     openedFileWriteFailed = false;
+    openedFileSeekFailed = false;
     if (!openedFile) {
       LOGE("ioFileOpen: cannot write %s: %s", replaceTemp, strerror(errno));
       replaceTarget[0] = '\0';
@@ -303,6 +325,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   openedFile = fopen(fullpath, modeStr);
   openedFileWritable = openedFile != NULL && mode != ioModeRead;
   openedFileWriteFailed = false;
+  openedFileSeekFailed = false;
   if (!openedFile) {
     return FILE_ERROR;
   }
@@ -320,14 +343,19 @@ void ioFileWrite(const void *buffer, uint32_t size) {
 }
 
 uint32_t ioFileRead(void *buffer, uint32_t size) {
-  if (openedFile)
+  if (openedFile && !openedFileSeekFailed)
     return fread(buffer, 1, size, openedFile);
   return 0;
 }
 
+// A seek that fails would leave the next read at the wrong place, so the file reads as
+// ended from there, and a save through it counts as failed.
 void ioFileSeek(uint32_t position) {
-  if (openedFile)
-    fseek(openedFile, position, SEEK_SET);
+  if (openedFile && fseek(openedFile, position, SEEK_SET) != 0) {
+    LOGE("ioFileSeek: cannot reach %u: %s", position, strerror(errno));
+    openedFileSeekFailed = true;
+    openedFileWriteFailed = openedFileWritable;
+  }
 }
 
 // Why the core cannot take the state file at path, or NULL when it can, or when the file
@@ -382,7 +410,9 @@ static const char *stateFileProblem(const char *path, long *version) {
   }
   const bool readFailed = ferror(file) != 0;
   free(line);
-  fclose(file);
+  if (fclose(file) != 0) {
+    LOGE("stateFileProblem: cannot close %s: %s", path, strerror(errno));
+  }
   if (problem != NULL || readFailed) {
     return problem;
   }
@@ -407,12 +437,18 @@ static bool keepAside(const char *path, const char *tag, char *kept,
   char stamp[32];
   struct tm when;
   const time_t now = time(NULL);
-  strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", localtime_r(&now, &when));
+  if (strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S",
+               localtime_r(&now, &when)) == 0) {
+    stamp[0] = '0'; // no time to name it by: the attempts still keep it apart
+    stamp[1] = '\0';
+  }
   for (int attempt = 0; attempt < 100; attempt++) {
-    if (attempt == 0) {
-      snprintf(kept, size, "%s.%s.%s", path, tag, stamp);
-    } else {
-      snprintf(kept, size, "%s.%s.%s-%d", path, tag, stamp, attempt);
+    const bool named =
+        attempt == 0
+            ? r47_format(kept, size, "%s.%s.%s", path, tag, stamp)
+            : r47_format(kept, size, "%s.%s.%s-%d", path, tag, stamp, attempt);
+    if (!named) {
+      return false;
     }
     if (link(path, kept) == 0) {
       unlink(path);
@@ -434,19 +470,20 @@ static bool setAsideUnusableStateFile(const char *path) {
   if (problem == NULL) {
     return false;
   }
+  // A long holds at most 20 digits, so the tag fits; an empty one still names the copy.
   char tag[24];
-  snprintf(tag, sizeof(tag), "v%ld", version < 0 ? 0 : version);
+  r47_format(tag, sizeof(tag), "v%ld", version < 0 ? 0 : version);
   char kept[PATH_MAX + 64] = "";
   char warning[160];
   if (keepAside(path, tag, kept, sizeof(kept))) {
-    snprintf(warning, sizeof(warning),
-             "The saved state was not restored: %s. A copy is kept, and the "
-             "calculator starts afresh.",
-             problem);
+    r47_format(warning, sizeof(warning),
+               "The saved state was not restored: %s. A copy is kept, and the "
+               "calculator starts afresh.",
+               problem);
   } else {
     LOGE("ioFileOpen: cannot keep %s: %s", path, strerror(errno));
-    snprintf(warning, sizeof(warning), "The saved state was not restored: %s.",
-             problem);
+    r47_format(warning, sizeof(warning),
+               "The saved state was not restored: %s.", problem);
   }
   LOGE("%s (%s)", warning, kept);
   r47_show_warning(warning);
@@ -469,13 +506,16 @@ void r47_restore_guard_begin(void) {
   }
   char state[PATH_MAX];
 #if (CALCMODEL == USER_R47)
-  snprintf(state, sizeof(state), "%s/backupR47_%d.cfg", android_base_path,
-           current_slot_id);
+  const bool named = r47_format(state, sizeof(state), "%s/backupR47_%d.cfg",
+                                android_base_path, current_slot_id);
 #else
-  snprintf(state, sizeof(state), "%s/backup_%d.cfg", android_base_path,
-           current_slot_id);
+  const bool named = r47_format(state, sizeof(state), "%s/backup_%d.cfg",
+                                android_base_path, current_slot_id);
 #endif
-  snprintf(restoreMarker, sizeof(restoreMarker), "%s.restoring", state);
+  if (!named || !r47_format(restoreMarker, sizeof(restoreMarker),
+                            "%s.restoring", state)) {
+    return; // no guard: the restore runs as it would without one
+  }
 
   int failed = 0;
   FILE *marker = fopen(restoreMarker, "r");
@@ -483,7 +523,10 @@ void r47_restore_guard_begin(void) {
     if (fscanf(marker, "%d", &failed) != 1) {
       failed = 0;
     }
-    fclose(marker);
+    if (fclose(marker) != 0) {
+      LOGE("restore guard: cannot close %s: %s", restoreMarker,
+           strerror(errno));
+    }
   }
   if (failed >= R47_FAILED_RESTORES_BEFORE_SET_ASIDE) {
     char kept[PATH_MAX + 64];
@@ -494,10 +537,14 @@ void r47_restore_guard_begin(void) {
     }
     failed = 0;
   }
+  // A marker not written leaves this start uncounted, so a state file that crashes
+  // its restore is set aside one start later; it is logged, not fatal.
   marker = fopen(restoreMarker, "w");
   if (marker != NULL) {
-    fprintf(marker, "%d\n", failed + 1);
-    fclose(marker);
+    const bool written = fprintf(marker, "%d\n", failed + 1) > 0;
+    if (fclose(marker) != 0 || !written) {
+      LOGE("restore guard: cannot write %s", restoreMarker);
+    }
   }
 }
 
@@ -523,8 +570,9 @@ static bool finishReplacingFile(bool failed) {
   } else {
     // The rename is durable only once its directory is.
     char dir[PATH_MAX];
-    snprintf(dir, sizeof(dir), "%s", replaceTarget);
-    char *slash = strrchr(dir, '/');
+    char *slash = r47_format(dir, sizeof(dir), "%s", replaceTarget)
+                      ? strrchr(dir, '/')
+                      : NULL;
     if (slash != NULL) {
       *slash = '\0';
       const int dirFd = open(dir, O_RDONLY | O_DIRECTORY);
@@ -563,6 +611,7 @@ void ioFileClose(void) {
   openedFile = NULL;
   openedFileWritable = false;
   openedFileWriteFailed = false;
+  openedFileSeekFailed = false;
   failed = finishReplacingFile(failed);
   if (failed) {
     r47_report_file_write_failure();
@@ -575,9 +624,12 @@ void r47_arm_snap(void) {
   if (!has_android_base_path()) {
     return;
   }
-  snprintf(snapPath, sizeof(snapPath), "%s/snap.bmp", android_base_path);
+  if (!r47_format(snapPath, sizeof(snapPath), "%s/snap.bmp",
+                  android_base_path)) {
+    return; // no SNAP armed: the capture goes where upstream sends it
+  }
   unlink(snapPath);
-  snprintf(_ioFileNameOverride, PATH_MAX, "%s", snapPath);
+  r47_format(_ioFileNameOverride, PATH_MAX, "%s", snapPath);
 }
 
 // Offer a finished capture through the save picker, then arm the next. fnScreenDump
@@ -610,8 +662,10 @@ void r47_offer_snap(void) {
     char name[32];
     struct tm when;
     time_t now = time(NULL);
-    strftime(name, sizeof(name), "%Y%m%d-%H%M%S00.bmp",
-             localtime_r(&now, &when));
+    if (strftime(name, sizeof(name), "%Y%m%d-%H%M%S00.bmp",
+                 localtime_r(&now, &when)) == 0) {
+      r47_format(name, sizeof(name), "%s", "snap.bmp"); // no time to name it by
+    }
     int fd = requestAndroidFile(1, name, FILE_CATEGORY_SCREENS);
     if (fd >= 0 && openPickedFile(fd, 1)) {
       // A short read means the end of the file or an error, so it is the last.
@@ -626,10 +680,12 @@ void r47_offer_snap(void) {
     }
   }
   if (capture) {
-    fclose(capture);
+    if (fclose(capture) != 0) {
+      LOGE("r47_offer_snap: cannot close the capture: %s", strerror(errno));
+    }
     unlink(snapPath);
   }
-  snprintf(_ioFileNameOverride, PATH_MAX, "%s", snapPath);
+  r47_format(_ioFileNameOverride, PATH_MAX, "%s", snapPath);
 }
 
 int ioEof(void) { return openedFile ? feof(openedFile) : 1; }

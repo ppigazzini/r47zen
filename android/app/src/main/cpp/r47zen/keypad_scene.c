@@ -344,15 +344,28 @@ static const char *resolveMainFaceplateGlyphLabel(jint labelType,
     return name;
   }
 
-  snprintf(mapped, mappedSize, "%s%s", STD_HAMBURGER, glyph);
-  return mapped;
+  return r47_format(mapped, mappedSize, "%s%s", STD_HAMBURGER, glyph) ? mapped
+                                                                      : name;
 }
 
+// A label longer than its slot is cut at a whole UTF-8 sequence, so the text Kotlin
+// decodes is never torn.
 static void setUtf8Label(char *utf8, size_t utf8Size, const char *value) {
   if (utf8Size == 0) {
     return;
   }
-  snprintf(utf8, utf8Size, "%s", value ? value : "");
+  const char *text = value ? value : "";
+  const size_t length = strlen(text);
+  size_t kept = length < utf8Size ? length : utf8Size - 1;
+  while (kept > 0 && kept < length &&
+         ((unsigned char)text[kept] & 0xC0) == 0x80) {
+    kept--; // text[kept] continues a sequence the cut would split
+  }
+  if (kept < length) {
+    LOGE("setUtf8Label: \"%s\" cut to %zu bytes", text, kept);
+  }
+  memcpy(utf8, text, kept);
+  utf8[kept] = '\0';
 }
 
 static bool_t isLatinAlphaCasePair(int16_t upperItem, int16_t lowerItem) {

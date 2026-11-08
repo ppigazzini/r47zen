@@ -14,8 +14,10 @@
 // run_hal_io_contract.sh; no emulator or device is required.
 
 #include "c47.h"
+#include "r47_format.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -204,6 +206,41 @@ int main(void) {
   failures |= expect_reports(
       "an fsync that answers EINVAL loses nothing and is not reported",
       write_autosave(4096), 0);
+
+  // A seek that fails leaves nothing to read: a FIFO cannot seek, and it holds bytes
+  // a read at the old place would take. The test keeps the writer end open.
+  char fifo[640];
+  snprintf(fifo, sizeof(fifo), "%s/seek.fifo", base);
+  unlink(fifo);
+  const int writer = mkfifo(fifo, 0600) == 0 ? open(fifo, O_RDWR) : -1;
+  if (writer < 0 || write(writer, "12345678", 8) != 8) {
+    fprintf(stderr, "FATAL: no FIFO to read: %s\n", strerror(errno));
+    return 2;
+  }
+  point_autosave_at(fifo);
+  if (ioFileOpen(ioPathAutoSave, ioModeRead) != FILE_OK) {
+    fprintf(stderr, "FATAL: ioFileOpen of the FIFO failed\n");
+    return 2;
+  }
+  char after[8];
+  ioFileSeek(3);
+  const uint32_t read = ioFileRead(after, sizeof(after));
+  ioFileClose();
+  close(writer);
+  unlink(fifo);
+  if (read != 0) {
+    fprintf(stderr, "FAIL: a read after a failed seek took %u bytes\n", read);
+    failures |= 1;
+  }
+
+  // r47_format fails a text that does not fit, and leaves nothing of it.
+  char small[4] = "abc";
+  char fits[8];
+  if (r47_format(small, sizeof(small), "%s", "toolong") || small[0] != '\0' ||
+      !r47_format(fits, sizeof(fits), "%s", "fits") || strcmp(fits, "fits") != 0) {
+    fprintf(stderr, "FAIL: r47_format kept a cut text or refused one that fits\n");
+    failures |= 1;
+  }
 
   point_autosave_at(NULL);
   rmdir(save_dir);

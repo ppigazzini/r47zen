@@ -287,9 +287,10 @@ The mechanical checks:
 - `bash scripts/android/check_native_format.sh` holds the native glue to its
   `.clang-format`; `--fix` formats it. `bash
   scripts/android/run_native_clang_tidy.sh` fails on any finding of the
-  checks `.clang-tidy` enables, the clang static analyzer and most of
-  bugprone, after a native build. Both need the Android SDK, so they run in
-  CI's Android build job rather than as pre-commit hooks.
+  checks `.clang-tidy` enables, the clang static analyzer, most of bugprone, and
+  `cert-err33-c`'s unchecked returns, after a native build. Both need the
+  Android SDK, so they run in CI's Android build job rather than as pre-commit
+  hooks.
 - `bash scripts/android/run_detekt.sh` holds the Kotlin sources to detekt's
   default rule set (function and class size, complexity, magic numbers, unused
   code, and the rest), with type resolution, so the rules that need types run,

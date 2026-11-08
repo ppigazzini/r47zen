@@ -47,8 +47,10 @@ void r47_graph_bound_from_float(float value, real_t *dst) {
   } else if (isinf(value)) {
     stringToReal(value < 0.0f ? "-Inf" : "Inf", dst, &ctxtReal39);
   } else {
-    snprintf(buff, sizeof(buff), "%.17g", (double)value);
-    stringToReal(buff, dst, &ctxtReal39);
+    // %.17g of a float needs at most 24 bytes, so the NaN fallback is never taken.
+    stringToReal(r47_format(buff, sizeof(buff), "%.17g", (double)value) ? buff
+                                                                        : "NaN",
+                 dst, &ctxtReal39);
   }
 }
 
@@ -547,14 +549,17 @@ JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
 
     currentPressedKeyCode = keyCode;
     pthread_mutex_lock(&screenMutex);
+    // A softkey's one digit, or a key's two, always fits the key name.
     if (keyCode >= 38 && keyCode <= 43) {
-      snprintf(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%c",
-               keyCode - 38 + '1');
-      btnFnPressed(NULL, &pressEvent, currentPressedKeyStr);
+      if (r47_format(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%c",
+                     keyCode - 38 + '1')) {
+        btnFnPressed(NULL, &pressEvent, currentPressedKeyStr);
+      }
     } else if (keyCode >= 1 && keyCode <= 37) {
-      snprintf(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%02u",
-               keyCode - 1);
-      btnPressed(NULL, &pressEvent, currentPressedKeyStr);
+      if (r47_format(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%02u",
+                     keyCode - 1)) {
+        btnPressed(NULL, &pressEvent, currentPressedKeyStr);
+      }
     }
     pthread_mutex_unlock(&screenMutex);
     return;

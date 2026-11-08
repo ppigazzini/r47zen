@@ -898,7 +898,9 @@ Android compatibility layer.
   read, and `/dev/null`, whose `fsync` answers `EINVAL`, are not reported. A save of
   the state file replaces it whole and leaves no `.tmp`; one whose writes fail, or
   that cannot open its `.tmp`, reports once and leaves the old file as it was,
-  the second returning `FILE_CANCEL`. It also
+  the second returning `FILE_CANCEL`. A read after a seek that fails, on a FIFO
+  holding bytes, takes nothing, and `r47_format` fails a text that does not fit
+  and leaves nothing of it. It also
   builds `hal/io.c` with that branch compiled in and runs
   `scripts/android/hal_io_saf_contract_test.c`: each file path asks for its name and
   folder, and a save through a pipe arrives whole with nothing reported. That test

@@ -49,8 +49,11 @@ the pinned NDK's `clang-format`, and `--fix` applies it.
 with `r47zen/.clang-tidy`, which enables the static analyzer and the bugprone
 checks and says why it turns each other check off, and fails on any finding. Of
 the analyzer's insecure-API checks, only the Annex K one is off, so a new `strcpy`,
-`gets`, or `mktemp` fails it; `cert-err33-c`'s unchecked returns wait for handling
-one by one. The whole library builds as gnu17, set on the target: upstream's meson
+`gets`, or `mktemp` fails it. `cert-err33-c` is on too, so a return such as
+`snprintf`'s or `fclose`'s is handled: a file path or a name is built with
+`r47_format` in `r47_format.h`, which fails the operation when the text does not
+fit, since a cut path would name another file. The whole library builds as gnu17,
+set on the target: upstream's meson
 build names no C standard, so the core compiles as the compiler default, and
 the host harnesses build the same sources as gnu17 too. The whole library
 compiles with `-fsigned-char -fno-strict-aliasing`, the language flags of the
