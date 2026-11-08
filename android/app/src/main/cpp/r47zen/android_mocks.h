@@ -105,7 +105,11 @@ extern void triggerQuit(void);
 gboolean gtk_events_pending(void);
 gboolean gtk_main_iteration(void);
 #define gtk_clipboard_get(...) NULL
-#define gtk_clipboard_set_text(...) (void)0
+// Upstream's clipboard copies in screen.c hand their text here, and hal/gui.c
+// gives it to the Copy menu's capture.
+void r47_take_clipboard_text(const char *text);
+#define gtk_clipboard_set_text(clipboard, text, length)                        \
+  r47_take_clipboard_text(text)
 #define gtk_clipboard_clear(...) (void)0
 #define gtk_clipboard_set_image(...) (void)0
 #define gdk_pixbuf_get_from_surface(...) NULL

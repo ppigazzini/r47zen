@@ -33,33 +33,6 @@ STAGED_DEC_SOURCES=(
 mapfile -t ANDROID_BRIDGE_SOURCES < <(r47_glue_sources "$TRACKED_CPP_DIR")
 [ "${#ANDROID_BRIDGE_SOURCES[@]}" -gt 0 ] || exit 1
 
-# Extract the initializer of StatSumNames from the staged screen.c, the core
-# this harness compiles. Upstream keeps the table local to
-# copyAllRegistersToClipboard, so android_helpers.c names the statistical sums
-# from a copy, and the harness holds that copy to this extract. A table that
-# moves or is renamed fails here rather than leaving the copy unchecked.
-SCREEN_SOURCE="$STAGED_CPP_DIR/c47/screen.c"
-STAT_SUM_NAMES_INC="$BUILD_DIR/upstream_stat_sum_names.inc"
-if ! awk '
-    !inside && /StatSumNames\[NUMBER_OF_STATISTICAL_SUMS\][[:space:]]*=[[:space:]]*[{]/ {
-        inside = 1
-        sub(/.*[{]/, "")
-    }
-    inside && index($0, "};") {
-        sub(/[}];.*/, "")
-        print
-        found = 1
-        exit
-    }
-    inside { print }
-    END { exit (found ? 0 : 1) }
-' "$SCREEN_SOURCE" >"$STAT_SUM_NAMES_INC"; then
-    echo "ERROR: no StatSumNames[NUMBER_OF_STATISTICAL_SUMS] initializer in $SCREEN_SOURCE." >&2
-    echo "Find where upstream now names the statistical sums of its all-registers dump," >&2
-    echo "then update this extract and the copy in android_helpers.c." >&2
-    exit 1
-fi
-
 # AddressSanitizer is the hard gate: any memory error aborts the run (ASan halts
 # by default and ASAN_OPTIONS below makes it explicit), so a use-after-free,
 # overflow, or bad free fails the harness. UndefinedBehaviorSanitizer runs
@@ -93,7 +66,6 @@ fi
     -I"$STAGED_CPP_DIR/generated" \
     -I"$TRACKED_CPP_DIR/r47zen" \
     -I"$STAGED_CPP_DIR/gmp" \
-    -I"$BUILD_DIR" \
     -include "$TRACKED_CPP_DIR/r47zen/android_mocks.h" \
     "$SCRIPT_DIR/clipboard_overflow_harness.c" \
     "${STAGED_C47_SOURCES[@]}" \

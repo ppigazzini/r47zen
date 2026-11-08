@@ -1,60 +1,46 @@
-// The clipboard export JNI surface: the X register, the stack registers, and
-// all registers as the text upstream's desktop clipboard actions produce.
+// The Copy menu's text: the X register, the stack registers, and all registers,
+// as upstream's own clipboard copies in screen.c build it, each sized from the
+// registers it holds. A null string tells the shell the copy could not be built.
 #include "jni_bridge.h"
+
+#include <stdlib.h>
+
+static jstring copyText(JNIEnv *env, void (*copy)(void), const char *context) {
+  if (!ram) {
+    return jni_new_string_utf(env, "", NULL, context);
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  char *text = r47_capture_clipboard_locked(copy);
+  pthread_mutex_unlock(&screenMutex);
+  if (text == NULL) {
+    return NULL;
+  }
+  jstring result = jni_new_string_utf(env, text, NULL, context);
+  free(text);
+  return result;
+}
 
 JNIEXPORT jstring JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
-  if (!ram) {
-    return jni_new_string_utf(
-        env, "", NULL, "getClipboardXRegisterNative default NewStringUTF");
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  extern char *getClipboardXRegisterString(void);
-  char *registerText = getClipboardXRegisterString();
-  jstring result =
-      jni_new_string_utf(env, registerText ? registerText : "", "",
-                         "getClipboardXRegisterNative NewStringUTF");
-  pthread_mutex_unlock(&screenMutex);
-  return result;
+  return copyText(env, copyRegisterXToClipboard,
+                  "getClipboardXRegisterNative NewStringUTF");
 }
 
 JNIEXPORT jstring JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
-  if (!ram) {
-    return jni_new_string_utf(
-        env, "", NULL, "getClipboardStackRegistersNative default NewStringUTF");
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  extern char *getClipboardStackRegistersString(void);
-  char *registerText = getClipboardStackRegistersString();
-  jstring result =
-      jni_new_string_utf(env, registerText ? registerText : "", "",
-                         "getClipboardStackRegistersNative NewStringUTF");
-  pthread_mutex_unlock(&screenMutex);
-  return result;
+  return copyText(env, copyStackRegistersToClipboard,
+                  "getClipboardStackRegistersNative NewStringUTF");
 }
 
 JNIEXPORT jstring JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
-  if (!ram) {
-    return jni_new_string_utf(
-        env, "", NULL, "getClipboardAllRegistersNative default NewStringUTF");
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  extern char *getClipboardAllRegistersString(void);
-  char *registerText = getClipboardAllRegistersString();
-  jstring result =
-      jni_new_string_utf(env, registerText ? registerText : "", "",
-                         "getClipboardAllRegistersNative NewStringUTF");
-  pthread_mutex_unlock(&screenMutex);
-  return result;
+  return copyText(env, copyAllRegistersToClipboard,
+                  "getClipboardAllRegistersNative NewStringUTF");
 }

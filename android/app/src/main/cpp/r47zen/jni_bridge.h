@@ -197,6 +197,9 @@ int register_main_activity_natives(JNIEnv *env);
 void releaseNativeActivityReferences(JNIEnv *env);
 void r47_restore_guard_begin(void);
 void r47_restore_guard_end(void);
+// One of upstream's clipboard copies in screen.c, such as copyRegisterXToClipboard,
+// as text the caller frees, or NULL when the copy could not allocate.
+char *r47_capture_clipboard_locked(void (*copy)(void));
 
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(

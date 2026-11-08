@@ -516,12 +516,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Build the Android-owned clipboard register-dump path under
-          # AddressSanitizer and fills the register file with a huge long integer
-          # so the concatenated dump far exceeds the fixed ANDROID_CLIPSTR buffer.
-          # An overrun in getClipboardAllRegistersString and friends aborts the
-          # run; the bounded path truncates at the cap. Reuses the staged native
-          # inputs. No emulator.
+          # Build the Copy menu's path, upstream's clipboard builders behind
+          # r47_capture_clipboard_locked, under AddressSanitizer, and hold each
+          # copy whole: large matrices and registers of a huge long integer, with
+          # every value and whole UTF-8. An overrun aborts the run. Reuses the
+          # staged native inputs. No emulator.
           mkdir -p ci-artifacts/logs
           bash ./scripts/workload-regressions/build_clipboard_overflow_harness.sh 2>&1 \
             | tee ci-artifacts/logs/clipboard-overflow-harness.log

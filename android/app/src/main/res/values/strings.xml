@@ -11,6 +11,7 @@
     <string name="main_menu_copy_x_register_copied" translatable="false">Copied X Register</string>
     <string name="main_menu_copy_stack_registers_copied" translatable="false">Copied Stack Registers</string>
     <string name="main_menu_copy_all_registers_copied" translatable="false">Copied All Registers</string>
+    <string name="main_menu_copy_failed" translatable="false">Not copied: too large</string>
     <string name="main_menu_paste_number" translatable="false">Paste Number</string>
     <string name="main_menu_paste_not_a_number" translatable="false">The clipboard does not hold one number</string>
     <string name="main_menu_paste_not_ready" translatable="false">The calculator cannot take this number now</string>

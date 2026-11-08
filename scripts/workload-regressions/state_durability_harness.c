@@ -39,7 +39,6 @@
 
 #define CASE_PASSED 42
 
-extern char *getClipboardXRegisterString(void);
 extern void copyRegisterToClipboardString(calcRegister_t, char *, bool_t);
 extern pthread_mutex_t screenMutex;
 extern void r47_initialize_native_bridge_state(void);
@@ -101,7 +100,9 @@ static state_t readState(void) {
   state_t s;
   memset(&s, 0, sizeof(s));
   pthread_mutex_lock(&screenMutex);
-  snprintf(s.x, sizeof(s.x), "%.60s", getClipboardXRegisterString());
+  char *x = r47_capture_clipboard_locked(copyRegisterXToClipboard);
+  snprintf(s.x, sizeof(s.x), "%.60s", x != NULL ? x : "(no copy)");
+  free(x);
   registerText(REGISTER_Y, s.y, sizeof(s.y));
   registerText(REGISTER_Z, s.z, sizeof(s.z));
   registerText(REGISTER_T, s.t, sizeof(s.t));

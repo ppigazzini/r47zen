@@ -6,7 +6,6 @@
 # instrumentation build compiles it. run_glue_sources_contract.sh fails when a
 # .c file here is missing from the list or a build lists the glue by hand.
 android_runtime.c
-android_helpers.c
 hal/audio.c
 hal/gui.c
 hal/io.c

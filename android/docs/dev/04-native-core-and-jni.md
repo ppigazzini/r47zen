@@ -48,9 +48,9 @@ the pinned NDK's `clang-format`, and `--fix` applies it.
 `scripts/android/run_native_clang_tidy.sh` runs the pinned NDK's `clang-tidy`
 with `r47zen/.clang-tidy`, which enables the static analyzer and the bugprone
 checks and says why it turns each other check off, and fails on any finding. Of
-the analyzer's insecure-API checks, only the Annex K one and the `strcpy` one are
-off, so a new `gets` or `mktemp` fails it; `cert-err33-c`'s unchecked returns wait
-for handling one by one. The whole library builds as gnu17, set on the target: upstream's meson
+the analyzer's insecure-API checks, only the Annex K one is off, so a new `strcpy`,
+`gets`, or `mktemp` fails it; `cert-err33-c`'s unchecked returns wait for handling
+one by one. The whole library builds as gnu17, set on the target: upstream's meson
 build names no C standard, so the core compiles as the compiler default, and
 the host harnesses build the same sources as gnu17 too. The whole library
 compiles with `-fsigned-char -fno-strict-aliasing`, the language flags of the
@@ -176,16 +176,16 @@ appears below; `run_docs_lint.sh` fails when one does not:
   `yieldToAndroidWithMs()`, the yield boundary
   [06-runtime-hot-paths.md](06-runtime-hot-paths.md) calls the bridge's most
   sensitive re-entrancy boundary
-- `android_helpers.c` for the clipboard text formatters `jni_clipboard.c`
-  returns
 - `hal/lcd.c` for the LCD buffer, the packed snapshot Kotlin copies, and the
   display-change generations
 - `hal/io.c` for file I/O through the SAF handoff, state and program files,
   and the `hal/io.h` exports
 - `hal/audio.c` for the buzzer and volume calls, routed to
   `MainActivity.playTone`
-- `hal/gui.c` for `setupUI()`'s core allocations, plus the `calcMode*Gui`
-  hooks upstream's `calcMode.c` calls, which Android leaves empty
+- `hal/gui.c` for `setupUI()`, which leaves the core allocations to
+  `doFnReset`, the `calcMode*Gui` hooks upstream's `calcMode.c` calls, which
+  Android leaves empty, and the capture that takes the text of upstream's
+  clipboard copies for the Copy menu
 - `hal/print_ir.c` for the infrared-printer hooks, which send nothing
 
 `jni_program_load_test.c` is not in the list: only an instrumentation build
@@ -267,24 +267,29 @@ APK whose dex lacks one. The entries cover:
 runtime init and for instrumentation only (see
 [03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md)).
 
-The clipboard-export getters are Android-owned bridge seams. They mirror the
-upstream desktop clipboard payload shapes for `Copy X Register`, `Copy Stack
-Registers`, and `Copy All Registers` without moving Android menu policy into
-the upstream core. Upstream's own builders in `src/c47/screen.c`,
-`copyRegisterToClipboardString`, `copyStackRegistersToClipboardString`, and
-`copyAllRegistersToClipboard`, compile into the app but hand their text to
-`gtk_clipboard_set_text`, which `android_mocks.h` turns into a no-op. So
-`android_helpers.c` formats from its own copy of that code, cut to its
-`ANDROID_CLIPSTR` buffer.
+The clipboard export is an Android-owned bridge seam around upstream's own text for
+`Copy X Register`, `Copy Stack Registers`, and `Copy All Registers`, which keeps the
+Android menu policy out of the upstream core. Upstream's builders in
+`src/c47/screen.c`, `copyRegisterXToClipboard`, `copyStackRegistersToClipboard`,
+and `copyAllRegistersToClipboard`, compile into the app under `PC_BUILD`, size
+each copy from the registers it holds, and hand the text to
+`gtk_clipboard_set_text`. `android_mocks.h` turns that call into
+`r47_take_clipboard_text` in `hal/gui.c`, which gives the text to
+`r47_capture_clipboard_locked` while it runs a copy for `jni_clipboard.c`. GTK's
+key handler is the only other caller upstream has, and the app does not build it,
+so a copy outside a capture is dropped and logged. No cap of the app's cuts a
+copy, so a matrix or a UTF-8 sequence arrives whole, and an upstream change to a
+register's format reaches the app as it reaches the simulator; the stack copy runs
+from `W` down to `X`, upstream's range.
 
-One part of the copy is gated: the names of the statistical sums. A
-`_Static_assert` fails the build when the table leaves a sum unnamed, and
-`clipboard_overflow_harness.c` fails when a row's name differs from upstream's
-`StatSumNames` ([08](08-tests-and-contracts.md#host-regression-and-build-contracts)).
-Nothing holds the rest of the copy to upstream. An upstream change to how a
-register is formatted reaches Android only when someone ports it, so when
-`screen.c`'s builders change, port the change to `android_helpers.c` and keep
-`DisplayActionController.kt` and `jni_clipboard.c` aligned with it.
+A copy can fail two ways, and `DisplayActionController.kt` says "Not copied" for
+each instead of "Copied". The calculator answers null when it could not allocate
+the copy, which leaves the clipboard as it was. And Android's clipboard has its
+own limit: a copy of all registers that hold large matrices can exceed what one
+binder call carries, and `setPrimaryClip` then throws, which the controller
+catches. `clipboard_overflow_harness.c` holds the copies whole and the capture to
+the one copy it runs
+([08](08-tests-and-contracts.md#host-regression-and-build-contracts)).
 
 Shared helpers in `jni_bridge.h` centralize `JNIEnv` acquisition,
 detach-on-scope-exit for native-owned threads, exception detection and clearing

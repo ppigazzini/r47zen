@@ -30,8 +30,6 @@ typedef struct {
 static const char *const kR47LargeFactorsInput =
     "5424563354566542698521412502251020304050";
 
-extern char *getXRegisterString(void);
-
 static void *r47_program_load_worker_main(void *arg) {
   int func_id = (int)(intptr_t)arg;
 
@@ -659,18 +657,16 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterStringNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
 
-  char register_text[2048];
-  register_text[0] = '\0';
-
+  // X as the Copy menu copies it, whole.
+  char *text = NULL;
   if (ram) {
     pthread_mutex_lock(&screenMutex);
-    const char *value = getXRegisterString();
-    if (value != NULL) {
-      snprintf(register_text, sizeof(register_text), "%s", value);
-    }
+    text = r47_capture_clipboard_locked(copyRegisterXToClipboard);
     pthread_mutex_unlock(&screenMutex);
   }
 
-  return jni_new_string_utf(env, register_text, "",
-                            "ProgramLoadTestBridge.getXRegisterString");
+  jstring result = jni_new_string_utf(
+      env, text, "", "ProgramLoadTestBridge.getXRegisterString");
+  free(text);
+  return result;
 }

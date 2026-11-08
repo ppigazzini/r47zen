@@ -111,6 +111,32 @@ class DisplayActionControllerTest {
     }
 
     @Test
+    fun aCopyTheClipboardRefusesSaysSoAndDoesNotCrash() {
+        // Android throws from setPrimaryClip when the text is over the binder limit.
+        val controller = createController(
+            putClip = { throw IllegalStateException("android.os.TransactionTooLargeException") },
+        )
+
+        assertTrue(controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_ALL_REGISTERS))
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(context.getString(R.string.main_menu_copy_failed), ShadowToast.getTextOfLatestToast())
+    }
+
+    @Test
+    fun aCopyTheCalculatorCouldNotBuildLeavesTheClipboardAndSaysSo() {
+        clipboard.setPrimaryClip(ClipData.newPlainText("kept", "kept"))
+        // The calculator answers null when it could not allocate the copy.
+        val controller = createController(allText = null)
+
+        assertTrue(controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_ALL_REGISTERS))
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("kept", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+        assertEquals(context.getString(R.string.main_menu_copy_failed), ShadowToast.getTextOfLatestToast())
+    }
+
+    @Test
     fun aMenuItemTheControllerDoesNotKnowIsLeftToAndroid() {
         val asked = mutableListOf<Runnable>()
         val controller = createController(offerCoreTask = { asked.add(it) })
@@ -219,10 +245,11 @@ class DisplayActionControllerTest {
     private fun createController(
         xText: String = "1.234",
         stackText: String = "K = 9.\nJ = 8.\nX = 1.234",
-        allText: String = "K = 9.\nJ = 8.\nR00 = 0.",
+        allText: String? = "K = 9.\nJ = 8.\nR00 = 0.",
         enterPiP: () -> Unit = {},
         offerCoreTask: (Runnable) -> Unit = { runnable -> runnable.run() },
         pasteNumberNative: (String) -> Boolean = { true },
+        putClip: (ClipData) -> Unit = { clip -> clipboard.setPrimaryClip(clip) },
     ): DisplayActionController {
         return DisplayActionController(
             context = context,
@@ -233,6 +260,7 @@ class DisplayActionControllerTest {
             getClipboardAllRegistersNative = { allText },
             pasteNumberNative = pasteNumberNative,
             enterPiP = enterPiP,
+            putClip = putClip,
         )
     }
 }

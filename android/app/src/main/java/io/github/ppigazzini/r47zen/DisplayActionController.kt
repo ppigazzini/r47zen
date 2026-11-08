@@ -16,11 +16,14 @@ internal class DisplayActionController(
     private val context: Context,
     private val mainHandler: Handler,
     private val offerCoreTask: (Runnable) -> Unit,
-    private val getClipboardXRegisterNative: () -> String,
-    private val getClipboardStackRegistersNative: () -> String,
-    private val getClipboardAllRegistersNative: () -> String,
+    private val getClipboardXRegisterNative: () -> String?,
+    private val getClipboardStackRegistersNative: () -> String?,
+    private val getClipboardAllRegistersNative: () -> String?,
     private val pasteNumberNative: (String) -> Boolean,
     private val enterPiP: () -> Unit,
+    private val putClip: (ClipData) -> Unit = { clip ->
+        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
+    },
 ) {
     companion object {
         private const val TAG = "R47DisplayActions"
@@ -167,25 +170,39 @@ internal class DisplayActionController(
 
     private fun copyTextToClipboard(
         clipLabel: String,
-        textProvider: () -> String,
+        textProvider: () -> String?,
         confirmation: String,
     ) {
         offerCoreTask(
             Runnable {
                 try {
+                    // Null is the calculator's answer to a copy it could not build.
                     val clipboardText = textProvider()
                     mainHandler.post {
-                        val clipboard =
-                            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText(clipLabel, clipboardText)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, confirmation, Toast.LENGTH_SHORT).show()
+                        val copied = clipboardText != null && putOnClipboard(clipLabel, clipboardText)
+                        val answer = if (copied) confirmation else context.getString(R.string.main_menu_copy_failed)
+                        Toast.makeText(context, answer, Toast.LENGTH_SHORT).show()
                     }
                 } catch (error: Exception) {
                     Log.e(TAG, "Copy error", error)
                 }
             }
         )
+    }
+
+    // A copy as large as all registers holding big matrices can exceed what one
+    // binder call carries, and setPrimaryClip then throws. Read from AOSP: the
+    // system rethrows the binder's failure as a plain RuntimeException, so there is
+    // no narrower type to catch.
+    @Suppress("TooGenericExceptionCaught")
+    private fun putOnClipboard(clipLabel: String, text: String): Boolean {
+        return try {
+            putClip(ClipData.newPlainText(clipLabel, text))
+            true
+        } catch (refused: RuntimeException) {
+            Log.w(TAG, "the clipboard refused a copy of ${text.length} characters", refused)
+            false
+        }
     }
 
     private fun pasteFromClipboard() {

@@ -606,9 +606,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun saveStateNative()
     private external fun loadStateNative()
     private external fun setSlotNative(slot: Int)
-    private external fun getClipboardXRegisterNative(): String
-    private external fun getClipboardStackRegistersNative(): String
-    private external fun getClipboardAllRegistersNative(): String
+    private external fun getClipboardXRegisterNative(): String?
+    private external fun getClipboardStackRegistersNative(): String?
+    private external fun getClipboardAllRegistersNative(): String?
     private external fun getPackedDisplayGeneration(): Int
     private external fun getPackedDisplayBuffer(buffer: ByteArray): Boolean
     private external fun getKeypadSnapshotGeneration(): Int
