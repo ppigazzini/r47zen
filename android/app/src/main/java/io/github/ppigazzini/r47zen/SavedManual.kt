@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.OpenableColumns
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -83,9 +82,7 @@ internal object SavedManual {
     @Suppress("TooGenericExceptionCaught")
     fun displayName(context: Context, uri: Uri): String? {
         return try {
-            context.contentResolver
-                .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+            context.contentResolver.queryDisplayName(uri)
         } catch (error: RuntimeException) {
             Log.w(TAG, "The saved manual cannot be reached", error)
             null

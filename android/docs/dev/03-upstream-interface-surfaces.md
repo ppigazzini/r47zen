@@ -23,7 +23,7 @@ verification surfaces.
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c`, `keypad_scene.c`, and `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()`, `onFileWriteFailed()`, `onCoreWarning()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned (`test_jni_registration_contract.py`), and reattach must not redraw the LCD |
-| storage and yield boundary | `StorageAccessCoordinator` and `DocumentTransfer` return a pipe or a private file through `onFileSelectedNative()`, or cancel through `onFileCanceledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
+| storage and yield boundary | `StorageAccessCoordinator` and `DocumentTransfer` return a pipe, or a private file with the name the provider shows, through `onFileSelectedNative()`, or cancel through `onFileCanceledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
 
 ## Bridge Flow
 
@@ -268,8 +268,11 @@ yield behavior.
 - `Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(...)`
   and `Java_io_github_ppigazzini_r47zen_MainActivity_onFileCanceledNative(...)`
   wake that wait by updating `fileDescriptor`, `fileReady`, and
-  `fileCanceled` under `fileMutex`. With no request waiting, `onFileSelectedNative`
-  takes nothing and returns false, and its caller closes the descriptor.
+  `fileCanceled` under `fileMutex`. `onFileSelectedNative` also keeps the document's
+  name, its last 255 bytes, which `hal/io.c` records for a read as GTK's `ioFileOpen`
+  records a file's, for STATE# to report. With no request waiting,
+  `onFileSelectedNative` takes nothing and returns false, and its caller closes the
+  descriptor.
 - `yieldToAndroidWithMs(...)` in `android_runtime.c` uses the same release,
   process, sleep, and reacquire pattern for long-running native work. It also
   advances timers every 5 ms, refreshes the LCD, and calls

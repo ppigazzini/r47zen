@@ -12,7 +12,7 @@ import java.io.IOException
 
 internal class StorageAccessCoordinator(
     private val activity: ComponentActivity,
-    private val onNativeFileSelected: (Int) -> Unit,
+    private val onNativeFileSelected: (fd: Int, name: String?) -> Unit,
     private val onNativeFileCanceled: () -> Unit,
     private val onLoadTransferStarted: () -> Unit = {},
     private val documentTransfer: DocumentTransfer = DocumentTransfer.shared(activity),
@@ -104,7 +104,7 @@ internal class StorageAccessCoordinator(
         }
 
         try {
-            onNativeFileSelected(documentTransfer.openForSave(uri))
+            onNativeFileSelected(documentTransfer.openForSave(uri), null)
         } catch (error: IOException) {
             Log.e(TAG, "Failed to open the save pipe", error)
             onNativeFileCanceled()

@@ -22,7 +22,7 @@ class StorageAccessCoordinatorTest {
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            onNativeFileSelected = {},
+            onNativeFileSelected = { _, _ -> },
             onNativeFileCanceled = {},
             readWorkDirectoryTreeUri = { "content://io.github.ppigazzini.r47zen.documents/tree/root" },
             resolveInitialUri = { treeUriString, fileType ->
@@ -61,7 +61,7 @@ class StorageAccessCoordinatorTest {
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            onNativeFileSelected = {},
+            onNativeFileSelected = { _, _ -> },
             onNativeFileCanceled = {},
             readWorkDirectoryTreeUri = { "content://io.github.ppigazzini.r47zen.documents/tree/root" },
             resolveInitialUri = { treeUriString, fileType ->
@@ -98,7 +98,7 @@ class StorageAccessCoordinatorTest {
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            onNativeFileSelected = {},
+            onNativeFileSelected = { _, _ -> },
             onNativeFileCanceled = {},
             readWorkDirectoryTreeUri = { "content://io.github.ppigazzini.r47zen.documents/tree/root" },
             resolveInitialUri = { _, _ ->
@@ -129,7 +129,7 @@ class StorageAccessCoordinatorTest {
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            onNativeFileSelected = {},
+            onNativeFileSelected = { _, _ -> },
             onNativeFileCanceled = { cancelCount += 1 },
             providedSaveIntentLauncher = { throw IllegalStateException("boom") },
             providedLoadIntentLauncher = {},
@@ -153,12 +153,11 @@ class StorageAccessCoordinatorTest {
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            onNativeFileSelected = { selectedFd = it },
+            onNativeFileSelected = { fd, _ -> selectedFd = fd },
             onNativeFileCanceled = { cancelCount += 1 },
             onLoadTransferStarted = { transfersStarted += 1 },
             documentTransfer = DocumentTransfer(
-                openInput = { throw SecurityException("no grant") },
-                openOutput = { null },
+                provider = FakeDocumentProvider(input = { throw SecurityException("no grant") }),
                 tempDir = activity.cacheDir,
                 worker = Runnable::run,
                 reportFailure = {},
@@ -185,7 +184,7 @@ class StorageAccessCoordinatorTest {
 
         val coordinator = StorageAccessCoordinator(
             activity = activity,
-            onNativeFileSelected = {},
+            onNativeFileSelected = { _, _ -> },
             onNativeFileCanceled = { cancelCount += 1 },
             onLoadTransferStarted = { transfersStarted += 1 },
             providedSaveIntentLauncher = {},
@@ -203,7 +202,7 @@ class StorageAccessCoordinatorTest {
     fun buildNativeFileRequestIntent_savesRegisterDataAsABinaryDocument() {
         val coordinator = StorageAccessCoordinator(
             activity = buildActivity(),
-            onNativeFileSelected = {},
+            onNativeFileSelected = { _, _ -> },
             onNativeFileCanceled = {},
             readWorkDirectoryTreeUri = { null },
             providedSaveIntentLauncher = {},

@@ -75,6 +75,7 @@ MUT_FILES=(
     "$GATE_FILE"
     "$TRANSFER_FILE"
     "$TRANSFER_FILE"
+    "$TRANSFER_FILE"
     "$MANUAL_FILE"
     "$KEY_VIEW_FILE"
 )
@@ -98,10 +99,11 @@ MUT_OLD=(
     "this.palette = palette"
     $'            append(canonicalMantissa(mantissa.replace(\',\', \'.\')))\n            if (number.startsWith(\'-\')) {\n                append(TOKEN_NEGATE)\n            }'
     "if (COMMA_GROUPING.matches(mantissa)) {"
-    "if (state.getAndSet(IDLE) == ABANDONED || !selectNative(fd)) {"
+    "if (state.getAndSet(IDLE) == ABANDONED || !selectNative(fd, name)) {"
     "state.compareAndSet(TRANSFERRING, ABANDONED)"
     "if (temp.length() > 0) {"
     "if (total > MAX_LOAD_BYTES) {"
+    ".onSuccess { fd -> onLoaded(fd, nameOf(uri)) }"
     "if (previous != null && previous != uri) {"
     "isEnabled = enabled || isPressed || (isFnKey && calcMode == KeypadSceneContract.CALC_MODE_ASSIGN)"
 )
@@ -125,10 +127,11 @@ MUT_NEW=(
     "this.palette = palette; hasNativeFrame = true"
     $'            if (number.startsWith(\'-\')) {\n                append(TOKEN_NEGATE)\n            }\n            append(canonicalMantissa(mantissa.replace(\',\', \'.\')))'
     "if (COMMA_GROUPING.matches(mantissa) && false) {"
-    "if (state.get() == ABANDONED || !selectNative(fd)) {"
+    "if (state.get() == ABANDONED || !selectNative(fd, name)) {"
     "state.compareAndSet(TRANSFERRING, IDLE)"
     "if (temp.length() >= 0) {"
     "if (total >= MAX_LOAD_BYTES) {"
+    ".onSuccess { fd -> onLoaded(fd, null) }"
     "if (previous != null && previous == uri) {"
     "isEnabled = enabled || isPressed"
 )
@@ -154,6 +157,7 @@ MUT_TESTS=(
     "$PASTE_TEST"
     "$GATE_TEST"
     "$GATE_TEST"
+    "$TRANSFER_TEST"
     "$TRANSFER_TEST"
     "$TRANSFER_TEST"
     "$MANUAL_TEST"
@@ -183,6 +187,7 @@ MUT_DESC=(
     "NativeFileRequestGate: a transfer the app stops is never marked abandoned"
     "DocumentTransfer: write the provider when native wrote nothing"
     "DocumentTransfer: refuse a document of exactly the limit"
+    "DocumentTransfer: a load hands native no name"
     "SavedManual: release the new grant on a repick, keep the old one on a change"
     "CalculatorKeyView: a disabled f-key takes no press in ASSIGN"
 )

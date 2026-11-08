@@ -61,6 +61,7 @@ extern int requestAndroidFile(int isSave, const char *defaultName,
                               int fileType);
 extern void r47_report_file_write_failure(void);
 extern void r47_show_warning(const char *text);
+extern const char *r47_picked_file_name(void);
 
 static bool setAsideUnusableStateFile(const char *path);
 static int has_android_base_path(void);
@@ -160,10 +161,23 @@ static bool openPickedFile(int fd, int isSave) {
   return true;
 }
 
+// GTK's ioFileOpen records the name of a file it reads, its last bytes up to a path
+// separator, for STATE# to report once a state file loads.
+static void recordFileNameRead(const char *path) {
+  size_t start = strlen(path);
+  const size_t first =
+      start >= stateFileNameVarLength ? start - stateFileNameVarLength + 1 : 0;
+  while (start > first && path[start - 1] != '/' && path[start - 1] != '\\') {
+    start--;
+  }
+  r47_format(fileNameSelected, stateFileNameVarLength, "%s", path + start);
+}
+
 int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   if (openedFile) {
     ioFileClose();
   }
+  fileNameSelected[0] = '\0'; // as GTK's, a write records no name
 
 #if !defined(HOST_TOOL_BUILD)
   // WRXPall, upstream's bulk export for developers, writes a file per program: here
@@ -240,6 +254,9 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
 
     if (!openPickedFile(fd, isSave)) {
       return FILE_ERROR;
+    }
+    if (mode == ioModeRead) {
+      recordFileNameRead(r47_picked_file_name());
     }
     return FILE_OK;
   }
@@ -333,6 +350,9 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   openedFileSeekFailed = false;
   if (!openedFile) {
     return FILE_ERROR;
+  }
+  if (mode == ioModeRead) {
+    recordFileNameRead(fullpath);
   }
   return FILE_OK;
 }

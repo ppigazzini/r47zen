@@ -42,6 +42,12 @@ void r47_show_warning(const char *text) {
 
 void r47_report_file_write_failure(void) { reports++; }
 
+// The core's record of a read's file name, which hal/io.c writes, and the name the
+// picker answered with, which jni_storage.c gives it.
+char fileNameSelected[stateFileNameVarLength];
+static char pickedName[256];
+const char *r47_picked_file_name(void) { return pickedName; }
+
 static int requestIsSave;
 static char requestName[256];
 static int requestCategory;
@@ -77,6 +83,25 @@ static void expect_request(ioFilePath_t path, ioFileMode_t mode,
     failures++;
   } else {
     printf("OK: path %d asks for '%s' in folder %d\n", path, name, category);
+  }
+}
+
+// A state file picked for a read leaves its name, the last 19 bytes of it, in
+// fileNameSelected, as GTK's ioFileOpen records it; a save leaves none.
+static void expect_name_recorded(ioFilePath_t path, ioFileMode_t mode,
+                                 const char *picked, const char *recorded) {
+  snprintf(pickedName, sizeof(pickedName), "%s", picked);
+  snprintf(fileNameSelected, sizeof(fileNameSelected), "%s", "stale");
+  requestAnswer = open("/dev/null", mode == ioModeRead ? O_RDONLY : O_WRONLY);
+  const int result = ioFileOpen(path, mode);
+  ioFileClose();
+  requestAnswer = -1;
+  if (result != FILE_OK || strcmp(fileNameSelected, recorded) != 0) {
+    fprintf(stderr, "FAIL: path %d of '%s' recorded '%s', result %d; want '%s'\n",
+            path, picked, fileNameSelected, result, recorded);
+    failures++;
+  } else {
+    printf("OK: path %d of '%s' records '%s'\n", path, picked, recorded);
   }
 }
 
@@ -287,6 +312,10 @@ int main(void) {
   expect_request(ioPathSaveProgram, ioModeWrite, "", "program.p47", 1);
   expect_request(ioPathLoadProgram, ioModeRead, "", "program.p47", 1);
   expect_request(ioPathExportRTFProgram, ioModeWrite, "PRIME", "PRIME.rtf", 1);
+  expect_name_recorded(ioPathLoadStateFile, ioModeRead, "mystate.s47", "mystate.s47");
+  expect_name_recorded(ioPathLoadStateFile, ioModeRead,
+                       "a-very-long-state-file-name.s47", "state-file-name.s47");
+  expect_name_recorded(ioPathSaveStateFile, ioModeWrite, "mystate.s47", "");
   expect_refused_without_a_picker(ioPathSaveAllPrograms);
   expect_refused_without_a_picker(ioPathExportRTFAllPrograms);
 

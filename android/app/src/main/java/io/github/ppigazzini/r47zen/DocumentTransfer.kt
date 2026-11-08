@@ -1,10 +1,12 @@
 package io.github.ppigazzini.r47zen
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
+import android.provider.OpenableColumns
 import android.util.Log
 import android.widget.Toast
 import java.io.File
@@ -24,8 +26,9 @@ import java.util.concurrent.Executors
  * which READP cannot seek, or need a download first, which must not run on the
  * main thread; and a descriptor detached from its ParcelFileDescriptor cuts the
  * close signal a provider acts on, such as the media scan or an upload. So a load
- * copies the document to a private file and hands native that file, and a save
- * hands native a pipe and writes the provider once the pipe ends.
+ * copies the document to a private file and hands native that file with the name
+ * the provider shows, and a save hands native a pipe and writes the provider once
+ * the pipe ends.
  *
  * One thread runs every transfer in order, so a load picked right after a save
  * reads the finished document. Native closing the pipe ends the save's first step,
@@ -33,8 +36,7 @@ import java.util.concurrent.Executors
  * never blocks the transfer behind it for longer than its own upload.
  */
 internal class DocumentTransfer(
-    private val openInput: (Uri) -> InputStream?,
-    private val openOutput: (Uri) -> OutputStream?,
+    private val provider: DocumentProvider,
     private val tempDir: File,
     private val worker: Executor,
     private val reportFailure: (messageId: Int) -> Unit,
@@ -49,17 +51,28 @@ internal class DocumentTransfer(
         return writeEnd.detachFd()
     }
 
-    /** Call [onLoaded] with a seekable descriptor of the document, or [onFailed]. */
-    fun load(uri: Uri, onLoaded: (Int) -> Unit, onFailed: () -> Unit) {
+    /**
+     * Call [onLoaded] with a seekable descriptor of the document and the name the
+     * provider shows for it, null when it shows none, or call [onFailed].
+     */
+    fun load(uri: Uri, onLoaded: (fd: Int, name: String?) -> Unit, onFailed: () -> Unit) {
         worker.execute {
             runCatching { readIntoPrivateFile(uri) }
-                .onSuccess(onLoaded)
+                .onSuccess { fd -> onLoaded(fd, nameOf(uri)) }
                 .onFailure { error ->
                     Log.e(TAG, "Failed to read the selected document", error)
                     reportFailure(R.string.file_read_failed)
                     onFailed()
                 }
         }
+    }
+
+    // Native records the name, as GTK records the file's, for STATE# to report. A
+    // provider owes none, so a document whose name it cannot give still loads.
+    private fun nameOf(uri: Uri): String? {
+        return runCatching { provider.displayName(uri) }
+            .onFailure { error -> Log.w(TAG, "The document's name cannot be read", error) }
+            .getOrNull()
     }
 
     private fun saveFromPipe(readEnd: ParcelFileDescriptor, uri: Uri) {
@@ -80,7 +93,7 @@ internal class DocumentTransfer(
         try {
             temp.outputStream().use { output -> input.copyTo(output) }
             if (temp.length() > 0) {
-                (openOutput(uri) ?: throw FileNotFoundException("no output stream for $uri")).use { output ->
+                (provider.openOutput(uri) ?: throw FileNotFoundException("no output stream for $uri")).use { output ->
                     temp.inputStream().use { saved -> saved.copyTo(output) }
                     syncToStorage(output)
                 }
@@ -104,7 +117,7 @@ internal class DocumentTransfer(
     private fun readIntoPrivateFile(uri: Uri): Int {
         val temp = createTempFile("load")
         try {
-            (openInput(uri) ?: throw FileNotFoundException("no input stream for $uri")).use { input ->
+            (provider.openInput(uri) ?: throw FileNotFoundException("no input stream for $uri")).use { input ->
                 temp.outputStream().use { output -> copyWithinLimit(input, output) }
             }
             return openPrivateFile(temp)
@@ -165,8 +178,7 @@ internal class DocumentTransfer(
             }
             val mainHandler = Handler(Looper.getMainLooper())
             return DocumentTransfer(
-                openInput = context.contentResolver::openInputStream,
-                openOutput = { uri -> context.contentResolver.openOutputStream(uri, "wt") },
+                provider = ResolverDocumentProvider(context.contentResolver),
                 tempDir = tempDir,
                 worker = Executors.newSingleThreadExecutor { task ->
                     Thread(task, "R47DocumentTransfer").apply { isDaemon = true }
@@ -179,4 +191,29 @@ internal class DocumentTransfer(
             )
         }
     }
+}
+
+/** The calls a transfer makes to a document's provider, for a test to stand in for. */
+internal interface DocumentProvider {
+    fun openInput(uri: Uri): InputStream?
+
+    fun openOutput(uri: Uri): OutputStream?
+
+    fun displayName(uri: Uri): String?
+}
+
+// "wt" empties the document first: a provider that reads "w" literally keeps the tail
+// of a longer document.
+private class ResolverDocumentProvider(private val resolver: ContentResolver) : DocumentProvider {
+    override fun openInput(uri: Uri): InputStream? = resolver.openInputStream(uri)
+
+    override fun openOutput(uri: Uri): OutputStream? = resolver.openOutputStream(uri, "wt")
+
+    override fun displayName(uri: Uri): String? = resolver.queryDisplayName(uri)
+}
+
+/** Return the name the provider shows for [uri], or null if it shows none. */
+internal fun ContentResolver.queryDisplayName(uri: Uri): String? {
+    return query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+        ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
 }

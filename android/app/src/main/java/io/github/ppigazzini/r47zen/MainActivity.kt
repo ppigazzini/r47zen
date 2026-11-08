@@ -120,8 +120,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     // A process killed behind the picker comes back with the answer and no request.
-    private fun answerNativeFileRequest(fd: Int): Boolean {
-        val taken = onFileSelectedNative(fd)
+    private fun answerNativeFileRequest(fd: Int, name: String?): Boolean {
+        val taken = onFileSelectedNative(fd, name)
         if (!taken) {
             mainHandler.post {
                 Toast.makeText(applicationContext, R.string.file_request_lost, Toast.LENGTH_LONG).show()
@@ -269,7 +269,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun createStorageAccessCoordinator(): StorageAccessCoordinator {
         return StorageAccessCoordinator(
             activity = this,
-            onNativeFileSelected = { fd -> nativeFileRequestGate.deliverSelected(fd) },
+            onNativeFileSelected = { fd, name -> nativeFileRequestGate.deliverSelected(fd, name) },
             onNativeFileCanceled = { nativeFileRequestGate.deliverCanceled() },
             onLoadTransferStarted = { nativeFileRequestGate.beginTransfer() },
         ).also { coordinator ->
@@ -619,6 +619,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     ): Boolean
     private external fun requestStopProgramNative(): Boolean
 
-    private external fun onFileSelectedNative(fd: Int): Boolean
+    private external fun onFileSelectedNative(fd: Int, name: String?): Boolean
     private external fun onFileCanceledNative()
 }

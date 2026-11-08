@@ -610,9 +610,12 @@ The SAF path works as follows:
    name, and category.
 2. Kotlin launches the correct SAF intent through `StorageAccessCoordinator`.
 3. `DocumentTransfer` returns a descriptor native may hold: for a save the write
-   end of a pipe, for a load a private copy of the document.
+   end of a pipe, for a load a private copy of the document, with the name the
+   provider shows for it.
 4. Native code wraps the descriptor with `fdopen(...)` and continues using
-   standard file I/O.
+   standard file I/O. A read records the name's last 19 bytes in
+   `fileNameSelected`, as GTK's `ioFileOpen` records a file's, and a state file's
+   load passes them to STATE#.
 
 The restore reads it back only after `ioFileOpen(ioPathBackup, ioModeRead)` checks
 the file's structure. Upstream writes `name:type:value` lines, each `hexDump` followed
@@ -666,7 +669,9 @@ thread, so a load picked right after a save reads the finished document.
   `file_write_failed`, after upstream's own saved message, which the HAL cannot
   withdraw.
 - **Load:** the worker copies the document to a private file, refusing one past
-  `MAX_LOAD_BYTES`, hands native a descriptor, and unlinks the file. The core stays
+  `MAX_LOAD_BYTES`, hands native a descriptor and the name the provider shows, and
+  unlinks the file. A provider owes no name, so one that shows none, or whose query
+  throws, loads all the same under an empty name. The core stays
   parked in `requestAndroidFile` meanwhile, with no progress shown, for as long as
   the provider takes; a failure shows `file_read_failed` and cancels. Canceling a
   stuck provider call is not implemented: `NativeFileRequestGate` can release the
@@ -677,10 +682,12 @@ thread, so a load picked right after a save reads the finished document.
   `NativeFileRequestGate` closes the descriptor, which ends a save's pipe with
   nothing written, and `file_request_lost` tells the user.
 
-`DocumentTransferTest.kt` and `NativeFileRequestGateTest.kt` hold the transfer and
-its one answer per request. `scripts/android/run_hal_io_contract.sh` holds the
-native side: each file path's name and folder, and a save through a pipe arriving
-whole with nothing reported. `clipboard_overflow_harness.c` holds the refused answer.
+`DocumentTransferTest.kt` and `NativeFileRequestGateTest.kt` hold the transfer, the
+name it hands on, and its one answer per request. `scripts/android/run_hal_io_contract.sh`
+holds the native side: each file path's name and folder, the name a read records,
+and a save through a pipe arriving whole with nothing reported.
+`clipboard_overflow_harness.c` holds the refused answer and the name an answer
+leaves native.
 None of them runs a real cloud provider; whether a given provider accepts `wt` is a
 device question.
 

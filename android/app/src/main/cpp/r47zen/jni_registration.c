@@ -106,7 +106,7 @@ int register_main_activity_natives(JNIEnv *env) {
       {"copyKeypadSnapshotNative", "(I[I[Ljava/lang/String;)Z",
        (void *)
            Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative},
-      {"onFileSelectedNative", "(I)Z",
+      {"onFileSelectedNative", "(ILjava/lang/String;)Z",
        (void *)
            Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative},
       {"onFileCanceledNative", "()V",

@@ -32,9 +32,9 @@ class DocumentTransferTest {
     private fun transfer(
         openInput: (Uri) -> InputStream? = { null },
         openOutput: (Uri) -> OutputStream? = { null },
+        queryName: (Uri) -> String? = { null },
     ) = DocumentTransfer(
-        openInput = openInput,
-        openOutput = openOutput,
+        provider = FakeDocumentProvider(openInput, openOutput, queryName),
         tempDir = temp.root,
         worker = Runnable::run,
         reportFailure = { failures.add(it) },
@@ -48,8 +48,7 @@ class DocumentTransferTest {
         var opened: ByteArray? = null
         var selected: Int? = null
         val transfer = DocumentTransfer(
-            openInput = { ByteArrayInputStream(payload) },
-            openOutput = { null },
+            provider = FakeDocumentProvider(input = { ByteArrayInputStream(payload) }),
             tempDir = temp.root,
             worker = Runnable::run,
             reportFailure = { failures.add(it) },
@@ -59,11 +58,60 @@ class DocumentTransferTest {
             },
         )
 
-        transfer.load(uri, onLoaded = { selected = it }, onFailed = { error("not expected") })
+        transfer.load(uri, onLoaded = { fd, _ -> selected = fd }, onFailed = { error("not expected") })
 
         assertArrayEquals(payload, opened)
         assertEquals(PRIVATE_FD, selected)
         assertEquals(emptyList<Any>(), tempFiles())
+    }
+
+    // STATE# reports the name of the state file loaded last, which native records
+    // from the name the provider shows.
+    @Test
+    fun load_handsNativeTheNameTheProviderShows() {
+        var loaded: Pair<Int, String?>? = null
+        val transfer = DocumentTransfer(
+            provider = FakeDocumentProvider(
+                input = { ByteArrayInputStream(byteArrayOf(1)) },
+                name = { "mystate.s47" },
+            ),
+            tempDir = temp.root,
+            worker = Runnable::run,
+            reportFailure = { failures.add(it) },
+            openPrivateFile = { PRIVATE_FD },
+        )
+
+        transfer.load(uri, onLoaded = { fd, name -> loaded = fd to name }, onFailed = { error("not expected") })
+
+        assertEquals(PRIVATE_FD to "mystate.s47", loaded)
+    }
+
+    // A provider owes no name, and may fail the query as Binder carries it back:
+    // the document still loads, under no name.
+    @Test
+    fun load_handsNativeTheDocumentWhenTheProviderGivesNoName() {
+        val queries = listOf<(Uri) -> String?>(
+            { null },
+            { throw SecurityException("the grant is gone") },
+            { throw IllegalArgumentException("no such column") },
+        )
+
+        queries.forEach { queryName ->
+            var loaded: Pair<Int, String?>? = null
+            DocumentTransfer(
+                provider = FakeDocumentProvider(
+                    input = { ByteArrayInputStream(byteArrayOf(1)) },
+                    name = queryName,
+                ),
+                tempDir = temp.root,
+                worker = Runnable::run,
+                reportFailure = { failures.add(it) },
+                openPrivateFile = { PRIVATE_FD },
+            ).load(uri, onLoaded = { fd, name -> loaded = fd to name }, onFailed = { error("not expected") })
+
+            assertEquals(PRIVATE_FD to null, loaded)
+            assertEquals(emptyList<Int>(), failures)
+        }
     }
 
     @Test
@@ -82,7 +130,7 @@ class DocumentTransferTest {
             failures.clear()
             var canceled = 0
             transfer(openInput = openInput)
-                .load(uri, onLoaded = { error("not expected") }, onFailed = { canceled += 1 })
+                .load(uri, onLoaded = { _, _ -> error("not expected") }, onFailed = { canceled += 1 })
 
             assertEquals(1, canceled)
             assertEquals(listOf(R.string.file_read_failed), failures)
@@ -99,7 +147,7 @@ class DocumentTransferTest {
         var canceled = 0
 
         transfer(openInput = { huge })
-            .load(uri, onLoaded = { error("not expected") }, onFailed = { canceled += 1 })
+            .load(uri, onLoaded = { _, _ -> error("not expected") }, onFailed = { canceled += 1 })
 
         assertEquals(1, canceled)
         assertEquals(listOf(R.string.file_read_failed), failures)
@@ -131,8 +179,7 @@ class DocumentTransferTest {
         }
         var copied = -1L
         val transfer = DocumentTransfer(
-            openInput = { exact },
-            openOutput = { null },
+            provider = FakeDocumentProvider(input = { exact }),
             tempDir = temp.root,
             worker = Runnable::run,
             reportFailure = { failures.add(it) },
@@ -143,7 +190,7 @@ class DocumentTransferTest {
         )
 
         var selected: Int? = null
-        transfer.load(uri, onLoaded = { selected = it }, onFailed = { error("not expected") })
+        transfer.load(uri, onLoaded = { fd, _ -> selected = fd }, onFailed = { error("not expected") })
 
         assertEquals(PRIVATE_FD, selected)
         assertEquals(DocumentTransfer.MAX_LOAD_BYTES, copied)

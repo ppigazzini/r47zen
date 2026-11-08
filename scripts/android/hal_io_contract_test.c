@@ -28,6 +28,9 @@ extern void set_android_base_path(const char *path);
 
 static int reports = 0;
 
+// The core's record of a read's file name, which hal/io.c writes.
+char fileNameSelected[stateFileNameVarLength];
+
 // r47_offer_snap asks for a file; hal_io_saf_contract_test.c holds that to account.
 int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   (void)isSave;
@@ -193,6 +196,10 @@ int main(void) {
   ioFileClose();
   failures |= expect_reports("closing a file opened for reading is not reported",
                              reports, 0);
+  if (strcmp(fileNameSelected, "R47auto_0.sav") != 0) {
+    fprintf(stderr, "FAIL: a read of the autosave recorded '%s'\n", fileNameSelected);
+    failures |= 1;
+  }
 
   point_autosave_at("/dev/full");
   failures |= expect_reports(

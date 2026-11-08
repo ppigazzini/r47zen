@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
 internal class NativeFileRequestGate(
     private val post: (Runnable) -> Unit,
     private val launch: (isSave: Boolean, defaultName: String, fileType: Int) -> Unit,
-    private val selectNative: (Int) -> Boolean,
+    private val selectNative: (fd: Int, name: String?) -> Boolean,
     private val cancelNative: () -> Unit,
     private val closeLateFd: (Int) -> Unit = { fd -> ParcelFileDescriptor.adoptFd(fd).close() },
 ) {
@@ -55,8 +55,8 @@ internal class NativeFileRequestGate(
     // Forward the picker's answer whatever this gate's state: after a
     // recreation the answer reaches the new Activity's gate, which never
     // launched, while the core thread still waits for it.
-    fun deliverSelected(fd: Int) {
-        if (state.getAndSet(IDLE) == ABANDONED || !selectNative(fd)) {
+    fun deliverSelected(fd: Int, name: String?) {
+        if (state.getAndSet(IDLE) == ABANDONED || !selectNative(fd, name)) {
             closeLateFd(fd)
         }
     }

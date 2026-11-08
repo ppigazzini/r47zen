@@ -488,8 +488,10 @@ source is missing from this page:
   calls the app makes on a device against a provider that answers as a tree
   provider does: a tree is accessible only with a write grant and children it can
   list, a file type's folder is found by its name, and a missing one is created
-- `DocumentTransferTest.kt`: locks that a load hands native a private copy,
-  reports and cancels when the provider fails or the document is past the limit,
+- `DocumentTransferTest.kt`: locks that a load hands native a private copy and
+  the name the provider shows, loads under no name when the provider gives none or
+  its query throws, reports and cancels when the provider fails or the document is
+  past the limit,
   and that a save opens the provider only once all the data exists, closes the
   provider's stream after the last byte, saves to a document that cannot sync, leaves
   the document alone when native wrote nothing, and leaves no temp file behind. A
@@ -497,7 +499,8 @@ source is missing from this page:
 - `NativeFileRequestGateTest.kt`: locks that a native file request ends in
   exactly one result or cancel: a dropped launch is canceled on destroy, a
   launched picker with no answer is canceled once when the app stops, an
-  answered one is not, an answer reaching a recreated Activity's gate still
+  answered one is not, a transferred document reaches native with its name, an
+  answer reaching a recreated Activity's gate still
   reaches native, and an answer no core thread takes closes its descriptor
 - `SettingsLinkTest.kt`: locks that the external links in Settings show a
   toast instead of crashing when no app can open them
@@ -572,10 +575,11 @@ source is missing from this page:
   merged for the variant under test, so a variant whose
   `library-licenses/NOTICE-INDEX.json` is missing or empty fails on the JVM
 - `KeyboardLayoutContractResources.kt`, `KeypadFixtureResources.kt`,
-  `TestJsonResources.kt`, and `KeypadTestSnapshots.kt` are helpers, not
-  tests: the first three load the keyboard-layout contract, the exported
-  keypad fixtures, and the JSON test resources, and the last builds a keypad
-  snapshot from a few key states
+  `TestJsonResources.kt`, `KeypadTestSnapshots.kt`, and `FakeDocumentProvider.kt`
+  are helpers, not tests: the first three load the keyboard-layout contract, the
+  exported keypad fixtures, and the JSON test resources, the fourth builds a keypad
+  snapshot from a few key states, and the last answers a document transfer's
+  provider calls as a test tells it to
 
 Use `cd android && ./gradlew :app:testDebugUnitTest` as the smallest grouped
 lane when one of those Kotlin- or Robolectric-owned contracts changes.
@@ -671,9 +675,9 @@ Each instrumentation source and what it covers:
   completion and leaves X in the expected result type
 - `GraphRedrawInstrumentedTest.kt`: locks the redraw-gate contract behind
   `ProgramLoadTestBridge.forceRefresh()`, which runs `r47_force_refresh()`
-- `StorageAccessCoordinatorInstrumentedTest.kt`: locks a save through a real pipe,
-  a load through a private copy, and cancellation, on the Android
-  file-descriptor seam
+- `StorageAccessCoordinatorInstrumentedTest.kt`: locks a save through a real pipe
+  with no name, a load through a private copy with the provider's name, and
+  cancellation, on the Android file-descriptor seam
 - `SystemBarInsetsInstrumentedTest.kt`: with fullscreen off, requires the main
   calculator view and the Settings toolbar and list to lie inside the real
   system-bar and cutout insets, and requires a non-zero status-bar inset so the
@@ -840,7 +844,9 @@ Android compatibility layer.
   under a parameter prompt, in a catalog, during a run, or with a bad token must leave
   X alone. A token the core drops, past the display width or `RNG` or in integer input
   mode, must back the entry out and leave the stack and the program as they were. A
-  file answer with no request waiting must be refused and leave nothing in native. It
+  file answer with no request waiting must be refused and leave nothing in native,
+  and one a request waits for must leave native its name, whole, or the last 255
+  bytes of a longer one, or none. It
   runs `fnSNAP` on the live core: a BMP of the whole screen must
   land at the name init armed, and the name must go empty, the two behaviors the
   offer in `hal/io.c` reads. With no picker, a `tick`, the offer's one caller, must
@@ -903,12 +909,14 @@ Android compatibility layer.
   that cannot open its `.tmp`, reports once and leaves the old file as it was,
   the second returning `FILE_CANCEL`. A read after a seek that fails, on a FIFO
   holding bytes, takes nothing, and `r47_format` fails a text that does not fit
-  and leaves nothing of it. It also
+  and leaves nothing of it. A read of the autosave records its name,
+  `R47auto_0.sav`, as GTK's `ioFileOpen` records the file it reads. It also
   builds `hal/io.c` with that branch compiled in and runs
   `scripts/android/hal_io_saf_contract_test.c`: each file path asks for its name and
   folder, `WRXPall`'s two bulk paths are refused with no picker and, in a work
-  directory that takes files, no file written, and a save through a
-  pipe arrives whole with nothing reported. That test
+  directory that takes files, no file written, a picked document's read records
+  the end of its name, the last 19 bytes, and a save records none, and a save
+  through a pipe arrives whole with nothing reported. That test
   also holds the `SNAP` offer: an armed
   name asks for nothing, even with a file beside it; a finished capture reaches the
   picker's file as a dated `.bmp` in category 3; and a cancel, a refused write, and a

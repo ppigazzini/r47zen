@@ -25,6 +25,7 @@
 
 // The SNAP slot of hal/io.c.
 extern char _ioFileNameOverride[];
+extern const char *r47_picked_file_name(void);
 
 // The Copy menu's copy, as jni_clipboard.c takes it, which the caller frees.
 static char *copy_text(void (*copy)(void)) {
@@ -421,7 +422,7 @@ static int check_paste_number(void) {
 // descriptor left in native would never close, and a save's worker reads until it does.
 static int check_file_answer_with_no_request(void) {
   int failures = 0;
-  if (Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(NULL, NULL, 77)) {
+  if (Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(NULL, NULL, 77, NULL)) {
     fprintf(stderr, "FAIL: native took a file answer with no request waiting\n");
     failures++;
   }
@@ -430,7 +431,7 @@ static int check_file_answer_with_no_request(void) {
     failures++;
   }
   atomic_store(&isCoreBlockingForIo, true);
-  if (!Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(NULL, NULL, 77) ||
+  if (!Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(NULL, NULL, 77, NULL) ||
       !fileReady || fileDescriptor != 77) {
     fprintf(stderr, "FAIL: native dropped a file answer a request was waiting for\n");
     failures++;
@@ -438,6 +439,69 @@ static int check_file_answer_with_no_request(void) {
   atomic_store(&isCoreBlockingForIo, false);
   fileReady = false;
   fileDescriptor = -1;
+  return failures;
+}
+
+static int stringsReleased;
+
+static const char *fake_get_string_chars(JNIEnv *env, jstring string, jboolean *isCopy) {
+  (void)env;
+  if (isCopy != NULL) {
+    *isCopy = JNI_FALSE;
+  }
+  return (const char *)string;
+}
+
+static void fake_release_string_chars(JNIEnv *env, jstring string, const char *chars) {
+  (void)env;
+  (void)string;
+  (void)chars;
+  stringsReleased++;
+}
+
+// The answer's name is what hal/io.c records for STATE#. It reaches native whole, a
+// name longer than native keeps holds its end, the part GTK records, and no name
+// leaves none.
+static int check_file_answer_name(void) {
+  int failures = 0;
+  struct JNINativeInterface_ table = {
+      .GetStringUTFChars = fake_get_string_chars,
+      .ReleaseStringUTFChars = fake_release_string_chars,
+  };
+  JNIEnv env = &table;
+  char longName[400];
+  memset(longName, 'a', sizeof(longName) - 1);
+  memcpy(longName + sizeof(longName) - 13, "-the-end.s47", 13);
+  const size_t kept = 255;
+  const struct {
+    const char *name;
+    const char *want;
+  } cases[] = {
+      {"mystate.s47", "mystate.s47"},
+      {longName, longName + sizeof(longName) - 1 - kept},
+      {NULL, ""},
+  };
+  stringsReleased = 0;
+  for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+    atomic_store(&isCoreBlockingForIo, true);
+    if (!Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(
+            &env, NULL, 77, (jstring)(uintptr_t)cases[i].name) ||
+        strcmp(r47_picked_file_name(), cases[i].want) != 0) {
+      const char *got = r47_picked_file_name();
+      fprintf(stderr, "FAIL: answer %zu left %zu bytes ending '%s', want %zu ending '%s'\n",
+              i, strlen(got), got + (strlen(got) > 16 ? strlen(got) - 16 : 0),
+              strlen(cases[i].want),
+              cases[i].want + (strlen(cases[i].want) > 16 ? strlen(cases[i].want) - 16 : 0));
+      failures++;
+    }
+    atomic_store(&isCoreBlockingForIo, false);
+    fileReady = false;
+    fileDescriptor = -1;
+  }
+  if (stringsReleased != 2) {
+    fprintf(stderr, "FAIL: native released %d of the 2 names it read\n", stringsReleased);
+    failures++;
+  }
   return failures;
 }
 
@@ -710,6 +774,7 @@ int main(void) {
   failures += check_paste_number();
   failures += check_snap(runtime_dir);
   failures += check_file_answer_with_no_request();
+  failures += check_file_answer_name();
   failures += check_matrix_copies_are_whole();
   failures += check_capture_ends_with_the_copy();
   failures += check_aim_faces_follow_num_lock();

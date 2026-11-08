@@ -11,6 +11,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -25,21 +27,31 @@ class StorageAccessCoordinatorInstrumentedTest {
                 document.delete()
                 val written = CountDownLatch(1)
                 val transfer = DocumentTransfer(
-                    openInput = { null },
-                    openOutput = { document.outputStream() },
+                    provider = object : DocumentProvider {
+                        override fun openInput(uri: Uri): InputStream? = null
+
+                        override fun openOutput(uri: Uri): OutputStream = document.outputStream()
+
+                        override fun displayName(uri: Uri): String? = null
+                    },
                     tempDir = activity.cacheDir,
                     worker = Executors.newSingleThreadExecutor(),
                     reportFailure = {},
                 )
                 var selectedFd: Int? = null
+                var selectedName: String? = "never answered"
                 val coordinator = StorageAccessCoordinator(
                     activity = activity,
-                    onNativeFileSelected = { selectedFd = it },
+                    onNativeFileSelected = { fd, name ->
+                        selectedFd = fd
+                        selectedName = name
+                    },
                     onNativeFileCanceled = {},
                     documentTransfer = transfer,
                 )
 
                 coordinator.deliverSaveResult(Activity.RESULT_OK, Uri.parse("content://test/save"))
+                assertNull("a save hands native no name", selectedName)
                 ParcelFileDescriptor.AutoCloseOutputStream(ParcelFileDescriptor.adoptFd(selectedFd!!))
                     .use { it.write("r47".toByteArray()) }
                 Executors.newSingleThreadExecutor().execute {
@@ -63,17 +75,26 @@ class StorageAccessCoordinatorInstrumentedTest {
                     writeText("r47")
                 }
                 val transfer = DocumentTransfer(
-                    openInput = { document.inputStream() },
-                    openOutput = { null },
+                    provider = object : DocumentProvider {
+                        override fun openInput(uri: Uri): InputStream = document.inputStream()
+
+                        override fun openOutput(uri: Uri): OutputStream? = null
+
+                        override fun displayName(uri: Uri): String = "load.s47"
+                    },
                     tempDir = activity.cacheDir,
                     worker = Runnable::run,
                     reportFailure = {},
                 )
                 var selectedFd: Int? = null
+                var selectedName: String? = null
                 var cancelCount = 0
                 val coordinator = StorageAccessCoordinator(
                     activity = activity,
-                    onNativeFileSelected = { selectedFd = it },
+                    onNativeFileSelected = { fd, name ->
+                        selectedFd = fd
+                        selectedName = name
+                    },
                     onNativeFileCanceled = { cancelCount += 1 },
                     documentTransfer = transfer,
                 )
@@ -81,6 +102,7 @@ class StorageAccessCoordinatorInstrumentedTest {
                 coordinator.deliverLoadResult(Activity.RESULT_OK, Uri.parse("content://test/load"))
 
                 assertEquals(0, cancelCount)
+                assertEquals("load.s47", selectedName)
                 ParcelFileDescriptor.AutoCloseInputStream(ParcelFileDescriptor.adoptFd(selectedFd!!))
                     .use { assertEquals("r47", it.readBytes().decodeToString()) }
             }
@@ -95,7 +117,7 @@ class StorageAccessCoordinatorInstrumentedTest {
                 var cancelCount = 0
                 val coordinator = StorageAccessCoordinator(
                     activity = activity,
-                    onNativeFileSelected = { selectedFd = it },
+                    onNativeFileSelected = { fd, _ -> selectedFd = fd },
                     onNativeFileCanceled = { cancelCount += 1 },
                 )
 

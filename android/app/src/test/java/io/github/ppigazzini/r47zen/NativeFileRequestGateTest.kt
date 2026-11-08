@@ -9,13 +9,15 @@ class NativeFileRequestGateTest {
     private val launches = mutableListOf<Triple<Boolean, String, Int>>()
     private var cancels = 0
     private val selections = mutableListOf<Int>()
+    private val names = mutableListOf<String?>()
     private val closedFds = mutableListOf<Int>()
     private var nativeWaiting = true
     private val gate = NativeFileRequestGate(
         post = { posted.addLast(it) },
         launch = { isSave, defaultName, fileType -> launches += Triple(isSave, defaultName, fileType) },
-        selectNative = {
-            selections += it
+        selectNative = { fd, name ->
+            selections += fd
+            names += name
             nativeWaiting
         },
         cancelNative = { cancels++ },
@@ -28,9 +30,10 @@ class NativeFileRequestGateTest {
         posted.removeFirst().run()
         gate.beginTransfer()
 
-        gate.deliverSelected(7)
+        gate.deliverSelected(7, "mystate.s47")
 
         assertEquals(listOf(7), selections)
+        assertEquals(listOf<String?>("mystate.s47"), names)
         assertTrue(closedFds.isEmpty())
         assertEquals(0, cancels)
     }
@@ -44,7 +47,7 @@ class NativeFileRequestGateTest {
         gate.cancelUnanswered()
         assertEquals(1, cancels)
 
-        gate.deliverSelected(7)
+        gate.deliverSelected(7, null)
         assertTrue(selections.isEmpty())
         assertEquals(listOf(7), closedFds)
     }
@@ -66,7 +69,7 @@ class NativeFileRequestGateTest {
         // The recreated Activity's gate never launched the picker its answer reaches.
         gate.beginTransfer()
 
-        gate.deliverSelected(7)
+        gate.deliverSelected(7, null)
 
         assertEquals(listOf(7), selections)
     }
@@ -122,7 +125,7 @@ class NativeFileRequestGateTest {
         gate.request(isSave = false, defaultName = "", fileType = 1)
         posted.removeFirst().run()
 
-        gate.deliverSelected(42)
+        gate.deliverSelected(42, null)
         gate.cancelUnanswered()
 
         assertEquals(listOf(42), selections)
@@ -133,7 +136,7 @@ class NativeFileRequestGateTest {
     fun answerReachingAGateThatNeverLaunched_stillReachesNative() {
         // After a recreation the picker answers the new Activity, whose gate
         // never launched, while the core thread still waits.
-        gate.deliverSelected(7)
+        gate.deliverSelected(7, null)
         gate.deliverCanceled()
 
         assertEquals(listOf(7), selections)
@@ -145,7 +148,7 @@ class NativeFileRequestGateTest {
         // A process killed behind the picker comes back with the answer and no request.
         nativeWaiting = false
 
-        gate.deliverSelected(7)
+        gate.deliverSelected(7, null)
 
         assertEquals(listOf(7), closedFds)
     }
