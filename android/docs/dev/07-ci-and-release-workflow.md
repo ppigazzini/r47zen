@@ -1283,6 +1283,24 @@ Use the smallest local lane that matches the failure surface:
 If the task touches staging, generated inputs, or upstream hydration, prefer
 the full build script over isolated Gradle invocations.
 
+## Reading CI History
+
+A run's `conclusion`, in the run list and in `gh run list`, is its last
+attempt's. A failure that a rerun turned green reads as a success, so a count
+of failures from the run list leaves out every flake a rerun hid. Count each
+attempt instead: list the runs whose `run_attempt` is above 1, then read each
+earlier attempt and its failed jobs:
+
+```bash
+gh api 'repos/ppigazzini/r47zen/actions/workflows/android-ci.yml/runs?per_page=100' \
+  --jq '.workflow_runs[] | select(.run_attempt > 1) | "\(.id) \(.run_attempt)"'
+gh api repos/ppigazzini/r47zen/actions/runs/<id>/attempts/<n>/jobs \
+  --jq '.jobs[] | select(.conclusion == "failure") | .name'
+```
+
+The list is paged (`&page=2` and on); `total_count` says how many runs there
+are.
+
 ## CI Change Rules
 
 - Keep the lane split explicit. Do not hide lint, instrumentation, or packaging
