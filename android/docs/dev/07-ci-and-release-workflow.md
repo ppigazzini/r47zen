@@ -674,7 +674,7 @@ It:
   Weekly, not nightly, since the row costs a boot and the whole set.
   A class whose `@SdkSuppress` floor the device is below runs nothing by design,
   so `run_connected_android_tests.sh` skips it and logs why rather than failing
-  its zero-test guard. No device test declares a floor today
+  its zero-test guard: at API 24, `ClipboardRoundTripInstrumentedTest` (29)
 - uploads logs plus JVM, instrumentation, and Kover coverage
   (`android/app/build/reports/kover`) reports in the Android test artifact
   bundle `r47zen-tests-<upstream short>-<android short>`
@@ -700,12 +700,13 @@ The hosted instrumentation lane relies on:
   activity closes so one long-running fixture cannot strand the next grouped
   case on CI
 - the one-class release-path selections of `FactorsInstrumentedTest`,
-  `DisplayLifecycleInstrumentedTest`,
+  `ClipboardRoundTripInstrumentedTest`, `DisplayLifecycleInstrumentedTest`,
   `GraphRedrawInstrumentedTest`, `GraphTouchStressInstrumentedTest`,
-  `StorageAccessCoordinatorInstrumentedTest`, and
+  `KeypadTouchInstrumentedTest`, `StorageAccessCoordinatorInstrumentedTest`, and
   `SystemBarInsetsInstrumentedTest` for Android math, passive lifecycle LCD
   preservation, redraw-path sanity, extreme graph-touch restore-bounds stress,
-  SAF coordination, and system-bar insets on the same signed release test
+  Copy and Paste and key touches on the real activity, SAF coordination, and
+  system-bar insets on the same signed release test
   install path
 
 The JVM segment of this lane also keeps graph-touch gating regression coverage
