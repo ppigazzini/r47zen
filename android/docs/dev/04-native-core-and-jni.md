@@ -424,7 +424,8 @@ supports that model by keeping shared synchronization in native code:
 - `jni_program_load_test.c` exposes the instrumentation-only bridge used by
   `ProgramFixtureInstrumentedTest`, `FactorsInstrumentedTest`,
   `ClipboardRoundTripInstrumentedTest`, `DisplayLifecycleInstrumentedTest`,
-  `GraphTouchStressInstrumentedTest`, and `KeypadTouchInstrumentedTest`. Each
+  `DocumentLoopInstrumentedTest`, `GraphTouchStressInstrumentedTest`, and
+  `KeypadTouchInstrumentedTest`. Each
   call that touches core state takes `screenMutex`. It provides READP or RUN worker
   control, a seed of X as a long integer or a real, X as the clipboard copies it,
   explicit refresh and background-save helpers, LCD refresh count, a
