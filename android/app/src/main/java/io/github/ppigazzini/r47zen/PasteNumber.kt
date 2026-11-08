@@ -15,7 +15,13 @@ internal object PasteNumber {
     private const val TOKEN_EXPONENT = 'e'
     private const val TOKEN_IMAGINARY = 'j'
 
-    private const val UNSIGNED = """(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?"""
+    // The classes are spelled out: \d and \s match Unicode digits and spaces on
+    // Android and ASCII ones on the JVM that runs the tests, so the tests would
+    // describe another parser than the device's.
+    private const val DIGIT = "[0-9]"
+    private const val SPACE =
+        "[\\t\\n\\u000B\\f\\r \\u0085\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]"
+    private const val UNSIGNED = "(?:$DIGIT+(?:[.,]$DIGIT*)?|[.,]$DIGIT+)(?:e[+-]?$DIGIT+)?"
     private val REAL = Regex("""[+-]?$UNSIGNED""")
     private val COMPLEX_FORMS = listOf(
         Regex("""([+-]?$UNSIGNED)([+-])i($UNSIGNED)"""),
@@ -27,8 +33,8 @@ internal object PasteNumber {
     // Space between digits is either grouping or two numbers, and "1,234" is
     // 1.234 or 1234 by locale. Refuse both rather than pick one. A point is always a
     // radix mark, as Copy X writes it, so "1.234" reads as 1.234 in any locale.
-    private val SPACE_BETWEEN_DIGITS = Regex("""[\d.,]\s+[\d.,]""")
-    private val COMMA_GROUPING = Regex("""[1-9]\d{0,2},\d{3}""")
+    private val SPACE_BETWEEN_DIGITS = Regex("[0-9.,]$SPACE+[0-9.,]")
+    private val COMMA_GROUPING = Regex("[1-9]$DIGIT{0,2},$DIGIT{3}")
 
     /** Return the tokens for [text], or null when it is not one readable number. */
     fun tokens(text: String): String? {

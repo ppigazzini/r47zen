@@ -81,6 +81,16 @@ class PasteNumberTest {
         assertEquals("12", PasteNumber.tokens("  12\n"))
         assertNull(PasteNumber.tokens("1 234"))
         assertNull(PasteNumber.tokens("1\n2"))
+        // The grouping spaces of other locales, which Android's \s matches and the JVM's does not.
+        assertNull(PasteNumber.tokens("1\u00A0234"))
+        assertNull(PasteNumber.tokens("1\u202F234"))
+    }
+
+    // Digits other than ASCII are no number the calculator can enter, on a device as here.
+    @Test
+    fun tokens_readOnlyAsciiDigits() {
+        assertNull(PasteNumber.tokens("\u0661\u0662"))
+        assertNull(PasteNumber.tokens("\uFF11\uFF12"))
     }
 
     @Test

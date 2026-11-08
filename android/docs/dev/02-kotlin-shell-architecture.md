@@ -251,7 +251,10 @@ never upstream item numbers: `items.h` renumbers between upstream revisions, so
 `Paste Number` enters one real or complex number, or refuses the clip whole, since
 a number typed from part of a clip is a wrong number on the stack. `PasteNumber.kt`
 refuses text it cannot read as one number: a date, two numbers, `1,234` (1.234 or
-1234 by locale). One core task then calls `pasteNumberNative`, whose
+1234 by locale), digits other than ASCII, or digits apart by any Unicode space,
+a no-break space among them. Its classes are spelled out, since `\d` and `\s`
+match Unicode on Android and ASCII on the JVM that runs its tests. One core task
+then calls `pasteNumberNative`, whose
 `r47_paste_number` enters the items through `processKeyAction`, below the key
 tables, under one lock, so USER assignments, a pending shift, and the multi-press
 timers cannot turn a digit into a function and no key press can land inside the
