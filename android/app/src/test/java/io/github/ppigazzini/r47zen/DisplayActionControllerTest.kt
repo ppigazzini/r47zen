@@ -13,6 +13,7 @@ import androidx.core.graphics.ColorUtils
 import com.google.android.material.color.MaterialColors
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -110,6 +111,17 @@ class DisplayActionControllerTest {
     }
 
     @Test
+    fun aMenuItemTheControllerDoesNotKnowIsLeftToAndroid() {
+        val asked = mutableListOf<Runnable>()
+        val controller = createController(offerCoreTask = { asked.add(it) })
+
+        assertTrue(controller.handleMainMenuSelection(DisplayActionController.MENU_COPY) {})
+        assertFalse(controller.handleMainMenuSelection(UNKNOWN_ITEM) {})
+        assertFalse(controller.handleCopyMenuSelection(UNKNOWN_ITEM))
+        assertTrue(asked.isEmpty())
+    }
+
+    @Test
     fun handleMainMenuSelection_routesSettingsAndPictureInPicture() {
         var openedSettings = false
         var enteredPiP = false
@@ -198,6 +210,10 @@ class DisplayActionControllerTest {
             context.getString(R.string.main_menu_paste_not_ready),
             ShadowToast.getTextOfLatestToast(),
         )
+    }
+
+    private companion object {
+        const val UNKNOWN_ITEM = 99
     }
 
     private fun createController(

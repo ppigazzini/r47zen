@@ -1,6 +1,9 @@
 package io.github.ppigazzini.r47zen
 
+import android.app.AlarmManager
 import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.pm.ResolveInfo
 import androidx.activity.ComponentActivity
 import androidx.core.net.toUri
 import org.junit.Assert.assertEquals
@@ -11,6 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
@@ -99,6 +103,22 @@ class FactoryResetControllerTest {
     }
 
     @Test
+    fun aResetRequestSchedulesTheRelaunchFinishesAndRunsOnce() {
+        registerLaunchActivity()
+        var requests = 0
+        val controller = controller(onResetRequested = { requests++ })
+
+        controller.handleResetRequest()
+        controller.handleResetRequest()
+
+        assertEquals(1, requests)
+        assertTrue(controller.isResetInProgress)
+        assertTrue(activity.isFinishing)
+        val alarms = shadowOf(activity.getSystemService(AlarmManager::class.java)).scheduledAlarms
+        assertEquals(1, alarms.size)
+    }
+
+    @Test
     fun anIntentFromSettingsResets() {
         assertTrue(
             controller(coreThreadRunning = false).isFactoryResetIntent(FactoryResetController.createIntent(activity)),
@@ -113,10 +133,26 @@ class FactoryResetControllerTest {
         return controller(coreThreadRunning).also { it.markResetInProgressForTest() }
     }
 
-    private fun controller(coreThreadRunning: Boolean): FactoryResetController {
+    private fun registerLaunchActivity() {
+        val launcher = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER)
+            .setPackage(activity.packageName)
+        val info = ResolveInfo().apply {
+            activityInfo = ActivityInfo().apply {
+                packageName = activity.packageName
+                name = MainActivity::class.java.name
+            }
+        }
+        shadowOf(activity.packageManager).addResolveInfoForIntent(launcher, info)
+    }
+
+    private fun controller(
+        coreThreadRunning: Boolean = false,
+        onResetRequested: () -> Unit = {},
+    ): FactoryResetController {
         return FactoryResetController(
             activity = activity,
-            onResetRequested = {},
+            onResetRequested = onResetRequested,
             onDestroyFactoryReset = { sharedStateResets++ },
             onDestroyFinish = { releases++ },
             isCoreThreadRunning = { coreThreadRunning },
