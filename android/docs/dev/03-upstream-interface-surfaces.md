@@ -19,8 +19,8 @@ verification surfaces.
 | Surface | Android side | Native bridge | Shared-core side | Sensitive detail |
 | --- | --- | --- | --- | --- |
 | calculator start and stop | `CalculatorEngine.start()` runs `runCalculatorNative()` on its thread; `stopCalculatorNative()`, `isReadyNative()`, `onHostStoppedNative()`, `setAutoSaveNative()` | `jni_registration.c` plus `jni_lifecycle.c` | `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)`, `mainLoop()`, `saveCalc()` | `r47_init_runtime()` publishes `r47_runtime_ready()` last, and the display copies return early until it is true; a later Activity's `start()` runs nothing native, so a recreated Activity neither redraws nor touches the packed snapshot |
-| key input | `sendKey()`, `cancelKey()`, `releaseKeyIfDown()` | `jni_input.c` plus `hal/keys.c` | `key_pop()`, `keyPopForMainLoop()`, `keyDispatchHostEvent()`, `processKeyCode()` | any thread pushes; only the calculator thread pops; a press has to be released, since `wait_for_key_release(0)` holds the calculator thread until it is |
-| service requests | `pasteNumberNative()`, `showShellMenuNative()`, `graphGestureNative()`, `resetGraphNative()`, `copyRegistersNative()`, `saveStateNative()`, `switchSlotNative()` | `jni_input.c`, `jni_clipboard.c`, `jni_lifecycle.c`, and `host_services.c` | `processKeyAction(...)`, `showSoftmenu(...)`, `fnEqSolvGraph(...)`, `saveCalc()`, `restoreCalc()` | queued apart from the keys, run from `sys_sleep` at rest, and answered through an up-call; a full queue refuses |
+| key input | `sendKey()`, `cancelKey()`, `releaseKeyIfDown()`, `sendPcKeyNative()` | `jni_input.c`, `hal/keys.c`, and `pc_keyboard.c` | `key_pop()`, `keyPopForMainLoop()`, `keyDispatchHostEvent()`, `processKeyCode()`, `btnClicked()`, `runFunction()`, `processAimInput()` | any thread pushes; only the calculator thread pops; a press has to be released, since `wait_for_key_release(0)` holds the calculator thread until it is |
+| service requests | `pasteNumberNative()`, `graphGestureNative()`, `resetGraphNative()`, `copyRegistersNative()`, `saveStateNative()`, `switchSlotNative()` | `jni_input.c`, `jni_clipboard.c`, `jni_lifecycle.c`, and `host_services.c` | `processKeyAction(...)`, `showSoftmenu(...)`, `fnEqSolvGraph(...)`, `saveCalc()`, `restoreCalc()` | queued apart from the keys, run from `sys_sleep` at rest, and answered through an up-call; a full queue refuses |
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c`, `keypad_scene.c`, and `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, `publishedKeypadGeneration`, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; both copies read only what the calculator thread published, and exit early before `r47_runtime_ready()` and when their mutex is busy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `beginMainActivityKeySequence()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_settled()`, packed LCD snapshot state, READP or RUN | everything that touches core state runs on the calculator thread at rest, through `r47_run_at_rest`; lifecycle snapshot hashes ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to Kotlin up-calls | `requestFile()`, `playTone()`, `clearTones()`, `onFileWriteFailed()`, `onCalculatorOff()`, `onClipboardText()`, `setClipboardText()`, `onPasteResult()`, `onWarning()`, `onDisplayText()` | `jni_upcalls.c`, bound once in `JNI_OnLoad()` | `ioFileOpen(...)`, `_Buzz(...)`, `mainLoop()`, `guiSetClipboardText(...)`, `show_warning(...)` | static methods of `CalculatorEngine`, which outlives each Activity; the bound signatures and Kotlin methods must stay aligned (`test_jni_registration_contract.py`) |
@@ -127,8 +127,8 @@ flowchart LR
 ## Input Dispatch Contract
 
 - Touch and PiP taps reach `CalculatorEngine.dispatchKey(...)`, physical-keyboard
-  keys reach `sendKey(...)`, and both push onto one FIFO in `hal/keys.c`. No path
-  runs core code on the caller's thread.
+  keys reach `sendPcKeyNative(...)`, and both push onto one FIFO in `hal/keys.c`. No
+  path runs core code on the caller's thread.
 - `sendKey(int)` is the key path, `r47_key_push` behind it: a press is `1..37` for
   the keys and `38..43` for the softkeys, and a release is `0`, one code for every
   key. Upstream's `processKeyCode(...)` maps those codes onto `btnPressed(...)`,
@@ -144,19 +144,35 @@ flowchart LR
   calculator thread until a release arrives.
 - `key_pop()` and `keyPopForMainLoop()` are the two ways out of the buffer, the split
   upstream's `hal/keys.h` defines. A long operation pops through `key_pop()`, which
-  never runs core code: a quit becomes `EXIT` plus a release at the head of the
-  buffer, and any other host event is dropped. The main loop pops through
+  runs no calculator function but a PC Ctrl command in a pause, as upstream: a quit
+  becomes `EXIT` plus a release at the head of the buffer, a PC key gives the keys
+  `pc_keyboard.c` pushes or waits in the ring buffer, and any other host event is
+  dropped. The main loop pops through
   `keyPopForMainLoop()` and runs a host event whole in `keyDispatchHostEvent()`. A
   redraw pops through it too, so it returns nothing while a program runs
   ([06](06-runtime-hot-paths.md#what-a-key-does-during-a-computation)).
   What a computation does with the keys it pops is on
   [06](06-runtime-hot-paths.md#what-a-key-does-during-a-computation).
-- `showShellMenuNative(int)` queues a shell menu code (`R47_SHELL_MENU_*` in
-  `jni_bridge.h`, mirrored by `NativeShellCodes.kt`). At rest `r47_show_shell_menu`
-  resolves it to its `-MNU_*` softmenu, does what upstream's `shortCutCommand` does
-  before it shows a menu, calls `showSoftmenu(...)`, and refreshes the screen. An
-  unknown code logs and does nothing. It takes no upstream item number, since
-  `items.h` renumbers between upstream revisions.
+- `sendPcKeyNative(keysym, state, press)` pushes a PC key's press or release as one
+  host event, as upstream's `keyPushPcEvent` does: the X11 keysym and the modifiers
+  before the event, which `PcKeys` writes. `pc_keyboard.c` handles it on the
+  calculator thread as upstream's `pcKeyHandle` does, through ports of GTK's
+  `keyPressedNow`, `keyReleasedNow`, `shortCutCommand`, and `shortCutFNCommand` for
+  the R47 profile, so each choice reads the mode the key lands in. At rest the main
+  loop runs it whole: a shortcut row runs its item by name or clicks its key with
+  `btnClicked(...)`, a typed character goes through `processAimInput(...)` or
+  `pemAlpha(...)`, a hex digit or a register name through `addItemToBuffer(...)`,
+  and a lone Shift or Ctrl clicks the layout's own shift key. A computation that
+  pops it gets only what `pcKeyHandle` gives while busy: the key a row clicks, or
+  the key its item sits on, pushed at the head of the buffer; a key in text entry
+  waits whole in the ring buffer for the main loop. Its row tables, keysym map, and
+  dead-key table are copied from what the app's build compiles of `gtkGui.c`, the
+  keysyms' values from X11's `keysymdef.h`, and `test_physical_keyboard_contract.py`
+  holds them to both. A softkey a PC key pressed while the calculator was busy is
+  released at rest only if the core still holds one, where upstream's release would
+  shift by a negative count, and it leaves no key down for the next wait. Left out, for want of an Android
+  counterpart: Ctrl+P, GTK's printer window, and Ctrl+H and Ctrl+M, the screen and
+  menu images `src/c47-gtk/hal/lcd.c` copies.
 - `pasteNumberNative(String)` queues the tokens `PasteNumber.kt` writes; a true
   return means queued, and the answer comes through `onPasteResult`. At rest
   `r47_paste_number` resolves each token to its `ITM_*` item, again never a number

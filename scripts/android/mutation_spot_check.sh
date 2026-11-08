@@ -29,7 +29,7 @@ DECODER_FILE="$KOTLIN_ROOT/KeypadSnapshot.kt"
 THEME_FILE="$KOTLIN_ROOT/LcdThemePolicy.kt"
 GESTURE_FILE="$KOTLIN_ROOT/GraphGestureAccumulator.kt"
 RASTER_FILE="$KOTLIN_ROOT/PackedLcdRaster.kt"
-KEYS_TEST="io.github.ppigazzini.r47zen.PhysicalKeyboardInputParityTest"
+KEYS_TEST="io.github.ppigazzini.r47zen.PcKeysTest"
 FLUSHER_TEST="io.github.ppigazzini.r47zen.GraphGestureFlusherTest"
 DECODER_TEST="io.github.ppigazzini.r47zen.KeypadSnapshotDecoderTest"
 THEME_TEST="io.github.ppigazzini.r47zen.LcdThemePolicyTest"
@@ -83,8 +83,8 @@ MUT_FILES=(
     "$KEY_VIEW_FILE"
 )
 MUT_OLD=(
-    "id.toInt() + FIRST_SOFTKEY_CODE - 1 else id.toInt() + 1"
-    "PhysicalKeyboardShortcutId.DRG -> tap(enqueueKey, \"09\")"
+    "state = if (event.action == KeyEvent.ACTION_DOWN) state and own.inv() else state or own"
+    "if (keypadDigits) KP_0 + keypadDigit else keypadMoves[keypadDigit]"
     "if (sinceLast >= minFlushIntervalMs) {"
     "private fun keyMetaAt(offset: Int, index: Int): Int = meta[offset + index]"
     "return labels.getOrElse(index * LABELS_PER_KEY + slot) { \"\" }"
@@ -112,8 +112,8 @@ MUT_OLD=(
     "isEnabled = enabled || isPressed || (isFnKey && calcMode == KeypadSceneContract.CALC_MODE_ASSIGN)"
 )
 MUT_NEW=(
-    "id.toInt() + FIRST_SOFTKEY_CODE - 1 else id.toInt()"
-    "PhysicalKeyboardShortcutId.DRG -> enqueueKey(SimKeyIds.code(\"09\", false))"
+    "state = if (event.action == KeyEvent.ACTION_DOWN) state or own else state and own.inv()"
+    "keypadMoves[keypadDigit]"
     "if (sinceLast >= 0L) {"
     "private fun keyMetaAt(offset: Int, index: Int): Int = meta[offset]"
     "return labels.getOrElse(index * LABELS_PER_KEY) { \"\" }"
@@ -170,8 +170,8 @@ MUT_TESTS=(
     "$ASSIGN_TEST"
 )
 MUT_DESC=(
-    "SimKeyIds: a key id presses the key before it"
-    "PhysicalKeyboardShortcuts: DRG presses and never releases"
+    "PcKeys: a modifier's own bit goes with its press, not its release"
+    "PcKeys: a keypad digit gives its move with NumLock on"
     "GraphGestureFlusher: flush with no minimum interval"
     "KeypadSnapshot: drop the per-key index from the meta-lane read"
     "KeypadSnapshot: drop the label slot from the label-lane read"

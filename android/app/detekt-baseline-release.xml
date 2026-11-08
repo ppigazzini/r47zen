@@ -9,7 +9,6 @@
     <ID>CyclomaticComplexMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
     <ID>CyclomaticComplexMethod:MainActivityPreferenceController.kt:MainActivityPreferenceController$fun onPreferenceChanged: Boolean</ID>
     <ID>CyclomaticComplexMethod:NativeDisplayRefreshLoop.kt:NativeDisplayRefreshLoop$internal fun refreshFrame</ID>
-    <ID>CyclomaticComplexMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>
     <ID>CyclomaticComplexMethod:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$private fun addDynamicKeypad</ID>
     <ID>CyclomaticComplexMethod:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
     <ID>CyclomaticComplexMethod:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun resolvePositions: List&lt;TopLabelLaneConflict&gt;</ID>
@@ -19,7 +18,6 @@
     <ID>LongMethod:CalculatorKeyView.kt:CalculatorKeyView$private fun buildMainKeyRenderSpec: KeyRenderSpec?</ID>
     <ID>LongMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
     <ID>LongMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildSoftkeyOverlaySpec: SoftkeyOverlayAdornmentSpec</ID>
-    <ID>LongMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>
     <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
     <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$private fun updateSettingsHintLayoutCache</ID>
     <ID>LongMethod:SettingsActivity.kt:SettingsFragment$override fun onCreatePreferences</ID>
@@ -95,9 +93,6 @@
     <ID>ReturnCount:LcdThemePolicy.kt:LcdThemePolicy$private fun ensureTextContrast: Int</ID>
     <ID>ReturnCount:MainActivityPreferenceController.kt:MainActivityPreferenceController$fun onPreferenceChanged: Boolean</ID>
     <ID>ReturnCount:NativeKeypadSnapshotStore.kt:NativeKeypadSnapshotStore$fun refreshSnapshot: NativeKeypadSnapshotRefreshResult</ID>
-    <ID>ReturnCount:PhysicalKeyboardInput.kt:PhysicalKeyboardMapper$fun resolve: PhysicalKeyboardAction?</ID>
-    <ID>ReturnCount:PhysicalKeyboardInputController.kt:PhysicalKeyboardInputController$fun onKeyDown: Boolean</ID>
-    <ID>ReturnCount:PhysicalKeyboardInputController.kt:PhysicalKeyboardInputController$fun onKeyUp: Boolean</ID>
     <ID>ReturnCount:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
     <ID>ReturnCount:ReplicaOverlay.kt:ReplicaOverlay$override fun onInterceptTouchEvent: Boolean</ID>
     <ID>ReturnCount:ReplicaOverlay.kt:ReplicaOverlay.&lt;no name provided&gt;$override fun onScale: Boolean</ID>

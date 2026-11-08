@@ -11,11 +11,6 @@ The calls the other way, native into CalculatorEngine, are a third agreement: ev
 same JNI signature. `r47_upcalls_bind` fails the library load when a single lookup
 fails, so one renamed callback stops the app at its start.
 
-The shell codes Kotlin passes to showShellMenuNative are the remaining JNI-level
-agreement: `jni_bridge.h` defines them, `NativeShellCodes.kt`
-mirrors them, and `jni_input.c` resolves each to an upstream item symbol, never
-a number, since items.h renumbers between upstream revisions.
-
 `r47_force_refresh`, the forced full redraw, is referenced by runtime init, once,
 and by the instrumentation bridge, beside its definition and prototype; any other
 reference in the glue, in a source or a header, fails here. That is all this holds:
@@ -53,20 +48,12 @@ _JNI_TYPE: Final = {
     "String": "Ljava/lang/String;",
     "Unit": "V",
 }
-_JNI_BRIDGE: Final = ANDROID_CPP_ROOT / "jni_bridge.h"
-_JNI_INPUT: Final = ANDROID_CPP_ROOT / "jni_input.c"
-_NATIVE_SHELL_CODES: Final = KOTLIN_R47ZEN_ROOT / "NativeShellCodes.kt"
-_C_SHELL_CODE: Final = re.compile(r"^#define R47_SHELL_(\w+) (\d+)$", re.MULTILINE)
-_KOTLIN_SHELL_CODE: Final = re.compile(r"const val (\w+) = (\d+)")
 _FORCE_REFRESH: Final = re.compile(r"\br47_force_refresh\b")
 _FORCE_REFRESH_DECLARATION: Final = re.compile(
     r"\bvoid\s+r47_force_refresh\s*\(\s*void\s*\)",
 )
 # Path under the glue root, and how many references it may hold; None is any number.
 _FORCE_REFRESH_ALLOWED: Final = {"jni_lifecycle.c": 1, "jni_program_load_test.c": None}
-_C_SHELL_CASE: Final = re.compile(
-    r"case R47_SHELL_(\w+):\s*return (-?)([A-Za-z_]\w*|\d+);",
-)
 
 
 def _native_registered_methods() -> set[str]:
@@ -124,24 +111,6 @@ def callback_mismatches(lookups: dict[str, str], kotlin: dict[str, str]) -> list
         for name, signature in sorted(lookups.items())
         if kotlin.get(name) != signature
     ]
-
-
-def _c_shell_codes() -> dict[str, int]:
-    """Return the R47_SHELL_* codes jni_bridge.h defines, without the prefix."""
-    text = _JNI_BRIDGE.read_text(encoding="utf-8")
-    return {name: int(value) for name, value in _C_SHELL_CODE.findall(text)}
-
-
-def _kotlin_shell_codes() -> dict[str, int]:
-    """Return the constants NativeShellCodes.kt declares."""
-    text = _NATIVE_SHELL_CODES.read_text(encoding="utf-8")
-    return {name: int(value) for name, value in _KOTLIN_SHELL_CODE.findall(text)}
-
-
-def _c_shell_resolutions() -> dict[str, str]:
-    """Return each shell code's resolved upstream target from jni_input.c."""
-    text = _JNI_INPUT.read_text(encoding="utf-8")
-    return {name: sign + target for name, sign, target in _C_SHELL_CASE.findall(text)}
 
 
 class JniRegistrationContractTest(unittest.TestCase):
@@ -207,47 +176,6 @@ class NativeCallbackContractTest(unittest.TestCase):
         mismatches = callback_mismatches(lookups, kotlin_keep_signatures(seeded))
         if len(mismatches) != len(lookups):
             message = f"the checker missed a seeded drift: {mismatches}"
-            raise AssertionError(message)
-
-
-class NativeShellCodeContractTest(unittest.TestCase):
-    """Verify the shell codes agree across C and Kotlin and resolve to symbols."""
-
-    def test_shell_codes_parse(self) -> None:
-        """The parsers must find codes on both sides, guarding against regex rot."""
-        if not _c_shell_codes() or not _kotlin_shell_codes():
-            message = (
-                f"no shell codes parsed from {_JNI_BRIDGE} or {_NATIVE_SHELL_CODES}"
-            )
-            raise AssertionError(message)
-
-    def test_c_and_kotlin_shell_codes_match(self) -> None:
-        """Every R47_SHELL_* code must have the same name and value in Kotlin."""
-        native = _c_shell_codes()
-        kotlin = _kotlin_shell_codes()
-        if native != kotlin:
-            message = (
-                f"shell code drift: jni_bridge.h={native} NativeShellCodes.kt={kotlin}"
-            )
-            raise AssertionError(message)
-
-    def test_each_shell_code_resolves_to_an_upstream_symbol(self) -> None:
-        """jni_input.c must resolve every code, and to a symbol, not a number."""
-        resolutions = _c_shell_resolutions()
-        missing = sorted(set(_c_shell_codes()) - set(resolutions))
-        if missing:
-            message = f"jni_input.c resolves no case for shell codes {missing}"
-            raise AssertionError(message)
-        numeric = {
-            name: target
-            for name, target in resolutions.items()
-            if target.lstrip("-").isdigit()
-        }
-        if numeric:
-            message = (
-                "shell codes resolved to raw item numbers, not items.h symbols: "
-                f"{numeric}"
-            )
             raise AssertionError(message)
 
 

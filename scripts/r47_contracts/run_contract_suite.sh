@@ -31,6 +31,7 @@ TEST_MODULES=(
     r47_contracts.test_device_test_api_contract
     r47_contracts.test_keypad_snapshot_wire_contract
     r47_contracts.test_jni_registration_contract
+    r47_contracts.test_physical_keyboard_contract
     r47_contracts.test_upstream_provenance_contract
 )
 
