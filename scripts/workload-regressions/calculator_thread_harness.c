@@ -32,6 +32,7 @@
 #define KEY_EXIT 33
 #define KEY_ZERO 34
 #define KEY_RS 36
+#define KEY_MINUS 32
 #define KEY_PLUS 37
 #define KEY_SOFTKEY_1 38
 
@@ -194,6 +195,8 @@ typedef struct {
   bool solving;
   char aim[64];
   int menu;
+  bool shiftF;
+  bool shiftG;
 } state_t;
 
 static void registerText(calcRegister_t r, char *out, size_t size) {
@@ -224,6 +227,8 @@ static void readStateAtRest(void *arg) {
   s->solving = getSystemFlag(FLAG_SOLVING);
   snprintf(s->aim, sizeof(s->aim), "%.60s", aimBuffer);
   s->menu = currentMenu();
+  s->shiftF = shiftF;
+  s->shiftG = shiftG;
 }
 
 // Blocks until the calculator is at rest again, so it is also the wait for "done".
@@ -549,6 +554,288 @@ static const keyReplay_t keyReplays[] = {
 static void resetAtRest(void *arg) {
   (void)arg;
   fnReset(CONFIRMED);
+}
+
+// The PC keyboard (pc_keyboard.c), as upstream's GTK simulator gives it. Kotlin sends
+// X11 keysyms with the modifiers before each event, as X11 reports them.
+#define PC_SHIFT_L 0xffe1u
+#define PC_SHIFT_MASK 0x1u
+#define PC_DEAD_ACUTE 0xfe51u
+#define PC_UNICODE(cp) (0x01000000u | (cp))
+#define PC_F1 0xffbeu
+#define PC_ESCAPE 0xff1bu
+#define PC_CONTROL_L 0xffe3u
+#define PC_CONTROL_MASK 0x4u
+
+static void pcTap(uint32_t keyval) {
+  r47_key_push_pc(keyval, 0, true);
+  r47_key_push_pc(keyval, 0, false);
+}
+
+static void pcTapShifted(uint32_t keyval) {
+  r47_key_push_pc(PC_SHIFT_L, 0, true);
+  r47_key_push_pc(keyval, PC_SHIFT_MASK, true);
+  r47_key_push_pc(keyval, PC_SHIFT_MASK, false);
+  r47_key_push_pc(PC_SHIFT_L, PC_SHIFT_MASK, false);
+}
+
+static void enterAimAtRest(void *arg) {
+  (void)arg;
+  runFunction(ITM_AIM);
+}
+
+static void aimTextAtRest(void *arg) { snprintf(arg, 64, "%.60s", aimBuffer); }
+
+static void aimAppendAtRest(void *arg) { processAimInput((int16_t)(intptr_t)arg); }
+
+// Keys and PC keys share one buffer, so a PC key keeps its place between two touch
+// keys: 1, a shifted PC E (the constant e, by item), then - is 1 - e, all pushed with
+// no wait. Either key overtaking the PC key gives another number.
+static void casePcKeyRunsInOrderWithTheKeys(void) {
+  startCalculator();
+  tap(KEY_ONE);
+  pcTapShifted('E');
+  tap(KEY_MINUS);
+  state_t s = readState();
+  CHECK(strncmp(s.x, "-1.71828182845904523536", 23) == 0, "1, E, - gave X=%s, not 1 - e", s.x);
+}
+
+// GTK's period is the R47's decimal point key; its x squared row is the Raspberry
+// Pi build's only: 1 . 5 is 1.5.
+static void casePcPeriodIsTheDecimalPoint(void) {
+  startCalculator();
+  pcTap('1');
+  pcTap('.');
+  pcTap('5');
+  pcTap(0xff0du); // Return, ENTER
+  state_t s = readState();
+  CHECK(strcmp(s.x, "1.5") == 0, "1 . 5 ENTER gave X=%s", s.x);
+}
+
+// A lone Shift is f and a lone Ctrl is g, on their release, as GTK's are.
+static void casePcLoneShiftAndCtrlAreTheShifts(void) {
+  startCalculator();
+  r47_key_push_pc(PC_SHIFT_L, 0, true);
+  r47_key_push_pc(PC_SHIFT_L, PC_SHIFT_MASK, false);
+  state_t s = readState();
+  CHECK(s.shiftF && !s.shiftG, "a lone Shift gave f=%d g=%d", s.shiftF, s.shiftG);
+  r47_key_push_pc(PC_CONTROL_L, 0, true);
+  r47_key_push_pc(PC_CONTROL_L, PC_CONTROL_MASK, false);
+  s = readState();
+  CHECK(!s.shiftF && s.shiftG, "a lone Ctrl gave f=%d g=%d", s.shiftF, s.shiftG);
+}
+
+static void setHexBaseAtRest(void *arg) {
+  (void)arg;
+  lastIntegerBase = 16;
+}
+
+// In integer entry with a base, a-f are digits, not their shortcuts: a is not SIGMA+.
+static void casePcLetterInHexEntryIsADigit(void) {
+  startCalculator();
+  r47_run_at_rest(setHexBaseAtRest, NULL);
+  pcTap('1');
+  pcTap('a');
+  state_t s = readState();
+  CHECK(s.calcMode == CM_NIM, "a closed number entry: calcMode=%d", s.calcMode);
+  CHECK(strchr(s.aim, 'A') != NULL, "a gave no hex digit: aim=%s", s.aim);
+}
+
+static void userModeWithExpOnThePiKeyAtRest(void *arg) {
+  (void)arg;
+  setSystemFlag(FLAG_USER);
+  kbd_usr[8].fShifted = ITM_EXP; // the default layout's f 8 is pi
+}
+
+// A shortcut to an item runs the item by name, as GTK's -01 rows do, so a user key
+// that moved the item does not change what the letter gives: p is pi.
+static void casePcLetterRunsItsItemInUserMode(void) {
+  startCalculator();
+  r47_run_at_rest(userModeWithExpOnThePiKeyAtRest, NULL);
+  setStack(0, 0, 0, 1);
+  pcTap('p');
+  state_t s = readState();
+  CHECK(strncmp(s.x, "3.14159265358979323846", 22) == 0, "p in USER mode gave X=%s, not pi",
+        s.x);
+}
+
+// A held shift stops a shortcut that runs an item, as GTK's shortCutCommand does: g
+// then t does nothing.
+static void casePcShiftThenLetterDoesNothing(void) {
+  startCalculator();
+  setStack(0, 0, 0, 1);
+  pcTap('g');
+  pcTap('t');
+  state_t s = readState();
+  CHECK(strcmp(s.x, "1.") == 0, "g then t changed X to %s", s.x);
+  CHECK(s.shiftG && !s.shiftF, "g then t left f=%d g=%d", s.shiftF, s.shiftG);
+}
+
+// The layout choice, as the calculator's own menu makes it. Two upstream behaviors
+// are put away, so each f press is a first press: the version screen the choice shows,
+// under which the release of a shift key returns before it ends the key's long press,
+// and the window in which a third shift press opens HOME and clears the shift.
+static void setModelAtRest(void *arg) {
+  fnKeysManagement((uint16_t)(intptr_t)arg);
+  temporaryInformation = TI_NO_INFO;
+  fnTimerStop(TO_3S_CTFF);
+  shiftF = false;
+  shiftG = false;
+}
+
+// The f letter finds the layout's own shift key, as GTK's does.
+static void casePcFLetterShiftsOnEveryLayout(void) {
+  startCalculator();
+  const int models[] = {USER_R47f_g, USER_R47bk_fg, USER_R47fg_bk, USER_R47fg_g};
+  for (size_t i = 0; i < sizeof(models) / sizeof(models[0]); i++) {
+    r47_run_at_rest(setModelAtRest, (void *)(intptr_t)models[i]);
+    pcTap('f');
+    state_t s = readState();
+    CHECK(s.shiftF && !s.shiftG, "model %d: f gave f=%d g=%d", models[i], s.shiftF, s.shiftG);
+  }
+}
+
+// Letters in AIM type what they say, in the case the calculator shows: q w e r t y
+// at AC_UPPER is QWERTY, and a shifted Q flips to q.
+static void casePcLettersInAimTypeWhatTheySay(void) {
+  startCalculator();
+  r47_run_at_rest(enterAimAtRest, NULL);
+  const uint32_t word[] = {'q', 'w', 'e', 'r', 't', 'y'};
+  for (size_t i = 0; i < sizeof(word) / sizeof(word[0]); i++) {
+    pcTap(word[i]);
+  }
+  pcTapShifted('Q');
+  state_t s = readState();
+  CHECK(s.calcMode == CM_AIM, "calcMode=%d", s.calcMode);
+  CHECK(strcmp(s.aim, "QWERTYq") == 0, "typed QWERTYq, aim=%s", s.aim);
+}
+
+static void readRegisterAAtRest(void *arg) { registerText(REGISTER_A, arg, 64); }
+
+// STO, then a letter, stores to that register, as GTK's STO and RCL chain does.
+static void casePcLetterAfterStoNamesTheRegister(void) {
+  startCalculator();
+  setStack(0, 0, 0, 5);
+  r47_run_at_rest(runFunctionAtRest, (void *)(intptr_t)ITM_STO);
+  pcTap('a');
+  char registerA[64] = "";
+  readState();
+  r47_run_at_rest(readRegisterAAtRest, registerA);
+  CHECK(strcmp(registerA, "5.") == 0, "STO a left A=%s", registerA);
+}
+
+// A character beyond Latin-1 comes as its Unicode keysym and types the item GTK's map
+// gives its legacy keysym; a dead key composes with the next letter.
+static void casePcCharactersBeyondAsciiType(void) {
+  startCalculator();
+  r47_run_at_rest(enterAimAtRest, NULL);
+  r47_run_at_rest(aimAppendAtRest, (void *)(intptr_t)ITM_a_OGONEK);
+  r47_run_at_rest(aimAppendAtRest, (void *)(intptr_t)ITM_E_ACUTE);
+  char expected[64] = "";
+  r47_run_at_rest(aimTextAtRest, expected);
+  r47_run_at_rest(resetAtRest, NULL);
+  r47_run_at_rest(enterAimAtRest, NULL);
+  pcTap(PC_UNICODE(0x0105));
+  pcTap(PC_DEAD_ACUTE);
+  pcTap('e');
+  char typed[64] = "";
+  readState();
+  r47_run_at_rest(aimTextAtRest, typed);
+  CHECK(expected[0] != 0 && strcmp(typed, expected) == 0, "typed %s, expected %s", typed,
+        expected);
+}
+
+static void readVolumeSoftkeyValueAtRest(void *arg) {
+  *(int16_t *)arg = fnItemShowValue(ITM_VOLPLUS);
+}
+
+// The app keeps no beep volume, so the VOL softkeys show no value, as GTK's
+// getBeepVolume answers NOVAL.
+static void caseVolumeSoftkeysShowNoValue(void) {
+  startCalculator();
+  int16_t value = 0;
+  r47_run_at_rest(readVolumeSoftkeyValueAtRest, &value);
+  CHECK(value == NOVAL, "VOL+ shows %d, not NOVAL", value);
+}
+
+typedef struct {
+  bool numLock;
+  char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY][R47_KEYPAD_LABEL_CAPACITY];
+} aimFaces_t;
+
+static void readAimFacesAtRest(void *arg) {
+  aimFaces_t *faces = arg;
+  runFunction(ITM_AIM);
+  if (faces->numLock) {
+    setSystemFlag(FLAG_NUMLOCK);
+  } else {
+    clearSystemFlag(FLAG_NUMLOCK);
+  }
+  r47_get_keypad_labels(faces->labels, true);
+}
+
+static const char *aimFace(const aimFaces_t *faces, int key, int slot) {
+  return faces->labels[key * R47_KEYPAD_LABELS_PER_KEY + slot];
+}
+
+// In AIM with NUM on, a key's face is what it types, as GTK draws it through
+// numlockReplacements: the N key shows its g face, 7, under NUM.
+static void caseAimFacesFollowNumLock(void) {
+  startCalculator();
+  static aimFaces_t letters = {.numLock = false};
+  static aimFaces_t digits = {.numLock = true};
+  r47_run_at_rest(readAimFacesAtRest, &letters);
+  r47_run_at_rest(readAimFacesAtRest, &digits);
+  int key = 0;
+  while (key < R47_KEYPAD_KEY_COUNT && strcmp(aimFace(&letters, key, R47_KEYPAD_LABEL_PRIMARY), "N") != 0) {
+    key++;
+  }
+  CHECK(key < R47_KEYPAD_KEY_COUNT, "no AIM key shows N");
+  if (key == R47_KEYPAD_KEY_COUNT) {
+    return;
+  }
+  CHECK(strcmp(aimFace(&letters, key, R47_KEYPAD_LABEL_G), "7") == 0, "the N key's g face is %s",
+        aimFace(&letters, key, R47_KEYPAD_LABEL_G));
+  CHECK(strcmp(aimFace(&digits, key, R47_KEYPAD_LABEL_PRIMARY), "7") == 0,
+        "the N key under NUM shows %s, not 7", aimFace(&digits, key, R47_KEYPAD_LABEL_PRIMARY));
+}
+
+// During a computation a PC key only pushes keys at the head of the buffer: s gives
+// the key sine sits on, which the computation's poll drops, and Escape gives EXIT,
+// which stops it.
+static void casePcKeyDuringAComputationOnlyPushesKeys(void) {
+  startCalculator();
+  startSlowFactors();
+  pcTap('s');
+  pcTap(PC_ESCAPE);
+  const int64_t start = nowMs();
+  state_t s = readState();
+  CHECK(nowMs() - start < 2000, "Escape took %d ms", (int)(nowMs() - start));
+  CHECK(s.calcMode == CM_NORMAL && s.lastError == 0, "calcMode=%d lastError=%d", s.calcMode,
+        s.lastError);
+}
+
+static atomic_bool releaseWaitEnded;
+
+static void waitForReleaseAtRest(void *arg) {
+  (void)arg;
+  wait_for_key_release(0);
+  atomic_store(&releaseWaitEnded, true);
+}
+
+// A softkey a PC F1 pressed during a computation, released once the computation is
+// over, leaves no key down: the next wait for a release does not wait.
+static void casePcSoftkeyReleasedAtRestLeavesNoKeyDown(void) {
+  startCalculator();
+  startSlowFactors();
+  r47_key_push_pc(PC_F1, 0, true);
+  readState();
+  r47_key_push_pc(PC_F1, 0, false);
+  readState();
+  atomic_store(&releaseWaitEnded, false);
+  r47_run_at_rest_async(waitForReleaseAtRest, NULL);
+  sleepMs(500);
+  CHECK(atomic_load(&releaseWaitEnded), "the calculator waits for a release no key will send");
 }
 
 static void caseKeySequencesGiveWhatTheKeysSay(void) {
@@ -1619,7 +1906,7 @@ static void caseCancelOfASoftkeyDoesNotAssign(void) {
 static void caseRefusedKeypadModeIsAskedForAgain(void) {
   startCalculator();
   startSlowFactors();
-  while (r47_service_shell_menu(1)) {
+  while (r47_service_copy(R47_COPY_X)) {
   }
   static int32_t fill[R47_KEYPAD_META_LENGTH];
   static char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY][R47_KEYPAD_LABEL_CAPACITY];
@@ -1660,11 +1947,443 @@ static void caseACoreCallOffItsThreadAborts(void) {
   }
 }
 
+// The app links every exit to a logged abort, and so does this harness, so a core that
+// ends the process leaves a crash report, not a silent stop.
+static void caseAnExitAborts(void) {
+  fflush(NULL);
+  const pid_t child = fork();
+  if (child == 0) {
+    exit(7);
+  }
+  int status = 0;
+  waitpid(child, &status, 0);
+  CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT, "an exit ended with status %x",
+        status);
+}
+
+static const double storedBounds[4] = {-7.25, 12.5, -3.75, 9.5};
+static const calcRegister_t boundVariables[4] = {RESERVED_VARIABLE_LX, RESERVED_VARIABLE_UX,
+                                                 RESERVED_VARIABLE_LY, RESERVED_VARIABLE_UY};
+
+static void storeBoundsAndAMatrixAtRest(void *arg) {
+  (void)arg;
+  for (int i = 0; i < 4; i++) {
+    convertDoubleToReal34Register(storedBounds[i], boundVariables[i]);
+  }
+  // The largest square matrix memory holds, so a copy of it aside cannot fit.
+  for (uint16_t n = 120; n >= 10; n -= 2) {
+    lastErrorCode = ERROR_NONE; // a size that did not fit leaves RAM FULL behind
+    if (initMatrixRegister(REGISTER_X, n, n, false)) {
+      return;
+    }
+  }
+}
+
+typedef struct {
+  double bounds[4];
+  int xType;
+  int rows;
+  int columns;
+} boundsAndMatrix_t;
+
+static void readBoundsAndMatrixAtRest(void *arg) {
+  boundsAndMatrix_t *out = arg;
+  for (int i = 0; i < 4; i++) {
+    real_t value;
+    real34ToReal(REGISTER_REAL34_DATA(boundVariables[i]), &value);
+    realToDouble(&value, &out->bounds[i]);
+  }
+  out->xType = (int)getRegisterDataType(REGISTER_X);
+  if (out->xType == dtReal34Matrix) {
+    out->rows = REGISTER_MATRIX_HEADER(REGISTER_X)->matrixRows;
+    out->columns = REGISTER_MATRIX_HEADER(REGISTER_X)->matrixColumns;
+  }
+}
+
+static void relaunchExpectingBoundsAndMatrix(void) {
+  startCalculator();
+  boundsAndMatrix_t read = {0};
+  r47_run_at_rest(readBoundsAndMatrixAtRest, &read);
+  for (int i = 0; i < 4; i++) {
+    CHECK(read.bounds[i] == storedBounds[i], "bound %d is %g, stored %g", i, read.bounds[i],
+          storedBounds[i]);
+  }
+  const int n = atoi(getenv("R47_HARNESS_MATRIX_SIZE"));
+  CHECK(read.xType == dtReal34Matrix && read.rows == n && read.columns == n,
+        "X is type %d, %dx%d, not %dx%d", read.xType, read.rows, read.columns, n, n);
+}
+
+// A cold start copied the plot window over LX, UX, LY, and UY, through X and a scratch
+// register. What the user stored moved on every launch, and a matrix in X too large to
+// copy aside was lost.
+static void caseAColdStartKeepsTheBoundsAndX(void) {
+  startCalculator();
+  r47_run_at_rest(storeBoundsAndAMatrixAtRest, NULL);
+  boundsAndMatrix_t before = {0};
+  r47_run_at_rest(readBoundsAndMatrixAtRest, &before);
+  CHECK(before.xType == dtReal34Matrix && before.rows > 10, "no large matrix to keep");
+  char size[16];
+  snprintf(size, sizeof(size), "%d", before.rows);
+  setenv("R47_HARNESS_MATRIX_SIZE", size, 1);
+  saveOnceIdle();
+  execSelfInChild("--relaunch-expect-bounds-and-matrix");
+  execSelfInChild("--relaunch-expect-bounds-and-matrix");
+}
+
+static void writeRestoreMarker(const char *count) {
+  char marker[1100];
+  snprintf(marker, sizeof(marker), "%s/backupR47.cfg.restoring", workDir);
+  writeBytes(marker, count, strlen(count));
+}
+
+static void relaunchExpectingTheMarkerGone(void) {
+  char marker[1100];
+  snprintf(marker, sizeof(marker), "%s/backupR47.cfg.restoring", workDir);
+  startCalculator();
+  CHECK(!fileExists(marker), "the marker outlived the restore and its first refresh");
+  readState();
+}
+
+// A state file that crashed two starts in a row is set aside on the third, which starts
+// afresh; one failed start, which closing the app can cause, restores as usual.
+static void caseAFileThatCrashedTwoStartsIsSetAside(void) {
+  startCalculator();
+  setStack(0, 0, 3, 4);
+  saveOnceIdle();
+  writeRestoreMarker("1\n");
+  execSelfInChild("--relaunch-expect-saved-stack");
+  execSelfInChild("--relaunch-expect-marker-gone");
+  CHECK(countFilesStartingWith("backupR47.cfg.crashed.") == 0,
+        "one failed start set the file aside");
+
+  // Each set-aside copy keeps its own name.
+  for (int round = 1; round <= 2; round++) {
+    saveOnceIdle();
+    writeRestoreMarker("2\n");
+    execSelfInChild("--relaunch-expect-fresh");
+    CHECK(countFilesStartingWith("backupR47.cfg.crashed.") == round,
+          "two failed starts kept %d copies, not %d",
+          countFilesStartingWith("backupR47.cfg.crashed."), round);
+  }
+}
+
+static void deleteBackupAtRest(void *arg) {
+  (void)arg;
+  fnDeleteBackup(CONFIRMED);
+}
+
+// DELBkup removes the SAVE and automatic save, as the hardware does. Upstream
+// names a path relative to a working directory, so on Android it removed nothing.
+static void caseDeleteBackupRemovesBothSaves(void) {
+  startCalculator();
+  char dir[1100];
+  char manual[1200];
+  char automatic[1200];
+  snprintf(dir, sizeof(dir), "%s/SAVFILES", workDir);
+  snprintf(manual, sizeof(manual), "%s/R47.sav", dir);
+  snprintf(automatic, sizeof(automatic), "%s/R47auto.sav", dir);
+  mkdir(dir, 0700);
+  writeBytes(manual, "x", 1);
+  writeBytes(automatic, "x", 1);
+  r47_run_at_rest(deleteBackupAtRest, NULL);
+  const state_t s = readState();
+  CHECK(!fileExists(manual) && !fileExists(automatic), "DELBkup left a save behind");
+  CHECK(s.lastError == ERROR_NONE, "DELBkup raised error %d", s.lastError);
+}
+
+static void dumpScreenAtRest(void *arg) {
+  (void)arg;
+  fnScreenDump(0);
+}
+
+// A SNAP whose capture the disk cut short is not offered, and says so: its header
+// names a size the file does not have. A whole one reaches the picker's file.
+static void caseACutScreenCaptureIsNotOffered(void) {
+  startCalculator();
+  char picked[1100];
+  snprintf(picked, sizeof(picked), "%s/picked.bmp", workDir);
+  // The picker's answer is ready before any capture, so an offer never waits for one.
+  r47_set_file_request_override(open(picked, O_WRONLY | O_CREAT | O_TRUNC, 0600), 1, 3);
+
+  atomic_store(&diskRoom, 200); // the header and a few rows, then a full disk
+  r47_run_at_rest(dumpScreenAtRest, NULL);
+  atomic_store(&diskRoom, -1);
+  for (int i = 0; i < 300 && atomic_load(&warningCount) == 0; i++) {
+    sleepMs(10);
+  }
+  CHECK(atomic_load(&warningCount) == 1, "%d warnings for a cut capture",
+        atomic_load(&warningCount));
+  struct stat st;
+  CHECK(stat(picked, &st) == 0 && st.st_size == 0, "a cut capture reached the picker");
+
+  r47_run_at_rest(dumpScreenAtRest, NULL);
+  for (int i = 0; i < 300 && (stat(picked, &st) != 0 || st.st_size <= 54); i++) {
+    sleepMs(10);
+  }
+  CHECK(stat(picked, &st) == 0 && st.st_size > 54, "a whole capture did not reach the picker");
+  CHECK(atomic_load(&warningCount) == 1, "a whole capture warned");
+  r47_clear_file_request_override();
+}
+
+static void startStopwatchAtRest(void *arg) {
+  (void)arg;
+  fnStartStopTimerApp(NOPARAM);
+}
+
+typedef struct {
+  uint32_t value;
+  uint32_t startTime;
+  bool running;
+} stopwatch_t;
+
+static void readStopwatchAtRest(void *arg) {
+  stopwatch_t *out = arg;
+  out->value = timerValue;
+  out->startTime = timerStartTime;
+  out->running = timerStartTime != TIMER_APP_STOPPED && getSystemFlag(FLAG_RUNTIM);
+}
+
+static void relaunchExpectingAStoppedStopwatch(void) {
+  startCalculator();
+  stopwatch_t read = {0};
+  r47_run_at_rest(readStopwatchAtRest, &read);
+  CHECK(!read.running, "the restored stopwatch says it runs");
+  CHECK(read.value >= 250, "the restored stopwatch lost its time: %u ms", read.value);
+}
+
+// A save takes a running stopwatch's time, as upstream's saves do, and leaves it
+// running: a file saved running restored as running with nothing behind it, time lost.
+static void caseASaveKeepsTheStopwatchTime(void) {
+  startCalculator();
+  r47_run_at_rest(startStopwatchAtRest, NULL);
+  sleepMs(300);
+  stopwatch_t before = {0};
+  r47_run_at_rest(readStopwatchAtRest, &before);
+  atomic_store(&fsyncDelayMs, 200); // a slow disk must not cost the stopwatch its time
+  saveOnceIdle();
+  atomic_store(&fsyncDelayMs, 0);
+  stopwatch_t live = {0};
+  r47_run_at_rest(readStopwatchAtRest, &live);
+  CHECK(live.running, "the save stopped the stopwatch");
+  CHECK(live.startTime == before.startTime && live.value == before.value,
+        "the save moved the stopwatch: start %u to %u, value %u to %u", before.startTime,
+        live.startTime, before.value, live.value);
+  execSelfInChild("--relaunch-expect-stopped-stopwatch");
+}
+
+// The state files phones carry, saved by the cores of past releases with
+// make_state_fixture.sh: FactIt.p47 loaded, and 1, 2, 3, 4 on the stack.
+static const char *const releasedStateFiles[] = {"backupR47-0.1.13.cfg.gz",
+                                                 "backupR47-0.2.0.cfg.gz"};
+
+static void findFactItAtRest(void *arg) {
+  *(bool *)arg = findNamedLabel("FactIt", ALL_LABELS) != INVALID_VARIABLE;
+}
+
+static void relaunchExpectingTheReleasedState(void) {
+  startCalculator();
+  const state_t s = readState();
+  bool factIt = false;
+  r47_run_at_rest(findFactItAtRest, &factIt);
+  CHECK(strcmp(s.x, "4.") == 0 && strcmp(s.y, "3.") == 0 && strcmp(s.z, "2.") == 0 &&
+            strcmp(s.t, "1.") == 0,
+        "not restored: %s %s %s %s", s.t, s.z, s.y, s.x);
+  CHECK(factIt, "the program FactIt is lost");
+  CHECK(atomic_load(&warningCount) == 0, "%d warnings", atomic_load(&warningCount));
+}
+
+// Each released core's state file restores whole at this core, and so does the file
+// this core saves from it.
+static void caseReleasedStateFilesRestore(void) {
+  const char *fixtures = getenv("R47_STATE_FIXTURES");
+  CHECK(fixtures != NULL, "R47_STATE_FIXTURES names no directory");
+  if (fixtures == NULL) {
+    return;
+  }
+  for (size_t i = 0; i < sizeof(releasedStateFiles) / sizeof(releasedStateFiles[0]); i++) {
+    char command[3000];
+    snprintf(command, sizeof(command), "gzip -dc '%s/%s' > '%s/backupR47.cfg'", fixtures,
+             releasedStateFiles[i], workDir);
+    CHECK(system(command) == 0, "cannot unpack %s", releasedStateFiles[i]);
+    char path[1100];
+    snprintf(path, sizeof(path), "%s/backupR47.cfg", workDir);
+    FILE *file = fopen(path, "rb");
+    CHECK(file != NULL, "no unpacked %s", releasedStateFiles[i]);
+    if (file == NULL) {
+      continue;
+    }
+    fseek(file, 0, SEEK_END);
+    const size_t length = (size_t)ftell(file);
+    rewind(file);
+    char *released = malloc(length);
+    CHECK(fread(released, 1, length, file) == length, "short read");
+    fclose(file);
+    sweepCuts(path, released, length, 12);
+    writeBytes(path, released, length);
+    free(released);
+    execSelfInChild("--relaunch-expect-released-state");
+    execSelfInChild("--relaunch-save-and-stop");
+    execSelfInChild("--relaunch-expect-released-state");
+  }
+}
+
+static void relaunchSavingAndStopping(void) {
+  startCalculator();
+  saveOnceIdle();
+}
+
+static void readUserKeysAtRest(void *arg) { memcpy(arg, kbd_usr, sizeof(kbd_usr)); }
+
+static void loadStateFileAtRest(void *arg) {
+  (void)arg;
+  fnLoad(LM_STATE_LOAD);
+}
+
+static void relaunchExpectingTheUserKeys(void) {
+  startCalculator();
+  char path[1100];
+  snprintf(path, sizeof(path), "%s/userKeys.bin", workDir);
+  static char expected[sizeof(kbd_usr)];
+  static char restored[sizeof(kbd_usr)];
+  FILE *file = fopen(path, "rb");
+  CHECK(file != NULL && fread(expected, 1, sizeof(expected), file) == sizeof(expected),
+        "no keys to compare");
+  if (file) {
+    fclose(file);
+  }
+  r47_run_at_rest(readUserKeysAtRest, restored);
+  CHECK(memcmp(expected, restored, sizeof(expected)) == 0, "the user keys changed");
+}
+
+// Upstream's xfnToR47user.s47 assigns user keys through LOADST. They survive a save
+// and a relaunch whole.
+static void caseUserKeysSurviveASave(void) {
+  startCalculator();
+  static char before[sizeof(kbd_usr)];
+  static char loaded[sizeof(kbd_usr)];
+  r47_run_at_rest(readUserKeysAtRest, before);
+  char from[1100];
+  char to[1100];
+  snprintf(from, sizeof(from), "%s/../STATE/xfnToR47user.s47", programDir);
+  snprintf(to, sizeof(to), "%s/default.dat", workDir);
+  copyFile(from, to);
+  r47_run_at_rest(loadStateFileAtRest, NULL);
+  r47_run_at_rest(readUserKeysAtRest, loaded);
+  CHECK(memcmp(before, loaded, sizeof(before)) != 0, "LOADST changed no user key");
+  snprintf(to, sizeof(to), "%s/userKeys.bin", workDir);
+  writeBytes(to, loaded, sizeof(loaded));
+  saveOnceIdle();
+  execSelfInChild("--relaunch-expect-user-keys");
+}
+
+static bool mpzIs(mpz_srcptr value, const char *expected) {
+  mpz_t want;
+  mpz_init_set_str(want, expected, 10);
+  const bool same = mpz_cmp(value, want) == 0;
+  mpz_clear(want);
+  return same;
+}
+
+// The GMP names gmp_names.h maps onto mini-gmp, held to what GMP gives on boundary
+// values, computed apart in Python. A wrong mpz_fits_uint_p once gave a wrong FACTORS
+// answer, and backtrace_symbols in execinfo.h was once a crash: a build cannot see a
+// stand-in that differs from the header upstream was written for.
+static void caseTheStandInsAgreeWithGmp(void) {
+  static const struct {
+    const char *value;
+    int fits;
+  } uintCases[] = {{"0", 1}, {"4294967295", 1}, {"4294967296", 0}, {"-1", 0},
+                   {"18446744073709551616", 0}};
+  for (size_t i = 0; i < sizeof(uintCases) / sizeof(uintCases[0]); i++) {
+    mpz_t v;
+    mpz_init_set_str(v, uintCases[i].value, 10);
+    CHECK(mpz_fits_uint_p(v) == uintCases[i].fits, "mpz_fits_uint_p(%s)", uintCases[i].value);
+    mpz_clear(v);
+  }
+
+  static const struct {
+    const char *from;
+    const char *next;
+  } primeCases[] = {{"0", "2"},
+                    {"1", "2"},
+                    {"2", "3"},
+                    {"4294967291", "4294967311"},
+                    {"18446744073709551557", "18446744073709551629"},
+                    {"1000000000000000000000000000000", "1000000000000000000000000000057"}};
+  for (size_t i = 0; i < sizeof(primeCases) / sizeof(primeCases[0]); i++) {
+    mpz_t from, next;
+    mpz_init_set_str(from, primeCases[i].from, 10);
+    mpz_init(next);
+    mpz_nextprime(next, from);
+    CHECK(mpzIs(next, primeCases[i].next), "mpz_nextprime(%s)", primeCases[i].from);
+    mpz_clear(from);
+    mpz_clear(next);
+  }
+
+  static const struct {
+    unsigned long n;
+    const char *fib;
+  } fibCases[] = {{0, "0"},
+                  {1, "1"},
+                  {2, "1"},
+                  {93, "12200160415121876738"},
+                  {94, "19740274219868223167"},
+                  {300, "222232244629420445529739893461909967206666939096499764990979600"}};
+  for (size_t i = 0; i < sizeof(fibCases) / sizeof(fibCases[0]); i++) {
+    mpz_t fib;
+    mpz_init(fib);
+    mpz_fib_ui(fib, fibCases[i].n);
+    CHECK(mpzIs(fib, fibCases[i].fib), "mpz_fib_ui(%lu)", fibCases[i].n);
+    mpz_clear(fib);
+  }
+
+  mpz_t half;
+  mpz_init_set_si(half, -5);
+  mpz_div_2exp(half, half, 1); // GMP's obsolete name rounds toward minus infinity
+  CHECK(mpz_get_si(half) == -3, "mpz_div_2exp(-5, 1) is %ld", mpz_get_si(half));
+  mpz_clear(half);
+
+  // upstream's freeList.c prints strs[1] and frees the array, whatever the frame count
+  void *frames[4];
+  char **names = backtrace_symbols(frames, backtrace(frames, 4));
+  CHECK(names != NULL, "backtrace_symbols gave no array");
+  if (names != NULL) {
+    // The read is the check: AddressSanitizer stops on an array of fewer than two.
+    const char *volatile second = names[1];
+    (void)second;
+    free(names);
+  }
+}
+
 static const testCase_t cases[] = {
     {"a core call off its thread aborts", caseACoreCallOffItsThreadAborts},
+    {"the stand-ins agree with GMP", caseTheStandInsAgreeWithGmp},
+    {"an exit aborts with a log", caseAnExitAborts},
+    {"a cold start keeps the bounds and X", caseAColdStartKeepsTheBoundsAndX},
+    {"a file that crashed two starts is set aside", caseAFileThatCrashedTwoStartsIsSetAside},
+    {"DELBkup removes both saves", caseDeleteBackupRemovesBothSaves},
+    {"a cut screen capture is not offered", caseACutScreenCaptureIsNotOffered},
+    {"a save keeps the stopwatch time", caseASaveKeepsTheStopwatchTime},
+    {"released state files restore", caseReleasedStateFilesRestore},
+    {"user keys survive a save", caseUserKeysSurviveASave},
     {"key goes through the buffer", caseKeyGoesThroughTheBuffer},
     {"keys keep their order", caseKeysKeepTheirOrder},
     {"key sequences give what the keys say", caseKeySequencesGiveWhatTheKeysSay},
+    {"a PC key runs in order with the keys", casePcKeyRunsInOrderWithTheKeys},
+    {"a PC period is the decimal point", casePcPeriodIsTheDecimalPoint},
+    {"a lone PC Shift is f and a lone Ctrl is g", casePcLoneShiftAndCtrlAreTheShifts},
+    {"a PC letter in hex entry is a digit", casePcLetterInHexEntryIsADigit},
+    {"a PC letter runs its item in USER mode", casePcLetterRunsItsItemInUserMode},
+    {"a PC shift then a letter does nothing", casePcShiftThenLetterDoesNothing},
+    {"the PC f letter shifts on every layout", casePcFLetterShiftsOnEveryLayout},
+    {"PC letters in AIM type what they say", casePcLettersInAimTypeWhatTheySay},
+    {"a PC letter after STO names the register", casePcLetterAfterStoNamesTheRegister},
+    {"PC characters beyond ASCII type", casePcCharactersBeyondAsciiType},
+    {"a PC key during a computation only pushes keys", casePcKeyDuringAComputationOnlyPushesKeys},
+    {"a PC softkey released at rest leaves no key down",
+     casePcSoftkeyReleasedAtRestLeavesNoKeyDown},
+    {"AIM faces follow NUM", caseAimFacesFollowNumLock},
+    {"the VOL softkeys show no value", caseVolumeSoftkeysShowNoValue},
     {"a service runs behind earlier keys", caseServiceRunsBehindEarlierKeys},
     {"FACTORS gives the right factors", caseFactorsAreRight},
     {"digit during a computation does nothing",

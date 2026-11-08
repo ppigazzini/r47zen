@@ -44,8 +44,8 @@ flowchart TD
 | overlay geometry replay for unchanged keypad scenes | `MainActivity.kt`, `ReplicaOverlayController.kt`, `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt` | `MainKeySnapshotRenderTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | keypad scene export manifest and decoder | `KeypadSnapshot`, exported keypad fixtures, `keypad_scene.c` | `KeypadFixtureContractTest.kt`, `KeypadSnapshotDecoderTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | exported keypad fixtures against the core of today | `android/app/src/test/resources/keypad-fixtures/`, the staged core, `keypad_scene.c` | `scripts/keypad-fixtures/report_keypad_fixture_drift.sh`: it lists what drifted, up to 12 changes a scene, and fails on a failed export, a scene it cannot read, or drift with no upstream move, which it can tell apart only until upstream next moves after a re-export | the `android-ci.yml` build job, which marks the step and not the job, or the script after a full build; on drift, re-export with `export_upstream_keypad_fixtures.sh`, re-derive the keyboard-layout and font-policy goldens, which read the fixtures, once each move is root-caused, and run `:app:testDebugUnitTest`, which runs `KeypadTopLabelLayoutTest.kt` on the new scenes |
-| rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `ReplicaOverlayController.kt`, `KeypadLabelModes.kt`, `C47TypefacePolicy.kt` | `CalculatorKeyViewRenderSpecTest.kt`, `CalculatorKeyViewFontSelectionTest.kt`, `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ReplicaOverlayGoldenTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
-| physical keyboard mapping and first-key shell focus routing | `PhysicalKeyboardBindingTables.kt`, `PhysicalKeyboardMapper`, `PhysicalKeyboardInputController`, `ReplicaOverlay.kt` | `PhysicalKeyboardInputParityTest.kt`, `ReplicaOverlayVisualPolicyTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.PhysicalKeyboardInputParityTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest` |
+| rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `ReplicaOverlayController.kt`, `KeypadLabelModes.kt`, `C47TypefacePolicy.kt` | `CalculatorKeyViewRenderSpecTest.kt`, `CalculatorKeyViewFontSelectionTest.kt`, `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `SoftkeyTextContrastTest.kt`, `ReplicaOverlayGoldenTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
+| physical keyboard: Android events to X11 keysyms, GTK's handler on the calculator thread, and first-key shell focus routing | `PhysicalKeyboardInput.kt`, `PhysicalKeyboardInputController.kt`, `pc_keyboard.c`, `hal/keys.c`, `ReplicaOverlay.kt` | `PcKeysTest.kt`, `test_physical_keyboard_contract.py`, the PC cases of `calculator_thread_harness.c`, `ReplicaOverlayVisualPolicyTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.PcKeysTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest`; `bash ./scripts/r47_contracts/run_contract_suite.sh`; `bash ./scripts/workload-regressions/build_calculator_thread_harness.sh` |
 | calculator thread, key buffer, service queue, and display loop | `CalculatorEngine.kt`, `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_lifecycle.c`, `jni_display.c`, `hal/keys.c`, `host_services.c`, `keypad_scene.c` | `build_calculator_thread_harness.sh`, `scripts/workload-regressions/build_bridge_tsan_harness.sh`, `NativeDisplayRefreshLoopTest.kt`, `NativeKeypadSnapshotStoreTest.kt`, `GraphRedrawInstrumentedTest.kt`, `KeypadTouchInstrumentedTest.kt`, `run_workload_regressions.sh` | the two harnesses first, then the focused JVM tests, then the host workload lane when long runs moved |
 | what `hal/keys.c` assumes about who sleeps (upstream's `sys_sleep` callers against `calculatorAtRest`) | `hal/keys.c`, upstream `src/c47/c47.c` and `src/c47/programming/input.c` | `run_upstream_hal_contract.sh` | `bash ./scripts/android/run_upstream_hal_contract.sh "$PWD/src"` after an upstream sync |
 | developer performance HUD preference, configurable sample-window slider, snapshot transport, and shell visibility | `DeveloperPerformanceSnapshot.kt`, `NativeDisplayRefreshLoop.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml` | `NativeDisplayRefreshLoopTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `ReplicaOverlayGoldenTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.NativeDisplayRefreshLoopTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest` |
@@ -249,16 +249,33 @@ runs. What each one locks:
   `jni_registration.c` and `CalculatorEngine`'s `external fun` set are equal, and
   each entry binds the implementation with the same name suffix; every
   `bindMethod` in the glue names a `@Keep` `CalculatorEngine` method with the same
-  JNI signature, checked on a seeded drift first; the
-  `R47_SHELL_*` codes in `jni_bridge.h` equal `NativeShellCodes.kt`, and
-  `jni_input.c` resolves each to an `items.h` symbol, never a number; and only
+  JNI signature, checked on a seeded drift first; and only
   runtime init, once, and the instrumentation bridge reference `r47_force_refresh`,
   the forced full redraw, in any glue source or header, checked on seeded
-  references first. The glue's other redraws are not its
-- `test_robolectric_sdk_owner_contract.py`: no JVM test `@Config` and no
-  `robolectric.properties` sets `sdk`, `minSdk`, or `maxSdk`, so every
-  Robolectric class runs at the targetSdk; it proves its scanner on seeded
-  text first
+  references first. It does not hold the glue's other redraws.
+- `test_physical_keyboard_contract.py`: the data of `pc_keyboard.c`, the port of
+  upstream's GTK key handler, against `gtkGui.c`. Each of its four row tables equals,
+  field by field and in order, the R47 rows the app's build compiles of the
+  `gtkGui.c` chain it copies, so the `RASPBERRY` rows are not among them, and a call
+  left unparsed or a conditional it does not know fails; its keysym table names
+  `gdkKeyMap`'s items and keysyms in order, and its `deadKeysMap` is `gtkGui.c`'s;
+  every keysym `PcKeys` sends is one it defines, with the same value; and every
+  keysym it defines, and its table's legacy keysyms and code points, are X11's, by
+  the character for a one-character name and against `/usr/include/X11/keysymdef.h`
+  on a host that has it. CI's runner has not, so there the table's values are
+  reported skipped. Each check fails first on a seed. The handler's logic is not held
+  here; the PC cases of `calculator_thread_harness.c` run it
+- `test_robolectric_sdk_owner_contract.py`: no `robolectric.properties` sets
+  `sdk`, `minSdk`, or `maxSdk`, and no JVM test `@Config` does but
+  `ApiLevelArmsTest.kt`, whose levels must lie from
+  `R47_DEFAULT_ANDROID_MIN_SDK` up to below the target, so every other Robolectric
+  class runs at the targetSdk; it proves its scanner and its level reader on
+  seeded text first
+- `test_device_test_api_contract.py`: the major of
+  `R47_DEFAULT_ANDROID_TEST_API_LEVEL`, the emulator image the instrumented tests
+  run on, reaches `R47_DEFAULT_ANDROID_TARGET_SDK`, seeded first with 36 under
+  37; and android-ci keeps a row that runs the instrumented set at
+  `R47_DEFAULT_ANDROID_MIN_SDK`, gated, under its own AVD
 - `jni_core_reach.py` is a tool, not a test: `build_calculator_thread_harness.sh` runs
   it over the glue it compiles, because it needs the staged core's objects
 - `test_upstream_provenance_contract.py`: the provenance ledger covers exactly
@@ -536,9 +553,29 @@ source is missing from this page:
   distinct from native empty-slot scenes, plus runtime non-null snapshot
   refresh normalization so selected softkey mode does not regress back to
   dynamic full labels
-- `PhysicalKeyboardInputParityTest.kt`: locks printable, function-key,
-  shortcut, and modifier-tap mapping behavior across the Android-owned mapping
-  and shortcut tables, and that HOME and MYMENU pass their `NativeShellCodes`
+- `PcKeysTest.kt`: locks the Android key event to X11 translation: a letter and
+  its shift, Ctrl's bit with the keysym kept, the special and function keys, the
+  keypad with and without NumLock, a modifier's own bit on its release only, the
+  Unicode and dead keysyms, keys left to Android, and that the controller sends
+  each press and release
+- `KeySpeechTest.kt`: every label of every exported keypad scene is spoken in
+  printable ASCII words, the R47 glyphs by function (`x\u2162` is "x squared"),
+  every rendered key a scene enables with labels has a name in words and the
+  Button class, and Zen keeps every main key's name
+- `LcdAccessibilityNodeTest.kt`: the LCD's node lies over the LCD as a polite
+  live region; the text replaces its label and an error is the node's error; a
+  burst of frames asks once after `DISPLAY_DESCRIPTION_SETTLE_MS` and nothing
+  without an accessibility service; a keypad rebuild keeps the node
+- `PhysicalKeyboardInputControllerTest.kt`: Ctrl+V pastes once per press, not
+  on a repeat or with Shift or Alt, and its press and release still reach the
+  calculator; the Menu key opens the main menu on its release and sends nothing
+- `ReplicaOverlayPointerInputTest.kt`: a right click on a key presses nothing
+  and asks for the menu on release; the overlay leaves a left click to the key,
+  which presses for it; one wheel notch over the LCD scales by
+  `WHEEL_NOTCH_SCALE`, up in and down out, and does nothing off the LCD or with
+  the graph switch off; every replica view shows the hand pointer. Robolectric
+  routes a synthetic mouse event to no child of a ViewGroup, so the left click
+  reaches the key's touch zone directly
 - `ReplicaOverlayVisualPolicyTest.kt`: locks shell-owned keyboard focus,
   including `FOCUS_BLOCK_DESCENDANTS`, so the first DPAD event is routed to the
   calculator instead of Android focus search
@@ -727,7 +764,7 @@ Each instrumentation source and what it covers:
 - `scripts/android/run_connected_android_tests.sh`: owns the hosted emulator
   wrapper that runs each non-fixture instrumentation class in a selection of
   its own, each bounded by `R47_CONNECTED_ANDROID_SELECTION_TIMEOUT` (10 minutes;
-  each took under two on `main`), and the complete `ProgramFixtureInstrumentedTest`
+  each measured on `main` took under two), and the complete `ProgramFixtureInstrumentedTest`
   class under its own bounded outer timeout, failing the lane if a selection hangs,
   runs no test, or reports a class other than the one it asked for
 - `GraphTouchStressInstrumentedTest.kt`: launches `MainActivity`, waits for
@@ -863,7 +900,7 @@ Android compatibility layer.
   rule too. Before it links, the script compiles the glue again with a section per
   definition and runs `jni_core_reach.py` over it, which fails on any route from a
   JNI entry to a core symbol and first proves itself on a seeded entry. The cases are its
-  `cases[]` table: a core call off the calculator thread aborts in a debug build; keys
+  `cases[]` table: a core call off the calculator thread aborts in a debug build; the GMP stand-ins and `execinfo.h` give what GMP and glibc give, on boundary values; keys
   keep their order; `FACTORS` gives
   the right factors, and a digit during it does nothing; `EXIT` and `R/S` stop a computation, and `R/S` runs nothing
   afterward; both stop a program loop; a stop key survives the buffer wipe; a tone
@@ -915,6 +952,19 @@ Android compatibility layer.
   calls functions and presses no key, so it holds none of `btnPressed`,
   `btnReleased`, TAM, AIM, or the shifts. An early return seeded into
   `btnReleased` fails this case and many others.
+- Twelve cases follow it for the PC keyboard, each what upstream's GTK handler
+  gives: a PC key keeps its place between two touch keys (1, a shifted PC E for the
+  constant e, and `-` give 1 - e); a period is the decimal point; a lone Shift is f
+  and a lone Ctrl is g; in integer entry with a base, `a` is a hex digit; in USER mode
+  a letter runs its item by name, whatever key a user moved it to; a held g stops
+  `t`; the `f` letter finds the shift on all four R47 layouts; letters in AIM type in
+  the case the calculator shows; STO then a letter names the register; a character
+  beyond Latin-1 and a dead key compose as GTK's map gives; a PC key during a
+  computation only pushes keys at the head of the buffer, so Escape stops it; and a
+  softkey pressed during a computation and released at rest leaves no key down.
+- A case reads the keypad's faces in AIM: the key that shows N shows its `g` face,
+  7, once NUM is on, as GTK draws it. Another holds the VOL softkeys to no value,
+  `NOVAL`, as GTK's `getBeepVolume` answers.
 - `build_calculator_thread_harness.sh --coverage` builds the same harness with
   gcov's counters and runs every case, and writes `coverage.txt`: the share of
   lines the cases run in each file of upstream's key path (`keyboard.c`, `tam.c`,
@@ -1117,7 +1167,7 @@ Android compatibility layer.
   packed-display copy through `r47_try_take_packed_display`, the native half of
   `getPackedDisplayBuffer` -- while init runs, which is what locks the
   `r47_runtime_ready()` gate. A steady-state phase then has a producer thread push keys
-  and service requests, a shell menu, a gesture, a copy, and a save, while a consumer
+  and service requests, a PC key, a gesture, a copy, and a save, while a consumer
   thread samples the generations and takes both copies. A data race or lock-order
   inversion in the Android-owned bridge is the hard gate and aborts the run, and no lock
   serializes the core, so a race on core state fails it too.
@@ -1145,8 +1195,9 @@ Android compatibility layer.
   `PhysicalKeyboardInput.kt`, `GraphGestureFlusher.kt`, `KeypadSnapshot.kt`,
   `LcdThemePolicy.kt`, `GraphGestureAccumulator.kt`, `PackedLcdRaster.kt`,
   `PasteNumber.kt`, `NativeFileRequestGate.kt`, `DocumentTransfer.kt`,
-  `SavedManual.kt`, and `CalculatorKeyView.kt`'s ASSIGN gate, and asserts each
-  is killed by the matching JVM test (`PhysicalKeyboardInputParityTest`,
+  `DataFolderMirror.kt`, `SavedManual.kt`, and `CalculatorKeyView.kt`'s ASSIGN gate,
+  and asserts each
+  is killed by the matching JVM test (`PcKeysTest`,
   `GraphGestureFlusherTest`, `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
   `GraphGestureAccumulatorTest`, `PackedLcdRasterTest`,
   `ReplicaOverlayLcdOrderTest`, `PasteNumberTest`, `NativeFileRequestGateTest`,

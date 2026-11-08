@@ -39,10 +39,10 @@ grouped by role; the directory itself is the authority when a file is added:
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
   `WindowModeController.kt`, `SystemBarInsets.kt`, `FactoryResetController.kt`,
   `HapticFeedbackController.kt`, `AudioEngine.kt`, `CalculatorAnswers.kt`,
-  `CalculatorHostSlot.kt`,
-  `GraphGestureAccumulator.kt`, `GraphGestureFlusher.kt`, and
-  `NativeShellCodes.kt`
-- rendering and geometry: `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt`,
+  `CalculatorHostSlot.kt`, `MainMenuButtonDescription.kt`, `PasteNumber.kt`,
+  `GraphGestureAccumulator.kt`, and `GraphGestureFlusher.kt`
+- rendering and geometry: `ReplicaOverlay.kt`, `PackedLcdRaster.kt`,
+  `ReplicaKeypadLayout.kt`,
   `ReplicaChromeLayout.kt`, `CalculatorKeyView.kt`,
   `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `KeyRenderPainter.kt`,
   `C47TextRenderer.kt`, `C47TypefacePolicy.kt`, `MainKeyLabelMirrors.kt`,
@@ -52,9 +52,9 @@ grouped by role; the directory itself is the authority when a file is added:
   `DataFolderMirror.kt`, `ProviderLookup.kt`, `WorkDirectory.kt`, `SavedManual.kt`,
   and `AppPreferences.kt`
 - keyboard and keypad models: `PhysicalKeyboardInputController.kt`,
-  `PhysicalKeyboardInput.kt`, `PhysicalKeyboardBindingTables.kt`,
-  `PhysicalKeyboardShortcutId.kt`, `KeypadSnapshot.kt`,
-  `KeyboardStateSnapshot.kt`, `KeypadTopology.kt`, and `KeypadLabelModes.kt`
+  `PhysicalKeyboardInput.kt`, `KeypadSnapshot.kt`,
+  `KeyboardStateSnapshot.kt`, `KeypadTopology.kt`, `KeypadLabelModes.kt`, and
+  `KeySpeech.kt`
 
 ## Kotlin Runtime Flow
 
@@ -82,8 +82,8 @@ flowchart LR
 | activity and settings coordination | `MainActivity`, `SettingsActivity`, `SettingsSwitchPreference` | startup, preferences, PiP, intent routing, helper wiring, and explicit settings-switch widget tinting | `03-upstream-interface-surfaces.md` |
 | native execution coordination | `CalculatorEngine`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one calculator thread, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `06-runtime-hot-paths.md` |
 | overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `05-ui-rendering-and-gtk-mapping.md` |
-| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SavedManual`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, the saved manual's read grant, slot metadata, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
-| Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into a key, a service request, or a small Android-side action | `03-upstream-interface-surfaces.md` |
+| storage coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SavedManual` | SAF routing, where each file picker starts, the work-directory tree `SettingsActivity` stores, the saved manual's read grant, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
+| Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, `PcKeys` | convert Android events into a key, a service request, or a small Android-side action | `03-upstream-interface-surfaces.md` |
 
 ## Architecture boundary
 
@@ -265,9 +265,12 @@ real file request, and `MainShellThemeTest.kt` as mapped in
 The Kotlin shell accepts input from five paths:
 
 - on-screen keys built by `ReplicaKeypadLayout`
-- accessibility click activation on those same key views once they hold focus
-- physical keyboard mappings handled by `PhysicalKeyboardInputController`,
-  `PhysicalKeyboardMapper`, and `PhysicalKeyboardBindingTables`
+- accessibility click activation on those same key views once they hold focus,
+  each announced as a button with a name in words: `KeySpeech` speaks the R47
+  fonts' private glyphs by function (x squared, not ROMAN NUMERAL THREE), and Zen
+  or hidden softkey labels keep the name of the labels they hide
+- physical keyboard events, which `PhysicalKeyboardInputController` sends as PC
+  keys in `PcKeys`' X11 terms
 - the projected top-bezel main-menu button coordinated by
   `DisplayActionController`
 - a mouse or trackpad, as Android's large-screen input guidance tests one:
@@ -292,8 +295,8 @@ the calculator answers when it is at rest, so a program is read once, at its sto
 ([03](03-upstream-interface-surfaces.md)). With no service running, nothing is
 asked. A keypad rebuild keeps the node (`clearReplicaViews`).
 
-Each path ultimately resolves to a key on the FIFO, a service request, or a
-small Android-side action.
+Each path ultimately resolves to a key or a PC key on the FIFO, a service request,
+or a small Android-side action.
 
 Every key, from the keypad and the physical keyboard, goes through the one
 FIFO in `hal/keys.c`, in the order it was pushed, and Kotlin never decides what a
@@ -312,9 +315,19 @@ ignore. The core keeps one pressed key and has one release code for every key,
 so a second `ACTION_DOWN` on another key would leave the first key pressed with
 no release.
 
-The physical-keyboard HOME and MYMENU shortcuts pass `NativeShellCodes` values,
-never upstream item numbers: `items.h` renumbers between upstream revisions, so
-`jni_input.c` resolves each code to its `MNU_*` symbol at build time.
+The physical keyboard maps nothing in Kotlin. `PcKeys` turns each Android key
+event into what X11 gives upstream's GTK simulator, the keysym and the modifiers
+before the event, and `PhysicalKeyboardInputController` sends every press and
+release (`sendPcKeyNative`). On the calculator thread `pc_keyboard.c`, a port of
+GTK's own handler, decides what the key does in the mode it lands in: a shortcut
+row, a typed character, a hex digit, a register name, or a key click
+([03](03-upstream-interface-surfaces.md#input-dispatch-contract)). A key that is
+no PC key, such as Back or a volume key, stays with Android. Ctrl+C, Ctrl+D, and
+Ctrl+A copy X, the stack, and every register through GTK's own commands. Two keys
+also reach the app's menu, which GTK has no counterpart of: Ctrl+V runs `Paste
+Number` and still reaches the calculator, where GTK binds nothing to it and it
+only marks Ctrl as used, so the Ctrl release toggles no shift; and the
+keyboard's Menu key, no PC key, opens the main menu.
 
 `Paste Number` enters one real or complex number, or refuses the clip whole, since
 a number typed from part of a clip is a wrong number on the stack. `PasteNumber.kt`

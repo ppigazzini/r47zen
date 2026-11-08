@@ -178,12 +178,14 @@ appears below; `run_docs_lint.sh` fails when one does not:
   loop, the save after OFF, and the stop, plus the start, stop, readiness, and save
   JNI entry points
 - `jni_input.c` for the key and service JNI entry points, and for what runs at rest
-  behind them: graph gestures, shell menus, and paste
+  behind them: graph gestures and paste
+- `pc_keyboard.c` for the PC keyboard: the port of upstream's GTK key handler for
+  the R47 profile, which runs each PC key's host event on the calculator thread
 - `hal/keys.c` for the DMCP HAL: the key FIFO and its host events, `sys_sleep`,
   `sys_delay`, the clock, and the timers. It is the counterpart of upstream's
   `src/c47-gtk/hal/keys.c`, with no GTK types
-- `host_services.c` for the service queue: paste, shell menu, graph gesture and
-  reset, copy, save, slot switch, and keypad label mode. Any thread queues a request
+- `host_services.c` for the service queue: paste, graph gesture and
+  reset, copy, save, and keypad label mode. Any thread queues a request
   and the calculator thread runs it from `sys_sleep` at rest, apart from the key
   buffer because a long operation wipes that buffer. It also owns the idle checkpoint
 - `jni_upcalls.c` for the JVM handle, the `CalculatorEngine` class reference and
@@ -252,9 +254,9 @@ APK whose dex lacks one. The entries cover:
 
 - the calculator thread's start and stop, its readiness, the host's visibility, and
   the autosave setting
-- key pushes: a press or a release, a cancel, and a release if a key is down
-- service requests: paste, shell menu, graph gesture and reset, register copy,
-  save, and slot switch
+- key pushes: a press or a release, a cancel, a release if a key is down, and a PC
+  key's press or release
+- service requests: paste, graph gesture and reset, register copy, and save
 - LCD graph-touch dispatch for drag-pan and pinch-zoom, gated to the proven
   graph-active path (`CM_GRAPH` with menus `-MNU_PLOT_FUNC` and
   `-MNU_GRAPHS`) and defined as a no-op outside supported graph screens
@@ -513,7 +515,9 @@ that thread.
 | state | owner | written by (thread) | read by (thread) | change signal |
 |---|---|---|---|---|
 | `keyBuffer`, `keyCount` | `hal/keys.c`, under `keyMutex` | `r47_key_push` and its kin (any); `keyPopForMainLoop`, `key_pop_all` (calculator) | `key_empty`, `key_tail`, `keyPopForMainLoop` (calculator) | `keyCond` |
-| `hostEvents` slots | `hal/keys.c` | `pushHostLocked`, under `keyMutex` (any) | `translateHostEvent`, `keyDispatchHostEvent` (calculator) | the slot's key code, popped under `keyMutex` |
+| `hostEvents` slots | `hal/keys.c` | `pushHostLocked`, under `keyMutex` (any), which a full FIFO stops before it writes a slot | `hostEventOf`, under `keyMutex` (calculator) | the slot's key code, popped under `keyMutex` |
+| `insertAt`, `insertThread` | `hal/keys.c`, under `keyMutex` | `translateHostEvent`, `cancelPressedKey` (calculator) | `pushLocked`, which puts a key at the head only for the thread that set them | none |
+| `CTRL_State`, `SHIFT_State`, `event_keyval`, `ctrlUsed`, `pcKeyBusy` | `pc_keyboard.c` | `r47_pc_key_handle` (calculator) | the same | none; one thread |
 | `pushedKeyDown` | `hal/keys.c`, under `keyMutex` | `r47_key_push`, `r47_key_cancel`, `r47_key_release_if_down` (any) | `wait_for_key_release` (calculator) | `keyCond` |
 | `quitPending` | `hal/keys.c`, under `keyMutex` | `r47_key_push_quit` (any); `keyDispatchHostEvent` (calculator) | `sys_sleep`, `keyPopForMainLoop` (calculator) | `keyCond` |
 | `timerDeadlineUs` | `hal/keys.c`, under `keyMutex` | `sys_timer_start`, `sys_timer_disable`, `sys_sleep` (calculator) | `sys_sleep` (calculator) | none |
@@ -528,8 +532,9 @@ that thread.
 
 A full FIFO drops the key, as DMCP does, and a full queue refuses the request and logs
 it. Kotlin sees that refusal only where a native returns it: `pasteNumberNative`,
-`switchSlotNative`, and `copyRegistersNative` return it and `showShellMenuNative` and
-`resetGraphNative` do not, and `DisplayActionController` ignores the one from a copy.
+`copyRegistersNative`, and `describeDisplayNative` return it and `resetGraphNative`
+does not; `DisplayActionController` ignores the one from a copy, and the LCD's
+accessibility node asks again at the next settled frame.
 A keypad label mode the queue refuses is not asked for again until the mode changes.
 
 ## Lifecycle Save And Explicit Refresh Contract

@@ -23,3 +23,5 @@ jni_registration.c
 jni_storage.c
 jni_upcalls.c
 keypad_scene.c
+legacy_printf.c
+pc_keyboard.c

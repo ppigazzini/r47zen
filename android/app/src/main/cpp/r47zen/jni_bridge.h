@@ -16,14 +16,6 @@
 
 #define CALCULATOR_ENGINE_CLASS "io/github/ppigazzini/r47zen/CalculatorEngine"
 
-// Shell codes Kotlin passes to showShellMenuNative in place of upstream item numbers,
-// which items.h renumbers between upstream revisions. jni_input.c resolves each
-// code against the staged items.h, so an upstream rename fails the build instead
-// of opening the wrong menu. NativeShellCodes.kt mirrors these values, and
-// test_jni_registration_contract.py holds them equal.
-#define R47_SHELL_MENU_HOME 1
-#define R47_SHELL_MENU_MY_MENU 2
-
 extern JavaVM *g_jvm;
 
 typedef struct {
@@ -178,9 +170,17 @@ int register_calculator_engine_natives(JNIEnv *env);
 // The calculator thread's work behind the service queue.
 void r47_apply_graph_gesture(float dxNorm, float dyNorm, float scale);
 bool r47_reset_graph(void);
-void r47_show_shell_menu(int shellMenu);
-const char *r47_clipboard_text(int what);
-void r47_switch_slot_and_restore(int slot);
+
+// The calculator thread: a Copy menu text, which the caller frees, or NULL.
+char *r47_clipboard_text(int what);
+char *r47_capture_clipboard(void (*copy)(void));
+// What the display shows, as UTF-8 for a screen reader: the error the screen
+// shows, the TAM prompt's entry, the number or alpha text being typed, else X as
+// Copy X gives it; cut on a whole character to R47_DISPLAY_TEXT_MAX bytes. The
+// calculator thread, at rest. NULL before the core has its memory; the caller frees it.
+// *isError says the text is the error the screen shows.
+#define R47_DISPLAY_TEXT_MAX 400
+char *r47_display_text(bool *isError);
 #if defined(R47_TEST_BRIDGE)
 // The calculator thread: copy out what an instrumented test watches.
 void r47_test_bridge_publish_state(void);
@@ -235,8 +235,8 @@ JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_CalculatorEngine_releaseKeyIfDown(
     JNIEnv *env, jclass clazz);
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_CalculatorEngine_showShellMenuNative(
-    JNIEnv *env, jclass clazz, jint shellMenu);
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_sendPcKeyNative(
+    JNIEnv *env, jclass clazz, jint keyval, jint state, jboolean press);
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_CalculatorEngine_graphGestureNative(
     JNIEnv *env, jclass clazz, jfloat dxNorm, jfloat dyNorm, jfloat scale);

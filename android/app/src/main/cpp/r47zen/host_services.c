@@ -23,7 +23,6 @@ static pthread_cond_t scriptCond = PTHREAD_COND_INITIALIZER;
 
 typedef enum {
   servicePaste,
-  serviceShellMenu,
   serviceGraphReset,
   serviceCopy,
   serviceDescribeDisplay,
@@ -100,10 +99,6 @@ bool r47_service_paste(const char *tokens) {
     return false;
   }
   return true;
-}
-
-bool r47_service_shell_menu(int shellMenu) {
-  return enqueue(serviceShellMenu, shellMenu, NULL);
 }
 
 bool r47_service_graph_reset(void) {
@@ -331,9 +326,6 @@ static void runService(const service_t *service) {
   switch (service->kind) {
   case servicePaste:
     r47_upcall_paste_result(r47_paste_number(service->text));
-    break;
-  case serviceShellMenu:
-    r47_show_shell_menu(service->value);
     break;
   case serviceGraphReset:
     r47_reset_graph();
