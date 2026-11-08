@@ -4,7 +4,21 @@
 # as the app does, and proves what that model promises: a key during a computation
 # never re-enters the core, EXIT and R/S stop one, a save waits for rest, and OFF
 # saves and keeps the calculator alive.
+#
+# --coverage builds the same harness with gcov's counters in upstream's key-path files
+# and the glue, in a directory of its own, runs every case, and writes coverage.txt
+# there: the share of lines the cases run in each. Its numbers fail nothing, since an
+# upstream commit alone moves them; a gcc without its own gcov (GCOV overrides the
+# name) fails before the build.
 set -Eeuo pipefail
+
+COVERAGE=false
+if [ "${1:-}" = "--coverage" ]; then
+    COVERAGE=true
+elif [ "$#" -gt 0 ]; then
+    echo "usage: $0 [--coverage]" >&2
+    exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -13,7 +27,24 @@ source "$SCRIPT_DIR/../lib/common.sh"
 STAGED_CPP_DIR="$PROJECT_ROOT/android/.staged-native/cpp"
 TRACKED_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp"
 BUILD_DIR="$PROJECT_ROOT/android/build/calculator-thread-harness"
+COVERAGE_FLAGS=()
+if [ "$COVERAGE" = true ]; then
+    BUILD_DIR="$BUILD_DIR-coverage"
+    # -u: link gcov's dump on purpose; the harness calls it before each case's _exit.
+    COVERAGE_FLAGS=(--coverage -Xlinker -u -Xlinker __gcov_dump)
+fi
 CC_BIN="${CC:-cc}"
+GCOV_BIN="${GCOV:-gcov}"
+
+# gcov reads only the counters of the gcc that wrote them; check before building.
+if [ "$COVERAGE" = true ]; then
+    compiler_version="$("$CC_BIN" -dumpfullversion 2>/dev/null || true)"
+    gcov_version="$({ "$GCOV_BIN" --version 2>/dev/null || true; } | sed -n '1s/.* \([0-9][0-9.]*\)$/\1/p')"
+    [ -n "$compiler_version" ] && [ "$compiler_version" = "$gcov_version" ] || {
+        echo "ERROR: --coverage needs gcc and its own gcov (GCOV overrides it); $CC_BIN is ${compiler_version:-not gcc}, $GCOV_BIN ${gcov_version:-missing or unreadable}." >&2
+        exit 1
+    }
+fi
 mkdir -p "$BUILD_DIR"
 
 JDK_HOME="$(resolve_jdk_home)"
@@ -70,10 +101,21 @@ rm -rf "$OBJECT_DIR"
 mkdir -p "$OBJECT_DIR"
 printf '"%s"\n' "${COMPILE_FLAGS[@]}" >"$BUILD_DIR/compile.rsp"
 
+# A coverage build counts only the files the report reads, so the rest of the core,
+# where the long computations run, keeps its speed.
 compile_unit() {
-    "$CC_BIN" "@$BUILD_DIR/compile.rsp" -c "$1" -o "$OBJECT_DIR/$(printf '%s' "$1" | tr '/' '_').o"
+    local counters=""
+    case "$1" in
+        */c47/keyboard.c | */c47/bufferize.c | */c47/ui/tam.c | */c47/c47Extensions/keyboardTweak.c | "$TRACKED_CPP_DIR"/r47zen/*.c)
+            counters="$COVERAGE_FLAG"
+            ;;
+    esac
+    # shellcheck disable=SC2086 # empty, or the one coverage flag
+    "$CC_BIN" "@$BUILD_DIR/compile.rsp" $counters -c "$1" -o "$OBJECT_DIR/$(printf '%s' "$1" | tr '/' '_').o"
 }
-export CC_BIN BUILD_DIR OBJECT_DIR
+COVERAGE_FLAG=""
+[ "$COVERAGE" = false ] || COVERAGE_FLAG="--coverage"
+export CC_BIN BUILD_DIR OBJECT_DIR COVERAGE_FLAG TRACKED_CPP_DIR
 export -f compile_unit
 printf '%s\0' \
     "$SCRIPT_DIR/calculator_thread_harness.c" \
@@ -158,7 +200,7 @@ if ! routes="$(core_reach "$REACH_DIR/glue" "$REACH_DIR/core")"; then
     exit 1
 fi
 
-"$CC_BIN" -pthread -fsanitize=address,undefined \
+"$CC_BIN" "${COVERAGE_FLAGS[@]}" -pthread -fsanitize=address,undefined \
     -Wl,--wrap=exit \
     -Wl,--wrap=remove \
     -Wl,--wrap=r47_upcall_play_tone \
@@ -180,3 +222,33 @@ ASAN_OPTIONS="abort_on_error=1:halt_on_error=1:detect_leaks=0" \
     UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1" \
     R47_STATE_FIXTURES="$SCRIPT_DIR/fixtures" \
     "$BUILD_DIR/calculator-thread-harness" "$BUILD_DIR/run" "$PROJECT_ROOT/res/PROGRAMS"
+
+[ "$COVERAGE" = true ] || exit 0
+
+# Lines each file ran, as "<percent> <lines> <path>". An object's name is its source
+# path with / as _, so each .gcda names its file.
+shopt -s nullglob
+counts=("$OBJECT_DIR"/*.gcda)
+shopt -u nullglob
+[ "${#counts[@]}" -gt 0 ] || {
+    echo "ERROR: the cases wrote no gcov counters under $OBJECT_DIR." >&2
+    exit 1
+}
+measured="$(cd "$OBJECT_DIR" && for data in "${counts[@]}"; do "$GCOV_BIN" -n "$data" 2>/dev/null || true; done |
+    awk '/^File / { file = substr($2, 2, length($2) - 2) }
+         /^Lines executed:/ && file != "" { split($2, a, ":"); sub("%", "", a[2]); print a[2], $4, file; file = "" }')"
+[ -n "$measured" ] || {
+    echo "ERROR: $GCOV_BIN reported no file under $OBJECT_DIR." >&2
+    exit 1
+}
+report="$BUILD_DIR/coverage.txt"
+{
+    echo "Upstream's key path, which upstream's suite never presses a key into: percent of lines run, lines"
+    awk -v p="$STAGED_CPP_DIR/c47/" 'index($3, p) == 1 && $3 ~ /\.c$/ { $3 = "src/c47/" substr($3, length(p) + 1); print }' <<<"$measured" |
+        LC_ALL=C sort -k3
+    echo
+    echo "Glue (android/app/src/main/cpp/r47zen): percent of lines run, lines"
+    awk -v p="$TRACKED_CPP_DIR/r47zen/" 'index($3, p) == 1 && $3 ~ /\.c$/ { $3 = "r47zen/" substr($3, length(p) + 1); print }' <<<"$measured" |
+        LC_ALL=C sort -k3
+} >"$report"
+cat "$report"

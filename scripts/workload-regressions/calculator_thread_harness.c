@@ -193,6 +193,7 @@ typedef struct {
   int lastError;
   bool solving;
   char aim[64];
+  int menu;
 } state_t;
 
 static void registerText(calcRegister_t r, char *out, size_t size) {
@@ -222,6 +223,7 @@ static void readStateAtRest(void *arg) {
   s->lastError = lastErrorCode;
   s->solving = getSystemFlag(FLAG_SOLVING);
   snprintf(s->aim, sizeof(s->aim), "%.60s", aimBuffer);
+  s->menu = currentMenu();
 }
 
 // Blocks until the calculator is at rest again, so it is also the wait for "done".
@@ -488,6 +490,89 @@ static void caseToneTakesItsTime(void) {
   const int afterStop = atomic_load(&toneCount);
   sleepMs(600);
   CHECK(atomic_load(&toneCount) == afterStop, "tones kept coming after the stop");
+}
+
+// Upstream's suite calls functions and never presses a key, so btnPressed and
+// btnReleased, TAM, AIM, and the shifts have no oracle there. Each sequence runs from a
+// reset calculator through the key buffer, and what it expects is written from the R47
+// key table (assign.c, kbd_std_R47f_g: key code n is its n-th row, and off DMCP
+// convertKeyCode passes codes through) and what the calculator does, not read from a
+// run: typed digits with no point make a long integer, which the clipboard copies with
+// no point; the clipboard copies a real reduced, 2000 as 2E+3; a reset leaves an
+// 8-level stack of real zeros.
+enum {
+  K_SQUARE = 1, K_ROOT = 2, K_LOG = 5, K_STO = 7, K_RCL = 8, K_RDOWN = 9, K_G = 12,
+  K_ENTER = 13, K_SWAP = 14, K_CHS = 15, K_E = 16, K_BACKSPACE = 17, K_XEQ = 18,
+  K_SEVEN = 19, K_UP = 23, K_FOUR = 24, K_FIVE = 25, K_TWO = 30, K_THREE = 31, K_DOT = 35
+};
+
+// A menu of -1 is not checked; MENU_AT_RESET is the one a reset leaves.
+#define MENU_AT_RESET 1
+
+typedef struct {
+  const char *name;
+  int keys[16]; // DMCP key codes, ended by 0
+  int calcMode;
+  const char *x;   // X as the clipboard copies it, or NULL
+  const char *y;   // Y, or NULL
+  const char *aim; // aimBuffer, or NULL
+  int menu;
+} keyReplay_t;
+
+static const keyReplay_t keyReplays[] = {
+    {"digits, ENTER, and +", {KEY_ONE, K_TWO, K_ENTER, K_THREE, KEY_PLUS}, CM_NORMAL, "15", NULL, NULL, -1},
+    {"a decimal point", {KEY_ONE, K_TWO, K_DOT, K_FIVE, K_ENTER}, CM_NORMAL, "12.5", NULL, NULL, -1},
+    {"CHS during entry", {K_FIVE, K_CHS}, CM_NIM, NULL, NULL, "-5", -1},
+    {"an exponent during entry", {K_TWO, K_E, K_THREE, K_ENTER}, CM_NORMAL, "2E+3", NULL, NULL, -1},
+    {"backspace during entry", {KEY_ONE, K_TWO, K_THREE, K_BACKSPACE}, CM_NIM, NULL, NULL, "+12", -1},
+    {"f LOG is 10 to the x", {K_TWO, KEY_F, K_LOG}, CM_NORMAL, "100", NULL, NULL, -1},
+    {"x exchange y", {KEY_ONE, K_ENTER, K_TWO, K_SWAP}, CM_NORMAL, "1", "2", NULL, -1},
+    {"STO and RCL take a register", {K_SEVEN, K_STO, KEY_ZERO, K_FIVE, K_THREE, K_RCL, KEY_ZERO, K_FIVE, KEY_PLUS},
+     CM_NORMAL, "10", NULL, NULL, -1},
+    // TAM leaves calcMode alone. With STO's first register digit typed, EXIT must
+    // cancel it for the 5 to start a number; without STO, 0 would join the 7.
+    {"EXIT cancels STO", {K_SEVEN, K_STO, KEY_ZERO, KEY_EXIT, K_FIVE}, CM_NIM, NULL, "7", "+5", -1},
+    // R-up brings level 8's zero down and lifts the 4; plain R-down would leave Y 0.
+    {"g R-down is R-up", {K_FOUR, K_G, K_RDOWN}, CM_NORMAL, "0.", "4", NULL, -1},
+    {"f XEQ enters AIM and types letters", {KEY_F, K_XEQ, K_SQUARE, K_ROOT}, CM_AIM, NULL, NULL, "AB", -1},
+    {"ENTER leaves AIM with the string in X", {KEY_F, K_XEQ, K_SQUARE, K_ROOT, K_ENTER}, CM_NORMAL, "AB", NULL,
+     NULL, -1},
+    {"NUM lock in AIM types digits", {KEY_F, K_XEQ, KEY_F, K_UP, K_SEVEN}, CM_AIM, NULL, NULL, "7", -1},
+    {"f + opens the catalog", {KEY_F, KEY_PLUS}, CM_NORMAL, NULL, NULL, NULL, -MNU_CATALOG},
+    // Holds only with the row before it, which shows f + opened the catalog.
+    {"EXIT closes the catalog", {KEY_F, KEY_PLUS, KEY_EXIT}, CM_NORMAL, NULL, NULL, NULL, MENU_AT_RESET},
+    {"f R/S enters program entry", {KEY_F, KEY_RS}, CM_PEM, NULL, NULL, NULL, -1},
+    // Holds only with the row before it, which shows f R/S entered program entry.
+    {"EXIT leaves program entry", {KEY_F, KEY_RS, KEY_EXIT}, CM_NORMAL, NULL, NULL, NULL, -1},
+};
+
+static void resetAtRest(void *arg) {
+  (void)arg;
+  fnReset(CONFIRMED);
+}
+
+static void caseKeySequencesGiveWhatTheKeysSay(void) {
+  startCalculator();
+  for (size_t i = 0; i < sizeof(keyReplays) / sizeof(keyReplays[0]); i++) {
+    const keyReplay_t *replay = &keyReplays[i];
+    r47_run_at_rest(resetAtRest, NULL);
+    const int menuAtReset = readState().menu;
+    for (const int *key = replay->keys; *key != 0; key++) {
+      tap(*key);
+    }
+    state_t s = readState();
+    const int menu = replay->menu == MENU_AT_RESET ? menuAtReset : replay->menu;
+    CHECK(s.calcMode == replay->calcMode, "%s: calcMode %d, expected %d", replay->name, s.calcMode,
+          replay->calcMode);
+    CHECK(replay->x == NULL || strcmp(s.x, replay->x) == 0, "%s: X=%s, expected %s", replay->name,
+          s.x, replay->x);
+    CHECK(replay->y == NULL || strcmp(s.y, replay->y) == 0, "%s: Y=%s, expected %s", replay->name,
+          s.y, replay->y);
+    CHECK(replay->aim == NULL || strcmp(s.aim, replay->aim) == 0, "%s: aim=%s, expected %s",
+          replay->name, s.aim, replay->aim);
+    CHECK(replay->menu == -1 || s.menu == menu, "%s: menu %d, expected %d", replay->name, s.menu,
+          menu);
+  }
 }
 
 static void caseCancelTakesBackAKey(void) {
@@ -1579,6 +1664,7 @@ static const testCase_t cases[] = {
     {"a core call off its thread aborts", caseACoreCallOffItsThreadAborts},
     {"key goes through the buffer", caseKeyGoesThroughTheBuffer},
     {"keys keep their order", caseKeysKeepTheirOrder},
+    {"key sequences give what the keys say", caseKeySequencesGiveWhatTheKeysSay},
     {"a service runs behind earlier keys", caseServiceRunsBehindEarlierKeys},
     {"FACTORS gives the right factors", caseFactorsAreRight},
     {"digit during a computation does nothing",
@@ -1651,8 +1737,14 @@ static const testCase_t cases[] = {
     {"a refused keypad mode is asked for again", caseRefusedKeypadModeIsAskedForAgain},
 };
 
+// A coverage build has gcov's counters; _exit would skip the handler that writes them.
+extern void __gcov_dump(void) __attribute__((weak));
+
 static int finishCase(void) {
   fflush(NULL);
+  if (__gcov_dump != NULL) {
+    __gcov_dump();
+  }
   _exit(failures == 0 ? CASE_PASSED : 1);
 }
 

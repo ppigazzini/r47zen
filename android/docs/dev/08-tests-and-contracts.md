@@ -903,6 +903,23 @@ Android compatibility layer.
   in `hal/` that no object refers to, apart from the three the script names with the
   build that uses each, and it proves that check on a seed. It runs in the `host-workload-regressions` lane of `linux-ci.yml`. It proves
   nothing about ART, bionic, or arm64.
+- Its "key sequences give what the keys say" case holds a table of key sequences,
+  each run through the key buffer from a reset calculator, to results written from
+  the R47 key table (`kbd_std_R47f_g`) and what the calculator does, not read from
+  a run: number entry, CHS, an exponent, backspace, both shifts, STO and RCL with a
+  register, EXIT out of TAM, AIM letters and NUM lock, the catalog, and program
+  entry. Each asserts X, Y, `calcMode`, `aimBuffer`, or the menu. Upstream's suite
+  calls functions and presses no key, so it holds none of `btnPressed`,
+  `btnReleased`, TAM, AIM, or the shifts. An early return seeded into
+  `btnReleased` fails this case and many others.
+- `build_calculator_thread_harness.sh --coverage` builds the same harness with
+  gcov's counters and runs every case, and writes `coverage.txt`: the share of
+  lines the cases run in each file of upstream's key path (`keyboard.c`, `tam.c`,
+  `bufferize.c`, `keyboardTweak.c`) and in each glue file. Its numbers fail
+  nothing, since an upstream commit alone moves them. It counts only in those
+  files, so the long computations elsewhere in the core keep their speed, and it
+  needs gcc and the gcov of the same version (`GCOV` names another), which it
+  checks before it builds. The lane runs the harness this way.
 - `scripts/workload-regressions/run_workload_regressions.sh` builds the staged
   core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then runs the
   canonical host workload set: the imported `.p47` fixtures `BinetV4.p47`,
