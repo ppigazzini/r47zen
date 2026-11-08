@@ -466,7 +466,13 @@ Internal helpers:
 - `scripts/keypad-fixtures/export_upstream_keypad_fixtures.sh` owns the grouped
   keypad-fixture exporter implementation; it compiles
   `scripts/keypad-fixtures/keypad_fixture_exporter.c` with the glue and the
-  staged core and runs it.
+  staged core, one object per source in parallel, and runs it. It writes the
+  tracked test resources, or `--output-dir`.
+  `scripts/keypad-fixtures/report_keypad_fixture_drift.sh` exports to
+  `android/build/keypad-fixtures-export` and reports what differs from the
+  tracked scenes; it fails on a failed export, a scene it cannot read, or drift
+  with no upstream move. The exporter refuses an upstream commit that is not the
+  staged core's.
 - `scripts/android/run_connected_android_tests.sh` owns the grouped hosted
   emulator instrumentation wrapper. It runs each non-fixture Android test class
   as a selection of its own and the whole `ProgramFixtureInstrumentedTest`

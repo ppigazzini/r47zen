@@ -395,6 +395,17 @@ It:
 - builds the dev-prerelease APK unsigned: the job holds no prerelease signing
   input, so AGP writes `app-release-unsigned.apk`, and the job fails if it
   reports anything else
+- after the APK and PGO uploads, runs
+  `scripts/keypad-fixtures/report_keypad_fixture_drift.sh`: it exports the
+  keypad scenes of the core it built and lists in the log and the step summary
+  what differs from the tracked fixtures the JVM tests read, up to 12 changes a
+  scene, with a warning that counts the scenes. The tracked scenes name one
+  upstream commit and this repo tracks HEAD, so drift after an upstream move
+  passes. A failed export, a scene it cannot read, drift with no upstream move,
+  or 10 minutes marks the step failed and leaves the job alone, so it stops no
+  dev prerelease; upstream moves most days, so the third holds only until
+  upstream next moves after a re-export. The build-log artifact carries the
+  exporter's log
 - uploads the build log, the host-core PGO artifact, and the unsigned APK as
   `r47zen-<upstream short>-<android short>-unsigned` for `sign-dev-prerelease`
 

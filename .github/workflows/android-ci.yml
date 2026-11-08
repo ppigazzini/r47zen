@@ -771,15 +771,6 @@ jobs:
             ~/.gradle/wrapper
           key: ${{ steps.gradle-cache.outputs.cache-primary-key }}
 
-      - name: Upload Android build log
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ steps.meta.outputs.artifact_name }}-build-log
-          path: ci-artifacts/logs/build-android.log
-          if-no-files-found: warn
-          retention-days: 14
-
       - name: Stage the unsigned dev prerelease APK for signing
         shell: bash
         run: |
@@ -818,6 +809,45 @@ jobs:
           path: |
             ci-artifacts/pgo/
             ci-artifacts/logs/build-android.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      # The JVM tests read keypad scenes exported at one upstream commit. Export
+      # the scenes of the core this job built and report what moved. Drift from an
+      # upstream move passes; drift with no upstream move, a failed export, or a
+      # scene it cannot read marks the step failed, and the job goes on: a new gate
+      # on what a push to main publishes is the maintainer's to add.
+      - name: Report keypad fixture drift
+        continue-on-error: true
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status=0
+          report="$(bash scripts/keypad-fixtures/report_keypad_fixture_drift.sh)" || status=$?
+          cp android/build/keypad-fixtures-export.log ci-artifacts/logs/ 2>/dev/null || true
+          printf '%s\n' "$report"
+          if grep -q '^DRIFT ' <<<"$report"; then
+            echo "::warning title=Keypad fixture drift::$(sed -n 's/^SUMMARY: \([^:]*\):.*/\1/p' <<<"$report")"
+          fi
+          {
+            echo "## Keypad fixtures"
+            echo
+            echo '````'
+            printf '%s\n' "$report"
+            echo '````'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload Android build log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-build-log
+          path: |
+            ci-artifacts/logs/build-android.log
+            ci-artifacts/logs/keypad-fixtures-export.log
           if-no-files-found: warn
           retention-days: 14
 
