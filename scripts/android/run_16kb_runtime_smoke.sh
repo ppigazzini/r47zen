@@ -145,6 +145,7 @@ main() {
         :app:connectedDebugAndroidTest \
         --no-daemon --stacktrace --console=plain \
         "-Pr47.abiFilters=$abi_filters" \
+        -Pr47.includeProgramLoadTestBridge=true \
         "-Pandroid.testInstrumentationRunnerArguments.class=$test_class"
 
     # A class#method filter whose method was renamed runs nothing and still

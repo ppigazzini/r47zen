@@ -675,7 +675,10 @@ Each instrumentation source and what it covers:
   check cannot pass on a window without bars
 - `scripts/android/run_16kb_runtime_smoke.sh`: asserts that a connected device
   or emulator reports `16384`-byte pages before it runs the focused activity
-  recreation lifecycle probe on the live Android runtime
+  recreation lifecycle probe on the live Android runtime, with the test bridge
+  the probe needs. android-ci's nightly, and a dispatch with `sixteen_kb_smoke`,
+  run it on the `google_apis_ps16k` image at
+  `R47_DEFAULT_ANDROID_16KB_TEST_API_LEVEL`, the newest with 16 KB pages
 - `TestAssets.kt` is a helper: it reads the `PROGRAMS` fixtures through the
   instrumentation context, the test APK, which holds them; the app under test
   carries none

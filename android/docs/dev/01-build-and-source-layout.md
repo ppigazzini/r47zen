@@ -667,8 +667,10 @@ section records only the build-layout details that live here.
   `msys2 {0}` default only after MSYS2 is installed.
 
 The CI lane verifies packaged ABIs and 16 KB alignment. Runtime execution on a
-real 16 KB target stays a local maintainer lane through
-`scripts/android/run_16kb_runtime_smoke.sh`. This is not a store-release lane.
+16 KB target runs `scripts/android/run_16kb_runtime_smoke.sh`: android-ci's
+nightly, and a dispatch with `sixteen_kb_smoke`, run it on the `x86_64`
+`google_apis_ps16k` image at `R47_DEFAULT_ANDROID_16KB_TEST_API_LEVEL`, and a
+maintainer can run it on a connected 16 KB device. This is not a store-release lane.
 
 Store-release signing lives in the separate protected workflow
 `.github/workflows/android-release.yml`, which is manual-dispatch only. Its

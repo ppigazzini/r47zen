@@ -11,6 +11,11 @@ on:
         description: GitLab commit to build (full 40 characters; blank = upstream's latest)
         required: false
         type: string
+      sixteen_kb_smoke:
+        description: Also run the 16 KB page-size smoke, as the nightly does
+        required: false
+        type: boolean
+        default: false
   push:
     branches:
       - github_ci
@@ -1098,6 +1103,7 @@ jobs:
           echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "android_test_api_level=$R47_DEFAULT_ANDROID_TEST_API_LEVEL" >> "$GITHUB_OUTPUT"
+          echo "android_16kb_test_api_level=$R47_DEFAULT_ANDROID_16KB_TEST_API_LEVEL" >> "$GITHUB_OUTPUT"
           echo "android_test_abi_filters=$R47_DEFAULT_ANDROID_TEST_ABI_FILTERS" >> "$GITHUB_OUTPUT"
 
       - name: Detect runner build concurrency
@@ -1350,6 +1356,24 @@ jobs:
           working-directory: ./android
           script: >-
             bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh
+
+      - name: Run the 16 KB page-size smoke on emulator
+        # The nightly, and a dispatch that asks for it: the smoke checks the device
+        # reports 16 KB pages, then runs one recreation probe on it, which the
+        # library's 16 KB alignment has to survive. Not on a push or pull request.
+        if: github.event_name == 'schedule' || inputs.sixteen_kb_smoke
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ steps.defaults.outputs.android_16kb_test_api_level }}
+          target: google_apis_ps16k
+          arch: x86_64
+          profile: pixel_7
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          working-directory: ./android
+          script: >-
+            bash --noprofile --norc ../scripts/android/run_16kb_runtime_smoke.sh
 
       # Save on a miss after the last Gradle step, and only when every earlier
       # step passed (the implicit success()), so a failed resolution stores no

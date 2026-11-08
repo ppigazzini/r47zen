@@ -789,8 +789,9 @@ carries no alignment proof of its own, and a toolchain change that breaks either
 reaches Play unseen. The `android-tests` lane uses
 the temporary multi-ABI override only for hosted `x86_64` emulator execution.
 
-Local runtime proof for the same contract lives in
-`scripts/android/run_16kb_runtime_smoke.sh`. That script checks the connected
+Runtime proof for the same contract lives in
+`scripts/android/run_16kb_runtime_smoke.sh`, which android-ci's nightly runs on a
+16 KB `x86_64` emulator image. That script checks the connected
 device or emulator page size through `adb shell getconf`, requires
 `16384`-byte pages, and then runs only
 `DisplayLifecycleInstrumentedTest#activityRecreationPreservesSpiralkGraphSnapshot`.

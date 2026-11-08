@@ -542,6 +542,10 @@ It:
   class and once for the full `ProgramFixtureInstrumentedTest` class with the
   temporary ABI override from `r47.abiFilters`, that throwaway key, and
   configuration cache enabled
+- on a nightly that builds, and on a dispatch with `sixteen_kb_smoke`, boots a
+  `google_apis_ps16k` image at `R47_DEFAULT_ANDROID_16KB_TEST_API_LEVEL` and runs
+  `scripts/android/run_16kb_runtime_smoke.sh`, which needs 16 KB pages and runs one
+  recreation probe; a push or pull request does not run it
 - uploads logs plus JVM, instrumentation, and Kover coverage
   (`android/app/build/reports/kover`) reports in the Android test artifact
   bundle `r47zen-tests-<upstream short>-<android short>`
