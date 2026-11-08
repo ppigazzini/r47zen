@@ -535,10 +535,15 @@ jobs:
 
           # Run upstream's main loop on a thread of its own, as the app does, under
           # AddressSanitizer: keys during a computation, EXIT and R/S, cancel, OFF,
-          # and saves. Reuses the staged native inputs. No emulator.
+          # saves, and key sequences through upstream's key path. Built with gcov's
+          # counters in the key path and the glue, so it also reports the lines its
+          # cases run (calculator-thread-harness-coverage.txt in the artifact).
+          # Reuses the staged native inputs. No emulator.
           mkdir -p ci-artifacts/logs
-          bash ./scripts/workload-regressions/build_calculator_thread_harness.sh 2>&1 \
+          bash ./scripts/workload-regressions/build_calculator_thread_harness.sh --coverage 2>&1 \
             | tee ci-artifacts/logs/calculator-thread-harness.log
+          cp android/build/calculator-thread-harness-coverage/coverage.txt \
+            ci-artifacts/logs/calculator-thread-harness-coverage.txt
 
       - name: Hold the HAL copy and the core's language flags against the synced core
         shell: bash
@@ -587,6 +592,8 @@ jobs:
             ci-artifacts/logs/graph-crash-harness.log
             ci-artifacts/logs/keypad-generation-contract.log
             ci-artifacts/logs/hal-io-contract.log
+            ci-artifacts/logs/calculator-thread-harness.log
+            ci-artifacts/logs/calculator-thread-harness-coverage.txt
           if-no-files-found: warn
           retention-days: 14
 
