@@ -228,17 +228,20 @@ What each rule rests on:
 - **A host that attaches to a live runtime receives the whole frame.** Its
   raster decodes the first frame it receives whole, flagged or not, because the
   previous host may have taken the flags; nothing native runs for it on
-  reattach. `PackedLcdRasterTest.firstFrame_decodesEveryRow_evenWithNoRowFlagged`
-  and `ReplicaOverlayGoldenTest.packedLcd_firstFrame_isDecodedWhole_andInvalidatesTheWholeLcd`
-  lock it. `DisplayLifecycleInstrumentedTest` hashes native state, not the
-  overlay, so no device test checks a recreated overlay's pixels.
+  reattach.
+  `PackedLcdRasterTest.firstFrame_decodesEveryRow_evenWithNoRowFlagged` holds it
+  for a frame that flags no row, and `ReplicaOverlayLcdOrderTest` for one that
+  flags none, one, or every row. `DisplayLifecycleInstrumentedTest` hashes
+  native state, not the overlay, so no device test checks a recreated overlay's
+  pixels.
 - **The bitmap shows the frame in the palette, by construction.**
   `PackedLcdRaster` owns the frame, the palette, and the bitmap, offers no other
   write path, decodes only from its frame, and decodes the blank frame in its
   constructor, so the bitmap is never `createBitmap`'s transparent fill.
   `setPalette` repaints every row, with no equality guard.
-  `PackedLcdRasterTest` locks each path, and `mutation_spot_check.sh` carries
-  two raster mutants.
+  `PackedLcdRasterTest` and `ReplicaOverlayLcdOrderTest` hold each path, and
+  `mutation_spot_check.sh` carries four raster mutants, two of which only the
+  order test catches.
 - **The palette has one source, and one writer before the first draw.** The
   `LcdTheme` entries in `LcdThemePolicy.kt` hold every base color, in one
   notation; `test_lcd_palette_owner_contract.py` fails on a copy of one in any

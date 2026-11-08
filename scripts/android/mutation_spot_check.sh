@@ -36,6 +36,7 @@ GESTURE_TEST="io.github.ppigazzini.r47zen.GraphGestureAccumulatorTest"
 GESTURE_PROPERTY_TEST="io.github.ppigazzini.r47zen.GraphGestureAccumulatorPropertyTest"
 DECODER_PROPERTY_TEST="io.github.ppigazzini.r47zen.KeypadSnapshotDecoderPropertyTest"
 RASTER_TEST="io.github.ppigazzini.r47zen.PackedLcdRasterTest"
+LCD_ORDER_TEST="io.github.ppigazzini.r47zen.ReplicaOverlayLcdOrderTest"
 
 # Parallel mutation records: file, exact unique old text, mutated text, the test
 # class that must catch it, and a human description.
@@ -55,6 +56,8 @@ MUT_FILES=(
     "$DECODER_FILE"
     "$RASTER_FILE"
     "$RASTER_FILE"
+    "$RASTER_FILE"
+    "$RASTER_FILE"
 )
 MUT_OLD=(
     "const val EXIT_KEY_CODE = 33"
@@ -72,6 +75,8 @@ MUT_OLD=(
     "return keyStates[code - 1]"
     "val wholeFrame = !hasNativeFrame"
     "linePixels[destX + bit] = if ((packedByte and (1 shl (7 - bit))) != 0) {"
+    "val wholeFrame = !hasNativeFrame"
+    "this.palette = palette"
 )
 MUT_NEW=(
     "const val EXIT_KEY_CODE = 34"
@@ -89,6 +94,8 @@ MUT_NEW=(
     "return KeypadKeySnapshot.EMPTY"
     "val wholeFrame = false"
     "linePixels[destX + bit] = if ((packedByte and (1 shl bit)) != 0) {"
+    "val wholeFrame = !hasNativeFrame && (0 until R47LcdContract.PIXEL_HEIGHT).none { (buffer[it * R47LcdContract.PACKED_ROW_SIZE_BYTES].toInt() and 0xFF) != 0 }"
+    "this.palette = palette; hasNativeFrame = true"
 )
 MUT_TESTS=(
     "$POLICY_TEST"
@@ -106,6 +113,8 @@ MUT_TESTS=(
     "$DECODER_PROPERTY_TEST"
     "$RASTER_TEST"
     "$RASTER_TEST"
+    "$LCD_ORDER_TEST"
+    "$LCD_ORDER_TEST"
 )
 MUT_DESC=(
     "LiveProgramStopKeyPolicy: EXIT key code 33 -> 34"
@@ -123,6 +132,8 @@ MUT_DESC=(
     "KeypadSnapshot: decode every in-range key as the empty key"
     "PackedLcdRaster: decode only flagged rows of a host's first frame"
     "PackedLcdRaster: read each pixel byte least significant bit first"
+    "PackedLcdRaster: decode a host's first frame whole only when it flags no row"
+    "PackedLcdRaster: a palette change marks a frame received"
 )
 
 fail() {

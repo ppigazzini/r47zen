@@ -56,7 +56,7 @@ flowchart TD
 | Paste Number: clip text to tokens, the one core task, every refusal, and tokens to stack values against the live core | `PasteNumber.kt`, `DisplayActionController.kt`, `android/app/src/main/cpp/r47zen/jni_input.c` | `PasteNumberTest.kt`, `DisplayActionControllerTest.kt`, `scripts/workload-regressions/clipboard_overflow_harness.c` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.PasteNumberTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest`; `bash ./scripts/workload-regressions/build_clipboard_overflow_harness.sh` |
 | keypad haptic gate, Android-default toggle versus custom `0..100 ms` override, and press-only keypad cadence | `HapticFeedbackController.kt`, `ReplicaKeypadLayout.kt`, `MainActivity.kt`, `SettingsActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml` | `HapticFeedbackControllerTest.kt`, `ReplicaKeypadLayoutHapticsTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest --tests io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
 | beeper volume normalization and audio settings dispatch | `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `MainActivityPreferenceControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest` |
-| LCD display theme normalization, inverse polarity, palette contrast, palette ownership, and the LCD raster | `LcdThemePolicy.kt`, `PackedLcdRaster.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `PackedLcdRasterTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `scripts/r47_contracts/test_lcd_palette_owner_contract.py` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.PackedLcdRasterTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest`, then the grouped `scripts/r47_contracts` lane |
+| LCD display theme normalization, inverse polarity, palette contrast, palette ownership, and the LCD raster | `LcdThemePolicy.kt`, `PackedLcdRaster.kt`, `ReplicaOverlay.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `PackedLcdRasterTest.kt`, `ReplicaOverlayLcdOrderTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `scripts/r47_contracts/test_lcd_palette_owner_contract.py` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.PackedLcdRasterTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayLcdOrderTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest`, then the grouped `scripts/r47_contracts` lane |
 | system-bar and cutout insets on every screen, fixed shell-menu copy, orange-blue touch-target placement, copy-popup shape, first-touch discovery-hint dismissal, and any retained discovery-hint surfaces | `MainActivity.kt`, `DisplayActionController.kt`, `WindowModeController.kt`, `SystemBarInsets.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/strings.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `MainShellThemeTest.kt`, `ReplicaOverlayVisualPolicyTest.kt`, `SystemBarInsetsTest.kt`, `WindowModeControllerTest.kt`, `SystemBarInsetsInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest --tests io.github.ppigazzini.r47zen.SystemBarInsetsTest --tests io.github.ppigazzini.r47zen.WindowModeControllerTest`, then the `SystemBarInsetsInstrumentedTest` connected selection |
 | SAF picker, startup work-directory routing, document transfer, work-directory tree persistence, and the saved manual's grant | `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`, `NativeFileRequestGate.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `SavedManual.kt`, `FactoryResetController.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `DocumentTransferTest.kt`, `NativeFileRequestGateTest.kt`, `WorkDirectoryTest.kt`, `SavedManualTest.kt`, `FactoryResetControllerTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt`, `scripts/android/run_hal_io_contract.sh` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `stageProgramFixtureAssets` (androidTest assets only), `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
@@ -391,10 +391,23 @@ source is missing from this page:
   softkey renderer owner
 - `PackedLcdRasterTest.kt`: locks the LCD raster pixel-for-pixel against
   expected pixels built from the coordinates each test lit, never from a second
-  row decoder: a new raster paints every pixel the background for every theme,
-  polarity, and luminance bound; a host's first frame decodes every row,
-  flagged or not; a later frame decodes only its flagged rows; and a palette
-  change, even to the same palette, repaints the held frame
+  row decoder: a new raster paints every pixel the background for each theme and
+  polarity at the minimum, default, and maximum luminance; a host's first frame
+  decodes every row, flagged or not; a later frame decodes only its flagged
+  rows; and a palette change, even to the same palette, repaints the held frame
+- `ReplicaOverlayLcdOrderTest.kt`: the same oracle through the overlay, with the
+  frames and expected pixels of `LcdTestFrames.kt`, for each theme and polarity
+  at the minimum, default, and maximum luminance, in each order the app reaches
+  once laid out: before any frame, the palette before the first frame of an
+  activity recreated onto a running calculator (no row flagged, one, or all),
+  and palette changes after a first frame, then a later frame that flags one
+  row; and a frame before the palette, which a reordered start would reach.
+  After each step it checks, the raster must show the frame in the palette, and
+  a step that repaints it whole must request a redraw of the whole LCD window,
+  which the test sees by swapping `ReplicaOverlay.requestLcdRedraw`.
+  `mutation_spot_check.sh` holds it to two raster mutants `PackedLcdRasterTest`
+  passes: a first frame decoded whole only when it flags no row, and a palette
+  change that marks a frame received
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable. The
   LCD raster's composition into the frame is locked by a structural color
   oracle (`nativeChrome_compositesLcdRasterColors`), and a fresh overlay
@@ -874,7 +887,8 @@ Android compatibility layer.
   and asserts each is killed by the matching JVM test
   (`LiveProgramStopKeyPolicyTest`, `LiveKeyRouterTest`,
   `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
-  `GraphGestureAccumulatorTest`, `PackedLcdRasterTest`). A surviving mutant marks an assertion gap and
+  `GraphGestureAccumulatorTest`, `PackedLcdRasterTest`,
+  `ReplicaOverlayLcdOrderTest`). A surviving mutant marks an assertion gap and
   fails the run. The `android-tests` job in `android-ci.yml` runs it on every
   event, so the push that weakens a seam test is the run that fails; run it
   locally after changing one of those seams or its tests. The mutant list is

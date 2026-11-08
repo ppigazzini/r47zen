@@ -131,6 +131,12 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val lcdRect = Rect(0, 0, R47LcdContract.PIXEL_WIDTH, R47LcdContract.PIXEL_HEIGHT)
     private val lcdDestRect = RectF()
     private val dirtyRect = Rect()
+
+    // The redraw request for a changed LCD span. A test swaps it to see each request,
+    // which a view outside a window would otherwise drop.
+    internal var requestLcdRedraw: (Rect) -> Unit = { rect ->
+        postInvalidateOnAnimation(rect.left, rect.top, rect.right, rect.bottom)
+    }
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val shellRect = RectF()
     private val zonePaint = Paint().apply {
@@ -478,7 +484,7 @@ class ReplicaOverlay @JvmOverloads constructor(
             right.toInt(),
             ceil(guardedBottom).toInt(),
         )
-        postInvalidateOnAnimation(dirtyRect.left, dirtyRect.top, dirtyRect.right, dirtyRect.bottom)
+        requestLcdRedraw(dirtyRect)
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
