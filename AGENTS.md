@@ -111,8 +111,10 @@ breaks on Windows without Developer Mode.
 ## The short version of the workflow
 
 ```bash
-# hydrate or refresh the authoritative upstream core
-bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock
+# hydrate the authoritative upstream core at upstream HEAD, or refresh it to a
+# newer HEAD. --write-lock pins the synced commit in upstream.lock, which every
+# --auto resolve, the build's included, then follows; --latest moves it.
+bash ./scripts/upstream-sync/upstream.sh sync --latest --write-lock
 
 # the canonical Android debug build (stages native inputs, then Gradle)
 ./scripts/android/build_android.sh

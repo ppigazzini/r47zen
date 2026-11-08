@@ -302,11 +302,15 @@ Root surfaces that never justify an Android ownership claim:
 
 Public maintainer entrypoints:
 
-- `./scripts/upstream-sync/upstream.sh sync --auto --write-lock` is the
-  authoritative upstream hydration entry point. It
-  reads Git-tracked defaults from `upstream.source`, uses a Git-ignored local
-  `upstream.lock` only when it contains `upstream_commit`, otherwise resolves
-  the latest commit from the configured upstream ref, and writes the resolved
+- `./scripts/upstream-sync/upstream.sh sync --latest --write-lock` is the
+  authoritative upstream hydration entry point, and running it again is how a
+  checkout moves to a newer upstream HEAD. It reads Git-tracked defaults from
+  `upstream.source` and resolves the latest commit from the configured upstream
+  ref; `--auto`, the default, which `build_android.sh` and CI use, takes an
+  `upstream_commit` in the Git-ignored local `upstream.lock` first. Because
+  `--write-lock` writes the synced commit there, a checkout synced once with
+  `--auto --write-lock` stays at that commit on every later `--auto` sync and
+  build, with only a stderr note to say so. It writes the resolved
   upstream tree into the working tree. It leaves out every path in
   `REPO_OWNED_RESTORE_PATHS`, so it never writes a file this repo tracks, staged
   or not, and a tracked edit needs no `--force`; shared upstream-shaped root
@@ -623,8 +627,8 @@ shell:
 
 1. Run `./scripts/android/build_android.sh --doctor` to confirm SDK, NDK, CMake,
    font-source, and staged-input readiness.
-2. Run `./scripts/upstream-sync/upstream.sh sync --auto --write-lock` to
-  hydrate the authoritative upstream core,
+2. Run `./scripts/upstream-sync/upstream.sh sync --latest --write-lock` to
+  hydrate the authoritative upstream core at upstream HEAD,
    the upstream-shaped root build inputs, and the canonical calculator font
    tree.
 3. If `xlsxio_xlsx2csv` is not installed system-wide, export the cached pinned

@@ -39,7 +39,7 @@ contract.
 
 ## Working Tree After Hydration
 
-After `./scripts/upstream-sync/upstream.sh sync --auto --write-lock`, the
+After `./scripts/upstream-sync/upstream.sh sync --latest --write-lock`, the
 working tree also contains the upstream-shaped root inputs that the Android
 overlay consumes.
 

@@ -59,10 +59,11 @@ what is missing:
 ./scripts/android/build_android.sh --doctor
 ```
 
-Hydrate the upstream core inputs:
+Hydrate the upstream core inputs at upstream HEAD; run it again to move to a
+newer HEAD:
 
 ```sh
-./scripts/upstream-sync/upstream.sh sync --auto --write-lock
+./scripts/upstream-sync/upstream.sh sync --latest --write-lock
 ```
 
 Build the debug APK:
