@@ -17,6 +17,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
+import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.abs
 
@@ -669,7 +670,7 @@ class ReplicaOverlayGoldenTest {
             abs(Color.blue(first) - Color.blue(second))
     }
 
-    private fun hex(color: Int): String = "#%08X".format(color)
+    private fun hex(color: Int): String = "#%08X".format(Locale.ROOT, color)
 
     private fun setPackedPixel(buffer: ByteArray, x: Int, y: Int) {
         val rowOffset = y * R47LcdContract.PACKED_ROW_SIZE_BYTES
@@ -717,7 +718,7 @@ class ReplicaOverlayGoldenTest {
         }
         return MessageDigest.getInstance("SHA-256")
             .digest(pngBytes)
-            .joinToString(separator = "") { byte -> "%02x".format(byte) }
+            .joinToString(separator = "") { byte -> "%02x".format(Locale.ROOT, byte) }
     }
 
     private fun exactly(size: Int): Int {

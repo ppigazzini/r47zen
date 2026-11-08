@@ -122,7 +122,7 @@ class MainShellThemeTest {
 
     @Test
     fun mainMenuGeometry_staysRightAlignedToLcdInsideTopBezel() {
-        val activity = buildThemedActivity()
+        buildThemedActivity()
         val chromeLayout = ReplicaChromeLayout()
         val spec = chromeLayout.currentChromeSpec()
         val projection = chromeLayout.computeProjection(spec, 1080f, 2160f)

@@ -1014,12 +1014,23 @@ tasks.named('preBuild').configure {
     dependsOn tasks.named('generateSourceManifest')
 }
 
-// detekt runs its default rule set over the Kotlin sources. The baseline holds
-// the findings the code carried when detekt was adopted; any new finding fails
-// :app:detekt. scripts/android/run_detekt.sh also fails when a baseline entry
-// no longer matches a finding, so fixing one forces its removal and the
-// baseline only shrinks.
+// detekt runs its default rule set over the Kotlin sources, with type resolution
+// in :app:detektMain and :app:detektTest. Each variant's baseline,
+// detekt-baseline-<variant>.xml beside this file, holds the findings the code
+// carried when that task was adopted; any new finding fails it.
+// scripts/android/run_detekt.sh also fails when a baseline entry no longer
+// matches a finding, so fixing one forces its removal and a baseline only
+// shrinks. The plain detekt task skips every rule that needs types, so it runs
+// the two typed tasks instead of itself.
 detekt {
     buildUponDefaultConfig = true
     baseline = file('detekt-baseline.xml')
+}
+tasks.named('detekt') {
+    enabled = false
+    dependsOn 'detektMain', 'detektTest'
+}
+// Its untyped file would be the fallback baseline of any variant without one.
+tasks.named('detektBaseline') {
+    enabled = false
 }

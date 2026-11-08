@@ -323,12 +323,16 @@ needs `java.base/jdk.internal.access` exported, which `app/build.gradle` passes
 to every unit-test JVM. A targetSdk newer than the pinned Robolectric supports
 fails every Robolectric class, which is the signal to bump Robolectric with it.
 
-Beside it, `scripts/android/run_detekt.sh` runs detekt's default rule set over
-the main and test Kotlin sources. `android/app/detekt-baseline.xml` lists the
-findings the code carried when detekt was adopted; a new finding fails, and so
-does an entry no finding matches anymore. It is a static check, not a test: it
-bounds function and class size, complexity, and magic numbers in new code, and
-proves nothing about behavior.
+Beside it, `scripts/android/run_detekt.sh` runs detekt's default rule set, with
+type resolution (`:app:detektMain` and `:app:detektTest`), over the main,
+unit-test, and instrumented-test Kotlin sources. Each
+`android/app/detekt-baseline-<variant>.xml` lists the findings the code carried
+when that task was adopted, size, complexity, and style ones with a few
+exception-handling and unused-parameter ones; a new finding fails, and so does an entry no
+finding matches anymore. The plain `detekt` task skips every rule that needs
+types, so Gradle runs the two typed tasks in its place. It is a static check, not
+a test: it bounds function and class size, complexity, and magic numbers in new
+code, finds unused code, and proves nothing about behavior.
 
 Each JVM test file and what it locks; `run_docs_lint.sh` fails when a test
 source is missing from this page:

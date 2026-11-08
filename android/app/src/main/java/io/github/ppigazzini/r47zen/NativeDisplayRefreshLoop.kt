@@ -9,6 +9,8 @@ internal interface DisplayRefreshLoop {
 }
 
 internal class NativeDisplayRefreshLoop(
+    // detekt 2.0.0-alpha.6 calls this unused; frameCallback's doFrame reads it.
+    @Suppress("UnusedPrivateProperty")
     private val isAppRunning: () -> Boolean,
     private val isNativeInitialized: () -> Boolean,
     private val isPerformanceSnapshotEnabled: () -> Boolean = { true },

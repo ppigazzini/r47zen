@@ -19,20 +19,35 @@
     <ID>LongMethod:CalculatorKeyView.kt:CalculatorKeyView$private fun buildMainKeyRenderSpec: KeyRenderSpec?</ID>
     <ID>LongMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
     <ID>LongMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildSoftkeyOverlaySpec: SoftkeyOverlayAdornmentSpec</ID>
-    <ID>LongMethod:KeypadSnapshotDecoderTest.kt:KeypadSnapshotDecoderTest$@Test fun fromNativeDecodesKeyboardWideAndPerKeyMetadataLanes</ID>
-    <ID>LongMethod:MainShellThemeTest.kt:MainShellThemeTest$private fun computeHintSamplePoints: HintSamplePoints</ID>
     <ID>LongMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>
     <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
     <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$override fun dispatchDraw</ID>
     <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$private fun updateSettingsHintLayoutCache</ID>
-    <ID>LongMethod:ReplicaOverlayControllerLabelModeTest.kt:ReplicaOverlayControllerLabelModeTest$@Test fun userModeKeepsStaticPrimaryAndOverlaysTopLabels</ID>
-    <ID>LongMethod:ReplicaOverlayGoldenTest.kt:ReplicaOverlayGoldenTest$@Test fun postStartMicroPanNoiseIsIgnoredUntilMovementReaccumulates</ID>
-    <ID>LongMethod:ReplicaOverlayVisualPolicyTest.kt:ReplicaOverlayVisualPolicyTest$@Test fun settingsDiscoveryHintLayoutCache_usesContractedCardAndGlyphMetrics</ID>
     <ID>LongMethod:SettingsActivity.kt:SettingsFragment$override fun onCreatePreferences</ID>
     <ID>LongMethod:SoftkeyOverlayPainter.kt:SoftkeyOverlayPainter$fun draw</ID>
     <ID>LongMethod:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun resolvePositions: List&lt;TopLabelLaneConflict&gt;</ID>
+    <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$fun buildFittedLabelSpec: LabelSpec?</ID>
+    <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$fun buildLabelSpec: LabelSpec?</ID>
+    <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$fun configureTextPaint</ID>
+    <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$fun drawText</ID>
+    <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$fun resolveTextBounds: RectSpec?</ID>
+    <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$private fun resolveTextMetrics: ResolvedTextMetrics?</ID>
+    <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter</ID>
+    <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$fun draw</ID>
+    <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$internal fun buildRenderSpec: KeyRenderSpec</ID>
+    <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
+    <ID>LongParameterList:DisplayActionController.kt:DisplayActionController</ID>
+    <ID>LongParameterList:GraphGestureFlusher.kt:GraphGestureFlusher</ID>
+    <ID>LongParameterList:MainActivityPreferenceController.kt:MainActivityPreferenceController</ID>
+    <ID>LongParameterList:NativeCoreRuntime.kt:NativeCoreRuntime</ID>
+    <ID>LongParameterList:NativeDisplayRefreshLoop.kt:NativeDisplayRefreshLoop</ID>
+    <ID>LongParameterList:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$@SuppressLint("ClickableViewAccessibility") private fun addKey</ID>
+    <ID>LongParameterList:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$private fun addTouchZone</ID>
+    <ID>LongParameterList:ReplicaOverlay.kt:ReplicaOverlay$fun addReplicaView</ID>
+    <ID>LongParameterList:ReplicaOverlayController.kt:ReplicaOverlayController</ID>
+    <ID>LongParameterList:SettingsMenuGlyph.kt:SettingsMenuGlyph$fun drawRightAligned</ID>
+    <ID>LongParameterList:StorageAccessCoordinator.kt:StorageAccessCoordinator</ID>
     <ID>LoopWithTooManyJumpStatements:ReplicaOverlay.kt:ReplicaOverlay$for</ID>
-    <ID>LoopWithTooManyJumpStatements:SettingsActivityThemeTest.kt:SettingsActivityThemeTest$for</ID>
     <ID>LoopWithTooManyJumpStatements:TopLabelLaneLayout.kt:TopLabelLaneLayout$for</ID>
     <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$0.45f</ID>
     <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$1.5f</ID>
@@ -49,7 +64,6 @@
     <ID>MagicNumber:CalculatorKeyView.kt:CalculatorKeyView$8</ID>
     <ID>MagicNumber:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$127</ID>
     <ID>MagicNumber:DisplayActionController.kt:DisplayActionController$3</ID>
-    <ID>MagicNumber:KeyboardStateSnapshot.kt:KeyboardStateSnapshot.Companion$5</ID>
     <ID>MagicNumber:KeypadLabelModes.kt:37</ID>
     <ID>MagicNumber:KeypadSnapshot.kt:KeypadSceneContract$4</ID>
     <ID>MagicNumber:KeypadTopology.kt:KeypadLane.ENTER_ROW$3</ID>
@@ -66,15 +80,8 @@
     <ID>MagicNumber:SettingsSwitchPreference.kt:SettingsSwitchPreference$110</ID>
     <ID>MagicNumber:SettingsSwitchPreference.kt:SettingsSwitchPreference$140</ID>
     <ID>MagicNumber:WorkDirectory.kt:WorkDirectory$3</ID>
-    <ID>MaxLineLength:CalculatorKeyViewCanvasTest.kt:CalculatorKeyViewCanvasTest$return</ID>
-    <ID>MaxLineLength:KeypadFixtureContractTest.kt:KeypadFixtureContractTest$fixture.labels[(KeypadSnapshot.KEY_COUNT - 1) * KeypadSnapshot.LABELS_PER_KEY + KeypadSceneContract.LABEL_AUX]</ID>
     <ID>MaxLineLength:MainActivity.kt:MainActivity$if</ID>
     <ID>MaxLineLength:MainActivityPreferenceController.kt:MainActivityPreferenceController$val needsWriteBack = !hasCurrentKey || storedTheme != normalizedTheme || preferences.contains(LEGACY_KEY_LCD_MODE)</ID>
-    <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$"Welcome to R47 Zen\nTap the orange and blue rectangles at top right to open the menu for Settings, Copy Actions, and Paste Number.\nSet Keypad Layout and Working Directory there."</ID>
-    <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$(R47AndroidChromeGeometry.MAIN_MENU_BUTTON_LEFT + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_WIDTH) * projection.scale</ID>
-    <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$(R47AndroidChromeGeometry.MAIN_MENU_BUTTON_TOP + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_HEIGHT) * projection.scale</ID>
-    <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)</ID>
-    <ID>MaxLineLength:PhysicalKeyboardInputParityTest.kt:PhysicalKeyboardInputParityTest$assertTrue(controller.onKeyDown(KeyEvent.KEYCODE_DPAD_UP, keyEvent(KeyEvent.KEYCODE_DPAD_UP, KeyEvent.META_CTRL_ON)))</ID>
     <ID>MaxLineLength:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$KeypadKeyFamily.BASE_OPERATOR</ID>
     <ID>MaxLineLength:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$maxRightEdge = if (slotIndex == laneSlots.lastIndex) overlay.width.toFloat() else Float.POSITIVE_INFINITY</ID>
     <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$developerPerformanceTextPaint.textSize</ID>
@@ -127,7 +134,6 @@
     <ID>TooGenericExceptionCaught:StorageAccessCoordinator.kt:StorageAccessCoordinator$error: Exception</ID>
     <ID>TooGenericExceptionCaught:WindowModeController.kt:WindowModeController$error: Exception</ID>
     <ID>TooGenericExceptionCaught:WorkDirectory.kt:WorkDirectory$error: Exception</ID>
-    <ID>TooGenericExceptionThrown:NativeCoreRuntimeTest.kt:NativeCoreRuntimeTest$throw RuntimeException("simulated native core failure")</ID>
     <ID>TooManyFunctions:C47TextRenderer.kt:C47TextRenderer</ID>
     <ID>TooManyFunctions:CalculatorKeyView.kt:CalculatorKeyView : ConstraintLayout</ID>
     <ID>TooManyFunctions:MainActivity.kt:MainActivity : AppCompatActivityOnSharedPreferenceChangeListener</ID>

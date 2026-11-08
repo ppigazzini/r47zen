@@ -291,8 +291,9 @@ The mechanical checks:
   bugprone, after a native build. Both need the Android SDK, so they run in
   CI's Android build job rather than as pre-commit hooks.
 - `bash scripts/android/run_detekt.sh` holds the Kotlin sources to detekt's
-  default rule set (function and class size, complexity, magic numbers, and
-  the rest) against a baseline that only shrinks: a new finding fails, and so
+  default rule set (function and class size, complexity, magic numbers, unused
+  code, and the rest), with type resolution, so the rules that need types run,
+  against per-variant baselines that only shrink: a new finding fails, and so
   does a baseline entry the code no longer has, so a fix removes its entry in
   the same commit. Adding an entry by hand is a decision a reviewer sees in
   the diff, never a way to pass.

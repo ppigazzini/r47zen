@@ -559,7 +559,6 @@ class ProgramFixtureInstrumentedTest {
         private const val PGM_RUNNING = 1
         private const val PGM_WAITING = 2
         private const val PGM_PAUSED = 3
-        private const val PGM_RESUMING = 5
         private const val RUNTIME_READY_TIMEOUT_MS = 15_000L
         private const val LOAD_TIMEOUT_MS = 10_000L
         private const val RUN_TIMEOUT_MS = 20_000L

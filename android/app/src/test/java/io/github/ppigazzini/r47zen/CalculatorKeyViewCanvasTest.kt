@@ -14,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.util.Locale
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -162,7 +163,7 @@ class CalculatorKeyViewCanvasTest {
         return pixels.any { it == color }
     }
 
-    private fun hex(color: Int): String = "#%08X".format(color)
+    private fun hex(color: Int): String = "#%08X".format(Locale.ROOT, color)
 
     private companion object {
         private const val CANVAS_VERTICAL_INSET = 120

@@ -29,8 +29,8 @@ internal class StorageAccessCoordinator(
     private val isWorkDirectoryAccessible: (String?) -> Boolean = { treeUriString ->
         WorkDirectory.isAccessible(activity.contentResolver, treeUriString)
     },
-    private val providedSaveIntentLauncher: ((Intent) -> Unit)? = null,
-    private val providedLoadIntentLauncher: ((Intent) -> Unit)? = null,
+    providedSaveIntentLauncher: ((Intent) -> Unit)? = null,
+    providedLoadIntentLauncher: ((Intent) -> Unit)? = null,
 ) {
     companion object {
         private const val TAG = "R47StorageAccess"

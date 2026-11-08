@@ -162,11 +162,13 @@ internal data class KeypadSnapshot(
         internal const val LABELS_PER_KEY = 5
         internal const val SCENE_CONTRACT_VERSION = 5
 
-        private const val META_SHIFT_F = 0
-        private const val META_SHIFT_G = 1
-        private const val META_CALC_MODE = 2
-        private const val META_USER_MODE = 3
-        private const val META_ALPHA = 4
+        // Slots 0 to 4, the shift, mode, and alpha state, are read by
+        // KeyboardStateSnapshot.fromMeta.
+        internal const val META_SHIFT_F = 0
+        internal const val META_SHIFT_G = 1
+        internal const val META_CALC_MODE = 2
+        internal const val META_USER_MODE = 3
+        internal const val META_ALPHA = 4
         private const val META_SOFTMENU_ID = 5
         private const val META_SOFTMENU_FIRST_ITEM = 6
         private const val META_SOFTMENU_ITEM_COUNT = 7
@@ -222,12 +224,12 @@ internal data class KeypadSnapshot(
                 return EMPTY
             }
 
-            return NativeDecoder(meta, labels ?: emptyArray()).decode()
+            return NativeDecoder(meta, labels.orEmpty()).decode()
         }
 
         private class NativeDecoder(
             private val meta: IntArray,
-            private val labels: Array<String>,
+            private val labels: Array<out String>,
         ) {
             fun decode(): KeypadSnapshot {
                 return KeypadSnapshot(

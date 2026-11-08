@@ -67,8 +67,8 @@ class KeypadTopLabelLayoutTest {
 
         assertTrue(leftView.hasMeasuredTopLabelAnchors())
         assertTrue(rightView.hasMeasuredTopLabelAnchors())
-        val leftBounds = requireNotNull(leftView.currentMainKeyBodyHorizontalBounds())
-        val rightBounds = requireNotNull(rightView.currentMainKeyBodyHorizontalBounds())
+        requireNotNull(leftView.currentMainKeyBodyHorizontalBounds())
+        requireNotNull(rightView.currentMainKeyBodyHorizontalBounds())
         val expectedPlacements = TopLabelLaneLayout.solve(
             listOf(
                 requireNotNull(leftView.buildTopLabelLaneInput()),

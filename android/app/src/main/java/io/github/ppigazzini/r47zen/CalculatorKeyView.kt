@@ -351,16 +351,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         refreshMainKeyRenderSpec()
     }
 
-    private fun updateFourthLabelOffset(referenceCellToViewWidthScale: Float) {
-        val letterLeft =
-            mainKeyRect.right +
-                R47LabelLayoutPolicy.FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT * referenceCellToViewWidthScale
-        val letterTop =
-            R47LabelLayoutPolicy.FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP * referenceCellToViewWidthScale
-        letterLabel.translationX = letterLeft - letterLabel.left.toFloat()
-        letterLabel.translationY = letterTop - letterLabel.top.toFloat()
-    }
-
     private fun updateMainKeySurfaceRect(targetRect: RectF, referenceBodyToViewWidthScale: Float) {
         val inset = referenceBodyToViewWidthScale
         val widthBonus = R47KeySurfacePolicy.MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA * referenceBodyToViewWidthScale

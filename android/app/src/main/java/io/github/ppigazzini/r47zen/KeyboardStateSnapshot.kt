@@ -16,22 +16,20 @@ internal data class KeyboardStateSnapshot(
             alphaOn = false,
         )
 
-        fun fromNative(state: IntArray?): KeyboardStateSnapshot {
-            if (state == null || state.size < 5) {
+        // The keypad scene's meta lane, at the offsets KeypadSnapshot declares and
+        // test_keypad_snapshot_wire_contract.py holds to native's.
+        fun fromMeta(meta: IntArray?): KeyboardStateSnapshot {
+            if (meta == null || meta.size <= KeypadSnapshot.META_ALPHA) {
                 return EMPTY
             }
 
             return KeyboardStateSnapshot(
-                shiftF = state[0] != 0,
-                shiftG = state[1] != 0,
-                calcMode = state[2],
-                userModeEnabled = state[3] != 0,
-                alphaOn = state[4] != 0,
+                shiftF = meta[KeypadSnapshot.META_SHIFT_F] != 0,
+                shiftG = meta[KeypadSnapshot.META_SHIFT_G] != 0,
+                calcMode = meta[KeypadSnapshot.META_CALC_MODE],
+                userModeEnabled = meta[KeypadSnapshot.META_USER_MODE] != 0,
+                alphaOn = meta[KeypadSnapshot.META_ALPHA] != 0,
             )
-        }
-
-        fun fromMeta(meta: IntArray?): KeyboardStateSnapshot {
-            return fromNative(meta)
         }
     }
 }

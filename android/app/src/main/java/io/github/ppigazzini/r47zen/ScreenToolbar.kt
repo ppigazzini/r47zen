@@ -23,9 +23,7 @@ internal fun MaterialToolbar.configureScreenToolbar(
 
     menu.clear()
     if (actionLabel != null && onAction != null) {
-        menu.add(actionLabel).apply {
-            setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM or MenuItem.SHOW_AS_ACTION_WITH_TEXT)
-        }
+        menu.add(actionLabel).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM or MenuItem.SHOW_AS_ACTION_WITH_TEXT)
         setOnMenuItemClickListener {
             onAction()
             true

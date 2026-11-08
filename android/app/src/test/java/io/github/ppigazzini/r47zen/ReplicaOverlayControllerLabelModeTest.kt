@@ -44,25 +44,12 @@ class ReplicaOverlayControllerLabelModeTest {
             this[labelIndex(keyCode, KeypadSceneContract.LABEL_F)] = "LASTx"
             this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "STK"
         }
-        val userLabels = emptyLabels().apply {
-            this[labelIndex(keyCode, KeypadSceneContract.LABEL_PRIMARY)] = "XEQ"
-            this[labelIndex(keyCode, KeypadSceneContract.LABEL_F)] = "ASSIGN"
-            this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "MYALPHA"
-        }
         val offMeta = baseMeta(userModeEnabled = true).apply {
             setLabelRoles(
                 keyCode = keyCode,
                 primaryRole = KeypadSceneContract.TEXT_ROLE_PRIMARY,
                 fRole = KeypadSceneContract.TEXT_ROLE_F,
                 gRole = KeypadSceneContract.TEXT_ROLE_G,
-            )
-        }
-        val userMeta = baseMeta(userModeEnabled = true).apply {
-            setLabelRoles(
-                keyCode = keyCode,
-                primaryRole = KeypadSceneContract.TEXT_ROLE_PRIMARY,
-                fRole = KeypadSceneContract.TEXT_ROLE_F_UNDERLINE,
-                gRole = KeypadSceneContract.TEXT_ROLE_G_UNDERLINE,
             )
         }
         val controller = createController(
@@ -118,11 +105,6 @@ class ReplicaOverlayControllerLabelModeTest {
             this[labelIndex(keyCode, KeypadSceneContract.LABEL_PRIMARY)] = "7"
             this[labelIndex(keyCode, KeypadSceneContract.LABEL_F)] = "LASTx"
             this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "STK"
-        }
-        val userLabels = emptyLabels().apply {
-            this[labelIndex(keyCode, KeypadSceneContract.LABEL_PRIMARY)] = "XEQ"
-            this[labelIndex(keyCode, KeypadSceneContract.LABEL_F)] = "ASSIGN"
-            this[labelIndex(keyCode, KeypadSceneContract.LABEL_G)] = "MYALPHA"
         }
         val offMeta = baseMeta(userModeEnabled = false)
         val controller = createController(
