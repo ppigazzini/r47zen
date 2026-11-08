@@ -149,15 +149,16 @@ class AlphaCaseExportContractTest(unittest.TestCase):
         _assert_true("lower[0] == (upper[0] - 'A' + 'a')" in self.keypad_scene)
 
     def test_jni_promotes_dynamic_alpha_preview_into_primary_label(self) -> None:
-        """Jni promotes dynamic alpha preview into primary label."""
+        """Jni promotes dynamic alpha preview into primary label, under NUM as GTK."""
         _assert_true(
             re.search(
                 re.compile(
-                    r"case KEYPAD_LABEL_PRIMARY:\s*"
-                    r"if \(previewF\) \{\s*return key->fShiftedAim;\s*\}"
-                    r"\s*if \(previewG\) \{\s*return key->gShiftedAim;\s*\}"
-                    r"\s*return \(casePair && lowercaseSelected\) \? key->fShiftedAim"
-                    r"\s*:\s*key->primaryAim;",
+                    r"case KEYPAD_LABEL_PRIMARY: \{\s*"
+                    r"const int16_t item = previewF\s*\?\s*key->fShiftedAim"
+                    r"\s*:\s*previewG\s*\?\s*key->gShiftedAim"
+                    r"\s*:\s*\(casePair && lowercaseSelected\)\s*\?\s*key->fShiftedAim"
+                    r"\s*:\s*key->primaryAim;"
+                    r"\s*return withNumLock\(item, previewF, previewG\);",
                     re.DOTALL,
                 ),
                 self.keypad_scene,
@@ -165,11 +166,12 @@ class AlphaCaseExportContractTest(unittest.TestCase):
         )
 
     def test_jni_keeps_static_alpha_second_and_third_slots(self) -> None:
-        """Jni keeps static alpha second and third slots."""
+        """Jni keeps static alpha second and third slots, the f one under NUM as GTK."""
         _assert_true(
             re.search(
                 re.compile(
-                    r"case KEYPAD_LABEL_F:\s*return key->fShiftedAim;",
+                    r"case KEYPAD_LABEL_F:\s*"
+                    r"return withNumLock\(key->fShiftedAim, true, false\);",
                     re.DOTALL,
                 ),
                 self.keypad_scene,

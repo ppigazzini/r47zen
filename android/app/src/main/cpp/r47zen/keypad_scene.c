@@ -991,6 +991,15 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex,
   }
 }
 
+// Under NUM, AIM types the digit a key's g face holds, and GTK draws the faces
+// through numlockReplacements so that each shows what it types; the f face as with
+// f held. With NUM off the faces stay as they are.
+static int16_t withNumLock(int16_t item, bool_t fShift, bool_t gShift) {
+  return getSystemFlag(FLAG_NUMLOCK)
+             ? (int16_t)numlockReplacements(0, item, true, fShift, gShift)
+             : item;
+}
+
 static int16_t
 resolveMainKeyItem(const calcKey_t *key, jint type,
                    const keypadMainLabelPresentation_t *presentation) {
@@ -1000,17 +1009,15 @@ resolveMainKeyItem(const calcKey_t *key, jint type,
     bool_t lowercaseSelected = isLowercaseAlphaSelected();
     bool_t casePair = isLatinAlphaCasePair(key->primaryAim, key->fShiftedAim);
     switch (type) {
-    case KEYPAD_LABEL_PRIMARY:
-      if (previewF) {
-        return key->fShiftedAim;
-      }
-      if (previewG) {
-        return key->gShiftedAim;
-      }
-      return (casePair && lowercaseSelected) ? key->fShiftedAim
-                                             : key->primaryAim;
+    case KEYPAD_LABEL_PRIMARY: {
+      const int16_t item = previewF                          ? key->fShiftedAim
+                           : previewG                        ? key->gShiftedAim
+                           : (casePair && lowercaseSelected) ? key->fShiftedAim
+                                                             : key->primaryAim;
+      return withNumLock(item, previewF, previewG);
+    }
     case KEYPAD_LABEL_F:
-      return key->fShiftedAim;
+      return withNumLock(key->fShiftedAim, true, false);
     case KEYPAD_LABEL_G:
       return key->gShiftedAim;
     case KEYPAD_LABEL_LETTER:

@@ -491,6 +491,59 @@ static int check_snap(const char *runtime_dir) {
   return failures;
 }
 
+// In AIM with NUM on, a key's face is what it types, as GTK draws it through
+// numlockReplacements: the key that shows N has 7 on its g face, and shows 7 under
+// NUM. Return the number of failures.
+static char aimFaces[2][R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+                    [R47_KEYPAD_LABEL_CAPACITY];
+
+static const char *aim_face(int numLock, int key, int slot) {
+  return aimFaces[numLock][key * R47_KEYPAD_LABELS_PER_KEY + slot];
+}
+
+static int check_aim_faces_follow_num_lock(void) {
+  pthread_mutex_lock(&screenMutex);
+  runFunction(ITM_AIM);
+  for (int numLock = 0; numLock < 2; numLock++) {
+    if (numLock) {
+      setSystemFlag(FLAG_NUMLOCK);
+    } else {
+      clearSystemFlag(FLAG_NUMLOCK);
+    }
+    r47_get_keypad_labels(aimFaces[numLock], true);
+  }
+  clearSystemFlag(FLAG_NUMLOCK);
+  runFunction(ITM_EXIT1);
+  const int mode = calcMode;
+  pthread_mutex_unlock(&screenMutex);
+
+  int key = 0;
+  while (key < R47_KEYPAD_KEY_COUNT &&
+         strcmp(aim_face(0, key, R47_KEYPAD_LABEL_PRIMARY), "N") != 0) {
+    key++;
+  }
+  if (key == R47_KEYPAD_KEY_COUNT) {
+    fprintf(stderr, "FAIL: no AIM key shows N\n");
+    return 1;
+  }
+  int failures = 0;
+  if (strcmp(aim_face(0, key, R47_KEYPAD_LABEL_G), "7") != 0) {
+    fprintf(stderr, "FAIL: the N key's g face is %s, not 7\n",
+            aim_face(0, key, R47_KEYPAD_LABEL_G));
+    failures++;
+  }
+  if (strcmp(aim_face(1, key, R47_KEYPAD_LABEL_PRIMARY), "7") != 0) {
+    fprintf(stderr, "FAIL: the N key under NUM shows %s, not 7\n",
+            aim_face(1, key, R47_KEYPAD_LABEL_PRIMARY));
+    failures++;
+  }
+  if (mode != CM_NORMAL) {
+    fprintf(stderr, "FAIL: EXIT left AIM in mode %d\n", mode);
+    failures++;
+  }
+  return failures;
+}
+
 // Run action with stderr sent to a file, write what it caught back to stderr, and
 // say whether that holds needle. A fault inside action aborts with its report in
 // the file, so the line before it names the step.
@@ -643,6 +696,7 @@ int main(void) {
   failures += check_file_answer_with_no_request();
   failures += check_matrix_copies_are_whole();
   failures += check_capture_ends_with_the_copy();
+  failures += check_aim_faces_follow_num_lock();
 
   // Ten numbered registers of 2^60000 make the all-registers copy about 220 KB,
   // and X and Y of it make the stack copy twice the digits. Keep the set inside

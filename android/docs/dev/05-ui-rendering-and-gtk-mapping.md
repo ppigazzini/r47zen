@@ -281,6 +281,11 @@ after decode. Softkey `graphic` and `off` remain renderer policy too, so the
 app applies them as decoded scene masks instead of widening the softkey draw
 logic in native code.
 
+In AIM with NUM on, a key types the digit its `g` face holds, so the scene draws the
+primary and `f` faces through upstream's `numlockReplacements`, as GTK's
+`labelCaptionAim` and `labelCaptionAimFa` do: the key that shows N shows 7. With NUM
+off the faces are the key table's.
+
 `projectUtf8MainKeyLabel` in `keypad_scene.c` rewrites a few main-key labels as
 it exports them, and `test_keyboard_layout_contract.py` records each rule. Three
 follow GTK's simulator: the space placeholder `·_·`, `/` to the division sign in
