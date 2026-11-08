@@ -17,6 +17,7 @@ from r47_contracts._repo_paths import (
 from r47_contracts.runtime_fonts import resolve_runtime_font_path
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
 _FONT_ASSETS = {
@@ -153,13 +154,16 @@ def _compress_codepoint_ranges(codepoints: list[int]) -> list[list[int]]:
     return ranges
 
 
-def _font_payload(font_name: str) -> tuple[dict[str, object], set[int]]:
+def _font_payload(
+    font_name: str,
+    limit: set[int] | None = None,
+) -> tuple[dict[str, object], set[int]]:
     font_path = resolve_runtime_font_path(font_name)
     cmap = TTFont(font_path).getBestCmap()
     if cmap is None:
         raise KeyFontPolicyError.missing_unicode_cmap(font_name)
 
-    codepoints = sorted(cmap)
+    codepoints = sorted(set(cmap) if limit is None else set(cmap) & limit)
     return (
         {
             "asset_name": font_name,
@@ -369,14 +373,22 @@ def _validate_owner_contracts() -> None:
     )
 
 
-def build_key_font_policy_payload() -> dict[str, object]:
-    """Build the live keypad font-policy payload used by the contract suite."""
+def build_key_font_policy_payload(
+    codepoint_limits: Mapping[str, set[int]] | None = None,
+) -> dict[str, object]:
+    """Build the live keypad font-policy payload used by the contract suite.
+
+    `codepoint_limits` caps the fonts it names, by alias, at the code points given,
+    so a derivation can ignore what those fonts gained since the contract was
+    derived; a font it does not name is read whole.
+    """
     _validate_owner_contracts()
 
     font_payloads: dict[str, dict[str, object]] = {}
     font_codepoints: dict[str, set[int]] = {}
     for alias, font_name in _FONT_ASSETS.items():
-        payload, supported_codepoints = _font_payload(font_name)
+        limit = None if codepoint_limits is None else codepoint_limits.get(alias)
+        payload, supported_codepoints = _font_payload(font_name, limit)
         font_payloads[alias] = payload
         font_codepoints[alias] = supported_codepoints
 

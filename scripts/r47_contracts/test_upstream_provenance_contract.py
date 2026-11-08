@@ -5,17 +5,21 @@ tests hold the halves of that: the committed ledger and the surface map cover
 exactly the upstream inputs the contract modules declare, every module that
 names an input is listed against it, the evaluator still sorts a tampered
 ledger into the right buckets, and `--record-if-unaffected` refuses every move
-that changed a golden or a contract. The drift cases run against synthetic
-ledgers on purpose - a test that asserted "nothing drifted" would fail every
-time upstream moved, which is the normal state for a repo tracking HEAD.
+that changed a golden, its derivation, or a contract. The drift cases run
+against synthetic ledgers on purpose - a test that asserted "nothing drifted"
+would fail every time upstream moved, which is the normal state for a repo
+tracking HEAD.
 """
 
 from __future__ import annotations
 
+import importlib
+import sys
 import unittest
 from typing import TYPE_CHECKING, ClassVar, Final
+from unittest import mock
 
-from r47_contracts import _repo_paths
+from r47_contracts import _repo_paths, upstream_provenance
 from r47_contracts._repo_paths import PACKAGE_ROOT, REPO_ROOT
 from r47_contracts.upstream_provenance import (
     LEDGER,
@@ -28,6 +32,7 @@ from r47_contracts.upstream_provenance import (
     declared_upstream_inputs,
     drift_failures,
     evaluate,
+    golden_derivers,
     input_surfaces,
     load_ledger,
     unaffected_record_refusal,
@@ -89,6 +94,11 @@ def _moved(path: str, contracts: list[str]) -> Finding:
 
 
 def _never_called(_: object) -> bool:
+    message = "a refusal earlier in the order must stop before this check"
+    raise AssertionError(message)
+
+
+def _never_called_reason(_: object) -> str | None:
     message = "a refusal earlier in the order must stop before this check"
     raise AssertionError(message)
 
@@ -237,6 +247,7 @@ class RecordIfUnaffectedTest(unittest.TestCase):
             [],
             golden_changed=_never_called,
             contracts_pass=_never_called,
+            derivation_mismatch=_never_called_reason,
         )
         _assert_equal(refusal, None)
 
@@ -248,6 +259,7 @@ class RecordIfUnaffectedTest(unittest.TestCase):
             [finding],
             golden_changed=_never_called,
             contracts_pass=_never_called,
+            derivation_mismatch=_never_called_reason,
         )
         _assert_refused_naming(refusal, "coverage")
 
@@ -257,6 +269,7 @@ class RecordIfUnaffectedTest(unittest.TestCase):
             [_moved("src/c47/assign.c", [_GOLDEN])],
             golden_changed=_never_called,
             contracts_pass=_never_called,
+            derivation_mismatch=_never_called_reason,
         )
         _assert_refused_naming(refusal, "src/c47/assign.c")
 
@@ -266,8 +279,62 @@ class RecordIfUnaffectedTest(unittest.TestCase):
             [_moved("src/c47/assign.c", [_GOLDEN, _GUARD])],
             golden_changed=lambda path: path == _GOLDEN,
             contracts_pass=_never_called,
+            derivation_mismatch=_never_called_reason,
         )
         _assert_refused_naming(refusal, _GOLDEN)
+
+    def test_a_golden_its_deriver_would_change_is_refused(self) -> None:
+        """A move that changes a golden's derivation is not harmless, guard or no guard.
+
+        The font guard passes a code point a font gains, so the derivation is
+        checked here.
+        """
+        refusal = unaffected_record_refusal(
+            [_moved("src/c47/assign.c", [_GOLDEN, _GUARD])],
+            golden_changed=lambda _: False,
+            contracts_pass=_never_called,
+            derivation_mismatch=lambda path: f"{path} differs from its derivation",
+        )
+        _assert_refused_naming(refusal, _GOLDEN)
+
+    def test_every_golden_names_its_deriver(self) -> None:
+        """Each golden the surface map names has a deriver to check it against."""
+        goldens = {
+            contract
+            for _, contracts in input_surfaces().values()
+            for contract in contracts
+            if contract.endswith(".json")
+        }
+        _assert_equal(goldens, set(golden_derivers()))
+
+    def test_each_golden_deriver_can_be_called(self) -> None:
+        """Each listed deriver names a function its module defines.
+
+        Not a comparison with the live tree: that fails whenever upstream moves.
+        """
+        missing = [
+            f"{module_name}.{function_name}"
+            for module_name, function_name in golden_derivers().values()
+            if not callable(
+                getattr(importlib.import_module(module_name), function_name, None),
+            )
+        ]
+        _assert_equal(missing, [])
+
+    def test_record_refuses_a_golden_that_is_not_its_derivation(self) -> None:
+        """`--record` writes nothing while a golden differs from its derivation."""
+        with (
+            mock.patch.object(
+                upstream_provenance,
+                "derivation_mismatch",
+                lambda path: f"{path} differs from its derivation",
+            ),
+            mock.patch.object(upstream_provenance, "write_ledger") as write,
+            mock.patch.object(sys, "stderr"),
+        ):
+            status = upstream_provenance.main(["--record"])
+        _assert_equal(status, 1)
+        _assert_equal(write.call_count, 0)
 
     def test_a_failing_contract_is_refused(self) -> None:
         """A move that breaks a guarding test is not harmless."""
@@ -275,6 +342,7 @@ class RecordIfUnaffectedTest(unittest.TestCase):
             [_moved("src/c47/assign.c", [_GOLDEN, _GUARD])],
             golden_changed=lambda _: False,
             contracts_pass=lambda _: False,
+            derivation_mismatch=lambda _: None,
         )
         _assert_refused_naming(refusal, "fails")
 
@@ -294,6 +362,7 @@ class RecordIfUnaffectedTest(unittest.TestCase):
             ],
             golden_changed=lambda _: False,
             contracts_pass=record_run,
+            derivation_mismatch=lambda _: None,
         )
         _assert_equal(refusal, None)
         _assert_equal(ran, [[_GUARD, other_guard]])

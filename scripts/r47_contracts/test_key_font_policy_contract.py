@@ -5,17 +5,29 @@ Two complementary layers (de-circularization):
 - `test_key_font_policy_payload_matches_contract_json` is a *freshness* guard --
   it proves the committed JSON is a faithful re-derivation. On its own it is
   circular (re-running the deriver re-blesses any change), so it is not a
-  correctness oracle.
+  correctness oracle. It has two parts. Each font must keep every code point the
+  JSON records, read from the font file, so a lost glyph fails whoever needs it,
+  a softkey's included. And the JSON must equal the derivation, with only the
+  fonts upstream changed since the provenance ledger recorded them capped at the
+  code points the JSON records: so a code point such a font gains passes, and an
+  upstream font that grows does not stop every lane behind the contract suite,
+  while any other change fails. A hand edit of an upstream-changed font's own
+  fields passes until the JSON is re-derived. The ledger's drift report names the
+  JSON; re-derive it and record the ledger with `--record` in that commit, since
+  both record commands refuse a golden that is not its derivation.
 - The remaining tests are the *correctness* oracle: they root in facts that do
-  not come from the snapshot -- the real font files on disk, the documented
+  not come from the snapshot -- the font files' names and paths, the documented
   keypad constants, and structural invariants -- so a re-blessed wrong value
-  fails here even though the freshness guard would pass.
+  fails here even though the freshness guard would pass. They read the JSON, not
+  the fonts: the freshness guard's code point check is what reads the fonts.
 """
 
 from __future__ import annotations
 
 import unittest
 from typing import Final
+
+from fontTools.ttLib import TTFont
 
 from r47_contracts._contract_data import (
     load_key_font_policy_contract,
@@ -26,6 +38,7 @@ from r47_contracts._contract_data import (
 )
 from r47_contracts._repo_paths import REPO_ROOT
 from r47_contracts.derive_key_font_policy import build_key_font_policy_payload
+from r47_contracts.upstream_provenance import hash_file, load_ledger
 
 _EXPECTED_FONT_ASSETS: Final = {
     "numeric": "C47__NumericFont.ttf",
@@ -39,15 +52,106 @@ _EXPECTED_LANES: Final = {"f", "g", "letter", "primary"}
 _MIN_POSITIVE_COUNT: Final = 1
 
 
+_SHOWN_LOST_CODEPOINTS: Final = 8
+_RANGE_PAIR_LENGTH: Final = 2
+
+
+def _moved_fonts(payload: dict[str, object]) -> set[str]:
+    """Return the fonts, by alias, whose files differ from the ledger's record."""
+    recorded = {entry["path"]: entry["sha256"] for entry in load_ledger()["inputs"]}
+    fonts = mapping_member(payload, "font_assets", label="font policy")
+    moved: set[str] = set()
+    for font, asset in fonts.items():
+        path = string_member(
+            require_mapping(asset, label=font),
+            "font_path",
+            label=font,
+        )
+        if hash_file(REPO_ROOT / path) != recorded.get(path):
+            moved.add(font)
+    return moved
+
+
+def _cmap_codepoints(payload: dict[str, object]) -> dict[str, set[int]]:
+    """Return each font file's code points, read from its cmap, not the deriver."""
+    fonts = mapping_member(payload, "font_assets", label="font policy")
+    codepoints: dict[str, set[int]] = {}
+    for font, asset in fonts.items():
+        path = REPO_ROOT / string_member(
+            require_mapping(asset, label=font),
+            "font_path",
+            label=font,
+        )
+        cmap = TTFont(path).getBestCmap()
+        codepoints[font] = set(cmap) if cmap is not None else set()
+    return codepoints
+
+
+def _codepoints(payload: dict[str, object]) -> dict[str, set[int]]:
+    """Return each font's code points, from the payload's range pairs."""
+    fonts = mapping_member(payload, "font_assets", label="font policy")
+    codepoints: dict[str, set[int]] = {}
+    for font, asset in fonts.items():
+        pairs = require_mapping(asset, label=font).get("unicode_range_pairs")
+        if not isinstance(pairs, list):
+            message = f"{font}.unicode_range_pairs is not a list"
+            raise TypeError(message)
+        covered: set[int] = set()
+        for pair in pairs:
+            if (
+                not isinstance(pair, list)
+                or len(pair) != _RANGE_PAIR_LENGTH
+                or not all(
+                    isinstance(end, int) and not isinstance(end, bool) for end in pair
+                )
+            ):
+                message = f"{font}.unicode_range_pairs holds {pair!r}"
+                raise TypeError(message)
+            covered.update(range(pair[0], pair[1] + 1))
+        codepoints[font] = covered
+    return codepoints
+
+
 class KeyFontPolicyContractTest(unittest.TestCase):
     """Verify the font contract is a fresh re-derivation and independently correct."""
 
     def test_key_font_policy_payload_matches_contract_json(self) -> None:
-        """Freshness guard: keep the font-policy JSON a faithful re-derivation."""
-        actual = build_key_font_policy_payload()
+        """Freshness guard in two parts (module docstring)."""
         expected = load_key_font_policy_contract()
-        if actual != expected:
-            message = "Keypad font-policy contract drifted from the live payload"
+        recorded = _codepoints(expected)
+        live = _cmap_codepoints(expected)
+        lost = {
+            font: sorted(codepoints - live.get(font, set()))
+            for font, codepoints in recorded.items()
+            if codepoints - live.get(font, set())
+        }
+        if lost:
+            shown = {
+                font: [f"U+{c:04X}" for c in codepoints[:_SHOWN_LOST_CODEPOINTS]]
+                + (
+                    [f"and {len(codepoints) - _SHOWN_LOST_CODEPOINTS} more"]
+                    if len(codepoints) > _SHOWN_LOST_CODEPOINTS
+                    else []
+                )
+                for font, codepoints in lost.items()
+            }
+            message = f"A font lost code points the contract was derived with: {shown}"
+            raise AssertionError(message)
+        # A font whose bytes the ledger recorded must derive to the JSON whole: both
+        # record commands refuse a golden that is not its derivation. Only a font
+        # upstream changed since is capped at the code points the JSON records.
+        moved = _moved_fonts(expected)
+        limits = {font: recorded[font] for font in moved}
+        if build_key_font_policy_payload(codepoint_limits=limits) != expected:
+            message = (
+                "Keypad font-policy contract drifted from its derivation"
+                + (
+                    f" with {sorted(moved)} capped at the code points it records"
+                    if moved
+                    else ""
+                )
+                + ": re-derive it in the commit that changed its inputs"
+            )
             raise AssertionError(message)
 
     def test_font_assets_name_path_and_files_exist(self) -> None:

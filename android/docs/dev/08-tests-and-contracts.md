@@ -140,9 +140,9 @@ tests that root in facts outside the snapshot (the real upstream `assign.c` /
 `items.c` rows, the real font files on disk, documented keypad constants, or the
 Kotlin constants) so a re-blessed wrong value fails even when the freshness
 guard passes. `test_keyboard_layout_contract.py` (per-key value assertions) and
-`test_key_font_policy_contract.py` (font files, fallback validity, and keypad
-constants) follow this pairing; a new snapshot contract must add its correctness
-oracle before it is trusted.
+`test_key_font_policy_contract.py` (font file names and paths, fallback
+validity, and keypad constants) follow this pairing; a new snapshot contract
+must add its correctness oracle before it is trusted.
 
 `run_contract_suite.sh` is the complete list of modules the grouped Python lane
 runs. What each one locks:
@@ -181,7 +181,17 @@ runs. What each one locks:
   fallback-owner snippets, and lane-by-lane keypad label coverage against the
   exported keypad fixtures
 - `test_key_font_policy_contract.py`: the checked-in keypad font-policy JSON
-  against the live Python-derived payload and Kotlin owner snippets
+  against the live Python-derived payload and Kotlin owner snippets. Its
+  freshness guard has two parts. Each font must keep every code point the JSON
+  records, read from the font file itself, so a lost glyph fails, whichever
+  label needs it. And the JSON must equal the derivation, with only the fonts
+  upstream changed since the provenance ledger recorded them capped at the code
+  points the JSON records. A code point such a font gains passes, so a font that
+  grows upstream does not stop every lane behind `python-contracts`, and any
+  other change fails, but for a hand edit of such a font's own fields, which
+  passes until the JSON is re-derived. The ledger's drift report names the JSON:
+  re-derive it, and record with `--record` in that commit; both record commands
+  refuse a golden that is not what its deriver makes of the tree
 - `test_alpha_case_export_contract.py`: staged core alpha-label export rules in
   `assign.c`, `items.c`, and `keypad_scene.c`, plus the Kotlin alpha-layout
   handling in `CalculatorKeyView.kt` and `ReplicaKeypadLayout.kt`
@@ -270,7 +280,8 @@ Two findings, gated differently on purpose:
 # report drift and coverage (exit 0); the contract suite runs this last
 PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance
 
-# re-record in the commit that re-blesses a golden - a deliberate act
+# re-record in the commit that re-blesses a golden - a deliberate act; refuses
+# while a golden is not what its deriver makes of the tree
 PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance \
     --record --upstream-commit <sha>
 
@@ -282,15 +293,17 @@ PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenanc
 Re-recording erases the evidence that something moved, so do it only after the
 independent correctness tests pass and the drift is root-caused, and name the
 upstream commit in the commit body. Regenerating without that is laundering.
-`--record-if-unaffected` is the root cause for the common case, an upstream
-edit that changed nothing a golden reads: it refuses when a golden a moved
-input feeds differs from HEAD, so a golden re-blessed in the working tree
-cannot pass as unaffected, and when a test module guarding a moved input
-fails, and it prints each moved input with the goldens it found unchanged and
-the tests it ran. Without it the same `moved` lines print on every run until a
-real change arrives, and that change then looks like the others.
-`--check-drift` exits non-zero on drift for deliberate maintainer use; do not
-gate a lane on it.
+`--record-if-unaffected` is the root cause for the common case, an upstream edit
+that changed nothing a golden reads. It refuses when a golden a moved input
+feeds differs from HEAD, so a golden re-blessed in the working tree cannot pass
+as unaffected. It refuses when such a golden differs from what its deriver makes
+of the moved bytes, since a freshness guard may pass a move that changed its
+golden, as the font guard passes a gained code point. And it refuses when a test
+module guarding a moved input fails. When it records, it prints each moved input
+with the goldens it found unchanged and the tests it ran. Without it the same
+`moved` lines print on every run until a real change arrives, and that change
+then looks like the others. `--check-drift` exits non-zero on drift for
+deliberate maintainer use; do not gate a lane on it.
 
 ## Android JVM Contract Suite
 

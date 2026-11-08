@@ -32,15 +32,17 @@ Two failure classes live here and they are deliberately NOT gated the same way:
 Drift is cleared one of two ways. `--record` rewrites the ledger in the commit
 that re-blesses a golden. `--record-if-unaffected` rewrites it on its own, and
 only when the move changed nothing: every golden a moved input feeds still
-matches HEAD, and every contract that guards a moved input passes on the live
-tree. Without it the same `moved` lines print until a real change arrives, and
-then that change looks like all the others.
+matches HEAD and what its deriver makes of the moved bytes, and every contract
+that guards a moved input passes on the live tree. Without it the same `moved`
+lines print until a real change arrives, and then that change looks like all
+the others.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import shutil
 import subprocess
@@ -180,6 +182,18 @@ _INPUT_SURFACES: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {
     "res/fonts/C47__TinyFont.ttf": _FONT_POLICY_SURFACES,
 }
 _GOLDEN_SUFFIX: Final = ".json"
+# The deriver of each golden the map above names, as module and function, so a
+# re-record can tell a golden the moved bytes still derive from one they do not.
+_GOLDEN_DERIVERS: Final = {
+    "scripts/r47_contracts/data/r47_keyboard_layout_contract.json": (
+        "r47_contracts.derive_keyboard_layout_contract",
+        "build_keyboard_layout_contract_payload",
+    ),
+    "scripts/r47_contracts/data/r47_key_font_policy_contract.json": (
+        "r47_contracts.derive_key_font_policy",
+        "build_key_font_policy_payload",
+    ),
+}
 _TEST_MODULE_SUFFIX: Final = ".py"
 
 
@@ -336,12 +350,15 @@ def unaffected_record_refusal(
     *,
     golden_changed: Callable[[str], bool],
     contracts_pass: Callable[[Sequence[str]], bool],
+    derivation_mismatch: Callable[[str], str | None],
 ) -> str | None:
     """Return why the moved inputs cannot be re-recorded as harmless, or None.
 
     A move is harmless when every golden it feeds is still the one HEAD holds
-    and every test module that guards it passes on the live tree, which runs
-    each golden's freshness guard against the moved bytes.
+    and the one its deriver makes of the moved bytes, and every test module that
+    guards it passes on the live tree. A freshness guard may pass a move that
+    changed its golden, as the font guard passes a gained code point, so the
+    derivation is checked here, not left to the guard.
     """
     if coverage_failures(findings):
         return (
@@ -361,11 +378,15 @@ def unaffected_record_refusal(
     goldens = sorted(
         {c for f in moved for c in f["contracts"] if c.endswith(_GOLDEN_SUFFIX)},
     )
-    changed = [golden for golden in goldens if golden_changed(golden)]
-    if changed:
+    # A golden re-blessed in the working tree first, then one its deriver would change.
+    reasons = [
+        f"{golden} differs from HEAD" for golden in goldens if golden_changed(golden)
+    ]
+    reasons = reasons or [r for golden in goldens if (r := derivation_mismatch(golden))]
+    if reasons:
         return (
-            f"{', '.join(changed)} differ from HEAD; record a re-blessed golden"
-            " with --record in the commit that changes it"
+            f"{'; '.join(reasons)}; record the re-derived golden with --record in"
+            " the commit that changes it"
         )
     tests = sorted(
         {c for f in moved for c in f["contracts"] if c.endswith(_TEST_MODULE_SUFFIX)},
@@ -391,6 +412,25 @@ def _golden_differs_from_head(path: str) -> bool:
         or not current.is_file()
         or current.read_bytes() != committed.stdout
     )
+
+
+def golden_derivers() -> dict[str, tuple[str, str]]:
+    """Return the deriver of each golden, as module and function."""
+    return dict(_GOLDEN_DERIVERS)
+
+
+def derivation_mismatch(path: str) -> str | None:
+    """Return why a golden is not what its deriver makes of the live tree, or None."""
+    deriver = _GOLDEN_DERIVERS.get(path)
+    if deriver is None:
+        return f"no deriver is listed for {path}"
+    module_name, function_name = deriver
+    try:
+        payload = getattr(importlib.import_module(module_name), function_name)()
+        golden = json.loads((REPO_ROOT / path).read_text(encoding="utf-8"))
+    except Exception as error:  # noqa: BLE001 - any failure is a reason to refuse
+        return f"{path} could not be derived: {error}"
+    return None if golden == payload else f"{path} differs from its derivation"
 
 
 def _run_test_modules(paths: Sequence[str]) -> bool:
@@ -482,7 +522,8 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         help=(
             "Rewrite the ledger from the hydrated tree. A deliberate maintainer "
             "act: do it only after root-causing the drift it erases, in the "
-            "commit that re-blesses the golden it moved."
+            "commit that re-blesses the golden it moved. Refuses while a golden "
+            "is not what its deriver makes of the tree."
         ),
     )
     record.add_argument(
@@ -490,8 +531,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         action="store_true",
         help=(
             "Rewrite the ledger only when the drift changed nothing: every "
-            "golden a moved input feeds matches HEAD and every test module "
-            "that guards one passes. Prints the evidence for the commit body."
+            "golden a moved input feeds matches HEAD and what its deriver makes "
+            "of the moved bytes, and every test module that guards one passes. "
+            "Prints the evidence for the commit body."
         ),
     )
     parser.add_argument(
@@ -526,6 +568,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
 
     if args.record:
+        # A golden that is not what its deriver makes of the live tree would be
+        # recorded against bytes it was not derived from.
+        stale = [r for g in sorted(_GOLDEN_DERIVERS) if (r := derivation_mismatch(g))]
+        if stale:
+            sys.stderr.write(
+                f"Refusing: {'; '.join(stale)}. Re-derive a golden that differs; a"
+                " deriver that cannot run needs the hydrated tree.\n",
+            )
+            return 1
         commit = args.upstream_commit or read_locked_upstream_commit()
         ledger = build_ledger(read_upstream_url(), commit)
         write_ledger(ledger)
@@ -566,6 +617,7 @@ def _record_if_unaffected(upstream_commit: str) -> int:
         findings,
         golden_changed=_golden_differs_from_head,
         contracts_pass=_run_test_modules,
+        derivation_mismatch=derivation_mismatch,
     )
     if refusal is not None:
         sys.stderr.write(f"Refusing: {refusal}.\n")
