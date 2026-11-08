@@ -490,7 +490,11 @@ operation.
   covers renderer stability for the borderless native shell, and that the
   overlay intercepts a touch below the top bezel strip but not one on it.
 - `android/app/src/androidTest/java/io/github/ppigazzini/r47zen/DisplayLifecycleInstrumentedTest.kt`
-  proves that passive lifecycle edges preserve a staged `SPIRALk` graph.
+  proves that passive lifecycle edges preserve the calculator state behind a staged
+  `SPIRALk` graph. It compares forced renders before and after, so it does not show
+  that an edge draws nothing. No test holds that `onResume`, which runs nothing
+  native today, stays that way; a stop's save redraws once, as `r47_services_run`
+  refreshes the LCD after any service it ran.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises long host runs
   across the canonical host workload set: the imported `.p47` fixtures `BinetV4.p47`,
   `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Each workload runs in

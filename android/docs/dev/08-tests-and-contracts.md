@@ -251,7 +251,10 @@ runs. What each one locks:
   `bindMethod` in the glue names a `@Keep` `CalculatorEngine` method with the same
   JNI signature, checked on a seeded drift first; the
   `R47_SHELL_*` codes in `jni_bridge.h` equal `NativeShellCodes.kt`, and
-  `jni_input.c` resolves each to an `items.h` symbol, never a number
+  `jni_input.c` resolves each to an `items.h` symbol, never a number; and only
+  runtime init, once, and the instrumentation bridge reference `r47_force_refresh`,
+  the forced full redraw, in any glue source or header, checked on seeded
+  references first. The glue's other redraws are not its
 - `test_robolectric_sdk_owner_contract.py`: no `robolectric.properties` sets
   `sdk`, `minSdk`, or `maxSdk`, and no JVM test `@Config` does but
   `ApiLevelArmsTest.kt`, whose levels must lie from
