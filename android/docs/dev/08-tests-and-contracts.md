@@ -956,6 +956,14 @@ Android compatibility layer.
   decode the label at its wire position `(code - 1) * LABELS_PER_KEY + slot`.
   Three of the mutants are scored by these property tests, because the example
   tests let them survive.
+- `scripts/android/native_mutation_spot_check.sh` scores the glue the same way:
+  four mutants of `hal/io.c` (a short write never reported, a state save offered
+  the data file's name, a pipe's `fsync` `EINVAL` counted as a failed save) and
+  `hal/lcd.c` (a screen write that leaves the keypad generation as it was) must each compile and
+  make `run_hal_io_contract.sh` or `run_keypad_generation_contract.sh` print a
+  FAIL line. A survivor, or a mutant that does not compile, fails the run. The
+  `android-tests` job runs it after the Kotlin spot check; `jni_input.c`, which
+  only the ASan clipboard harness holds, has no mutant.
 - `scripts/android/run_test_integrity_contract.sh` runs, rather than reads, the
   scripts that decide whether a lane can pass having tested nothing. It
   sources `run_workload_regressions.sh` (its `main` guard builds nothing) and

@@ -525,7 +525,9 @@ It:
   live program-stop routing seam loses full line coverage
 - then runs `scripts/android/mutation_spot_check.sh` on every event, which
   fails the job when a seam mutant survives (see
-  [08-tests-and-contracts.md](08-tests-and-contracts.md))
+  [08-tests-and-contracts.md](08-tests-and-contracts.md)), and
+  `scripts/android/native_mutation_spot_check.sh`, which does the same for the
+  glue's host contracts
 - uses that single task graph to refresh staged native inputs, build the
   dev-release APK, assemble the instrumentation APKs, and run the JVM suite without a
   second full `build_android.sh` pass

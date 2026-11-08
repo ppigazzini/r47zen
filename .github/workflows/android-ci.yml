@@ -1273,6 +1273,15 @@ jobs:
           bash ./scripts/android/mutation_spot_check.sh \
             2>&1 | tee ci-artifacts/logs/android-mutation-spot-check.log
 
+      - name: Run native mutation spot-check
+        # The glue's host contracts, scored the same way: each mutant of hal/io.c
+        # and hal/lcd.c must compile and fail its contract. Host cc only.
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/android/native_mutation_spot_check.sh \
+            2>&1 | tee ci-artifacts/logs/android-native-mutation-spot-check.log
+
       - name: Restore Android emulator AVD cache
         id: avd-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
