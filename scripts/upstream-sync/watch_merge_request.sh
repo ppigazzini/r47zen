@@ -42,7 +42,9 @@ case "$state" in
         ;;
 esac
 
-merge_commit="$(git ls-remote "$upstream_url" "refs/merge-requests/$request/merge" | awk 'NR == 1 { print $1 }')"
+# "|| true": under pipefail a failed ls-remote would end the script before the
+# message below names the request and the URL.
+merge_commit="$(git ls-remote "$upstream_url" "refs/merge-requests/$request/merge" | awk 'NR == 1 { print $1 }' || true)"
 [[ "$merge_commit" =~ ^[0-9a-f]{40}$ ]] || {
     echo "No merge ref for !$request at $upstream_url: got '$merge_commit'." >&2
     exit 1

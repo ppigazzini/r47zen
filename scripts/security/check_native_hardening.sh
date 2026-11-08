@@ -28,7 +28,9 @@ resolve_readelf() {
     local ndk="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
     if [[ -n "$ndk" ]]; then
         local candidate
-        candidate="$(find "$ndk" -path '*/bin/llvm-readelf' 2>/dev/null | head -1)"
+        # "|| true": a missing NDK fails find, and head's early exit can kill
+        # it with SIGPIPE; under pipefail either would skip the message below.
+        candidate="$(find "$ndk" -path '*/bin/llvm-readelf' 2>/dev/null | head -1 || true)"
         if [[ -n "$candidate" ]]; then
             printf '%s\n' "$candidate"
             return 0

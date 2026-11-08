@@ -51,8 +51,10 @@ if [ -n "$pinned" ]; then
 fi
 
 # No explicit pin: fall back to the newest installed NDK (local convenience).
+# "|| true" inside: under pipefail a missing ndk/ fails find, and the assignment
+# would end the script before the message below says why.
 latest="$(find "$sdk_root/ndk" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null |
-    sort -V | tail -n1)"
+    sort -V | tail -n1 || true)"
 if [ -n "$latest" ]; then
     echo "resolve_android_ndk_version: default NDK '${effective:-unset}' not found; falling back to newest installed '$latest'." >&2
     printf '%s\n' "$latest"

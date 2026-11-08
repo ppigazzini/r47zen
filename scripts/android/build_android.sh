@@ -630,7 +630,9 @@ ensure_local_minizip_prefix() {
     fi
 
     dpkg-deb -x "$deb_file" "$extract_dir"
-    lib_file=$(find "$extract_dir" -path '*/libminizip.a' | head -n1)
+    # "|| true": head's early exit can kill find with SIGPIPE, which pipefail
+    # would turn into an exit before the message below.
+    lib_file=$(find "$extract_dir" -path '*/libminizip.a' | head -n1 || true)
     if [ -z "$lib_file" ]; then
         echo "ERROR: Pinned minizip package did not contain libminizip.a. Set R47_MINIZIP_PREFIX." >&2
         return 1

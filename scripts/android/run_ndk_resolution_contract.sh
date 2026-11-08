@@ -78,5 +78,23 @@ R47_NDK_VERSION="$PIN" R47_DEFAULT_ANDROID_NDK_VERSION="$PIN" ANDROID_SDK_ROOT="
     expect "no NDK installed is fatal" 1 ""
 rm -rf "$sdk"
 
+# 6. No pin and no ndk/ directory: fatal, with the resolver's own message. Under
+# pipefail the fallback's find on a missing directory used to end the script
+# before it, and build_android.sh then pointed at "the message above".
+sdk="$(make_sdk no-ndk-directory)"
+set +e
+err="$(env -u R47_NDK_VERSION R47_DEFAULT_ANDROID_NDK_VERSION="$PIN" ANDROID_SDK_ROOT="$sdk" \
+    bash "$RESOLVER" 2>&1 >/dev/null)"
+rc=$?
+set -e
+if [ "$rc" -eq 1 ] && grep -q "no NDK is installed" <<<"$err"; then
+    echo "OK: no ndk/ directory is fatal with its message"
+    pass_count=$((pass_count + 1))
+else
+    echo "FAIL: no ndk/ directory -> exit=$rc stderr='$err' (expected exit=1 and 'no NDK is installed')"
+    fail_count=$((fail_count + 1))
+fi
+rm -rf "$sdk"
+
 echo "--- NDK resolution contract: ${pass_count} passed, ${fail_count} failed ---"
 [ "$fail_count" -eq 0 ]
