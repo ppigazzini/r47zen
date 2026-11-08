@@ -68,8 +68,9 @@ class HapticFeedbackControllerTest {
         assertNull(view.lastFeedbackConstant)
     }
 
+    // On API 32 and below a view declines when the user turned touch feedback off.
     @Test
-    fun performClick_fallsBackToVibratorWhenViewFeedbackReturnsFalse() {
+    fun performClick_defaultPathGivesNothingWhenTheViewDeclines() {
         val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
         val vibratorManager = context.getSystemService(VibratorManager::class.java)
         val shadowVibrator = shadowOf(vibratorManager.defaultVibrator)
@@ -78,9 +79,9 @@ class HapticFeedbackControllerTest {
         val controller = HapticFeedbackController(context)
         controller.syncFromPreferences(preferences)
 
-        assertTrue(controller.performClick(view))
+        assertFalse(controller.performClick(view))
 
-        assertTrue(shadowVibrator.isVibrating)
+        assertFalse(shadowVibrator.isVibrating)
     }
 
     @Test

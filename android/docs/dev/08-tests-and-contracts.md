@@ -526,10 +526,10 @@ source is missing from this page:
   `haptic_keypress_duration_ms` `0..100` clamp, the Android-default versus
   custom override split, the press-only view-based
   `HapticFeedbackConstants.VIRTUAL_KEY` keypad cadence, the
-  release-without-haptic path, the cancel-without-haptic path, and the
-  predefined-vibrator or short one-shot override when the view path declines,
-  when the user opts into a custom keypress-duration override, or when custom
-  mode is set to `0 ms`; the haptics test also sends a real two-pointer
+  release-without-haptic path, the cancel-without-haptic path, no vibration when
+  the default path's view declines, the short one-shot override when the user
+  opts into a custom keypress-duration override, and none when custom mode is set
+  to `0 ms`; the haptics test also sends a real two-pointer
   sequence through the overlay and requires one key per touch, in either lift
   order, and requires that a blank softkey sends its press only in `ASSIGN` and that
   a softkey turning blank while held still sends its release

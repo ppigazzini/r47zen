@@ -101,9 +101,7 @@
     <ID>ReturnCount:GraphGestureAccumulator.kt:GraphGestureAccumulator$private fun consumePanStep: Float</ID>
     <ID>ReturnCount:GraphGestureAccumulator.kt:GraphGestureAccumulator$private fun sanitizePendingPanComponent: Float</ID>
     <ID>ReturnCount:GraphGestureAccumulator.kt:GraphGestureAccumulator$private fun takePanStep: Float</ID>
-    <ID>ReturnCount:HapticFeedbackController.kt:HapticFeedbackController$@SuppressLint("InlinedApi") fun performClick: Boolean</ID>
     <ID>ReturnCount:HapticFeedbackController.kt:HapticFeedbackController$fun onPreferenceChanged: Boolean</ID>
-    <ID>ReturnCount:HapticFeedbackController.kt:HapticFeedbackController$private fun performFallbackFeedback: Boolean</ID>
     <ID>ReturnCount:LcdThemePolicy.kt:LcdThemePolicy$private fun ensureTextContrast: Int</ID>
     <ID>ReturnCount:MainActivityPreferenceController.kt:MainActivityPreferenceController$fun onPreferenceChanged: Boolean</ID>
     <ID>ReturnCount:NativeCoreRuntime.kt:NativeCoreRuntime.Companion$private fun runCoreIteration: Boolean</ID>

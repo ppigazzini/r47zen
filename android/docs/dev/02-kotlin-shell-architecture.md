@@ -417,7 +417,9 @@ while matching the desktop simulator's stop-key parity during an active run.
   `haptic_use_android_default` is a dependent default-on toggle, and
   `haptic_keypress_duration_ms` is a custom `0..100 ms` slider that only
   applies when the Android-default toggle is off. With the default toggle on,
-  the controller keeps the Android view-first path; with it off, positive
+  the controller uses the Android view path alone: when the view declines, which
+  on API 32 and below is how the system says the user turned touch feedback off,
+  nothing vibrates. With it off, positive
   values switch to short app-owned one-shot press pulses that intentionally
   override the system touch-haptics setting, while `0 ms` means no app pulse
 - haptics, audio, fullscreen state, LCD display theme, keypad
