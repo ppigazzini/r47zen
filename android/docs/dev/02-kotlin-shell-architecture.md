@@ -417,8 +417,10 @@ while matching the desktop simulator's stop-key parity during an active run.
   35 and later enforces, through `SystemBarInsets.kt`: transparent bars with
   light icons over the activity's own dark background, and a root padded by
   the system-bar and display-cutout insets. The Settings-family screens always
-  pad; `WindowModeController` pads the main screen only while fullscreen is
-  off, and in fullscreen hides the bars and keeps the whole window. The root
+  pad; `WindowModeController` pads the main screen by them only while
+  fullscreen is off, and in fullscreen hides the bars and pads by the caption bar
+  alone, which a desktop window keeps for its controls and a phone does not
+  have. The root
   consumes the insets, so no descendant pads for them again, and
   `ReplicaOverlay` projects the calculator into whatever size that leaves
 - LCD appearance stays on a curated Android-local theme list owned by

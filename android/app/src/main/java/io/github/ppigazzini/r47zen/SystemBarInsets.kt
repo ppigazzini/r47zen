@@ -39,14 +39,16 @@ internal object SystemBarInsets {
 
     /**
      * Pads [root] by the safe area on top of the padding its layout declares,
-     * or by the declared padding alone while [isEnabled] returns false. The
-     * insets are consumed here, so no descendant pads for them a second time.
-     * Call [ViewCompat.requestApplyInsets] on [root] when [isEnabled] changes.
+     * or, while [isEnabled] returns false, by the caption bar alone: a desktop
+     * window keeps its caption, the window's controls, when the system bars hide,
+     * and a phone has none. The insets are consumed here, so no descendant pads
+     * for them a second time. Call [ViewCompat.requestApplyInsets] on [root] when
+     * [isEnabled] changes.
      */
     fun padToSafeArea(root: View, isEnabled: () -> Boolean = { true }) {
         val declared = Insets.of(root.paddingLeft, root.paddingTop, root.paddingRight, root.paddingBottom)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val safe = if (isEnabled()) insets.getInsets(SAFE_AREA) else Insets.NONE
+            val safe = insets.getInsets(if (isEnabled()) SAFE_AREA else WindowInsetsCompat.Type.captionBar())
             view.setPadding(
                 declared.left + safe.left,
                 declared.top + safe.top,

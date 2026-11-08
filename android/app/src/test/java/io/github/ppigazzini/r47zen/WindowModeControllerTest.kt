@@ -128,7 +128,10 @@ class WindowModeControllerTest {
         ViewCompat.dispatchApplyWindowInsets(
             root,
             WindowInsetsCompat.Builder()
-                .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, 63, 0, 126))
+                // A phone's bars by type: the systemBars() mask also covers the caption
+                // bar, which a phone does not have and a fullscreen window pads for.
+                .setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, 63, 0, 0))
+                .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, 126))
                 .setInsets(WindowInsetsCompat.Type.displayCutout(), Insets.of(0, 80, 0, 0))
                 .build(),
         )

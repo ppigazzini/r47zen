@@ -452,12 +452,14 @@ source is missing from this page:
   retained dark settings-discovery hint surfaces in light system mode
 - `SystemBarInsetsTest.kt`: dispatches synthetic bar and cutout insets and
   locks the safe-area padding: added to the declared padding, replaced rather
-  than accumulated on a second pass, dropped while disabled, consumed so no
+  than accumulated on a second pass, dropped while disabled but for a caption
+  bar, which a desktop window keeps in fullscreen, consumed so no
   descendant pads again, and applied to the content root of `SettingsActivity`,
   `RepoNoticeIndexActivity`, and `NoticeAssetActivity`
 - `WindowModeControllerTest.kt`: locks the PiP entry flag, and that the main
   screen pads by the safe area with fullscreen off, under light bar icons, and
-  keeps the whole window with fullscreen on
+  keeps the whole window with fullscreen on, given a phone's bars, which have no
+  caption bar
 - `ReplicaOverlayControllerLabelModeTest.kt`: locks main-key mode routing into
   the app-facing whole-snapshot export, the single-snapshot USER-mode
   contract that keeps printed main-key legends, the Virtuoso blank-keycap

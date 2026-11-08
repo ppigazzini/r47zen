@@ -674,11 +674,11 @@ Current repository icon surfaces:
   bar guidance for fullscreen content. Its desktop-windowing note binds this app:
   the caption bar stays visible even in immersive mode, and the page requires
   `systemBars()` or `captionBar()` insets to keep content out from under the
-  window controls. `SystemBarInsets.padToSafeArea` pads nothing while fullscreen
-  mode is on, and that mode defaults on (`fullscreen_mode` in
-  `android/app/src/main/res/xml/root_preferences.xml`), so the replica's top can
-  sit under the caption bar. This is a gap, read from the source and not run on a
-  desktop-windowing device.
+  window controls. `SystemBarInsets.padToSafeArea` therefore pads by the caption
+  bar while fullscreen mode is on, the default (`fullscreen_mode` in
+  `android/app/src/main/res/xml/root_preferences.xml`), and by nothing else, so a
+  phone, which has no caption bar, keeps the whole screen. Held by
+  `SystemBarInsetsTest.kt`; not run on a desktop-windowing device.
 - [Responsive/adaptive design with views](https://developer.android.com/develop/ui/views/layout/responsive-adaptive-design-with-views):
   official large-screen and multi-window guidance for view-based apps,
   including `ConstraintLayout` recommendations and alternative layout-resource

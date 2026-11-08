@@ -54,6 +54,19 @@ class SystemBarInsetsTest {
         assertEquals(listOf(1, 2, 3, 4), root.paddingList())
     }
 
+    // In a desktop window the caption bar holds the window's controls, and hiding the
+    // system bars for fullscreen does not move it: a fullscreen root still pads for it,
+    // and a phone, which has none, pads for nothing.
+    @Test
+    fun disabledStillPadsForACaptionBar() {
+        val root = declaredPaddingRoot()
+
+        SystemBarInsets.padToSafeArea(root) { false }
+        dispatchSafeAreaInsets(root, captionBar = Insets.of(0, 48, 0, 0))
+
+        assertEquals(listOf(1, 2 + 48, 3, 4), root.paddingList())
+    }
+
     @Test
     fun consumesTheInsetsSoNoDescendantPadsAgain() {
         val root = declaredPaddingRoot()
@@ -102,12 +115,16 @@ class SystemBarInsetsTest {
         }
     }
 
-    private fun dispatchSafeAreaInsets(root: View) {
+    // A phone's bars, set by type: the systemBars() mask also covers the caption bar,
+    // which a phone does not have.
+    private fun dispatchSafeAreaInsets(root: View, captionBar: Insets = Insets.NONE) {
         shadowOf(Looper.getMainLooper()).idle()
         ViewCompat.dispatchApplyWindowInsets(
             root,
             WindowInsetsCompat.Builder()
-                .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, 63, 0, 126))
+                .setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, 63, 0, 0))
+                .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, 126))
+                .setInsets(WindowInsetsCompat.Type.captionBar(), captionBar)
                 .setInsets(WindowInsetsCompat.Type.displayCutout(), Insets.of(0, 80, 0, 0))
                 .build(),
         )
