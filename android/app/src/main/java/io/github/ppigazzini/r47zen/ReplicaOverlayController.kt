@@ -45,7 +45,6 @@ internal class ReplicaOverlayController(
     private var lastResolvedSnapshot = KeypadSnapshot.EMPTY
 
     fun bindOverlay() {
-        overlay.onPiPKeyEvent = dispatchLiveKey
         overlay.onGeometryLaidOut = {
             ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout(overlay)
             schedulePendingGeometrySceneReplay()

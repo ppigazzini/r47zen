@@ -6,7 +6,6 @@ import io.github.ppigazzini.r47zen.LcdTestFrames.frameWith
 import io.github.ppigazzini.r47zen.LcdTestFrames.palettes
 import io.github.ppigazzini.r47zen.LcdTestFrames.pixelsOf
 import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,8 +31,6 @@ class PackedLcdRasterTest {
 
         assertTrue(raster.applyFrame(frameWith(EDGE_PIXELS, flaggedRows = emptySet())))
 
-        assertEquals(0, raster.firstChangedRow)
-        assertEquals(R47LcdContract.PIXEL_HEIGHT - 1, raster.lastChangedRow)
         assertArrayEquals(expectedPixels(PALETTE, EDGE_PIXELS), pixelsOf(raster))
     }
 
@@ -47,8 +44,6 @@ class PackedLcdRasterTest {
         )
 
         assertTrue(changed)
-        assertEquals(6, raster.firstChangedRow)
-        assertEquals(6, raster.lastChangedRow)
         assertArrayEquals(expectedPixels(PALETTE, setOf(10 to 5, 20 to 6)), pixelsOf(raster))
     }
 
@@ -68,8 +63,6 @@ class PackedLcdRasterTest {
 
         raster.setPalette(RECOLOR)
 
-        assertEquals(0, raster.firstChangedRow)
-        assertEquals(R47LcdContract.PIXEL_HEIGHT - 1, raster.lastChangedRow)
         assertArrayEquals(expectedPixels(RECOLOR, EDGE_PIXELS), pixelsOf(raster))
     }
 
@@ -77,15 +70,19 @@ class PackedLcdRasterTest {
     fun setPalette_toTheSamePalette_stillRepaints() {
         val raster = PackedLcdRaster(PALETTE)
         raster.applyFrame(frameWith(setOf(3 to 3), flaggedRows = emptySet()))
+        // Pixels no decode wrote, top row and bottom row, so only a repaint of
+        // every row puts the frame back.
+        raster.bitmap.setPixel(0, 0, STRAY)
+        raster.bitmap.setPixel(R47LcdContract.PIXEL_WIDTH - 1, R47LcdContract.PIXEL_HEIGHT - 1, STRAY)
 
         raster.setPalette(PALETTE)
 
-        assertEquals(0, raster.firstChangedRow)
-        assertEquals(R47LcdContract.PIXEL_HEIGHT - 1, raster.lastChangedRow)
+        assertArrayEquals(expectedPixels(PALETTE, setOf(3 to 3)), pixelsOf(raster))
     }
 
     private companion object {
         val PALETTE = LcdPalette(text = 0xFF20313D.toInt(), background = 0xFFDCECD0.toInt())
         val RECOLOR = LcdPalette(text = 0xFF112A4A.toInt(), background = 0xFFF1E6C5.toInt())
+        const val STRAY = 0xFFFF00FF.toInt()
     }
 }

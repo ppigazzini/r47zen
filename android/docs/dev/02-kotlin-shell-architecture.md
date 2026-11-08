@@ -115,8 +115,8 @@ Main flow:
 1. `MainActivity` and helper controllers receive lifecycle, touch, keyboard,
    menu, PiP, and settings work.
 2. Native work enters `NativeCoreRuntime` through `offerCoreTask(...)` or the
-  small direct bridge methods exposed by `MainActivity`. The live touch and
-  PiP stop seam first applies `LiveProgramStopKeyPolicy` so `R/S` and `EXIT`
+  small direct bridge methods exposed by `MainActivity`. The live touch stop
+  seam first applies `LiveProgramStopKeyPolicy` so `R/S` and `EXIT`
   can call `requestStopProgramNative()` before queue fallback. LCD graph-touch
   queueing also stays here: `ReplicaOverlay` starts pan only after
   `ViewConfiguration` touch slop, keeps a smaller continuation deadband so
@@ -228,7 +228,7 @@ Focused verification for this lifecycle contract lives in
 
 ## Input surfaces
 
-The Kotlin shell accepts input from five paths:
+The Kotlin shell accepts input from four paths:
 
 - on-screen keys built by `ReplicaKeypadLayout`
 - accessibility click activation on those same key views once they hold focus
@@ -236,7 +236,10 @@ The Kotlin shell accepts input from five paths:
   `PhysicalKeyboardMapper`, and `PhysicalKeyboardBindingTables`
 - the projected top-bezel main-menu button coordinated by
   `DisplayActionController`
-- PiP touch mapping handled by `ReplicaOverlay`
+
+A PiP window is not a path: the system takes every touch on it for its own
+controls, so the app receives none
+([PiP](https://developer.android.com/develop/ui/views/picture-in-picture)).
 
 Each path ultimately resolves to core-thread work or a small Android-side action.
 
@@ -281,9 +284,9 @@ navigation, and keeps touchscreen focus from suppressing the shell, so the
 first DPAD event reaches `MainActivity` and the physical-keyboard controller
 instead of Android focus search on keypad descendants.
 
-The live on-screen and PiP stop path is narrower than the general queue path:
+The live on-screen stop path is narrower than the general queue path:
 
-- `ReplicaOverlayController` routes touch and PiP taps through
+- `ReplicaOverlayController` routes touch through
   `MainActivity.dispatchLiveKey(...)`
 - `LiveProgramStopKeyPolicy` marks only key codes `36` (`R/S`) and `33`
   (`EXIT`) as direct live-stop candidates

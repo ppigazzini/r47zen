@@ -3,7 +3,6 @@ package io.github.ppigazzini.r47zen
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Rect
 import android.graphics.RectF
 import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
@@ -18,7 +17,6 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.util.Locale
-import kotlin.math.ceil
 import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
@@ -26,99 +24,26 @@ import kotlin.math.abs
 @Config(qualifiers = "xxhdpi")
 class ReplicaOverlayGoldenTest {
     @Test
-    fun packedLcd_firstFrame_isDecodedWhole_andInvalidatesTheWholeLcd() {
+    fun packedLcd_requestsOneRedrawPerChangedFrame_andNoneForAnUnchangedOne() {
         // A host that attaches to a live runtime finds the row flags already
         // taken by its predecessor; its first frame must still reach the screen.
         val overlay = configuredOverlay()
-        val packedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
-        setPackedPixel(packedBuffer, x = 64, y = 137)
-        packedBuffer[137 * R47LcdContract.PACKED_ROW_SIZE_BYTES] = 0
+        var redraws = 0
+        overlay.requestLcdRedraw = { redraws += 1 }
+        val firstFrame = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(firstFrame, x = 64, y = 137)
+        firstFrame[137 * R47LcdContract.PACKED_ROW_SIZE_BYTES] = 0
 
-        assertTrue(overlay.updatePackedLcd(packedBuffer))
+        assertTrue(overlay.updatePackedLcd(firstFrame))
+        assertEquals("the first frame, no row flagged", 1, redraws)
 
-        val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
-        val chromeLayout = ReplicaChromeLayout()
-        val spec = chromeLayout.currentChromeSpec()
-        val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
-        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
-        val lcdBottom = projection.offsetY + (spec.lcdWindowTop + spec.lcdWindowHeight) * projection.scale
-        assertTrue("the first frame invalidates from the LCD top", dirtyRect.top <= lcdTop.toInt())
-        assertTrue("the first frame invalidates to the LCD bottom", dirtyRect.bottom >= ceil(lcdBottom).toInt())
-    }
+        assertFalse(overlay.updatePackedLcd(ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)))
+        assertEquals("a later frame that flags no row", 1, redraws)
 
-    @Test
-    fun packedLcd_singleDirtyRow_invalidatesOnlyTouchedRowSpan() {
-        val overlay = overlayAfterFirstFrame()
-        val touchedRow = 137
-        val packedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
-        setPackedPixel(packedBuffer, x = 64, y = touchedRow)
-
-        assertTrue(overlay.updatePackedLcd(packedBuffer))
-
-        val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
-        val chromeLayout = ReplicaChromeLayout()
-        val spec = chromeLayout.currentChromeSpec()
-        val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
-        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
-        val lcdHeight = spec.lcdWindowHeight * projection.scale
-        val expectedTop = (lcdTop + lcdHeight * (touchedRow.toFloat() / R47LcdContract.PIXEL_HEIGHT.toFloat())).toInt()
-        val expectedBottom = ceil(
-            lcdTop + lcdHeight * ((touchedRow + 1).toFloat() / R47LcdContract.PIXEL_HEIGHT.toFloat())
-        ).toInt()
-        val expectedLeft = (projection.offsetX + spec.lcdWindowLeft * projection.scale).toInt()
-        val expectedRight = (
-            projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth) * projection.scale
-        ).toInt()
-
-        assertEquals(expectedLeft, dirtyRect.left)
-        assertTrue(dirtyRect.top <= expectedTop)
-        assertTrue(dirtyRect.top >= expectedTop - 1)
-        assertEquals(expectedRight, dirtyRect.right)
-        assertTrue(dirtyRect.bottom >= expectedBottom)
-        assertTrue(dirtyRect.bottom <= expectedBottom + 1)
-    }
-
-    @Test
-    fun packedLcd_singleDirtyRow_doesNotInvalidateFullLcdHeight() {
-        val overlay = overlayAfterFirstFrame()
-        val touchedRow = 11
-        val packedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
-        setPackedPixel(packedBuffer, x = 8, y = touchedRow)
-
-        assertTrue(overlay.updatePackedLcd(packedBuffer))
-
-        val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
-        val chromeLayout = ReplicaChromeLayout()
-        val spec = chromeLayout.currentChromeSpec()
-        val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
-        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
-        val lcdBottom = projection.offsetY + (spec.lcdWindowTop + spec.lcdWindowHeight) * projection.scale
-        val fullLcdHeight = ceil(lcdBottom).toInt() - lcdTop.toInt()
-
-        assertTrue("dirty rect should be row-band sized, not full LCD height", dirtyRect.height() < fullLcdHeight)
-    }
-
-    @Test
-    fun packedLcd_singleDirtyRow_invalidationExpandsForSamplingSafety() {
-        val overlay = overlayAfterFirstFrame()
-        val touchedRow = 120
-        val packedBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
-        setPackedPixel(packedBuffer, x = 100, y = touchedRow)
-        assertTrue(overlay.updatePackedLcd(packedBuffer))
-
-        val dirtyRect = readPrivateField<Rect>(overlay, "dirtyRect")
-        val chromeLayout = ReplicaChromeLayout()
-        val spec = chromeLayout.currentChromeSpec()
-        val projection = chromeLayout.computeProjection(spec, overlay.width.toFloat(), overlay.height.toFloat())
-        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
-        val lcdHeight = spec.lcdWindowHeight * projection.scale
-        val expectedTop = (lcdTop + lcdHeight * (touchedRow.toFloat() / R47LcdContract.PIXEL_HEIGHT.toFloat())).toInt()
-        val expectedBottom = ceil(
-            lcdTop + lcdHeight * ((touchedRow + 1).toFloat() / R47LcdContract.PIXEL_HEIGHT.toFloat())
-        ).toInt()
-
-        assertTrue("dirty rect top should include a sampling guard", dirtyRect.top <= expectedTop - 1)
-        assertTrue("dirty rect bottom should include a sampling guard", dirtyRect.bottom >= expectedBottom + 1)
+        val laterFrame = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
+        setPackedPixel(laterFrame, x = 8, y = 11)
+        assertTrue(overlay.updatePackedLcd(laterFrame))
+        assertEquals("a later frame that flags one row", 2, redraws)
     }
 
     @Test
@@ -680,14 +605,6 @@ class ReplicaOverlayGoldenTest {
         val bitMask = 1 shl (7 - (x % 8))
         buffer[rowOffset + R47LcdContract.PACKED_PIXEL_OFFSET + byteIndex] =
             (buffer[rowOffset + R47LcdContract.PACKED_PIXEL_OFFSET + byteIndex].toInt() or bitMask).toByte()
-    }
-
-    // An overlay that has decoded a blank first frame, so the next frame decodes
-    // only its flagged rows.
-    private fun overlayAfterFirstFrame(): ReplicaOverlay {
-        return configuredOverlay().apply {
-            assertTrue(updatePackedLcd(ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)))
-        }
     }
 
     private fun overlayShowingSampleFrame(): ReplicaOverlay {

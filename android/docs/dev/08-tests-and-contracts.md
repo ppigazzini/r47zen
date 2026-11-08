@@ -421,16 +421,17 @@ source is missing from this page:
   and palette changes after a first frame, then a later frame that flags one
   row; and a frame before the palette, which a reordered start would reach.
   After each step it checks, the raster must show the frame in the palette, and
-  a step that repaints it whole must request a redraw of the whole LCD window,
-  which the test sees by swapping `ReplicaOverlay.requestLcdRedraw`.
+  a step that repaints it whole must request a redraw, which the test sees by
+  swapping `ReplicaOverlay.requestLcdRedraw`.
   `mutation_spot_check.sh` holds it to two raster mutants `PackedLcdRasterTest`
   passes: a first frame decoded whole only when it flags no row, and a palette
   change that marks a frame received
 - `ReplicaOverlayGoldenTest.kt`: keeps the native shell rendering stable. The
   LCD raster's composition into the frame is locked by a structural color
-  oracle (`nativeChrome_compositesLcdRasterColors`), and a fresh overlay
-  decodes its first frame whole and invalidates the whole LCD
-  (`packedLcd_firstFrame_isDecodedWhole_andInvalidatesTheWholeLcd`). Native-only
+  oracle (`nativeChrome_compositesLcdRasterColors`), and the overlay requests
+  one redraw for each frame that changes a row, a first frame that flags none
+  included, and none for a frame that changes nothing
+  (`packedLcd_requestsOneRedrawPerChangedFrame_andNoneForAnUnchangedOne`). Native-only
   chrome draws no shell, so outside the LCD window every pixel is the overlay's
   black background, which
   `nativeChrome_isTheBlackBackgroundOutsideTheLcdWindow` holds exactly. Where
@@ -596,8 +597,6 @@ source is missing from this page:
 - `CalculatorKeyViewCanvasTest.kt`: draws a measured main key and asserts each
   of the primary, f, g, and fourth label lanes paints its text in its own
   color from the label state
-- `PiPSoftkeyPolicyTest.kt`: locks the picture-in-picture softkey row, so every
-  touch across it, the right edge included, presses F1 to F6, codes 38 to 43
 - `GraphTouchVisualPolicyTest.kt`: locks `ReplicaOverlay.isSignificantPinch`,
   so a pinch drives the LCD zoom only when its scale factor is finite and
   differs from 1 by at least `PINCH_EPSILON`

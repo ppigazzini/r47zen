@@ -16,7 +16,7 @@ flowchart LR
   C[ReplicaOverlayController]
   D[ReplicaKeypadLayout]
   E[CalculatorKeyView and CalculatorSoftkeyPainter]
-  F[ReplicaOverlay projection and dirty-rect invalidation]
+  F[ReplicaOverlay projection and invalidation]
 
   A --> B --> C --> D --> E
   B --> F
@@ -78,8 +78,8 @@ flowchart LR
   the first shell touch instead of waiting for a menu tap
 - PiP uses the LCD-only contract: `WindowModeController` requests the exact
   native `400 x 240` width-over-height ratio, then `ReplicaOverlay` draws the
-  LCD full-window and maps horizontal touches across that surface to the six
-  softkeys, so the native shell projection does not change PiP geometry
+  LCD full-window, so the native shell projection does not change PiP geometry.
+  The window takes no input: the system keeps every touch on it
 
 Projection is the first owner to inspect when the whole shell, LCD frame, and
 keypad all look correct locally but are globally misplaced together.
@@ -103,8 +103,8 @@ keypad all look correct locally but are globally misplaced together.
 - `ReplicaOverlay.updatePackedLcd(...)` is the live LCD handoff. Its
   `PackedLcdRaster` decodes each packed row whose transport flag is set --
   native sets it only on rows whose pixels changed -- or every row of the
-  first frame it receives, into the backing `Bitmap`, and the overlay
-  invalidates the changed row band across the full LCD width. It is the only
+  first frame it receives, into the backing `Bitmap`, and the overlay requests
+  one redraw, with no rectangle, which the platform would ignore. It is the only
   way a frame reaches the bitmap; the tests drive it with packed frames too
 - the animated settings-discovery hint stays Android-owned in `ReplicaOverlay`,
   but its banner geometry and `StaticLayout` are cached and rebuilt only on a
@@ -600,11 +600,14 @@ constant. Faceplate spacing, centering, and size rules stay shared.
 
 PiP mode keeps the native LCD aspect ratio instead of the full portrait shell.
 `WindowModeController` enters PiP with the exact `400 x 240` width-over-height
-ratio, and `ReplicaOverlay` stops drawing the full shell and maps horizontal
-touches across the LCD surface to the six softkeys.
+ratio, and `ReplicaOverlay` stops drawing the full shell and draws the LCD
+alone. A PiP window is a view of the display, not a keypad: the system takes
+every touch on it for its own controls
+([PiP](https://developer.android.com/develop/ui/views/picture-in-picture):
+"Users cannot interact with your app's UI elements when the app is in PiP
+mode"), and the app adds no PiP actions.
 
-That is an interaction contract, not a reduced copy of the full keypad layout.
-PiP exit is also part of the rendering contract: the raw visual mode switch
+PiP exit is part of the rendering contract: the raw visual mode switch
 stays in `ReplicaOverlay`, but `ReplicaOverlayController` replays the current
 keypad scene after the restored full-window layout so faceplate-label placement
 returns with the shell instead of waiting for a later UI event.

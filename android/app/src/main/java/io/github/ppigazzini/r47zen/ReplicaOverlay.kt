@@ -19,8 +19,6 @@ import android.util.Log
 import androidx.core.graphics.withTranslation
 import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -75,21 +73,6 @@ internal object TouchZoneDebugVisualPolicy {
     const val STROKE_ALPHA = 180
 }
 
-internal object PiPSoftkeyPolicy {
-    // In picture-in-picture the overlay is the softkey row alone, and a touch
-    // presses the softkey under it: F1 to F6, which native sendKey numbers 38
-    // to 43 and the only codes it presses in that row.
-    const val FIRST_SOFTKEY_CODE = 38
-    const val SOFTKEY_COUNT = 6
-
-    // The softkey code under x on an overlay width wide. A touch at the right
-    // edge (x == width) presses F6, not code 44, which sendKey ignores.
-    fun softkeyCode(x: Float, width: Int): Int {
-        val column = (x / width * SOFTKEY_COUNT).toInt().coerceIn(0, SOFTKEY_COUNT - 1)
-        return FIRST_SOFTKEY_CODE + column
-    }
-}
-
 internal object GraphTouchVisualPolicy {
     const val PAN_GAIN = 1.0f
     const val PINCH_EPSILON = 0.0001f
@@ -130,13 +113,12 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val lcd = PackedLcdRaster(LcdThemePolicy.DEFAULT_PALETTE)
     private val lcdRect = Rect(0, 0, R47LcdContract.PIXEL_WIDTH, R47LcdContract.PIXEL_HEIGHT)
     private val lcdDestRect = RectF()
-    private val dirtyRect = Rect()
 
-    // The redraw request for a changed LCD span. A test swaps it to see each request,
-    // which a view outside a window would otherwise drop.
-    internal var requestLcdRedraw: (Rect) -> Unit = { rect ->
-        postInvalidateOnAnimation(rect.left, rect.top, rect.right, rect.bottom)
-    }
+    // The redraw request for a changed LCD. It names no rectangle: from API 21 the
+    // platform ignores one and computes the area itself (View.invalidate(Rect)).
+    // A test swaps it to see each request, which a view outside a window would
+    // otherwise drop.
+    internal var requestLcdRedraw: () -> Unit = { postInvalidateOnAnimation() }
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val shellRect = RectF()
     private val zonePaint = Paint().apply {
@@ -193,7 +175,6 @@ class ReplicaOverlay @JvmOverloads constructor(
     private var developerPerformanceLabel = developerPerformanceSnapshot.overlayLabel()
     private var settingsHintLayoutCache: SettingsHintLayoutCache? = null
 
-    var onPiPKeyEvent: ((Int) -> Unit)? = null
     var onLcdPanListener: ((Float, Float) -> Unit)? = null
     var onLcdPinchListener: ((Float) -> Unit)? = null
     var onLcdResetListener: (() -> Unit)? = null
@@ -423,7 +404,7 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     internal fun setLcdPalette(palette: LcdPalette) {
         lcd.setPalette(palette)
-        invalidateLcdRows(lcd.firstChangedRow, lcd.lastChangedRow)
+        requestLcdRedraw()
     }
 
     private fun currentChromeSpec(): ReplicaChromeSpec = chromeLayout.currentChromeSpec()
@@ -448,43 +429,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         if (!lcd.applyFrame(buffer)) {
             return false
         }
-        invalidateLcdRows(lcd.firstChangedRow, lcd.lastChangedRow)
+        requestLcdRedraw()
         return true
-    }
-
-    private fun invalidateLcdRows(minRow: Int, maxRow: Int) {
-        if (width <= 0 || height <= 0) {
-            invalidate()
-            return
-        }
-
-        val spec = currentChromeSpec()
-        val projection = chromeLayout.computeProjection(spec, width.toFloat(), height.toFloat())
-
-        // Keep horizontal invalidation wide for scaled bitmap sampling, but
-        // only invalidate touched LCD rows to avoid repaint churn on static rows.
-        val left = projection.offsetX + spec.lcdWindowLeft * projection.scale
-        val right = projection.offsetX + (spec.lcdWindowLeft + spec.lcdWindowWidth) * projection.scale
-        val lcdTop = projection.offsetY + spec.lcdWindowTop * projection.scale
-        val lcdHeight = spec.lcdWindowHeight * projection.scale
-        val lcdBottom = lcdTop + lcdHeight
-        val pixelHeight = R47LcdContract.PIXEL_HEIGHT.toFloat()
-        val top = lcdTop + lcdHeight * (minRow.toFloat() / pixelHeight)
-        val bottom = lcdTop + lcdHeight * ((maxRow + 1).toFloat() / pixelHeight)
-
-        // Filtered bitmap sampling can blend across the dirty-band edge,
-        // so expand invalidation by one display pixel vertically.
-        val verticalGuardPx = if (paint.isFilterBitmap) 1f else 0f
-        val guardedTop = (top - verticalGuardPx).coerceAtLeast(lcdTop)
-        val guardedBottom = (bottom + verticalGuardPx).coerceAtMost(lcdBottom)
-
-        dirtyRect.set(
-            left.toInt(),
-            floor(guardedTop).toInt(),
-            right.toInt(),
-            ceil(guardedBottom).toInt(),
-        )
-        requestLcdRedraw(dirtyRect)
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
@@ -524,20 +470,11 @@ class ReplicaOverlay @JvmOverloads constructor(
         return false
     }
 
-    // LCD pan, pinch, and PiP taps drive gesture detectors and the native core,
-    // not click semantics, so performClick is not the interaction model.
+    // LCD pan and pinch drive gesture detectors and the native core, not click
+    // semantics, so performClick is not the interaction model. A PiP window
+    // gets no touch: the system takes them all for its own controls.
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (isPiPMode) {
-            val fKey = PiPSoftkeyPolicy.softkeyCode(event.x, width)
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                onPiPKeyEvent?.invoke(fKey)
-            } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
-                onPiPKeyEvent?.invoke(0)
-            }
-            return true
-        }
-
         if (!lcdGraphTouchEnabled) {
             lcdGestureActive = false
             lcdPanStarted = false

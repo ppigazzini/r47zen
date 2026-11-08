@@ -16,12 +16,6 @@ internal class PackedLcdRaster(palette: LcdPalette) {
         Bitmap.Config.ARGB_8888,
     )
 
-    // The span of rows the last call decoded, for the caller's invalidation.
-    var firstChangedRow = 0
-        private set
-    var lastChangedRow = R47LcdContract.PIXEL_HEIGHT - 1
-        private set
-
     private var palette = palette
     private val frame = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
     private val linePixels = IntArray(R47LcdContract.PIXEL_WIDTH)
@@ -46,8 +40,7 @@ internal class PackedLcdRaster(palette: LcdPalette) {
     fun applyFrame(buffer: ByteArray): Boolean {
         val wholeFrame = !hasNativeFrame
         hasNativeFrame = true
-        var first = R47LcdContract.PIXEL_HEIGHT
-        var last = -1
+        var changed = false
         for (row in 0 until R47LcdContract.PIXEL_HEIGHT) {
             val rowOffset = row * R47LcdContract.PACKED_ROW_SIZE_BYTES
             if (!wholeFrame && (buffer[rowOffset].toInt() and 0xFF) == 0) {
@@ -55,20 +48,15 @@ internal class PackedLcdRaster(palette: LcdPalette) {
             }
             System.arraycopy(buffer, rowOffset, frame, rowOffset, R47LcdContract.PACKED_ROW_SIZE_BYTES)
             decodeRow(row)
-            if (row < first) first = row
-            last = row
+            changed = true
         }
-        firstChangedRow = first
-        lastChangedRow = last
-        return last >= 0
+        return changed
     }
 
     private fun decodeAllRows() {
         for (row in 0 until R47LcdContract.PIXEL_HEIGHT) {
             decodeRow(row)
         }
-        firstChangedRow = 0
-        lastChangedRow = R47LcdContract.PIXEL_HEIGHT - 1
     }
 
     // A set bit is a dark pixel. The row's last pixel byte holds its first eight

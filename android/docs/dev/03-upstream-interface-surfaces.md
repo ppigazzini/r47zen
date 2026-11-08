@@ -104,14 +104,14 @@ flowchart LR
 
 ## Input Dispatch Contract
 
-- Touch, PiP taps, physical-keyboard actions, and some display actions all land
+- Touch, physical-keyboard actions, and some display actions all land
   in `MainActivity`, then either queue work through
   `NativeCoreRuntime.offerTask(...)` or call one of the direct JNI input entry
   points.
 - `sendKey(int)` is the main numeric key path. It maps key codes `1..37` onto
   `btnPressed(...)` or `btnReleased(...)` and key codes `38..43` onto the
   dedicated function-key press and release handlers.
-- `MainActivity.dispatchLiveKey(...)` is the live touch and PiP tap seam. It
+- `MainActivity.dispatchLiveKey(...)` is the live touch seam. It
   routes `R/S` and `EXIT` through `requestStopProgramNative()` before queue
   fallback, so live stop publication does not wait on the core-owner queue.
   When native code reports that no program is running or paused, the same key
