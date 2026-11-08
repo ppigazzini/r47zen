@@ -524,9 +524,10 @@ kover {
     reports {
         filters {
             excludes {
-                // Generated and framework-shaped classes carry no meaningful
-                // unit-test signal; excluding them keeps the percentage honest.
-                androidGeneratedClasses()
+                // Generated classes carry no unit-test signal. Kover's
+                // androidGeneratedClasses() would also drop every Activity and
+                // Fragment, hand-written lifecycle code, so only the generated
+                // kinds are named.
                 classes(
                     '*.BuildConfig',
                     '*.databinding.*',

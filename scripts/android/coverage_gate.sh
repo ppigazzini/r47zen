@@ -5,15 +5,17 @@
 # hardened live program-stop routing seam loses full line coverage.
 #
 # This parses the report Kover already publishes rather than using Kover's
-# `verify` DSL: under AGP 9.2 the per-Android-variant `verify` bounds did not
-# enforce here (a 100 % floor still passed), so a self-contained, testable gate
-# over the same deterministic XML is used instead.
+# `verify` DSL: when this gate was written, under AGP 9.2, the per-Android-variant
+# `verify` bounds did not enforce here (a 100 % floor still passed), so a
+# self-contained, testable gate over the same deterministic XML is used instead.
 #
 # The total-line threshold is a maintainer-ratcheted FLOOR, not an auto-ratchet:
 # it is sourced from R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT in
 # android/r47-defaults.properties, set just below the current measurement so a
-# regression fails the gate without freezing the instrumented-only gaps (for
-# example MainActivity). Bump the default up when coverage rises durably. The
+# regression fails the gate. The report counts the activities, MainActivity
+# included, which mostly only instrumented tests drive, so the number is lower
+# than a filter on them would show. Bump the default up when coverage rises
+# durably. The
 # seam rule separately locks the routing-policy classes at
 # 100 %.
 
