@@ -106,6 +106,50 @@ class DocumentTransferTest {
         assertEquals(emptyList<Any>(), tempFiles())
     }
 
+    // The limit itself is still a document: only a byte past it refuses.
+    @Test
+    fun load_takesADocumentOfExactlyTheLimit() {
+        var remaining = DocumentTransfer.MAX_LOAD_BYTES
+        val exact = object : InputStream() {
+            override fun read(): Int {
+                if (remaining <= 0) {
+                    return -1
+                }
+                remaining -= 1
+                return 0
+            }
+
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                val count = minOf(length.toLong(), remaining).toInt()
+                remaining -= count
+                return when {
+                    length == 0 -> 0
+                    count == 0 -> -1
+                    else -> count
+                }
+            }
+        }
+        var copied = -1L
+        val transfer = DocumentTransfer(
+            openInput = { exact },
+            openOutput = { null },
+            tempDir = temp.root,
+            worker = Runnable::run,
+            reportFailure = { failures.add(it) },
+            openPrivateFile = { file ->
+                copied = file.length()
+                PRIVATE_FD
+            },
+        )
+
+        var selected: Int? = null
+        transfer.load(uri, onLoaded = { selected = it }, onFailed = { error("not expected") })
+
+        assertEquals(PRIVATE_FD, selected)
+        assertEquals(DocumentTransfer.MAX_LOAD_BYTES, copied)
+        assertEquals(emptyList<Int>(), failures)
+    }
+
     @Test
     fun writeDocument_opensTheProviderOnlyOnceAllTheDataExists() {
         val payload = ByteArray(200_000) { it.toByte() }

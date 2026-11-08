@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Mutation spot-check for the hardened pure seams: the live stop-key policy and
-# router, the keypad decoder, the LCD theme and raster, and the graph-gesture
-# accumulator.
+# Mutation spot-check for the hardened seams: the physical-key ids and
+# shortcuts, the graph-gesture flusher and accumulator, the keypad decoder, the LCD theme and
+# raster, Paste Number's tokens, the native file-request gate, the document
+# transfer, the saved manual's grant, and the f-key ASSIGN gate.
 # It applies a small set of compile-clean semantic mutations to those seams and
 # asserts each one is KILLED by the JVM unit tests: an empirical measure of
 # assertion strength -- do the tests actually fail when the production logic is
@@ -37,6 +38,16 @@ GESTURE_PROPERTY_TEST="io.github.ppigazzini.r47zen.GraphGestureAccumulatorProper
 DECODER_PROPERTY_TEST="io.github.ppigazzini.r47zen.KeypadSnapshotDecoderPropertyTest"
 RASTER_TEST="io.github.ppigazzini.r47zen.PackedLcdRasterTest"
 LCD_ORDER_TEST="io.github.ppigazzini.r47zen.ReplicaOverlayLcdOrderTest"
+PASTE_FILE="$KOTLIN_ROOT/PasteNumber.kt"
+GATE_FILE="$KOTLIN_ROOT/NativeFileRequestGate.kt"
+TRANSFER_FILE="$KOTLIN_ROOT/DocumentTransfer.kt"
+MANUAL_FILE="$KOTLIN_ROOT/SavedManual.kt"
+KEY_VIEW_FILE="$KOTLIN_ROOT/CalculatorKeyView.kt"
+PASTE_TEST="io.github.ppigazzini.r47zen.PasteNumberTest"
+GATE_TEST="io.github.ppigazzini.r47zen.NativeFileRequestGateTest"
+TRANSFER_TEST="io.github.ppigazzini.r47zen.DocumentTransferTest"
+MANUAL_TEST="io.github.ppigazzini.r47zen.SavedManualTest"
+ASSIGN_TEST="io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest"
 
 # Parallel mutation records: file, exact unique old text, mutated text, the test
 # class that must catch it, and a human description.
@@ -58,6 +69,14 @@ MUT_FILES=(
     "$RASTER_FILE"
     "$RASTER_FILE"
     "$RASTER_FILE"
+    "$PASTE_FILE"
+    "$PASTE_FILE"
+    "$GATE_FILE"
+    "$GATE_FILE"
+    "$TRANSFER_FILE"
+    "$TRANSFER_FILE"
+    "$MANUAL_FILE"
+    "$KEY_VIEW_FILE"
 )
 MUT_OLD=(
     "const val EXIT_KEY_CODE = 33"
@@ -77,6 +96,14 @@ MUT_OLD=(
     "linePixels[destX + bit] = if ((packedByte and (1 shl (7 - bit))) != 0) {"
     "val wholeFrame = !hasNativeFrame"
     "this.palette = palette"
+    $'            append(canonicalMantissa(mantissa.replace(\',\', \'.\')))\n            if (number.startsWith(\'-\')) {\n                append(TOKEN_NEGATE)\n            }'
+    "if (COMMA_GROUPING.matches(mantissa)) {"
+    "if (state.getAndSet(IDLE) == ABANDONED || !selectNative(fd)) {"
+    "state.compareAndSet(TRANSFERRING, ABANDONED)"
+    "if (temp.length() > 0) {"
+    "if (total > MAX_LOAD_BYTES) {"
+    "if (previous != null && previous != uri) {"
+    "isEnabled = enabled || isPressed || (isFnKey && calcMode == KeypadSceneContract.CALC_MODE_ASSIGN)"
 )
 MUT_NEW=(
     "const val EXIT_KEY_CODE = 34"
@@ -96,6 +123,14 @@ MUT_NEW=(
     "linePixels[destX + bit] = if ((packedByte and (1 shl bit)) != 0) {"
     "val wholeFrame = !hasNativeFrame && (0 until R47LcdContract.PIXEL_HEIGHT).none { (buffer[it * R47LcdContract.PACKED_ROW_SIZE_BYTES].toInt() and 0xFF) != 0 }"
     "this.palette = palette; hasNativeFrame = true"
+    $'            if (number.startsWith(\'-\')) {\n                append(TOKEN_NEGATE)\n            }\n            append(canonicalMantissa(mantissa.replace(\',\', \'.\')))'
+    "if (COMMA_GROUPING.matches(mantissa) && false) {"
+    "if (state.get() == ABANDONED || !selectNative(fd)) {"
+    "state.compareAndSet(TRANSFERRING, IDLE)"
+    "if (temp.length() >= 0) {"
+    "if (total >= MAX_LOAD_BYTES) {"
+    "if (previous != null && previous == uri) {"
+    "isEnabled = enabled || isPressed"
 )
 MUT_TESTS=(
     "$POLICY_TEST"
@@ -115,6 +150,14 @@ MUT_TESTS=(
     "$RASTER_TEST"
     "$LCD_ORDER_TEST"
     "$LCD_ORDER_TEST"
+    "$PASTE_TEST"
+    "$PASTE_TEST"
+    "$GATE_TEST"
+    "$GATE_TEST"
+    "$TRANSFER_TEST"
+    "$TRANSFER_TEST"
+    "$MANUAL_TEST"
+    "$ASSIGN_TEST"
 )
 MUT_DESC=(
     "LiveProgramStopKeyPolicy: EXIT key code 33 -> 34"
@@ -134,6 +177,14 @@ MUT_DESC=(
     "PackedLcdRaster: read each pixel byte least significant bit first"
     "PackedLcdRaster: decode a host's first frame whole only when it flags no row"
     "PackedLcdRaster: a palette change marks a frame received"
+    "PasteNumber: CHS before the digits it negates"
+    "PasteNumber: take a comma-grouped mantissa as a decimal"
+    "NativeFileRequestGate: an answer leaves the request state as it was"
+    "NativeFileRequestGate: a transfer the app stops is never marked abandoned"
+    "DocumentTransfer: write the provider when native wrote nothing"
+    "DocumentTransfer: refuse a document of exactly the limit"
+    "SavedManual: release the new grant on a repick, keep the old one on a change"
+    "CalculatorKeyView: a disabled f-key takes no press in ASSIGN"
 )
 
 fail() {
@@ -205,7 +256,7 @@ PY
 trap restore_backups EXIT
 
 command -v python3 >/dev/null 2>&1 || fail "python3 is required"
-for seam_file in "$POLICY_FILE" "$ROUTER_FILE" "$DECODER_FILE" "$THEME_FILE" "$GESTURE_FILE"; do
+for seam_file in $(printf '%s\n' "${MUT_FILES[@]}" | sort -u); do
     [[ -f "$seam_file" ]] || fail "seam source not found: $seam_file"
 done
 

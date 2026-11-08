@@ -931,17 +931,20 @@ Android compatibility layer.
   `race:jni_display` entry would silence the bridge. It proves both checks fail
   on seeded fixtures first.
 - `scripts/android/mutation_spot_check.sh` measures assertion strength on the
-  hardened pure seams: it applies known compile-clean semantic mutations to
+  hardened seams: it applies known compile-clean semantic mutations to
   `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `KeypadSnapshot.kt`,
-  `LcdThemePolicy.kt`, `GraphGestureAccumulator.kt`, and `PackedLcdRaster.kt`
-  and asserts each is killed by the matching JVM test
-  (`LiveProgramStopKeyPolicyTest`, `LiveKeyRouterTest`,
-  `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
+  `LcdThemePolicy.kt`, `GraphGestureAccumulator.kt`, `PackedLcdRaster.kt`,
+  `PasteNumber.kt`, `NativeFileRequestGate.kt`, `DocumentTransfer.kt`,
+  `SavedManual.kt`, and `CalculatorKeyView.kt`'s ASSIGN gate, and asserts each
+  is killed by the matching JVM test (`LiveProgramStopKeyPolicyTest`,
+  `LiveKeyRouterTest`, `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
   `GraphGestureAccumulatorTest`, `PackedLcdRasterTest`,
-  `ReplicaOverlayLcdOrderTest`). A surviving mutant marks an assertion gap and
-  fails the run. The `android-tests` job in `android-ci.yml` runs it on every
-  event, so the push that weakens a seam test is the run that fails; run it
-  locally after changing one of those seams or its tests. The mutant list is
+  `ReplicaOverlayLcdOrderTest`, `PasteNumberTest`, `NativeFileRequestGateTest`,
+  `DocumentTransferTest`, `SavedManualTest`, `ReplicaKeypadLayoutHapticsTest`).
+  No mutant touches the native glue yet. A surviving mutant marks an assertion
+  gap and fails the run. The `android-tests` job in `android-ci.yml` runs it on
+  every event, so the push that weakens a seam test is the run that fails; run
+  it locally after changing one of those seams or its tests. The mutant list is
   `MUT_FILES` in the script. The decoder and gesture seams also carry seeded
   Kotest property tests with independent oracles:
   `GraphGestureAccumulatorPropertyTest` requires in-range pinch factors to
