@@ -3,6 +3,7 @@
     <string name="settings_title" translatable="false">Settings</string>
     <string name="settings_return_action" translatable="false">Calculator</string>
     <string name="main_menu_button_content_description" translatable="false">Open top-right menu</string>
+    <string name="main_menu_button_first_run_hint" translatable="false">Welcome to R47 Zen. This menu holds Settings, Copy Actions, and Paste Number. Set Keypad Layout and Working Directory there.</string>
     <string name="main_menu_settings" translatable="false">Settings</string>
     <string name="main_menu_copy" translatable="false">Copy...</string>
     <string name="main_menu_copy_x_register" translatable="false">Copy X Register</string>

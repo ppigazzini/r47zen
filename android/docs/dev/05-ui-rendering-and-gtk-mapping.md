@@ -116,7 +116,13 @@ keypad all look correct locally but are globally misplaced together.
 - the animated settings-discovery hint stays Android-owned in `ReplicaOverlay`,
   but its banner geometry and `StaticLayout` are cached and rebuilt only on a
   real size or layout change, so `dispatchDraw()` updates the pulse stroke and
-  reuses the prebuilt text layout
+  reuses the prebuilt text layout. Its text is in sp, so it follows the system
+  font size, and the card's height is the text's. With animations off (Remove
+  animations, or an animator duration scale of 0) the card is drawn still and
+  asks for no next frame. The card is painted, so no screen reader sees it:
+  while it shows, `onSettingsDiscoveryHintShown` has `MainActivity` give the
+  main menu button a description that carries the welcome, in words rather
+  than the colors the card points at
 - keypad content and state stay native-owned, while Android owns measurement,
   projection, and drawing
 - `LAYOUT_CLASS_ALPHA` hides the unused fourth-label text but keeps the spacer

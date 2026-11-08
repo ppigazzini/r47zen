@@ -639,7 +639,7 @@ class ShellGeometryContractTest(unittest.TestCase):
             )
 
         for kotlin_name, payload_key, source, source_label in (
-            ("INFO_TEXT_SIZE_DP", "size_dp", text, "settings_discovery_hint.text"),
+            ("INFO_TEXT_SIZE_SP", "size_sp", text, "settings_discovery_hint.text"),
             ("FILL_ALPHA_BASE", "alpha_base", fill, "settings_discovery_hint.fill"),
             ("FILL_ALPHA_DELTA", "alpha_delta", fill, "settings_discovery_hint.fill"),
             ("PULSE_PERIOD_MS", "period_ms", pulse, "settings_discovery_hint.pulse"),

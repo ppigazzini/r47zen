@@ -370,7 +370,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 )
             }
         }.apply {
-            contentDescription = context.getString(R.string.main_menu_button_content_description)
+            contentDescription = MainMenuButtonDescription.of(context, hintShowing = false)
             TooltipCompat.setTooltipText(this, contentDescription)
             isClickable = true
             isFocusable = true
@@ -391,6 +391,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             R47AndroidChromeGeometry.MAIN_MENU_BUTTON_HEIGHT,
             showTouchZone = true,
         )
+        // The first-run hint is a painted card: while it shows, the button a
+        // screen reader can reach carries its welcome.
+        replicaOverlay.onSettingsDiscoveryHintShown = { showing ->
+            button.contentDescription = MainMenuButtonDescription.of(this, showing)
+        }
     }
 
     private fun createReplicaOverlayController(): ReplicaOverlayController {

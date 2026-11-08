@@ -208,7 +208,11 @@ class MainShellThemeTest {
         val infoPaddingVertical = dp(activity, SettingsDiscoveryHintVisualPolicy.CARD_VERTICAL_PADDING_DP)
         val infoPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#F7F3EA")
-            textSize = dp(activity, SettingsDiscoveryHintVisualPolicy.INFO_TEXT_SIZE_DP)
+            textSize = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP,
+                SettingsDiscoveryHintVisualPolicy.INFO_TEXT_SIZE_SP,
+                activity.resources.displayMetrics,
+            )
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)
         }
         val infoMessage = activity.getString(R.string.settings_entry_hint_message)

@@ -1513,7 +1513,7 @@ def _split_android_ui_visual_policy_errors(  # noqa: C901, PLR0912, PLR0915
     if (
         contract_number_member(
             settings_discovery_hint_text,
-            "size_dp",
+            "size_sp",
             label=settings_discovery_hint_text_label,
         )
         <= 0
@@ -1521,7 +1521,7 @@ def _split_android_ui_visual_policy_errors(  # noqa: C901, PLR0912, PLR0915
         errors.append(
             _policy_error(
                 settings_discovery_hint_text_label,
-                "size_dp must be positive",
+                "size_sp must be positive",
             ),
         )
     if (
@@ -2168,10 +2168,10 @@ def _split_android_ui_constant_errors(
                     ),
                 ),
                 (
-                    "INFO_TEXT_SIZE_DP",
+                    "INFO_TEXT_SIZE_SP",
                     contract_number_member(
                         settings_discovery_hint_text,
-                        "size_dp",
+                        "size_sp",
                         label="android_ui_contract.overlay_visual_policy.settings_discovery_hint.text",
                     ),
                 ),

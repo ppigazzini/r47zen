@@ -21,7 +21,6 @@
     <ID>LongMethod:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildSoftkeyOverlaySpec: SoftkeyOverlayAdornmentSpec</ID>
     <ID>LongMethod:PhysicalKeyboardInput.kt:PhysicalKeyboardShortcuts$private fun dispatchShortcut: Unit</ID>
     <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
-    <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$override fun dispatchDraw</ID>
     <ID>LongMethod:ReplicaOverlay.kt:ReplicaOverlay$private fun updateSettingsHintLayoutCache</ID>
     <ID>LongMethod:SettingsActivity.kt:SettingsFragment$override fun onCreatePreferences</ID>
     <ID>LongMethod:SoftkeyOverlayPainter.kt:SoftkeyOverlayPainter$fun draw</ID>

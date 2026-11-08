@@ -426,6 +426,12 @@ source is missing from this page:
   `mutation_spot_check.sh` holds it to two raster mutants `PackedLcdRasterTest`
   passes: a first frame decoded whole only when it flags no row, and a palette
   change that marks a frame received
+- `SettingsDiscoveryHintAccessibilityTest.kt`: the first-run hint's text is
+  at least half again as large at font scale 2 as at 1; with animations off
+  two draws a quarter pulse apart are the same and request no frame, and with
+  them on they differ and request one each; the overlay reports the hint shown
+  and then dismissed by a touch; and the menu button's description carries
+  the welcome only while the hint shows, naming no color
 - `ReplicaOverlayLayoutDirectionTest.kt`: lays the keypad of an exported scene
   out in an LTR and an RTL window and requires every main key's body at the
   same place in both, so an RTL system language cannot mirror the bodies

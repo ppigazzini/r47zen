@@ -169,7 +169,7 @@ ANDROID_UI_CONTRACT: Final = Validator(
                     "alpha_base": Number,
                     "alpha_delta": Number,
                 },
-                "text": {"size_dp": Number},
+                "text": {"size_sp": Number},
                 "fill": {"alpha_base": Number, "alpha_delta": Number},
                 "pulse": {"period_ms": Number},
             },

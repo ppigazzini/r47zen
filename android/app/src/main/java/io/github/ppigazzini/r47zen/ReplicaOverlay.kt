@@ -1,10 +1,12 @@
 package io.github.ppigazzini.r47zen
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
 import android.os.Build
 import android.os.SystemClock
+import android.provider.Settings
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -43,7 +45,9 @@ internal object SettingsDiscoveryHintVisualPolicy {
 
     const val CARD_STROKE_WIDTH_DP = 2.5f
     const val CARD_STROKE_EXTRA_WIDTH_DP = 1.5f
-    const val INFO_TEXT_SIZE_DP = 14f
+    // In sp, so the hint follows the system font size; the card's height is
+    // the text's, so the card grows with it.
+    const val INFO_TEXT_SIZE_SP = 14f
 
     const val FILL_ALPHA_BASE = 220
     const val FILL_ALPHA_DELTA = 16f
@@ -119,6 +123,11 @@ class ReplicaOverlay @JvmOverloads constructor(
     // A test swaps it to see each request, which a view outside a window would
     // otherwise drop.
     internal var requestLcdRedraw: () -> Unit = { postInvalidateOnAnimation() }
+
+    // The next frame of the first-run hint's pulse, and whether the system runs
+    // animations; a test swaps both.
+    internal var requestHintFrame: () -> Unit = { postInvalidateOnAnimation() }
+    internal var areAnimationsEnabled: () -> Boolean = { systemAnimationsEnabled() }
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val shellRect = RectF()
     private val zonePaint = Paint().apply {
@@ -153,7 +162,11 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
     private val settingsHintInfoTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         color = settingsHintOnSurfaceColor
-        textSize = dp(SettingsDiscoveryHintVisualPolicy.INFO_TEXT_SIZE_DP)
+        textSize = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            SettingsDiscoveryHintVisualPolicy.INFO_TEXT_SIZE_SP,
+            resources.displayMetrics,
+        )
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     }
     private val developerPerformanceTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -179,6 +192,10 @@ class ReplicaOverlay @JvmOverloads constructor(
     var onLcdPinchListener: ((Float) -> Unit)? = null
     var onLcdResetListener: (() -> Unit)? = null
     var onSettingsDiscoveryCompleted: (() -> Unit)? = null
+
+    // Whether the first-run hint shows, each time that changes. The card is
+    // painted, so a screen reader cannot see it; the menu button says it instead.
+    var onSettingsDiscoveryHintShown: ((Boolean) -> Unit)? = null
     var onGeometryLaidOut: (() -> Unit)? = null
 
     private val scaleGestureDetector: ScaleGestureDetector
@@ -287,6 +304,16 @@ class ReplicaOverlay @JvmOverloads constructor(
         )
     }
 
+    // Whether the system runs animations: off when the user removes them, the
+    // accessibility setting, or sets the animator duration scale to 0.
+    private fun systemAnimationsEnabled(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ValueAnimator.areAnimatorsEnabled()
+        } else {
+            Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
+        }
+    }
+
     private fun resolveThemeColor(attributeResId: Int, fallbackColor: Int): Int {
         val typedValue = TypedValue()
         val resolved = context.theme?.resolveAttribute(attributeResId, typedValue, true) == true
@@ -392,6 +419,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         showSettingsDiscoveryHint = show
         updateSettingsHintLayoutCache()
         invalidate()
+        onSettingsDiscoveryHintShown?.invoke(show)
     }
 
     fun dismissSettingsDiscoveryHint() {
@@ -846,55 +874,68 @@ class ReplicaOverlay @JvmOverloads constructor(
         }
 
         if (showSettingsDiscoveryHint) {
-            if (settingsHintLayoutCache == null) {
-                updateSettingsHintLayoutCache()
-            }
-            val hintLayoutCache = settingsHintLayoutCache ?: return
+            drawSettingsDiscoveryHint(canvas)
+        }
+    }
 
-            val infoPulse = oscillatingUnitPulse(
+    private fun drawSettingsDiscoveryHint(canvas: Canvas) {
+        if (settingsHintLayoutCache == null) {
+            updateSettingsHintLayoutCache()
+        }
+        val hintLayoutCache = settingsHintLayoutCache ?: return
+
+        // With animations off the card is drawn still, at the pulse's rest, and
+        // asks for no next frame.
+        val pulsing = areAnimationsEnabled()
+        val infoPulse = if (pulsing) {
+            oscillatingUnitPulse(
                 nowMillis = SystemClock.uptimeMillis(),
                 periodMillis = SettingsDiscoveryHintVisualPolicy.PULSE_PERIOD_MS,
             )
-            settingsHintInfoFillPaint.alpha = (
-                SettingsDiscoveryHintVisualPolicy.FILL_ALPHA_BASE +
-                    infoPulse * SettingsDiscoveryHintVisualPolicy.FILL_ALPHA_DELTA
-                ).roundToInt()
-            settingsHintInfoStrokePaint.alpha = (
-                SettingsDiscoveryHintVisualPolicy.CARD_STROKE_ALPHA_BASE +
-                    infoPulse * SettingsDiscoveryHintVisualPolicy.CARD_STROKE_ALPHA_DELTA
-                ).roundToInt()
-            settingsHintInfoStrokePaint.strokeWidth =
-                dp(SettingsDiscoveryHintVisualPolicy.CARD_STROKE_WIDTH_DP) +
-                    infoPulse * dp(SettingsDiscoveryHintVisualPolicy.CARD_STROKE_EXTRA_WIDTH_DP)
-            canvas.drawRoundRect(
-                hintLayoutCache.infoCardRect,
-                hintLayoutCache.infoCornerRadius,
-                hintLayoutCache.infoCornerRadius,
-                settingsHintInfoFillPaint,
-            )
-            canvas.drawRoundRect(
-                hintLayoutCache.infoCardRect,
-                hintLayoutCache.infoCornerRadius,
-                hintLayoutCache.infoCornerRadius,
-                settingsHintInfoStrokePaint,
-            )
-            SettingsMenuGlyph.drawRightAligned(
-                canvas = canvas,
-                right = hintLayoutCache.infoGlyphRight,
-                top = hintLayoutCache.infoGlyphTop,
-                tabHeight = hintLayoutCache.infoGlyphTabHeight,
-                gap = hintLayoutCache.infoGlyphGap,
-                orangePaint = settingsHintMenuOrangePaint,
-                bluePaint = settingsHintMenuBluePaint,
-            )
-            canvas.withTranslation(
-                hintLayoutCache.infoCardRect.left + hintLayoutCache.infoPaddingHorizontal,
-                hintLayoutCache.infoTextTop,
-            ) {
-                hintLayoutCache.infoLayout.draw(this)
-            }
+        } else {
+            0f
+        }
+        settingsHintInfoFillPaint.alpha = (
+            SettingsDiscoveryHintVisualPolicy.FILL_ALPHA_BASE +
+                infoPulse * SettingsDiscoveryHintVisualPolicy.FILL_ALPHA_DELTA
+            ).roundToInt()
+        settingsHintInfoStrokePaint.alpha = (
+            SettingsDiscoveryHintVisualPolicy.CARD_STROKE_ALPHA_BASE +
+                infoPulse * SettingsDiscoveryHintVisualPolicy.CARD_STROKE_ALPHA_DELTA
+            ).roundToInt()
+        settingsHintInfoStrokePaint.strokeWidth =
+            dp(SettingsDiscoveryHintVisualPolicy.CARD_STROKE_WIDTH_DP) +
+                infoPulse * dp(SettingsDiscoveryHintVisualPolicy.CARD_STROKE_EXTRA_WIDTH_DP)
+        canvas.drawRoundRect(
+            hintLayoutCache.infoCardRect,
+            hintLayoutCache.infoCornerRadius,
+            hintLayoutCache.infoCornerRadius,
+            settingsHintInfoFillPaint,
+        )
+        canvas.drawRoundRect(
+            hintLayoutCache.infoCardRect,
+            hintLayoutCache.infoCornerRadius,
+            hintLayoutCache.infoCornerRadius,
+            settingsHintInfoStrokePaint,
+        )
+        SettingsMenuGlyph.drawRightAligned(
+            canvas = canvas,
+            right = hintLayoutCache.infoGlyphRight,
+            top = hintLayoutCache.infoGlyphTop,
+            tabHeight = hintLayoutCache.infoGlyphTabHeight,
+            gap = hintLayoutCache.infoGlyphGap,
+            orangePaint = settingsHintMenuOrangePaint,
+            bluePaint = settingsHintMenuBluePaint,
+        )
+        canvas.withTranslation(
+            hintLayoutCache.infoCardRect.left + hintLayoutCache.infoPaddingHorizontal,
+            hintLayoutCache.infoTextTop,
+        ) {
+            hintLayoutCache.infoLayout.draw(this)
+        }
 
-            postInvalidateOnAnimation()
+        if (pulsing) {
+            requestHintFrame()
         }
     }
 
