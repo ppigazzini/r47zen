@@ -769,6 +769,26 @@ Android compatibility layer.
   table on a device. A negative slack forces the failure path, which is how to
   check the assertion still fires. `R47_GRAPH_HARNESS_ITERS` bounds the run;
   the `host-workload-regressions` job of `linux-ci.yml` runs 4000 re-solves.
+- `scripts/workload-regressions/build_state_durability_harness.sh` builds
+  `state_durability_harness.c` with the staged core and the glue under
+  AddressSanitizer, with the app's link wraps of `exit` and `remove` and a wrap of
+  `r47_show_warning` that counts the user's warnings, and runs it in the same CI
+  job. Each case runs in its own process and restarts the calculator in a fresh
+  one, which restores through `r47_init_runtime` as the app does. A state file cut
+  at fixed offsets and at steps through it, cut at line ends before the memory
+  image or between two of its lines, from a version below upstream's floor or
+  above this core's, or for another RAM size, is kept aside with one warning and
+  the calculator starts afresh; a cut at a line's end restores whole or is kept,
+  never garbage. A file whose restore did not finish twice is set aside, under a
+  name of its own each time, and one unfinished restore is not enough. The state
+  files of released cores, `scripts/workload-regressions/fixtures/`, which
+  `make_state_fixture.sh` saves with a host build of each release, not a phone,
+  restore, every cut of them is restored or kept, and the file this core saves
+  from them restores too. A save leaves a running stopwatch's fields as they were
+  and saves its time; a cold start keeps `LX` to `UY` as stored and a matrix in X
+  that fills memory; user keys from upstream's `xfnToR47user.s47` survive a save;
+  and an `exit` in the core aborts. With the structure check, the stopwatch fold,
+  or the repair-only bounds sync seeded out, its cases fail.
 - `scripts/workload-regressions/build_clipboard_overflow_harness.sh` builds
   `clipboard_overflow_harness.c` with the same tree under AddressSanitizer
   and runs it in the same CI job. First it gates the copy of the

@@ -518,6 +518,19 @@ jobs:
           bash ./scripts/workload-regressions/build_clipboard_overflow_harness.sh 2>&1 \
             | tee ci-artifacts/logs/clipboard-overflow-harness.log
 
+      - name: Run the state file durability harness
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Restore cut, older, newer, and wrong-size state files, and the
+          # released cores' files, on the app's runtime under AddressSanitizer:
+          # each restores whole or is kept aside with one warning, never as
+          # garbage. Reuses the staged native inputs. No emulator.
+          mkdir -p ci-artifacts/logs
+          bash ./scripts/workload-regressions/build_state_durability_harness.sh 2>&1 \
+            | tee ci-artifacts/logs/state-durability-harness.log
+
       - name: Run lcd HAL contract test
         shell: bash
         run: |
