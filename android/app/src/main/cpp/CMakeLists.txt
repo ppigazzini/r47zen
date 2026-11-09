@@ -92,6 +92,12 @@ add_library(r47zen SHARED
     ${R47_STAGED_GMP_SOURCES}
 )
 
+# Export only the JNI entry points, as the JNI tips ask: see the map's
+# comment. A change to the map relinks.
+set(R47_EXPORTS_MAP "${CMAKE_CURRENT_SOURCE_DIR}/r47zen/exports.map")
+target_link_options(r47zen PRIVATE "-Wl,--version-script=${R47_EXPORTS_MAP}")
+set_property(TARGET r47zen APPEND PROPERTY LINK_DEPENDS "${R47_EXPORTS_MAP}")
+
 # Upstream's meson.build sets no c_std, so its dialect is each compiler's
 # default: gnu17 on gcc 13, gnu23 on gcc 15 and later, which our Windows lane's
 # gcc 16 is. C17 here keeps an NDK whose default moves from changing the

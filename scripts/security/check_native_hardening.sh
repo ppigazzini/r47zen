@@ -107,6 +107,13 @@ else
     pass "imports no exit"
 fi
 
+# Only the JNI entry points are exported: r47zen/exports.map.
+if READELF="$RE" bash "$(dirname "$0")/../android/check_native_exports.sh" "$SO" >/dev/null 2>&1; then
+    pass "exports only JNI_OnLoad and Java_ entry points"
+else
+    failc "exports symbols beyond the JNI entry points (scripts/android/check_native_exports.sh)"
+fi
+
 # AArch64 branch protection: BTI landing pads + PAC return-address signing.
 case "$machine" in
     *AArch64* | *aarch64*)

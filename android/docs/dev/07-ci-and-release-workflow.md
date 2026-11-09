@@ -457,7 +457,8 @@ It:
 - runs `scripts/security/check_native_hardening.sh` on every packaged arm64
   `libr47zen.so` and fails the job when a mitigation is missing: AArch64
   branch protection (BTI/PAC), full RELRO, a non-executable stack, no
-  writable-and-executable segment, and no text relocations
+  writable-and-executable segment, no text relocations, and no export but
+  `JNI_OnLoad` and the `Java_` entry points (`check_native_exports.sh`)
 - runs `scripts/android/run_native_clang_tidy.sh`, which
   runs the pinned NDK's `clang-tidy` with
   `android/app/src/main/cpp/r47zen/.clang-tidy` over the glue, reading the
