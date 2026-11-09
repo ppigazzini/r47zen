@@ -309,10 +309,13 @@ Current repository icon surfaces:
 - [Memory error debugging and mitigation](https://developer.android.com/ndk/guides/memory-debug):
   Android's map of PAC/BTI, GWP-ASan, HWASan, MTE, and ASan.
   `android/app/src/main/cpp/CMakeLists.txt` adds PAC/BTI on `arm64-v8a`, and
-  `scripts/security/check_native_hardening.sh` verifies it on the library. The
-  manifest sets no `android:gwpAsanMode`, so
+  `scripts/security/check_native_hardening.sh` verifies it on the library. A
+  shipped build sets no `android:gwpAsanMode`, so
   [GWP-ASan](https://developer.android.com/ndk/guides/gwp-asan) is the platform
-  default: recoverable on Android 14 and higher, off below. No lane runs HWASan,
+  default there: recoverable on Android 14 and higher, off below. The debug build
+  and every instrumented run set it to `always`, which crashes on what it finds,
+  through `src/instrumentationHost/AndroidManifest.xml`, and
+  `collect_packaging_evidence.sh` fails an APK that ships with it. No lane runs HWASan,
   which the page recommends for testing; the sanitizer surface is the host
   harnesses under `scripts/workload-regressions/`, which do not exercise the
   Android build.

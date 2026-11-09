@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <application>
+    <!-- GWP-ASan on every allocation it samples, and a crash on what it finds: the
+         debug build and every instrumented run, never a build that ships. -->
+    <application
+        android:gwpAsanMode="always"
+        tools:targetApi="30">
         <activity android:name="io.github.ppigazzini.r47zen.StorageAccessTestActivity" />
     </application>
 
