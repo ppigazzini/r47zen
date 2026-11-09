@@ -39,4 +39,17 @@ if [ -n "$missing" ]; then
     contract_fail "publish-production-release does not attest and verify build provenance; missing:${missing}"
 fi
 
+# A step that may not run proves nothing: the attest step and the verify step take
+# no `if:` and no `continue-on-error`.
+step_gates() {
+    awk '
+        /^      - name:/ { in_step = ($0 ~ /Attest build provenance|Verify build provenance/) ; name = $0; next }
+        in_step && /^        (if|continue-on-error):/ { print name ": " $0 }
+    ' <<<"$1"
+}
+gated="$(step_gates "$live")"
+[ -z "$gated" ] || contract_fail "an attestation step can be skipped:" "$gated"
+seeded="$(sed 's/^      - name: Attest build provenance for the published artifacts$/&\n        if: ${{ false }}/' <<<"$live")"
+[ -n "$(step_gates "$seeded")" ] || contract_fail "the step-gate check missed a seeded if: on the attest step"
+
 contract_pass "publish-production-release attests and verifies build provenance for the published artifacts."

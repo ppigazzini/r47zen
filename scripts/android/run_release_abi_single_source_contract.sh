@@ -6,8 +6,10 @@
 # --expected-abis / --expected-apk-abis in a workflow could drift from the ABI
 # actually built and silently verify the wrong (or no) ABI.
 #
-# This guard fails if any workflow passes a literal ABI to those flags instead
-# of a ${{ ... }} reference / shell variable. Pure host test, no SDK needed.
+# This guard fails if any workflow, composite, or script passes a literal ABI to
+# those flags instead of a ${{ ... }} reference / shell variable, a quoted one
+# included. Leaving the flag out is refused by collect_packaging_evidence.sh
+# itself (run_evidence_abi_contract.sh). Pure host test, no SDK needed.
 
 set -Eeuo pipefail
 
@@ -19,7 +21,9 @@ source "$SCRIPT_DIR/../lib/ci_contract.sh"
 # with an alphanumeric character are hardcoded literals (a ${{ ... }} reference
 # or a "$var" begins with '$', a quoted "$var" with '"'). workflow_grep excludes
 # comment lines.
-violations="$(workflow_grep '--expected(-apk)?-abis[[:space:]]+[A-Za-z0-9]' || true)"
+pattern='--expected(-apk)?-abis[[:space:]]+"?(arm64|armeabi|x86|mips|riscv)'
+violations="$(workflow_grep "$pattern" || true)"
+violations="${violations}$(scripts_grep "$pattern" "$(basename "${BASH_SOURCE[0]}")" run_evidence_abi_contract.sh || true)"
 
 if [ -n "$violations" ]; then
     contract_fail \

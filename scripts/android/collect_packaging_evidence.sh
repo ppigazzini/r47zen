@@ -221,6 +221,13 @@ if [[ -n "$native_symbols_file" && ! -f "$native_symbols_file" ]]; then
     exit 1
 fi
 
+# Without it the ABI check below would check nothing, and the evidence would still
+# pass.
+if [[ -z "$expected_abis" ]]; then
+    echo "--expected-abis is required: the evidence checks the ABIs the artifact carries." >&2
+    exit 1
+fi
+
 mkdir -p "$output_dir"
 
 primary_artifact_path="$apk_path"
@@ -300,6 +307,25 @@ if [[ "$artifact_type" == "apk" || "$artifact_type" == "aab" ]]; then
     unzip -q "$primary_artifact_path" -d "$unpack_dir"
 fi
 
+# The ABI directories under LIB_ROOT must be exactly --expected-abis; the list
+# goes into abis.txt.
+check_abis() {
+    local lib_root="$1"
+    local expected_file="$tmp_dir/expected-abis.txt"
+    local actual_file="$output_dir/abis.txt"
+    tr ',' '\n' <<<"$expected_abis" | sed '/^$/d' | sort >"$expected_file"
+    if [[ -d "$lib_root" ]]; then
+        find "$lib_root" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort >"$actual_file"
+    else
+        : >"$actual_file"
+    fi
+    cat "$actual_file"
+    if ! diff -u "$expected_file" "$actual_file" >&2; then
+        echo "The artifact's ABIs under ${lib_root#"$unpack_dir/"} are not --expected-abis ${expected_abis}." >&2
+        exit 1
+    fi
+}
+
 # Cryptographic signer identity, recorded at build time where the artifact is
 # freshly produced and cannot yet be tampered. The APK path uses apksigner and
 # the AAB path uses keytool; both normalize to lowercase hex with no separators
@@ -321,13 +347,7 @@ if [[ "$artifact_type" == "apk" ]]; then
         exit 1
     fi
 
-    if [[ -n "$expected_abis" ]]; then
-        expected_file="$tmp_dir/expected-abis.txt"
-        actual_file="$output_dir/abis.txt"
-        tr ',' '\n' <<<"$expected_abis" | sed '/^$/d' | sort >"$expected_file"
-        find "$unpack_dir/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tee "$actual_file"
-        diff -u "$expected_file" "$actual_file"
-    fi
+    check_abis "$unpack_dir/lib"
 
     # The pinned build-tools, never the newest one installed, so the evidence
     # records the zipalign and apksigner the build itself ran.
@@ -450,6 +470,8 @@ fi
 
 if [[ "$artifact_type" == "aab" ]]; then
     bash "$(dirname "$0")/check_compliance_assets.sh" "$unpack_dir" "base/assets" "$output_dir"
+    # The bundle is what Play builds every device's APK from.
+    check_abis "$unpack_dir/base/lib"
 
     if command -v keytool >/dev/null 2>&1; then
         if aab_certs="$(keytool -printcert -jarfile "$primary_artifact_path" 2>/dev/null)"; then

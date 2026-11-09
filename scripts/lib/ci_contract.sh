@@ -7,15 +7,32 @@
 #   # shellcheck source=scripts/lib/ci_contract.sh
 #   source "$SCRIPT_DIR/../lib/ci_contract.sh"
 #
-# Sourcing sets PROJECT_ROOT and WORKFLOW_DIR (resolved from this file's own
-# location, so they are correct regardless of which contract sources it).
-# Functions are self-contained.
+# Sourcing sets PROJECT_ROOT, WORKFLOW_DIR, ACTIONS_DIR, and SCRIPTS_DIR
+# (resolved from this file's own location, so they are correct regardless of
+# which contract sources it). Functions are self-contained.
+#
+# A scan of a tree that is not there finds nothing, and a contract that looks for
+# a forbidden pattern then passes on nothing (two did, with
+# .github/workflows moved away). So sourcing stops the contract when a tree the
+# scans read is missing or holds none of its files.
 
 CI_CONTRACT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$CI_CONTRACT_LIB_DIR/../.." && pwd)"
 WORKFLOW_DIR="$PROJECT_ROOT/.github/workflows"
+ACTIONS_DIR="$PROJECT_ROOT/.github/actions"
 SCRIPTS_DIR="$PROJECT_ROOT/scripts"
-export PROJECT_ROOT WORKFLOW_DIR SCRIPTS_DIR
+export PROJECT_ROOT WORKFLOW_DIR ACTIONS_DIR SCRIPTS_DIR
+
+ci_contract_require_tree() {
+    local dir="$1" pattern="$2"
+    if [ ! -d "$dir" ] || [ -z "$(find "$dir" -name "$pattern" -type f -print -quit 2>/dev/null)" ]; then
+        echo "FAIL: ${dir#"$PROJECT_ROOT/"} holds no $pattern file, so a scan of it would pass on nothing" >&2
+        exit 1
+    fi
+}
+ci_contract_require_tree "$WORKFLOW_DIR" '*.yml'
+ci_contract_require_tree "$ACTIONS_DIR" 'action.yml'
+ci_contract_require_tree "$SCRIPTS_DIR" '*.sh'
 
 # grep -rnE across the workflow tree, dropping YAML comment lines so a directive
 # that only appears in a "# ..." comment never satisfies or violates a contract.
@@ -23,7 +40,7 @@ export PROJECT_ROOT WORKFLOW_DIR SCRIPTS_DIR
 # it by hand. Prints "file:line:match";
 # returns grep's status (0 = at least one real match).
 workflow_grep() {
-    grep -rnE -- "$1" "$WORKFLOW_DIR" 2>/dev/null |
+    grep -rnE -- "$1" "$WORKFLOW_DIR" "$ACTIONS_DIR" 2>/dev/null |
         grep -vE ':[0-9]+:[[:space:]]*#'
 }
 

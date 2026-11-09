@@ -63,7 +63,8 @@ inline=""
 for marker in \
     "Accept Android SDK licenses non-interactively" \
     "Resolve Android SDK cache paths"; do
-    hits="$(workflow_grep "name:[[:space:]]*${marker}" || true)"
+    # The composite itself holds these steps; any other file holding one is a copy.
+    hits="$(workflow_grep "name:[[:space:]]*${marker}" | grep -v "^$ACTION_FILE:" || true)"
     if [ -n "$hits" ]; then
         inline="${inline}${hits}"$'\n'
     fi
