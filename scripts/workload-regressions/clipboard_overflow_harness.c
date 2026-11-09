@@ -506,6 +506,119 @@ static int check_file_answer_name(void) {
   return failures;
 }
 
+// A fake JNI environment that keeps two JNI rules: no JNI call while
+// an exception is pending, but the few that handle it, and none between a critical
+// get and its release.
+static bool fakeExceptionPending;
+static int fakeCriticalDepth;
+static int fakeCallsWithExceptionPending;
+static int fakeCallsInCritical;
+static int fakeNewStringCalls;
+static uint8_t fakeCriticalBuffer[1 << 16];
+
+static jboolean fake_exception_check(JNIEnv *env) {
+  (void)env;
+  fakeCallsInCritical += fakeCriticalDepth > 0;
+  return fakeExceptionPending ? JNI_TRUE : JNI_FALSE;
+}
+
+static void fake_exception_describe(JNIEnv *env) {
+  (void)env;
+  fakeCallsInCritical += fakeCriticalDepth > 0;
+}
+
+static void fake_exception_clear(JNIEnv *env) {
+  (void)env;
+  fakeCallsInCritical += fakeCriticalDepth > 0;
+  fakeExceptionPending = false;
+}
+
+// The first call runs out of memory, as NewStringUTF does: NULL, and an
+// OutOfMemoryError pending.
+static jstring fake_new_string_utf(JNIEnv *env, const char *text) {
+  (void)env;
+  fakeCallsWithExceptionPending += fakeExceptionPending;
+  if (++fakeNewStringCalls == 1) {
+    fakeExceptionPending = true;
+    return NULL;
+  }
+  return (jstring)(uintptr_t)text;
+}
+
+static jsize fake_array_length(JNIEnv *env, jarray array) {
+  (void)env;
+  (void)array;
+  return (jsize)sizeof(fakeCriticalBuffer);
+}
+
+static void *fake_get_critical(JNIEnv *env, jarray array, jboolean *isCopy) {
+  (void)env;
+  (void)array;
+  (void)isCopy;
+  fakeCriticalDepth++;
+  return fakeCriticalBuffer;
+}
+
+static void fake_release_critical(JNIEnv *env, jarray array, void *carray, jint mode) {
+  (void)env;
+  (void)array;
+  (void)carray;
+  (void)mode;
+  fakeCriticalDepth--;
+}
+
+// A string that runs out of memory falls back to the default only after its
+// OutOfMemoryError is cleared: JNI allows almost no call while one is pending.
+static int check_string_fallback_after_out_of_memory(void) {
+  int failures = 0;
+  struct JNINativeInterface_ table = {
+      .NewStringUTF = fake_new_string_utf,
+      .ExceptionCheck = fake_exception_check,
+      .ExceptionDescribe = fake_exception_describe,
+      .ExceptionClear = fake_exception_clear,
+  };
+  JNIEnv env = &table;
+  fakeExceptionPending = false;
+  fakeCallsWithExceptionPending = 0;
+  fakeNewStringCalls = 0;
+  const jstring result = jni_new_string_utf(&env, "value", "fallback", "harness");
+  if (fakeCallsWithExceptionPending != 0) {
+    fprintf(stderr, "FAIL: NewStringUTF ran %d time(s) with an OutOfMemoryError pending\n",
+            fakeCallsWithExceptionPending);
+    failures++;
+  }
+  if (result == NULL || strcmp((const char *)(uintptr_t)result, "fallback") != 0 ||
+      fakeExceptionPending) {
+    fprintf(stderr, "FAIL: an out-of-memory string did not end in the fallback, cleared\n");
+    failures++;
+  }
+  return failures;
+}
+
+// The display copy makes no JNI call between the critical get and its release.
+static int check_display_copy_makes_no_call_in_critical(void) {
+  struct JNINativeInterface_ table = {
+      .GetArrayLength = fake_array_length,
+      .GetPrimitiveArrayCritical = fake_get_critical,
+      .ReleasePrimitiveArrayCritical = fake_release_critical,
+      .ExceptionCheck = fake_exception_check,
+      .ExceptionDescribe = fake_exception_describe,
+      .ExceptionClear = fake_exception_clear,
+  };
+  JNIEnv env = &table;
+  fakeExceptionPending = false;
+  fakeCriticalDepth = 0;
+  fakeCallsInCritical = 0;
+  Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(
+      &env, NULL, (jbyteArray)(uintptr_t)1);
+  if (fakeCallsInCritical != 0 || fakeCriticalDepth != 0) {
+    fprintf(stderr, "FAIL: the display copy made %d JNI call(s) in its critical region\n",
+            fakeCallsInCritical);
+    return 1;
+  }
+  return 0;
+}
+
 // Upstream names a print file <date>.<kind>.TSV.
 static bool is_print_file(const char *name) {
   const size_t length = strlen(name);
@@ -819,6 +932,8 @@ int main(void) {
   failures += check_snap(runtime_dir);
   failures += check_file_answer_with_no_request();
   failures += check_file_answer_name();
+  failures += check_string_fallback_after_out_of_memory();
+  failures += check_display_copy_makes_no_call_in_critical();
   failures += check_matrix_copies_are_whole();
   failures += check_capture_ends_with_the_copy();
   failures += check_aim_faces_follow_num_lock();

@@ -122,11 +122,15 @@ static inline void jni_release_env(jni_env_scope_t *scope,
   scope->attached_here = false;
 }
 
+// A NULL from NewStringUTF comes with an OutOfMemoryError pending, and JNI allows
+// almost no call while one is: each result is checked, and its exception cleared,
+// before the next call, the fallback's included.
 static inline jstring jni_new_string_utf(JNIEnv *env, const char *value,
                                          const char *fallback,
                                          const char *context) {
   jstring result = (*env)->NewStringUTF(env, value ? value : "");
-  if (result != NULL && !jni_check_and_clear_exception(env, context)) {
+  const bool raised = jni_check_and_clear_exception(env, context);
+  if (result != NULL && !raised) {
     return result;
   }
 
@@ -136,8 +140,9 @@ static inline jstring jni_new_string_utf(JNIEnv *env, const char *value,
 
   LOGE("%s: falling back to a default Java string", context);
   result = (*env)->NewStringUTF(env, fallback);
-  if (result != NULL &&
-      !jni_check_and_clear_exception(env, "jni_new_string_utf fallback")) {
+  const bool fallbackRaised =
+      jni_check_and_clear_exception(env, "jni_new_string_utf fallback");
+  if (result != NULL && !fallbackRaised) {
     return result;
   }
 

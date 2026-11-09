@@ -129,8 +129,10 @@ Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(
   }
 
   jbyte *dst = (jbyte *)(*env)->GetPrimitiveArrayCritical(env, buffer, NULL);
-  if (!jni_result_ok(env, dst,
-                     "GetPrimitiveArrayCritical(getPackedDisplayBuffer)")) {
+  if (dst == NULL) {
+    // No critical region was entered, so clearing the error it raised is allowed.
+    jni_result_ok(env, dst,
+                  "GetPrimitiveArrayCritical(getPackedDisplayBuffer)");
     return JNI_FALSE;
   }
   const bool taken = r47_try_take_packed_display((uint8_t *)dst);
