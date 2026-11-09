@@ -39,6 +39,7 @@ CONTRACTS=(
     run_stale_release_assets_contract.sh
     run_evidence_abi_contract.sh
     run_shipped_symbols_contract.sh
+    run_shipped_build_smoke_contract.sh
     run_core_source_list_contract.sh
     run_release_provenance_contract.sh
     run_privileged_remote_script_contract.sh

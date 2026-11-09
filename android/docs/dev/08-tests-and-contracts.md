@@ -766,6 +766,12 @@ Each instrumentation source and what it covers:
   the probe needs. android-ci's nightly, and a dispatch with `sixteen_kb_smoke`,
   run it on the `google_apis_ps16k` image at
   `R47_DEFAULT_ANDROID_16KB_TEST_API_LEVEL`, the newest with 16 KB pages
+- `scripts/android/run_shipped_build_smoke.sh`: installs an APK on a connected
+  emulator, starts its launcher activity and waits for the first frame, types 2
+  ENTER 3 + through the hardware-key path, and fails if the process died or
+  restarted, or if the crash buffer names the package. The release lane's
+  emulator job runs it on an `x86_64` build in the shipped shape, R8 and the
+  release's PGO profile, after the device tests
 - `TestAssets.kt` is a helper: it reads the `PROGRAMS` fixtures through the
   instrumentation context, the test APK, which holds them; the app under test
   carries none
@@ -1136,8 +1142,10 @@ Android compatibility layer.
   and `ci-required` needs all of them
 - `.github/workflows/android-release.yml` reruns the same wrapper-owned
   host-core optimization flow as `android-build-test-package` and builds
-  `:app:bundleRelease -Pr47.pgoProfilePath=...` unsigned; its emulator job runs
-  lint, JVM tests, and instrumentation assembly, and `sign-production-release`
+  `:app:bundleRelease -Pr47.pgoProfilePath=...` unsigned; its emulator job, with
+  that build's profile, runs lint, JVM tests, the instrumentation tests, and
+  `run_shipped_build_smoke.sh` on an `x86_64` build in the shipped shape, and
+  `sign-production-release`
   signs the outputs before it publishes release evidence
 - `scripts/android/run_production_signing_scope_contract.sh` and
   `scripts/android/run_signing_isolation_contract.sh`, in the
@@ -1289,6 +1297,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_release_abi_single_source_contract.sh` | no workflow, composite, or script passes `--expected-abis` or `--expected-apk-abis` a literal ABI, quoted or not; they read `R47_DEFAULT_ANDROID_ABI_FILTERS` | text |
 | `run_core_source_list_contract.sh` | `r47_core_c47_sources` prints exactly the files a fixture `meson.build`'s `c47_src` lists, and fails on a listed file that is missing or no `c47_src`; no script globs `src/c47` for `*.c`, and the CMake list generator uses the helper | yes, a fixture tree |
 | `run_shipped_symbols_contract.sh` | `check_shipped_symbols.sh` passes a library with no test entry point and fails one exporting a `ProgramLoadTestBridge` JNI function, an `r47_test_bridge_` function, or `main`, built here with the host `cc`; `collect_packaging_evidence.sh` runs it on every library of the APK and the bundle | yes, built libraries |
+| `run_shipped_build_smoke_contract.sh` | `run_shipped_build_smoke.sh` against a fake `adb`: passes a launch that stays up and a crash buffer naming only another package, and fails a Java exception or a native tombstone naming the package, a process that died or restarted, a refused install, and a launch without `Status: ok`; and `verify-production-release` needs the build job, downloads its PGO profile by artifact ID, sets `R47_PGO_PROFILE_PATH` for the whole job with no step override, builds the smoke APK with no R8 or test-bridge override, and runs the smoke, each wiring check failing its seed |
 | `run_evidence_abi_contract.sh` | `collect_packaging_evidence.sh` refuses to run without `--expected-abis`, and on a fixture bundle passes the expected ABI and fails a missing or an extra one, so the AAB's `base/lib/` is checked as the APK's `lib/` is | yes, a fixture bundle |
 | `run_published_artifacts_verifier_contract.sh` | `verify_published_release_artifacts.sh` accepts a valid release and rejects tampered bytes, a wrong version, a leaked ABI, a wrong signing mode, an unsigned APK, signer mismatches, and a signed release checked with no pin or a malformed one, each on the check named for it; the tracked release and prerelease signer pins are 64 hex digits each, the README states both, the release workflow passes the release pin, and `sign-dev-prerelease` holds the dev APK to the prerelease pin | yes, synthetic evidence |
 | `run_legacy_printf_contract.sh` | `r47zen/legacy_printf.c`, built with the host `cc` under AddressSanitizer and UBSan, formats as glibc's `vsnprintf` does, result, text, and truncation alike, at each buffer size from 0 to 80, on formats carrying the core's glyph bytes and every conversion and length the core uses; refuses `%n` and a positional argument; and takes only a format with a byte over 0x7f; the app's CMakeLists wraps all eight `sprintf` and `snprintf` entries, the glue lists the file, and each v-form wrapper leaves an ASCII format, and every call from API 28, to the platform | yes, a host-built formatter |

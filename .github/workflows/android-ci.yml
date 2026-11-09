@@ -1642,7 +1642,9 @@ jobs:
           This prerelease contains the signed dev-channel APK ${dev_apk_name}
           built from the release variant by ./scripts/android/build_android.sh
           in dev lane mode from Android repository
-          commit ${android_commit}.
+          commit ${android_commit}. Its native library is compiled without the
+          profile-guided optimization a production release uses, so its machine
+          code is not a release's.
 
           The calculator core was synchronized from ${upstream_url} at commit
           ${upstream_commit} before the simulator and Android build steps ran.
@@ -1666,7 +1668,8 @@ jobs:
             release's compiler and flags); a separate job signed the APK.
           - The workflow verified the packaged ABIs, that the APK is zip-aligned
             for 16 KB pages (zipalign -c -P 16), and that every native library's
-            ELF LOAD segments are 16 KB aligned.
+            ELF LOAD segments are 16 KB aligned and its RELRO segment ends on a
+            16 KB boundary or where its LOAD segment ends.
           - ${evidence_archive_name} preserves the compliance-assets/ directory,
             BUILD-METADATA.txt, SHA256SUMS.txt, ABI/alignment reports, and the
             packaged notice inventory exactly as collected by

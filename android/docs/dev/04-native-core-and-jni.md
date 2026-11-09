@@ -86,7 +86,10 @@ When a reviewed indexed LLVM profile is available, the Android build also
 consumes it through Gradle property `r47.pgoProfilePath` or environment
 variable `R47_PGO_PROFILE_PATH`, which feed CMake cache entry
 `R47_PGO_PROFILE_PATH`. Only the release-native configs consume that profile;
-the default debug lane remains profile-free.
+the default debug lane remains profile-free. The release lane's build job and
+its emulator job compile with the profile the build job collects; android-ci's
+dev APK is assembled before its profile exists, so its library is not
+profile-guided, and its release notes say so.
 
 CMake builds the library from:
 

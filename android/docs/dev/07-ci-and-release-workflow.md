@@ -768,6 +768,7 @@ flowchart TD
   C --> E
   E --> S
   E --> D
+  E --> V
   B --> V
   C --> V
   V --> S
@@ -959,9 +960,11 @@ This workflow job:
   to the selected Play track
 - writes release notes that state what was checked against which bytes: the
   published APK and AAB for signer, version, ABIs, and checksums; lint, the
-  JVM tests, and the instrumentation tests against the non-minified,
-  throwaway-signed rebuild that `verify-production-release` makes of the same
-  commit
+  JVM tests, and the instrumentation tests against the x86_64, non-minified,
+  throwaway-signed rebuild with the release's PGO profile that
+  `verify-production-release` makes of the same commit; the launch of its
+  x86_64 build in the shipped shape; and that no lane ran the arm64 library
+  the assets carry, beside android-ci's arm64 suite
 - names the signing certificate's SHA-256 in the notes and, when the previous
   production release recorded a different one in its APK evidence, adds a
   "Reinstall required" notice naming that release and its certificate:
@@ -1083,18 +1086,32 @@ The limits:
 
 ### `verify-production-release`
 
-Runs on `main`, or in a dry run, in parallel with the build job (it needs only
-`resolve-release-inputs` and `resolve-upstream-core`) and without the
-environment, because it holds no secret; the signing jobs wait for it. It rebuilds the release build type,
-runs Android lint, `:app:assembleReleaseAndroidTest`, and
-`:app:testReleaseUnitTest` with `r47.testBuildType=release` and CI-only
-`r47.releaseMinify=false` / `r47.releaseShrinkResources=false`, signs the
-installs with a throwaway verification keystore generated in-job (never the
-production key), and runs the grouped `connectedReleaseAndroidTest` selections
-through `scripts/android/run_connected_android_tests.sh` on an emulator, so a
-release-only regression is caught before the store handoff rather than after
-publication. It does not test the published bytes: those are minified and
-signed by `sign-production-release`.
+Runs on `main`, or in a dry run, after the build job and without the
+environment, because it holds no secret; the signing jobs wait for it. It
+downloads the build job's PGO profile, a separate artifact (828 KB in the 0.3.0
+dry run), by artifact ID and points `R47_PGO_PROFILE_PATH` at it for the whole job, so every
+native build here compiles with the bytes the shipped library was built with.
+Waiting for the build job costs about 8 minutes of wall time on a release and
+no job minutes; collecting a profile in this job instead would cost 94 s and
+need not give the same bytes.
+
+It builds `:app:assembleRelease` as it ships, R8, resource shrinking, the
+profile, no test bridge, for `x86_64` only, and keeps that APK. It then
+rebuilds the release build type for the device tests: Android lint,
+`:app:assembleReleaseAndroidTest`, and `:app:testReleaseUnitTest` with
+`r47.testBuildType=release` and CI-only `r47.releaseMinify=false` /
+`r47.releaseShrinkResources=false`. Every install is signed with a throwaway
+verification keystore generated in the job, never the production key. On the
+emulator it runs the grouped `connectedReleaseAndroidTest` selections through
+`scripts/android/run_connected_android_tests.sh`, then
+`scripts/android/run_shipped_build_smoke.sh` on the kept APK: install, start
+the launcher activity and wait for its first frame, type 2 ENTER 3 + through
+the hardware-key path, and fail if the process died or restarted or the crash
+buffer names the package. The smoke runs the minified dex, which the device
+tests do not, so a keep rule R8 lost fails it when `JNI_OnLoad` binds its
+methods. The emulator is `x86_64`: the arm64 library that ships runs
+on no lane, and the published bytes, signed by `sign-production-release`, are
+not the ones tested.
 
 ### `verify-signed-artifacts`
 

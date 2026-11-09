@@ -322,6 +322,7 @@ jobs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
       unsigned_artifact_name: ${{ steps.meta.outputs.unsigned_artifact_name }}
       unsigned_artifact_id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+      pgo_profile_artifact_id: ${{ steps.upload-pgo-profile.outputs.artifact-id }}
       apk_artifact_name: ${{ steps.meta.outputs.apk_artifact_name }}
       release_bundle_name: ${{ steps.meta.outputs.release_bundle_name }}
       release_apk_name: ${{ steps.meta.outputs.release_apk_name }}
@@ -502,6 +503,7 @@ jobs:
           set -euo pipefail
           mkdir -p ci-artifacts/logs
 
+          sha256sum "$R47_RELEASE_HOST_PGO_PROFILE"
           cd android
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:assembleRelease \
@@ -592,6 +594,18 @@ jobs:
             ci-artifacts/logs/build-android-release.log
           if-no-files-found: warn
           retention-days: 30
+
+      # The profile alone, 828 KB in the 0.3.0 dry run, where the artifact above
+      # unpacks to 294 MB: verify-production-release compiles its device tests and
+      # its smoke build with the bytes this build used.
+      - name: Upload the release PGO profile
+        id: upload-pgo-profile
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-pgo-profile
+          path: ci-artifacts/pgo/r47-host-core.profdata
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload unsigned release assets
         id: upload-unsigned
@@ -895,11 +909,19 @@ jobs:
   verify-production-release:
     name: Verify production release on the emulator
     if: github.ref == 'refs/heads/main' || inputs.dry_run
+    # The device tests and the smoke compile with the PGO profile the shipped
+    # library was built with, so the job waits for the build job: about 8 minutes
+    # of wall time on a release, and no job minutes, against collecting a profile
+    # here, which costs 94 s and need not give the same bytes. The
+    # emulator is x86_64, so the arm64 bytes that ship still run on no lane.
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
+      - build-production-release-bundle
     runs-on: ubuntu-26.04
     timeout-minutes: 120
+    env:
+      R47_PGO_PROFILE_PATH: ${{ github.workspace }}/ci-artifacts/release-pgo/r47-host-core.profdata
     steps:
       - name: Configure Git init defaults
         shell: bash
@@ -1028,6 +1050,59 @@ jobs:
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
 
+      - name: Download the release PGO profile
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.build-production-release-bundle.outputs.pgo_profile_artifact_id }}
+          path: ci-artifacts/release-pgo
+
+      # The app as it ships, R8, resource shrinking, PGO, no test bridge, built for
+      # the emulator's x86_64 and signed with the throwaway key; the emulator step
+      # launches it after the device tests.
+      - name: Build the shipped-shape release for the launch smoke
+        shell: bash
+        env:
+          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
+          R47_UPSTREAM_VERSION: ${{ needs.build-production-release-bundle.outputs.upstream_version }}
+          R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
+          R47_RELEASE_STORE_PASSWORD: throwaway
+          R47_RELEASE_KEY_ALIAS: verify
+          R47_RELEASE_KEY_PASSWORD: throwaway
+          GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts/logs ci-artifacts/smoke
+          sha256sum "$R47_PGO_PROFILE_PATH"
+
+          (
+            cd android
+            ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+              :app:assembleRelease \
+              --daemon --stacktrace --console=plain --warning-mode all \
+              -Pr47.abiFilters=x86_64 \
+              -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+              -Pr47.includeProgramLoadTestBridge=false \
+              -Pr47.versionCode="$R47_VERSION_CODE_INPUT" \
+              -Pr47.versionName="$R47_VERSION_NAME_INPUT" \
+              -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
+              -Pr47.upstreamVersion="$R47_UPSTREAM_VERSION" \
+              -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+              -Pr47.sourceCommit=${{ github.sha }} \
+              -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
+              -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
+              -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
+              -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
+              2>&1 | tee ../ci-artifacts/logs/android-release-smoke-build.log
+          )
+          apk_dir='android/app/build/outputs/apk/release'
+          apk_file="$(sed -n 's/.*"outputFile": *"\([^"]*\)".*/\1/p' "$apk_dir/output-metadata.json" | head -n 1)"
+          [[ -n "$apk_file" && "$apk_file" != *-unsigned.apk ]] || {
+            echo "Expected a signed smoke APK, but AGP reports '${apk_file}'." >&2
+            exit 1
+          }
+          cp "$apk_dir/$apk_file" ci-artifacts/smoke/r47zen-shipped-x86_64.apk
+
       - name: Build Android release verification artifacts and run JVM tests
         shell: bash
         env:
@@ -1143,6 +1218,7 @@ jobs:
           R47_CONNECTED_ANDROID_TEST_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_REPOSITORY_URL: ${{ steps.defaults.outputs.xlsxio_url }}
           R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+          R47_APPLICATION_ID: ${{ steps.defaults.outputs.application_id }}
         with:
           api-level: ${{ steps.defaults.outputs.android_test_api_level }}
           target: default
@@ -1153,8 +1229,11 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           working-directory: ./android
-          script: >-
+          # The emulator runner runs each line on its own and stops at the first
+          # that fails.
+          script: |
             bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh
+            bash --noprofile --norc ../scripts/android/run_shipped_build_smoke.sh --apk ../ci-artifacts/smoke/r47zen-shipped-x86_64.apk --package "$R47_APPLICATION_ID"
 
       - name: Upload release verification logs and reports
         if: always()
@@ -1456,9 +1535,14 @@ jobs:
           through the wrapper-owned host-core optimization flow, and checked
           their signer, version, ABIs, and checksums before publishing them.
           Android lint, the release-path JVM tests, and the release-path
-          instrumentation tests ran on an emulator against a rebuild of the same
-          commit that is not minified and is signed with a throwaway key, not
-          against these exact bytes.
+          instrumentation tests ran on an x86_64 emulator against a rebuild of
+          the same commit with this release's optimization profile, not minified
+          and carrying a test bridge; then an x86_64 build as these assets are
+          built, minified and without the bridge, launched there and added two
+          numbers. Both were signed with a throwaway key. No lane ran the arm64
+          native library these assets carry; android-ci, which passed on the
+          same commits, ran upstream's test suite on an arm64 build of the core
+          with the release's compiler and flags.
 
           The Linux host toolchain built xlsxio_xlsx2csv from ${xlsxio_url} at
           commit ${xlsxio_commit} to satisfy the upstream font-generation
