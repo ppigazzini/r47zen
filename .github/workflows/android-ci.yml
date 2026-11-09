@@ -925,8 +925,7 @@ jobs:
     # static suite android-build-test-package built for the release's target on an
     # arm64 runner (page 08, "Upstream Suite On The App's Configuration"), and
     # checks it as the x86_64 step does. It builds nothing and holds no secret.
-    # ci-required does not wait on it: a new gate on what signs and publishes is
-    # the maintainer's to add.
+    # ci-required waits on it.
     needs:
       - upstream-release-gate
       - android-build-test-package
@@ -1738,7 +1737,7 @@ jobs:
     # This is the single job to mark as the required status check: GitHub treats a
     # skipped required job as passing, so gating directly on the skippable test
     # jobs (python-contracts, android-build-test-package, sign-dev-prerelease,
-    # android-tests) could report green having run nothing on a re-run of an
+    # android-tests, upstream-suite-arm64) could report green having run nothing on a re-run of an
     # already-released state.
     # This job fails unless every test job genuinely succeeded whenever the gate
     # asked them to run.
@@ -1750,6 +1749,7 @@ jobs:
       - android-build-test-package
       - sign-dev-prerelease
       - android-tests
+      - upstream-suite-arm64
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
@@ -1763,6 +1763,7 @@ jobs:
           BUILD_RESULT: ${{ needs.android-build-test-package.result }}
           SIGN_RESULT: ${{ needs.sign-dev-prerelease.result }}
           TESTS_RESULT: ${{ needs.android-tests.result }}
+          ARM64_RESULT: ${{ needs.upstream-suite-arm64.result }}
         run: |
           set -euo pipefail
 
@@ -1783,7 +1784,8 @@ jobs:
                       "python-contracts=$PY_RESULT" \
                       "android-build-test-package=$BUILD_RESULT" \
                       "sign-dev-prerelease=$SIGN_RESULT" \
-                      "android-tests=$TESTS_RESULT"; do
+                      "android-tests=$TESTS_RESULT" \
+                      "upstream-suite-arm64=$ARM64_RESULT"; do
             name="${pair%%=*}"
             result="${pair#*=}"
             if [ "$result" != 'success' ]; then

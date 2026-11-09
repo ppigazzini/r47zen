@@ -24,7 +24,7 @@ flowchart TD
   E[python-contracts]
   F[android-build-test-package<br/>unsigned, no secrets]
   S[sign-dev-prerelease]
-  U[upstream-suite-arm64<br/>arm64 runner, outside ci-required]
+  U[upstream-suite-arm64<br/>arm64 runner]
   G[android-tests]
   H[publish-main-snapshot<br/>main branch]
   R[ci-required<br/>aggregate verdict, required by nothing]
@@ -45,6 +45,7 @@ flowchart TD
   F --> R
   S --> R
   G --> R
+  U --> R
 ```
 
 ## CI At A Glance
@@ -584,9 +585,8 @@ code is collected on x86-64. The job runs on an `ubuntu-26.04-arm` runner:
 - uploads its log and the suite's as
   `r47zen-<upstream short>-<android short>-upstream-suite-arm64-log`
 
-It holds no secret. `ci-required` does not wait on it, so a failure here stops
-no dev prerelease: a new gate on what signs and publishes is the maintainer's to
-add.
+It holds no secret. `ci-required` waits on it, so a failure here stops the dev prerelease, and through
+[`require-green-ci`](#require-green-ci) the release, of that pair.
 
 ### `android-tests`
 

@@ -1208,9 +1208,10 @@ paths in the project root: `res/testPgms/testPgms.bin`, `src/testSuite/tests`, a
 `R47_SUITE_RUN=<suite>` runs a suite so unpacked from the project root and checks
 it as above, building nothing. In `android-ci.yml` the build job builds the tar
 after its x86_64 run, and `upstream-suite-arm64` runs it on an arm64 runner
-([07](07-ci-and-release-workflow.md#upstream-suite-arm64)). Neither gates a
-release: the build step continues on error, and `ci-required` does not wait on the
-job.
+([07](07-ci-and-release-workflow.md#upstream-suite-arm64)). The build step
+continues on error, but `ci-required` waits on the arm64 job, which then has no
+suite to run and fails, so a failure on either side stops the dev prerelease of
+that pair.
 
 The only known failure is an ALGDEP case in `algdep_cov.txt`: with mini-gmp, Y,
 the confidence it reports, is 13 where the case expects 10. Built with the full
