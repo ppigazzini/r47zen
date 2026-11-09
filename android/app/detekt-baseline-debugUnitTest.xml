@@ -12,7 +12,6 @@
     <ID>LoopWithTooManyJumpStatements:SettingsActivityThemeTest.kt:SettingsActivityThemeTest$for</ID>
     <ID>MaxLineLength:CalculatorKeyViewCanvasTest.kt:CalculatorKeyViewCanvasTest$return</ID>
     <ID>MaxLineLength:KeypadFixtureContractTest.kt:KeypadFixtureContractTest$fixture.labels[(KeypadSnapshot.KEY_COUNT - 1) * KeypadSnapshot.LABELS_PER_KEY + KeypadSceneContract.LABEL_AUX]</ID>
-    <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$"Welcome to R47 Zen\nTap the orange and blue rectangles at top right to open the menu for Settings, Copy Actions, and Paste Number.\nSet Keypad Layout and Working Directory there."</ID>
     <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$(R47AndroidChromeGeometry.MAIN_MENU_BUTTON_LEFT + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_WIDTH) * projection.scale</ID>
     <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$(R47AndroidChromeGeometry.MAIN_MENU_BUTTON_TOP + R47AndroidChromeGeometry.MAIN_MENU_BUTTON_HEIGHT) * projection.scale</ID>
     <ID>MaxLineLength:MainShellThemeTest.kt:MainShellThemeTest$typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)</ID>
