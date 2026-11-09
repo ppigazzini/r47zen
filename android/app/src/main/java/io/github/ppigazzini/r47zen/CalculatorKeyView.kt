@@ -118,7 +118,6 @@ class CalculatorKeyView @JvmOverloads constructor(
 
     var keyCode: Int = 0
     private var isFnKey: Boolean = false
-    private var lastLayoutClass: Int? = null
     private var usesLetterSpacer = true
     private var keepLetterSpacerInvisible = false
     private var fontSet = KeypadFontSet(null, null, null)
@@ -130,7 +129,6 @@ class CalculatorKeyView @JvmOverloads constructor(
     private var topLabelPlacement = TopLabelLanePlacement.DEFAULT
     private var designCellWidth = R47ReferenceGeometry.STANDARD_PITCH
     private var designButtonWidth = R47ReferenceGeometry.STANDARD_KEY_WIDTH
-    private var drawKeySurfaces = true
     private val mainKeyRect = RectF()
     private val mainKeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -387,11 +385,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         return mainKeyRect.width()
     }
 
-    private fun updateLayoutPositioning(layoutClass: Int) {
-        if (lastLayoutClass == layoutClass) return
-        lastLayoutClass = layoutClass
-    }
-
     internal fun setKey(slot: KeypadSlotSpec, fonts: KeypadFontSet) {
         this.keyCode = slot.code
         this.isFnKey = slot.isFunctionKey
@@ -414,7 +407,6 @@ class CalculatorKeyView @JvmOverloads constructor(
             gLabel.visibility = View.VISIBLE
             letterLabel.visibility = View.VISIBLE
             primaryLabel.visibility = View.VISIBLE
-            lastLayoutClass = null
             resetLabelLayout()
             configureMainKeySurface(slot.family)
             usesLetterSpacer = slot.usesLetterSpacer
@@ -430,17 +422,6 @@ class CalculatorKeyView @JvmOverloads constructor(
             mainKeyState = KeypadKeySnapshot.EMPTY
             mainKeyRenderSpec = null
         }
-    }
-
-    internal fun setDrawKeySurfaces(draw: Boolean) {
-        if (drawKeySurfaces == draw) {
-            return
-        }
-        drawKeySurfaces = draw
-        if (!isFnKey) {
-            refreshMainKeyRenderSpec()
-        }
-        invalidate()
     }
 
     private fun mainKeyStyleSpec(styleRole: Int): MainKeyStyleSpec {
@@ -653,7 +634,6 @@ class CalculatorKeyView @JvmOverloads constructor(
             letterLabel.text = keyState.letterLabel
             currentShiftFOn = resolvedShiftFOn
             currentShiftGOn = resolvedShiftGOn
-            updateLayoutPositioning(keyState.layoutClass)
             applySceneStyling(keyState)
             applyLabelVisibility(keyState)
             updateFontSize(currentShiftFOn, currentShiftGOn)
@@ -839,8 +819,7 @@ class CalculatorKeyView @JvmOverloads constructor(
             bounds = bodyBounds,
             fillColor = if (isPressed) styleSpec.pressedFillColor else styleSpec.idleFillColor,
             cornerRadius = cornerRadius,
-            drawSurface = drawKeySurfaces,
-            pressedAccents = if (drawKeySurfaces && isPressed) {
+            pressedAccents = if (isPressed) {
                 buildMainPressedAccentSpecs(bodyBounds, referenceBodyToViewWidthScale)
             } else {
                 emptyList()
@@ -1064,7 +1043,6 @@ class CalculatorKeyView @JvmOverloads constructor(
                 width = width,
                 height = height,
                 isPressed = isPressed,
-                drawKeySurfaces = drawKeySurfaces,
             )
         } else {
             drawMainKey(canvas)

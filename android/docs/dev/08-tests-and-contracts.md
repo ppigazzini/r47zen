@@ -224,7 +224,7 @@ runs. What each one locks:
   constant, and the scanner is proven on seeded literals first. A read through
   another variable or a helper is out of its reach
 - `test_launcher_icon_contract.py`: the launcher icon the app ships draws its
-  drawing source, `assets/icons/r47zen.svg`: both full icons have the SVG's
+  drawing source, `android/app/icon-source/r47zen.svg`: both full icons have the SVG's
   paths in order and in its colors, the adaptive foreground has them but the
   background, and `ic_launcher_background` is the SVG's background. The
   foreground's inset and the viewports are out of its reach

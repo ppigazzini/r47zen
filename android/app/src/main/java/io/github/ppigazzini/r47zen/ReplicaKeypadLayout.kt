@@ -197,7 +197,6 @@ internal object ReplicaKeypadLayout {
     ) {
         val keyView = CalculatorKeyView(context)
         keyView.setKey(slot, fonts)
-        keyView.setDrawKeySurfaces(true)
         keyView.isClickable = true
         keyView.isFocusable = true
         keyView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES

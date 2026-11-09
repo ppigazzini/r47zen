@@ -291,7 +291,6 @@ class AlphaCaseExportContractTest(unittest.TestCase):
                     r"letterLabel\.text = keyState\.letterLabel\s*"
                     r"currentShiftFOn = resolvedShiftFOn\s*"
                     r"currentShiftGOn = resolvedShiftGOn\s*"
-                    r"updateLayoutPositioning\(keyState\.layoutClass\)\s*"
                     r"applySceneStyling\(keyState\)\s*"
                     r"applyLabelVisibility\(keyState\)\s*"
                     r"updateFontSize\(currentShiftFOn, currentShiftGOn\)\s*"

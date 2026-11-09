@@ -223,8 +223,8 @@ flowchart TD
 Current repository icon surfaces:
 
 - Drawing source:
-  `android/app/src/main/assets/icons/r47zen.svg`. Nothing generates the runtime
-  vectors from it, so a change must reach each by hand, and
+  `android/app/icon-source/r47zen.svg`, which the APK does not carry. Nothing
+  generates the runtime vectors from it, so a change must reach each by hand, and
   `scripts/r47_contracts/test_launcher_icon_contract.py` fails until it does:
   the full icons draw the SVG's paths in its colors, the adaptive foreground
   draws them but the background, and `ic_launcher_background` in

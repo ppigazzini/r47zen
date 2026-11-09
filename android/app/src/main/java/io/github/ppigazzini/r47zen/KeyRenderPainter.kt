@@ -10,16 +10,14 @@ internal object KeyRenderPainter {
         fillPaint: Paint,
         strokePaint: Paint,
     ) {
-        if (chrome.drawSurface) {
-            fillPaint.style = Paint.Style.FILL
-            fillPaint.color = chrome.fillColor
-            canvas.drawRoundRect(
-                chrome.bounds.asRectF(),
-                chrome.cornerRadius,
-                chrome.cornerRadius,
-                fillPaint,
-            )
-        }
+        fillPaint.style = Paint.Style.FILL
+        fillPaint.color = chrome.fillColor
+        canvas.drawRoundRect(
+            chrome.bounds.asRectF(),
+            chrome.cornerRadius,
+            chrome.cornerRadius,
+            fillPaint,
+        )
         chrome.pressedAccents.forEach { accent ->
             drawLine(canvas, accent, strokePaint)
         }

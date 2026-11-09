@@ -232,35 +232,6 @@ internal object C47TextRenderer {
         canvas.drawText(text, x, baseline, paint)
     }
 
-    fun resolveTextBounds(
-        text: String,
-        paint: Paint,
-        typeface: Typeface?,
-        textSize: Float,
-        x: Float,
-        anchorY: Float,
-        align: Paint.Align = Paint.Align.CENTER,
-        verticalAnchor: Int = TEXT_ANCHOR_CENTER,
-        textScaleX: Float = 1f,
-    ): RectSpec? {
-        val resolvedMetrics = resolveTextMetrics(
-            text = text,
-            paint = paint,
-            typeface = typeface,
-            baseSize = textSize,
-            align = align,
-            textScaleX = textScaleX,
-        ) ?: return null
-
-        return boundsFromResolvedMetrics(
-            resolvedMetrics = resolvedMetrics,
-            x = x,
-            anchorY = anchorY,
-            align = align,
-            verticalAnchor = verticalAnchor,
-        )
-    }
-
     fun colorWithAlpha(color: Int, alpha: Float): Int {
         return applyAlpha(color, alpha)
     }

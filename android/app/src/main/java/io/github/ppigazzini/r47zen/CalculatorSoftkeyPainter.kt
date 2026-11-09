@@ -25,7 +25,6 @@ internal class CalculatorSoftkeyPainter(
         val width: Int,
         val height: Int,
         val isPressed: Boolean,
-        val drawKeySurfaces: Boolean,
     )
 
     private val softkeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -55,7 +54,6 @@ internal class CalculatorSoftkeyPainter(
         width: Int,
         height: Int,
         isPressed: Boolean,
-        drawKeySurfaces: Boolean,
     ) {
         val renderSpec = buildRenderSpec(
             keyState = keyState,
@@ -63,7 +61,6 @@ internal class CalculatorSoftkeyPainter(
             width = width,
             height = height,
             isPressed = isPressed,
-            drawKeySurfaces = drawKeySurfaces,
         )
         drawRenderSpec(canvas, renderSpec)
     }
@@ -74,7 +71,6 @@ internal class CalculatorSoftkeyPainter(
         width: Int,
         height: Int,
         isPressed: Boolean,
-        drawKeySurfaces: Boolean,
     ): KeyRenderSpec {
         val cacheKey = SoftkeyRenderSpecCacheKey(
             keyState = keyState,
@@ -82,7 +78,6 @@ internal class CalculatorSoftkeyPainter(
             width = width,
             height = height,
             isPressed = isPressed,
-            drawKeySurfaces = drawKeySurfaces,
         )
         val cachedSpec = if (cacheKey == cachedRenderSpecKey) {
             cachedRenderSpec
@@ -99,7 +94,6 @@ internal class CalculatorSoftkeyPainter(
             width = width,
             height = height,
             isPressed = isPressed,
-            drawKeySurfaces = drawKeySurfaces,
         )
         cachedRenderSpecKey = cacheKey
         cachedRenderSpec = renderSpec
@@ -112,7 +106,6 @@ internal class CalculatorSoftkeyPainter(
         width: Int,
         height: Int,
         isPressed: Boolean,
-        drawKeySurfaces: Boolean,
     ): KeyRenderSpec {
         val reverseVideo = keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_REVERSE_VIDEO)
         val showText = keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT) &&
@@ -151,8 +144,7 @@ internal class CalculatorSoftkeyPainter(
             bounds = softkeyBounds,
             fillColor = fillColor,
             cornerRadius = cornerRadius,
-            drawSurface = drawKeySurfaces,
-            pressedAccents = if (drawKeySurfaces && isPressed && !emptySoftkeySlot) {
+            pressedAccents = if (isPressed && !emptySoftkeySlot) {
                 buildPressedAccentSpecs(
                     bounds = softkeyBounds,
                     width = width,
@@ -166,10 +158,7 @@ internal class CalculatorSoftkeyPainter(
         val labels = mutableListOf<LabelSpec>()
         val adornments = mutableListOf<AdornmentSpec>()
 
-        val previewLine = if (
-            drawKeySurfaces &&
-            keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET)
-        ) {
+        val previewLine = if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET)) {
             LineSpec(
                 start = PointSpec(
                     softkeyBounds.left + KeyVisualPolicy.SOFTKEY_PREVIEW_LINE_SIDE_INSET,

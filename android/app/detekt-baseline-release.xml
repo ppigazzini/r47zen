@@ -29,12 +29,9 @@
     <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$fun buildLabelSpec: LabelSpec?</ID>
     <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$fun configureTextPaint</ID>
     <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$fun drawText</ID>
-    <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$fun resolveTextBounds: RectSpec?</ID>
     <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$private fun resolveTextMetrics: ResolvedTextMetrics?</ID>
     <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter</ID>
     <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$fun draw</ID>
-    <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$internal fun buildRenderSpec: KeyRenderSpec</ID>
-    <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$private fun buildRenderSpecUncached: KeyRenderSpec</ID>
     <ID>LongParameterList:DisplayActionController.kt:DisplayActionController</ID>
     <ID>LongParameterList:GraphGestureFlusher.kt:GraphGestureFlusher</ID>
     <ID>LongParameterList:MainActivityPreferenceController.kt:MainActivityPreferenceController</ID>
@@ -109,7 +106,6 @@
     <ID>ReturnCount:ReplicaOverlay.kt:ReplicaOverlay$@SuppressLint("ClickableViewAccessibility") override fun onTouchEvent: Boolean</ID>
     <ID>ReturnCount:ReplicaOverlay.kt:ReplicaOverlay$override fun onInterceptTouchEvent: Boolean</ID>
     <ID>ReturnCount:ReplicaOverlay.kt:ReplicaOverlay.&lt;no name provided&gt;$override fun onScale: Boolean</ID>
-    <ID>ReturnCount:ReplicaOverlayController.kt:KeypadSnapshotRefreshGate$fun shouldApply: Boolean</ID>
     <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$fun solve: Map&lt;Int, TopLabelLanePlacement&gt;</ID>
     <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun relaxRow: List&lt;TopLabelLaneConflict&gt;</ID>
     <ID>ReturnCount:TopLabelLaneLayout.kt:TopLabelLaneLayout$private fun scaleCandidateLabel: TopLabelLaneLabel?</ID>
