@@ -1226,8 +1226,8 @@ The other three names pass a wrong stand-in here. No core code calls
 `mpz_nextprime`: its one use, in `prime.c`, is commented out. Every caller of
 `longIntegerDivide2` (`mpz_div_2exp`) passes a value that is not negative, where
 `fdiv` and `tdiv` agree. A `mpz_fits_uint_p` without its upper bound passes every
-case. The calculator thread harness's "the stand-ins agree with GMP" case holds
-those three instead.
+case. `run_native_stand_ins_contract.sh` holds those three instead, to what GMP
+gives on boundary values, computed apart in Python.
 
 What the x86_64 run cannot see: it builds against glibc, whose `_FORTIFY_SOURCE`
 checks are not Bionic's, without arm64's `-mbranch-protection`, and with no fused
