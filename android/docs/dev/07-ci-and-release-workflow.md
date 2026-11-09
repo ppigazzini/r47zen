@@ -508,7 +508,10 @@ It:
   see the real key and fork pull requests, which receive no secrets, still
   produce an installable APK
 - collects packaging evidence for the signed APK: expected ABIs, 16 KB zip
-  alignment, ELF `LOAD` segment alignment, compliance assets, the signer
+  alignment, ELF `LOAD` segment alignment, the four compliance assets the build
+  packages (`COPYING`, `LICENSE.txt`, `SOURCE`, `THIRD-PARTY.spdx.json`), whose
+  absence fails it rather than letting it write a stand-in
+  (`check_compliance_assets.sh`), the signer
   certificate digest, the dev version, and the upstream core's own version
   (`upstream_version`, `VERSION1` from `src/c47/defines.h`, read by
   `scripts/android/read_upstream_version.sh` in the build job)

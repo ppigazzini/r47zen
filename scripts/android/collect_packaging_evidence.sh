@@ -245,99 +245,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-extract_packaged_compliance_assets() {
-    local unpack_dir="$1"
-    local asset_root="$2"
-    local destination_dir="$3"
-    local compliance_dir="$destination_dir/compliance-assets"
-    local copied_any=0
-
-    mkdir -p "$compliance_dir"
-
-    for asset_name in COPYING LICENSE.txt SOURCE THIRD-PARTY.spdx.json; do
-        if [[ -f "$unpack_dir/$asset_root/$asset_name" ]]; then
-            cp "$unpack_dir/$asset_root/$asset_name" "$compliance_dir/$asset_name"
-            copied_any=1
-        fi
-    done
-
-    if [[ -d "$unpack_dir/$asset_root/repo-notices" ]]; then
-        rm -rf "$compliance_dir/repo-notices"
-        cp -R "$unpack_dir/$asset_root/repo-notices" "$compliance_dir/repo-notices"
-        copied_any=1
-    fi
-
-    if [[ "$copied_any" -eq 1 ]]; then
-        find "$compliance_dir" -type f | sed "s#^$destination_dir/##" | sort >"$destination_dir/PACKAGED-COMPLIANCE-ASSETS.txt"
-        return 0
-    else
-        rm -rf "$compliance_dir"
-        return 1
-    fi
-}
-
 write_metadata_line() {
     local key="$1"
     local value="$2"
     local target_file="$3"
     if [[ -n "$value" ]]; then
         printf '%s=%s\n' "$key" "$value" >>"$target_file"
-    fi
-}
-
-write_xlsxio_license() {
-    local target_file="$1"
-    cat >"$target_file" <<'EOF'
-Copyright (C) 2016 Brecht Sanders All Rights Reserved
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-EOF
-}
-
-write_source_manifest() {
-    local target_file="$1"
-    : >"$target_file"
-    write_metadata_line "upstream_url" "$upstream_source_repository_url" "$target_file"
-    write_metadata_line "upstream_commit" "$upstream_source_commit" "$target_file"
-    write_metadata_line "android_source_repository_url" "$android_source_repository_url" "$target_file"
-    write_metadata_line "android_source_commit" "$android_source_commit" "$target_file"
-    write_metadata_line "xlsxio_url" "$xlsxio_source_repository_url" "$target_file"
-    write_metadata_line "xlsxio_commit" "$xlsxio_source_commit" "$target_file"
-}
-
-populate_compliance_assets() {
-    local destination_dir="$1"
-    local compliance_dir="$destination_dir/compliance-assets"
-
-    mkdir -p "$compliance_dir"
-
-    if [[ ! -f "$compliance_dir/SOURCE" ]]; then
-        write_source_manifest "$compliance_dir/SOURCE"
-    fi
-
-    if [[ ! -f "$compliance_dir/COPYING" ]]; then
-        cp "$(dirname "$0")/../COPYING" "$compliance_dir/COPYING"
-    fi
-
-    if [[ ! -f "$compliance_dir/LICENSE.txt" ]]; then
-        write_xlsxio_license "$compliance_dir/LICENSE.txt"
     fi
 }
 
@@ -400,7 +313,7 @@ if [[ "$artifact_type" == "apk" ]]; then
         exit 1
     fi
 
-    extract_packaged_compliance_assets "$unpack_dir" "assets" "$output_dir"
+    bash "$(dirname "$0")/check_compliance_assets.sh" "$unpack_dir" "assets" "$output_dir"
 
     # The instrumented tests' PROGRAMS fixtures belong to the test APK alone.
     if [[ -e "$unpack_dir/assets/program-fixtures" ]]; then
@@ -536,7 +449,7 @@ if [[ "$artifact_type" == "apk" ]]; then
 fi
 
 if [[ "$artifact_type" == "aab" ]]; then
-    extract_packaged_compliance_assets "$unpack_dir" "base/assets" "$output_dir"
+    bash "$(dirname "$0")/check_compliance_assets.sh" "$unpack_dir" "base/assets" "$output_dir"
 
     if command -v keytool >/dev/null 2>&1; then
         if aab_certs="$(keytool -printcert -jarfile "$primary_artifact_path" 2>/dev/null)"; then
@@ -552,7 +465,6 @@ if [[ "$artifact_type" == "aab" ]]; then
     fi
 fi
 
-populate_compliance_assets "$output_dir"
 validate_compliance_assets_layout "$output_dir"
 
 if [[ "$artifact_type" == "apk" || "$artifact_type" == "aab" ]]; then
