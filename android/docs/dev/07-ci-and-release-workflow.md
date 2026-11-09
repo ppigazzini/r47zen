@@ -675,7 +675,10 @@ It:
   runs the same instrumented set on a `default` `x86_64` image at
   `R47_DEFAULT_ANDROID_MIN_SDK`, under the AVD `test-min-sdk`: the app installs
   from that level, and every other row runs the target or the newest 16 KB image.
-  Weekly, not nightly, since the row costs a boot and the whole set
+  Weekly, not nightly, since the row costs a boot and the whole set.
+  A class whose `@SdkSuppress` floor the device is below runs nothing by design,
+  so `run_connected_android_tests.sh` skips it and logs why rather than failing
+  its zero-test guard. No device test declares a floor today
   `android-release.yml`'s twin still keys on the API level alone, a release-lane
   change that waits for a lane that runs it before a release
 - uploads logs plus JVM, instrumentation, and Kover coverage

@@ -267,7 +267,16 @@ connected_sandbox="$tmp/connected-sandbox"
 connected_results="$connected_sandbox/android/app/build/outputs/androidTest-results"
 mkdir -p "$connected_sandbox/android" "$connected_sandbox/bin"
 cp "$PROJECT_ROOT/android/r47-defaults.properties" "$connected_sandbox/android/"
-printf '#!/bin/bash\nexit 0\n' >"$connected_sandbox/bin/adb"
+# FAKE_API_LEVEL is the device's API level, which adb otherwise does not say.
+cat >"$connected_sandbox/bin/adb" <<'SH'
+#!/bin/bash
+[ "$*" = "shell getprop ro.build.version.sdk" ] && printf '%s\r\n' "${FAKE_API_LEVEL:-}"
+exit 0
+SH
+# A class given an SDK floor here, as a device test declares one with @SdkSuppress.
+suppressed_source="$connected_sandbox/android/app/src/androidTest/java/io/github/ppigazzini/r47zen/SystemBarInsetsInstrumentedTest.kt"
+mkdir -p "$(dirname "$suppressed_source")"
+printf '@SdkSuppress(minSdkVersion = 29)\nclass SystemBarInsetsInstrumentedTest\n' >"$suppressed_source"
 # Run the first class of the filter, as connectedReleaseAndroidTest does with a
 # comma-joined list, and write two AGP-shaped results for it. The class that
 # FAKE_EMPTY_SELECTION names runs nothing; for the one FAKE_WRONG_SELECTION
@@ -304,7 +313,7 @@ run_connected() {
         export PATH="$connected_sandbox/bin:$PATH"
         export R47_CONNECTED_ANDROID_DIR="$connected_sandbox/android"
         export R47_CONNECTED_ANDROID_LOG_DIR="$tmp/connected-logs"
-        unset GITHUB_ACTIONS GITHUB_STEP_SUMMARY FAKE_EMPTY_SELECTION FAKE_WRONG_SELECTION
+        unset GITHUB_ACTIONS GITHUB_STEP_SUMMARY FAKE_EMPTY_SELECTION FAKE_WRONG_SELECTION FAKE_API_LEVEL
         local setting name
         for setting in "$@"; do
             export "${setting?}"
@@ -351,6 +360,20 @@ expect_connected_failure "a later selection that ran nothing, after earlier ones
 expect_connected_failure "a selection whose results report another class" \
     "GraphRedrawInstrumentedTest asked for io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest" \
     FAKE_WRONG_SELECTION=GraphRedrawInstrumentedTest
+
+# Below its @SdkSuppress floor a class runs nothing by design, so the runner skips
+# it and says why (the minSdk row); at its floor, and for a class with none, a
+# selection that runs nothing still fails.
+run_connected "$tmp/connected-floor.log" FAKE_API_LEVEL=24 FAKE_EMPTY_SELECTION=SystemBarInsetsInstrumentedTest ||
+    fail "connected runner failed a class below its SDK floor: $(tail -n 2 "$tmp/connected-floor.log")"
+grep -q "SystemBarInsetsInstrumentedTest skipped: .* needs API 29 (@SdkSuppress), the device runs 24" "$tmp/connected-floor.log" ||
+    fail "connected runner did not say why it skipped a class below its SDK floor."
+expect_connected_failure "a class at its SDK floor that ran nothing" \
+    "SystemBarInsetsInstrumentedTest reported success but executed 0 tests" \
+    FAKE_API_LEVEL=29 FAKE_EMPTY_SELECTION=SystemBarInsetsInstrumentedTest
+expect_connected_failure "a class with no SDK floor that ran nothing on an old device" \
+    "FactorsInstrumentedTest reported success but executed 0 tests" \
+    FAKE_API_LEVEL=24 FAKE_EMPTY_SELECTION=FactorsInstrumentedTest
 
 mkdir -p "$connected_results/connected"
 printf '<testsuite name="stale" tests="5"/>\n' >"$connected_results/connected/TEST-stale.xml"
