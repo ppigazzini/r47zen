@@ -162,7 +162,7 @@ callbacks.
 
 - `onCreate()` executes five startup phases in order:
   `configureActivityShell()` sets the music stream, inflates view binding,
-  sets content view, and applies display-cutout mode; `initializeStartupControllers()`
+  and sets content view; `initializeStartupControllers()`
   wires `WindowModeController`, `FactoryResetController`,
   `StorageAccessCoordinator`, `NativeFileRequestGate`, `DisplayActionController`,
   and `PhysicalKeyboardInputController`;

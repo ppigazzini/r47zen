@@ -78,7 +78,6 @@ internal object TouchZoneDebugVisualPolicy {
 }
 
 internal object GraphTouchVisualPolicy {
-    const val PAN_GAIN = 1.0f
     const val PINCH_EPSILON = 0.0001f
     const val PAN_CONTINUATION_SLOP_FRACTION = 0.25f
     const val PAN_CONTINUATION_MIN_SLOP_PX = 1f

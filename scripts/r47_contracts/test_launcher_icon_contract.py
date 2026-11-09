@@ -1,6 +1,6 @@
 """Hold the launcher icon the app ships to its drawing source.
 
-`android/app/src/main/assets/icons/r47zen.svg` is the drawing source, and
+`android/app/icon-source/r47zen.svg` is the drawing source, outside the APK, and
 nothing generates the runtime vectors from it, so a change must reach each one
 by hand. This holds that the full icons (`mipmap/ic_launcher.xml` and
 `mipmap/ic_launcher_round.xml`) draw the SVG's paths in its colors, that the
@@ -17,9 +17,9 @@ import re
 import unittest
 from typing import Final
 
-from r47_contracts._repo_paths import ANDROID_APP_ROOT, ANDROID_RES_ROOT
+from r47_contracts._repo_paths import ANDROID_RES_ROOT, REPO_ROOT
 
-_SVG: Final = ANDROID_APP_ROOT / "assets" / "icons" / "r47zen.svg"
+_SVG: Final = REPO_ROOT / "android" / "app" / "icon-source" / "r47zen.svg"
 _FULL_ICONS: Final = (
     ANDROID_RES_ROOT / "mipmap" / "ic_launcher.xml",
     ANDROID_RES_ROOT / "mipmap" / "ic_launcher_round.xml",

@@ -270,59 +270,6 @@ class MainKeySnapshotRenderTest {
     }
 
     @Test
-    fun scalingChangeReplaysTheSnapshotAndRestoresStyledLabels() {
-        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-        val overlay = ReplicaOverlay(activity)
-        val fixture = KeypadFixtureResources.load("static-single-scene")
-        val snapshot = fixture.snapshot()
-        val keyCode = (1..37).first { code ->
-            val state = snapshot.keyStateFor(code)
-            state.fLabel.length >= 3 &&
-                state.labelRole(KeypadSceneContract.LABEL_F) == KeypadSceneContract.TEXT_ROLE_F_UNDERLINE
-        }
-        val keyView = createAttachedMainKeyView(activity, keyCode)
-        val controller = ReplicaOverlayController(
-            context = activity,
-            overlay = overlay,
-            performHapticClick = { _ -> },
-            dispatchLiveKey = {},
-            getKeypadSnapshot = { _ -> fixture.snapshot() },
-            isRuntimeReady = { true },
-        )
-        controller.bindOverlay()
-
-        overlay.addReplicaView(keyView, 0f, 0f, 272f, 260f)
-        activity.setContentView(overlay)
-        overlay.measure(exactly(1200), exactly(2400))
-        overlay.layout(0, 0, 1200, 2400)
-
-        controller.refreshDynamicKeys(snapshot)
-        overlay.measure(exactly(1200), exactly(2400))
-        overlay.layout(0, 0, 1200, 2400)
-        shadowOf(Looper.getMainLooper()).idle()
-
-        val expectedText = snapshot.keyStateFor(keyCode).fLabel
-        assertEquals(expectedText, keyView.fLabel.text.toString())
-        assertTrue(keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0)
-
-        keyView.fLabel.text = expectedText.take(2)
-        keyView.fLabel.paintFlags = keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG.inv()
-
-        controller.requestGeometryReplay()
-        controller.onHostResumed()
-
-        overlay.measure(exactly(1200), exactly(2400))
-        overlay.layout(0, 0, 1200, 2400)
-        shadowOf(Looper.getMainLooper()).idle()
-        overlay.measure(exactly(1200), exactly(2400))
-        overlay.layout(0, 0, 1200, 2400)
-        shadowOf(Looper.getMainLooper()).idle()
-
-        assertEquals(expectedText, keyView.fLabel.text.toString())
-        assertTrue(keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0)
-    }
-
-    @Test
     fun pipExitReplaysTheSnapshotAndRestoresStyledLabels() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val overlay = ReplicaOverlay(activity)

@@ -41,7 +41,6 @@ internal data class KeyChromeSpec(
     val bounds: RectSpec,
     val fillColor: Int,
     val cornerRadius: Float,
-    val drawSurface: Boolean,
     val pressedAccents: List<LineAdornmentSpec> = emptyList(),
 )
 

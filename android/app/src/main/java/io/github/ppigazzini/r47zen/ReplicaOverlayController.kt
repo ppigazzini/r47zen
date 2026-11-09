@@ -4,13 +4,7 @@ import android.content.Context
 import android.view.View
 import androidx.core.view.isEmpty
 
-internal object KeypadRefreshPolicy {
-    const val ENABLE_UNCHANGED_SNAPSHOT_SKIP = true
-}
-
-internal class KeypadSnapshotRefreshGate(
-    private val enabled: Boolean = KeypadRefreshPolicy.ENABLE_UNCHANGED_SNAPSHOT_SKIP,
-) {
+internal class KeypadSnapshotRefreshGate {
     private var lastAppliedSnapshot: KeypadSnapshot? = null
 
     fun reset() {
@@ -18,9 +12,6 @@ internal class KeypadSnapshotRefreshGate(
     }
 
     fun shouldApply(snapshot: KeypadSnapshot): Boolean {
-        if (!enabled) {
-            return true
-        }
         if (lastAppliedSnapshot == snapshot) {
             return false
         }
@@ -50,12 +41,6 @@ internal class ReplicaOverlayController(
             schedulePendingGeometrySceneReplay()
         }
         rebuildInteractiveZones()
-        markGeometryChange()
-    }
-
-    fun requestGeometryReplay() {
-        overlay.requestLayout()
-        overlay.invalidate()
         markGeometryChange()
     }
 

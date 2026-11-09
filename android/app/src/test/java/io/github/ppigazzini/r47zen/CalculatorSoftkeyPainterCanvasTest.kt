@@ -37,7 +37,6 @@ class CalculatorSoftkeyPainterCanvasTest {
             width = WIDTH,
             height = HEIGHT,
             isPressed = false,
-            drawKeySurfaces = true,
         )
         val second = painter.buildRenderSpec(
             keyState = keyState,
@@ -45,7 +44,6 @@ class CalculatorSoftkeyPainterCanvasTest {
             width = WIDTH,
             height = HEIGHT,
             isPressed = false,
-            drawKeySurfaces = true,
         )
         val pressed = painter.buildRenderSpec(
             keyState = keyState,
@@ -53,7 +51,6 @@ class CalculatorSoftkeyPainterCanvasTest {
             width = WIDTH,
             height = HEIGHT,
             isPressed = true,
-            drawKeySurfaces = true,
         )
 
         assertSame(first, second)
@@ -76,7 +73,6 @@ class CalculatorSoftkeyPainterCanvasTest {
             width = WIDTH,
             height = HEIGHT,
             isPressed = false,
-            drawKeySurfaces = true,
         )
 
         val geometry = renderSpec.geometry as SoftkeyGeometrySpec
@@ -101,7 +97,6 @@ class CalculatorSoftkeyPainterCanvasTest {
             width = WIDTH,
             height = HEIGHT,
             isPressed = true,
-            drawKeySurfaces = true,
         )
 
         assertEquals(Color.rgb(32, 32, 32), renderSpec.chrome?.fillColor)
@@ -120,7 +115,6 @@ class CalculatorSoftkeyPainterCanvasTest {
             width = WIDTH,
             height = HEIGHT,
             isPressed = true,
-            drawKeySurfaces = true,
         )
 
         assertEquals(Color.rgb(32, 32, 32), renderSpec.chrome?.fillColor)
@@ -138,7 +132,6 @@ class CalculatorSoftkeyPainterCanvasTest {
             width = WIDTH,
             height = HEIGHT,
             isPressed = false,
-            drawKeySurfaces = true,
         )
 
         assertEquals(Color.rgb(64, 64, 64), renderSpec.chrome?.fillColor)
@@ -224,7 +217,6 @@ class CalculatorSoftkeyPainterCanvasTest {
             WIDTH,
             HEIGHT,
             isPressed = false,
-            drawKeySurfaces = true,
         )
         return bitmap
     }
