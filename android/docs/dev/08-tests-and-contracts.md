@@ -256,13 +256,17 @@ runs. What each one locks:
   JNI signature, checked on a seeded drift first; the
   `R47_SHELL_*` codes in `jni_bridge.h` equal `NativeShellCodes.kt`, and
   `jni_input.c` resolves each to an `items.h` symbol, never a number
-- `test_robolectric_sdk_owner_contract.py`: no JVM test `@Config` and no
-  `robolectric.properties` sets `sdk`, `minSdk`, or `maxSdk`, so every
-  Robolectric class runs at the targetSdk; it proves its scanner on seeded
-  text first
+- `test_robolectric_sdk_owner_contract.py`: no `robolectric.properties` sets
+  `sdk`, `minSdk`, or `maxSdk`, and no JVM test `@Config` does but
+  `ApiLevelArmsTest.kt`, whose levels must lie from
+  `R47_DEFAULT_ANDROID_MIN_SDK` up to below the target, so every other Robolectric
+  class runs at the targetSdk; it proves its scanner and its level reader on
+  seeded text first
 - `test_device_test_api_contract.py`: the major of
   `R47_DEFAULT_ANDROID_TEST_API_LEVEL`, the emulator image the instrumented tests
-  run on, reaches `R47_DEFAULT_ANDROID_TARGET_SDK`; seeded first with 36 under 37
+  run on, reaches `R47_DEFAULT_ANDROID_TARGET_SDK`, seeded first with 36 under
+  37; and android-ci keeps a row that runs the instrumented set at
+  `R47_DEFAULT_ANDROID_MIN_SDK`, gated, under its own AVD
 - `test_upstream_provenance_contract.py`: the provenance ledger covers exactly
   the upstream inputs the contract modules declare (see below)
 
@@ -365,12 +369,18 @@ The focused JVM suite under `android/app/src/test/java/io/github/ppigazzini/r47z
 main parity surface for Kotlin-side decoder, renderer, lifecycle, and input
 contracts.
 
-Its Robolectric classes run at the SDK the app targets, and only there: no
-class names an `sdk` in `@Config`, so Robolectric takes the targetSdkVersion of
-the merged manifest, which `R47_DEFAULT_ANDROID_TARGET_SDK` sets.
-`RobolectricSdkTest.kt` fails when the framework under test is any other level,
-and `test_robolectric_sdk_owner_contract.py` fails on a class or a
-`robolectric.properties` that pins one. From API 36 Robolectric's sandbox
+Its Robolectric classes run at the SDK the app targets: no class but
+`ApiLevelArmsTest.kt` names an `sdk` in `@Config`, so Robolectric takes the
+targetSdkVersion of the merged manifest, which `R47_DEFAULT_ANDROID_TARGET_SDK`
+sets. `RobolectricSdkTest.kt` fails when a default class's framework is any
+other level, and `test_robolectric_sdk_owner_contract.py` fails on another class
+or a `robolectric.properties` that pins one. `ApiLevelArmsTest.kt` runs every
+`Build.VERSION.SDK_INT` arm in the shell, in `HapticFeedbackController`,
+`StorageAccessCoordinator`, `WindowModeController`, and `ReplicaOverlay`, against
+the framework at 24, `minSdk`, below O, R, and S, and at 30, at or above O and R
+and below S; the target covers the side above all three. Three arms
+seeded down to N each turned their test red: the pulse's, the picker's start
+folder's, and the pan slop's, which then reads a classification API 24 lacks. From API 36 Robolectric's sandbox
 needs `java.base/jdk.internal.access` exported, which `app/build.gradle` passes
 to every unit-test JVM. A targetSdk newer than the pinned Robolectric supports
 fails every Robolectric class, which is the signal to bump Robolectric with it.

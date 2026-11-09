@@ -668,6 +668,11 @@ It:
   under a key that names the installed emulator and system image revisions,
   read from their `source.properties`: a snapshot boots only on the emulator
   that made it, and the SDK cache does not pin the emulator.
+- on Sunday's nightly, when it builds, and on a dispatch with `min_sdk_tests`,
+  runs the same instrumented set on a `default` `x86_64` image at
+  `R47_DEFAULT_ANDROID_MIN_SDK`, under the AVD `test-min-sdk`: the app installs
+  from that level, and every other row runs the target or the newest 16 KB image.
+  Weekly, not nightly, since the row costs a boot and the whole set
   `android-release.yml`'s twin still keys on the API level alone, a release-lane
   change that waits for a lane that runs it before a release
 - uploads logs plus JVM, instrumentation, and Kover coverage
