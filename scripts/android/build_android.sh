@@ -9,10 +9,12 @@
 # native inputs into android/.staged-native/cpp, and runs Gradle through the
 # tracked wrapper, every stage from that one commit. What it holds to:
 #
-#   * --android-only builds only while android/.staged-native/cpp/
+#   * --android-only skips this script's resolve, hydration, ninja sim, and
+#     clean, and builds only while android/.staged-native/cpp/
 #     STAGED-INPUTS.properties still matches the canonical sources, the
 #     generated outputs, the mini-gmp fallback, and the fonts; a stale staged
-#     tree is refused, never reused.
+#     tree is refused. Gradle's prepareStagedNativeInputs still runs Meson and
+#     re-stages before the native build, as in every lane.
 #   * A missing Gradle wrapper is a repo-integrity failure, never a reason to
 #     run a host gradle.
 #   * --doctor reports the host toolchain and the staged tree, and exits
@@ -70,7 +72,7 @@ usage() {
 Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--run-sim-tests] [--collect-host-pgo] [--validate-release-pgo] [--host-pgo-output-dir <dir>] [--verify-packaging] [--verify-packaging-dir <dir>]
 
 Modes:
-    --android-only         Rebuild only the Android module after confirming staged native inputs are current.
+    --android-only         Skip this script's native steps; refuse stale staged inputs, then run Gradle.
     --doctor               Report the JDK, SDK, NDK, CMake, host tools and libraries, xlsxio,
                            upstream lock, and staged inputs; exit 1 on what the build cannot provide.
     --run-sim-tests        Run the simulator/native Meson test suite from the Android full-build path.

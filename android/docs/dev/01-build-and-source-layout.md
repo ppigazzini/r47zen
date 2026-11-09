@@ -283,11 +283,18 @@ Root surfaces outside the Android lane:
 
 Current `--android-only` lane behavior:
 
-- does not execute `Makefile` or Meson
-- still verifies freshness against current canonical `src/c47`,
+- skips the script's own resolve, hydration, `ninja sim` build of
+  `build.sim`, and clean
+- first checks the staged tree against current canonical `src/c47`,
   `dep/decNumberICU`, generated outputs under `build.sim`, canonical fonts
-  under `res/fonts`, and the tracked Android mini-gmp staging source before
-  Gradle reuses the staged tree
+  under `res/fonts`, and the tracked Android mini-gmp staging source, and
+  refuses a stale one
+- then runs Gradle, whose `prepareStagedNativeInputs` runs before every native
+  build in any lane: it resolves upstream (`--auto --write-lock`), hydrates
+  missing paths, reconfigures `build.sim` through Meson, builds the generated
+  tables with ninja, and re-stages. So this lane needs `meson`, `ninja`,
+  `xlsxio_xlsx2csv`, and a resolvable upstream like the full one; it does not
+  execute `Makefile`
 
 Root surfaces that never justify an Android ownership claim:
 
@@ -363,8 +370,9 @@ Public maintainer entrypoints:
   report without failing. Beside it come `--run-sim-tests` to run upstream's
   stock suite from the full build, through
   `scripts/android/build_sim_assets.sh --run-tests` (the suite on the app's own
-  configuration is `run_upstream_suite_android_config.sh`), and `--android-only` for
-  the fast module-local lane that refuses stale staged native inputs.
+  configuration is `run_upstream_suite_android_config.sh`), and `--android-only`,
+  which skips the script's own native steps and refuses stale staged native
+  inputs.
   `--collect-host-pgo` and `--validate-release-pgo` are full-build-only flags
   that let the wrapper own the host-side PGO collector and the Android
   release-native consumer check in one pass, while `--host-pgo-output-dir`
@@ -375,11 +383,14 @@ Public maintainer entrypoints:
   `run_connected_android_tests.sh` reads. Add
   `--verify-packaging` when you want the local build to write the same release
   evidence files CI publishes for Android APK artifacts.
-- `./scripts/android/build_android.sh --android-only` is the preferred fast Android-only path.
-  It skips Meson and native restaging, and refuses to continue unless
+- `./scripts/android/build_android.sh --android-only` is the faster
+  Android-only path. It skips the script's resolve, hydration, `ninja sim`, and
+  clean, and refuses to continue unless
   `android/.staged-native/cpp/STAGED-INPUTS.properties` still matches the
   canonical root, generated inputs, the tracked Android mini-gmp staging
-  source, and the current calculator font source.
+  source, and the current calculator font source. It does not skip Meson or
+  re-staging: Gradle's `prepareStagedNativeInputs` runs both, as in every lane
+  that builds native code.
 - `./scripts/android/build_android.sh --run-sim-tests` runs upstream's stock
   suite from the full build path, as the release lane does. It stages
   `res/testPgms/testPgms.bin` before the suite runs, and is intentionally
@@ -390,25 +401,25 @@ Public maintainer entrypoints:
   collector and the release-native consumer check in one pass, and the script
   runs upstream's suite as the app builds the core
   ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration)).
-- `cd android && ./gradlew assembleDebug` is appropriate only when the staged
-  build-only native tree under `android/.staged-native/cpp` is already current
-  and the change is isolated to the Android module.
+- `cd android && ./gradlew assembleDebug` refreshes a stale staged tree itself:
+  `prepareStagedNativeInputs` runs before the native build. Its prerequisites
+  are those of that task, `meson`, `ninja`, `xlsxio_xlsx2csv` on `PATH` (or
+  in the xlsxio cache a full build fills), and a resolvable upstream, not a
+  current staged tree.
 - `cd android && ./gradlew lint` is the maintained Android Lint lane when
-  Kotlin, Java, manifest, resource, or Android Gradle files change and the
-  staged build-only native tree is already current. Lint is not run
+  Kotlin, Java, manifest, resource, or Android Gradle files change. Lint is not run
   automatically by `assembleDebug`, so CI and local maintainer verification
   need to call it explicitly. `android/app/lint.xml` holds only the
   suppressions whose reason holds for every file; one with a local reason sits
   at its site, as `tools:ignore` in XML or `@SuppressLint` in Kotlin, next to
   the comment that justifies it.
 - `cd android && ./gradlew :app:bundleRelease` or
--  `cd android && ./gradlew :app:assembleRelease` is the module-local release
-  lane only when the staged build-only native tree is already current. Release
+  `cd android && ./gradlew :app:assembleRelease` is the module-local release
+  lane, with the same prerequisites as `assembleDebug`. Release
   builds remain unsigned unless all `r47.releaseStore*` and `r47.releaseKey*`
   inputs are supplied together.
 - `cd android && ./gradlew :app:testDebugUnitTest` validates the Robolectric
-  and fixture-backed Android JVM suite when the build-only staged native tree
-  is already current.
+  and fixture-backed Android JVM suite.
 - `cd android && ./gradlew :app:assembleDebugAndroidTest` compiles and
   packages the instrumentation suite, and `stageProgramFixtureAssets` stages
   the upstream `PROGRAMS` fixtures into the test APK's assets under
@@ -748,14 +759,13 @@ names, and release gating.
 
 ## Verification by change type
 
-- Kotlin-only Android UI changes: `cd android && ./gradlew assembleDebug` when
-  the build-only staged native tree is already current.
+- Kotlin-only Android UI changes: `cd android && ./gradlew assembleDebug`.
 - Android module-only changes with the staged tree already current:
-  `./scripts/android/build_android.sh --android-only`.
+  `./scripts/android/build_android.sh --android-only`, which refuses a stale
+  one.
 - Host or cache diagnosis before building: `./scripts/android/build_android.sh --doctor`.
 - Robolectric, release-test-helper, or runtime-seam changes:
-    `cd android && ./gradlew :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
-  when the build-only staged native tree is already current.
+    `cd android && ./gradlew :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`.
 - PROGRAMS fixture, SAF, release-source-set helper, or Activity Result
   lifecycle changes:
     `cd android && ./gradlew :app:assembleReleaseAndroidTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`,

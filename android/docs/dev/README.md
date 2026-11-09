@@ -198,7 +198,7 @@ of them run hot; it is not restated here.
 
 AGENTS.md's short workflow lists the commands.
 [01-build-and-source-layout.md](01-build-and-source-layout.md#build-entry-points)
-owns what each one does, and when the module-local Gradle lane is valid;
+owns what each one does, and what the module-local Gradle lane needs;
 [canonical versus staged native inputs](01-build-and-source-layout.md#canonical-versus-staged-native-inputs)
 owns which tree to edit.
 
