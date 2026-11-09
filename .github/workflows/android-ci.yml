@@ -449,6 +449,7 @@ jobs:
       release_title: ${{ steps.meta.outputs.release_title }}
       upstream_version: ${{ steps.upstream.outputs.upstream_version }}
       suite_arm64: ${{ steps.suite-arm64.outcome }}
+      host_tools: ${{ steps.host-tools.outputs.host_tools }}
     steps:
       - name: Configure Git init defaults
         shell: bash
@@ -667,6 +668,16 @@ jobs:
             --collect-host-pgo \
             --validate-release-pgo \
             2>&1 | tee ci-artifacts/logs/build-android.log
+
+      # The host tools that generated shipped code, for the signing job's evidence.
+      - name: Record the host tool versions
+        id: host-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          host_tools="$(bash ./scripts/android/describe_host_tools.sh)"
+          echo "Host tools: ${host_tools}"
+          echo "host_tools=${host_tools}" >> "$GITHUB_OUTPUT"
 
       - name: Show compiler cache stats
         if: always()
@@ -1108,6 +1119,7 @@ jobs:
           UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           UPSTREAM_VERSION: ${{ needs.android-build-test-package.outputs.upstream_version }}
+          HOST_TOOLS: ${{ needs.android-build-test-package.outputs.host_tools }}
           DEV_VERSION_CODE: ${{ needs.upstream-release-gate.outputs.dev_version_code }}
           DEV_VERSION: ${{ needs.upstream-release-gate.outputs.dev_version }}
         run: |
@@ -1137,6 +1149,7 @@ jobs:
             --upstream-source-repository-url "$UPSTREAM_URL" \
             --upstream-source-commit "$UPSTREAM_COMMIT" \
             --upstream-version "$UPSTREAM_VERSION" \
+            --host-tools "$HOST_TOOLS" \
             --xlsxio-source-repository-url "$R47_DEFAULT_XLSXIO_URL" \
             --xlsxio-source-commit "$R47_DEFAULT_XLSXIO_COMMIT" \
             --version-code "$DEV_VERSION_CODE" \

@@ -327,6 +327,7 @@ jobs:
       release_bundle_name: ${{ steps.meta.outputs.release_bundle_name }}
       release_apk_name: ${{ steps.meta.outputs.release_apk_name }}
       upstream_version: ${{ steps.upstream.outputs.upstream_version }}
+      host_tools: ${{ steps.host-tools.outputs.host_tools }}
     steps:
       - name: Configure Git init defaults
         shell: bash
@@ -490,6 +491,16 @@ jobs:
             --collect-host-pgo \
             --validate-release-pgo \
             2>&1 | tee ci-artifacts/logs/build-android-release.log
+
+      # The host tools that generated shipped code, for the signing job's evidence.
+      - name: Record the host tool versions
+        id: host-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          host_tools="$(bash ./scripts/android/describe_host_tools.sh)"
+          echo "Host tools: ${host_tools}"
+          echo "host_tools=${host_tools}" >> "$GITHUB_OUTPUT"
 
       - name: Build unsigned release APK and bundle
         shell: bash
@@ -756,6 +767,7 @@ jobs:
           UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           UPSTREAM_VERSION: ${{ needs.build-production-release-bundle.outputs.upstream_version }}
+          HOST_TOOLS: ${{ needs.build-production-release-bundle.outputs.host_tools }}
         run: bash ./scripts/android/collect_release_evidence.sh
 
       - name: Upload signed release AAB artifact
@@ -886,6 +898,7 @@ jobs:
           UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           UPSTREAM_VERSION: ${{ needs.build-production-release-bundle.outputs.upstream_version }}
+          HOST_TOOLS: ${{ needs.build-production-release-bundle.outputs.host_tools }}
         run: bash ./scripts/android/collect_release_evidence.sh
 
       - name: Upload signed release AAB artifact

@@ -20,6 +20,7 @@ Usage:
     [--upstream-source-repository-url <url>] \
     [--upstream-source-commit <commit>] \
     [--upstream-version <version>] \
+    [--host-tools <meson v ninja v cc v freetype v>] \
     [--xlsxio-source-repository-url <url>] \
     [--xlsxio-source-commit <commit>] \
     [--application-id <id>] \
@@ -50,6 +51,7 @@ android_source_commit=""
 upstream_source_repository_url=""
 upstream_source_commit=""
 upstream_version=""
+host_tools=""
 xlsxio_source_repository_url=""
 xlsxio_source_commit=""
 application_id=""
@@ -119,6 +121,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --upstream-version)
             upstream_version="$2"
+            shift 2
+            ;;
+        --host-tools)
+            host_tools="$2"
             shift 2
             ;;
         --upstream-source-commit)
@@ -545,6 +551,13 @@ write_metadata_line "run_attempt" "$run_attempt" "$build_metadata_file"
 write_metadata_line "upstream_url" "$upstream_source_repository_url" "$build_metadata_file"
 write_metadata_line "upstream_commit" "$upstream_source_commit" "$build_metadata_file"
 write_metadata_line "upstream_version" "$upstream_version" "$build_metadata_file"
+# The host tools that generated shipped code, from describe_host_tools.sh in the
+# build job, which ran upstream code: one plain line or none.
+if [[ -n "$host_tools" && ! "$host_tools" =~ ^[A-Za-z0-9\ ._()+-]{1,200}$ ]]; then
+    echo "Refusing the host tool record '${host_tools}'." >&2
+    exit 1
+fi
+write_metadata_line "host_tools" "$host_tools" "$build_metadata_file"
 write_metadata_line "upstream_license_file" "compliance-assets/COPYING" "$build_metadata_file"
 write_metadata_line "android_source_repository_url" "$android_source_repository_url" "$build_metadata_file"
 write_metadata_line "android_source_commit" "$android_source_commit" "$build_metadata_file"
