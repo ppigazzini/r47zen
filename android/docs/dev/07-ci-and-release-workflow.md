@@ -1222,7 +1222,7 @@ nothing fails: both copies still resolve. `run_action_pin_consistency_contract.s
 (in the `run_workflow_contracts.sh` group) holds each of these to one value:
 
 - every third-party action: one commit SHA and one `# <tag>` comment per
-  `owner/repo` across the workflows and both composite actions, so
+  `owner/repo` across the workflows and the composite actions, so
   `actions/cache` and `actions/cache/restore` move together;
 - `SHFMT_VERSION`, `SHELLCHECK_VERSION`, and `ACTIONLINT_VERSION` in
   `shell-lint.yml` against the `pre-commit-shfmt`, `shellcheck-py`, and
@@ -1242,7 +1242,13 @@ pull request per ecosystem, and each moves its own file alone: the `pre-commit`
 group a hook rev, not the `shell-lint.yml` pin beside it, ruff in `uv.lock`, or
 the uv version and checksum in the two `setup-uv` steps; the `uv` group ruff or ty
 in `uv.lock`, not the hook rev. Such a pull request fails this contract until the
-other copy moves in the same pull request.
+other copy moves in the same pull request. The `github-actions` entry scans `/`,
+which reads `.github/workflows` alone, and `/.github/actions/*`, the composites,
+where `setup-android` lives: one group per directory, so a pin both share, such as
+`actions/cache`, arrives in two or more pull requests that fail apart and pass
+merged. `group-by: dependency-name` would not help: it splits `actions/cache`,
+`cache/restore`, and `cache/save` into three. Dependabot reads its configuration
+from `main` alone, so this shape is unproven until a bump runs there.
 
 A bump by hand takes the newest tagged release of every package, hook,
 action, and toolchain it touches, the day it runs. The `cooldown` in
