@@ -671,6 +671,7 @@ It:
   under a key that names the installed emulator and system image revisions,
   read from their `source.properties`: a snapshot boots only on the emulator
   that made it, and the SDK cache does not pin the emulator.
+  `android-release.yml`'s twin keys its snapshot the same way
 - on Sunday's nightly, when it builds, and on a dispatch with `min_sdk_tests`,
   runs the same instrumented set on a `default` `x86_64` image at
   `R47_DEFAULT_ANDROID_MIN_SDK`, under the AVD `test-min-sdk`: the app installs
@@ -679,8 +680,6 @@ It:
   A class whose `@SdkSuppress` floor the device is below runs nothing by design,
   so `run_connected_android_tests.sh` skips it and logs why rather than failing
   its zero-test guard. No device test declares a floor today
-  `android-release.yml`'s twin still keys on the API level alone, a release-lane
-  change that waits for a lane that runs it before a release
 - uploads logs plus JVM, instrumentation, and Kover coverage
   (`android/app/build/reports/kover`) reports in the Android test artifact
   bundle `r47zen-tests-<upstream short>-<android short>`
