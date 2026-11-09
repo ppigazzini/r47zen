@@ -1154,8 +1154,14 @@ upstream adds goes unseen until that list is updated by hand. A scheduled run wi
 stops there; any other event with the same hash republishes the live PDF, because a
 deploy replaces the whole site. A changed hash builds with upstream's own command in
 a container with no network and no credentials, since `.latexmkrc` passes
-`-shell-escape`. Only the PDF and `VERSION` are published, whatever the container
-leaves behind; the container can still write the rest of the checkout. A failed
+`-shell-escape`. The container gets `docs/` read-write and `res/` read-only, and
+none of the rest of the checkout: a mount of all of it held the running
+`prepare_manual_site.sh`, which bash reads as it runs, so a build that overwrote
+it in place ran its own lines on the host, with the network. Only the PDF
+and `VERSION` are published, whatever the container leaves behind, and the
+`build` job, which runs no upstream code, refuses an artifact holding anything
+else, a symbolic link, a PDF that does not start `%PDF-`, or a `VERSION` that is
+not 64 hex digits (`scripts/docs/check_manual_artifact.sh`). A failed
 build reports red and leaves the last good PDF live: a scheduled run deploys nothing,
 and any other event republishes the live PDF, so a broken manual does not hold back
 the policy page. If upstream cannot be resolved, nothing deploys until it can, policy

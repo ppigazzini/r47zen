@@ -13,6 +13,11 @@
 # - a build that fails or leaves an empty, cut-short, or non-PDF file does not fail the
 #   run, a scheduled one deploys anyway, or any other event does not republish;
 # - a file the container left in the output directory would be published;
+# - the container can reach the running script, as a mount of the whole checkout
+#   lets it: a stub that honors the mounts and overwrites the rest of the script
+#   in place, as a -shell-escape build can, must change nothing the host runs;
+# - the build job publishes anything but the PDF and a 64-hex VERSION, as regular
+#   files (check_manual_artifact.sh, on fixtures);
 # - a manual input upstream moved is not reported;
 # - the build gets the network or a token, or a checkout keeps its credentials;
 # - the workflow can write, loses its nightly run, or passes the wrong event;
@@ -55,6 +60,25 @@ echo "$*" >>"$R47_STUB_LOG"
 [ "$1" = "run" ] || exit 0
 case "${R47_STUB_BUILD:-good}" in
     fail) exit 1 ;;
+    escape)
+        # A -shell-escape build overwriting the running script in place, through
+        # whichever writable mount covers it. Bash reads a script as it runs, so a
+        # covered script runs the planted lines next, on the host.
+        target=/work/scripts/docs/prepare_manual_site.sh
+        args=("$@")
+        for ((i = 0; i < ${#args[@]}; i++)); do
+            [ "${args[i]}" = "--volume" ] || continue
+            IFS=: read -r src dst mode <<<"${args[i + 1]}"
+            if [ "$mode" != ro ] && [[ "$target" == "$dst"/* ]]; then
+                host="$src/${target#"$dst"/}"
+                offset="$(grep -b -m 1 'build_pdf || build_status' "$host" | cut -d: -f1)"
+                offset=$((offset + $(grep -m 1 'build_pdf || build_status' "$host" | wc -c)))
+                printf 'echo ESCAPED >&2; echo deploy=true; exit 0\n' |
+                    dd of="$host" bs=1 seek="$offset" conv=notrunc status=none
+            fi
+        done
+        exit 1
+        ;;
     short) printf '%%PDF-1.7 short\n%%%%EOF\n' >"$R47_MANUAL_ROOT/docs/manual/C47_R47_calc_Crop.pdf" ;;
     cut)
         {
@@ -168,7 +192,46 @@ R47_STUB_BUILD=plant
 prepare schedule
 [ "$status" -eq 0 ] && [ "$(find "$work/out" -type f | wc -l)" -eq 2 ] ||
     contract_fail "a file the container left in the output directory would be published."
+
+# The running script sits in the checkout; a copy at the same place in the seeded
+# tree is what the container would see.
+mkdir -p "$root/scripts/docs"
+cp "$PREPARE" "$root/scripts/docs/prepare_manual_site.sh"
+R47_STUB_BUILD=escape
+prepare schedule "$root/scripts/docs/prepare_manual_site.sh"
+if grep -q ESCAPED "$work/stderr" || [ "$deploy" = "deploy=true" ]; then
+    contract_fail "the manual build can rewrite the script running it, outside the container." "$(cat "$work/stderr")"
+fi
+cmp -s "$PREPARE" "$root/scripts/docs/prepare_manual_site.sh" ||
+    contract_fail "the manual build changed the script running it."
+docker_run="$(grep '^run ' "$log")"
+grep -q -- "--volume $root/docs:/work/docs " <<<"$docker_run" &&
+    grep -q -- "--volume $root/res:/work/res:ro " <<<"$docker_run" ||
+    contract_fail "the manual build does not mount docs read-write and res read-only." "$docker_run"
 unset R47_STUB_BUILD
+
+CHECK_ARTIFACT="$PROJECT_ROOT/scripts/docs/check_manual_artifact.sh"
+artifact="$work/artifact"
+seed_artifact() {
+    rm -rf "$artifact"
+    mkdir -p "$artifact"
+    printf '%%PDF-1.7\n' >"$artifact/C47_R47_calc_Crop.pdf"
+    printf '%064d\n' 0 >"$artifact/VERSION"
+}
+seed_artifact
+bash "$CHECK_ARTIFACT" "$artifact" >/dev/null || contract_fail "check_manual_artifact.sh refused the PDF and its VERSION."
+for bad in extra symlink version notpdf; do
+    seed_artifact
+    case "$bad" in
+        extra) echo '<script>' >"$artifact/index.html" ;;
+        symlink) ln -sf /etc/hostname "$artifact/VERSION.tmp" && mv "$artifact/VERSION.tmp" "$artifact/VERSION" ;;
+        version) echo deploy >"$artifact/VERSION" ;;
+        notpdf) echo '<html>' >"$artifact/C47_R47_calc_Crop.pdf" ;;
+    esac
+    if bash "$CHECK_ARTIFACT" "$artifact" >/dev/null 2>&1; then
+        contract_fail "check_manual_artifact.sh passed an artifact with $bad."
+    fi
+done
 
 rm -rf "$root/docs/styles"
 prepare schedule
@@ -189,6 +252,8 @@ if grep -Eq '(:[[:space:]]*write|secrets\.)' <<<"$manual_job"; then
 fi
 grep -q '_site/manual' <<<"$pages" ||
     contract_fail "privacy-policy-pages.yml does not publish under _site/manual."
+grep -q 'check_manual_artifact.sh _site/manual' <<<"$pages" ||
+    contract_fail "the build job stages the manual artifact without check_manual_artifact.sh."
 [ "$(grep -c 'contents: write' <<<"$pages")" -eq 0 ] ||
     contract_fail "privacy-policy-pages.yml can write the repository."
 [ "$(grep -c 'persist-credentials: false' <<<"$pages")" -eq "$(grep -c 'actions/checkout@' <<<"$pages")" ] ||
