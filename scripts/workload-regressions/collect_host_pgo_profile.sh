@@ -824,13 +824,36 @@ if [[ ${#RAW_PROFILES[@]} -eq 0 ]]; then
     fail "No raw LLVM profile files were generated in $RAW_PROFILE_DIR. This usually means the host profiling runtime is incompatible with $CLANG_BIN."
 fi
 
-"$LLVM_PROFDATA_BIN" merge \
-    --output="$PROFILE_PATH" \
-    "${RAW_PROFILES[@]}"
+# LLVM keys a static function's counters by the path the compiler was given.
+# Meson's testSuite build passes upstream sources relative to its build
+# directory (../../../src/c47/x.c from ci-artifacts/pgo/build), and the Android
+# build passes the absolute staged path, so -fprofile-use found none of the
+# broad-ci counters of a static function. Merge to text, rename those keys to
+# the staged spelling, and merge again; the fixture overlay already compiles the
+# staged path, and records that meet under one key and hash add up. The suite's
+# own sources keep their relative keys: the Android build never compiles them.
+PROFILE_TEXT_PATH="${PROFILE_PATH%.profdata}.proftext"
+STAGED_CPP_ROOT="$PROJECT_ROOT/android/.staged-native/cpp"
+SOURCE_ROOT_FROM_BUILD="$(realpath --relative-to="$HOST_BUILD_DIR" "$PROJECT_ROOT")"
+SOURCE_ROOT_PATTERN="${SOURCE_ROOT_FROM_BUILD//./\\.}"
+"$LLVM_PROFDATA_BIN" merge --text --output="$PROFILE_TEXT_PATH" "${RAW_PROFILES[@]}"
+STATIC_KEYS_RENAMED="$(grep -cE "^$SOURCE_ROOT_PATTERN/(src/c47|dep/decNumberICU)/" "$PROFILE_TEXT_PATH" || true)"
+# None found means the testSuite build spells its paths another way now, and
+# the rename would miss every key without a word.
+[ "$STATIC_KEYS_RENAMED" -gt 0 ] ||
+    fail "The profile holds no core function keyed under $SOURCE_ROOT_FROM_BUILD/src/c47 or $SOURCE_ROOT_FROM_BUILD/dep/decNumberICU; the testSuite build's source paths changed, so the staged rename in $(basename "$0") needs updating."
+sed -i \
+    -e "s|^$SOURCE_ROOT_PATTERN/src/c47/|$STAGED_CPP_ROOT/c47/|" \
+    -e "s|^$SOURCE_ROOT_PATTERN/dep/decNumberICU/|$STAGED_CPP_ROOT/decNumberICU/|" \
+    "$PROFILE_TEXT_PATH"
+echo "Renamed $STATIC_KEYS_RENAMED core function key(s) to the staged path the Android build compiles."
+"$LLVM_PROFDATA_BIN" merge --output="$PROFILE_PATH" "$PROFILE_TEXT_PATH"
+rm -f "$PROFILE_TEXT_PATH"
 
 cat >"$METADATA_PATH" <<EOF
 collector=host-testsuite-pgo
 profile_path=$PROFILE_PATH
+profile_static_keys_renamed=$STATIC_KEYS_RENAMED
 training_workload=$TRAINING_WORKLOAD_ID
 training_workload_name=$TRAINING_WORKLOAD_NAME
 training_workload_limit=${TRAINING_WORKLOAD_LIMIT:-}

@@ -528,7 +528,13 @@ Internal helpers:
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` owns the
   host-core PGO collector: it trains an instrumented upstream `testSuite` build
   on the `broad-ci` corpus plus the imported `.p47` fixtures and merges the
-  indexed `.profdata` the release native build consumes. Its `--help` names the
+  indexed `.profdata` the release native build consumes. LLVM keys a static
+  function's counters by the path the compiler was given, and the `testSuite`
+  build passes upstream sources relative to its build directory while the
+  Android build passes the absolute staged path, so the collector renames the
+  `src/c47` and `dep/decNumberICU` keys to the staged path before the final
+  merge, and fails when it finds none to rename; without it the `broad-ci`
+  counters of every static function were never looked up. Its `--help` names the
   corpus and the profiling-runtime shim the NDK makes necessary; it normally
   runs through `scripts/android/build_android.sh --collect-host-pgo`.
 - `scripts/package-notices/generate_simulator_notice_artifacts.sh` owns the
