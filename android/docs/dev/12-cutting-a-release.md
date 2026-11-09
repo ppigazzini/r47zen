@@ -100,13 +100,15 @@ flowchart TD
   B --> C
   A --> D
   B --> D
+  C --> D
   C --> E --> F --> G
   D --> G
   G --> H
 ```
 
-`verify-production-release` runs the emulator lane, and nothing is published
-until it passes.
+`verify-production-release` runs the emulator lane with the build job's PGO
+profile and launches an `x86_64` build in the shipped shape, and nothing is
+published until it passes.
 
 ## After it finishes
 
