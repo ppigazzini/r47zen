@@ -800,6 +800,22 @@ jobs:
           mkdir -p ci-artifacts/dev-unsigned
           cp "$apk_dir/$apk_file" ci-artifacts/dev-unsigned/app-release-unsigned.apk
 
+          # What reads a crash from the published APK back: R8's mapping for a
+          # Java stack, and the native library's symbols for a tombstone. The
+          # dev .so cannot be rebuilt byte for byte on a later day, so these are
+          # the only copies.
+          mapping_path='android/app/build/outputs/mapping/release/mapping.txt'
+          native_symbols_dir='android/app/build/intermediates/native_debug_metadata/release/extractReleaseNativeDebugMetadata/out'
+          if [[ ! -f "$mapping_path" || ! -d "$native_symbols_dir" ]]; then
+            echo "Missing the R8 mapping (${mapping_path}) or the native symbols (${native_symbols_dir})." >&2
+            exit 1
+          fi
+          cp "$mapping_path" ci-artifacts/dev-unsigned/mapping.txt
+          (
+            cd "$native_symbols_dir"
+            zip -qr "$GITHUB_WORKSPACE/ci-artifacts/dev-unsigned/native-debug-symbols.zip" .
+          )
+
       - name: Upload the unsigned dev prerelease APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -1124,6 +1140,8 @@ jobs:
             --xlsxio-source-commit "$R47_DEFAULT_XLSXIO_COMMIT" \
             --version-code "$DEV_VERSION_CODE" \
             --version-name "$DEV_VERSION" \
+            --mapping-file ci-artifacts/dev-unsigned/mapping.txt \
+            --native-symbols ci-artifacts/dev-unsigned/native-debug-symbols.zip \
             --signing-mode prerelease \
             --ref "${GITHUB_REF}" \
             --sha "${GITHUB_SHA}" \
@@ -1576,6 +1594,8 @@ jobs:
               abis.txt \
               zipalign.txt \
               elf-load-segments.txt \
+              mapping.txt \
+              native-debug-symbols.zip \
               compliance-assets
           )
 
