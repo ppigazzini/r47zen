@@ -775,7 +775,9 @@ Each instrumentation source and what it covers:
   before refresh
 - `DisplayDescriptionInstrumentedTest.kt`: on the real `MainActivity`, the LCD's
   node says the number being typed (1 2), then X (15 after ENTER 3 +), then
-  upstream's error text for 1/x of 0 with the node marked as an error, each
+  upstream's error text for x! of -1, a long integer factLonI refuses whatever
+  the flags, with the node marked as an error (1/x of 0 answers Infinity, since
+  the R47 profile sets special results), each
   through `describeDisplayNative`, the calculator thread, and `onDisplayText`
 - `KeypadTouchInstrumentedTest.kt`: the real `MainActivity` from a touch to the
   core. It injects a press and a release at the center of the key views for 1, 2,
