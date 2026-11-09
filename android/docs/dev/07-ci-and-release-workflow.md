@@ -640,6 +640,8 @@ the required verification lanes pass.
 It downloads the packaging artifact bundle `sign-dev-prerelease` uploaded,
 archives the packaging evidence as
 `r47zen_<dev version>_<upstream short>_<android short>_packaging-evidence.zip`,
+which also holds the build's R8 `mapping.txt` and `native-debug-symbols.zip`
+([symbolizing a crash](#symbolizing-a-crash)),
 and publishes the signed dev-prerelease tagged
 `r47zen-<upstream short>-<android short>-dev` and titled with the APK's stem.
 The tag stays commit-only because `upstream-release-gate` keys on it. A rebuild
@@ -1291,6 +1293,26 @@ Use the smallest local lane that matches the failure surface:
 
 If the task touches staging, generated inputs, or upstream hydration, prefer
 the full build script over isolated Gradle invocations.
+
+## Symbolizing a crash
+
+Play symbolizes the crashes it reports from the mapping and native symbols the
+release lane uploads with the bundle. For a crash from an APK on GitHub, take
+the files from that release's packaging-evidence zip: a production release's
+`<stem>_apk-packaging-evidence.zip` and a dev prerelease's
+`<stem>_packaging-evidence.zip` each hold the build's `mapping.txt` and
+`native-debug-symbols.zip`. A build cannot be redone for them: the dev native
+library is not byte-identical when rebuilt on a later day.
+
+- A Java stack: R8 names each frame's source `r8-map-id-<id>`, and the
+  `# pg_map_id:` line at the top of the matching `mapping.txt` holds the same
+  id. Run `retrace mapping.txt stack.txt` with the SDK's command-line tools.
+- A native tombstone: unzip `native-debug-symbols.zip`, check that
+  `llvm-readelf -n arm64-v8a/libr47zen.so.dbg` prints the tombstone's build ID,
+  copy that file to a directory as `libr47zen.so`, and run
+  `ndk-stack -sym <that directory> -i tombstone.txt` from the pinned NDK
+  ([native symbols](https://developer.android.com/build/include-native-symbols):
+  "To restore symbol names in crash reports yourself, use the ndk-stack tool").
 
 ## Reading CI History
 
