@@ -4,6 +4,7 @@ import android.widget.ListView
 import androidx.preference.Preference
 import com.google.android.material.appbar.MaterialToolbar
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -38,18 +39,26 @@ class LibraryLicenseNoticesTest {
         assertTrue(index.findViewById<ListView>(R.id.notice_list).adapter.count > 0)
     }
 
+    // A release build lists every Maven dependency, whose oss-licenses entry is
+    // often only a link to its license; the screen must show the terms, not the
+    // address. A debug variant holds the plugin's one placeholder entry.
     @Test
     fun everyLibraryLicenseEntry_namesAnAssetThatHoldsText() {
         val context = Robolectric.buildActivity(SettingsActivity::class.java).get()
         val index = context.assets.open(RepoNoticeIndexActivity.LIBRARY_LICENSES_INDEX)
             .bufferedReader().use { org.json.JSONObject(it.readText()) }
         val entries = index.getJSONArray("entries")
+        val bareLink = Regex("""^https?://\S+$""")
 
         assertTrue(entries.length() > 0)
         for (position in 0 until entries.length()) {
             val entry = entries.getJSONObject(position)
             val text = context.assets.open(entry.getString("assetPath")).bufferedReader().use { it.readText() }
             assertTrue(entry.getString("title"), text.isNotBlank())
+            assertFalse(
+                "${entry.getString("title")} shows a link, not a license: ${text.trim()}",
+                bareLink.matches(text.trim()),
+            )
         }
     }
 

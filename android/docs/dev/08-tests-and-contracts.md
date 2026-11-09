@@ -639,7 +639,9 @@ source is missing from this page:
   persist, and that an out-of-range or current slot id is ignored
 - `LibraryLicenseNoticesTest.kt`: reads the library-license assets the build
   merged for the variant under test, so a variant whose
-  `library-licenses/NOTICE-INDEX.json` is missing or empty fails on the JVM
+  `library-licenses/NOTICE-INDEX.json` is missing or empty fails on the JVM, and
+  so does an entry whose text is only a link; the release variant, which CI's
+  JVM lane runs, lists every Maven library
 - `KeyboardLayoutContractResources.kt`, `KeypadFixtureResources.kt`,
   `TestJsonResources.kt`, `KeypadTestSnapshots.kt`, and `FakeDocumentProvider.kt`
   are helpers, not tests: the first three load the keyboard-layout contract, the

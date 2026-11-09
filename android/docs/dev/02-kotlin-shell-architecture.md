@@ -401,7 +401,11 @@ while matching the desktop simulator's stop-key parity during an active run.
   licenses come from the `oss-licenses` Gradle plugin, which reads each runtime
   dependency's POM and embedded license, and from
   `generate<Variant>LibraryLicenseAssets` in `app/build.gradle`, which turns
-  its output into `library-licenses/NOTICE-INDEX.json`. The app links no
+  its output into `library-licenses/NOTICE-INDEX.json`. For the release's 68
+  Maven libraries the plugin's entry is only the Apache 2.0 URL, so each such
+  entry shows one shared copy of the tracked
+  `android/compliance/repo-notices/source-texts/apache-2.0.txt`, and the task
+  fails on any other entry that is only a link. The app links no
   license-viewer library: `play-services-oss-licenses` brought Compose, Play
   services, and Guava, nearly two thirds of the shipped dex classes, for that
   one screen. A debug variant lists the plugin's single placeholder entry

@@ -673,10 +673,24 @@ def stageProgramFixtureAssets = tasks.register('stageProgramFixtureAssets', Stag
 // viewer: play-services-oss-licenses 17.5 brought Compose, Play services, and
 // Guava into a View-based APK for one settings entry. The plugin writes a
 // single placeholder entry for a debug variant.
+//
+// For most Maven dependencies the plugin's entry is only the Apache 2.0 URL. A
+// library whose entry is that URL gets the license itself, one shared copy of
+// the tracked apache-2.0.txt; any other entry that is only a link fails the
+// task, so a license never ships as a web address.
 abstract class GenerateLibraryLicenseAssets extends DefaultTask {
+    private static final String APACHE_ASSET = 'apache-2.0.txt'
+    private static final java.util.regex.Pattern APACHE_LINK =
+        ~/https?:\/\/www\.apache\.org\/licenses\/LICENSE-2\.0(\.txt|\.html)?/
+    private static final java.util.regex.Pattern BARE_LINK = ~/https?:\/\/\S+/
+
     @InputDirectory
     @PathSensitive(PathSensitivity.RELATIVE)
     abstract DirectoryProperty getLicensesDirectory()
+
+    @InputFile
+    @PathSensitive(PathSensitivity.NONE)
+    abstract RegularFileProperty getApacheLicenseText()
 
     @OutputDirectory
     abstract DirectoryProperty getOutputDir()
@@ -708,8 +722,24 @@ abstract class GenerateLibraryLicenseAssets extends DefaultTask {
             if (start + length > blob.length) {
                 throw new GradleException("oss-licenses metadata points past the license text: ${line}")
             }
-            def assetName = String.format(Locale.ROOT, '%03d.txt', index)
-            new File(indexDir, assetName).bytes = Arrays.copyOfRange(blob, start, start + length)
+            byte[] licenseBytes = Arrays.copyOfRange(blob, start, start + length)
+            def licenseText = new String(licenseBytes, 'UTF-8').trim()
+            def assetName
+            if (APACHE_LINK.matcher(licenseText).matches()) {
+                assetName = APACHE_ASSET
+                def apacheFile = new File(indexDir, APACHE_ASSET)
+                if (!apacheFile.exists()) {
+                    apacheFile.bytes = apacheLicenseText.get().asFile.bytes
+                }
+            } else if (BARE_LINK.matcher(licenseText).matches()) {
+                throw new GradleException(
+                    "The license of ${matcher.group(3)} is only a link, ${licenseText}: track its text " +
+                        "under android/compliance/repo-notices/source-texts and map the link to it here"
+                )
+            } else {
+                assetName = String.format(Locale.ROOT, '%03d.txt', index)
+                new File(indexDir, assetName).bytes = licenseBytes
+            }
             entries << [
                 title      : matcher.group(3),
                 summary    : '',
@@ -730,6 +760,9 @@ androidComponents {
         def licensesTask = tasks.named("${variant.name}OssLicensesTask", LicensesTask)
         def libraryLicenseAssets = tasks.register("generate${variant.name.capitalize()}LibraryLicenseAssets", GenerateLibraryLicenseAssets) { task ->
             task.licensesDirectory.set(licensesTask.flatMap { it.generatedDirectory })
+            task.apacheLicenseText.set(
+                rootProject.layout.projectDirectory.file('compliance/repo-notices/source-texts/apache-2.0.txt')
+            )
         }
         variant.sources.assets?.addGeneratedSourceDirectory(libraryLicenseAssets) { it.outputDir }
 
