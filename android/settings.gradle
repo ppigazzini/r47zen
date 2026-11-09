@@ -2,7 +2,18 @@ import org.gradle.api.initialization.resolve.RepositoriesMode
 
 pluginManagement {
 	repositories {
-		google()
+		// Google's namespaces come from Google's repository alone. A plain content filter
+		// is not exclusive: a group Google misses still falls through to the next
+		// repository, where a same-coordinate artifact would be taken.
+		exclusiveContent {
+			forRepository { google() }
+			filter {
+				includeGroupAndSubgroups("androidx")
+				includeGroupAndSubgroups("com.android")
+				includeGroupAndSubgroups("com.google.android")
+				includeGroupAndSubgroups("com.google.testing.platform")
+			}
+		}
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -11,7 +22,18 @@ pluginManagement {
 dependencyResolutionManagement {
 	repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
 	repositories {
-		google()
+		// Google's namespaces come from Google's repository alone. A plain content filter
+		// is not exclusive: a group Google misses still falls through to the next
+		// repository, where a same-coordinate artifact would be taken.
+		exclusiveContent {
+			forRepository { google() }
+			filter {
+				includeGroupAndSubgroups("androidx")
+				includeGroupAndSubgroups("com.android")
+				includeGroupAndSubgroups("com.google.android")
+				includeGroupAndSubgroups("com.google.testing.platform")
+			}
+		}
 		mavenCentral()
 	}
 }

@@ -3,10 +3,11 @@
 // Declare AGP here too: KGP on this classloader must see AGP's classes, and
 // with AGP loaded by :app alone, configuration fails with "Could not generate
 // a decorated class for type KotlinAndroidTarget".
+//
+// It names no repositories: settings.gradle's pluginManagement repositories serve
+// this classpath too, and Gradle refuses a buildscript repository beside their
+// exclusive Google content.
 buildscript {
-    repositories {
-        mavenCentral()
-    }
     dependencies {
         classpath libs.kotlin.gradle.plugin
     }
