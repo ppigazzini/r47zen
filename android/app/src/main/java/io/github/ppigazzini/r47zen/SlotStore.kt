@@ -35,9 +35,9 @@ class SlotStore(private val context: Context) {
             clear()
             putInt(KEY_SLOT_COUNT, slots.size)
             // Key on the positional index, matching loadSlots, which reads
-            // slot_${index}_* and rebuilds each slot with id = index. Keying the
-            // write on slot.id instead only agreed while ids stayed contiguous;
-            // a persisted list with a gap would mismap names and URIs silently.
+            // slot_${index}_* and rebuilds each slot with id = index. A key on
+            // slot.id would mismap names and URIs, silently, for a persisted
+            // list whose ids have a gap.
             slots.forEachIndexed { index, slot ->
                 putString("slot_${index}_name", slot.name)
                 putString("slot_${index}_uri", slot.uri)

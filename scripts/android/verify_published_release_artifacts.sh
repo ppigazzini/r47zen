@@ -187,10 +187,8 @@ verify_evidence_dir() {
     fi
 
     # SHA256SUMS.txt records the digest under the build-time path; match the line
-    # whose filename basename equals this artifact, not the first line. Matching
-    # by position was safe only while the file held exactly one entry; the moment
-    # it gains a second (mapping.txt, a symbols zip) the first line could be a
-    # different artifact's digest.
+    # whose filename basename equals this artifact, not the first line: the file
+    # holds other artifacts' digests too (mapping.txt, a symbols zip).
     local recorded_sha actual_sha
     recorded_sha="$(awk -v name="$artifact_name" '
         { n = $2; sub(/.*\//, "", n); if (n == name) { print $1; found = 1; exit } }

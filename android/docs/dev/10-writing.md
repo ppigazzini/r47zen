@@ -173,9 +173,11 @@ Cold does not mean unowned. It means the claim outlives a release, so when it
 This repo's own code is Kotlin, C, shell, and Python. The rules above hold, plus
 these.
 
-**Imperative mood, leading with a verb.** "Resolve the upstream commit", not
-"Returns the commit" or "This function resolves...". A comment is an order to
-the reader, not a description of the author.
+**Imperative mood for what code does, declarative for what must hold.** A
+comment on what a function or step does leads with a verb: "Resolve the
+upstream commit", not "Returns the commit" or "This function resolves...". A
+comment on an invariant states it, as the example below does. Either way it
+speaks to the reader, not about the author.
 
 **Write only the constraint the code cannot show.** Never restate the next line.
 Never say where the code came from, or why your change is right: that is the

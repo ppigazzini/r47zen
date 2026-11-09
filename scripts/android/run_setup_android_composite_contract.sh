@@ -50,9 +50,9 @@ fi
 workflow_uses 'uses:[[:space:]]*\./\.github/actions/setup-android-sdk' ||
     contract_fail "no workflow uses the ./.github/actions/setup-android-sdk composite action"
 
-# These step names characterize a hand-rolled inline SDK block. They now live
-# only inside the composite (which is not under the workflow dir), so any
-# reappearance in a workflow is re-inlined drift.
+# These step names characterize a hand-rolled inline SDK block. They belong only
+# inside the composite (which is not under the workflow dir), so one in a
+# workflow is a re-inlined copy.
 inline=""
 for marker in \
     "Accept Android SDK licenses non-interactively" \
