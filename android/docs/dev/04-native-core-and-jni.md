@@ -639,6 +639,14 @@ links `hal/io.c` alone on the host and locks the report against `/dev/full` and
 its absence against a regular file, a read, and `/dev/null`. A failure in the
 worker, after native has closed the pipe, reports through `DocumentTransfer`.
 
+The state file is the one private file that holds the user's work, so it is replaced
+whole: `ioFileOpen(ioPathBackup, ioModeWrite)` opens `<file>.tmp` and `ioFileClose()`
+renames it over the file and syncs the directory. A failed write unlinks the
+temporary copy and reports, and a save that cannot start reports and returns
+`FILE_CANCEL`, because `saveCalc` ends the process on an error; either way the
+file it would have replaced stays as it was. `run_hal_io_contract.sh` holds the
+three outcomes.
+
 `SNAP` and `PRLCD` reach upstream's `fnScreenDump`, which writes a BMP to the name in
 `_ioFileNameOverride` and clears the name. Holding `EXIT` for about a second runs
 `SNAP` too, so it also opens the picker. `r47_init_runtime` arms that

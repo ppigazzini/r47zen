@@ -80,6 +80,77 @@ static int expect_reports(const char *what, int actual, int expected) {
   return 0;
 }
 
+// The state file is the one private file that holds the user's work: a save that
+// fails or cannot start must leave the file it would have replaced as it was.
+static char backup[600];
+static char backup_temp[640];
+
+static void write_text(const char *path, const char *text) {
+  FILE *file = fopen(path, "w");
+  if (file == NULL || fputs(text, file) < 0 || fclose(file) != 0) {
+    fprintf(stderr, "FATAL: cannot write %s\n", path);
+    exit(2);
+  }
+}
+
+static int holds(const char *path, const char *text) {
+  char seen[64] = "";
+  FILE *file = fopen(path, "r");
+  if (file == NULL) {
+    return 0;
+  }
+  const size_t got = fread(seen, 1, sizeof(seen) - 1, file);
+  fclose(file);
+  seen[got] = '\0';
+  return strcmp(seen, text) == 0;
+}
+
+static int expect(const char *what, int ok) {
+  printf("%s: %s\n", ok ? "OK" : "FAIL", what);
+  return ok ? 0 : 1;
+}
+
+static int save_state(const char *text) {
+  reports = 0;
+  const int opened = ioFileOpen(ioPathBackup, ioModeWrite);
+  if (opened == FILE_OK) {
+    ioFileWrite(text, (uint32_t)strlen(text));
+    ioFileClose();
+  }
+  return opened;
+}
+
+static int check_state_file_replacement(void) {
+  int result = 0;
+  write_text(backup, "old");
+  result |= expect("a save opens", save_state("new") == FILE_OK);
+  result |= expect("a save replaces the state file whole",
+                   holds(backup, "new") && access(backup_temp, F_OK) != 0);
+  result |= expect_reports("a save the disk takes is not reported", reports, 0);
+
+  write_text(backup, "old");
+  if (symlink("/dev/full", backup_temp) != 0) {
+    fprintf(stderr, "FATAL: symlink %s: %s\n", backup_temp, strerror(errno));
+    exit(2);
+  }
+  save_state("new");
+  result |= expect("a save that fails keeps the old state file",
+                   holds(backup, "old"));
+  result |= expect_reports("a save that fails is reported once", reports, 1);
+  unlink(backup_temp);
+
+  write_text(backup, "old");
+  mkdir(backup_temp, 0700);
+  result |= expect("a save that cannot start is canceled",
+                   save_state("new") == FILE_CANCEL);
+  result |= expect("a save that cannot start keeps the old state file",
+                   holds(backup, "old"));
+  result |= expect_reports("a save that cannot start is reported once", reports, 1);
+  rmdir(backup_temp);
+  unlink(backup);
+  return result;
+}
+
 int main(void) {
   snprintf(base, sizeof(base), "/tmp/r47-hal-io-contract-%ld", (long)getpid());
   mkdir(base, 0700);
@@ -88,6 +159,9 @@ int main(void) {
   snprintf(autosave, sizeof(autosave), "%s/R47auto_0.sav", save_dir);
 
   int failures = 0;
+  snprintf(backup, sizeof(backup), "%s/backupR47_0.cfg", base);
+  snprintf(backup_temp, sizeof(backup_temp), "%s.tmp", backup);
+  failures |= check_state_file_replacement();
 
   point_autosave_at(NULL);
   failures |= expect_reports("a write the disk takes is not reported",

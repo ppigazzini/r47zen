@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <android/log.h>
@@ -46,6 +47,9 @@ static FILE *openedFile = NULL;
 // reported, once per file, through r47_report_file_write_failure.
 static bool openedFileWritable = false;
 static bool openedFileWriteFailed = false;
+// The state file a save is replacing, and the copy beside it the save writes.
+static char replaceTarget[PATH_MAX] = "";
+static char replaceTemp[PATH_MAX + 8] = "";
 // The folder WorkDirectory.kt starts the save picker in, for a screen capture.
 #define FILE_CATEGORY_SCREENS 3
 extern int requestAndroidFile(int isSave, const char *defaultName,
@@ -243,6 +247,25 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     }
   }
 
+  // The state file is the only copy of the user's work, and a save can be killed at
+  // any point, so it is written beside the file and renamed over it. A save that
+  // cannot start is canceled, because saveCalc ends the process on an error, and the
+  // file it would have replaced stays good.
+  if (path == ioPathBackup && mode == ioModeWrite) {
+    snprintf(replaceTarget, sizeof(replaceTarget), "%s", fullpath);
+    snprintf(replaceTemp, sizeof(replaceTemp), "%s.tmp", fullpath);
+    openedFile = fopen(replaceTemp, modeStr);
+    openedFileWritable = openedFile != NULL;
+    openedFileWriteFailed = false;
+    if (!openedFile) {
+      LOGE("ioFileOpen: cannot write %s: %s", replaceTemp, strerror(errno));
+      replaceTarget[0] = '\0';
+      r47_report_file_write_failure();
+      return FILE_CANCEL;
+    }
+    return FILE_OK;
+  }
+
   openedFile = fopen(fullpath, modeStr);
   openedFileWritable = openedFile != NULL && mode != ioModeRead;
   openedFileWriteFailed = false;
@@ -273,6 +296,35 @@ void ioFileSeek(uint32_t position) {
     fseek(openedFile, position, SEEK_SET);
 }
 
+// Replace the state file with the whole new copy, or leave it as it was.
+static bool finishReplacingFile(bool failed) {
+  if (replaceTarget[0] == '\0') {
+    return failed;
+  }
+  if (failed) {
+    unlink(replaceTemp);
+  } else if (rename(replaceTemp, replaceTarget) != 0) {
+    LOGE("ioFileClose: cannot replace %s: %s", replaceTarget, strerror(errno));
+    unlink(replaceTemp);
+    failed = true;
+  } else {
+    // The rename is durable only once its directory is.
+    char dir[PATH_MAX];
+    snprintf(dir, sizeof(dir), "%s", replaceTarget);
+    char *slash = strrchr(dir, '/');
+    if (slash != NULL) {
+      *slash = '\0';
+      const int dirFd = open(dir, O_RDONLY | O_DIRECTORY);
+      if (dirFd >= 0) {
+        fsync(dirFd);
+        close(dirFd);
+      }
+    }
+  }
+  replaceTarget[0] = '\0';
+  return failed;
+}
+
 void ioFileClose(void) {
   if (!openedFile) {
     return;
@@ -298,6 +350,7 @@ void ioFileClose(void) {
   openedFile = NULL;
   openedFileWritable = false;
   openedFileWriteFailed = false;
+  failed = finishReplacingFile(failed);
   if (failed) {
     r47_report_file_write_failure();
   }

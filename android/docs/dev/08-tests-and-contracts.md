@@ -839,7 +839,10 @@ Android compatibility layer.
   `scripts/android/hal_io_contract_test.c`. The autosave file is made a link to
   the device under test: a write `/dev/full` refuses is reported once per file,
   whether the flush or the writes themselves find it, and a regular file, a
-  read, and `/dev/null`, whose `fsync` answers `EINVAL`, are not reported. It also
+  read, and `/dev/null`, whose `fsync` answers `EINVAL`, are not reported. A save of
+  the state file replaces it whole and leaves no `.tmp`; one whose writes fail, or
+  that cannot open its `.tmp`, reports once and leaves the old file as it was,
+  the second returning `FILE_CANCEL`. It also
   builds `hal/io.c` with that branch compiled in and runs
   `scripts/android/hal_io_saf_contract_test.c`: each file path asks for its name and
   folder, and a save through a pipe arrives whole with nothing reported. That test
