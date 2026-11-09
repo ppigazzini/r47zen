@@ -952,6 +952,73 @@ static void caseSaveWaitsForACalculatorThatIsBusy(void) {
   CHECK(backupTime() != 0, "the pending save never ran");
 }
 
+// A stopped host can be frozen or killed before the calculator rests again, so the save
+// it asked for runs at the next poll of a computation, as 0.2.0's pump saved, instead of
+// waiting for the computation to end.
+static void caseStoppedHostSavesInsideAComputation(void) {
+  startCalculator();
+  startSlowFactors();
+  r47_service_save_and_wait(0);
+  r47_keys_on_host_stopped(true);
+  for (int i = 0; i < 200 && backupTime() == 0; i++) {
+    sleepMs(10);
+  }
+  CHECK(backupTime() != 0, "a stopped host's save waited for the computation");
+  atomic_store(&probeRan, false);
+  r47_run_at_rest_async(markProbeRan, NULL);
+  sleepMs(200);
+  CHECK(!atomic_load(&probeRan), "the computation ended first, so nothing was proven");
+  r47_keys_on_host_stopped(false);
+  tap(KEY_EXIT);
+}
+
+static bool restWithin(int ms);
+static void startRunningAndProveIt(void);
+
+// The same for a running program, which polls between its steps.
+static void caseStoppedHostSavesInsideARunningProgram(void) {
+  startCalculator();
+  enterLoopProgram(0);
+  startRunningAndProveIt();
+  r47_service_save_and_wait(0);
+  r47_keys_on_host_stopped(true);
+  for (int i = 0; i < 200 && backupTime() == 0; i++) {
+    sleepMs(10);
+  }
+  CHECK(backupTime() != 0, "a stopped host's save waited for the program");
+  CHECK(!atomic_load(&probeRan), "the program stopped first, so nothing was proven");
+  r47_keys_on_host_stopped(false);
+  tap(KEY_RS);
+  CHECK(restWithin(2000), "the program did not stop");
+}
+
+// The HAL holds one open file, and a save opens its own, so a poll while the core has a
+// file open must not save: the save waits until the file is closed.
+static void pollWithAFileOpen(void *arg) {
+  (void)arg;
+  CHECK(ioFileOpen(ioPathAutoSave, ioModeWrite) == FILE_OK, "no file to hold open");
+  const int64_t start = nowMs();
+  while (nowMs() - start < 500) {
+    key_empty();
+    sleepMs(5);
+  }
+  ioFileClose();
+}
+
+static void caseStoppedHostSaveWaitsForAnOpenFile(void) {
+  startCalculator();
+  r47_run_at_rest_async(pollWithAFileOpen, NULL);
+  sleepMs(100);
+  r47_service_save_and_wait(0);
+  r47_keys_on_host_stopped(true);
+  sleepMs(200);
+  CHECK(backupTime() == 0, "a save ran while the core had a file open");
+  for (int i = 0; i < 300 && backupTime() == 0; i++) {
+    sleepMs(10);
+  }
+  CHECK(backupTime() != 0, "the save never ran once the file was closed");
+}
+
 static void casePasteSurvivesAComputation(void) {
   startCalculator();
   startSlowFactors();
@@ -2487,6 +2554,12 @@ static const testCase_t cases[] = {
      caseOffSavesAndKeepsTheCalculatorAlive},
     {"a save at rest finishes inside the fence", caseSaveAtRestFinishesInsideTheFence},
     {"a save waits for a busy calculator", caseSaveWaitsForACalculatorThatIsBusy},
+    {"a stopped host saves inside a computation",
+     caseStoppedHostSavesInsideAComputation},
+    {"a stopped host saves inside a running program",
+     caseStoppedHostSavesInsideARunningProgram},
+    {"a stopped host's save waits for an open file",
+     caseStoppedHostSaveWaitsForAnOpenFile},
     {"a paste survives a computation", casePasteSurvivesAComputation},
     {"the fence does not wait for a busy calculator",
      caseFenceDoesNotWaitForABusyCalculator},

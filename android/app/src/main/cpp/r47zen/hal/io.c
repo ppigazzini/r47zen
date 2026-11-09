@@ -166,6 +166,8 @@ static int has_android_base_path(void) {
   return 0;
 }
 
+bool r47_io_file_open(void) { return openedFile != NULL; }
+
 // Upstream's prints, the register print a SNAP ends with among them, append to a name
 // relative to the working directory: GTK's land beside the simulator, the firmware's
 // in DATA. An app's working directory is not its own, so the core works in the base

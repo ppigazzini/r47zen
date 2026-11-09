@@ -238,11 +238,11 @@ static void completeSaves(unsigned long upTo) {
   pthread_mutex_unlock(&serviceMutex);
 }
 
-void r47_services_save_in_pause(void) {
+void r47_services_save_pending(void) {
   R47_CALCULATOR_THREAD_ONLY();
   pthread_mutex_lock(&serviceMutex);
   const unsigned long ticket = savesRequested;
-  const bool pending = savesDone < ticket;
+  const bool pending = savesDone < ticket && !saveInProgress;
   pthread_mutex_unlock(&serviceMutex);
   if (pending) {
     saveMarked();
