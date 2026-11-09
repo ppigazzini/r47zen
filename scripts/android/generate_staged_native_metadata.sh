@@ -5,6 +5,8 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/../lib/common.sh"
 SOURCE_LIST_OUT=""
 MANIFEST_OUT=""
 
@@ -88,6 +90,20 @@ emit_cmake_list() {
     [ "$entry_count" -gt 0 ] || fail "No matching sources found in ${subdir}"
 }
 
+# The core's sources are upstream's own list, not the directory: src/c47 also holds
+# a developer tool with its own main() that upstream does not compile.
+emit_cmake_c47_list() {
+    local output_file="$1"
+    local listed absolute_path
+    listed="$(r47_core_c47_sources "$CPP_DIR/c47")" || fail "Cannot read the core's sources from $CPP_DIR/c47/meson.build"
+
+    printf 'set(R47_STAGED_C47_SOURCES\n' >>"$output_file"
+    while IFS= read -r absolute_path; do
+        printf '    ${R47_STAGED_CPP_DIR}/%s\n' "${absolute_path#"$CPP_DIR"/}" >>"$output_file"
+    done <<<"$listed"
+    printf ')\n\n' >>"$output_file"
+}
+
 append_manifest_entries() {
     local output_file="$1"
     local subdir="$2"
@@ -150,7 +166,7 @@ main() {
     printf 'if("${R47_STAGED_CPP_DIR}" STREQUAL "")\n' >>"$source_list_tmp"
     printf '    set(R47_STAGED_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")\n' >>"$source_list_tmp"
     printf 'endif()\n\n' >>"$source_list_tmp"
-    emit_cmake_list "$source_list_tmp" R47_STAGED_C47_SOURCES c47 '*.c'
+    emit_cmake_c47_list "$source_list_tmp"
     emit_cmake_list "$source_list_tmp" R47_STAGED_GENERATED_SOURCES generated '*.c'
     emit_cmake_list "$source_list_tmp" R47_STAGED_GMP_SOURCES gmp '*.c'
 

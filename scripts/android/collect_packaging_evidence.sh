@@ -432,6 +432,7 @@ if [[ "$artifact_type" == "apk" ]]; then
             printf '%s\n' "$load_lines"
             echo
         } >>"$elf_report"
+        bash "$(dirname "$0")/check_shipped_symbols.sh" "$so_file"
     done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)
     if [[ "$so_count" -eq 0 ]]; then
         echo "The APK carries no native library under lib/; the ELF LOAD alignment check has nothing to read." >&2
@@ -472,6 +473,9 @@ if [[ "$artifact_type" == "aab" ]]; then
     bash "$(dirname "$0")/check_compliance_assets.sh" "$unpack_dir" "base/assets" "$output_dir"
     # The bundle is what Play builds every device's APK from.
     check_abis "$unpack_dir/base/lib"
+    while IFS= read -r -d '' so_file; do
+        bash "$(dirname "$0")/check_shipped_symbols.sh" "$so_file"
+    done < <(find "$unpack_dir/base/lib" -type f -name '*.so' -print0)
 
     if command -v keytool >/dev/null 2>&1; then
         if aab_certs="$(keytool -printcert -jarfile "$primary_artifact_path" 2>/dev/null)"; then

@@ -24,8 +24,9 @@ read -r -a TARGETS <<<"${R47_FUZZ_TARGETS:-program backup state data}"
 
 JDK_HOME="$(resolve_jdk_home)"
 
+c47_list="$(r47_core_c47_sources "$STAGED_CPP_DIR/c47")"
 mapfile -t SOURCES < <(
-    find "$STAGED_CPP_DIR/c47" -type f -name '*.c' ! -name 'reservedRegisterLookupGenerator.c'
+    printf '%s\n' "$c47_list"
     find "$STAGED_CPP_DIR/generated" "$STAGED_CPP_DIR/gmp" -type f -name '*.c'
     for name in decContext decDouble decNumber decPacked decQuad decimal128 decimal32 decimal64; do
         echo "$STAGED_CPP_DIR/decNumberICU/$name.c"
