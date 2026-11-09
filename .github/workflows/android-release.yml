@@ -266,6 +266,44 @@ jobs:
       mode: latest
       upstream_commit: ${{ inputs.upstream_commit }}
 
+  require-green-ci:
+    name: Require android-ci on the release's commit pair
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
+    # The release builds whatever upstream HEAD is at dispatch, so a green
+    # android-ci on the overlay alone proves nothing about the core it ships with.
+    # android-ci publishes the pair's -dev release, with its APK, only after every
+    # lane ci-required names passed on it. A dry run off main has none, and warns.
+    needs:
+      - resolve-release-inputs
+      - resolve-upstream-core
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require the pair's -dev release with an APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          R47_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
+            --upstream-commit "$UPSTREAM_COMMIT" --android-commit "$GITHUB_SHA")"
+          release_json="${RUNNER_TEMP}/dev-release.json"
+          # A missing tag leaves the file empty, which the check reads as no release.
+          gh release view "$R47_ANDROID_DEV_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json assets >"$release_json" 2>/dev/null || : >"$release_json"
+          args=(--upstream-commit "$UPSTREAM_COMMIT" --android-commit "$GITHUB_SHA"
+            --release-json "$release_json")
+          if [[ "$R47_DRY_RUN" == "true" ]]; then args+=(--warn-only); fi
+          bash ./scripts/android/require_green_ci_pair.sh "${args[@]}"
+
   build-production-release-bundle:
     name: Build unsigned production release assets
     if: github.ref == 'refs/heads/main' || inputs.dry_run
@@ -277,6 +315,7 @@ jobs:
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
+      - require-green-ci
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
@@ -1222,6 +1261,24 @@ jobs:
             --expected-apk-abis "$R47_DEFAULT_ANDROID_ABI_FILTERS" \
             --expected-signing-mode release \
             --expected-cert-sha256 "$expected_cert"
+
+      # The release build carries the PGO flags android-ci's hardening check never
+      # sees, so the library that ships is checked here, with the runner's binutils:
+      # this job installs no NDK.
+      - name: Check the shipped native library's hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+          apks=(release-apk/*.apk)
+          if [[ "${#apks[@]}" -ne 1 ]]; then
+            echo "Expected one APK in the release artifact, found ${#apks[@]}." >&2
+            exit 1
+          fi
+          library="${RUNNER_TEMP}/libr47zen.so"
+          unzip -p "${apks[0]}" lib/arm64-v8a/libr47zen.so >"$library"
+          READELF=readelf bash ./scripts/security/check_native_hardening.sh "$library"
 
   publish-production-release:
     name: Publish production GitHub release

@@ -32,6 +32,7 @@ CONTRACTS=(
     run_legacy_printf_contract.sh
     run_native_stand_ins_contract.sh
     run_release_dry_run_contract.sh
+    run_green_ci_pair_contract.sh
     run_release_provenance_contract.sh
     run_privileged_remote_script_contract.sh
     run_llvm_toolchain_install_contract.sh

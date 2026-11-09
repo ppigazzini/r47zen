@@ -695,6 +695,7 @@ flowchart TD
   A[workflow_dispatch]
   B[resolve-release-inputs]
   C[resolve-upstream-core]
+  G[require-green-ci<br/>the pair's -dev release]
   E[build-production-release-bundle<br/>unsigned, no secrets]
   S[sign-production-release<br/>production-release environment]
   D[sign-dry-run<br/>dry run only, key made in the job]
@@ -707,6 +708,9 @@ flowchart TD
 
   A --> B
   A --> C
+  B --> G
+  C --> G
+  G --> E
   B --> E
   C --> E
   E --> S
@@ -816,6 +820,18 @@ place of the tracked pin. `scripts/android/run_release_dry_run_contract.sh` hold
 each of these, on seeded copies first. A dry run checks the lane's steps, not
 the release key, the environments, the attestation, or Play;
 [12](12-cutting-a-release.md#dry-run) gives the command.
+
+### `require-green-ci`
+
+Before the build, it asks for android-ci's `-dev` release of the release's exact
+commit pair, `r47zen-<upstream8>-<android8>-dev`, and refuses the run unless that
+release carries an APK: android-ci publishes it only after every lane
+`ci-required` names passed on that pair, so a core that moved since the last run
+on `main` stops here instead of shipping untested by the contract suite, the
+hardening and format checks, clang-tidy, detekt, and the coverage gate, none of
+which the release lane runs. `scripts/android/require_green_ci_pair.sh`
+reads the release, and `run_green_ci_pair_contract.sh` holds it on fixtures. A
+dry run off `main`, which android-ci publishes nothing for, gets a warning.
 
 ### `sign-production-release`
 
@@ -1039,6 +1055,11 @@ the APK, `keytool` for the AAB) and recorded as
 carry it, asserts the APK and AAB share one signer, and asserts both equal
 `R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256` in `android/r47-defaults.properties`,
 or, in a dry run only, the certificate of the key `sign-dry-run` made.
+
+It then takes `lib/arm64-v8a/libr47zen.so` out of the signed APK and runs
+`scripts/security/check_native_hardening.sh` on it with the runner's GNU
+`readelf`, since the release build's PGO flags differ from the library
+android-ci checks.
 The verifier refuses to check a signed release without that pin, so a release
 signed by any other key fails before publication. The pin is tracked, so
 rotating the signing key is a commit that changes it and the README's copy
