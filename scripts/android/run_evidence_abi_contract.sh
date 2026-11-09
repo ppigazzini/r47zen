@@ -28,9 +28,11 @@ bundle() {
     for asset in COPYING LICENSE.txt SOURCE THIRD-PARTY.spdx.json; do
         echo "$asset" >"$work/tree/base/assets/$asset"
     done
+    printf 'int r47_entry(void) { return 0; }\n' >"$work/lib.c"
+    cc -shared -fPIC -o "$work/lib.so" "$work/lib.c"
     for abi in "$@"; do
         mkdir -p "$work/tree/base/lib/$abi"
-        echo lib >"$work/tree/base/lib/$abi/libr47zen.so"
+        cp "$work/lib.so" "$work/tree/base/lib/$abi/libr47zen.so"
     done
     (cd "$work/tree" && zip -qr "$work/$name.aab" .)
 }

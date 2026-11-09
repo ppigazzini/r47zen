@@ -195,6 +195,38 @@ r47_glue_sources() {
     printf '%s\n' "$sources"
 }
 
+# Print the core's C files, as upstream's own src/c47/meson.build lists them in
+# c47_src, one path per line under C47_DIR, sorted. src/c47 also holds a file
+# upstream does not compile, reservedRegisterLookupGenerator.c, a developer tool
+# with its own main(): a glob of the directory took it into the app, whose
+# library then exported `main`. Fails, printing nothing, when the list is
+# missing or names a file C47_DIR lacks. run_core_source_list_contract.sh holds it.
+r47_core_c47_sources() {
+    local c47_dir="$1"
+    local meson="$c47_dir/meson.build"
+    local listed relative
+    if [ ! -f "$meson" ]; then
+        echo "No $meson to read the core's sources from." >&2
+        return 1
+    fi
+    listed="$(awk -v q="'" '
+        /^c47_src[[:space:]]*=[[:space:]]*files\(/ { inside = 1; next }
+        inside && /^\)/ { exit }
+        inside && match($0, q "[^" q "]+\\.c" q) { print substr($0, RSTART + 1, RLENGTH - 2) }
+    ' "$meson" | LC_ALL=C sort)"
+    if [ -z "$listed" ]; then
+        echo "$meson lists no c47_src." >&2
+        return 1
+    fi
+    while IFS= read -r relative; do
+        if [ ! -f "$c47_dir/$relative" ]; then
+            echo "$meson lists $relative, which $c47_dir lacks." >&2
+            return 1
+        fi
+    done <<<"$listed"
+    sed "s#^#$c47_dir/#" <<<"$listed"
+}
+
 # Print the files the Android build takes from upstream's simulator build
 # (build.sim), relative to its build directory: the generated tables the staged
 # core compiles against. Each is a ninja target, so build_sim_assets.sh

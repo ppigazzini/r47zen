@@ -249,7 +249,8 @@ main() {
 
     JDK_HOME="$(resolve_jdk_home)"
 
-    mapfile -t STAGED_C47_SOURCES < <(find "$STAGED_CPP_DIR/c47" -type f -name '*.c' ! -name 'reservedRegisterLookupGenerator.c' | LC_ALL=C sort)
+    c47_list="$(r47_core_c47_sources "$STAGED_CPP_DIR/c47")"
+    mapfile -t STAGED_C47_SOURCES <<<"$c47_list"
     mapfile -t STAGED_GENERATED_SOURCES < <(find "$STAGED_CPP_DIR/generated" -type f -name '*.c' | LC_ALL=C sort)
     mapfile -t STAGED_GMP_SOURCES < <(find "$STAGED_CPP_DIR/gmp" -type f -name '*.c' | LC_ALL=C sort)
 

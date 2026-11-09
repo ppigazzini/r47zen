@@ -38,6 +38,8 @@ CONTRACTS=(
     run_dependency_verification_contract.sh
     run_stale_release_assets_contract.sh
     run_evidence_abi_contract.sh
+    run_shipped_symbols_contract.sh
+    run_core_source_list_contract.sh
     run_release_provenance_contract.sh
     run_privileged_remote_script_contract.sh
     run_llvm_toolchain_install_contract.sh

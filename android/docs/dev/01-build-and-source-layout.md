@@ -511,7 +511,11 @@ Internal helpers:
 - `scripts/android/generate_staged_native_metadata.sh` refreshes
   `STAGED-SOURCE-MANIFEST.txt` and `staged_native_sources.cmake` inside the
   build-only staging root. It is an internal helper, not a primary maintainer
-  entrypoint.
+  entrypoint. The core's sources in that list are upstream's own `c47_src` in
+  `src/c47/meson.build`, read by `r47_core_c47_sources` in `scripts/lib/common.sh`,
+  which the harness builds read too: `src/c47` also holds
+  `reservedRegisterLookupGenerator.c`, a developer tool with its own `main()` that
+  upstream does not compile, and a glob of the directory put it in the app.
 - `scripts/android/compute_staged_native_inputs.sh` fingerprints the canonical root,
   generated, calculator-font, and mini-gmp inputs behind `--android-only`
   freshness checks and writes `STAGED-INPUTS.properties` during staging.
