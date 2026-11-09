@@ -578,6 +578,11 @@ It:
   `scripts/android/run_16kb_runtime_smoke.sh`, which needs 16 KB pages and runs one
   recreation probe; a push or pull request does not run it. Its AVD is
   `test-16kb`, apart from the instrumentation AVD `test`, which the job caches
+  under a key that names the installed emulator and system image revisions,
+  read from their `source.properties`: a snapshot boots only on the emulator
+  that made it, and the SDK cache does not pin the emulator.
+  `android-release.yml`'s twin still keys on the API level alone, a release-lane
+  change that waits for a lane that runs it before a release
 - uploads logs plus JVM, instrumentation, and Kover coverage
   (`android/app/build/reports/kover`) reports in the Android test artifact
   bundle `r47zen-tests-<upstream short>-<android short>`
