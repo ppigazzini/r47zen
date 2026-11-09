@@ -18,7 +18,7 @@
 # Then it holds the tracked pins: R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256 and
 # R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256 in android/r47-defaults.properties
 # are 64 lowercase hex digits each and the README states both; the release
-# workflow hands the first to the verifier, and sign-dev-prerelease in
+# workflow hands the first to the verifier, outside a dry run, and sign-dev-prerelease in
 # android-ci.yml refuses a dev APK signed by anything but the second.
 
 set -Eeuo pipefail
@@ -161,9 +161,16 @@ if ! grep -qxF -- "    $pin" <<<"$readme"; then
     echo "FAIL: README.md does not state the release signer pin $pin as an indented line of its own." >&2
     exit 1
 fi
+# The verifier takes the pin unless the run is a dry run, which publishes nothing and
+# is held to the key it made; no other value can reach --expected-cert-sha256.
 release_workflow="$(grep -vE '^[[:space:]]*#' "$PROJECT_ROOT/.github/workflows/android-release.yml")"
-if ! grep -qF -- '--expected-cert-sha256 "$R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256"' <<<"$release_workflow"; then
-    echo "FAIL: android-release.yml does not pass R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256 to the verifier." >&2
+assignments="$(grep -cE '^[[:space:]]*expected_cert=' <<<"$release_workflow" || true)"
+if ! grep -qF -- 'expected_cert="$R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256"' <<<"$release_workflow" ||
+    ! grep -qF -- 'expected_cert="$R47_DRY_RUN_CERT_SHA256"' <<<"$release_workflow" ||
+    ! grep -qF -- 'if [[ "$R47_DRY_RUN" == "true" ]]; then' <<<"$release_workflow" ||
+    ! grep -qF -- '--expected-cert-sha256 "$expected_cert"' <<<"$release_workflow" ||
+    [ "$assignments" != 2 ]; then
+    echo "FAIL: android-release.yml does not pass R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256 to the verifier, with only a dry run's own key in its place." >&2
     exit 1
 fi
 echo "OK: the release signer pin is $pin in r47-defaults.properties, README.md, and the release verifier."

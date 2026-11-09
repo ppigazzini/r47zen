@@ -1,6 +1,6 @@
 name: Android Release
 
-run-name: Android Release ${{ inputs.confirm_version }} (${{ inputs.confirm_version_code }}) -> ${{ inputs.play_track }}
+run-name: Android Release ${{ inputs.confirm_version }} (${{ inputs.confirm_version_code }}) -> ${{ inputs.dry_run && 'dry run' || inputs.play_track }}
 
 on:
   workflow_dispatch:
@@ -34,6 +34,11 @@ on:
         type: string
       allow_overwrite:
         description: Allow re-publishing over an existing release tag (default false; only for a deliberate re-cut of the previous release, with play_track none)
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: Build, sign with a key the run makes, and verify, on any branch, and publish nothing (default false; play_track must be none)
         required: false
         default: false
         type: boolean
@@ -78,11 +83,18 @@ jobs:
           R47_CONFIRM_VERSION_INPUT: ${{ inputs.confirm_version }}
           R47_ALLOW_OVERWRITE: ${{ inputs.allow_overwrite }}
           R47_PLAY_TRACK: ${{ inputs.play_track }}
+          R47_DRY_RUN: ${{ inputs.dry_run }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           release_mode="manual"
+          # A dry run publishes nothing, so a Play track there is a mistake in the
+          # form; stop before anything builds.
+          if [[ "$R47_DRY_RUN" == "true" && "$R47_PLAY_TRACK" != "none" ]]; then
+            echo "a dry run takes play_track none, got ${R47_PLAY_TRACK}." >&2
+            exit 1
+          fi
           defaults_file="android/r47-defaults.properties"
 
           # The next release's two numbers live in the tracked defaults file
@@ -256,7 +268,7 @@ jobs:
 
   build-production-release-bundle:
     name: Build unsigned production release assets
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
     # This job syncs, compiles, and runs the unpinned upstream core, so it holds
     # no signing input: no environment, no secret, no keystore. A compile step
     # can embed any readable file into the shipped library, and upstream test
@@ -270,6 +282,7 @@ jobs:
     outputs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
       unsigned_artifact_name: ${{ steps.meta.outputs.unsigned_artifact_name }}
+      unsigned_artifact_id: ${{ steps.upload-unsigned.outputs.artifact-id }}
       apk_artifact_name: ${{ steps.meta.outputs.apk_artifact_name }}
       release_bundle_name: ${{ steps.meta.outputs.release_bundle_name }}
       release_apk_name: ${{ steps.meta.outputs.release_apk_name }}
@@ -568,6 +581,7 @@ jobs:
           retention-days: 30
 
       - name: Upload unsigned release assets
+        id: upload-unsigned
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.meta.outputs.unsigned_artifact_name }}
@@ -577,7 +591,7 @@ jobs:
 
   sign-production-release:
     name: Sign production release assets
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && !inputs.dry_run
     # The only job that reads the release signing key. It checks out this
     # repository alone and signs bytes build-production-release-bundle uploaded:
     # no upstream sync, no Gradle, no compiler, no emulator, and no Actions
@@ -585,13 +599,20 @@ jobs:
     # build-tools fresh. Keep it that way;
     # scripts/android/run_signing_isolation_contract.sh fails a secret-holding
     # job that builds or runs upstream code or restores a cache.
+    # verify-production-release runs upstream code beside the build's bytes, so
+    # signing waits until it is over; the artifact IDs below are what
+    # keeps a swap made after it out of the signed set.
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
       - build-production-release-bundle
+      - verify-production-release
     environment: production-release
     runs-on: ubuntu-26.04
     timeout-minutes: 30
+    outputs:
+      aab_artifact_id: ${{ steps.upload-aab.outputs.artifact-id }}
+      apk_artifact_id: ${{ steps.upload-apk.outputs.artifact-id }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -620,10 +641,13 @@ jobs:
         with:
           build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
 
+      # By the ID the build job's upload returned, not by name: any job's token can
+      # replace an artifact under the same name, and a replacement gets a new ID.
       - name: Download unsigned release assets
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ needs.build-production-release-bundle.outputs.unsigned_artifact_name }}
+          artifact-ids: ${{ needs.build-production-release-bundle.outputs.unsigned_artifact_id }}
+          merge-multiple: true
           path: ci-artifacts/release-unsigned
 
       - name: Sign release APK and bundle
@@ -705,84 +729,10 @@ jobs:
           UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           UPSTREAM_VERSION: ${{ needs.build-production-release-bundle.outputs.upstream_version }}
-        run: |
-          set -euo pipefail
-
-          . ./android/r47-defaults.properties
-
-          # The upstream version comes from a job that ran upstream code; take
-          # it as one plain token or not at all.
-          if [[ -n "$UPSTREAM_VERSION" && ! "$UPSTREAM_VERSION" =~ ^[0-9A-Za-z.-]{1,40}$ ]]; then
-            echo "Refusing the upstream version '${UPSTREAM_VERSION}' from build-production-release-bundle." >&2
-            exit 1
-          fi
-
-          bundle_output_dir='ci-artifacts/release-aab'
-          apk_output_dir='ci-artifacts/release-apk'
-          bundle_path="ci-artifacts/release-signed/${RELEASE_BUNDLE_NAME}"
-          release_apk_path="ci-artifacts/release-signed/${RELEASE_APK_NAME}"
-          mapping_path='ci-artifacts/release-unsigned/mapping.txt'
-          native_symbols_path="$PWD/ci-artifacts/release-unsigned/native-debug-symbols.zip"
-
-          if [[ ! -f "$bundle_path" ]]; then
-            echo "Missing release bundle at ${bundle_path}." >&2
-            exit 1
-          fi
-          if [[ ! -f "$release_apk_path" ]]; then
-            echo "Missing release APK at ${release_apk_path}." >&2
-            exit 1
-          fi
-          if [[ ! -f "$mapping_path" ]]; then
-            echo "Missing release mapping file at ${mapping_path}." >&2
-            exit 1
-          fi
-          if [[ ! -f "$native_symbols_path" ]]; then
-            echo "Missing native debug symbols at ${native_symbols_path}." >&2
-            exit 1
-          fi
-
-          mkdir -p "$bundle_output_dir" "$apk_output_dir"
-
-          # Everything but the artifact itself is the same for both.
-          evidence_args=(
-            --variant release
-            --expected-abis "$R47_DEFAULT_ANDROID_ABI_FILTERS"
-            --android-sdk-root "${ANDROID_SDK_ROOT:?}"
-            --ndk-version "$R47_DEFAULT_ANDROID_NDK_VERSION"
-            --compile-sdk "$R47_DEFAULT_ANDROID_COMPILE_SDK"
-            --cmake-version "$R47_DEFAULT_ANDROID_CMAKE_VERSION"
-            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
-            --android-source-commit "${GITHUB_SHA}"
-            --upstream-source-repository-url "$UPSTREAM_URL"
-            --upstream-source-commit "$UPSTREAM_COMMIT"
-            --upstream-version "$UPSTREAM_VERSION"
-            --xlsxio-source-repository-url "$R47_DEFAULT_XLSXIO_URL"
-            --xlsxio-source-commit "$R47_DEFAULT_XLSXIO_COMMIT"
-            --application-id "$R47_DEFAULT_ANDROID_APPLICATION_ID"
-            --version-code "$R47_VERSION_CODE_INPUT"
-            --version-name "$R47_VERSION_NAME_INPUT"
-            --signing-mode release
-            --ref "${GITHUB_REF}"
-            --sha "${GITHUB_SHA}"
-            --run-id "${GITHUB_RUN_ID}"
-            --run-attempt "${GITHUB_RUN_ATTEMPT}"
-            --mapping-file "$mapping_path"
-            --native-symbols "$native_symbols_path"
-          )
-
-          bash ./scripts/android/collect_packaging_evidence.sh \
-            --bundle "$bundle_path" \
-            --output-dir "$bundle_output_dir" \
-            --artifact-name "$RELEASE_BUNDLE_NAME" \
-            "${evidence_args[@]}"
-
-          bash ./scripts/android/collect_packaging_evidence.sh \
-            --apk "$release_apk_path" \
-            --output-dir "$apk_output_dir" \
-            --artifact-name "$RELEASE_APK_NAME" \
-            "${evidence_args[@]}"
+        run: bash ./scripts/android/collect_release_evidence.sh
 
       - name: Upload signed release AAB artifact
+        id: upload-aab
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
@@ -791,6 +741,7 @@ jobs:
           retention-days: 30
 
       - name: Upload signed release APK artifact
+        id: upload-apk
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
@@ -798,9 +749,139 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  sign-dry-run:
+    name: Sign the dry run's assets with a key it makes
+    if: inputs.dry_run
+    # The dry run's stand-in for sign-production-release: the same bytes, the same
+    # signing script and evidence, and a key generated here and thrown away, so no
+    # environment, no secret, and nothing it signs can ship. publish-production-release
+    # and upload-to-play never run in a dry run (run_release_dry_run_contract.sh).
+    needs:
+      - resolve-release-inputs
+      - resolve-upstream-core
+      - build-production-release-bundle
+      - verify-production-release
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    outputs:
+      aab_artifact_id: ${{ steps.upload-aab.outputs.artifact-id }}
+      apk_artifact_id: ${{ steps.upload-apk.outputs.artifact-id }}
+      cert_sha256: ${{ steps.sign.outputs.cert_sha256 }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Load shared Android defaults
+        id: defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          . ./android/r47-defaults.properties
+
+          echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up the pinned build JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: ${{ steps.defaults.outputs.build_jdk_version }}
+
+      - name: Set up the signing tools
+        uses: ./.github/actions/setup-signing-tools
+        with:
+          build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
+
+      # By the ID the build job's upload returned, not by name: any job's token can
+      # replace an artifact under the same name, and a replacement gets a new ID.
+      - name: Download unsigned release assets
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.build-production-release-bundle.outputs.unsigned_artifact_id }}
+          merge-multiple: true
+          path: ci-artifacts/release-unsigned
+
+      - name: Sign release APK and bundle with a throwaway key
+        id: sign
+        shell: bash
+        env:
+          R47_SIGNING_STORE_PASSWORD: throwaway
+          R47_SIGNING_KEY_PASSWORD: throwaway
+          RELEASE_APK_NAME: ${{ needs.build-production-release-bundle.outputs.release_apk_name }}
+          RELEASE_BUNDLE_NAME: ${{ needs.build-production-release-bundle.outputs.release_bundle_name }}
+          BUILD_TOOLS_VERSION: ${{ steps.defaults.outputs.build_tools_version }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_APK_NAME" =~ ^[A-Za-z0-9._-]+\.apk$ ||
+            ! "$RELEASE_BUNDLE_NAME" =~ ^[A-Za-z0-9._-]+\.aab$ ]]; then
+            echo "Refusing the release asset names '${RELEASE_APK_NAME}' and '${RELEASE_BUNDLE_NAME}' from build-production-release-bundle." >&2
+            exit 1
+          fi
+
+          keystore_path="${RUNNER_TEMP}/r47-dry-run-key.jks"
+          keytool -genkeypair -noprompt \
+            -keystore "$keystore_path" \
+            -storepass:env R47_SIGNING_STORE_PASSWORD -keypass:env R47_SIGNING_KEY_PASSWORD \
+            -alias dryrun -keyalg RSA -keysize 2048 -validity 36500 \
+            -dname "CN=R47 Zen release dry run, O=R47, C=US"
+
+          bash ./scripts/android/sign_android_artifacts.sh \
+            --keystore "$keystore_path" \
+            --key-alias dryrun \
+            --build-tools-version "$BUILD_TOOLS_VERSION" \
+            --apk ci-artifacts/release-unsigned/app-release-unsigned.apk \
+            --apk-out "ci-artifacts/release-signed/${RELEASE_APK_NAME}" \
+            --bundle ci-artifacts/release-unsigned/app-release-unsigned.aab \
+            --bundle-out "ci-artifacts/release-signed/${RELEASE_BUNDLE_NAME}"
+
+          cert_sha256="$(keytool -exportcert -rfc -keystore "$keystore_path" \
+            -storepass:env R47_SIGNING_STORE_PASSWORD -alias dryrun |
+            openssl x509 -noout -fingerprint -sha256 |
+            sed 's/.*=//; s/://g' | tr 'A-F' 'a-f')"
+          if [[ ! "$cert_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Could not read the dry run's certificate digest ('${cert_sha256}')." >&2
+            exit 1
+          fi
+          echo "cert_sha256=$cert_sha256" >> "$GITHUB_OUTPUT"
+          echo "Dry run signer: $cert_sha256"
+
+      - name: Collect release packaging evidence
+        shell: bash
+        env:
+          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
+          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
+          RELEASE_APK_NAME: ${{ needs.build-production-release-bundle.outputs.release_apk_name }}
+          RELEASE_BUNDLE_NAME: ${{ needs.build-production-release-bundle.outputs.release_bundle_name }}
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          UPSTREAM_VERSION: ${{ needs.build-production-release-bundle.outputs.upstream_version }}
+        run: bash ./scripts/android/collect_release_evidence.sh
+
+      - name: Upload signed release AAB artifact
+        id: upload-aab
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
+          path: ci-artifacts/release-aab/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload signed release APK artifact
+        id: upload-apk
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
+          path: ci-artifacts/release-apk/
+          if-no-files-found: error
+          retention-days: 7
+
   verify-production-release:
     name: Verify production release on the emulator
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
@@ -1063,11 +1144,17 @@ jobs:
 
   verify-signed-artifacts:
     name: Verify signed release artifacts
-    if: github.ref == 'refs/heads/main'
+    # One of the two signing jobs ran; the other was skipped, which would skip this
+    # job too without always() and the explicit results, which a stopped run fails.
+    if: >-
+      always() && (github.ref == 'refs/heads/main' || inputs.dry_run) &&
+      needs.build-production-release-bundle.result == 'success' &&
+      (needs.sign-production-release.result == 'success' || needs.sign-dry-run.result == 'success')
     needs:
       - resolve-release-inputs
       - build-production-release-bundle
       - sign-production-release
+      - sign-dry-run
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
@@ -1085,13 +1172,15 @@ jobs:
       - name: Download signed release APK artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
+          artifact-ids: ${{ needs.sign-production-release.outputs.apk_artifact_id || needs.sign-dry-run.outputs.apk_artifact_id }}
+          merge-multiple: true
           path: release-apk
 
       - name: Download signed release AAB artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
+          artifact-ids: ${{ needs.sign-production-release.outputs.aab_artifact_id || needs.sign-dry-run.outputs.aab_artifact_id }}
+          merge-multiple: true
           path: release-aab
 
       - name: Verify signed artifacts match recorded evidence
@@ -1099,6 +1188,8 @@ jobs:
         env:
           R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
+          R47_DRY_RUN: ${{ inputs.dry_run }}
+          R47_DRY_RUN_CERT_SHA256: ${{ needs.sign-dry-run.outputs.cert_sha256 }}
         run: |
           set -euo pipefail
 
@@ -1112,6 +1203,17 @@ jobs:
           # a commit, and the verifier refuses to run without it.
           . ./android/r47-defaults.properties
 
+          # A real release is held to the tracked pin; a dry run, which publishes
+          # nothing, to the key it made, so every other check runs as it would.
+          expected_cert="$R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256"
+          if [[ "$R47_DRY_RUN" == "true" ]]; then
+            if [[ ! "$R47_DRY_RUN_CERT_SHA256" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "The dry run's signer is missing ('${R47_DRY_RUN_CERT_SHA256}')." >&2
+              exit 1
+            fi
+            expected_cert="$R47_DRY_RUN_CERT_SHA256"
+          fi
+
           bash ./scripts/android/verify_published_release_artifacts.sh \
             --apk-evidence-dir release-apk \
             --aab-evidence-dir release-aab \
@@ -1119,11 +1221,11 @@ jobs:
             --expected-version-name "$R47_VERSION_NAME_INPUT" \
             --expected-apk-abis "$R47_DEFAULT_ANDROID_ABI_FILTERS" \
             --expected-signing-mode release \
-            --expected-cert-sha256 "$R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256"
+            --expected-cert-sha256 "$expected_cert"
 
   publish-production-release:
     name: Publish production GitHub release
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && !inputs.dry_run
     needs:
       - resolve-release-inputs
       - build-production-release-bundle
@@ -1150,13 +1252,15 @@ jobs:
       - name: Download release AAB artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
+          artifact-ids: ${{ needs.sign-production-release.outputs.aab_artifact_id }}
+          merge-multiple: true
           path: release-aab
 
       - name: Download release APK artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ needs.build-production-release-bundle.outputs.apk_artifact_name }}
+          artifact-ids: ${{ needs.sign-production-release.outputs.apk_artifact_id }}
+          merge-multiple: true
           path: release-apk
 
       - name: Pack release evidence archives
@@ -1394,10 +1498,11 @@ jobs:
 
   upload-to-play:
     name: Upload signed AAB to Google Play
-    if: github.ref == 'refs/heads/main' && inputs.play_track != 'none'
+    if: github.ref == 'refs/heads/main' && !inputs.dry_run && inputs.play_track != 'none'
     needs:
       - resolve-release-inputs
       - build-production-release-bundle
+      - sign-production-release
       - publish-production-release
     runs-on: ubuntu-26.04
     timeout-minutes: 15
@@ -1421,7 +1526,8 @@ jobs:
       - name: Download signed release AAB artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ needs.build-production-release-bundle.outputs.artifact_name }}
+          artifact-ids: ${{ needs.sign-production-release.outputs.aab_artifact_id }}
+          merge-multiple: true
           path: release-aab
 
       - name: Verify the AAB is the attested release bundle

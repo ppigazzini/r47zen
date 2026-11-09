@@ -697,6 +697,7 @@ flowchart TD
   C[resolve-upstream-core]
   E[build-production-release-bundle<br/>unsigned, no secrets]
   S[sign-production-release<br/>production-release environment]
+  D[sign-dry-run<br/>dry run only, key made in the job]
   V[verify-production-release<br/>emulator, throwaway key]
   W[verify-signed-artifacts<br/>before publication]
   I[publish-production-release]
@@ -709,9 +710,13 @@ flowchart TD
   B --> E
   C --> E
   E --> S
+  E --> D
   B --> V
   C --> V
+  V --> S
+  V --> D
   S --> W
+  D --> W
   S --> I
   V --> I
   W --> I
@@ -784,7 +789,8 @@ This workflow:
 - follows Android's own split: each release uses a higher integer
   `versionCode`, and `versionName` is the user-visible string, here a SemVer
   version
-- names the run `Android Release <version> (<code>) -> <play_track>`
+- names the run `Android Release <version> (<code>) -> <play_track>`, or
+  `-> dry run`
 - builds `:app:assembleRelease :app:bundleRelease
   -Pr47.pgoProfilePath=...` unsigned, so the release APK and AAB consume the
   same collected host-core profile that the wrapper already validated, and
@@ -796,11 +802,35 @@ This workflow:
   unsigned APK, unsigned AAB, `mapping.txt`, and `native-debug-symbols.zip` as
   `r47zen_<version>_<upstream short>_<android short>-unsigned`
 
+### Dry run
+
+The `dry_run` input, off by default, runs the release lane on any branch and
+publishes nothing, so a change to the lane runs before the release that needs it.
+`resolve-release-inputs` refuses a dry run with any `play_track` but `none`. The
+build and both verify jobs run as they would on `main`. `sign-production-release`,
+`publish-production-release`, and `upload-to-play` never run in a dry run, and
+[`sign-dry-run`](#sign-production-release) signs the same bytes with a key it
+generates and throws away, binding no environment and naming no secret.
+`verify-signed-artifacts` then holds the artifacts to that key's certificate in
+place of the tracked pin. `scripts/android/run_release_dry_run_contract.sh` holds
+each of these, on seeded copies first. A dry run checks the lane's steps, not
+the release key, the environments, the attestation, or Play;
+[12](12-cutting-a-release.md#dry-run) gives the command.
+
 ### `sign-production-release`
 
 The only job that reads the release upload key, and the only job bound to the
-`production-release` environment. It:
+`production-release` environment. `sign-dry-run`, the dry run's stand-in, runs
+the same steps with a key it makes. It:
 
+- starts after `verify-production-release` ends, since that job runs upstream
+  code beside the build's bytes: about 0.7 minutes later than in parallel, from
+  the 0.1.13, 0.1.14, and 0.2.0 runs
+- downloads the unsigned assets by the artifact ID the build job's upload
+  returned, not by name: any job's token can replace an artifact under its
+  name, and a replacement gets a new ID, so a swap is never the artifact
+  fetched. Every later download of a signed artifact goes by the ID the
+  signing job's upload returned, for the same reason
 - checks out this repository only and provisions the build JDK and the pinned
   build-tools through `setup-signing-tools`; it runs no upstream sync, Gradle,
   compiler, or emulator, and restores no Actions cache
@@ -812,7 +842,8 @@ The only job that reads the release upload key, and the only job bound to the
 - removes the decoded key in the signing step's exit trap and again in an
   `if: always()` step
 - collects packaging evidence over the signed bytes, the upstream version
-  included, and uploads the signed AAB artifact bundle
+  included, through `scripts/android/collect_release_evidence.sh`, which both
+  signing jobs run, and uploads the signed AAB artifact bundle
   `r47zen_<version>_<upstream short>_<android short>` and the signed APK
   artifact bundle `r47zen_<version>_<upstream short>_<android short>-apk`,
   which ship `r47zen_<version>_<upstream short>_<android short>.aab`,
@@ -824,9 +855,9 @@ The only job that reads the release upload key, and the only job bound to the
 
 This workflow job:
 
-- downloads the signed AAB and APK workflow artifact bundles after
-  `sign-production-release`, `verify-production-release`, and
-  `verify-signed-artifacts` succeed
+- downloads the signed AAB and APK workflow artifact bundles, by the IDs
+  `sign-production-release` returned, after it, `verify-production-release`,
+  and `verify-signed-artifacts` succeed
 - reads every `BUILD-METADATA.txt` value through `read_build_metadata.sh`, its only
   checked-out file. The build job that wrote the metadata compiled and ran upstream
   code, so a value of the wrong shape for its kind is refused, not used: bash
@@ -892,7 +923,7 @@ live configuration.
 ### `upload-to-play`
 
 Runs on `main` after `publish-production-release` unless the dispatch sets
-`play_track` to `none`, the input's default. It is the only job bound to the
+`play_track` to `none`, the input's default, and never in a dry run. It is the only job bound to the
 `play-upload` environment and the only job that can release to Google Play. It:
 
 - checks out this repository only, downloads the signed AAB artifact bundle,
@@ -975,9 +1006,9 @@ The limits:
 
 ### `verify-production-release`
 
-Runs on `main` in parallel with the build job (it needs only
+Runs on `main`, or in a dry run, in parallel with the build job (it needs only
 `resolve-release-inputs` and `resolve-upstream-core`) and without the
-environment, because it holds no secret. It rebuilds the release build type,
+environment, because it holds no secret; the signing jobs wait for it. It rebuilds the release build type,
 runs Android lint, `:app:assembleReleaseAndroidTest`, and
 `:app:testReleaseUnitTest` with `r47.testBuildType=release` and CI-only
 `r47.releaseMinify=false` / `r47.releaseShrinkResources=false`, signs the
@@ -990,8 +1021,9 @@ signed by `sign-production-release`.
 
 ### `verify-signed-artifacts`
 
-Runs on `main` after `sign-production-release` and before anything is
-published. It downloads the signed APK and AAB workflow artifacts and checks
+Runs after whichever signing job ran and before anything is published: on
+`main` after `sign-production-release`, in a dry run after `sign-dry-run`. It
+downloads the signed APK and AAB workflow artifacts by ID and checks
 each against its recorded packaging evidence (signing mode, ABIs, version,
 checksums, and the signer certificate SHA-256) with
 `scripts/android/verify_published_release_artifacts.sh`.
@@ -1005,7 +1037,8 @@ The signer certificate is derived cryptographically in
 the APK, `keytool` for the AAB) and recorded as
 `artifact_signing_cert_sha256`. The verify lane requires a signed release to
 carry it, asserts the APK and AAB share one signer, and asserts both equal
-`R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256` in `android/r47-defaults.properties`.
+`R47_DEFAULT_RELEASE_SIGNER_CERT_SHA256` in `android/r47-defaults.properties`,
+or, in a dry run only, the certificate of the key `sign-dry-run` made.
 The verifier refuses to check a signed release without that pin, so a release
 signed by any other key fails before publication. The pin is tracked, so
 rotating the signing key is a commit that changes it and the README's copy
