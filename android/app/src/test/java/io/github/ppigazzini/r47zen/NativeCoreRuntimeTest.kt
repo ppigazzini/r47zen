@@ -437,12 +437,8 @@ class NativeCoreRuntimeTest {
         } ?: { tickDelayMillis }
         return NativeCoreRuntime(
             filesDirPath = "/tmp/r47-tests",
-            currentSlotIdProvider = { 7 },
             nativePreInit = {},
-            initNative = { slotId ->
-                assertEquals(7, slotId)
-                onInit()
-            },
+            initNative = { onInit() },
             updateNativeActivityRef = onUpdateActivityRef,
             releaseNativeRuntime = onRelease,
             tick = tick,

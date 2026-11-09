@@ -110,7 +110,7 @@ internal object WorkDirectory {
     const val FILE_TYPE_DATA = 4
 
     const val PREFS_NAME = "R47WorkDirPrefs"
-    private const val LEGACY_PREFS_NAME = SlotStore.APP_PREFS_NAME
+    private const val LEGACY_PREFS_NAME = AppPreferences.NAME
     const val KEY_TREE_URI = "work_directory_uri"
 
     private fun prefs(context: Context) =

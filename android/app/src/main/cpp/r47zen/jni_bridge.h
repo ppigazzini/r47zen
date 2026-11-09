@@ -218,7 +218,7 @@ Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(JNIEnv *env,
                                                             jobject thiz,
                                                             jstring path_obj);
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
-    JNIEnv *env, jobject thiz, jint slotId);
+    JNIEnv *env, jobject thiz);
 JNIEXPORT jint JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_tick(JNIEnv *env, jobject thiz);
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
@@ -254,13 +254,6 @@ Java_io_github_ppigazzini_r47zen_MainActivity_pasteNumberNative(JNIEnv *env,
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative(JNIEnv *env,
                                                               jobject thiz);
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative(JNIEnv *env,
-                                                              jobject thiz);
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative(JNIEnv *env,
-                                                            jobject thiz,
-                                                            jint slot);
 JNIEXPORT jstring JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative(
     JNIEnv *env, jobject thiz);

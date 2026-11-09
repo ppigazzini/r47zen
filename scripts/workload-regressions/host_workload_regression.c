@@ -464,7 +464,7 @@ static workload_result_t run_program_fixture_workload(
     }
   }
 
-  r47_init_runtime(0);
+  r47_init_runtime();
   if (scenario->seed_runtime != NULL && !scenario->seed_runtime()) {
     fprintf(stderr, "ERROR: %s workload failed to seed runtime state\n",
             scenario->program_name);
@@ -846,7 +846,7 @@ int main(int argc, char **argv) {
 
   r47_initialize_native_bridge_state();
   r47_native_preinit_path(runtime_dir);
-  r47_init_runtime(0);
+  r47_init_runtime();
 
   if (!run_android_wait_shim_probe()) {
     return 1;

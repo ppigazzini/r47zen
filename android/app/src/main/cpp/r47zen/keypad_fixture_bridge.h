@@ -61,7 +61,7 @@ enum {
 
 void r47_initialize_native_bridge_state(void);
 void r47_native_preinit_path(const char *path);
-void r47_init_runtime(int slotId);
+void r47_init_runtime(void);
 bool r47_runtime_ready(void);
 void r47_force_refresh(void);
 void r47_send_sim_function(int funcId);

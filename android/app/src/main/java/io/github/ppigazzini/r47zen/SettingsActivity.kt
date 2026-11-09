@@ -96,7 +96,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        preferenceManager.sharedPreferencesName = SlotStore.APP_PREFS_NAME
+        preferenceManager.sharedPreferencesName = AppPreferences.NAME
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
         updateStoragePreferences()

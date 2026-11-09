@@ -40,7 +40,7 @@ cat >"$work/driver.c" <<'C'
 #include "c47.h"
 
 extern void r47_native_preinit_path(const char *path);
-extern void r47_init_runtime(int slotId);
+extern void r47_init_runtime(@INIT_PARAMS@);
 // The glue before the calculator thread had to be set up first, as its harnesses did.
 extern void r47_initialize_native_bridge_state(void) __attribute__((weak));
 extern void fnLoadProgram(uint16_t unusedButMandatoryParameter);
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
     r47_initialize_native_bridge_state();
   }
   r47_native_preinit_path(argv[1]);
-  r47_init_runtime(0);
+  r47_init_runtime(@INIT_ARGS@);
   dynamicMenuItem = -1; // as a key would, so the load activates the program
   fnLoadProgram(NOPARAM);
   convertDoubleToReal34Register(1, REGISTER_T);
@@ -64,6 +64,15 @@ int main(int argc, char **argv) {
   return findNamedLabel("FactIt", ALL_LABELS) != INVALID_VARIABLE ? 0 : 1;
 }
 C
+
+# A release from before the one-state model takes a slot, 0, and names its state file
+# with it; a later one takes none.
+if grep -rqs "void r47_init_runtime(int" "$tree/android/app/src/main/cpp"; then
+    init_params="int slot" init_args="0" state_file="backupR47_0.cfg"
+else
+    init_params="void" init_args="" state_file="backupR47.cfg"
+fi
+sed -i -e "s|@INIT_PARAMS@|$init_params|" -e "s|@INIT_ARGS@|$init_args|" "$work/driver.c"
 
 # That tree's harness build, compiling the driver in place of its harness, with no
 # sanitizer and nothing run after the link.
@@ -84,5 +93,5 @@ runtime="$work/runtime"
 mkdir -p "$runtime/PROGRAMS"
 cp "$tree/res/PROGRAMS/FactIt.p47" "$runtime/PROGRAMS/program.p47"
 "$tree/android/build/clipboard-overflow-harness/clipboard-overflow-harness" "$runtime" >/dev/null
-gzip -9n <"$runtime/backupR47_0.cfg" >"$output"
+gzip -9n <"$runtime/$state_file" >"$output"
 echo "Saved $output: overlay $overlay, upstream $upstream"

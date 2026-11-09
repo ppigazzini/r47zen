@@ -29,7 +29,7 @@ class SettingsPreferenceSummaryTest {
 
     @Before
     fun clearPreferencesBeforeTest() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -37,7 +37,7 @@ class SettingsPreferenceSummaryTest {
 
     @After
     fun clearPreferencesAfterTest() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -45,7 +45,7 @@ class SettingsPreferenceSummaryTest {
 
     @Test
     fun fullscreenSummary_isFixedAndDescribesWhatOnDoes() {
-        val prefs = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
 
         prefs.edit().putBoolean("fullscreen_mode", true).commit()
         val fullscreenOnSummary = launchSettingsAndFindSwitch("fullscreen_mode").summary?.toString()
@@ -64,7 +64,7 @@ class SettingsPreferenceSummaryTest {
 
     @Test
     fun forceCloseSummary_isFixedAndDescribesWhatOnDoes() {
-        val prefs = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
 
         prefs.edit().putBoolean("force_close_on_exit", true).commit()
         val forceCloseOnSummary = launchSettingsAndFindSwitch("force_close_on_exit").summary?.toString()
@@ -160,7 +160,7 @@ class SettingsPreferenceSummaryTest {
 
     @Test
     fun lcdThemePreferenceSummary_reflectsSelectedEntry() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .putString("lcd_theme", "amber")
             .commit()
@@ -294,7 +294,7 @@ class SettingsPreferenceSummaryTest {
 
     @Test
     fun performanceStatsWindowPreference_reflectsStoredValueWhenHudIsEnabled() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean("show_developer_performance_hud", true)
             .putInt("developer_performance_hud_window_millis", 750)
@@ -353,7 +353,7 @@ class SettingsPreferenceSummaryTest {
 
     @Test
     fun hapticStrengthPreference_reflectsStoredCustomDurationWhenAndroidDefaultIsOff() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean("haptic_use_android_default", false)
             .putInt("haptic_keypress_duration_ms", 73)
@@ -367,7 +367,7 @@ class SettingsPreferenceSummaryTest {
 
     @Test
     fun hapticMasterToggle_disablesAndroidDefaultToggleAndCustomSlider() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean("haptic_enabled", false)
             .putBoolean("haptic_use_android_default", false)
@@ -410,7 +410,7 @@ class SettingsPreferenceSummaryTest {
 
     @Test
     fun zenModeDisablesSoftkeyLayoutMenu() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .putString("main_key_dynamic_mode", "virtuoso")
             .commit()
@@ -422,7 +422,7 @@ class SettingsPreferenceSummaryTest {
 
     @Test
     fun nonZenModesKeepSoftkeyLayoutMenuEnabled() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .putString("main_key_dynamic_mode", "off")
             .commit()

@@ -23,7 +23,7 @@ class MainActivityPreferenceControllerTest {
 
     @Before
     fun clearPreferencesBeforeTest() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -31,7 +31,7 @@ class MainActivityPreferenceControllerTest {
 
     @After
     fun clearPreferencesAfterTest() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -39,7 +39,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun applyInitialPreferences_clampsBeeperVolumeBeforeAudioDispatch() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putInt("beeper_volume", 999)
             .commit()
@@ -55,7 +55,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun onPreferenceChanged_clampsNegativeBeeperVolumeAndDispatchesNormalizedAudioState() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val controllerState = buildController(preferences)
 
         controllerState.controller.applyInitialPreferences()
@@ -77,7 +77,7 @@ class MainActivityPreferenceControllerTest {
         // MainActivity runs the initial pass in onCreate and posts the deferred
         // one, which runs after the overlay's first draw: a palette applied only
         // there leaves that first frame in the default palette.
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putString("lcd_theme", LcdTheme.VINTAGE.storageValue)
             .putInt("lcd_luminance", 60)
@@ -102,7 +102,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun applyInitialPreferences_normalizesUnknownLcdThemeBeforeDeferredOverlayDispatch() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putString("lcd_theme", "unknown")
             .commit()
@@ -131,7 +131,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun onPreferenceChanged_normalizesUnknownLcdThemeAndDispatchesDefaultTheme() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val controllerState = buildController(preferences)
 
         controllerState.controller.applyInitialPreferences()
@@ -162,7 +162,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun applyInitialPreferences_clampsLowLcdLuminanceAndDispatchesNormalizedValue() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putInt("lcd_luminance", -10)
             .commit()
@@ -191,7 +191,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun onPreferenceChanged_dispatchesNegativeLcdState() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val controllerState = buildController(preferences)
 
         controllerState.controller.applyInitialPreferences()
@@ -218,7 +218,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun applyInitialPreferences_migratesLegacyLcdModeKeyToLcdTheme() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putString("lcd_mode", "amber")
             .commit()
@@ -234,7 +234,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun applyDeferredOverlayPreferences_dispatchesDeveloperPerformanceHudPreference() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putBoolean("show_developer_performance_hud", true)
             .commit()
@@ -250,7 +250,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun onPreferenceChanged_dispatchesDeveloperPerformanceHudPreference() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val controllerState = buildController(preferences)
 
         controllerState.controller.applyInitialPreferences()
@@ -269,7 +269,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun applyInitialPreferences_clampsDeveloperPerformanceHudWindowMillis() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putInt("developer_performance_hud_window_millis", 50)
             .commit()
@@ -290,7 +290,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun onPreferenceChanged_clampsDeveloperPerformanceHudWindowMillis() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val controllerState = buildController(preferences)
 
         controllerState.controller.applyInitialPreferences()
@@ -313,7 +313,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun applyDeferredOverlayPreferences_dispatchesLcdGraphTouchPreference() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putBoolean("lcd_graph_touch_enabled", false)
             .commit()
@@ -329,7 +329,7 @@ class MainActivityPreferenceControllerTest {
 
     @Test
     fun onPreferenceChanged_dispatchesLcdGraphTouchPreference() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val controllerState = buildController(preferences)
 
         controllerState.controller.applyInitialPreferences()

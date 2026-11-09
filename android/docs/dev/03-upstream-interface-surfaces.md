@@ -18,7 +18,7 @@ verification surfaces.
 | Surface | Android side | Native bridge | Shared-core side | Sensitive detail |
 | --- | --- | --- | --- | --- |
 | runtime boot and attach | `NativeCoreRuntime.attach()` calls `nativePreInit()`, `initNative()`, `tick()`, and, on reattach, `updateNativeActivityRef()` | `jni_registration.c` plus `jni_lifecycle.c` | `setupUI()`, `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)` | `r47_init_runtime()` holds `screenMutex` throughout and publishes `r47_runtime_ready()` last, and the UI-thread entry points return early until it is true; `tick()` only runs when `pthread_mutex_trylock(&screenMutex)` succeeds, returns the next wake delay after due timer or LCD work, and reattach neither redraws nor touches the packed snapshot |
-| lifecycle save and load | `saveStateNative()`, `loadStateNative()` | `jni_lifecycle.c` | `saveCalc()`, `restoreCalc()`, `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` | `saveStateNative()` must stay display-passive for background save; redraw belongs only to real state loads |
+| lifecycle save | `saveStateNative()` | `jni_lifecycle.c` | `saveCalc()` | `saveStateNative()` must stay display-passive for background save; the one state load is runtime init's |
 | direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `pasteNumberNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `processKeyAction(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c`, `keypad_scene.c`, and `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
@@ -55,8 +55,8 @@ flowchart LR
   ([06](06-runtime-hot-paths.md#lcd-frame-state-inventory)).
 - `r47_native_preinit_path(...)` sets the Android base path used by
   `hal/io.c` and installs the GMP allocator hooks before the shared core starts.
-- `r47_init_runtime(...)` holds `screenMutex` for its whole body. It sets the
-  current slot, calls `setupUI()`, initializes LCD buffers, resets and restores
+- `r47_init_runtime()` holds `screenMutex` for its whole body. It calls
+  `setupUI()`, initializes LCD buffers, resets and restores
   calculator state, sets both `nextScreenRefresh` and `nextTimerRefresh`,
   registers the native timer callbacks that the staged core expects, and
   publishes `r47_runtime_ready()` last. The UI thread is live before init
@@ -80,7 +80,7 @@ flowchart LR
   That path must stay display-passive for a normal background save or
   Settings-entry transition.
 - `hal/io.c` writes the state file whole or not at all: `ioFileOpen(ioPathBackup, ...)`
-  opens `<file>.tmp`, `ioFileClose()` renames it over `backupR47_<slot>.cfg` and syncs
+  opens `<file>.tmp`, `ioFileClose()` renames it over `backupR47.cfg` and syncs
   the directory, and a save that cannot start returns `FILE_CANCEL`, because
   `saveCalc` ends the process on an error. A kill during a save leaves the last
   complete file. Before the restore, a file that is cut, older than upstream's floor,
@@ -94,8 +94,6 @@ flowchart LR
 - `MainActivity.onResume()` must not trigger a native redraw for a normal
   Settings return: the display loop and the overlay resume hook already preserve
   the current snapshot, so a redraw there is redundant.
-- `loadStateNative()` remains a redraw owner because it reconstructs calculator
-  state through `restoreCalc()` and then refreshes the LCD.
 - `r47_force_refresh()` is the native redraw for runtime init, which calls it
   directly, and for instrumentation, which reaches it through
   `ProgramLoadTestBridge.forceRefresh()`. `MainActivity` has no redraw entry

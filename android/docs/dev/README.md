@@ -59,8 +59,8 @@ you review one.
   entrypoints, ownership boundaries, staged inputs, compile flow, and
   checkout-sensitive root surfaces.
 - [02-kotlin-shell-architecture.md](02-kotlin-shell-architecture.md): Android
-  lifecycle, helper ownership, storage, settings, slot flow, input flow, and
-  direct live-stop routing.
+  lifecycle, helper ownership, storage, settings, input flow, and direct
+  live-stop routing.
 - [03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md): the
   detailed interface from the Android shell into upstream-owned runtime
   behavior.

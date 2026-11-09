@@ -640,8 +640,6 @@ source is missing from this page:
   on first sight, reuse while the generation holds, a recopy when it
   advances, the prior snapshot kept when a copy fails, and one cache per
   label mode
-- `SlotSessionControllerTest.kt`: locks a slot switch as save, set, load, and
-  persist, and that an out-of-range or current slot id is ignored
 - `LibraryLicenseNoticesTest.kt`: reads the library-license assets the build
   merged for the variant under test, so a variant whose
   `library-licenses/NOTICE-INDEX.json` is missing or empty fails on the JVM, and
@@ -990,7 +988,10 @@ Android compatibility layer.
   and leaves nothing of it. The core must work in the base path's DATA folder,
   and a base given as a relative path must still name the folder it named. A
   read of the autosave records its name,
-  `R47auto_0.sav`, as GTK's `ioFileOpen` records the file it reads. It also
+  `R47auto.sav`, as GTK's `ioFileOpen` records the file it reads. The state file
+  and the two saves of a version before 0.3.0, named with a slot number, move to
+  upstream's names once when the base path is set, with an unfinished temporary
+  copy dropped, and a file already under the new name is never replaced. It also
   builds `hal/io.c` with that branch compiled in and runs
   `scripts/android/hal_io_saf_contract_test.c`: each file path asks for its name and
   folder, `WRXPall`'s two bulk paths are refused with no picker and, in a work

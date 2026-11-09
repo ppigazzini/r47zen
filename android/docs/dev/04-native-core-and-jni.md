@@ -159,7 +159,7 @@ snapshot paths and must stay absent during normal builds.
 The glue is split by responsibility. Every file `glue_sources.txt` lists
 appears below; `run_docs_lint.sh` fails when one does not:
 
-- `jni_lifecycle.c` for init, deadline-driven tick, refresh, and slot-state lifecycle work
+- `jni_lifecycle.c` for init, deadline-driven tick, refresh, and the background save
 - `jni_input.c` for key and menu dispatch
 - `jni_display.c` for packed LCD generations and pixels and keypad snapshot
   generations and copies
@@ -258,16 +258,15 @@ APK whose dex lacks one. The entries cover:
 - transactional graph-bounds commit checks for pan and pinch so candidate
   bounds must remain finite and inside the shared-core-compatible
   `+/-1.0e38f` domain before state is written
-- restore-time graph-bounds sanitization after `restoreCalc()` on startup and
-  explicit state load so a bad saved graph window cannot poison the first
-  refresh of the next launch or slot switch; only repaired bounds are written back
+- restore-time graph-bounds sanitization after `restoreCalc()` on startup so a
+  bad saved graph window cannot poison the first refresh of the next launch;
+  only repaired bounds are written back
   into `LX`, `UX`, `LY`, and `UY`, each in place, so a start leaves what the user
   stored and borrows no stack register
-- state save and load
+- the background state save
 - packed LCD generation reads and packed LCD transfer
 - keypad snapshot generation reads and whole-snapshot copy
-- slot selection plus clipboard-export fetches for X register, stack
-  registers, and all registers
+- clipboard-export fetches for X register, stack registers, and all registers
 - the SAF picker's result, `onFileSelectedNative` and `onFileCanceledNative`
 
 `MainActivity` has no redraw entry point; `r47_force_refresh()` redraws at
@@ -573,10 +572,8 @@ share the same contract.
   with no program run, so the assertion does not depend on an emergent graph
   render.
 - `r47_force_refresh()` is the explicit native redraw for runtime init and the
-  test-owned `ProgramLoadTestBridge.forceRefresh()`. `loadStateNative()` runs
-  the same `refreshScreen(190)`, `refreshLcd(NULL)`, `lcd_refresh()` sequence
-  inline after `restoreCalc()`, without setting `reDraw`.
-- runtime init and `loadStateNative()` sanitize restored graph bounds before
+  test-owned `ProgramLoadTestBridge.forceRefresh()`.
+- runtime init sanitizes restored graph bounds before
   that first redraw so a corrupted auto-save cannot carry non-finite,
   collapsed, or out-of-range windows into the first graph refresh.
 - The direct-stop pending refresh seam is a third owner in this area.
@@ -587,7 +584,7 @@ share the same contract.
 
 The key distinction is whether the calculator state changed.
 
-- `loadStateNative()` may redraw because it reconstructs a different state.
+- runtime init redraws because it reconstructs the state from the file.
 - `saveStateNative()` must not redraw because persistence alone should not alter
   the visible LCD snapshot.
 
@@ -650,15 +647,15 @@ then every launch crashes the same way. `r47_restore_guard_begin()` counts, in
 first refresh of what it restored, where `r47_restore_guard_end()` clears it, before
 `AUTXEQ` or a key can run anything; a start that finds two moves the file to
 `<file>.crashed.<time>`, tells the user, and starts afresh. One is not enough, since a
-start also dies when the user closes the app. Auto Backup leaves slot 0's marker and
-temporary file out, so a restored install counts from zero; slot switching has no
-caller today, so no other slot writes either. The kept files are in the app's private
-storage, which the user cannot reach: they are there for a later release to recover.
+start also dies when the user closes the app. Auto Backup leaves the marker and
+temporary file out, so a restored install counts from zero. The kept files are in
+the app's private storage, which the user cannot reach: they are there for a later
+release to recover.
 
 Two libc calls the core makes are linked to the glue (`-Wl,--wrap=` in
 `CMakeLists.txt`). `__wrap_exit()` logs and aborts, so an error the core does not
 recover from leaves a crash report, not a silent stop. `__wrap_remove()` turns
-`DELBkup`'s relative path into the slot's SAVE and automatic save. The calculator
+`DELBkup`'s relative path into the app's SAVE and automatic save. The calculator
 thread harness links both the same way.
 
 Native never holds a provider's descriptor. Android documents that a descriptor

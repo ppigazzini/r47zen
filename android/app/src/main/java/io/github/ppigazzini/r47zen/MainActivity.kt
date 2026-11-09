@@ -43,9 +43,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         HapticFeedbackController(this)
     }
     private val appPreferences by lazy {
-        getSharedPreferences(SlotStore.APP_PREFS_NAME, MODE_PRIVATE)
+        getSharedPreferences(AppPreferences.NAME, MODE_PRIVATE)
     }
-    private lateinit var slotSessionController: SlotSessionController
     private lateinit var windowModeController: WindowModeController
 
 
@@ -221,7 +220,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         )
         displayActionController = createDisplayActionController()
         physicalKeyboardInputController = createPhysicalKeyboardInputController()
-        slotSessionController = createSlotSessionController()
     }
 
     private fun createWindowModeController(): WindowModeController {
@@ -296,17 +294,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             offerCoreTask = ::offerCoreTask,
             sendSimKeyNative = ::sendSimKeyNative,
             sendSimMenuNative = ::sendSimMenuNative,
-        )
-    }
-
-    private fun createSlotSessionController(): SlotSessionController {
-        return SlotSessionController(
-            context = this,
-            mainHandler = mainHandler,
-            offerCoreTask = ::offerCoreTask,
-            saveStateNative = ::saveStateNative,
-            loadStateNative = ::loadStateNative,
-            setSlotNative = ::setSlotNative,
         )
     }
 
@@ -444,7 +431,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun createCoreRuntime(): NativeCoreRuntime {
         return NativeCoreRuntime(
             filesDirPath = filesDir.absolutePath,
-            currentSlotIdProvider = slotSessionController::currentSlotId,
             nativePreInit = ::nativePreInit,
             initNative = ::initNative,
             updateNativeActivityRef = ::updateNativeActivityRef,
@@ -607,7 +593,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private external fun nativePreInit(storagePath: String)
-    private external fun initNative(slotId: Int)
+    private external fun initNative()
     private external fun tick(): Int
     private external fun releaseNativeRuntime()
     private external fun sendKey(keyCode: Int)
@@ -619,8 +605,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun applyGraphPanZoomNative(dxNorm: Float, dyNorm: Float, scaleFactor: Float): Boolean
     private external fun resetGraphNative(): Boolean
     private external fun saveStateNative()
-    private external fun loadStateNative()
-    private external fun setSlotNative(slot: Int)
     private external fun getClipboardXRegisterNative(): String?
     private external fun getClipboardStackRegistersNative(): String?
     private external fun getClipboardAllRegistersNative(): String?

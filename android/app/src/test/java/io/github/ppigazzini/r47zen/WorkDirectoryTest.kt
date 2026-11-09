@@ -27,7 +27,7 @@ class WorkDirectoryTest {
             .edit()
             .clear()
             .commit()
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -92,7 +92,7 @@ class WorkDirectoryTest {
 
     @Test
     fun readTreeUriString_migratesLegacyPreference() {
-        val legacyPrefs = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val legacyPrefs = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         legacyPrefs.edit().putString(WorkDirectory.KEY_TREE_URI, treeUri.toString()).commit()
 
         val migratedValue = WorkDirectory.readTreeUriString(context)

@@ -26,7 +26,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SystemBarInsetsInstrumentedTest {
     private val preferences = InstrumentationRegistry.getInstrumentation().targetContext
-        .getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        .getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
     private var savedFullscreen: Boolean? = null
 
     @Before
