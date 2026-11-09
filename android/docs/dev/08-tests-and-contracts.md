@@ -1188,8 +1188,10 @@ target instead, arm64, so that the code under test is the code the app ships. It
 keeps `--target`, `--sysroot`, and the `-m` flags; it takes the host's include
 paths, `-m` flags, `WITH_PULSEAUDIO`, and `-pthread` out of the suite's units; it
 puts the glue's GTK stand-ins (`r47zen/stubs`, and `android_mocks.h` with
-`HOST_TOOL_BUILD`) and its clocks (`glib_clock.c`) where GTK was; and it links
-static against the NDK's Bionic. It runs nothing. It packs the suite with what it
+`HOST_TOOL_BUILD`) and its clocks (`glib_clock.c`) where GTK was, with a headless
+event loop, `scripts/workload-regressions/suite_event_loop_stand_ins.c`, for the six
+loop calls the core makes and the app answers through JNI; and it links static
+against the NDK's Bionic. It runs nothing. It packs the suite with what it
 reads at run time into
 `android/build/upstream-suite-app-target/upstream-suite-app-target.tar`, at their
 paths in the project root: `res/testPgms/testPgms.bin`, `src/testSuite/tests`, and

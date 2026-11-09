@@ -520,6 +520,8 @@ other job executes arm64 code, and the PGO profile the release applies to arm64
 code is collected on x86-64. The job runs on an `ubuntu-26.04-arm` runner:
 
 - checks out this repository alone: no upstream sync, no SDK, no compiler
+- fails at once, naming the package job's build step, when that step did not
+  build the suite, which it reports as the job output `suite_arm64`
 - downloads the tar `android-build-test-package` built, which holds upstream's
   suite built for the release's target with the release's flags and profile,
   linked static against the NDK's Bionic, and the files the suite reads
