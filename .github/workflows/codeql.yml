@@ -9,6 +9,13 @@
 # absent on a normal checkout; paths-ignore keeps it out if a run stages it.
 # Findings surface in the Security tab; the lane is advisory and gates nothing.
 #
+# That leaves a gap: the core and decNumber, most of the C the app ships, had
+# no static analysis at all. analyze-core closes it on the weekly schedule
+# alone: it hydrates the core at the resolved upstream commit and runs CodeQL's
+# security-extended queries over src/ and dep/decNumberICU under its own
+# category. build-mode: none parses the source and compiles or runs none of it.
+# Read its first result set, then keep the job or delete it.
+#
 # The Kotlin app surface is NOT scanned here: CodeQL cannot extract Kotlin with
 # build-mode: none (Kotlin needs a real compile), and this lane avoids the full
 # Android build (SDK, NDK, staged native tree, upstream hydration).
@@ -63,3 +70,52 @@ jobs:
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: "/language:${{ matrix.language }}"
+
+  resolve-upstream-core:
+    name: Resolve authoritative upstream core revision
+    if: github.event_name == 'schedule'
+    uses: ./.github/workflows/resolve-upstream-core.yml
+    with:
+      mode: latest
+      upstream_commit: ''
+
+  analyze-core:
+    name: Analyze the upstream core the app ships
+    if: github.event_name == 'schedule'
+    needs:
+      - resolve-upstream-core
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Hydrate the upstream core
+        shell: bash
+        env:
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --url "$UPSTREAM_URL" --commit "$UPSTREAM_COMMIT"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: c-cpp
+          build-mode: none
+          queries: security-extended
+          config: |
+            paths:
+              - src
+              - dep/decNumberICU
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: "/language:c-cpp/upstream-core"
