@@ -308,9 +308,11 @@ Current repository icon surfaces:
   `android/app/src/main/cpp/r47zen/jni_display.c` copies under a critical section
   instead, and its comment states what that section allows. The page also says
   to build "with a version script (preferred) or use -fvisibility=hidden" so only
-  `JNI_OnLoad` is exported. `android/app/src/main/cpp/CMakeLists.txt` does
-  neither, so the library exports the whole core, at the cost the page names:
-  larger and slower code and possible symbol collisions. That is a gap.
+  `JNI_OnLoad` is exported. `android/app/src/main/cpp/CMakeLists.txt` links
+  `r47zen/exports.map`, which keeps `JNI_OnLoad` and the `Java_` names the
+  instrumentation-only test bridge binds by name, and makes the rest local;
+  a tombstone then names only those, so a crash in the core needs
+  `ndk-stack` and the release's `native-debug-symbols.zip`.
 - [Memory error debugging and mitigation](https://developer.android.com/ndk/guides/memory-debug):
   Android's map of PAC/BTI, GWP-ASan, HWASan, MTE, and ASan.
   `android/app/src/main/cpp/CMakeLists.txt` adds PAC/BTI on `arm64-v8a`, and
