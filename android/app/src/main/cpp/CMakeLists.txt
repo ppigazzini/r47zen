@@ -92,9 +92,11 @@ add_library(r47zen SHARED
     ${R47_STAGED_GMP_SOURCES}
 )
 
-# The C dialect upstream builds the core in: its meson.build sets no c_std,
-# so the core compiles as the compiler's default, gnu17. Stating it keeps an
-# NDK whose default moves from changing the language under the core.
+# Upstream's meson.build sets no c_std, so its dialect is each compiler's
+# default: gnu17 on gcc 13, gnu23 on gcc 15 and later, which our Windows lane's
+# gcc 16 is. C17 here keeps an NDK whose default moves from changing the
+# language under the core; the live risk is the other way round, a C23
+# construct upstream's newer compilers accept and this C17 build refuses.
 set_target_properties(r47zen PROPERTIES
     C_STANDARD 17
     C_STANDARD_REQUIRED ON
@@ -148,8 +150,12 @@ target_include_directories(r47zen PRIVATE
 # the flags pin the linker to lld, which the NDK ships, whatever CMake's IPO
 # module would pick.
 foreach(R47_ANDROID_LTO_CONFIG IN ITEMS Release RelWithDebInfo)
-    # AGP maps app shipping builds through RelWithDebInfo, so force the same
-    # high-optimization level on both shipping-native configurations.
+    # AGP maps app shipping builds through RelWithDebInfo, and both shipping
+    # configurations compile at -O3. That is the pre-link stage only: the link
+    # line carries CMake's RelWithDebInfo -O2, so the ThinLTO backend, where
+    # much of the optimization runs, works at O2 (clang -### prints
+    # "-plugin-opt=O2"; measured, a trailing -O3 makes .text 6.5% larger
+    # without PGO). Which level is faster on a device is not measured.
     target_compile_options(r47zen PRIVATE
         "$<$<CONFIG:${R47_ANDROID_LTO_CONFIG}>:-O3>"
     )
