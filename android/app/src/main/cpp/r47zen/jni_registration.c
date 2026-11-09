@@ -90,6 +90,9 @@ int register_main_activity_natives(JNIEnv *env) {
       {"getClipboardAllRegistersNative", "()Ljava/lang/String;",
        (void *)
            Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative},
+      {"describeDisplayNative", "()V",
+       (void *)
+           Java_io_github_ppigazzini_r47zen_MainActivity_describeDisplayNative},
       {"getPackedDisplayGeneration", "()I",
        (void *)
            Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration},

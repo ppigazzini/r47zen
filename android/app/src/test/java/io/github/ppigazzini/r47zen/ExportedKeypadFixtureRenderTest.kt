@@ -95,12 +95,10 @@ class ExportedKeypadFixtureRenderTest {
     }
 
     private fun expectedSoftkeyContentDescription(keyState: KeypadKeySnapshot): String {
+        // The labels as a screen reader says them; KeySpeechTest holds the words.
+        val aux = keyState.auxLabel.takeIf { keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT) }
         return buildString {
-            append(keyState.primaryLabel)
-            if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT) && keyState.auxLabel.isNotBlank()) {
-                append(", ")
-                append(keyState.auxLabel)
-            }
+            append(KeySpeech.softkey(keyState.primaryLabel, aux))
             val valueText = when (keyState.showValue) {
                 KeypadKeySnapshot.NO_VALUE,
                 -127 -> ""

@@ -614,6 +614,9 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
     }
 
+    // A screen reader announces a key as a button it can activate.
+    override fun getAccessibilityClassName(): CharSequence = android.widget.Button::class.java.name
+
     internal fun updateLabels(snapshot: KeypadSnapshot) {
         val keyState = snapshot.keyStateFor(keyCode)
         val resolvedShiftFOn = snapshot.shiftF
@@ -624,7 +627,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         if (isFnKey) {
             softkeyState = keyState
             mainKeyState = KeypadKeySnapshot.EMPTY
-            contentDescription = softkeyPainter.buildContentDescription(keyState)
+            contentDescription = keyState.spokenLabel ?: softkeyPainter.buildContentDescription(keyState)
             invalidate()
         } else {
             mainKeyState = keyState
@@ -640,17 +643,9 @@ class CalculatorKeyView @JvmOverloads constructor(
             refreshMainKeyRenderSpec()
             requestLayout()
             invalidate()
-            contentDescription = mainKeyRenderSpec?.accessibility?.contentDescription ?: buildString {
-                append(keyState.primaryLabel)
-                if (keyState.fLabel.isNotBlank()) {
-                    append(", f ")
-                    append(keyState.fLabel)
-                }
-                if (keyState.fLabel.isNotBlank() && keyState.gLabel.isNotBlank()) {
-                    append(", g ")
-                    append(keyState.gLabel)
-                }
-            }
+            contentDescription = keyState.spokenLabel
+                ?: mainKeyRenderSpec?.accessibility?.contentDescription
+                ?: KeySpeech.mainKey(keyState.primaryLabel, keyState.fLabel, keyState.gLabel)
         }
     }
 
@@ -1002,19 +997,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         fSpec: LabelSpec?,
         gSpec: LabelSpec?,
     ): AccessibilitySpec {
-        return AccessibilitySpec(
-            buildString {
-                append(primarySpec?.text.orEmpty())
-                if (fSpec != null) {
-                    append(", f ")
-                    append(fSpec.text)
-                }
-                if (gSpec != null) {
-                    append(", g ")
-                    append(gSpec.text)
-                }
-            }
-        )
+        return AccessibilitySpec(KeySpeech.mainKey(primarySpec?.text.orEmpty(), fSpec?.text, gSpec?.text))
     }
 
     private fun syncLabelMirrorGeometry(renderSpec: KeyRenderSpec?) {

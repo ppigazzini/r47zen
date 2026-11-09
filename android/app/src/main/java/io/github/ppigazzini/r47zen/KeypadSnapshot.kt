@@ -13,6 +13,10 @@ internal data class KeypadKeySnapshot(
     val sceneFlags: Int,
     val overlayState: Int,
     val showValue: Int,
+    // What a screen reader says when a label mode hides the drawn labels (Zen, softkey
+    // labels off): the description of the labels before they were hidden. Null when
+    // the labels show, which the key then describes itself.
+    val spokenLabel: String? = null,
 ) {
     companion object {
         const val NO_VALUE = -126

@@ -38,6 +38,7 @@ void releaseNativeActivityReferences(JNIEnv *env) {
   g_processCoreTasksId = NULL;
   g_fileWriteFailedId = NULL;
   g_warningId = NULL;
+  g_displayTextId = NULL;
 }
 
 JNIEXPORT void JNICALL
@@ -97,6 +98,15 @@ Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(
       (*env)->GetMethodID(env, clazz, "onCoreWarning", "(Ljava/lang/String;)V");
   if (!jni_result_ok(env, (const void *)g_warningId,
                      "GetMethodID(onCoreWarning)")) {
+    (*env)->DeleteLocalRef(env, clazz);
+    releaseNativeActivityReferences(env);
+    return;
+  }
+
+  g_displayTextId = (*env)->GetMethodID(env, clazz, "onDisplayText",
+                                        "(ZLjava/lang/String;)V");
+  if (!jni_result_ok(env, (const void *)g_displayTextId,
+                     "GetMethodID(onDisplayText)")) {
     (*env)->DeleteLocalRef(env, clazz);
     releaseNativeActivityReferences(env);
     return;

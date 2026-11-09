@@ -91,12 +91,14 @@ class ReplicaOverlayPointerInputTest {
     }
 
     @Test
-    fun everyReplicaView_showsTheHand() {
+    fun everyReplicaView_showsTheHand_butTheLcdsNode() {
         val hand = PointerIcon.getSystemIcon(context, PointerIcon.TYPE_HAND)
         val views = (0 until overlay.childCount).map(overlay::getChildAt)
+            .filter { it !== overlay.lcdAccessibilityNode }
 
         assertTrue(views.isNotEmpty())
         assertTrue(views.all { it.pointerIcon == hand })
+        assertTrue(overlay.lcdAccessibilityNode.pointerIcon != hand)
     }
 
     private fun click(at: Pair<Float, Float>, button: Int) {

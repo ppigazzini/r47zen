@@ -48,7 +48,7 @@ internal object ReplicaKeypadLayout {
         dispatchKey: (Int) -> Unit,
         initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
-        overlay.removeAllViews()
+        overlay.clearReplicaViews()
         addDynamicKeypad(
             context,
             overlay,

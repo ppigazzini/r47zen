@@ -536,6 +536,14 @@ source is missing from this page:
   shortcut, and modifier-tap mapping behavior across the Android-owned mapping
   and shortcut tables, and that HOME and MYMENU pass their `NativeShellCodes`
   values to the menu entry
+- `KeySpeechTest.kt`: every label of every exported keypad scene is spoken in
+  printable ASCII words, the R47 glyphs by function (`x\u2162` is "x squared"),
+  every rendered key a scene enables with labels has a name in words and the
+  Button class, and Zen keeps every main key's name
+- `LcdAccessibilityNodeTest.kt`: the LCD's node lies over the LCD as a polite
+  live region; the text replaces its label and an error is the node's error; a
+  burst of frames asks once after `DISPLAY_DESCRIPTION_SETTLE_MS` and nothing
+  without an accessibility service; a keypad rebuild keeps the node
 - `PhysicalKeyboardInputControllerTest.kt`: Ctrl+V pastes once per press, not
   on a repeat or with Shift or Alt, sends no key, and its Ctrl release shifts
   nothing; the Menu key opens the main menu on its release and sends nothing
@@ -979,6 +987,9 @@ Android compatibility layer.
   dropped and logged, not written through a capture that has gone. In AIM the
   key that shows N, whose `g` face is 7, must show 7 with NUM on, as GTK draws it,
   and the VOL softkeys must show no value, `NOVAL`, as GTK's `getBeepVolume` answers.
+  What a screen reader hears of the display must be X as Copy X gives it, the
+  number being typed, or the error shown, marked as one, and a long text must be
+  cut at a character's first byte.
   Then it fills
   ten numbered registers, X, and Y with 2^60000, 18062 digits, and each copy must
   hold all of them: X once, the stack twice, all registers twelve times.
