@@ -178,6 +178,23 @@ the NDK's header for the `<execinfo.h>` include upstream's `c47.h` makes on
 Linux: the NDK declares `backtrace()` only from API 33, above the app's
 `minSdk`, so the stub's `backtrace()` reports no frames.
 
+Each `sprintf` and `snprintf` form, the fortified `__sprintf_chk` family with them,
+goes to `r47zen/legacy_printf.c`, for Android 7.0 to 8.1 (API 24 to 27). Their
+bionic formats with OpenBSD's `vfprintf`, which reads the format string as UTF-8
+through `mbrtowc` and returns -1 at the first byte that is not; Android 9 scans it
+for `%` byte by byte. The core pastes its own glyph encoding into format literals
+(`STD_SPACE_EM` is `"\xa0\x03"`), and `__vsprintf_chk` takes the -1 for an overflow
+and aborts, so without the wrapper `showStep`'s `"%04" PRIu16 ":" STD_SPACE_EM`
+ends the app when a program step is shown on API 24 to 27. Each wrapper calls the platform at once from
+API 28, and for a format of ASCII alone below it, so only a format holding a byte
+over 0x7f is formatted here: its literal bytes are copied as they are, and each
+conversion, whose spec is ASCII, goes alone to the platform's `snprintf`. The
+fortified entries keep bionic's two checks against the size the compiler saw. It
+takes no `%n` and no positional `%1$`, which return -1. `fprintf` and `printf` stay
+the platform's: an app's stdout and stderr go nowhere, and each `fprintf` to a file
+has an ASCII format. `run_legacy_printf_contract.sh` holds the formatter to glibc's
+`vsnprintf`, which scans bytes as Android 9 does.
+
 ## JNI contract
 
 JNI registration is explicit. `JNI_OnLoad()` initializes the JVM handle, the

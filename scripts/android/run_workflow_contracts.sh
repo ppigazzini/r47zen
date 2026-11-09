@@ -23,6 +23,7 @@ CONTRACTS=(
     run_version_naming_contract.sh
     run_production_signing_scope_contract.sh
     run_signing_isolation_contract.sh
+    run_legacy_printf_contract.sh
     run_release_provenance_contract.sh
     run_privileged_remote_script_contract.sh
     run_llvm_toolchain_install_contract.sh

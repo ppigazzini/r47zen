@@ -186,6 +186,17 @@ if(ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
     target_compile_options(r47zen PRIVATE "-fstack-clash-protection")
 endif()
 
+# Android 7.0 to 8.1 read a format string as UTF-8, so the core's glyph bytes in one
+# fail it, and a fortified sprintf aborts on that: each sprintf and snprintf form goes
+# to the glue's legacy_printf.c, which hands the call to the platform from API 28.
+# fprintf and printf stay the platform's: stdout and stderr go nowhere in an app, and
+# each fprintf to a file has an ASCII format. A wrap reaches only this library's own
+# objects.
+foreach(R47_PRINTF_ENTRY IN ITEMS sprintf snprintf vsprintf vsnprintf
+        __sprintf_chk __snprintf_chk __vsprintf_chk __vsnprintf_chk)
+    target_link_options(r47zen PRIVATE "-Wl,--wrap=${R47_PRINTF_ENTRY}")
+endforeach()
+
 target_link_libraries(r47zen PRIVATE log m)
 
 # Hardening this file does not set: the NDK toolchain adds

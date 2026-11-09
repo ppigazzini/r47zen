@@ -21,3 +21,4 @@ jni_lifecycle.c
 jni_registration.c
 jni_storage.c
 keypad_scene.c
+legacy_printf.c
