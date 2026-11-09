@@ -212,31 +212,32 @@ internal class DisplayActionController(
         }
     }
 
-    private fun pasteFromClipboard() {
+    // The menu's Paste Number, and Ctrl+V on a keyboard.
+    fun pasteFromClipboard() {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         // getPrimaryClip() can return a non-null ClipData with zero items on some
         // devices; guard the index so getItemAt(0) never throws
         // IndexOutOfBoundsException on the main thread (the copy path is likewise
         // defensive).
-        val clip = clipboard.primaryClip ?: return
-        if (clip.itemCount == 0) {
-            return
-        }
-        val text = clip.getItemAt(0)?.text?.toString() ?: return
-
+        val text = clipboard.primaryClip
+            ?.takeIf { it.itemCount > 0 }
+            ?.getItemAt(0)
+            ?.text
+            ?.toString()
+            ?: return
         val tokens = PasteNumber.tokens(text)
         if (tokens == null) {
             Toast.makeText(context, R.string.main_menu_paste_not_a_number, Toast.LENGTH_SHORT).show()
-            return
-        }
-        offerCoreTask(
-            Runnable {
-                if (!pasteNumberNative(tokens)) {
-                    mainHandler.post {
-                        Toast.makeText(context, R.string.main_menu_paste_not_ready, Toast.LENGTH_SHORT).show()
+        } else {
+            offerCoreTask(
+                Runnable {
+                    if (!pasteNumberNative(tokens)) {
+                        mainHandler.post {
+                            Toast.makeText(context, R.string.main_menu_paste_not_ready, Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
-            }
-        )
+            )
+        }
     }
 }

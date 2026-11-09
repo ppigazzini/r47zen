@@ -2,10 +2,18 @@ package io.github.ppigazzini.r47zen
 
 import android.view.KeyEvent
 
+/**
+ * Maps a physical keyboard's keys to the calculator through the binding tables, and
+ * keeps two for the app's own menu, which GTK has no counterpart of: Ctrl+V pastes as
+ * the menu's Paste Number does, in place of the V key, and the keyboard's Menu key
+ * opens the main menu.
+ */
 internal class PhysicalKeyboardInputController(
     private val offerCoreTask: (Runnable) -> Unit,
     private val sendSimKeyNative: (String, Boolean, Boolean) -> Unit,
     private val sendSimMenuNative: (Int) -> Unit,
+    private val onPaste: () -> Unit = {},
+    private val onMainMenu: () -> Unit = {},
 ) {
     private var isPhysicalShiftHeld = false
     private var isPhysicalCtrlHeld = false
@@ -13,9 +21,21 @@ internal class PhysicalKeyboardInputController(
     private val activeKeyIdMap = mutableMapOf<Int, PhysicalKeyboardAction>()
 
     fun onKeyEvent(event: KeyEvent): Boolean {
-        return when (event.action) {
-            KeyEvent.ACTION_DOWN -> onKeyDown(event.keyCode, event)
-            KeyEvent.ACTION_UP -> onKeyUp(event.keyCode)
+        return when {
+            event.keyCode == KeyEvent.KEYCODE_MENU -> {
+                if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
+                    onMainMenu()
+                }
+                true
+            }
+            isPasteChord(event) -> {
+                // A Ctrl used for a chord shifts nothing on its release.
+                interceptedWhileHeld = true
+                onPaste()
+                true
+            }
+            event.action == KeyEvent.ACTION_DOWN -> onKeyDown(event.keyCode, event)
+            event.action == KeyEvent.ACTION_UP -> onKeyUp(event.keyCode)
             else -> false
         }
     }
@@ -44,6 +64,7 @@ internal class PhysicalKeyboardInputController(
         if ((event?.repeatCount ?: 0) > 0) {
             return true
         }
+
 
         PhysicalKeyboardMapper.resolve(keyCode, event)?.let { action ->
             activeKeyIdMap[keyCode] = action
@@ -112,5 +133,15 @@ internal class PhysicalKeyboardInputController(
             sendSimKeyNative(id, false, false)
             sendSimKeyNative(id, false, true)
         })
+    }
+
+    private fun isPasteChord(event: KeyEvent): Boolean {
+        return event.action == KeyEvent.ACTION_DOWN &&
+            event.repeatCount == 0 &&
+            event.keyCode == KeyEvent.KEYCODE_V &&
+            event.isCtrlPressed &&
+            !event.isShiftPressed &&
+            !event.isAltPressed &&
+            !event.isMetaPressed
     }
 }

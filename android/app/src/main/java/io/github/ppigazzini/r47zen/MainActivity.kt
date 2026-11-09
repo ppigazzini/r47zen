@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var preferenceController: MainActivityPreferenceController
     private lateinit var replicaOverlayController: ReplicaOverlayController
     private lateinit var keypadSnapshotStore: NativeKeypadSnapshotStore
+    private var mainMenuButton: View? = null
     private val hapticFeedbackController by lazy {
         HapticFeedbackController(this)
     }
@@ -269,7 +270,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             offerCoreTask = ::offerCoreTask,
             sendSimKeyNative = ::sendSimKeyNative,
             sendSimMenuNative = ::sendSimMenuNative,
+            onPaste = { displayActionController.pasteFromClipboard() },
+            onMainMenu = ::openMainMenu,
         )
+    }
+
+    // The keyboard's Menu key and a mouse's right click open the main menu, as a tap
+    // on its button does.
+    private fun openMainMenu() {
+        mainMenuButton?.performClick()
     }
 
     private fun initializeOverlayAndPreferences(prefs: SharedPreferences) {
@@ -278,6 +287,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         replicaOverlay.onLcdPanListener = graphGestureFlusher::addPan
         replicaOverlay.onLcdPinchListener = graphGestureFlusher::addScale
         replicaOverlay.onLcdResetListener = ::queueGraphReset
+        replicaOverlay.onSecondaryClick = ::openMainMenu
         keypadSnapshotStore = createKeypadSnapshotStore()
         replicaOverlayController = createReplicaOverlayController()
         replicaOverlayController.bindOverlay()
@@ -345,6 +355,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             }
         }
 
+        mainMenuButton = button
         replicaOverlay.addReplicaView(
             button,
             R47AndroidChromeGeometry.MAIN_MENU_BUTTON_LEFT,

@@ -235,6 +235,12 @@ The Kotlin shell accepts input from four paths:
   `PhysicalKeyboardMapper`, and `PhysicalKeyboardBindingTables`
 - the projected top-bezel main-menu button coordinated by
   `DisplayActionController`
+- a mouse or trackpad, as Android's large-screen input guidance tests one:
+  a right click anywhere on the replica presses no key and opens the
+  main menu, a left click presses a key as a tap does, the wheel over the LCD
+  zooms the graph as a pinch does (`GraphTouchVisualPolicy.WHEEL_NOTCH_SCALE`
+  per notch, under the same switch), and every key and the menu button show the
+  hand pointer
 
 A PiP window is not a path: the system takes every touch on it for its own
 controls, so the app receives none
@@ -251,6 +257,10 @@ another key would leave the first key pressed with no release.
 The physical-keyboard HOME and MYMENU shortcuts pass `NativeShellCodes` values,
 never upstream item numbers: `items.h` renumbers between upstream revisions, so
 `jni_input.c` resolves each code to its `MNU_*` symbol at build time.
+
+Two physical keys reach the app's own menu, which GTK has no counterpart of:
+Ctrl+V runs `Paste Number` in place of the V key, so a Ctrl so used shifts
+nothing on its release, and the keyboard's Menu key opens the main menu.
 
 `Paste Number` enters one real or complex number, or refuses the clip whole, since
 a number typed from part of a clip is a wrong number on the stack. `PasteNumber.kt`
