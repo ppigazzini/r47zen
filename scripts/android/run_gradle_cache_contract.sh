@@ -15,7 +15,13 @@
 # take a `cache:` input, the job's actions/cache/restore key must match every
 # tracked Gradle build input through its hashFiles patterns, and its
 # actions/cache/save must be gated on that restore's miss and reuse its path
-# and primary key. Pure host test, no SDK needed.
+# and primary key.
+#
+# The release lane is the exception, the other way round: android-release.yml
+# restores and saves no Gradle cache at all. Every other lane's entry is saved
+# by a job that ran the unpinned upstream core first, so a release that restored
+# one would run what a hostile commit planted, even a release pinned to a clean
+# core. Pure host test, no SDK needed.
 
 set -Eeuo pipefail
 
@@ -29,7 +35,11 @@ GRADLE_INPUT_PATTERN='(\.gradle(\.kts)?|/gradle\.properties|\.versions\.toml|/gr
 # Print one line per violation in WORKFLOW, judged against INPUTS, the Gradle
 # build inputs one per line.
 find_gradle_cache_gaps() {
-    awk -v inputs_text="$2" -v q="'" '
+    local no_cache=0
+    if [ "$(basename "$1")" = android-release.yml ] || [ "${3-}" = no-cache ]; then
+        no_cache=1
+    fi
+    awk -v inputs_text="$2" -v q="'" -v no_cache="$no_cache" '
         # Translate a hashFiles glob into an anchored ERE: **/ spans zero or
         # more directories, * and ? stay inside one path segment.
         function glob_to_ere(glob,    out, i, c) {
@@ -94,7 +104,12 @@ find_gradle_cache_gaps() {
         }
         function flush_job(    n, i, j, hit, rest, pattern) {
             flush_step()
-            if (job != "" && job_setup_gradle) {
+            if (no_cache && (restore_line || save_line)) {
+                printf "%s:%d: job %s caches Gradle User Home in the release lane, which restores and saves none\n",
+                    FILENAME, (restore_line ? restore_line : save_line), job
+            } else if (no_cache) {
+                # nothing to require: the release lane downloads what it builds with
+            } else if (job != "" && job_setup_gradle) {
                 if (!restore_line) {
                     printf "%s: job %s runs setup-gradle and restores no ~/.gradle cache with actions/cache/restore\n",
                         FILENAME, job
@@ -261,6 +276,9 @@ for seeded in basic-provider catalog-unkeyed drifted-save; do
     [ -n "$(find_gradle_cache_gaps "$fixture_dir/$seeded.yml" "$fixture_inputs")" ] ||
         contract_fail "the Gradle cache checker missed the seeded gap in $seeded.yml."
 done
+# The release lane's half: a release job that restores a Gradle cache fails.
+[ -n "$(find_gradle_cache_gaps "$fixture_dir/complete.yml" "$fixture_inputs" no-cache)" ] ||
+    contract_fail "the Gradle cache checker missed a cache in the release lane."
 
 workflow_uses 'uses:[[:space:]]*gradle/actions/setup-gradle@' ||
     contract_fail "no workflow runs gradle/actions/setup-gradle, so this contract checks nothing; retire it or fix its pattern"
@@ -284,4 +302,4 @@ if [ -n "$violations" ]; then
         "$violations"
 fi
 
-contract_pass "every setup-gradle job restores and saves its own Gradle cache on a key that hashes every tracked Gradle build input."
+contract_pass "every setup-gradle job restores and saves its own Gradle cache on a key that hashes every tracked Gradle build input, and the release lane caches none."

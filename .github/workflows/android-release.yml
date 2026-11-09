@@ -380,18 +380,10 @@ jobs:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
-      # Key on every tracked Gradle build input: an entry is immutable, so an
-      # input the key misses keeps later runs on the entry saved before it
-      # changed. run_gradle_cache_contract.sh holds the key to those inputs.
-      - name: Restore Gradle cache
-        id: gradle-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-${{ runner.arch }}-gradle-${{ hashFiles('android/**/*.gradle', 'android/gradle.properties', 'android/gradle/*.versions.toml', 'android/gradle/wrapper/gradle-wrapper.properties') }}
-
+      # No Gradle cache: every other lane's entry is saved by a job that ran the
+      # unpinned upstream core first, so restoring one here would run what a
+      # hostile commit planted, even in a release pinned to a clean core.
+      # run_gradle_cache_contract.sh holds the release lane to none.
       # setup-gradle's own providers key on files this repo does not choose;
       # the basic one hashes gradle/*.versions.toml at the root, never the
       # catalog in android/gradle/. Leave the cache to the steps around it.
@@ -409,8 +401,6 @@ jobs:
           build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
           cmake-version: ${{ steps.defaults.outputs.cmake_version }}
           ndk-version: ${{ steps.defaults.outputs.ndk_version }}
-          include-emulator: 'true'
-          android-test-api-level: ${{ steps.defaults.outputs.android_test_api_level }}
 
       - name: Install matching host LLVM profiling runtime
         shell: bash
@@ -441,6 +431,7 @@ jobs:
           commit: ${{ steps.defaults.outputs.xlsxio_commit }}
           prefix: ${{ steps.defaults.outputs.xlsxio_prefix }}
           jobs: ${{ steps.jobs.outputs.jobs }}
+          cache: 'false'
 
       - name: Sync authoritative upstream core
         id: upstream
@@ -531,18 +522,6 @@ jobs:
             -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
             2>&1 | tee ../ci-artifacts/logs/android-release-bundle.log
 
-      # Save on a miss after the last Gradle step, and only when every earlier
-      # step passed (the implicit success()), so a failed resolution stores no
-      # partial entry under an immutable key. Other refs only read.
-      - name: Save Gradle cache
-        if: steps.gradle-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ steps.gradle-cache.outputs.cache-primary-key }}
-
       - name: Stage unsigned release assets for signing
         shell: bash
         run: |
@@ -599,12 +578,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.meta.outputs.artifact_name }}-logs
-          path: |
-            ci-artifacts/logs/
-            android/app/build/reports/tests
-            android/app/build/test-results
-            android/app/build/reports/androidTests
-            android/app/build/outputs/androidTest-results
+          path: ci-artifacts/logs/
           if-no-files-found: warn
           retention-days: 30
 
@@ -980,18 +954,10 @@ jobs:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
 
-      # Key on every tracked Gradle build input: an entry is immutable, so an
-      # input the key misses keeps later runs on the entry saved before it
-      # changed. run_gradle_cache_contract.sh holds the key to those inputs.
-      - name: Restore Gradle cache
-        id: gradle-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-${{ runner.arch }}-gradle-${{ hashFiles('android/**/*.gradle', 'android/gradle.properties', 'android/gradle/*.versions.toml', 'android/gradle/wrapper/gradle-wrapper.properties') }}
-
+      # No Gradle cache: every other lane's entry is saved by a job that ran the
+      # unpinned upstream core first, so restoring one here would run what a
+      # hostile commit planted, even in a release pinned to a clean core.
+      # run_gradle_cache_contract.sh holds the release lane to none.
       # setup-gradle's own providers key on files this repo does not choose;
       # the basic one hashes gradle/*.versions.toml at the root, never the
       # catalog in android/gradle/. Leave the cache to the steps around it.
@@ -1045,6 +1011,7 @@ jobs:
           commit: ${{ steps.defaults.outputs.xlsxio_commit }}
           prefix: ${{ steps.defaults.outputs.xlsxio_prefix }}
           jobs: ${{ steps.jobs.outputs.jobs }}
+          cache: 'false'
 
       - name: Sync authoritative upstream core
         id: upstream
@@ -1098,14 +1065,34 @@ jobs:
             -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
             2>&1 | tee ../ci-artifacts/logs/android-release-verification.log
 
+      # The key names the emulator and system image revisions, as android-ci's does,
+      # so an entry snapshotted by another emulator is not restored only to be
+      # rejected. android-ci saves it; the release lane only restores.
+      - name: Read the emulator and system image revisions
+        id: emulator-revisions
+        shell: bash
+        env:
+          ANDROID_TEST_API_LEVEL: ${{ steps.defaults.outputs.android_test_api_level }}
+        run: |
+          set -euo pipefail
+          revision() { sed -n 's/^Pkg\.Revision=//p' "$1"; }
+          emulator="$(revision "$ANDROID_SDK_ROOT/emulator/source.properties")"
+          image="$(revision "$ANDROID_SDK_ROOT/system-images/android-$ANDROID_TEST_API_LEVEL/default/x86_64/source.properties")"
+          [[ -n "$emulator" && -n "$image" ]] || {
+            echo "Could not read the emulator ($emulator) or system image ($image) revision." >&2
+            exit 1
+          }
+          echo "emulator=$emulator" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
       - name: Restore Android emulator AVD cache
         id: avd-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: ${{ runner.os }}-android-avd-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-pixel_7-v1
+          key: ${{ runner.os }}-android-avd-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-pixel_7-emulator-${{ steps.emulator-revisions.outputs.emulator }}-image-${{ steps.emulator-revisions.outputs.image }}-v3
 
       - name: Enable KVM access for Android emulator
         shell: bash
@@ -1169,17 +1156,19 @@ jobs:
           script: >-
             bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh
 
-      # Save on a miss after the last Gradle step, and only when every earlier
-      # step passed (the implicit success()), so a failed resolution stores no
-      # partial entry under an immutable key. Other refs only read.
-      - name: Save Gradle cache
-        if: steps.gradle-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Upload release verification logs and reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
+          name: release-verification-logs-${{ github.run_attempt }}
           path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ steps.gradle-cache.outputs.cache-primary-key }}
+            ci-artifacts/logs/
+            android/app/build/reports/tests
+            android/app/build/test-results
+            android/app/build/reports/androidTests
+            android/app/build/outputs/androidTest-results
+          if-no-files-found: warn
+          retention-days: 30
 
   verify-signed-artifacts:
     name: Verify signed release artifacts

@@ -195,7 +195,14 @@ would run it with the key on disk and the passwords in its environment. The
 SDK composite narrows this for the build and test jobs: it saves its entry
 right after the install, with `actions/cache/save`, before the job's own steps
 sync and build upstream code, so an entry holds what `sdkmanager` installed.
-Under `actions/cache` the save ran at the end of the job, after that code. `./.github/actions/setup-signing-tools`
+Under `actions/cache` the save ran at the end of the job, after that code. The
+xlsxio composite saves the same way, right after its build. The release lane
+goes further and restores no entry a job could have written after running the
+upstream core: no Gradle cache, xlsxio built from source (`cache: 'false'`), and
+only the SDK and AVD entries restored, never saved, so a hostile commit cannot
+plant a cache entry that a later release, even one pinned to a clean core,
+runs. `run_setup_android_composite_contract.sh` and
+`run_gradle_cache_contract.sh` hold it. `./.github/actions/setup-signing-tools`
 installs `build-tools;<R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION>` from Google
 into an empty SDK root under `RUNNER_TEMP`, about 150 MB, and nothing else.
 `collect_packaging_evidence.sh` reads the `LOAD` segments of the native
@@ -252,13 +259,15 @@ GitHub.
 
 ## Gradle cache
 
-The four jobs that run Gradle, `android-build-test-package` and
-`android-tests` in `android-ci.yml` and `build-production-release-bundle` and
-`verify-production-release` in `android-release.yml`, cache Gradle User Home
+The jobs that run Gradle in `android-ci.yml`, `android-build-test-package` and
+`android-tests`, cache Gradle User Home
 (`~/.gradle/caches` and `~/.gradle/wrapper`) with their own steps:
 `actions/cache/restore` before `gradle/actions/setup-gradle`, and
 `actions/cache/save` after the job's last Gradle step. `setup-gradle` runs with
-`cache-provider: external`, so it neither restores nor saves.
+`cache-provider: external`, so it neither restores nor saves. The two that run
+Gradle in `android-release.yml`, `build-production-release-bundle` and
+`verify-production-release`, cache nothing and download what they build with,
+for the reason in [Signing isolation](#signing-isolation).
 
 The invariant: the key hashes every tracked Gradle build input under
 `android/`, the `*.gradle` scripts, `gradle.properties`, the version catalog,
@@ -277,16 +286,16 @@ AGP versions it repeats are held to the wrapper and the catalog by
 `scripts/android/run_toolchain_pin_coherence_contract.sh`.
 
 A save runs only on a restore miss, only when every earlier step passed, and
-only on `main` or `github_ci` (`main` alone in `android-release.yml`); other
-refs read those entries and write none. A failed run writes nothing, so an
+only on `main` or `github_ci`; other refs read those entries and write none. A failed run writes nothing, so an
 entry never holds a half-finished resolution.
 
 `scripts/android/run_gradle_cache_contract.sh` holds this, after proving
 itself on seeded workflow fixtures. It fails a `setup-gradle` step whose
 provider is not `external`, a `setup-java` step with a `cache:` input, a job
 that runs `setup-gradle` without both steps, a tracked Gradle build input that
-no `hashFiles` pattern of the restore key matches, and a save that is not
-gated on its restore's miss or that changes its path or key. It finds inputs
+no `hashFiles` pattern of the restore key matches, a save that is not
+gated on its restore's miss or that changes its path or key, and any Gradle
+cache step in `android-release.yml`. It finds inputs
 by name (`*.gradle`, `*.gradle.kts`, `gradle.properties`, `*.versions.toml`,
 `gradle-wrapper.properties`), so a file Gradle reads under another name is
 outside its set.
@@ -1148,7 +1157,8 @@ whose key covers every input the install step reads and which the action
 saves itself right after the install) and
 `./.github/actions/setup-xlsxio-toolchain` (builds the pinned xlsxio commit
 with a fixed CMake recipe and caches it on the source URL, the commit, and the
-action file's hash).
+action file's hash, saving right after the build; `cache: 'false'`, which the
+release lane passes, builds from source and caches nothing).
 
 `.github/dependabot.yml` asks for weekly grouped update pull requests for
 GitHub Actions, Gradle, the Python dependencies in `uv.lock`, and the pre-commit

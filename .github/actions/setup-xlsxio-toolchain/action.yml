@@ -14,19 +14,26 @@ inputs:
   jobs:
     description: Parallel build job count.
     required: true
+  cache:
+    description: "'false' builds from source and neither restores nor saves an Actions cache, as the release lane does: another lane's entry may have been written by a job that ran the upstream core."
+    required: false
+    default: 'true'
 
 runs:
   using: composite
   steps:
+    # Restore and save apart, the save right after the build, as the SDK composite
+    # does: actions/cache saved in a post-job step, after the job's upstream code
+    # ran, so an entry could hold what that code put there. The key holds the
+    # source url and commit AND a hash of this action, so changing the source
+    # repository or the build recipe (the cmake flags below) invalidates the cache
+    # with no manual version bump; the save repeats it.
     - name: Restore xlsxio toolchain cache
       id: xlsxio-cache
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: inputs.cache == 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ inputs.prefix }}
-        # Key on the source url and commit AND a hash of this action, so changing
-        # the source repository or the build recipe (the cmake flags below)
-        # invalidates the cache automatically instead of relying on a manual
-        # version bump. hashFiles hashes this file, which carries the flags.
         key: ${{ runner.os }}-xlsxio-${{ inputs.url }}-${{ inputs.commit }}-${{ hashFiles('.github/actions/setup-xlsxio-toolchain/action.yml') }}-static-tools-v2
 
     - name: Build upstream xlsxio toolchain
@@ -60,6 +67,13 @@ runs:
 
         cmake --build "$xlsxio_dir/build" --parallel "$XLSXIO_JOBS"
         cmake --install "$xlsxio_dir/build" --prefix "$XLSXIO_PREFIX"
+
+    - name: Save xlsxio toolchain cache
+      if: inputs.cache == 'true' && steps.xlsxio-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ inputs.prefix }}
+        key: ${{ runner.os }}-xlsxio-${{ inputs.url }}-${{ inputs.commit }}-${{ hashFiles('.github/actions/setup-xlsxio-toolchain/action.yml') }}-static-tools-v2
 
     - name: Expose xlsxio toolchain
       shell: bash
