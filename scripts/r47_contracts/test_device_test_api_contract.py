@@ -4,6 +4,10 @@
 `R47_DEFAULT_ANDROID_TARGET_SDK` the platform the app targets. A device test below
 the target runs the app under compatibility behavior it does not ship with, so the
 image's major must reach the target.
+
+The app also installs from `R47_DEFAULT_ANDROID_MIN_SDK`, so android-ci
+keeps a second row that runs the same instrumented set on an image at that level,
+under its own AVD name, on Sunday's nightly and on a dispatch that asks.
 """
 
 from __future__ import annotations
@@ -15,6 +19,8 @@ from typing import Final
 from r47_contracts._repo_paths import REPO_ROOT
 
 _DEFAULTS: Final = REPO_ROOT / "android" / "r47-defaults.properties"
+_ANDROID_CI: Final = REPO_ROOT / ".github" / "workflows" / "android-ci.yml"
+_MIN_SDK_STEP: Final = "      - name: Run the device tests at minSdk on emulator"
 _LEVEL: Final = re.compile(r"^(\d+)(?:\.\d+)?$")
 
 
@@ -55,6 +61,29 @@ class DeviceTestApiContractTest(unittest.TestCase):
         target = _property(text, "R47_DEFAULT_ANDROID_TARGET_SDK")
         if not reaches_target(level, target):
             message = f"the emulator runs API {level}, below the target SDK {target}"
+            raise AssertionError(message)
+
+    def test_a_row_runs_the_device_tests_at_min_sdk(self) -> None:
+        """android-ci runs the instrumented set on a minSdk image, gated and named."""
+        text = _ANDROID_CI.read_text(encoding="utf-8")
+        if _MIN_SDK_STEP not in text:
+            message = "android-ci has no device-test row at minSdk"
+            raise AssertionError(message)
+        step = text.split(_MIN_SDK_STEP, 1)[1].split("\n      - name:", 1)[0]
+        for needed in (
+            "if: steps.min-sdk.outputs.run == 'true'",
+            "api-level: ${{ steps.defaults.outputs.android_min_sdk }}",
+            "avd-name: test-min-sdk",
+            "run_connected_android_tests.sh",
+        ):
+            if needed not in step:
+                message = f"the minSdk row lacks {needed!r}"
+                raise AssertionError(message)
+        wiring = 'echo "android_min_sdk=$R47_DEFAULT_ANDROID_MIN_SDK"'
+        if wiring not in text:
+            message = (
+                "android-ci does not read the minSdk image level from the defaults"
+            )
             raise AssertionError(message)
 
 

@@ -8,11 +8,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-// No Robolectric class here names an sdk in @Config, so Robolectric runs each
-// one at the targetSdkVersion of the merged manifest, which
-// R47_DEFAULT_ANDROID_TARGET_SDK sets. A class pinned below it would test
-// framework behavior the app does not run on, such as the edge-to-edge
-// enforcement that starts at API 35.
+// No Robolectric class here but ApiLevelArmsTest names an sdk in @Config, so
+// Robolectric runs each other one at the targetSdkVersion of the merged
+// manifest, which R47_DEFAULT_ANDROID_TARGET_SDK sets: the level the app runs at
+// on current devices, with behavior such as the edge-to-edge enforcement that
+// starts at API 35. The app also installs from minSdk 24; ApiLevelArmsTest runs
+// the shell's SDK_INT arms at the lower levels.
 @RunWith(RobolectricTestRunner::class)
 class RobolectricSdkTest {
     @Test
