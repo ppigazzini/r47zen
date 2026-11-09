@@ -176,7 +176,12 @@ proves),
 `android_mocks.h` (forced into every unit), and `execinfo.h`, which shadows
 the NDK's header for the `<execinfo.h>` include upstream's `c47.h` makes on
 Linux: the NDK declares `backtrace()` only from API 33, above the app's
-`minSdk`, so the stub's `backtrace()` reports no frames.
+`minSdk`, so the stub's `backtrace()` reports no frames, and its
+`backtrace_symbols()` returns a real two-entry array, since upstream's
+`freeList.c` prints `strs[1]` whatever the frame count. `android_mocks.h` maps
+the GMP names the core uses onto mini-gmp's: `mpz_fits_uint_p` holds the 32-bit
+bound, and `mpz_div_2exp` floors, as GMP's obsolete name does.
+`run_native_stand_ins_contract.sh` holds them to GMP and glibc on boundary values.
 
 Each `sprintf` and `snprintf` form, the fortified `__sprintf_chk` family with them,
 goes to `r47zen/legacy_printf.c`, for Android 7.0 to 8.1 (API 24 to 27). Their

@@ -62,8 +62,10 @@
 
 // GMP names the staged core uses, mapped onto mini-gmp's. This is their one
 // definition: the app build and every host harness force-include this header.
-#define mpz_div_2exp mpz_tdiv_q_2exp
-#define mpz_fits_uint_p mpz_fits_ulong_p
+#define mpz_div_2exp mpz_fdiv_q_2exp
+static inline int mpz_fits_uint_p(mpz_srcptr value) {
+  return mpz_fits_ulong_p(value) && mpz_get_ui(value) <= 0xFFFFFFFFUL;
+}
 
 static inline void mpz_nextprime(mpz_ptr r, mpz_srcptr n) {
   mpz_add_ui(r, n, 1);
