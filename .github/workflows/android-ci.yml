@@ -446,6 +446,7 @@ jobs:
       release_tag: ${{ steps.meta.outputs.release_tag }}
       release_title: ${{ steps.meta.outputs.release_title }}
       upstream_version: ${{ steps.upstream.outputs.upstream_version }}
+      suite_arm64: ${{ steps.suite-arm64.outcome }}
     steps:
       - name: Configure Git init defaults
         shell: bash
@@ -918,6 +919,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # The package job builds the suite in a step that continues on error, so a
+      # failed build reaches here as no artifact: name it, not the download.
+      - name: Check that the package job built the suite
+        if: needs.android-build-test-package.outputs.suite_arm64 != 'success'
+        shell: bash
+        run: |
+          echo "::error::android-build-test-package did not build the arm64 suite; see its step \"Build upstream's suite for the app's arm64 target\"."
+          exit 1
 
       - name: Download upstream's suite for the app's arm64 target
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
