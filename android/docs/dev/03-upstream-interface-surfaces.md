@@ -20,7 +20,7 @@ verification surfaces.
 | --- | --- | --- | --- | --- |
 | calculator start and stop | `CalculatorEngine.start()` runs `runCalculatorNative()` on its thread; `stopCalculatorNative()`, `isReadyNative()`, `onHostStoppedNative()`, `setAutoSaveNative()` | `jni_registration.c` plus `jni_lifecycle.c` | `doFnReset()`, `restoreCalc()`, `fnTimerConfig(...)`, `mainLoop()`, `saveCalc()` | `r47_init_runtime()` publishes `r47_runtime_ready()` last, and the display copies return early until it is true; a later Activity's `start()` runs nothing native, so a recreated Activity neither redraws nor touches the packed snapshot |
 | key input | `sendKey()`, `cancelKey()`, `releaseKeyIfDown()`, `sendPcKeyNative()` | `jni_input.c`, `hal/keys.c`, and `pc_keyboard.c` | `key_pop()`, `keyPopForMainLoop()`, `keyDispatchHostEvent()`, `processKeyCode()`, `btnClicked()`, `runFunction()`, `processAimInput()` | any thread pushes; only the calculator thread pops; a press has to be released, since `wait_for_key_release(0)` holds the calculator thread until it is |
-| service requests | `pasteNumberNative()`, `graphGestureNative()`, `resetGraphNative()`, `copyRegistersNative()`, `saveStateNative()`, `switchSlotNative()` | `jni_input.c`, `jni_clipboard.c`, `jni_lifecycle.c`, and `host_services.c` | `processKeyAction(...)`, `showSoftmenu(...)`, `fnEqSolvGraph(...)`, `saveCalc()`, `restoreCalc()` | queued apart from the keys, run from `sys_sleep` at rest, and answered through an up-call; a full queue refuses |
+| service requests | `pasteNumberNative()`, `graphGestureNative()`, `resetGraphNative()`, `copyRegistersNative()`, `describeDisplayNative()`, `saveStateNative()` | `jni_input.c`, `jni_clipboard.c`, `jni_lifecycle.c`, and `host_services.c` | `processKeyAction(...)`, `showSoftmenu(...)`, `fnEqSolvGraph(...)`, `saveCalc()`, `restoreCalc()` | queued apart from the keys, run from `sys_sleep` at rest, and answered through an up-call; a full queue refuses |
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c`, `keypad_scene.c`, and `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, `publishedKeypadGeneration`, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; both copies read only what the calculator thread published, and exit early before `r47_runtime_ready()` and when their mutex is busy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `beginMainActivityKeySequence()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_settled()`, packed LCD snapshot state, READP or RUN | everything that touches core state runs on the calculator thread at rest, through `r47_run_at_rest`; lifecycle snapshot hashes ignore packed-row transport metadata so assertions compare visible LCD bytes only |
 | native to Kotlin up-calls | `requestFile()`, `playTone()`, `clearTones()`, `onFileWriteFailed()`, `onCalculatorOff()`, `onClipboardText()`, `setClipboardText()`, `onPasteResult()`, `onWarning()`, `onDisplayText()` | `jni_upcalls.c`, bound once in `JNI_OnLoad()` | `ioFileOpen(...)`, `_Buzz(...)`, `mainLoop()`, `guiSetClipboardText(...)`, `show_warning(...)` | static methods of `CalculatorEngine`, which outlives each Activity; the bound signatures and Kotlin methods must stay aligned (`test_jni_registration_contract.py`) |
@@ -94,9 +94,12 @@ flowchart LR
   for no save.
 - It runs at rest for the save service and the idle checkpoint; in
   a program's pause for a pending save, when the pause is a step boundary; in
-  `r47_calculator_main()` after the main loop; and before a picker in
-  `r47_save_before_picker()`. The last is the only one that can run inside a
-  computation.
+  `r47_calculator_main()` after the main loop; before a picker in
+  `r47_save_before_picker()`; and, once the host has stopped, at the next poll of a
+  computation or a running program for a pending save (`saveIfHostStopped` in
+  `key_empty()`), unless the core has a file open. The last two can run inside a
+  computation: the saved image then holds the run, which a restore clears, and
+  the blocks the computation held, which stay allocated until RESET.
 - `setAutoSaveNative(...)` passes the `auto_save_minimize` setting. With it off there
   is no idle checkpoint, no save before a picker, and no save after OFF, and
   `onHostStopped` checks the setting itself.
@@ -126,7 +129,7 @@ flowchart LR
 
 ## Input Dispatch Contract
 
-- Touch and PiP taps reach `CalculatorEngine.dispatchKey(...)`, physical-keyboard
+- Touch reaches `CalculatorEngine.dispatchKey(...)`, physical-keyboard
   keys reach `sendPcKeyNative(...)`, and both push onto one FIFO in `hal/keys.c`. No
   path runs core code on the caller's thread.
 - `sendKey(int)` is the key path, `r47_key_push` behind it: a press is `1..37` for

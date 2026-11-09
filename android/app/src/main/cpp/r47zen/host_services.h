@@ -83,9 +83,10 @@ bool r47_services_pending(void);
 bool r47_services_save_waiting(void);
 bool r47_services_autosave_enabled(void);
 
-// The calculator thread, in a program's pause: run a save that is waiting. A pause
-// is a step boundary, so the program's state is whole, unlike a poll in a computation.
-void r47_services_save_in_pause(void);
+// The calculator thread, away from rest: run a save that is waiting. hal/keys.c calls
+// it in a program's pause, a step boundary, and, for a stopped host only, at a poll
+// inside a computation or a running program, where the saved image holds the run.
+void r47_services_save_pending(void);
 
 // The calculator thread: how long until an idle checkpoint is due, or -1 for none.
 int r47_services_checkpoint_due_ms(bool hostStopped);
