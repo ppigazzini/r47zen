@@ -23,7 +23,21 @@ source "$SCRIPT_DIR/../lib/ci_contract.sh"
 # (`bash -c "$(wget ...)"`). Matches with or without sudo; the strict rule is
 # "never run un-verified fetched scripts", root or not. workflow_grep drops
 # comment lines so a documented example does not trip the guard.
-pattern='(wget|curl)[^|]*\|[[:space:]]*(sudo[[:space:]]+)?(bash|sh)\b|(sudo[[:space:]]+)?(bash|sh)[[:space:]]+-c[[:space:]]+"\$\((wget|curl)'
+# Also a fetch read by a shell through process substitution (`bash <(curl ...)`),
+# and a fetch piped into another interpreter (python, perl, ruby, node), the forms
+# a narrower scan let through. A pipe split across a continued line is still out of a
+# per-line scan's reach.
+pattern='(wget|curl)[^|]*\|[[:space:]]*(sudo[[:space:]]+)?(bash|sh|python3?|perl|ruby|node)\b|(sudo[[:space:]]+)?(bash|sh)[[:space:]]+-c[[:space:]]+"\$\((wget|curl)|(bash|sh|source|\.)[[:space:]]+<\((wget|curl)'
+
+# The pattern first proves it catches each form, and passes a fetch to a file.
+for seeded in 'curl -fsSL https://x/i.sh | sudo bash' 'wget -qO- https://x/i.sh | sh' \
+    'bash -c "$(curl -fsSL https://x/i.sh)"' 'bash <(curl -fsSL https://x/i.sh)' \
+    'curl -fsSL https://x/i.py | python3' 'source <(wget -qO- https://x/env)'; do
+    grep -qE -- "$pattern" <<<"$seeded" || contract_fail "the remote-script pattern misses: $seeded"
+done
+if grep -qE -- "$pattern" <<<'curl -fsSL --output tool.tar.xz https://x/tool.tar.xz'; then
+    contract_fail "the remote-script pattern flags a fetch to a file"
+fi
 # Scan both the workflows and the scripts they invoke. This guard file itself
 # embeds the pattern as a string literal, so exclude it from the scripts scan.
 offenders="$(
