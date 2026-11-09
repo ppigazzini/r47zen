@@ -53,7 +53,7 @@ class NativeDisplayRefreshLoopTest {
         assertEquals(0.4f, performanceSnapshot.averageLcdUpdateMillis)
         assertEquals(3, performanceSnapshot.lcdUpdateSamples)
         assertEquals(
-            "UI 6.0 Hz | LCD 6.0 Hz | DR 0% | Copy 0.4 ms",
+            "UI 6.0 Hz | LCD 6.0 Hz | DR 0% | Upd 0.4 ms",
             performanceSnapshot.overlayLabel(),
         )
     }
@@ -170,7 +170,7 @@ class NativeDisplayRefreshLoopTest {
         assertEquals(1, performanceSnapshots.size)
         val performanceSnapshot = performanceSnapshots.single()
         assertEquals(2f * 100f / 240f, performanceSnapshot.averageDirtyRowsPercent, 0.001f)
-        assertEquals("Copy --", DeveloperPerformanceSnapshot.EMPTY.overlayLabel().takeLast(7))
+        assertEquals("Upd --", DeveloperPerformanceSnapshot.EMPTY.overlayLabel().takeLast(6))
         assertEquals("DR 1%", performanceSnapshot.overlayLabel().split(" | ")[2])
     }
 

@@ -17,7 +17,7 @@ contract-to-regression map that proves these loops.
 | direct-stop refresh finalization | after live `R/S` or `EXIT` publishes stop during RUN or PAUSE, native code marks a pending stop-refresh request and the next `tick()` or `yieldToAndroidWithMs()` consumes it under `screenMutex` | `jni_input.c`, `jni_lifecycle.c`, `android_runtime.c` | this is the display-plane path that makes the first stop look finished instead of waiting for a second key press or explicit refresh | if `SCRUPD_AUTO` or `reDraw` is not rearmed here, graph pixels and post-stop text can mix on the first stop |
 | native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms, one byte test for a finished `SNAP`, then returns the next wake delay | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle; a finished `SNAP`, even one from a long-held `EXIT`, parks this tick on the save picker, as any file request parks the core, and the pause-side save waits behind it |
 | frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad snapshots refresh every 500 ms or on generation change | `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | breaking generation or busy-copy handling can regress to stale or blocking keypad refreshes |
-| packed LCD row decode | each accepted LCD update copies only dirty packed rows, decodes them to the bitmap, and requests one redraw of the overlay | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
+| packed LCD row decode | each accepted LCD update copies every packed row, decodes the flagged ones to the bitmap, and requests one redraw of the overlay | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
 | keypad scene apply | scene changes update all live key views, invalidate per-key specs, and may request layout | `ReplicaOverlayController.kt`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt` | keypad labels, render specs, and layout are the largest recurring view updates outside the LCD | bypassing the refresh gate or forcing layout or invalidation on unchanged scenes creates churn |
 | lifecycle save and explicit refresh | background save waits on the core thread; explicit redraw remains opt-in for real state changes | `NativeCoreRuntime.kt`, `MainActivity.kt`, `jni_lifecycle.c` | lifecycle callbacks are easy places to hide destructive redraw work | synthetic redraws during passive save or resume mutate the LCD without a real calculator transition |
 | yield and SAF I/O boundary | long native waits release `screenMutex`, service Android work, and reacquire the recursive lock | `android_runtime.c`, `jni_storage.c`, `hal/io.c` | this is the most sensitive re-entrancy boundary in the bridge | deadlock, input races, or missed wakeups stall the app |
@@ -130,10 +130,12 @@ Changes here affect the full runtime even when the Android UI code is untouched.
   window, normalized by the `240` LCD rows and shown as a percent. Native flags
   only rows whose pixels changed, so `DR` measures real repaint, not how many
   rows the core rewrote.
-- `Copy` is the average successful packed-buffer copy duration for those
-  accepted snapshots in the same window.
+- `Upd` is the average time of one accepted LCD update in the same window:
+  the packed-buffer copy, the HUD's own dirty-row count, the decode of the
+  flagged rows into the bitmap, and the redraw request. The copy alone is not
+  timed apart.
 - If a sample window finishes with no accepted packed copy, the HUD leaves
-  `DR` and `Copy` blank instead of synthesizing zeros. Disabling the HUD or
+  `DR` and `Upd` blank instead of synthesizing zeros. Disabling the HUD or
   changing the configured window resets the active sample window.
 - The loop reads `getKeypadSnapshotGeneration()` and refreshes keypad state
   only when the generation changed or more than 500 ms passed since

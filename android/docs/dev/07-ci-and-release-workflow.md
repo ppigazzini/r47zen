@@ -109,8 +109,11 @@ upstream commit and applies a release gate:
 - `upstream-release-gate` computes the downstream Android prerelease tag from
   the resolved upstream commit plus the current Android repository commit, then
   decides whether the heavy lanes run:
-  - a `push` moves the Android commit and a `workflow_dispatch` is an explicit
-    rebuild request, so both always proceed
+  - a `workflow_dispatch` is an explicit rebuild request and always proceeds
+  - a `push` usually moves the Android commit, and with it the tag, so it
+    proceeds; but a push at a commit pair already published, such as
+    `github_ci` pushed at a commit `main` published, skips the heavy lanes and
+    `ci-required` reports it green. Dispatch to run them again
   - a `schedule` run proceeds only when no GitHub release exists yet for the
     computed `release_tag`. Because the tag is keyed on the resolved upstream
     short commit and the Android overlay short commit, an unchanged upstream and

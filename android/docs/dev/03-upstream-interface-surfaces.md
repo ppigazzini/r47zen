@@ -247,10 +247,9 @@ flowchart LR
   a result or a cancel (`NativeFileRequestGateTest`). The launch hands control to
   `StorageAccessCoordinator`, which owns the SAF launcher registration and hands
   the picked document to `DocumentTransfer` (see
-  [04](04-native-core-and-jni.md#file-io-boundary)). The same coordinator also owns the
-  first-run welcome-dialog handoff into the direct work-directory tree picker
-  and the missing-directory recovery picker path, while `SettingsActivity`
-  remains the explicit manual work-directory surface.
+  [04](04-native-core-and-jni.md#file-io-boundary)). The work directory itself is
+  chosen only in `SettingsActivity`; a request whose stored tree the app cannot
+  reach opens its picker with no start folder.
 
 These callbacks are part of the interface contract, not optional convenience
 hooks. If their names or signatures drift, the bridge loses storage, tone, or
@@ -287,10 +286,9 @@ yield behavior.
 - The base path configured by `nativePreInit(...)` and the SAF work-directory
   URI owned by `WorkDirectory` are separate contracts. The docs and code must
   keep them separate.
-- The startup and missing-directory work-directory tree picker route stays on
-  the Kotlin side in `StorageAccessCoordinator` and `WorkDirectory`; it does
-  not cross the native bridge unless a later file open request reaches the
-  SAF seam.
+- Choosing the work-directory tree stays on the Kotlin side, in
+  `SettingsActivity` and `WorkDirectory`; it does not cross the native bridge
+  unless a later file open request reaches the SAF seam.
 
 ## Event-Loop Compatibility Contract
 
