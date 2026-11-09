@@ -31,6 +31,7 @@ from r47_contracts.upstream_provenance import (
     coverage_failures,
     declared_upstream_inputs,
     drift_failures,
+    drift_verdict,
     evaluate,
     golden_derivers,
     input_surfaces,
@@ -366,6 +367,48 @@ class RecordIfUnaffectedTest(unittest.TestCase):
         )
         _assert_equal(refusal, None)
         _assert_equal(ran, [[_GUARD, other_guard]])
+
+
+class DriftVerdictTest(unittest.TestCase):
+    """Verify --classify-drift tells a harmless move from one that matters.
+
+    The DRIFT line prints on most runs, since upstream moves daily; the verdict
+    is what makes a move that changed a golden stand out.
+    """
+
+    def test_no_drift_has_no_verdict(self) -> None:
+        """With nothing moved there is nothing to judge, and nothing runs."""
+        verdict = drift_verdict(
+            [],
+            golden_changed=_never_called,
+            contracts_pass=_never_called,
+            derivation_mismatch=_never_called_reason,
+        )
+        _assert_equal(verdict, "")
+
+    def test_a_harmless_move_says_the_goldens_are_unaffected(self) -> None:
+        """Unchanged goldens and passing guards read as unaffected."""
+        verdict = drift_verdict(
+            [_moved("src/c47/items.c", [_GOLDEN, _GUARD])],
+            golden_changed=lambda _: False,
+            contracts_pass=lambda _: True,
+            derivation_mismatch=lambda _: None,
+        )
+        if "goldens unaffected" not in verdict:
+            message = f"a harmless move should read as unaffected: {verdict!r}"
+            raise AssertionError(message)
+
+    def test_a_move_that_changes_a_golden_names_it(self) -> None:
+        """A move its deriver would turn into a new golden reads as mattering."""
+        verdict = drift_verdict(
+            [_moved("res/fonts/C47__StandardFont.ttf", [_GOLDEN, _GUARD])],
+            golden_changed=lambda _: False,
+            contracts_pass=_never_called,
+            derivation_mismatch=lambda path: f"{path} differs from its derivation",
+        )
+        if "matters" not in verdict or _GOLDEN not in verdict:
+            message = f"a move that changes {_GOLDEN} should say so: {verdict!r}"
+            raise AssertionError(message)
 
 
 if __name__ == "__main__":

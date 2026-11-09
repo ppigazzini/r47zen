@@ -291,6 +291,11 @@ Two findings, gated differently on purpose:
 # report drift and coverage (exit 0); the contract suite runs this last
 PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance
 
+# the same, with the verdict on any drift: goldens unaffected, or what changed;
+# runs the derivers and guarding tests, writes nothing; android-ci's summary
+PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance \
+    --classify-drift
+
 # re-record in the commit that re-blesses a golden - a deliberate act; refuses
 # while a golden is not what its deriver makes of the tree
 PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance \
@@ -313,8 +318,12 @@ golden, as the font guard passes a gained code point. And it refuses when a test
 module guarding a moved input fails. When it records, it prints each moved input
 with the goldens it found unchanged and the tests it ran. Without it the same
 `moved` lines print on every run until a real change arrives, and that change
-then looks like the others. `--check-drift` exits non-zero on drift for
-deliberate maintainer use; do not gate a lane on it.
+then looks like the others. `--classify-drift` makes the same judgment and
+writes nothing, so android-ci's job summary ends a drift report with
+"moved, goldens unaffected" or "moved, and it matters" and the reason; a move
+that changes a golden stands out without anyone re-recording.
+`--check-drift` exits non-zero on drift for deliberate maintainer use; do not
+gate a lane on it.
 
 ## Android JVM Contract Suite
 

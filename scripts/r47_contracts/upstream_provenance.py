@@ -396,6 +396,35 @@ def unaffected_record_refusal(
     return None
 
 
+def drift_verdict(
+    findings: Sequence[Finding],
+    *,
+    golden_changed: Callable[[str], bool],
+    contracts_pass: Callable[[Sequence[str]], bool],
+    derivation_mismatch: Callable[[str], str | None],
+) -> str:
+    """Say whether the moved inputs changed a golden, or an empty string for none.
+
+    Upstream moves most days, so the DRIFT line alone prints on most runs and a
+    move that changes a golden looks like the rest. This is the judgment
+    --record-if-unaffected makes before it writes, without the write.
+    """
+    if not drift_failures(findings):
+        return ""
+    refusal = unaffected_record_refusal(
+        findings,
+        golden_changed=golden_changed,
+        contracts_pass=contracts_pass,
+        derivation_mismatch=derivation_mismatch,
+    )
+    if refusal is None:
+        return (
+            "  VERDICT: moved, goldens unaffected; --record-if-unaffected would"
+            " re-record the ledger."
+        )
+    return f"  VERDICT: moved, and it matters: {refusal}."
+
+
 def _golden_differs_from_head(path: str) -> bool:
     git = shutil.which("git")
     if git is None:
@@ -545,6 +574,15 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--classify-drift",
+        action="store_true",
+        help=(
+            "After the report, say whether the drift changed a golden: the "
+            "judgment of --record-if-unaffected, which runs the derivers and the "
+            "guarding test modules, without writing the ledger."
+        ),
+    )
+    parser.add_argument(
         "--check-drift",
         action="store_true",
         help=(
@@ -591,6 +629,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     ledger = load_ledger()
     findings = evaluate(ledger)
     sys.stdout.write(format_report(ledger, findings))
+    if args.classify_drift and (
+        verdict := drift_verdict(
+            findings,
+            golden_changed=_golden_differs_from_head,
+            contracts_pass=_run_test_modules,
+            derivation_mismatch=derivation_mismatch,
+        )
+    ):
+        sys.stdout.write(verdict + "\n")
 
     if args.check_coverage and coverage_failures(findings):
         return 1

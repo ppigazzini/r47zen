@@ -407,7 +407,9 @@ jobs:
       # gate on it would paint the lane red for doing exactly what it is
       # supposed to do. Surfacing it in the job summary instead means an
       # upstream advance that moves a derived golden is visible at a glance
-      # rather than buried in the suite log.
+      # rather than buried in the suite log. Since upstream moves most days,
+      # --classify-drift adds the verdict that tells such an advance from the
+      # rest: goldens unaffected, or what it changed.
       - name: Summarize upstream provenance drift
         if: always()
         shell: bash
@@ -415,7 +417,7 @@ jobs:
           set -euo pipefail
 
           export PYTHONPATH="${PWD}/scripts"
-          report="$(uv run --locked --group dev python -m r47_contracts.upstream_provenance || true)"
+          report="$(uv run --locked --group dev python -m r47_contracts.upstream_provenance --classify-drift || true)"
 
           {
             echo "## Upstream provenance"

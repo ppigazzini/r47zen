@@ -351,8 +351,9 @@ suite disagreeing about which upstream inputs exist - is already a hard failure
 inside the suite through `test_upstream_provenance_contract.py`. What is left is
 drift, and this lane resolves upstream HEAD on every run, so drift is the normal
 state; gating on it would paint the lane red for working as designed. Putting it
-in the job summary means an upstream advance that moves a derived golden is
-visible at a glance instead of buried in the suite log. See
+in the job summary, with `--classify-drift`'s verdict, means an upstream advance
+that moves a derived golden is visible at a glance, apart from the daily moves
+that change none, instead of buried in the suite log. See
 [08-tests-and-contracts.md](08-tests-and-contracts.md) for the ledger itself.
 
 ### `android-build-test-package`
