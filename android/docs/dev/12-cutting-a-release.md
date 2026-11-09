@@ -95,6 +95,7 @@ flowchart TD
   F[verify-signed-artifacts]
   G[publish-production-release]
   H[upload-to-play<br/>skipped with play_track none]
+  S[package-core-source]
 
   A --> C
   B --> C
@@ -102,6 +103,9 @@ flowchart TD
   B --> D
   C --> D
   C --> E --> F --> G
+  A --> S
+  B --> S
+  S --> G
   D --> G
   G --> H
 ```
