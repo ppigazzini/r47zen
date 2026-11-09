@@ -19,7 +19,13 @@
 # after it returns, so an entry holds only what sdkmanager installed. The plain
 # actions/cache action saves at the end of the job, after that code ran, so it
 # must not come back, and each save must name the paths and key of the restore
-# whose miss it follows, or it writes an entry no restore reads. Pure host test,
+# whose miss it follows, or it writes an entry no restore reads. The same holds
+# for every composite under .github/actions, the xlsxio one included.
+#
+# The release lane restores no entry a job could have written after running the
+# upstream core, and saves none: android-release.yml uses neither actions/cache
+# nor actions/cache/save, and passes cache: 'false' to every xlsxio setup, so a
+# hostile commit cannot plant what a later release runs. Pure host test,
 # no SDK needed.
 
 set -Eeuo pipefail
@@ -258,5 +264,33 @@ sed '$ s/-v4$/-v5/' "$fixture_dir/mirrored-save.yml" >"$fixture_dir/drifted-save
 save_gaps="$(find_save_mismatches "$ACTION_FILE")"
 [ -z "$save_gaps" ] ||
     contract_fail "setup-android-sdk saves a cache entry no restore reads:" "$save_gaps"
+
+# The same rule for every composite: none uses the post-job actions/cache, and the
+# xlsxio one saves right after its build, under its restore's key.
+for action in "$PROJECT_ROOT"/.github/actions/*/action.yml; do
+    if grep -qE 'uses:[[:space:]]*actions/cache@' <<<"$(strip_hash_comments <"$action")"; then
+        contract_fail "${action#"$PROJECT_ROOT/"} uses actions/cache, which saves after the job's upstream steps ran; restore and save explicitly instead"
+    fi
+done
+XLSXIO_ACTION="$PROJECT_ROOT/.github/actions/setup-xlsxio-toolchain/action.yml"
+xlsxio_gaps="$(find_save_mismatches "$XLSXIO_ACTION")"
+[ -z "$xlsxio_gaps" ] ||
+    contract_fail "setup-xlsxio-toolchain saves a cache entry no restore reads:" "$xlsxio_gaps"
+
+# The release lane restores no cache a job running the upstream core wrote, and
+# saves none: no actions/cache, no actions/cache/save, and the xlsxio composite
+# told to build from source in every job that uses it.
+release_live="$(strip_hash_comments <"$WORKFLOW_DIR/android-release.yml")"
+if grep -qE 'uses:[[:space:]]*actions/cache(/save)?@' <<<"$release_live"; then
+    contract_fail "android-release.yml saves an Actions cache; the release lane only restores the SDK and AVD entries"
+fi
+xlsxio_uses="$(grep -cE 'uses:[[:space:]]*\./\.github/actions/setup-xlsxio-toolchain' <<<"$release_live" || true)"
+xlsxio_off="$(awk '/uses:[[:space:]]*\.\/\.github\/actions\/setup-xlsxio-toolchain/ { inuse = 1; next }
+    inuse && /^      - / { inuse = 0 }
+    inuse && /cache: .false./ { off++ }
+    END { print off + 0 }' <<<"$release_live")"
+if [ "$xlsxio_uses" -eq 0 ] || [ "$xlsxio_uses" != "$xlsxio_off" ]; then
+    contract_fail "android-release.yml sets up xlsxio $xlsxio_uses time(s), $xlsxio_off of them with cache: 'false'"
+fi
 
 contract_pass "Android SDK setup is centralized in the setup-android-sdk composite action, each cache key covers every input its install step reads, and each save mirrors its restore inside the action."
