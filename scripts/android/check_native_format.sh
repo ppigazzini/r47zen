@@ -7,6 +7,8 @@
 # upstream owns its style.
 #
 # Needs the Android SDK with the pinned NDK (ANDROID_SDK_ROOT or ANDROID_HOME).
+# --hook, the pre-commit hook's mode, skips with a message when that NDK is not
+# there, so a contributor without it can commit; CI's step still fails.
 
 set -Eeuo pipefail
 
@@ -19,17 +21,28 @@ fail() {
 }
 
 mode=(--dry-run --Werror)
+hook=false
 case "${1:-}" in
     --fix) mode=(-i) ;;
+    --hook) hook=true ;;
     '') ;;
-    *) fail "usage: $0 [--fix]" ;;
+    *) fail "usage: $0 [--fix | --hook]" ;;
 esac
 
+no_toolchain() {
+    if [ "$hook" = true ]; then
+        echo "SKIP: $* The native format check runs in CI." >&2
+        exit 0
+    fi
+    fail "$*"
+}
+
 sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-[ -n "$sdk_root" ] || fail "ANDROID_SDK_ROOT or ANDROID_HOME must name the Android SDK."
-ndk_version="$(bash "$SCRIPT_DIR/resolve_android_ndk_version.sh")"
+[ -n "$sdk_root" ] || no_toolchain "ANDROID_SDK_ROOT or ANDROID_HOME must name the Android SDK."
+ndk_version="$(bash "$SCRIPT_DIR/resolve_android_ndk_version.sh" 2>/dev/null || true)"
+[ -n "$ndk_version" ] || no_toolchain "no installed NDK resolves."
 clang_format="$sdk_root/ndk/$ndk_version/toolchains/llvm/prebuilt/linux-x86_64/bin/clang-format"
-[ -x "$clang_format" ] || fail "no clang-format in NDK $ndk_version: $clang_format"
+[ -x "$clang_format" ] || no_toolchain "no clang-format in NDK $ndk_version: $clang_format"
 
 cd "$PROJECT_ROOT"
 mapfile -t files < <(git ls-files 'android/app/src/main/cpp/r47zen/*.c' 'android/app/src/main/cpp/r47zen/*.h')

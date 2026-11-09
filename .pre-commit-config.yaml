@@ -97,6 +97,15 @@ repos:
         language: script
         files: ^(\.github/|scripts/|android/|\.pre-commit-config\.yaml$|pyproject\.toml$|uv\.lock$|README\.md$)
         pass_filenames: false
+      - id: native-format
+        # The glue's clang-format check, which CI runs before its build: a one-line
+        # slip otherwise costs a red run. Same NDK clang-format as CI; with
+        # no NDK here it skips with a message, and CI still fails.
+        name: native glue clang-format
+        entry: scripts/android/check_native_format.sh --hook
+        language: script
+        files: ^android/app/src/main/cpp/r47zen/.*\.(c|h)$
+        pass_filenames: false
       - id: restore-boundary
         # Every tracked root entry, file or directory, must be in upstream.sh's
         # restore set, or the next sync replaces it with upstream's copy. The
