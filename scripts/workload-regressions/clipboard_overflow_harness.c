@@ -145,7 +145,13 @@ static void program_listing(char *out, size_t size) {
        !(step[0] == 255 && step[1] == 255);
        step = findNextStep(step)) {
     decodeOneStep(step);
-    used += (size_t)snprintf(out + used, size - used, "[%s]", tmpString);
+    // snprintf returns the length it wanted, so a cut write would carry used past
+    // the buffer: a failed or cut step ends the listing instead.
+    int written = snprintf(out + used, size - used, "[%s]", tmpString);
+    if (written < 0 || (size_t)written >= size - used) {
+      break;
+    }
+    used += (size_t)written;
   }
 }
 
