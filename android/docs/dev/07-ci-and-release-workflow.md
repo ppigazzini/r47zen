@@ -343,6 +343,15 @@ present, verifying metadata, SHA-256, and loosened by no property, workflow, or
 script. Robolectric's `android-all` jars are fetched by Robolectric at test
 time, not by Gradle, so they are outside it.
 
+`android/settings.gradle` also takes Google's namespaces, `androidx`,
+`com.android`, `com.google.android`, and `com.google.testing.platform`, from
+Google's repository alone, through `exclusiveContent` in both its plugin and its
+dependency repositories. A plain `content {}` filter is not exclusive: a
+group Google misses would still fall through to Maven Central or the Plugin Portal,
+where a same-coordinate artifact would be taken. Gradle then refuses any
+repository a build script adds, so the root `buildscript` names none and takes the
+Kotlin Gradle plugin from the plugin repositories.
+
 ## Job graph
 
 ### `upstream-simulator-sanity`
