@@ -351,8 +351,16 @@ Public maintainer entrypoints:
   the repo `./gradlew` launcher backed by the tracked wrapper runtime under
   `android/gradle/wrapper/`. Missing wrapper files are a repo-integrity
   failure, not a signal to fall back to host Gradle. It
-  also exposes `--doctor` for SDK, NDK, CMake, xlsxio, upstream-lock, and
-  staged-input plus font-source status, `--run-sim-tests` to run upstream's
+  also exposes `--doctor`, which reports every row and exits 1 when the host
+  lacks what the build cannot provide: the build JDK, the SDK platform and
+  build tools, the NDK (a missing one on its row, not a stop before the report;
+  another installed one warns that it is not the pin), CMake at the pinned
+  version (a `cmake` on `PATH` of another version fails AGP, so it fails the
+  row), `meson`, `ninja`, `python3`, `pkg-config`, and the GTK 3, FreeType, and
+  GMP packages upstream's Meson requires, which
+  `scripts/android/install_linux_build_deps.sh` installs on Debian or Ubuntu.
+  xlsxio, the font source, and the staged inputs, which a full build provides,
+  report without failing. Beside it come `--run-sim-tests` to run upstream's
   stock suite from the full build, through
   `scripts/android/build_sim_assets.sh --run-tests` (the suite on the app's own
   configuration is `run_upstream_suite_android_config.sh`), and `--android-only` for
@@ -625,8 +633,10 @@ Build-safety rule:
 Use this order for the local maintainer flow the repo expects from a clean
 shell:
 
-1. Run `./scripts/android/build_android.sh --doctor` to confirm SDK, NDK, CMake,
-   font-source, and staged-input readiness.
+1. Run `./scripts/android/build_android.sh --doctor` to confirm the JDK, SDK,
+   NDK, CMake, and the host tools and libraries upstream's Meson needs; on
+   Debian or Ubuntu, `bash scripts/android/install_linux_build_deps.sh`
+   installs the host packages it names.
 2. Run `./scripts/upstream-sync/upstream.sh sync --latest --write-lock` to
   hydrate the authoritative upstream core at upstream HEAD,
    the upstream-shaped root build inputs, and the canonical calculator font

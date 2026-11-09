@@ -50,8 +50,11 @@ decNumber, mini-gmp, xlsxio, and the AndroidX libraries.
 
 ## Quick Start
 
-Prerequisites: a JDK, the Android SDK and NDK, CMake, Meson/Ninja, and `uv`
-for the Python contract lane. Rather than list exact versions here (they live in
+Prerequisites: a JDK, the Android SDK and NDK, CMake, Meson/Ninja, `pkg-config`
+with the GTK 3, FreeType, and GMP development packages that upstream's Meson
+build requires, and `uv` for the Python contract lane. On Debian or Ubuntu,
+`bash scripts/android/install_linux_build_deps.sh` installs the host packages.
+Rather than list exact versions here (they live in
 `android/r47-defaults.properties`), probe your machine and let the build report
 what is missing:
 

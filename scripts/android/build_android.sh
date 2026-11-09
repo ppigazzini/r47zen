@@ -69,7 +69,8 @@ Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--run-sim
 
 Modes:
     --android-only         Rebuild only the Android module after confirming staged native inputs are current.
-    --doctor               Print SDK, NDK, CMake, xlsxio, upstream lock, and staged-input status.
+    --doctor               Report the JDK, SDK, NDK, CMake, host tools and libraries, xlsxio,
+                           upstream lock, and staged inputs; exit 1 on what the build cannot provide.
     --run-sim-tests        Run the simulator/native Meson test suite from the Android full-build path.
     --collect-host-pgo     Collect a host-core PGO profile through the Android build wrapper.
     --validate-release-pgo Validate :app:externalNativeBuildRelease against a collected or provided .profdata file.
@@ -769,36 +770,74 @@ print_doctor_report() {
         doctor_failed=true
     fi
 
-    if [ -n "$IF_NDK_VERSION" ] && [ -d "$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION" ]; then
+    # The NDK the build resolved, against the pin CI and releases build with. An
+    # unpinned local build may fall back to another installed NDK, so a
+    # different one warns rather than fails.
+    local ndk_pin="${R47_NDK_VERSION:-$R47_DEFAULT_ANDROID_NDK_VERSION}"
+    if [ -z "$IF_NDK_VERSION" ]; then
+        print_doctor_line "ndk" "missing (wanted $ndk_pin under $ANDROID_SDK_ROOT/ndk)"
+        doctor_failed=true
+    elif [ "$IF_NDK_VERSION" = "$ndk_pin" ]; then
         print_doctor_line "ndk" "$IF_NDK_VERSION present"
     else
-        print_doctor_line "ndk" "$IF_NDK_VERSION missing"
-        doctor_failed=true
+        print_doctor_line "ndk" "$IF_NDK_VERSION present; WARNING: not the pinned $ndk_pin that CI and releases build with"
     fi
 
-    if [ -n "${R47_CMAKE_BIN:-}" ]; then
-        cmake_status="$R47_CMAKE_BIN"
+    # AGP asks for exactly R47_CMAKE_VERSION: the SDK's cmake/<version>, or a
+    # cmake on PATH that reports that version. Any other version fails the
+    # native build, whatever cmake the host has.
+    local path_cmake_version=""
+    if command -v cmake >/dev/null 2>&1; then
+        path_cmake_version="$(cmake --version 2>/dev/null | sed -n '1s/^cmake version //p' || true)"
+    fi
+    if [ -x "$ANDROID_SDK_ROOT/cmake/$R47_CMAKE_VERSION/bin/cmake" ]; then
+        cmake_status="$R47_CMAKE_VERSION present ($ANDROID_SDK_ROOT/cmake/$R47_CMAKE_VERSION)"
+    elif [ "$path_cmake_version" = "$R47_CMAKE_VERSION" ]; then
+        cmake_status="$R47_CMAKE_VERSION present ($(command -v cmake))"
     else
-        cmake_status="missing (wanted $R47_CMAKE_VERSION)"
+        cmake_status="missing: the build wants $R47_CMAKE_VERSION${path_cmake_version:+; the cmake on PATH is $path_cmake_version}"
         doctor_failed=true
     fi
     print_doctor_line "cmake" "$cmake_status"
 
+    # What build_sim_assets.sh needs to configure and build build.sim with
+    # upstream's Meson, from which the build stages its native inputs:
+    # meson.build requires freetype2, gtk+-3.0, and gmp.
+    local host_tool="" host_lib="" missing_libs=""
+    for host_tool in meson ninja python3 pkg-config; do
+        if command -v "$host_tool" >/dev/null 2>&1; then
+            print_doctor_line "$host_tool" "present ($(command -v "$host_tool"))"
+        else
+            print_doctor_line "$host_tool" "missing; on Debian or Ubuntu, bash scripts/android/install_linux_build_deps.sh installs it"
+            doctor_failed=true
+        fi
+    done
+    if command -v pkg-config >/dev/null 2>&1; then
+        for host_lib in gtk+-3.0 freetype2 gmp; do
+            pkg-config --exists "$host_lib" || missing_libs="$missing_libs $host_lib"
+        done
+        if [ -z "$missing_libs" ]; then
+            print_doctor_line "host libraries" "gtk+-3.0, freetype2, and gmp present"
+        else
+            print_doctor_line "host libraries" "missing:$missing_libs; on Debian or Ubuntu, bash scripts/android/install_linux_build_deps.sh installs them"
+            doctor_failed=true
+        fi
+    fi
+
+    # Rows below the build provides itself: they report, and do not fail.
     if command -v xlsxio_xlsx2csv >/dev/null 2>&1; then
         xlsxio_status="ready on PATH ($(command -v xlsxio_xlsx2csv))"
     elif [ -x "$xlsxio_cached_path" ]; then
         xlsxio_status="cached at $xlsxio_cached_path"
     else
-        xlsxio_status="missing (want $R47_XLSXIO_COMMIT from $R47_XLSXIO_URL)"
-        doctor_failed=true
+        xlsxio_status="not built yet; a full build builds $R47_XLSXIO_COMMIT from $R47_XLSXIO_URL"
     fi
     print_doctor_line "xlsxio" "$xlsxio_status"
 
     if font_source_dir=$(resolve_font_source_dir); then
         font_source_status="canonical root at $font_source_dir"
     else
-        font_source_status="missing (need canonical $PROJECT_ROOT/res/fonts from authoritative upstream)"
-        doctor_failed=true
+        font_source_status="not hydrated yet; a full build syncs $PROJECT_ROOT/res/fonts from upstream"
     fi
     print_doctor_line "font source" "$font_source_status"
 
@@ -837,17 +876,14 @@ print_doctor_report() {
             if [ -n "$staged_fingerprint" ] && [ "$staged_fingerprint" = "$current_fingerprint" ]; then
                 print_doctor_line "staged inputs" "current${stage_core_version:+ (core $stage_core_version)}"
             else
-                print_doctor_line "staged inputs" "stale${stage_core_version:+ (last core $stage_core_version)}"
-                doctor_failed=true
+                print_doctor_line "staged inputs" "stale${stage_core_version:+ (last core $stage_core_version)}; a full build re-stages them"
             fi
         else
-            print_doctor_line "staged inputs" "cannot verify current canonical inputs"
-            doctor_failed=true
+            print_doctor_line "staged inputs" "cannot verify against the canonical inputs; a full build re-stages them"
         fi
         rm -f "$current_inputs_file"
     else
-        print_doctor_line "staged inputs" "missing ($STAGED_INPUTS_FILE)"
-        doctor_failed=true
+        print_doctor_line "staged inputs" "not staged yet; a full build stages $STAGED_INPUTS_FILE"
     fi
 
     legacy_cpp_paths=$(find_present_retired_legacy_cpp_paths)
@@ -878,9 +914,12 @@ R47_CMAKE_VERSION=${R47_CMAKE_VERSION:-$R47_DEFAULT_ANDROID_CMAKE_VERSION}
 # present: resolve_android_ndk_version.sh fails rather than silently falling back
 # to a different installed toolchain, which would build a release against an
 # unpinned NDK. Unpinned local builds may still fall back to the newest NDK.
-IF_NDK_VERSION="$(bash "$ANDROID_SCRIPTS_DIR/resolve_android_ndk_version.sh")" ||
-    fail "Unable to resolve a usable Android NDK (see the message above)."
-echo "Using NDK version: $IF_NDK_VERSION"
+# The doctor reports a missing NDK on its row instead of stopping here.
+if ! IF_NDK_VERSION="$(bash "$ANDROID_SCRIPTS_DIR/resolve_android_ndk_version.sh")"; then
+    [ "$DOCTOR_MODE" = true ] || fail "Unable to resolve a usable Android NDK (see the message above)."
+    IF_NDK_VERSION=""
+fi
+[ -z "$IF_NDK_VERSION" ] || echo "Using NDK version: $IF_NDK_VERSION"
 export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION"
 
 export ANDROID_HOME="$ANDROID_SDK_ROOT"
