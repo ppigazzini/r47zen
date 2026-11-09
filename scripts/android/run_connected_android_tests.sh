@@ -92,6 +92,20 @@ sanitize_label() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-'
 }
 
+# The connected device's API level, or nothing when adb does not say.
+device_api_level() {
+    adb shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r' | grep -E '^[0-9]+$' || true
+}
+
+# The minSdkVersion a test class's @SdkSuppress sets, or nothing. On a device below
+# it AndroidJUnitRunner runs none of the class's tests, which is no broken filter,
+# as on the minSdk row for a class whose floor is above it.
+class_sdk_floor() {
+    local source="$ANDROID_DIR/app/src/androidTest/java/${1//.//}.kt"
+    [[ -f "$source" ]] || return 0
+    sed -n 's/^@SdkSuppress(minSdkVersion = \([0-9]\{1,\}\))$/\1/p' "$source" | head -n 1
+}
+
 selection_requires_timeout_failure() {
     local selection_name="$1"
     local required_selection
@@ -284,9 +298,15 @@ done
 
 cd "$ANDROID_DIR"
 rm -rf "$SELECTION_RESULTS_ROOT"
+DEVICE_API_LEVEL="$(device_api_level)"
 
 for selection_spec in "${TEST_SELECTION_SPECS[@]}"; do
     IFS='|' read -r selection_name selection_filter timeout_duration kill_after <<<"$selection_spec"
+    sdk_floor="$(class_sdk_floor "$selection_filter")"
+    if [[ -n "$sdk_floor" && -n "$DEVICE_API_LEVEL" && "$DEVICE_API_LEVEL" -lt "$sdk_floor" ]]; then
+        echo "INFO: connected selection $selection_name skipped: $selection_filter needs API $sdk_floor (@SdkSuppress), the device runs $DEVICE_API_LEVEL" >&2
+        continue
+    fi
     log_file="$LOG_DIR/android-connected-$(sanitize_label "$selection_name").log"
     selection_results="$SELECTION_RESULTS_ROOT/$(sanitize_label "$selection_name")"
 
