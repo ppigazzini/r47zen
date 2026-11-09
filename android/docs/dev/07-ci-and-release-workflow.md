@@ -930,6 +930,14 @@ This workflow job:
   `R47 Zen <version>`
 - attaches the signed installable APK, the signed Play upload AAB, and both
   packaging-evidence archives to that GitHub release
+- on an `allow_overwrite` re-cut, then removes from the tag every file the
+  upload did not write, through `scripts/android/stale_release_assets.sh`: each
+  file is named after both commits and the overwrite replaces only a file of the
+  same name, so the first cut's four files would stay beside the new ones and
+  the next release would refuse two evidence archives. It removes nothing unless
+  the release holds every file just uploaded, and never before the upload, so a
+  failed upload leaves the first cut whole. The tag stays on the first cut's
+  commit; the release records the new one
 - hands the signed AAB to [`upload-to-play`](#upload-to-play), which sends it
   to the selected Play track
 - writes release notes that state what was checked against which bytes: the

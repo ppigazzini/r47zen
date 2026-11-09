@@ -36,6 +36,7 @@ CONTRACTS=(
     run_log_upload_contract.sh
     run_compliance_assets_contract.sh
     run_dependency_verification_contract.sh
+    run_stale_release_assets_contract.sh
     run_release_provenance_contract.sh
     run_privileged_remote_script_contract.sh
     run_llvm_toolchain_install_contract.sh

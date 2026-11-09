@@ -1293,7 +1293,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          sparse-checkout: scripts/android/read_build_metadata.sh
+          sparse-checkout: |
+            scripts/android/read_build_metadata.sh
+            scripts/android/stale_release_assets.sh
           sparse-checkout-cone-mode: false
       - name: Download release AAB artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -1505,6 +1507,34 @@ jobs:
           prerelease: false
           draft: false
           make_latest: true
+
+      # A re-cut's files are named after its own commits, and the overwrite above
+      # replaces only a file of the same name, so a re-cut whose overlay or core
+      # moved leaves the first cut's four files beside its own, and the next release
+      # refuses two evidence archives. They go after the upload, never
+      # before: a delete first leaves no evidence when the upload fails.
+      - name: Remove the previous cut's files from the tag
+        if: inputs.allow_overwrite
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R47_RELEASE_TAG: ${{ needs.resolve-release-inputs.outputs.release_tag }}
+          APK_EVIDENCE: ${{ steps.evidence.outputs.apk_evidence_archive_name }}
+          AAB_EVIDENCE: ${{ steps.evidence.outputs.aab_evidence_archive_name }}
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+          uploaded=(release-apk/*.apk release-aab/*.aab)
+          uploaded=("${uploaded[@]##*/}" "$APK_EVIDENCE" "$AAB_EVIDENCE")
+          assets_json="${RUNNER_TEMP}/release-assets.json"
+          gh release view "$R47_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets >"$assets_json"
+          stale="$(bash ./scripts/android/stale_release_assets.sh --assets-json "$assets_json" "${uploaded[@]}")"
+          while IFS= read -r asset; do
+            [[ -n "$asset" ]] || continue
+            echo "Removing ${asset}, a file of the previous cut."
+            gh release delete-asset "$R47_RELEASE_TAG" "$asset" --repo "$GITHUB_REPOSITORY" --yes
+          done <<<"$stale"
 
       - name: Summarize the release
         shell: bash
