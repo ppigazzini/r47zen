@@ -13,8 +13,36 @@
       "sha256": "08a1d17020b44e23e55ef892cb423ab2349d4491795d88d5673de4375cf46ca6"
     },
     {
+      "path": "src/c47-gtk/hal/io.c",
+      "sha256": "cee47f489207e0e59f5f887ca05ae36b90243d435eb4e040042d01d648067cab"
+    },
+    {
+      "path": "src/c47-gtk/hal/lcd.c",
+      "sha256": "4e9e4ed92f81ebf486a11a3d1e57ae0f8eced514d802fe617c652f3d8e34c1fc"
+    },
+    {
       "path": "src/c47/assign.c",
       "sha256": "f721344fdfe3115777c55085319bfaaead711f3a7394fea3fdd5394efd597611"
+    },
+    {
+      "path": "src/c47/hal/audio.h",
+      "sha256": "28159877e4006042ce13ed547d175ca455dfac538a1c2efc8e55c49d3bdaf112"
+    },
+    {
+      "path": "src/c47/hal/gui.h",
+      "sha256": "c666a8b452b7c40a523a77e5dbc0df04b610c6f6cb5f04328c404eb2f12a7530"
+    },
+    {
+      "path": "src/c47/hal/io.h",
+      "sha256": "45ca3a0ea3e8107dd3c1a70cb03e83cc3dfa0a985790531456046c5ed82a728f"
+    },
+    {
+      "path": "src/c47/hal/lcd.h",
+      "sha256": "a3e09de9e2a1f4f2fd070019f812eea08aa64dff46fc19b20ba149698a1cd6b9"
+    },
+    {
+      "path": "src/c47/hal/print_ir.h",
+      "sha256": "6971f378f99868a03fa581259613d72d78f227a8066f6076df8fb73e8156d956"
     },
     {
       "path": "src/c47/items.c",
@@ -23,11 +51,19 @@
     {
       "path": "src/c47/programming/input.c",
       "sha256": "f68afe2718cd7c0e3e2cce015423d21b31bddb18d9c55f1a88c746fb21987f6e"
+    },
+    {
+      "path": "src/testSuite/hal/io.c",
+      "sha256": "0f2de4ebbb5cbb79210a7891486ee6cb9a0f07acd795580af7ebdbbce77a615e"
+    },
+    {
+      "path": "src/testSuite/hal/lcd.c",
+      "sha256": "1c52c8fc8e0d48805768e5ae259f6082a5758a57edd29199d07d286bb84ef981"
     }
   ],
   "recorded": {
-    "recorded_on": "2026-11-08",
-    "upstream_commit": "25e6feb77766bdcd8050df78fa1b5a692be65776",
+    "recorded_on": "2026-11-09",
+    "upstream_commit": "74bc496153f79c70e83044bd740018ee15228b6b",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 2

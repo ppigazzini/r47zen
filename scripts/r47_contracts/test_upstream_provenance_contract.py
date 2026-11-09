@@ -34,6 +34,7 @@ from r47_contracts.upstream_provenance import (
     drift_verdict,
     evaluate,
     golden_derivers,
+    hal_surfaces,
     input_surfaces,
     load_ledger,
     unaffected_record_refusal,
@@ -53,6 +54,10 @@ _NON_READERS: Final = frozenset(
 )
 _GOLDEN: Final = "scripts/r47_contracts/data/golden.json"
 _GUARD: Final = "scripts/r47_contracts/test_guard.py"
+_ANDROID_HAL: Final = "android/app/src/main/cpp/r47zen/hal/"
+# Upstream's HAL headers, every port's contract, at the hydrated commit: a header
+# upstream adds fails the test below until the ledger watches it.
+_UPSTREAM_HAL: Final = REPO_ROOT / "src/c47/hal"
 
 
 def _assert_equal(actual: object, expected: object) -> None:
@@ -72,14 +77,15 @@ def _statuses(findings: list[Finding]) -> dict[str, str]:
 
 
 def _input_tokens() -> dict[str, str]:
-    # The text a module must hold to read an input: its _repo_paths constant
-    # for an upstream source file, its file name for a font.
+    # The text a module must hold to read an input the suite reads: its
+    # _repo_paths constant for an upstream source file, its file name for a
+    # font. The HAL files are read by the Android HAL, not by the suite.
     tokens = {
         str(value.relative_to(REPO_ROOT)): name
         for name, value in vars(_repo_paths).items()
         if name.startswith("UPSTREAM_R47_") and name.endswith("_PATH")
     }
-    for path in declared_upstream_inputs():
+    for path in input_surfaces():
         tokens.setdefault(path, path.rsplit("/", 1)[-1])
     return tokens
 
@@ -140,8 +146,10 @@ class UpstreamProvenanceLedgerTest(unittest.TestCase):
         _assert_equal(coverage_failures(evaluate(self.ledger)), [])
 
     def test_surface_map_covers_exactly_the_declared_inputs(self) -> None:
-        """Every input the suite reads has surfaces listed, and no other does."""
-        _assert_equal(set(input_surfaces()), declared_upstream_inputs())
+        """Every declared input has surfaces listed, in one map, and no other does."""
+        suite, hal = set(input_surfaces()), set(hal_surfaces())
+        _assert_equal(suite & hal, set())
+        _assert_equal(suite | hal, declared_upstream_inputs())
 
     def test_every_input_names_a_deriver_and_a_contract(self) -> None:
         """No input is listed without the module that reads it and what it feeds."""
@@ -187,6 +195,64 @@ class UpstreamProvenanceLedgerTest(unittest.TestCase):
             if not any(contract.endswith(".py") for contract in contracts)
         )
         _assert_equal(unguarded, [])
+
+
+class HalInputTest(unittest.TestCase):
+    """Verify the ledger watches the upstream HAL files the Android HAL follows.
+
+    Upstream redefined BLT_SET and the lcd_buffer polarity with every signature
+    unchanged; only a changed hash says such a file moved.
+    """
+
+    def test_every_upstream_hal_header_is_watched(self) -> None:
+        """Each header of upstream's HAL, which every port implements, is listed."""
+        headers = {f"src/c47/hal/{header.name}" for header in _UPSTREAM_HAL.glob("*.h")}
+        if not headers:
+            message = f"no header under {_UPSTREAM_HAL}: hydrate upstream first"
+            raise AssertionError(message)
+        _assert_equal(headers - set(hal_surfaces()), set())
+
+    def test_the_simulator_hals_the_android_hal_follows_are_watched(self) -> None:
+        """GTK's and the suite's lcd.c and io.c show a redefinition first."""
+        for simulator in ("src/c47-gtk/hal", "src/testSuite/hal"):
+            for name in ("lcd.c", "io.c"):
+                if f"{simulator}/{name}" not in hal_surfaces():
+                    message = f"{simulator}/{name} is not watched"
+                    raise AssertionError(message)
+
+    def test_each_names_android_hal_code_and_a_guard_that_exist(self) -> None:
+        """A move names the Android file to re-read and the contract that holds it."""
+        for path, surfaces in hal_surfaces().items():
+            code = [s for s in surfaces if s.startswith(_ANDROID_HAL)]
+            guards = [s for s in surfaces if s.startswith("scripts/")]
+            missing = [s for s in surfaces if not (REPO_ROOT / s).is_file()]
+            if not code or not guards or missing:
+                message = f"{path}: code {code}, guards {guards}, missing {missing}"
+                raise AssertionError(message)
+
+    def test_a_moved_hal_input_is_never_cleared_unread(self) -> None:
+        """--record-if-unaffected refuses, naming the Android HAL file to re-read."""
+        path = "src/c47/hal/lcd.h"
+        refusal = unaffected_record_refusal(
+            [_moved(path, list(hal_surfaces()[path]))],
+            golden_changed=_never_called,
+            contracts_pass=_never_called,
+            derivation_mismatch=_never_called_reason,
+        )
+        _assert_refused_naming(refusal, f"{_ANDROID_HAL}lcd.c")
+
+    def test_the_verdict_says_a_hal_move_matters(self) -> None:
+        """The job summary's verdict on a moved HAL file asks for a reader."""
+        path = "src/testSuite/hal/io.c"
+        verdict = drift_verdict(
+            [_moved(path, list(hal_surfaces()[path]))],
+            golden_changed=_never_called,
+            contracts_pass=_never_called,
+            derivation_mismatch=_never_called_reason,
+        )
+        if "matters" not in verdict or f"{_ANDROID_HAL}io.c" not in verdict:
+            message = f"a moved {path} should ask for {_ANDROID_HAL}io.c: {verdict!r}"
+            raise AssertionError(message)
 
 
 class UpstreamProvenanceLedgerSchemaTest(unittest.TestCase):

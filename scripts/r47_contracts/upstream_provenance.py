@@ -196,10 +196,42 @@ _GOLDEN_DERIVERS: Final = {
 }
 _TEST_MODULE_SUFFIX: Final = ".py"
 
+# The upstream HAL files the Android HAL follows, which no golden derives from:
+# upstream redefined BLT_SET (492298ff) and the lcd_buffer polarity (1560394c)
+# with every signature unchanged, and a changed hash is the only thing that says
+# such a file moved. Each lists the Android code to re-read, then the contract
+# or harness that holds what it follows. A move here is never cleared by
+# --record-if-unaffected: it needs a reader.
+_ANDROID_HAL: Final = "android/app/src/main/cpp/r47zen/hal/"
+# The harness that runs the glue on the live core: it links every HAL file, and
+# holds the VOL softkeys' value (audio.c) and the clipboard capture (gui.c).
+_HAL_HARNESS: Final = "scripts/workload-regressions/build_clipboard_overflow_harness.sh"
+_HAL_LCD: Final = (
+    f"{_ANDROID_HAL}lcd.c",
+    "scripts/android/run_keypad_generation_contract.sh",
+)
+_HAL_IO: Final = (f"{_ANDROID_HAL}io.c", "scripts/android/run_hal_io_contract.sh")
+_HAL_SURFACES: Final[dict[str, tuple[str, ...]]] = {
+    "src/c47/hal/audio.h": (f"{_ANDROID_HAL}audio.c", _HAL_HARNESS),
+    "src/c47/hal/gui.h": (f"{_ANDROID_HAL}gui.c", _HAL_HARNESS),
+    "src/c47/hal/io.h": _HAL_IO,
+    "src/c47/hal/lcd.h": _HAL_LCD,
+    "src/c47/hal/print_ir.h": (f"{_ANDROID_HAL}print_ir.c", _HAL_HARNESS),
+    "src/c47-gtk/hal/io.c": _HAL_IO,
+    "src/c47-gtk/hal/lcd.c": _HAL_LCD,
+    "src/testSuite/hal/io.c": _HAL_IO,
+    "src/testSuite/hal/lcd.c": _HAL_LCD,
+}
+
 
 def input_surfaces() -> dict[str, tuple[tuple[str, ...], tuple[str, ...]]]:
-    """Return the derivers and contracts listed against each upstream input."""
+    """Return the derivers and contracts listed against each input the suite reads."""
     return dict(_INPUT_SURFACES)
+
+
+def hal_surfaces() -> dict[str, tuple[str, ...]]:
+    """Return the Android HAL code and guards listed against each upstream HAL file."""
+    return dict(_HAL_SURFACES)
 
 
 def _declared_source_inputs() -> set[str]:
@@ -227,8 +259,12 @@ def _declared_font_inputs() -> set[str]:
 
 
 def declared_upstream_inputs() -> set[str]:
-    """Return every upstream input the contract suite reads, repo-relative."""
-    return _declared_source_inputs() | _declared_font_inputs()
+    """Return every upstream input the ledger records, repo-relative.
+
+    The inputs the contract suite reads, and the HAL files the Android HAL
+    follows.
+    """
+    return _declared_source_inputs() | _declared_font_inputs() | set(_HAL_SURFACES)
 
 
 def hash_file(path: Path) -> str:
@@ -318,7 +354,7 @@ def evaluate(ledger: Ledger) -> list[Finding]:
         else:
             status = "moved"
         # A retired input has no surface left to re-examine.
-        _, contracts = _INPUT_SURFACES.get(path, ((), ()))
+        _, contracts = _INPUT_SURFACES.get(path, ((), _HAL_SURFACES.get(path, ())))
         findings.append(
             Finding(
                 path=path,
@@ -345,6 +381,31 @@ def drift_failures(findings: Sequence[Finding]) -> list[Finding]:
     return [finding for finding in findings if finding["status"] == "moved"]
 
 
+def _needs_a_reader(moved: Sequence[Finding]) -> str | None:
+    """Return why a move no test can clear needs a reader, or None.
+
+    A moved HAL file needs the Android HAL re-read against it, and a moved input
+    no test module guards cannot be proven harmless.
+    """
+    hal = [finding for finding in moved if finding["path"] in _HAL_SURFACES]
+    if hal:
+        code = sorted(
+            {c for f in hal for c in f["contracts"] if c.startswith(_ANDROID_HAL)},
+        )
+        return (
+            f"the Android HAL follows {', '.join(f['path'] for f in hal)}; re-read"
+            f" {', '.join(code)} against it, then re-record with --record"
+        )
+    unguarded = [
+        finding["path"]
+        for finding in moved
+        if not any(c.endswith(_TEST_MODULE_SUFFIX) for c in finding["contracts"])
+    ]
+    if unguarded:
+        return f"no test module guards {', '.join(unguarded)}"
+    return None
+
+
 def unaffected_record_refusal(
     findings: Sequence[Finding],
     *,
@@ -368,13 +429,9 @@ def unaffected_record_refusal(
     moved = drift_failures(findings)
     if not moved:
         return None
-    unguarded = [
-        finding["path"]
-        for finding in moved
-        if not any(c.endswith(_TEST_MODULE_SUFFIX) for c in finding["contracts"])
-    ]
-    if unguarded:
-        return f"no test module guards {', '.join(unguarded)}"
+    unread = _needs_a_reader(moved)
+    if unread:
+        return unread
     goldens = sorted(
         {c for f in moved for c in f["contracts"] if c.endswith(_GOLDEN_SUFFIX)},
     )
@@ -520,8 +577,8 @@ def format_report(ledger: Ledger, findings: Sequence[Finding]) -> str:
     if moved:
         lines.append(
             f"  DRIFT: {len(moved)} upstream input(s) moved since"
-            f" {recorded['upstream_commit'][:8]}. Root-cause each golden above"
-            " before re-blessing it.",
+            f" {recorded['upstream_commit'][:8]}. Root-cause each move above:"
+            " re-derive a golden, re-read the Android HAL, then re-record.",
         )
     if not moved and not coverage:
         lines.append("  Every recorded upstream input still matches the live tree.")

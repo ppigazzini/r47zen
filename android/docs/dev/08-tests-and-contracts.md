@@ -271,6 +271,17 @@ shallow, so the local object store holds a single upstream commit and
 `git log -- <path>` cannot attribute a per-file change here. The recorded
 `upstream_commit` is a watermark for the snapshot as a whole.
 
+The ledger also records the upstream HAL files the Android HAL follows, which no
+golden derives from: every header in `src/c47/hal/`, and GTK's and the suite's
+`lcd.c` and `io.c`, the simulator HALs that change first in the same merge.
+Upstream redefined `BLT_SET` (492298ff) and the `lcd_buffer` polarity (1560394c)
+with every signature unchanged, so a changed hash is the only sign. Each names
+the file under `android/app/src/main/cpp/r47zen/hal/` to re-read and the
+contract or harness that holds it (`hal_surfaces()`). A moved HAL file is never
+cleared by `--record-if-unaffected`: its verdict asks for that re-read, then
+`--record`. The contract test reads the headers from the hydrated tree, so a
+header upstream adds fails it until the ledger watches the header.
+
 Two findings, gated differently on purpose:
 
 - **coverage** - the suite reads an upstream input the ledger omits, or the
@@ -279,7 +290,8 @@ Two findings, gated differently on purpose:
   declared set is introspected from the `UPSTREAM_R47_*_PATH` constants in
   `scripts/r47_contracts/_repo_paths.py` and the font assets in
   `scripts/r47_contracts/derive_key_font_policy.py`, so a new upstream input
-  cannot enter the suite without the ledger noticing.
+  cannot enter the suite without the ledger noticing, plus the HAL files above;
+  the contract test holds that each upstream HAL header is among them.
 - **drift** - a recorded input moved. Normal under a tracks-latest-HEAD policy,
   so it is reported and never fails a lane by itself. The report names the
   goldens and test modules the moved bytes put in question, from the surface
