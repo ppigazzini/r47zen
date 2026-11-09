@@ -117,8 +117,8 @@ upstream commit and applies a release gate:
     proceeds; but a push at a commit pair already published, such as
     `github_ci` pushed at a commit `main` published, skips the heavy lanes and
     `ci-required` reports it green. Dispatch to run them again
-  - a `schedule` run proceeds only when no GitHub release exists yet for the
-    computed `release_tag`. Because the tag is keyed on the resolved upstream
+  - a `schedule` run proceeds only when no GitHub release for the computed
+    `release_tag` carries an APK yet. Because the tag is keyed on the resolved upstream
     short commit and the Android overlay short commit, an unchanged upstream and
     overlay means the prerelease already exists, so the nightly run skips the
     build, test, and publish lanes (`should_run=false`). A new upstream commit
@@ -127,8 +127,8 @@ upstream commit and applies a release gate:
 - `upstream-release-gate` also names the dev build: a SemVer pre-release of
   the next production release that `android/r47-defaults.properties` names,
   `<version>-<run>.<attempt>`, with the run number as its version code. A
-  manual dispatch takes one input, the upstream commit, and its run title
-  names that commit
+  manual dispatch takes the upstream commit, which its run title names, and
+  two booleans, `sixteen_kb_smoke` and `min_sdk_tests`
 - its `Check the next release numbers` step runs the release lane's checks
   against the previous production release and warns, without failing, when
   the next release would refuse the file's numbers: a code that is not the
@@ -197,8 +197,7 @@ cache entry, upstream code with a job's runtime token included, so a cached
 would run it with the key on disk and the passwords in its environment. The
 SDK composite narrows this for the build and test jobs: it saves its entry
 right after the install, with `actions/cache/save`, before the job's own steps
-sync and build upstream code, so an entry holds what `sdkmanager` installed.
-Under `actions/cache` the save ran at the end of the job, after that code. The
+sync and build upstream code, so an entry holds what `sdkmanager` installed. The
 xlsxio composite saves the same way, right after its build. The release lane
 goes further and restores no entry a job could have written after running the
 upstream core: no Gradle cache, xlsxio built from source (`cache: 'false'`), and
@@ -371,10 +370,8 @@ holds, so a module that file lacks fails the task. The supplier is the POM's
 organization, and a POM the build cannot read fails it too. Relationships carry
 the resolved graph (`DEPENDS_ON`), the core's `CONTAINS` of decNumber and PCG,
 mini-gmp under the app, and xlsxio as `BUILD_TOOL_OF`, since none of its code
-ships. This is the shape the SPDX project's own Gradle plugin writes. On
-2026-11-09 the 84 Maven locations each answered 200; the 0.3.0 dry run's
-inventory had placed 71 Google modules on Central, where none of them is.
-The packaging evidence runs `r47_contracts/spdx_inventory.py`
+ships. This is the shape the SPDX project's own Gradle plugin writes. The
+packaging evidence runs `r47_contracts/spdx_inventory.py`
 on the inventory each artifact carries.
 
 ## Job graph
@@ -504,8 +501,6 @@ It:
 That means the dev-prerelease packaging lane owns the full
 normal-pull-request host-core optimization sequence:
 
-- the Android wrapper testSuite rerun still proves the repo-owned simulator
-  parity path before Gradle packaging
 - the host-side PGO collector runs under the same wrapper-owned lane and
   produces the `.profdata` artifact CI uploads;
   `collect_host_pgo_profile.sh --help` names what it trains on
@@ -767,7 +762,8 @@ direct pushes by maintainer decision, so a red `ci-required` reports the
 failure but blocks no push. It runs with `if: always()` and
 `needs` the release gate plus every test lane
 (`upstream-simulator-sanity`, `python-contracts`,
-`android-build-test-package`, `sign-dev-prerelease`, `android-tests`).
+`android-build-test-package`, `sign-dev-prerelease`, `android-tests`,
+`upstream-suite-arm64`).
 `sign-dev-prerelease` is in the set because it runs the packaging evidence
 checks on the bytes that ship.
 
@@ -877,8 +873,8 @@ This workflow:
   bodies (the `Android version <name> (<code>)` line this workflow writes),
   refuses any other value, and caps the code at 100000. Play's ceiling is
   2100000000 and a code can never be lowered or reused, which is why the
-  retired `YYYYMMDDVV` pattern is rejected: it sat at 96% of the ceiling on the
-  first upload. Codes above the cap in older releases are ignored by the check.
+  retired `YYYYMMDDVV` pattern, already above 96% of the ceiling, is
+  rejected. Codes above the cap in older releases are ignored by the check.
   An `allow_overwrite` re-cut keeps the previous release's code and version
   and must set `play_track` to `none`: Play takes a code once, across every
   track
@@ -942,8 +938,7 @@ The only job that reads the release upload key, and the only job bound to the
 the same steps with a key it makes. It:
 
 - starts after `verify-production-release` ends, since that job runs upstream
-  code beside the build's bytes: about 0.7 minutes later than in parallel, from
-  the 0.1.13, 0.1.14, and 0.2.0 runs
+  code beside the build's bytes
 - downloads the unsigned assets by the artifact ID the build job's upload
   returned, not by name: any job's token can replace an artifact under its
   name, and a replacement gets a new ID, so a swap is never the artifact
@@ -1160,12 +1155,11 @@ The limits:
 
 Runs on `main`, or in a dry run, after the build job and without the
 environment, because it holds no secret; the signing jobs wait for it. It
-downloads the build job's PGO profile, a separate artifact (828 KB in the 0.3.0
-dry run), by artifact ID and points `R47_PGO_PROFILE_PATH` at it for the whole job, so every
+downloads the build job's PGO profile, a separate artifact, by artifact ID and points `R47_PGO_PROFILE_PATH` at it for the whole job, so every
 native build here compiles with the bytes the shipped library was built with.
-Waiting for the build job costs about 8 minutes of wall time on a release and
-no job minutes; collecting a profile in this job instead would cost 94 s and
-need not give the same bytes.
+Waiting for the build job costs wall time but no job minutes; collecting a
+profile in this job instead would cost job minutes and need not give the same
+bytes.
 
 It builds `:app:assembleRelease` as it ships, R8, resource shrinking, the
 profile, no test bridge, for `x86_64` only, and keeps that APK. It then
@@ -1240,13 +1234,13 @@ The rest, and what each one gates:
 
 | workflow | runs on | what it does | blocks |
 |---|---|---|---|
-| `resolve-upstream-core.yml` | `workflow_call` from `android-ci.yml`, `android-release.yml`, `linux-ci.yml`, `windows-ci.yml`, and `privacy-policy-pages.yml`, the lanes that build upstream code or its manual | resolves one upstream URL and commit per run through `upstream.sh resolve`, refusing any mode but `latest` unless a commit pin is passed | -- (a callee) |
+| `resolve-upstream-core.yml` | `workflow_call` from `android-ci.yml`, `android-release.yml`, `linux-ci.yml`, `windows-ci.yml`, `privacy-policy-pages.yml`, and `codeql.yml`, the lanes that build or scan upstream code or build its manual | resolves one upstream URL and commit per run through `upstream.sh resolve`, refusing any mode but `latest` unless a commit pin is passed | -- (a callee) |
 | `linux-ci.yml` | push to `main` and `github_ci`, pull request, nightly schedule, a Sunday schedule for `fuzz-core`, dispatch, which may pin `upstream_commit` | `upstream-resolver-policy` runs `test_resolver_policy.sh` and `test_fetch_retry.sh`; `linux-simulator` builds `make dist_linux`; `fuzz-core`, on the Sunday schedule and on a dispatch only, runs `build_fuzz_core.sh` for 15 minutes a reader and fails on a crash, keeping the input on the runner; `host-workload-regressions` runs the host harnesses and `run_workflow_contracts.sh` (see [08-tests-and-contracts.md](08-tests-and-contracts.md)); a green schedule or `main` push records the nightly marker | nothing requires it; it reports |
 | `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule, dispatch, which may pin `upstream_commit` | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`, adding the `c47.cmd` and `r47.cmd` launchers from `.github/project/windows-launchers/`; same nightly marker as Linux | nothing requires it; it reports |
 | `shell-lint.yml` | push to `main` and `github_ci`, pull request | `shellcheck` at info severity (SC2016 and SC2015 excluded, as idioms; the pre-commit hook runs the same) and `shfmt -i 4 -ci -d` over `scripts/**/*.sh`, then `actionlint` and `zizmor --no-online-audits --min-severity=medium` over the workflows, the composite actions, and `.github/dependabot.yml`; both jobs download the one `shellcheck` release the workflow-level `SHELLCHECK_VERSION` pins, never the runner image's copy | nothing requires it; it reports |
 | `docs-lint.yml` | push to `main` and `github_ci`, pull request, weekly schedule | `scripts/docs/run_docs_lint.sh` (see [10-writing.md](10-writing.md#the-gates)); on the schedule and on dispatch, `external-links` runs `scripts/docs/check_external_links.sh` | nothing requires it; it reports |
 | `actions-lock.yml` | push to `main` or `github_ci` and pull request on `main` that touch `.github/`, weekly schedule, dispatch | `gh actions-lock --verify --ignore-local-actions` with the extension pinned to v0.4.1: the lockfile covers every workflow and each pin verifies upstream ([Actions lockfile](#actions-lockfile)) | nothing requires it; it reports |
-| `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL with `build-mode: none`, one job per language: `c-cpp` over repo-owned C, `python` over the contract suite, the repository's only Python, `actions` over the workflows and composites, beside zizmor; ignoring `src`, `dep`, `tools`, and the staged tree; findings go to the Security tab. On the weekly schedule alone, `analyze-core` hydrates the core at the resolved upstream commit and runs `security-extended` over `src` and `dep/decNumberICU`, about 176,000 of the 195,000 lines of C the app ships, which no static analysis reached before; its own category keeps it apart, and its first result set decides whether it stays. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
+| `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL with `build-mode: none`, one job per language: `c-cpp` over repo-owned C, `python` over the contract suite, the repository's only Python, `actions` over the workflows and composites, beside zizmor; ignoring `src`, `dep`, `tools`, and the staged tree; findings go to the Security tab. On the weekly schedule alone, `analyze-core` hydrates the core at the resolved upstream commit and runs `security-extended` over `src` and `dep/decNumberICU`, most of the C the app ships; its own category keeps it apart. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
 | `merge-request-watch.yml` | daily schedule, dispatch | `scripts/upstream-sync/watch_merge_request.sh` dispatches the `android-ci.yml`, `linux-ci.yml`, and `windows-ci.yml` of branch `port-mr-2033` on the merge ref of upstream MR !2033, once for each pair of branch commit and merge commit, and fails once the MR is merged or closed | nothing requires it; a dispatched lane reports in its own run |
 | `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
@@ -1318,9 +1312,9 @@ in the repository's Code security settings; each run shows as the dynamic
 [Repository settings](#repository-settings) says how to look for.
 
 Its `uv` entry runs only while Dependabot's updater can install the
-`requires-python` floor: from 2026-10-12 to 2026-11-07 it could not install 3.15,
-stopped with `tool_version_not_supported` before reading a dependency, and the
-entry was out. Its `uv` ecosystem takes the list from the Python one, which this
+`requires-python` floor: an updater that cannot stops with
+`tool_version_not_supported` before reading a dependency, and the entry comes out
+until it can. Its `uv` ecosystem takes the list from the Python one, which this
 prints; check it before raising the floor again:
 
 ```bash
@@ -1334,9 +1328,7 @@ curl -fsSL https://raw.githubusercontent.com/dependabot/dependabot-core/main/pyt
 at the commit it runs, and for each action the actions it runs in turn, as
 GitHub's [workflow dependency lockfiles](https://docs.github.com/en/actions/concepts/security/workflow-dependency-lockfiles)
 define them. The SHA pins in the workflows already fix what this repository
-names; the lockfile adds what those actions name: the first run found
-`actions/upload-pages-artifact` running `actions/upload-artifact` v7.0.0, a
-version no workflow here pins. `gh actions-lock` (the `github/gh-actions-lock`
+names; the lockfile adds what those actions name in turn. `gh actions-lock` (the `github/gh-actions-lock`
 extension, v0.4.1) writes it:
 
 ```bash
@@ -1366,7 +1358,8 @@ request. Three choices are this repository's:
 `actions-lock.yml` runs `gh actions-lock --verify` on a push or pull request that
 touches `.github/`, weekly, and on dispatch: the lockfile covers every workflow and
 each pin still verifies upstream. `run_actions_lock_coverage_contract.sh`, in
-every commit's hook, checks the coverage offline, composites included.
+the `workflow-contracts` pre-commit hook, checks the coverage offline,
+composites included.
 
 ### Pins that live in more than one file
 
@@ -1420,7 +1413,7 @@ same contract refuses a `-latest` label. A `-latest` label moves to a new OS on
 GitHub's schedule with no commit here, and the Linux lanes install their own
 LLVM and read apt packages whose versions change with the OS. Moving to a new
 image is a commit of its own, with a green run of every lane as its evidence.
-actionlint 1.7.12, the newest release, does not know the `ubuntu-26.04` labels,
+The actionlint release `shell-lint.yml` pins does not know the `ubuntu-26.04` labels,
 so `.github/actionlint.yaml` declares them, as actionlint documents for a label
 it does not know; the file goes once an actionlint release lists them.
 
@@ -1610,8 +1603,8 @@ are.
 - Keep logs uploadable even on failure. Build and emulator issues are harder to
   triage when the workflow stops before publishing its logs.
 - Keep the collector-driven host-core fixture contract in
-  `android-build-test-package`; do not reintroduce the plain host workload
-  runner into the normal pull-request path.
+  `android-build-test-package`; the plain host workload runner stays in
+  `linux-ci.yml`'s `host-workload-regressions`, not in `android-ci.yml`.
 - Keep emulator-only ABI overrides temporary and scoped to the Android test
   lane.
 - Keep the `android-tests` pre-emulator Gradle work in one focused task graph

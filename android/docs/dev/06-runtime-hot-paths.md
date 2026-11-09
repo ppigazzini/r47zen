@@ -373,8 +373,8 @@ program, a save or load operation, or a progress or pause loop.
   covers the unchanged-snapshot skip gate, and `MainKeySnapshotRenderTest.kt`
   how main-key views apply keypad snapshots.
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/ReplicaOverlayGoldenTest.kt`
-  covers renderer stability for the borderless native shell and the retained
-  top settings-strip interaction.
+  covers renderer stability for the borderless native shell, and that the
+  overlay intercepts a touch below the top bezel strip but not one on it.
 - `android/app/src/androidTest/java/io/github/ppigazzini/r47zen/DisplayLifecycleInstrumentedTest.kt`
   proves that passive lifecycle edges preserve a staged `SPIRALk` graph and
   that the first direct stop on that same workload matches an explicit

@@ -67,8 +67,8 @@ flowchart LR
   logical contract
 - `ReplicaKeypadLayout` owns one normalized shared touch-cell map, and
   `MainActivity` installs one projected top-right orange-blue marker touch
-  target through `ReplicaOverlay.addReplicaView(...)`, so `ReplicaOverlay` no
-  longer intercepts the full top bezel as one hidden settings-entry strip
+  target through `ReplicaOverlay.addReplicaView(...)`, so `ReplicaOverlay`
+  treats only that marker, not the whole top bezel, as the settings target
 - `DisplayActionController` keeps the Android shell menu replica-first by
   keeping `Settings`, `Copy...`, `Paste Number`, and `Picture in Picture` on
   the primary popup, then opening a follow-up `Copy...` popup for the
@@ -263,8 +263,8 @@ Render split:
   `ACTION_CANCEL` also clears the pressed state and sends key `0`
 - `HapticFeedbackController` owns the strength policy behind that touch
   cadence: `haptic_use_android_default = true` keeps the Android-default
-  view-first `VIRTUAL_KEY` path with predefined-effect fallback only when the
-  view path declines, while custom mode uses `haptic_keypress_duration_ms` in
+  `VIRTUAL_KEY` view path alone, and nothing vibrates when the view declines,
+  while custom mode uses `haptic_keypress_duration_ms` in
   the `0..100 ms` range. Positive values bypass the view path and emit
   app-owned one-shot press pulses so the app can override the system
   touch-haptics setting when the user opts in; `0 ms` in custom mode is an
@@ -481,8 +481,8 @@ when the device theme is light. With fullscreen off the bars are transparent
 over the black main-screen root, which `WindowModeController` pads by the bar
 and cutout insets so the projection never reaches under them (see
 [02-kotlin-shell-architecture.md](02-kotlin-shell-architecture.md)), and
-`ReplicaOverlay` draws the two
-settings-discovery hint cards on fixed dark shell fills with light text rather
+`ReplicaOverlay` draws the
+settings-discovery hint card on fixed dark shell fills with light text rather
 than on light-theme Material surfaces.
 
 Typography and style come from scene data plus staged calculator fonts. Android

@@ -147,7 +147,7 @@ better than the person who broke it.
 | page | owns | temperature |
 |---|---|---|
 | [00-project-and-upstream.md](00-project-and-upstream.md) | what this repo owns, what upstream owns, where the overlay boundary sits | hot - tracks upstream |
-| [01-build-and-source-layout.md](01-build-and-source-layout.md) | build entrypoints, ownership boundaries, staged inputs, compile flow | hot - tracks this repo |
+| [01-build-and-source-layout.md](01-build-and-source-layout.md) | build entry points, ownership boundaries, staged inputs, compile flow | hot - tracks this repo |
 | [02-kotlin-shell-architecture.md](02-kotlin-shell-architecture.md) | lifecycle, helper ownership, storage, settings, and input flow | hot - tracks this repo |
 | [03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md) | the interface from the Android shell into upstream-owned runtime behavior | hot - tracks upstream |
 | [04-native-core-and-jni.md](04-native-core-and-jni.md) | CMake, JNI registration, HAL seams, SAF bridge, native packaging | hot - tracks this repo |

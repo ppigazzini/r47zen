@@ -27,7 +27,7 @@ surfaces.
 The files under `android/app/src/main/java/io/github/ppigazzini/r47zen/`,
 grouped by role; the directory itself is the authority when a file is added:
 
-- activity entrypoints and settings surfaces: `MainActivity.kt`,
+- activity entry points and settings surfaces: `MainActivity.kt`,
   `SettingsActivity.kt`, `SettingsSwitchPreference.kt`,
   `RepoNoticeIndexActivity.kt`, `NoticeAssetActivity.kt`, `ScreenToolbar.kt`,
   and `EnglishResourceContext.kt`
@@ -54,7 +54,8 @@ grouped by role; the directory itself is the authority when a file is added:
 - keyboard and keypad models: `PhysicalKeyboardInputController.kt`,
   `PhysicalKeyboardInput.kt`, `PhysicalKeyboardBindingTables.kt`,
   `PhysicalKeyboardShortcutId.kt`, `KeypadSnapshot.kt`,
-  `KeyboardStateSnapshot.kt`, `KeypadTopology.kt`, and `KeypadLabelModes.kt`
+  `KeyboardStateSnapshot.kt`, `KeypadTopology.kt`, `KeypadLabelModes.kt`, and
+  `KeySpeech.kt`
 
 ## Kotlin Runtime Flow
 
@@ -329,12 +330,11 @@ while matching the desktop simulator's stop-key parity during an active run.
 - the app holds one calculator state, `backupR47.cfg` in the app's files
   directory, and `SAVE` and the automatic save are `SAVFILES/R47.sav` and
   `SAVFILES/R47auto.sav`: upstream's simulator names, from its `hal/io.h`.
-  Versions before 0.3.0 put a slot number, `_0`, in all three, from a slot list
-  no screen could switch; that switch was deleted, and `hal/io.c` moves each
-  old file to the new name once, when the base path is set, never over a file
-  of the new name. `AppPreferences.NAME` is the shared preferences file every
-  setting uses, and `AppPreferences.RETIRED_SLOTS_NAME` is the slot list those
-  versions wrote, which a factory reset deletes
+  An install from before 0.3.0 named all three with a slot number, `_0`;
+  `hal/io.c` moves each such file to the new name once, when the base path is
+  set, never over a file of the new name. `AppPreferences.NAME` is the shared
+  preferences file every setting uses, and `AppPreferences.RETIRED_SLOTS_NAME`
+  is the slot list those versions wrote, which a factory reset deletes
 - SAF-backed user files remain outside the internal app directory contract
 - `DataFolderMirror` copies the files the core writes by a relative name in
   `<filesDir>/DATA`, its working directory, to the work directory: prints to DATA and
@@ -437,14 +437,13 @@ while matching the desktop simulator's stop-key parity during an active run.
   licenses come from the `oss-licenses` Gradle plugin, which reads each runtime
   dependency's POM and embedded license, and from
   `generate<Variant>LibraryLicenseAssets` in `app/build.gradle`, which turns
-  its output into `library-licenses/NOTICE-INDEX.json`. For the release's 68
-  Maven libraries the plugin's entry is only the Apache 2.0 URL, so each such
-  entry shows one shared copy of the tracked
+  its output into `library-licenses/NOTICE-INDEX.json`. Where the plugin's
+  entry for a Maven library is only the Apache 2.0 URL, the entry shows one
+  shared copy of the tracked
   `android/compliance/repo-notices/source-texts/apache-2.0.txt`, and the task
   fails on any other entry that is only a link. The app links no
-  license-viewer library: `play-services-oss-licenses` brought Compose, Play
-  services, and Guava, nearly two thirds of the shipped dex classes, for that
-  one screen. A debug variant lists the plugin's single placeholder entry
+  license-viewer library: `play-services-oss-licenses` pulls in Compose, Play
+  services, and Guava for that one screen. A debug variant lists the plugin's single placeholder entry
 - `SettingsFragment` owns the user-facing behavior copy for
   `fullscreen_mode` and `force_close_on_exit`; those summaries stay fixed and
   describe what enabling each toggle does instead of duplicating the visible
@@ -502,7 +501,6 @@ while matching the desktop simulator's stop-key parity during an active run.
 - haptics, audio, fullscreen state, LCD display theme, keypad
   label modes, touch-zone overlays, and the developer-only performance HUD are
   preference-driven Android concerns
-
 - `SettingsFragment` keeps the haptics surface intentionally lean and
   duration-focused: `Haptic feedback` is the master switch,
   `Use system duration` is the dependent toggle that keeps the stock Android

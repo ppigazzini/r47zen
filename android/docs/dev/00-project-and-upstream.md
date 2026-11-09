@@ -1,8 +1,8 @@
 # Project And Upstream Contract
 
 This page explains what R47 Zen is, what the upstream C47 project is, what
-this repository owns, and where the Android overlay interfaces with upstream-
-owned sources and runtime behavior.
+this repository owns, and where the Android overlay interfaces with
+upstream-owned sources and runtime behavior.
 
 Read this page first. The build, Kotlin, JNI, rendering, and CI pages assume
 this ownership boundary is already clear.
@@ -43,8 +43,9 @@ After `./scripts/upstream-sync/upstream.sh sync --latest --write-lock`, the
 working tree also contains the upstream-shaped root inputs that the Android
 overlay consumes.
 
-That hydrated state adds upstream's root: `src/`, `dep/`, `res/`, `docs/`,
-`tools/`, `subprojects/`, `Makefile`, `meson.build`, and `meson_options.txt`.
+That hydrated state adds upstream's root, among it `src/`, `dep/`, `res/`,
+`docs/`, `tools/`, `subprojects/`, `Makefile`, `meson.build`, and
+`meson_options.txt`.
 `UPSTREAM_REQUIRED_DIRS` and `UPSTREAM_REQUIRED_FILES` in
 `scripts/upstream-sync/upstream.sh` are the paths it checks to decide whether
 a checkout is hydrated.
@@ -193,8 +194,8 @@ menu logic, and most shared keypad or display semantics.
 
 - Read `01-build-and-source-layout.md` next for how the overlay builds and
   compiles.
-- Read `03-upstream-interface-surfaces.md` when you need the detailed Android-
-  to-upstream interface map.
+- Read `03-upstream-interface-surfaces.md` when you need the detailed
+  Android-to-upstream interface map.
 - Read `06-runtime-hot-paths.md` when you need the redraw, lock-boundary, and
   loop-sensitive runtime paths.
 
