@@ -163,7 +163,8 @@ The maintained entry points:
 
 ```bash
 bash ./scripts/r47_contracts/run_contract_suite.sh   # ruff + ty + contracts
-make sim && make test                                # upstream simulator core
+make test                                            # upstream's suite; cleans first
+make repeattest                                      # the same, keeping build.sim
 ```
 
 ## Facts that surprise people

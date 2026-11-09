@@ -318,13 +318,13 @@ jobs:
             "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
             "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
 
+      # Upstream's Makefile runs ninja with no flags, so ninja picks its own job
+      # count; the suite itself is one testSuite process.
       - name: Run upstream simulator sanity suite
         shell: bash
         run: |
           set -euo pipefail
-          make \
-            NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
-            test
+          make test
 
       - name: Show compiler cache stats
         if: always()
@@ -1607,7 +1607,7 @@ jobs:
             production release key and from the manual production release
             workflow.
           - The workflow first sanity-checked the authoritative upstream
-            simulator core with parallel make test.
+            simulator core with make test.
           - The Android lane rebuilt assets and the APK, and ran upstream's
             suite again as the app builds the core (mini-gmp, R47, the
             release's compiler and flags); a separate job signed the APK.
