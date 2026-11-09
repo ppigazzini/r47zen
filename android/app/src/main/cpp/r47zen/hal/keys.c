@@ -339,11 +339,14 @@ void keyDispatchHostEvent(int key) {
   }
 }
 
+static void saveIfHostStopped(void);
+
 int key_empty(void) {
   R47_CALCULATOR_THREAD_ONLY();
 #if defined(R47_TEST_BRIDGE)
   r47_test_bridge_publish_state(); // every poll of a running program asks this
 #endif                             // R47_TEST_BRIDGE
+  saveIfHostStopped();
   pthread_mutex_lock(&keyMutex);
   // The ring's wipe can lose a quit a redraw moved there, so an operation's poll looks
   // for it here, and key_pop brings it back.
@@ -500,7 +503,19 @@ static bool pauseCanSave(void) {
 
 static void saveIfInPause(void) {
   if (pauseCanSave()) {
-    r47_services_save_in_pause();
+    r47_services_save_pending();
+  }
+}
+
+// A stopped host can be frozen or killed before the calculator rests again, so a save it
+// asked for runs at the next poll of a computation or a running program, as 0.2.0's pump
+// saved there; with the host in front it waits for rest. The image then holds the run,
+// which a restore clears, and the blocks the computation held, which stay allocated
+// until RESET. Not while the core has a file open, since the HAL holds one and a save
+// opens its own, and not before the start's restore is done.
+static void saveIfHostStopped(void) {
+  if (atomic_load(&hostStopped) && r47_runtime_ready() && !r47_io_file_open()) {
+    r47_services_save_pending();
   }
 }
 
