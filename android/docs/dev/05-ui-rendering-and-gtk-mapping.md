@@ -246,11 +246,13 @@ Render split:
   native snapshot contract still decides labels and scene role while Android
   owns the tactile visual finish
 - `ReplicaOverlayController` owns the keypad label-mode policy split: it
-  forwards `on`, `alpha`, and `off` main-key modes directly to the app-facing
-  native snapshot export, composes `user` from the static `off` snapshot plus
-  USER-mode `f` and `g` labels after decode, composes `virtuoso` from that
-  same static `off` snapshot by blanking rendered key content, and applies
-  softkey `graphic` or `off` masks before `ReplicaKeypadLayout.updateDynamicKeys()`
+  passes the main-key mode, `on`, `alpha`, `user`, or `off`, to the app-facing
+  native snapshot export as its code, and native composes each; for `user`,
+  with the USER keyboard on, `keypad_scene.c` fills the printed `off` legends
+  and lays the USER keyboard's labels over them. After decode the controller
+  composes only `virtuoso`, from the `off` snapshot by blanking rendered key
+  content, and applies the softkey `graphic` or `off` mask before
+  `ReplicaKeypadLayout.updateDynamicKeys()`
 - `ReplicaKeypadLayout.updateDynamicKeys()` ignores snapshots until
   `sceneContractVersion > 0` and requests layout when scene changes can affect
   label widths, visibility, or layout class
@@ -292,13 +294,11 @@ Softkeys:
 - `off`: remove those dynamic softkey graphics and leave the default softkey
   capsule
 
-The split is intentional. `on`, `alpha`, and `off` main-key presentation still
-depend on upstream-owned key tables and label-role export, but the Android-only
-`user` is a renderer policy: the app keeps the printed-legends
-snapshot for the main key body and overlays only the USER `f` and `g` labels
-after decode. Softkey `graphic` and `off` remain renderer policy too, so the
-app applies them as decoded scene masks instead of widening the softkey draw
-logic in native code.
+The split is intentional. `on`, `alpha`, `user`, and `off` main-key
+presentation depend on upstream-owned key tables and label-role export, so
+native composes them, `user` included. `virtuoso` and the softkey `graphic` and
+`off` modes are Android-only renderer policy, so the app applies them to the
+decoded scene instead of widening the softkey draw logic in native code.
 
 In AIM with NUM on, a key types the digit its `g` face holds, so the scene draws the
 primary and `f` faces through upstream's `numlockReplacements`, as GTK's

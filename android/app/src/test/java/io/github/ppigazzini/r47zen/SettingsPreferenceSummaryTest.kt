@@ -274,7 +274,7 @@ class SettingsPreferenceSummaryTest {
             preference.title?.toString(),
         )
         assertEquals(
-            "UI Hz, LCD Hz, Dirty-Row %, and Copy ms.",
+            "UI Hz, LCD Hz, Dirty-Row %, and LCD update ms.",
             preference.summary?.toString(),
         )
     }

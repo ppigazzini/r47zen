@@ -11,10 +11,10 @@ internal data class DeveloperPerformanceSnapshot(
 ) {
     fun overlayLabel(): String {
         if (uiFramesPerSecond <= 0f && lcdUpdateSamples == 0) {
-            return "UI -- Hz | LCD -- Hz | DR -- | Copy --"
+            return "UI -- Hz | LCD -- Hz | DR -- | Upd --"
         }
 
-        val copyLabel = if (lcdUpdateSamples > 0) {
+        val updateLabel = if (lcdUpdateSamples > 0) {
             String.format(Locale.US, "%.1f ms", averageLcdUpdateMillis)
         } else {
             "--"
@@ -26,11 +26,11 @@ internal data class DeveloperPerformanceSnapshot(
         }
         return String.format(
             Locale.US,
-            "UI %.1f Hz | LCD %.1f Hz | DR %s | Copy %s",
+            "UI %.1f Hz | LCD %.1f Hz | DR %s | Upd %s",
             uiFramesPerSecond,
             lcdUpdatesPerSecond,
             dirtyRowsLabel,
-            copyLabel,
+            updateLabel,
         )
     }
 

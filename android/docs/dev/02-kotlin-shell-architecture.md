@@ -81,7 +81,7 @@ flowchart LR
 | activity and settings coordination | `MainActivity`, `SettingsActivity`, `SettingsSwitchPreference` | startup, preferences, PiP, intent routing, helper wiring, and explicit settings-switch widget tinting | `03-upstream-interface-surfaces.md` |
 | native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `06-runtime-hot-paths.md` |
 | overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `05-ui-rendering-and-gtk-mapping.md` |
-| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SavedManual`, `SlotSessionController`, `SlotStore` | SAF routing, startup and recovery work-directory picker ownership, the saved manual's read grant, slot metadata, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
+| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SavedManual`, `SlotSessionController`, `SlotStore` | SAF routing, where each file picker starts, the work-directory tree `SettingsActivity` stores, the saved manual's read grant, slot metadata, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
 | Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `03-upstream-interface-surfaces.md` |
 
 ## Architecture boundary
@@ -93,9 +93,9 @@ flowchart LR
   metadata offsets
 - `KeypadLabelModes.kt` plus the stored keypad-label preferences are
   Android-local presentation policy: the main-key mode selects the app-facing
-  native snapshot mode and may apply Kotlin-side `user` or `virtuoso`
-  composition after decode, while the softkey mode masks decoded softkey scene
-  bits before rendering
+  native snapshot mode, which native composes, `user` included, and Kotlin
+  composes only `virtuoso` after decode, while the softkey mode masks decoded
+  softkey scene bits before rendering
 - `KeypadTopology`, slot metadata, work-directory preferences, and shell
   preferences are Android-local models
 - geometry constants, render-spec builders, label placement formulas, painter
@@ -138,8 +138,9 @@ Main flow:
   main-key mode code from `ReplicaOverlayController`, and emits a lightweight
   `DeveloperPerformanceSnapshot` for Android-owned observability.
 6. `ReplicaOverlayController.currentKeypadSnapshot()` resolves that cached
-  `KeypadSnapshot`, applies any `user` or `virtuoso` keypad composition plus
-  the softkey graphic or static mask, and `ReplicaKeypadLayout` applies scene
+  `KeypadSnapshot`, which native composed for the main-key mode, `user`
+  included, blanks it for `virtuoso`, applies the softkey `graphic` or `off`
+  mask, and `ReplicaKeypadLayout` applies scene
   changes after a real layout boundary. Runtime-provided non-null snapshots
   from `NativeDisplayRefreshLoop` also pass through the same softkey-mode mask
   normalization before scene apply.
@@ -182,11 +183,8 @@ callbacks.
   unnamed captures, to run on that class's own worker.
 - `onResume()` lets the overlay-side resume path run without forcing a native
   LCD redraw, and queries no document provider: the work directory is checked
-  when a file request needs it. On first run,
-  `StorageAccessCoordinator` may show the welcome dialog and launch
-  `OpenDocumentTree()` directly from the activity-result registry instead of
-  routing that startup picker through `SettingsActivity`. A normal Settings
-  round-trip must preserve the current calculator snapshot.
+  when a file request needs it. The app asks for no directory at startup. A
+  normal Settings round-trip must preserve the current calculator snapshot.
 - `onPause()` performs a synchronous native save when auto-save on minimize is
   enabled and the app is not moving into PiP or a reset-driven relaunch. That
   save is lifecycle-passive from the LCD point of view and must not rebuild the
@@ -319,15 +317,16 @@ while matching the desktop simulator's stop-key parity during an active run.
   Auto Backup leaves `DATA` and the record of copies out: a program that `SNAP`s in
   a loop would grow them past the 25 MB an app's backup may hold, where Android
   stops backing the app up, and the copies are the user's already
-- `StorageAccessCoordinator` owns the first-run welcome dialog, the direct
-  startup picker path, and missing-work-directory recovery; `SettingsActivity`
-  owns only explicit manual work-directory changes from the preferences UI
-- `WorkDirectory.persistSelectedTreeUri(...)` centralizes the persistable URI
-  grant plus the stored work-directory tree write shared by startup and manual
-  selection paths
+- the work directory is chosen in one place: `SettingsActivity` launches
+  `OpenDocumentTree()` and stores the pick through
+  `WorkDirectory.persistSelectedTreeUri(...)`, the persistable grant plus the
+  stored tree, its only caller. The app asks for none at startup. A file request
+  whose stored tree the app can no longer reach starts its picker with no folder,
+  so the system picker opens where it last was (`PickerStart`,
+  `PickerStartTest.aWorkDirectoryTheAppCannotUse_isNotAskedForAFolder`)
 - no provider call runs on the main thread, since a provider is another app and a
   binder call to it can block for as long as it takes to answer. A file request finds
-  where its picker starts on the calculator thread, which waits for the answer anyway:
+  where its picker starts on the core thread, which waits for the answer anyway:
   `PickerStart` gives the work directory's folder for the file type, made for a save
   and only found for a load, so a canceled load leaves no folder, or the work
   directory itself with no such folder. Settings shows the
@@ -442,7 +441,8 @@ while matching the desktop simulator's stop-key parity during an active run.
   directly to `ReplicaOverlay.kt` and `NativeDisplayRefreshLoop.kt`, while the
   loop supplies the sampled `DeveloperPerformanceSnapshot` label data used by
   the overlay. The fixed settings copy names those fields as UI Hz, LCD Hz,
-  dirty-row percent, and copy ms. The first field is the UI-thread
+  dirty-row percent, and LCD update ms (`Upd` on the HUD: copy, decode, and
+  redraw request, not the copy alone). The first field is the UI-thread
   `Choreographer#doFrame(...)` cadence, not the phone panel's raw refresh
   rate. The second field counts accepted non-empty packed LCD snapshot copies,
   not raw native row writes. Read `06-runtime-hot-paths.md` for the default

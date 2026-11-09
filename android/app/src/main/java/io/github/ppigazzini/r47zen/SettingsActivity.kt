@@ -71,8 +71,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private val treeLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             // takePersistableUriPermission can throw SecurityException if the grant
-            // flags are absent; the storage coordinator guards the identical call,
-            // so guard it here too rather than crash the Settings screen.
+            // flags are absent; guard it rather than crash the Settings screen.
             val displayPath = try {
                 WorkDirectory.persistSelectedTreeUri(requireContext(), uri)
             } catch (error: SecurityException) {

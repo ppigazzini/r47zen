@@ -120,10 +120,12 @@ jobs:
 
           # release_tag is keyed on the resolved upstream short commit and the
           # Android overlay short commit. When neither has changed since the last
-          # publish the prerelease already exists, so a scheduled run has nothing
-          # new to build or test and we skip the heavy lanes. A push or a manual
-          # dispatch always proceeds: a push moves ANDROID_COMMIT (new tag), and a
-          # maintainer dispatch is an explicit rebuild request.
+          # publish the prerelease already exists, so a run has nothing new to
+          # build or test and we skip the heavy lanes. Only a manual dispatch,
+          # an explicit rebuild request, always proceeds. A push usually moves
+          # ANDROID_COMMIT, and so the tag, but one at a commit pair already
+          # published (github_ci pushed at a commit main published) skips too,
+          # and ci-required reports it green.
           # A release only counts as published once it carries its APK: a
           # publish canceled between creating the release and uploading the
           # asset leaves a release with no APK, which the next run must redo.
