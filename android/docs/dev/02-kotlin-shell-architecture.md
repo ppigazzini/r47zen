@@ -367,7 +367,11 @@ while matching the desktop simulator's stop-key parity during an active run.
 
 ## Current platform shape
 
-- the app is view-based and uses view binding
+- the app is view-based and uses view binding, and stays so by decision, not by
+  default: no defect needs Jetpack Compose, the keypad and LCD are drawn on a
+  `Canvas` under either toolkit, and a move would rewrite every screen for no
+  change a user sees. Revisit it when a feature needs something only Compose
+  offers
 - `MainActivity` remains portrait-first in the manifest for shell fidelity.
   From targetSdk 36 the platform ignores that lock on large screens (smallest
   width 600 dp and up), so there the activity takes whatever window it gets and
