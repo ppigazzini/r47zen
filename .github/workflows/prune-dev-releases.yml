@@ -72,14 +72,20 @@ jobs:
           # createdAt is the date of the release's commit, so builds of one commit
           # share it and sort in no set order; publishedAt is when each went out.
           # --limit is high so the oldest releases (the prune targets) are not
-          # silently truncated (the default is 30).
-          mapfile -t rows < <(
+          # silently truncated (the default is 30). The list is captured first:
+          # read through "mapfile < <(gh ...)", a failed gh, an expired token
+          # say, read as zero releases and the run stayed green.
+          rows_text="$(
             gh release list --repo "$GH_REPO" --limit 500 \
               --json tagName,isPrerelease,publishedAt \
               --jq '[.[] | select(.isPrerelease and (.tagName | endswith("-dev")))]
                     | sort_by(.publishedAt) | reverse
                     | .[] | "\(.tagName)\t\(.publishedAt)"'
-          )
+          )"
+          rows=()
+          if [ -n "$rows_text" ]; then
+            mapfile -t rows <<<"$rows_text"
+          fi
 
           echo "Found ${#rows[@]} -dev pre-release(s); keep newest ${KEEP_MIN}, TTL ${KEEP_DAYS}d, dry_run=${DRY_RUN}."
 
