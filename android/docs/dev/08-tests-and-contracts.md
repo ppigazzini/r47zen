@@ -223,6 +223,11 @@ runs. What each one locks:
   `DEFAULT` constant, not a literal of its own; every such setting has a `KEY_`
   constant, and the scanner is proven on seeded literals first. A read through
   another variable or a helper is out of its reach
+- `test_launcher_icon_contract.py`: the launcher icon the app ships draws its
+  drawing source, `assets/icons/r47zen.svg`: both full icons have the SVG's
+  paths in order and in its colors, the adaptive foreground has them but the
+  background, and `ic_launcher_background` is the SVG's background. The
+  foreground's inset and the viewports are out of its reach
 - `test_keypad_snapshot_wire_contract.py`: key count, labels per key, scene
   contract version, label-slot order, total meta length, and every meta lane
   offset agree between `keypad_fixture_bridge.h`, `KeypadSnapshot.kt`, and the
