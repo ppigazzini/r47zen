@@ -113,6 +113,12 @@ jobs:
           name: manual
           path: _site/manual
 
+      # The manual job ran upstream's TeX with -shell-escape, so its artifact is
+      # steered by an upstream commit; publish the PDF and its VERSION, nothing else.
+      - name: Refuse anything but the PDF and its VERSION
+        shell: bash
+        run: bash ./scripts/docs/check_manual_artifact.sh _site/manual
+
       - name: Stage the privacy policy
         shell: bash
         # cp fails the job when the asset is missing, so a move that skips

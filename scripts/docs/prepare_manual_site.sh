@@ -69,11 +69,16 @@ fetch_live() {
     curl --fail --silent --show-error --location --retry 3 "$SITE_URL/manual/$1" --output "$2"
 }
 
+# The container gets docs/, which the build writes, and res/, read only, which holds
+# the fonts it reads, and nothing else of the checkout: a mount of the whole of it
+# held this script, and bash reads a script as it runs, so a -shell-escape build that
+# overwrote the rest of it in place ran its own lines here, on the host, with the
+# network.
 build_pdf() {
     docker pull --quiet "$TEX_IMAGE" >&2
     docker run --rm --network none \
         --user "$(id -u):$(id -g)" --env HOME=/tmp \
-        --volume "$ROOT:/work" --workdir /work \
+        --volume "$ROOT/docs:/work/docs" --volume "$ROOT/res:/work/res:ro" --workdir /work \
         "$TEX_IMAGE" make -C docs/manual pdf VARIANT=crop >&2
 }
 
@@ -113,7 +118,7 @@ log "Building the manual ($fingerprint)."
 build_status=0
 build_pdf || build_status=$?
 
-# The container can write the whole checkout, so nothing it left here is published.
+# The container can write docs/, so nothing it left here is published.
 rm -rf "$output_dir"
 mkdir -p "$output_dir"
 
