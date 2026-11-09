@@ -377,6 +377,9 @@ It:
   `scripts/android/install_host_llvm_toolchain.sh` so the host PGO runtime
   shim does not drift onto the runner-default LLVM toolchain
 - syncs the authoritative upstream tree
+- runs `scripts/android/check_native_format.sh` before the build, since it
+  needs only the pinned NDK's `clang-format`: it checks the Android-owned glue
+  against `android/app/src/main/cpp/r47zen/.clang-format`
 - runs `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`;
   `upstream-simulator-sanity` runs upstream's stock suite, so this job does not
   run it again
@@ -384,9 +387,7 @@ It:
   `libr47zen.so` and fails the job when a mitigation is missing: AArch64
   branch protection (BTI/PAC), full RELRO, a non-executable stack, no
   writable-and-executable segment, and no text relocations
-- runs `scripts/android/check_native_format.sh`, which checks the Android-owned
-  glue against `android/app/src/main/cpp/r47zen/.clang-format` with the pinned
-  NDK's `clang-format`, and `scripts/android/run_native_clang_tidy.sh`, which
+- runs `scripts/android/run_native_clang_tidy.sh`, which
   runs the pinned NDK's `clang-tidy` with
   `android/app/src/main/cpp/r47zen/.clang-tidy` over the glue, reading the
   compile commands the build wrote, and fails on any finding

@@ -629,6 +629,14 @@ jobs:
             echo "release_title=$R47_ANDROID_DEV_RELEASE_TITLE" >> "$GITHUB_OUTPUT"
           fi
 
+      # Before the build: it needs only the NDK's clang-format, and after the
+      # build a one-line slip took nine minutes to report.
+      - name: Check native glue formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/android/check_native_format.sh
+
       - name: Build, test, and package the unsigned Android dev prerelease APK
         shell: bash
         env:
@@ -665,10 +673,8 @@ jobs:
       - name: Verify native library hardening
         # Blocking gate: assert the packaged arm64 library keeps its
         # exploit-mitigation posture (BTI/PAC, full RELRO, non-executable stack,
-        # no RWX segment, no text relocations). Promoted from advisory to blocking
-        # on 2026-07-21 after it ran green (all properties PASS on every packaged
-        # libr47zen.so) across the recent main runs; a mitigation regression in
-        # the shipped .so now fails the lane.
+        # no RWX segment, no text relocations); a mitigation regression in the
+        # shipped .so fails the lane.
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
@@ -686,12 +692,6 @@ jobs:
             bash scripts/security/check_native_hardening.sh "$lib" || status=1
           done
           exit "$status"
-
-      - name: Check native glue formatting
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash scripts/android/check_native_format.sh
 
       - name: Run clang-tidy on the native glue
         shell: bash
