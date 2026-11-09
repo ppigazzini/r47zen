@@ -117,7 +117,12 @@ flowchart TD
 - [Gradle 9.9.0 release notes](https://docs.gradle.org/9.9.0/release-notes.html):
   official Gradle release notes for the wrapper version
   `gradle-wrapper.properties` pins; `run_toolchain_pin_coherence_contract.sh`
-  fails when this link names another.
+  fails when this link names another, and when the properties set a key the
+  tracked `gradle-wrapper.jar` does not read. A Gradle bump runs the `wrapper`
+  task twice, as [the Gradle Wrapper](https://docs.gradle.org/9.9.0/userguide/gradle_wrapper.html)
+  says, so the jar is the new version's; the second run is the one that replaces
+  the jar. Keep the repo's own `android/gradlew` launcher, which the task
+  overwrites with Gradle's script.
 - [Improve the Performance of Gradle Builds](https://docs.gradle.org/current/userguide/performance.html):
   official Gradle guidance for inspecting a build to set a baseline, creating
   builds for specific developer workflows, and enabling parallel execution, the
