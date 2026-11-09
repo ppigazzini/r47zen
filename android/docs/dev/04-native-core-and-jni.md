@@ -94,8 +94,7 @@ profile-guided, and its release notes say so.
 The library links with `r47zen/exports.map`, a version script that exports
 `JNI_OnLoad`, which registers `CalculatorEngine`'s natives by pointer, and the
 `Java_` names the instrumentation-only `ProgramLoadTestBridge` binds by name, and
-makes every other symbol local. An x86_64 debug build measured 3,955
-exports before and 22 after, and 123 symbolic relocations after. ThinLTO then
+makes every other symbol local. ThinLTO then
 internalizes the core, so inlining moves: the release lane's emulator tests run
 on that build, PGO included. `check_native_exports.sh`, run by
 `check_native_hardening.sh` on every packaged library, fails any other export.

@@ -31,7 +31,7 @@ verification surfaces.
 flowchart LR
   A[MainActivity and helper controllers]
   B[NativeCoreRuntime queue]
-  C[registered JNI entrypoints]
+  C[registered JNI entry points]
   D[screenMutex critical sections]
   E[staged upstream core]
   F[cached activity callbacks]

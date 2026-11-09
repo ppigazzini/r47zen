@@ -56,7 +56,7 @@ you review one.
   what the upstream C47 project is, what this repo owns, and how the Android
   overlay interfaces with upstream-owned sources and runtime behavior.
 - [01-build-and-source-layout.md](01-build-and-source-layout.md): build
-  entrypoints, ownership boundaries, staged inputs, compile flow, and
+  entry points, ownership boundaries, staged inputs, compile flow, and
   checkout-sensitive root surfaces.
 - [02-kotlin-shell-architecture.md](02-kotlin-shell-architecture.md): Android
   lifecycle, helper ownership, storage, settings, input flow, and direct
@@ -169,7 +169,8 @@ Each term links the page that owns it.
   **oracle** is a test rooted in facts outside it
   ([08](08-tests-and-contracts.md#python-contract-suite)).
 - **`-dev` prerelease**: the snapshot build `android-ci` publishes from
-  `main` and prunes on a TTL, installed as a separate app id and
+  `main`, which `prune-dev-releases.yml` deletes after a TTL, installed as a
+  separate app id and
   signed by the prerelease key; a **signed release** is the production build
   `android-release` publishes
   ([07](07-ci-and-release-workflow.md#dev-pre-release-retention),

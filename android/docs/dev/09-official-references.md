@@ -22,6 +22,9 @@ flowchart TD
   G[View and rendering]
   H[Bilevel bitmap packing]
   I[Agent instructions]
+  J[Upstream project surfaces]
+  K[Launcher icon]
+  L[Google Play setup and policy]
 
   A --> B
   A --> C
@@ -31,6 +34,9 @@ flowchart TD
   A --> G
   A --> H
   A --> I
+  A --> J
+  A --> K
+  A --> L
 ```
 
 ## Upstream project surfaces
@@ -397,7 +403,8 @@ Current repository icon surfaces:
   pinning, trusted-code boundaries, and secret-exposure minimization in
   workflow design. The page ranks a workflow dependency lockfile first and
   offers the full-length commit SHA to repositories without one. This repo
-  pins by SHA and has no lockfile.
+  does both: it pins by SHA and keeps `.github/workflows/actions.lock`
+  ([07](07-ci-and-release-workflow.md#actions-lockfile)).
 - [Keeping the actions in your workflows secure and up to date](https://docs.github.com/en/actions/reference/security/secure-use#keeping-the-actions-in-your-workflows-secure-and-up-to-date):
   GitHub guidance for reviewing and refreshing SHA-pinned actions; same-line
   version comments are part of the supported Dependabot update surface when the
@@ -411,9 +418,9 @@ Current repository icon surfaces:
   the `actions.lock` file `gh actions-lock` writes beside the workflows, one
   commit and one numeric repository identity for each action, transitive ones
   included, reusable workflow calls excluded. Onboarding a workflow also
-  satisfies the SHA-pinning policy. This repo has no lockfile, so a transitive
-  action runs whatever commit the reference in its parent action resolves to at
-  run time.
+  satisfies the SHA-pinning policy. This repo's lockfile records each
+  transitive action's commit, and `actions-lock.yml` verifies it; the `Require
+  lockfile` policy is off ([07](07-ci-and-release-workflow.md#actions-lockfile)).
 - [Using secrets in GitHub Actions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets):
   GitHub guidance for repository and environment secrets, shell-safe secret
   handling, and the Base64 binary-blob pattern used for small upload keystores.
@@ -610,11 +617,9 @@ Current repository icon surfaces:
   `HapticFeedbackController` plays it through `VibrationEffect.createOneShot`,
   which the page strongly discourages as often too loud for regular feedback. It
   stays an opt-in behind that toggle, and `MAX_HAPTIC_KEYPRESS_DURATION_MS` owns
-  its bound. The default path also falls back to a vibrator effect when
-  `performHapticFeedback` returns false: `createPredefined(EFFECT_CLICK)` from API
-  29, and a fixed-duration vibration below it. The page's "falling back to nothing
-  rather than a discordant alternative" covers an unavailable predefined effect,
-  not this return value, so applying it here is this repo's reading.
+  its bound. When `performHapticFeedback` returns false, the default path
+  vibrates nothing, as the page's "falling back to nothing rather than a
+  discordant alternative" advises.
 - [Keep your app responsive](https://developer.android.com/topic/performance/anrs/keep-your-app-responsive):
   official Android guidance for 5 s input deadlines, minimizing main-thread
   work, minimizing lock contention, and using Perfetto or CPU profiling when

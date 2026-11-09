@@ -12,8 +12,8 @@ is a live claim about the thing it describes - and several of them describe
 claims, fix the page in the SAME commit; sync upstream, re-read the pages that
 track it. [android/docs/dev/10-writing.md](android/docs/dev/10-writing.md)
 carries the rules for everything this repo writes for a reader - pages,
-comments, and commit messages alike - and maps every page to what it owns and
-which run hot. `bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook
+comments, and commit messages alike - and maps every numbered page to what it
+owns and which run hot. `bash ./scripts/docs/run_docs_lint.sh` (pre-commit hook
 `docs-lint`, CI lane `Docs Lint`) catches the mechanical rot that page's
 [gates](android/docs/dev/10-writing.md#the-gates) list; it cannot tell you a
 sentence has become false. That part is yours.
@@ -104,8 +104,8 @@ Where a `CLAUDE.md` exists, Claude Code reads that instead by default. The root
 documents for a project that keeps a `CLAUDE.md` or a session that cannot read
 `AGENTS.md`: a session then loads this file, once, on every Claude Code version,
 unless `Project instructions` is `managed-only`, which leaves out both files.
-The sibling zfish, z47, and c47-r47-ci repos use the same shape. It is not a
-duplicate: edit this file, never that one. A symlink would also work but
+The sibling zfish, z47, and c47-r47-ci repos use the same shape. `CLAUDE.md` is
+not a duplicate: edit this file, never that one. A symlink would also work but
 breaks on Windows without Developer Mode.
 
 ## The short version of the workflow
@@ -173,14 +173,13 @@ make repeattest                                      # the same, keeping build.s
 - **A lane failing does not mean this repo changed.** Every lane that builds or
   tests the core resolves upstream HEAD at runtime, so an upstream commit breaks
   CI here with no commit here. Pin `upstream.lock` locally to tell the two apart.
-- **Switching upstream commits locally could corrupt the staged tree**, and it
-  surfaced as unrelated clang/NDK errors. The two causes measured were the
-  sync's: it kept files upstream had removed, and it gave changed files their
-  commit time, so ninja kept stale generated tables. A sync now removes the
-  first and gives the second the current time, but a checkout's first sync
-  under this rule has no record of what earlier syncs wrote and removes
-  nothing. If the errors appear, remove `android/.staged-native`, `build.sim`,
-  `android/app/.cxx`, and `android/app/build` before re-staging.
+- **Switching upstream commits locally can leave a stale staged tree**, which
+  surfaces as unrelated clang/NDK errors. A sync removes the files the last sync
+  wrote that the new commit no longer holds, and gives each changed file the
+  current time, so ninja rebuilds what depends on it; a checkout's first sync
+  has no record of earlier syncs and removes nothing. If the errors appear,
+  remove `android/.staged-native`, `build.sim`, `android/app/.cxx`, and
+  `android/app/build` before re-staging.
 - **The staged tree strips the `src/` and `dep/` prefixes**:
   `src/c47/assign.c` stages as `android/.staged-native/cpp/c47/assign.c`. A
   staged path is therefore not an upstream path. Do not cite it as one.

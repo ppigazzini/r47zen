@@ -378,9 +378,9 @@ or a `robolectric.properties` that pins one. `ApiLevelArmsTest.kt` runs every
 `Build.VERSION.SDK_INT` arm in the shell, in `HapticFeedbackController`,
 `StorageAccessCoordinator`, `WindowModeController`, and `ReplicaOverlay`, against
 the framework at 24, `minSdk`, below O, R, and S, and at 30, at or above O and R
-and below S; the target covers the side above all three. Three arms
-seeded down to N each turned their test red: the pulse's, the picker's start
-folder's, and the pan slop's, which then reads a classification API 24 lacks. From API 36 Robolectric's sandbox
+and below S; the target covers the side above all three. Seeding the
+pulse's, the picker's start folder's, or the pan slop's arm down to N turns its
+test red; the pan slop's then reads a classification API 24 lacks. From API 36 Robolectric's sandbox
 needs `java.base/jdk.internal.access` exported, which `app/build.gradle` passes
 to every unit-test JVM. A targetSdk newer than the pinned Robolectric supports
 fails every Robolectric class, which is the signal to bump Robolectric with it.
@@ -679,7 +679,7 @@ source is missing from this page:
 - `CalculatorKeyViewCanvasTest.kt`: draws a measured main key and asserts each
   of the primary, f, g, and fourth label lanes paints its text in its own
   color from the label state
-- `GraphTouchVisualPolicyTest.kt`: locks `ReplicaOverlay.isSignificantPinch`,
+- `GraphTouchVisualPolicyTest.kt`: locks `GraphTouchVisualPolicy.isSignificantPinch`,
   so a pinch drives the LCD zoom only when its scale factor is finite and
   differs from 1 by at least `PINCH_EPSILON`
 - `NativeKeypadSnapshotStoreTest.kt`: locks the keypad snapshot cache: a copy
@@ -693,7 +693,7 @@ source is missing from this page:
   JVM lane runs, lists every Maven library. It also requires a repo notice under
   the declared license of every component the shipped SPDX inventory names
   outside Maven, every copyright that inventory states in a notice, and the
-  Apache 2.0 terms with an Apache component; it failed first on PCG
+  Apache 2.0 terms with an Apache component
 - `KeyboardLayoutContractResources.kt`, `KeypadFixtureResources.kt`,
   `TestJsonResources.kt`, `KeypadTestSnapshots.kt`, and `FakeDocumentProvider.kt`
   are helpers, not tests: the first three load the keyboard-layout contract, the
@@ -1107,7 +1107,8 @@ Android compatibility layer.
   `ReplicaOverlayLcdOrderTest`, `PasteNumberTest`, `NativeFileRequestGateTest`,
   `DocumentTransferTest`, `DataFolderMirrorTest`, `SavedManualTest`,
   `ReplicaKeypadLayoutHapticsTest`).
-  No mutant touches the native glue yet. A surviving mutant marks an assertion
+  This script mutates no native glue; `native_mutation_spot_check.sh`, below,
+  does. A surviving mutant marks an assertion
   gap and fails the run. The `android-tests` job in `android-ci.yml` runs it on
   every event, so the push that weakens a seam test is the run that fails; run
   it locally after changing one of those seams or its tests. The mutant list is
@@ -1183,8 +1184,8 @@ Android compatibility layer.
   network and run in the `upstream-resolver-policy` job of `linux-ci.yml`
 - `android-ci.yml` keeps its verification jobs distinct --
   `upstream-simulator-sanity`, `python-contracts`,
-  `android-build-test-package`, `sign-dev-prerelease`, and `android-tests` --
-  and `ci-required` needs all of them
+  `android-build-test-package`, `sign-dev-prerelease`, `android-tests`, and
+  `upstream-suite-arm64` -- and `ci-required` needs all of them
 - `.github/workflows/android-release.yml` reruns the same wrapper-owned
   host-core optimization flow as `android-build-test-package` and builds
   `:app:bundleRelease -Pr47.pgoProfilePath=...` unsigned; its emulator job, with
@@ -1387,7 +1388,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_merge_request_watch_contract.sh` | `watch_merge_request.sh` dispatches a branch's lanes on a merge ref only for a branch or merge commit no lane has seen, dispatches for a request that is open or locked while it merges, fails on one that is merged or closed or has no merge ref, and every lane it names takes `upstream_commit` and shows it in its run title | yes, runs the script against stub `curl`, `git`, and `gh` |
 | `run_jni_surface_check_contract.sh` | `check_jni_surface.sh`, which `collect_packaging_evidence.sh` runs over every signed APK, fails a dex that lost a registered native, a native flag, a `GetMethodID` callback, a callback signature, or the `MainActivity` class name | yes, fixtures built from the C sources' names |
 | `run_quiet_grep_pipeline_contract.sh` | no script, workflow, or composite action pipes a command into `grep -q`: grep exits at its first match, the command feeding it dies of SIGPIPE, and under `pipefail` the match reads as a miss, so the output is captured first and matched with `<<<` | yes, fixtures |
-| `run_upstream_sync_contract.sh` | `upstream.sh sync` never writes a path this repo owns: tracked edits, staged and not, survive a sync with and without `--force`, and upstream's `AGENTS.md` never lands; a forward sync writes the changed files with the current time, keeps an unchanged file's mtime, and removes what the commit no longer holds, and a backward sync brings it back; it refuses, writing nothing, to overwrite a hydrated file edited since the last sync or a file of yours where the commit adds one, unless `--force`, and a path a build rewrites is not an edit; `--if-missing`, the build's sync, skips a hydrated tree only when the last complete sync wrote the resolved commit, and syncs one at another commit or with no record; a sync stopped halfway leaves the tracked tree clean and the lock unwritten, and the next sync completes it without `--force`; export-ignore'd files stay out and an executable keeps its bit. `hydrate_submodules.sh` leaves a submodule already at its commit alone, offline, with its edits, and a failed fetch keeps the old checkout | yes, runs both against a throwaway `file://` upstream and submodule and a throwaway copy of this repo; the sync before it broke 21 of its 36 sync checks, and the hydrator before it 2 of its 4 |
+| `run_upstream_sync_contract.sh` | `upstream.sh sync` never writes a path this repo owns: tracked edits, staged and not, survive a sync with and without `--force`, and upstream's `AGENTS.md` never lands; a forward sync writes the changed files with the current time, keeps an unchanged file's mtime, and removes what the commit no longer holds, and a backward sync brings it back; it refuses, writing nothing, to overwrite a hydrated file edited since the last sync or a file of yours where the commit adds one, unless `--force`, and a path a build rewrites is not an edit; `--if-missing`, the build's sync, skips a hydrated tree only when the last complete sync wrote the resolved commit, and syncs one at another commit or with no record; a sync stopped halfway leaves the tracked tree clean and the lock unwritten, and the next sync completes it without `--force`; export-ignore'd files stay out and an executable keeps its bit. `hydrate_submodules.sh` leaves a submodule already at its commit alone, offline, with its edits, and a failed fetch keeps the old checkout | yes, runs both against a throwaway `file://` upstream and submodule and a throwaway copy of this repo |
 
 "Text" contracts are a floor: they catch the drift they name, and a later
 edit that keeps the matched tokens can pass them. Prefer an executing check

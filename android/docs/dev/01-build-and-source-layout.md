@@ -6,7 +6,7 @@ this repository. Do not split that contract into a second guide.
 Read `00-project-and-upstream.md` first. This page starts after the project,
 upstream, and ownership boundary are already established.
 
-Use this page for build entrypoints, source ownership, staged-input boundaries,
+Use this page for build entry points, source ownership, staged-input boundaries,
 and checkout-sensitive root surfaces. Read
 `07-ci-and-release-workflow.md` for the GitHub Actions lane split and
 `03-upstream-interface-surfaces.md` for the Android-facing upstream
@@ -36,8 +36,8 @@ rerun-lane map.
   --group dev ...`, on the Python `requires-python` names as its floor;
   `run_contract_suite.sh` sets `UV_PYTHON` to that floor, because uv would
   otherwise pick the newest interpreter on the machine.
-- The `dev` group in `pyproject.toml` is the tool set: `ruff`, `ty`,
-  `fontTools`, and `valgebra` with `annotated-types`. The schemas' PEP 728
+- The `dev` group in `pyproject.toml` is the tool set: `pre-commit`, `ruff`,
+  `ty`, `fontTools`, and `valgebra` with `annotated-types`. The schemas' PEP 728
   `closed=True` TypedDict is stdlib `typing` from Python 3.15, which is why
   3.15 is the floor and ruff's `runtime-evaluated-base-classes` names
   `typing.TypedDict`. Dependabot's updater installs 3.15, so its `uv` entry
@@ -45,9 +45,9 @@ rerun-lane map.
 - A Python move is one commit: `requires-python`, ruff's `target-version`, ty's
   `python-version`, and every `setup-python` move together, and
   `run_action_pin_consistency_contract.sh` fails until all four agree.
-- The font-policy, visual-policy, and top-label derivation scripts inspect the
-  shipped calculator fonts through `fontTools`, so a partial Python setup is
-  not enough for the full contract lane.
+- The font-policy and visual-policy derivers, the font-policy test, and the
+  provenance ledger read the shipped calculator fonts through `fontTools`, so a
+  partial Python setup is not enough for the full contract lane.
 
 ## Build-Relevant File Layout
 
@@ -230,7 +230,7 @@ Top-level repo-owned overlay paths:
   hydrated upstream submodules such as `dep/jimtcl` when those modules become
   part of maintained CI package evidence.
 - `scripts/` owns repo-only automation, including the stable maintainer
-  entrypoints `scripts/android/build_android.sh` and
+  entry points `scripts/android/build_android.sh` and
   `scripts/upstream-sync/upstream.sh`, plus grouped implementations under
   `scripts/android/`, `scripts/r47_contracts/`, `scripts/upstream-sync/`,
   `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
@@ -307,7 +307,7 @@ Root surfaces that never justify an Android ownership claim:
 
 ## Build entry points
 
-Public maintainer entrypoints:
+Public maintainer entry points:
 
 - `./scripts/upstream-sync/upstream.sh sync --latest --write-lock` is the
   authoritative upstream hydration entry point, and running it again is how a
@@ -354,7 +354,9 @@ Public maintainer entrypoints:
   stages native inputs into
   `android/.staged-native/cpp`, regenerates staged native metadata there,
   requires the canonical calculator font assets under repo-root `res/fonts`, writes
-  `android/local.properties`, and runs Gradle clean plus `assembleDebug` through
+  `android/local.properties`, and runs Gradle `clean`, skipped when the staged
+  inputs' fingerprint is unchanged and `android/app/.cxx` exists, then
+  `assembleDebug`, or `assembleRelease` on the dev channel, through
   the repo `./gradlew` launcher backed by the tracked wrapper runtime under
   `android/gradle/wrapper/`. Missing wrapper files are a repo-integrity
   failure, not a signal to fall back to host Gradle. It
@@ -511,11 +513,12 @@ Internal helpers:
 - `scripts/android/generate_staged_native_metadata.sh` refreshes
   `STAGED-SOURCE-MANIFEST.txt` and `staged_native_sources.cmake` inside the
   build-only staging root. It is an internal helper, not a primary maintainer
-  entrypoint. The core's sources in that list are upstream's own `c47_src` in
+  entry point. The core's sources in that list are upstream's own `c47_src` in
   `src/c47/meson.build`, read by `r47_core_c47_sources` in `scripts/lib/common.sh`,
   which the harness builds read too: `src/c47` also holds
   `reservedRegisterLookupGenerator.c`, a developer tool with its own `main()` that
-  upstream does not compile, and a glob of the directory put it in the app.
+  upstream does not compile, so a glob of the directory would link it into the
+  app.
 - `scripts/android/compute_staged_native_inputs.sh` fingerprints the canonical root,
   generated, calculator-font, and mini-gmp inputs behind `--android-only`
   freshness checks and writes `STAGED-INPUTS.properties` during staging.
@@ -537,12 +540,12 @@ Internal helpers:
 - `scripts/android/run_connected_android_tests.sh` owns the grouped hosted
   emulator instrumentation wrapper. It runs each non-fixture Android test class
   as a selection of its own and the whole `ProgramFixtureInstrumentedTest`
-  class, which covers every canonical `PROGRAMS` fixture, as a last one under
-  GNU `timeout`; all are required.
+  class, which runs each program fixture it names, as a last one under GNU
+  `timeout`; all are required.
 - `scripts/workload-regressions/run_workload_regressions.sh` owns the grouped
   workload-regression implementation: it compiles the host harness once, runs
   each required fixture in its own host process, and applies the same outer
-  timeout-and-kill safety net to every canonical `PROGRAMS` fixture. This is
+  timeout-and-kill safety net to each of them. This is
   the focused host compatibility harness, not the normal pull-request owner of
   the collector-driven host-core PGO contract.
 - `scripts/workload-regressions/collect_host_pgo_profile.sh` owns the
@@ -681,7 +684,8 @@ shell:
    recreated by the next run.
 5. Run `./scripts/android/build_android.sh` for the full Android lane. That regenerates
    `build.sim`, refreshes `android/.staged-native/cpp`, writes
-  `android/local.properties`, and assembles the debug APK through `./gradlew`.
+  `android/local.properties`, and assembles the APK through `./gradlew`: debug,
+  or release on the dev channel.
 6. Run the Android JVM and instrumentation-assembly lane from `android/` with
   `./gradlew`:
 
@@ -777,8 +781,8 @@ names, and release gating.
   lifecycle changes:
     `cd android && ./gradlew :app:assembleReleaseAndroidTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`,
   then run `scripts/android/run_connected_android_tests.sh` on a device or
-  emulator with a complete `R47_PRERELEASE_*` set for any key; CI generates a
-  throwaway keystore in-job for these installs. Add
+  emulator with all four `R47_PRERELEASE_*` inputs set; any keystore works, and
+  CI generates a throwaway one in-job for these installs. Add
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
   hosted gate runs one selection per non-fixture class plus one bounded
   `ProgramFixtureInstrumentedTest` selection that covers

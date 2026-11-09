@@ -10,7 +10,7 @@ every step below links the rule it follows.
 
 A release is one dispatch of `.github/workflows/android-release.yml` on `main`.
 Nothing else publishes a production release, and every job after the two
-resolve jobs runs only on `main`.
+resolve jobs runs only on `main`, except in a dry run, which publishes nothing.
 
 ## Before you dispatch
 
@@ -89,6 +89,7 @@ needs has passed:
 flowchart TD
   A[resolve-release-inputs]
   B[resolve-upstream-core]
+  R[require-green-ci]
   C[build-production-release-bundle]
   D[verify-production-release]
   E[sign-production-release]
@@ -97,12 +98,16 @@ flowchart TD
   H[upload-to-play<br/>skipped with play_track none]
   S[package-core-source]
 
+  A --> R
+  B --> R
+  R --> C
   A --> C
   B --> C
   A --> D
   B --> D
   C --> D
   C --> E --> F --> G
+  D --> E
   A --> S
   B --> S
   S --> G
@@ -156,10 +161,10 @@ cause.
 | `allow_overwrite=true re-cuts <tag>, so the version must stay <v>, not <x>.` | a re-cut republishes the previous release under its own tag, which stays on the first cut's commit while the release records the new one | set the file back to that release's numbers, or release the next ones |
 | `Could not determine whether <tag> exists (git ls-remote exit <n>); ...` | the tag check failed on the network or auth | rerun the failed job |
 | `Expected one APK evidence archive on <tag>, found 0.`, `The APK evidence of <tag> records no signing certificate ...`, or `... records no android_source_commit ...` | the previous release lacks the evidence the reinstall notice and the version check read | restore the previous release's APK packaging-evidence asset; the workflow will not publish without it |
-| `Expected one APK evidence archive on <tag>, found 2.` | a re-cut whose overlay or core moved published beside the first cut, since every file is named after both commits; a re-cut now removes the first cut's four files after its upload, so this comes only from one made before that | delete the four files of the cut that is not the release (`gh release delete-asset <tag> <name>`), then dispatch |
+| `Expected one APK evidence archive on <tag>, found 2.` | a re-cut whose overlay or core moved published beside the first cut, since every file is named after both commits; a re-cut removes the first cut's four files after its upload, so this comes from a re-cut that did not finish that removal | delete the four files of the cut that is not the release (`gh release delete-asset <tag> <name>`), then dispatch |
 | `Missing required production release signing secret for <name>.` | an `R47_RELEASE_*` secret is missing from the `production-release` environment | see [Repository settings](07-ci-and-release-workflow.md#repository-settings) |
-| `publish-production-release` fails | the release action, `softprops/action-gh-release` at its pinned v3.0.3, creates a non-prerelease as a draft and publishes it only after every upload, so a first publish that failed leaves a draft and no tag; a re-cut, which overwrites, deletes each asset before uploading its new one, so a failed re-cut can leave the published release short of an asset | `gh run rerun <run id> --failed`, which reuses the signed artifacts within their 30-day retention. Before any fresh dispatch instead, delete the leftover draft (`gh release delete r47zen-v<version>`), or the new run uploads beside its assets |
-| `upload-to-play` fails with "The service is currently unavailable" | a transient Play 5xx after the GitHub release is published; 0.1.14's first production run ended so, with one attempt | `gh run rerun <run id> --failed`, which reruns that job alone on the same signed AAB within its 30-day retention |
+| `publish-production-release` fails | the release action, `softprops/action-gh-release` at the version `android-release.yml` pins, creates a non-prerelease as a draft and publishes it only after every upload, so a first publish that failed leaves a draft and no tag; a re-cut, which overwrites, deletes each asset before uploading its new one, so a failed re-cut can leave the published release short of an asset | `gh run rerun <run id> --failed`, which reuses the signed artifacts within their 30-day retention. Before any fresh dispatch instead, delete the leftover draft (`gh release delete r47zen-v<version>`), or the new run uploads beside its assets |
+| `upload-to-play` fails with "The service is currently unavailable" | a transient Play 5xx after the GitHub release is published | `gh run rerun <run id> --failed`, which reruns that job alone on the same signed AAB within its 30-day retention |
 | `upload-to-play` fails with "Precondition check failed" | an edit was open in Play Console | close it, then rerun the failed job alone; the GitHub release is already published ([limits](07-ci-and-release-workflow.md#upload-to-play)) |
 | `upload-to-play` fails on `production` with a permission error | the Play upload account lacks the production release permission | grant it in Play Console ([`upload-to-play`](07-ci-and-release-workflow.md#upload-to-play)), then rerun the failed job alone |
 | Play answers that the track does not exist | the track name | the first value to check is `internal` versus `qa` ([limits](07-ci-and-release-workflow.md#upload-to-play)) |
