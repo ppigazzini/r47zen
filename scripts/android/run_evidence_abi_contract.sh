@@ -28,6 +28,9 @@ bundle() {
     for asset in COPYING LICENSE.txt SOURCE THIRD-PARTY.spdx.json; do
         echo "$asset" >"$work/tree/base/assets/$asset"
     done
+    # A BundleConfig.pb with uncompressed native libraries at PAGE_ALIGNMENT_16K,
+    # as every real bundle carries: fields 2 > 2 > (1: true, 2: 16K).
+    printf '\x12\x06\x12\x04\x08\x01\x10\x02' >"$work/tree/BundleConfig.pb"
     printf 'int r47_entry(void) { return 0; }\n' >"$work/lib.c"
     cc -shared -fPIC -o "$work/lib.so" "$work/lib.c"
     for abi in "$@"; do

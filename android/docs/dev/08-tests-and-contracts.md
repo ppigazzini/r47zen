@@ -223,6 +223,13 @@ runs. What each one locks:
   `DEFAULT` constant, not a literal of its own; every such setting has a `KEY_`
   constant, and the scanner is proven on seeded literals first. A read through
   another variable or a helper is out of its reach
+- `test_page_alignment_16k_contract.py`: `page_alignment_16k.py`, which the
+  packaging evidence runs on what ships, passes a GNU_RELRO that ends where its
+  LOAD ends (the 0.3.0 dry run's library) or on a 16 KB boundary and fails one
+  that ends mid-page or lies in no LOAD; it passes a `BundleConfig.pb` whose
+  uncompressed native libraries are `PAGE_ALIGNMENT_16K`, as bundletool 1.18.3
+  dumps the real one, and fails 4 KB, unset, and absent; and the evidence script
+  runs both
 - `test_launcher_icon_contract.py`: the launcher icon the app ships draws its
   drawing source, `android/app/icon-source/r47zen.svg`: both full icons have the SVG's
   paths in order and in its colors, the adaptive foreground has them but the

@@ -549,7 +549,11 @@ It:
   packages (`COPYING`, `LICENSE.txt`, `SOURCE`, `THIRD-PARTY.spdx.json`), whose
   absence fails it rather than letting it write a stand-in
   (`check_compliance_assets.sh`), no library exporting the test bridge or a
-  `main` (`check_shipped_symbols.sh`, which also reads the bundle's libraries), the signer
+  `main` (`check_shipped_symbols.sh`, which also reads the bundle's libraries),
+  each library's GNU_RELRO ending on a 16 KB boundary or where its LOAD ends, and
+  for a bundle, `BundleConfig.pb`'s uncompressed native libraries at
+  `PAGE_ALIGNMENT_16K`, which Play requires from 2027-02-01
+  (`r47_contracts/page_alignment_16k.py`), the signer
   certificate digest, the dev version, and the upstream core's own version
   (`upstream_version`, `VERSION1` from `src/c47/defines.h`, read by
   `scripts/android/read_upstream_version.sh` in the build job)

@@ -307,6 +307,20 @@ if [[ "$artifact_type" == "apk" || "$artifact_type" == "aab" ]]; then
     unzip -q "$primary_artifact_path" -d "$unpack_dir"
 fi
 
+# A 16 KB page device maps GNU_RELRO read-only by whole pages, so the segment must
+# end on a 16 KB boundary or where its LOAD ends.
+page_alignment_check="$(dirname "$0")/../r47_contracts/page_alignment_16k.py"
+check_relro() {
+    local so_file="$1" headers_text="$2"
+    local headers_file="$tmp_dir/program-headers.txt"
+    printf '%s\n' "$headers_text" >"$headers_file"
+    python3 "$page_alignment_check" relro "$headers_file" ||
+        {
+            echo "${so_file#"$unpack_dir"/} does not end its RELRO on a 16 KB page." >&2
+            exit 1
+        }
+}
+
 # The ABI directories under LIB_ROOT must be exactly --expected-abis; the list
 # goes into abis.txt.
 check_abis() {
@@ -433,6 +447,7 @@ if [[ "$artifact_type" == "apk" ]]; then
             echo
         } >>"$elf_report"
         bash "$(dirname "$0")/check_shipped_symbols.sh" "$so_file"
+        check_relro "$so_file" "$headers"
     done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)
     if [[ "$so_count" -eq 0 ]]; then
         echo "The APK carries no native library under lib/; the ELF LOAD alignment check has nothing to read." >&2
@@ -475,7 +490,14 @@ if [[ "$artifact_type" == "aab" ]]; then
     check_abis "$unpack_dir/base/lib"
     while IFS= read -r -d '' so_file; do
         bash "$(dirname "$0")/check_shipped_symbols.sh" "$so_file"
+        check_relro "$so_file" "$(objdump -p "$so_file")"
     done < <(find "$unpack_dir/base/lib" -type f -name '*.so' -print0)
+    # Play builds each device's APK from this setting.
+    if [[ ! -f "$unpack_dir/BundleConfig.pb" ]]; then
+        echo "The bundle carries no BundleConfig.pb." >&2
+        exit 1
+    fi
+    python3 "$page_alignment_check" bundle-config "$unpack_dir/BundleConfig.pb"
 
     if command -v keytool >/dev/null 2>&1; then
         if aab_certs="$(keytool -printcert -jarfile "$primary_artifact_path" 2>/dev/null)"; then
