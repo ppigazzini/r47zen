@@ -15,6 +15,11 @@
 # is started empty, so versions a bump retired drop out. Review the diff: Gradle
 # records whatever the repositories serve at this moment.
 #
+# It runs in an empty Gradle user home, as a fresh runner starts: a warm local
+# cache made Gradle resolve a platform's .pom where a clean one fetches its
+# .module, and the release lane, which restores no cache, failed on the file a
+# warm generation had left out.
+#
 # aapt2 is resolved per host OS. This file holds the Linux one, which every lane
 # and this repo's maintainer use; a build on macOS or Windows needs
 # --dependency-verification lenient until its classifier is added.
@@ -31,6 +36,10 @@ skip_native=(
     -x buildCMakeDebug -x buildCMakeRelWithDebInfo
     -x configureCMakeDebug -x configureCMakeRelWithDebInfo
 )
+
+GRADLE_USER_HOME="$(mktemp -d)"
+export GRADLE_USER_HOME
+trap 'rm -rf "$GRADLE_USER_HOME"' EXIT
 
 cd "$ANDROID_DIR"
 rm -f "$METADATA"

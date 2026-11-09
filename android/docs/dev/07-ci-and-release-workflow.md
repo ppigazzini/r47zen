@@ -330,7 +330,10 @@ The cost is a regeneration per bump: `scripts/android/update_dependency_verifica
 starts the file empty and runs the tasks CI runs, in both test build types,
 because AGP resolves some configurations (lint, aapt2, the kover and detekt
 tools) only while their tasks run. It skips the native build, which resolves
-nothing from a repository. Commit its diff with the bump, after reading it:
+nothing from a repository, and runs in an empty Gradle user home, as a fresh
+runner starts: a warm cache made Gradle take a platform's `.pom` where a clean
+one fetches its `.module`, and the release lane, which restores no cache, refused
+the file a warm run had written. Commit its diff with the bump, after reading it:
 Gradle records whatever the repositories serve at that moment. Dependabot's
 Gradle pull requests do not write the file, so each needs that run pushed on
 top. aapt2 is resolved per host OS and the file holds the Linux one; a build on
