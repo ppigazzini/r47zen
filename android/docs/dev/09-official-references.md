@@ -114,7 +114,7 @@ flowchart TD
   work, so a pin there rests only on this repo's own proof, which
   [the dependency cadence](01-build-and-source-layout.md#dependency-update-cadence)
   lists.
-- [Gradle 9.8.2 release notes](https://docs.gradle.org/9.8.2/release-notes.html):
+- [Gradle 9.9.0 release notes](https://docs.gradle.org/9.9.0/release-notes.html):
   official Gradle release notes for the wrapper version
   `gradle-wrapper.properties` pins; `run_toolchain_pin_coherence_contract.sh`
   fails when this link names another.
