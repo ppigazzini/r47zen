@@ -65,6 +65,8 @@ flowchart TD
   Dependabot-readable; the repository's Actions setting `sha_pinning_required`
   fails any run that uses a tag-pinned action (see
   [Repository settings](#repository-settings))
+- lock every action the workflows run, and every action those actions run, in
+  `.github/workflows/actions.lock` ([Actions lockfile](#actions-lockfile))
 - publish logs and packaging evidence as first-class artifacts
 - publish the main snapshot only after all required lanes pass
 - keep production signing and user-facing release publication in a separate
@@ -1241,6 +1243,7 @@ The rest, and what each one gates:
 | `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule, dispatch, which may pin `upstream_commit` | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`, adding the `c47.cmd` and `r47.cmd` launchers from `.github/project/windows-launchers/`; same nightly marker as Linux | nothing requires it; it reports |
 | `shell-lint.yml` | push to `main` and `github_ci`, pull request | `shellcheck` at info severity (SC2016 and SC2015 excluded, as idioms; the pre-commit hook runs the same) and `shfmt -i 4 -ci -d` over `scripts/**/*.sh`, then `actionlint` and `zizmor --no-online-audits --min-severity=medium` over the workflows, the composite actions, and `.github/dependabot.yml`; both jobs download the one `shellcheck` release the workflow-level `SHELLCHECK_VERSION` pins, never the runner image's copy | nothing requires it; it reports |
 | `docs-lint.yml` | push to `main` and `github_ci`, pull request, weekly schedule | `scripts/docs/run_docs_lint.sh` (see [10-writing.md](10-writing.md#the-gates)); on the schedule and on dispatch, `external-links` runs `scripts/docs/check_external_links.sh` | nothing requires it; it reports |
+| `actions-lock.yml` | push to `main` or `github_ci` and pull request on `main` that touch `.github/`, weekly schedule, dispatch | `gh actions-lock --verify --ignore-local-actions` with the extension pinned to v0.4.1: the lockfile covers every workflow and each pin verifies upstream ([Actions lockfile](#actions-lockfile)) | nothing requires it; it reports |
 | `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL with `build-mode: none`, one job per language: `c-cpp` over repo-owned C, `python` over the contract suite, the repository's only Python, `actions` over the workflows and composites, beside zizmor; ignoring `src`, `dep`, `tools`, and the staged tree; findings go to the Security tab. On the weekly schedule alone, `analyze-core` hydrates the core at the resolved upstream commit and runs `security-extended` over `src` and `dep/decNumberICU`, about 176,000 of the 195,000 lines of C the app ships, which no static analysis reached before; its own category keeps it apart, and its first result set decides whether it stays. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
 | `merge-request-watch.yml` | daily schedule, dispatch | `scripts/upstream-sync/watch_merge_request.sh` dispatches the `android-ci.yml`, `linux-ci.yml`, and `windows-ci.yml` of branch `port-mr-2033` on the merge ref of upstream MR !2033, once for each pair of branch commit and merge commit, and fails once the MR is merged or closed | nothing requires it; a dispatched lane reports in its own run |
@@ -1322,6 +1325,46 @@ prints; check it before raising the floor again:
 curl -fsSL https://raw.githubusercontent.com/dependabot/dependabot-core/main/python/lib/dependabot/python/language.rb |
     sed -n '/PRE_INSTALLED_PYTHON_VERSIONS_RAW = /,/freeze/p'
 ```
+
+### Actions lockfile
+
+`.github/workflows/actions.lock` records, for each workflow, every action it runs
+at the commit it runs, and for each action the actions it runs in turn, as
+GitHub's [workflow dependency lockfiles](https://docs.github.com/en/actions/concepts/security/workflow-dependency-lockfiles)
+define them. The SHA pins in the workflows already fix what this repository
+names; the lockfile adds what those actions name: the first run found
+`actions/upload-pages-artifact` running `actions/upload-artifact` v7.0.0, a
+version no workflow here pins. `gh actions-lock` (the `github/gh-actions-lock`
+extension, v0.4.1) writes it:
+
+```bash
+gh extension install github/gh-actions-lock --pin v0.4.1
+gh actions-lock --ignore-local-actions --no-narrow
+```
+
+Run it after any change to a `uses:`, a new workflow included. GitHub's how-to says
+a Dependabot version update regenerates the matching entries in the same pull
+request. Three choices are this repository's:
+
+- The workflows keep their SHA pins, so the tool's `sha-as-ref` warning, one per
+  pinned use, is expected: `sha_pinning_required` fails a tag-pinned action, and
+  the pin contracts and zizmor read the SHAs.
+- The local composites stay `./.github/actions/...`, with
+  `--ignore-local-actions`: the tool does not follow a `./` action, and the `$/`
+  form it offers instead fails actionlint 1.7.12 ("ref is missing"). What a
+  composite runs is recorded through a never-run step in each workflow that calls
+  it, `if: github.event_name == 'never'`, since actionlint also refuses a constant
+  `if: false`: `android-actions/setup-android` in `android-ci.yml` and
+  `android-release.yml`. The composites' cache actions are already recorded, since
+  those workflows use the same `actions/cache` commit.
+- The `Require lockfile` policy, which blocks a run that is not onboarded, is not
+  active; it is the maintainer's to turn on. GitHub's how-to says a job fails at a
+  step whose action has no entry.
+
+`actions-lock.yml` runs `gh actions-lock --verify` on a push or pull request that
+touches `.github/`, weekly, and on dispatch: the lockfile covers every workflow and
+each pin still verifies upstream. `run_actions_lock_coverage_contract.sh`, in
+every commit's hook, checks the coverage offline, composites included.
 
 ### Pins that live in more than one file
 

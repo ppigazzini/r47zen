@@ -557,6 +557,17 @@ jobs:
         with:
           cache-provider: external
 
+      # Never runs: no event is named 'never', and actionlint refuses a constant
+      # if: false. A workflow's lockfile entries must name what its local composite
+      # actions run, and gh-actions-lock does not follow ./ actions: setup-android-sdk
+      # and setup-signing-tools run android-actions/setup-android. The documented
+      # placeholder is a $/ reference, which actionlint 1.7.12 also refuses.
+      - name: Lock the action the local composites run
+        if: github.event_name == 'never'
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: platform-tools
+
       - name: Set up Android SDK
         id: android-sdk
         uses: ./.github/actions/setup-android-sdk
