@@ -6,13 +6,19 @@
 # run even after a failure, so a single CI run reports all of them; the script
 # exits non-zero if any failed.
 #
-# The lcd HAL contract is intentionally not listed here -- it needs the staged
-# native tree and tees its own log, so it stays a separate step. Pure host, no
-# SDK needed.
+# Every run_*_contract.sh in this directory is in CONTRACTS but those in
+# STAGED_TREE_CONTRACTS, which need the staged native tree and run as steps of
+# their own in linux-ci.yml; the run fails on a contract in neither, which would
+# otherwise never run with nothing to say so. Pure host, no SDK needed.
 
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+STAGED_TREE_CONTRACTS=(
+    run_hal_io_contract.sh
+    run_keypad_generation_contract.sh
+)
 
 CONTRACTS=(
     run_ci_contract_lib_meta_test.sh
@@ -66,9 +72,18 @@ for contract in "${CONTRACTS[@]}"; do
     echo "::endgroup::"
 done
 
+unlisted="$(LC_ALL=C comm -23 \
+    <(find "$SCRIPT_DIR" -maxdepth 1 -name 'run_*_contract.sh' -printf '%f\n' | LC_ALL=C sort) \
+    <(printf '%s\n' "${CONTRACTS[@]}" "${STAGED_TREE_CONTRACTS[@]}" | LC_ALL=C sort))"
+if [ -n "$unlisted" ]; then
+    echo "FAIL: contracts in $SCRIPT_DIR that neither list names, so nothing runs them:" >&2
+    sed 's/^/  /' <<<"$unlisted" >&2
+    failed+=("(unlisted contracts)")
+fi
+
 if [ "${#failed[@]}" -ne 0 ]; then
     echo "FAIL: ${#failed[@]} host CI contract(s) failed: ${failed[*]}" >&2
     exit 1
 fi
 
-echo "OK: all ${#CONTRACTS[@]} host CI contracts passed."
+echo "OK: all ${#CONTRACTS[@]} host CI contracts passed, and every contract on disk is listed."

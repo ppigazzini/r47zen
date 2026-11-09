@@ -1228,8 +1228,12 @@ default: read, not measured.
 ## Host CI Contracts
 
 `bash scripts/android/run_workflow_contracts.sh` runs the host CI contracts in
-one pass; its `CONTRACTS` array is the complete list. They need no SDK, no
-staged tree, and no device, and finish in seconds, so they run as a
+one pass; its `CONTRACTS` array is the complete list, and the run fails on a
+`run_*_contract.sh` beside it that neither `CONTRACTS` nor
+`STAGED_TREE_CONTRACTS` names. The two in `STAGED_TREE_CONTRACTS`,
+`run_hal_io_contract.sh` and `run_keypad_generation_contract.sh`, need the
+staged native tree and run as steps of their own in `linux-ci.yml`. The rest
+need no SDK, no staged tree, and no device, and finish in seconds, so they run as a
 `pre-commit` hook, in the `python-contracts` job of `android-ci.yml` (which
 `ci-required` depends on), and in `host-workload-regressions` of
 `linux-ci.yml`. The last column says whether a contract executes the thing it

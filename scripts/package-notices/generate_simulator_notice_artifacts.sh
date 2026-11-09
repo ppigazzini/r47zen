@@ -492,7 +492,7 @@ collect_windows_runtime_notices() {
 
     resolve_windows_source_path() {
         local packaged_path="$1"
-        local rel_path="${packaged_path#$package_dir/}"
+        local rel_path="${packaged_path#"$package_dir"/}"
 
         if [[ -f "$MINGW_PREFIX/$rel_path" ]]; then
             printf '%s\n' "$MINGW_PREFIX/$rel_path"

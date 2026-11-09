@@ -1,4 +1,8 @@
 #!/bin/bash
+# The subshells below source run_workload_regressions.sh so that its variables,
+# PROJECT_ROOT among them, stay inside them; PROJECT_ROOT out here is this
+# script's own, which SC2031 cannot tell.
+# shellcheck disable=SC2031
 
 # Contract: the test-integrity guards stay in place, so a test lane cannot
 # silently pass having tested nothing.

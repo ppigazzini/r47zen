@@ -68,8 +68,11 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t shell_scripts < <(find scripts -name '*.sh' | LC_ALL=C sort)
-          printf 'Linting %d repo-owned shell scripts at --severity=warning\n' "${#shell_scripts[@]}"
-          ./shellcheck --severity=warning "${shell_scripts[@]}"
+          # Info severity and the sourced helpers followed, as the pre-commit
+          # hook runs it, so an unquoted expansion (SC2086) fails; SC2016 and
+          # SC2015 are idioms here.
+          printf 'Linting %d repo-owned shell scripts at --severity=info\n' "${#shell_scripts[@]}"
+          ./shellcheck --external-sources --severity=info --exclude=SC2016,SC2015 "${shell_scripts[@]}"
 
       - name: Format-check repo-owned shell scripts
         shell: bash
@@ -123,9 +126,9 @@ jobs:
         # actionlint validates workflow syntax, expressions, glob patterns, and
         # the matrix and needs graphs -- the workflow bugs that YAML alone hides.
         # It also shellchecks each inline run: block through the pinned shellcheck
-        # above, at --severity=warning to match the dedicated scripts/*.sh job, so
-        # real bugs in inline bash fail here while pure-style SC2129 noise does
-        # not. The dedicated shellcheck job still owns scripts/*.sh.
+        # above, at --severity=warning, so real bugs in inline bash fail here
+        # while pure-style SC2129 noise does not; the scripts/*.sh job above runs
+        # at info, and owns those files.
         env:
           SHELLCHECK_OPTS: --severity=warning
         run: |

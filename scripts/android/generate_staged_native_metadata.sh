@@ -64,7 +64,7 @@ list_relative_files() {
     fi
 
     while IFS= read -r absolute_path; do
-        printf '%s\n' "${absolute_path#$CPP_DIR/}"
+        printf '%s\n' "${absolute_path#"$CPP_DIR"/}"
     done < <(find "${find_args[@]}" | LC_ALL=C sort)
 }
 

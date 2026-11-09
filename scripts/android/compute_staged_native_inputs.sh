@@ -76,7 +76,7 @@ relative_to_project_root() {
 
     case "$path" in
         "$PROJECT_ROOT"/*)
-            printf '%s\n' "${path#$PROJECT_ROOT/}"
+            printf '%s\n' "${path#"$PROJECT_ROOT"/}"
             ;;
         *)
             printf '%s\n' "$path"
@@ -129,7 +129,7 @@ digest_tree() {
     temp_manifest=$(mktemp)
 
     while IFS= read -r absolute_path; do
-        relative_path="${absolute_path#$source_dir/}"
+        relative_path="${absolute_path#"$source_dir"/}"
         digest=$("${SHA256_CMD[@]}" "$absolute_path" | awk '{print $1}')
         printf '%s  %s\n' "$digest" "$relative_path" >>"$temp_manifest"
     done < <(find "$source_dir" -type f | LC_ALL=C sort)

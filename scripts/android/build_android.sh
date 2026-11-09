@@ -28,7 +28,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-# shellcheck source=../lib/common.sh
+# shellcheck source=scripts/lib/common.sh
 source "$SCRIPT_DIR/../lib/common.sh"
 ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
 SCRIPTS_DIR="$PROJECT_ROOT/scripts"
@@ -450,18 +450,17 @@ run_host_pgo_collector() {
 
 run_release_native_pgo_validation() {
     local profile_path="$1"
-    local release_gradle_props=""
 
     [ -n "$profile_path" ] || fail "Release-native PGO validation requires a .profdata path."
     [ -f "$profile_path" ] || fail "Release-native PGO profile $profile_path does not exist."
 
     echo "--- Validating Android release-native PGO build with $profile_path ---"
 
-    release_gradle_props="$GRADLE_PROPS -Pr47.pgoProfilePath=$profile_path"
+    # The profile's -P comes last, so it wins over an R47_PGO_PROFILE_PATH one.
     run_gradle --max-workers "$R47_BUILD_JOBS" \
         :app:externalNativeBuildRelease \
         -x prepareStagedNativeInputs \
-        $GRADLE_EXTRA_ARGS $release_gradle_props
+        "${GRADLE_EXTRA_ARGS[@]}" "${GRADLE_PROPS[@]}" "-Pr47.pgoProfilePath=$profile_path"
 }
 
 R47_BUILD_JOBS_INPUT=${R47_BUILD_JOBS-}
@@ -977,12 +976,12 @@ cd "$ANDROID_PROJECT_DIR"
 echo "--- Building APK ---"
 
 # Pass detected NDK/SDK versions as Project Properties to override build.gradle defaults
-GRADLE_PROPS="-Pr47.ndkVersion=$IF_NDK_VERSION"
-GRADLE_PROPS="$GRADLE_PROPS -Pr47.coreVersion=$COMMIT_HASH"
+GRADLE_PROPS=("-Pr47.ndkVersion=$IF_NDK_VERSION")
+GRADLE_PROPS+=("-Pr47.coreVersion=$COMMIT_HASH")
 # The About line names the core by its own version beside the commit; read it
 # from the staged copy, which is what this build compiles.
 UPSTREAM_VERSION_VALUE=$(bash "$ANDROID_SCRIPTS_DIR/read_upstream_version.sh" "$STAGED_CPP_DIR/c47/defines.h")
-if [ -n "$UPSTREAM_VERSION_VALUE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.upstreamVersion=$UPSTREAM_VERSION_VALUE"; fi
+if [ -n "$UPSTREAM_VERSION_VALUE" ]; then GRADLE_PROPS+=("-Pr47.upstreamVersion=$UPSTREAM_VERSION_VALUE"); fi
 RELEASE_CHANNEL_OVERRIDE=${R47_RELEASE_CHANNEL-}
 RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE=${R47_RELEASE_CHANNEL_BUILD_TOKEN-}
 COMPILE_SDK_OVERRIDE=${R47_COMPILE_SDK-}
@@ -1007,19 +1006,21 @@ if [ -z "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" ]; then
     UPSTREAM_SOURCE_COMMIT_OVERRIDE="$RESOLVED_UPSTREAM_COMMIT"
 fi
 
-if [ -n "$COMPILE_SDK_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.compileSdk=$COMPILE_SDK_OVERRIDE"; fi
-if [ -n "$VERSION_CODE_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionCode=$VERSION_CODE_OVERRIDE"; fi
-if [ -n "$VERSION_NAME_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionName=$VERSION_NAME_OVERRIDE"; fi
-if [ -n "$RELEASE_CHANNEL_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.releaseChannel=$RELEASE_CHANNEL_OVERRIDE"; fi
-if [ -n "$RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.releaseChannelBuildToken=$RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE"; fi
-if [ -n "$SOURCE_REPOSITORY_URL_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.sourceRepositoryUrl=$SOURCE_REPOSITORY_URL_OVERRIDE"; fi
-if [ -n "$SOURCE_COMMIT_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.sourceCommit=$SOURCE_COMMIT_OVERRIDE"; fi
-if [ -n "$PGO_PROFILE_PATH_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.pgoProfilePath=$PGO_PROFILE_PATH_OVERRIDE"; fi
-if [ -n "$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.upstreamSourceRepositoryUrl=$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE"; fi
-if [ -n "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.upstreamSourceCommit=$UPSTREAM_SOURCE_COMMIT_OVERRIDE"; fi
-if [ -n "$XLSXIO_SOURCE_REPOSITORY_URL_VALUE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.xlsxioSourceRepositoryUrl=$XLSXIO_SOURCE_REPOSITORY_URL_VALUE"; fi
-if [ -n "$XLSXIO_SOURCE_COMMIT_VALUE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.xlsxioSourceCommit=$XLSXIO_SOURCE_COMMIT_VALUE"; fi
-GRADLE_EXTRA_ARGS=${R47_GRADLE_ARGS-}
+if [ -n "$COMPILE_SDK_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.compileSdk=$COMPILE_SDK_OVERRIDE"); fi
+if [ -n "$VERSION_CODE_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.versionCode=$VERSION_CODE_OVERRIDE"); fi
+if [ -n "$VERSION_NAME_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.versionName=$VERSION_NAME_OVERRIDE"); fi
+if [ -n "$RELEASE_CHANNEL_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.releaseChannel=$RELEASE_CHANNEL_OVERRIDE"); fi
+if [ -n "$RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.releaseChannelBuildToken=$RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE"); fi
+if [ -n "$SOURCE_REPOSITORY_URL_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.sourceRepositoryUrl=$SOURCE_REPOSITORY_URL_OVERRIDE"); fi
+if [ -n "$SOURCE_COMMIT_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.sourceCommit=$SOURCE_COMMIT_OVERRIDE"); fi
+if [ -n "$PGO_PROFILE_PATH_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.pgoProfilePath=$PGO_PROFILE_PATH_OVERRIDE"); fi
+if [ -n "$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.upstreamSourceRepositoryUrl=$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE"); fi
+if [ -n "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.upstreamSourceCommit=$UPSTREAM_SOURCE_COMMIT_OVERRIDE"); fi
+if [ -n "$XLSXIO_SOURCE_REPOSITORY_URL_VALUE" ]; then GRADLE_PROPS+=("-Pr47.xlsxioSourceRepositoryUrl=$XLSXIO_SOURCE_REPOSITORY_URL_VALUE"); fi
+if [ -n "$XLSXIO_SOURCE_COMMIT_VALUE" ]; then GRADLE_PROPS+=("-Pr47.xlsxioSourceCommit=$XLSXIO_SOURCE_COMMIT_VALUE"); fi
+# R47_GRADLE_ARGS holds whole Gradle arguments separated by blanks; split it here,
+# once, so every other argument stays one word whatever it holds.
+read -r -a GRADLE_EXTRA_ARGS <<<"${R47_GRADLE_ARGS-}"
 
 if [ -z "$SOURCE_REPOSITORY_URL_OVERRIDE" ]; then
     SOURCE_REPOSITORY_URL_OVERRIDE=$(git -C "$PROJECT_ROOT" config --get remote.origin.url 2>/dev/null || true)
@@ -1055,7 +1056,7 @@ if [ "$RELEASE_CHANNEL_OVERRIDE" = "dev" ]; then
     PACKAGING_VARIANT="release"
     # The published dev-prerelease APK is not an instrumentation target, so keep
     # the androidTest program-load bridge out of the shipped library.
-    GRADLE_PROPS="$GRADLE_PROPS -Pr47.includeProgramLoadTestBridge=false"
+    GRADLE_PROPS+=("-Pr47.includeProgramLoadTestBridge=false")
 fi
 
 if [ "$ANDROID_ONLY" = false ]; then
@@ -1071,10 +1072,10 @@ if [ "$ANDROID_ONLY" = false ]; then
         echo "--- Staged native inputs unchanged; preserving incremental build state ---"
     else
         rm -rf app/.cxx
-        run_gradle clean $GRADLE_EXTRA_ARGS
+        run_gradle clean "${GRADLE_EXTRA_ARGS[@]}"
     fi
 fi
-run_gradle --max-workers "$R47_BUILD_JOBS" "$ASSEMBLE_TASK" $GRADLE_EXTRA_ARGS $GRADLE_PROPS
+run_gradle --max-workers "$R47_BUILD_JOBS" "$ASSEMBLE_TASK" "${GRADLE_EXTRA_ARGS[@]}" "${GRADLE_PROPS[@]}"
 ensure_retired_legacy_cpp_paths_absent
 
 if [ "$ASSEMBLE_TASK" = "assembleRelease" ]; then

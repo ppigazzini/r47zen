@@ -32,9 +32,13 @@ repos:
     hooks:
       - id: shellcheck
         # Lint only repo-owned shell scripts; the vendored android/gradlew wrapper
-        # is Gradle-generated and not maintained here.
+        # is Gradle-generated and not maintained here. Info severity, as Shell
+        # Lint runs it, so an unquoted expansion (SC2086) fails; SC2016 (a $ in
+        # single quotes) and SC2015 (A && B || C) are idioms here, not slips.
+        # --external-sources follows each sourced helper, which the hook does not
+        # pass when only the script that sources it changed.
         files: ^scripts/.*\.sh$
-        args: [--severity=warning]
+        args: [--external-sources, --severity=info, '--exclude=SC2016,SC2015']
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.14.1-1
     hooks:
@@ -84,13 +88,14 @@ repos:
       - id: workflow-contracts
         # The host CI contracts (signing isolation, release provenance, pinned
         # toolchains, test integrity) read workflows, scripts, Android build
-        # inputs, and the tool pins in this file, pyproject.toml, and uv.lock.
-        # They need no SDK and run in seconds, so a broken contract fails here
-        # before CI. android-ci runs the same group in python-contracts.
+        # inputs, the tool pins in this file, pyproject.toml, and uv.lock, and
+        # README.md, whose download names two of them check. They need no SDK
+        # and run in seconds, so a broken contract fails here before CI.
+        # android-ci runs the same group in python-contracts.
         name: host CI contracts
         entry: scripts/android/run_workflow_contracts.sh
         language: script
-        files: ^(\.github/|scripts/|android/|\.pre-commit-config\.yaml$|pyproject\.toml$|uv\.lock$)
+        files: ^(\.github/|scripts/|android/|\.pre-commit-config\.yaml$|pyproject\.toml$|uv\.lock$|README\.md$)
         pass_filenames: false
       - id: restore-boundary
         # Every tracked root entry, file or directory, must be in upstream.sh's
