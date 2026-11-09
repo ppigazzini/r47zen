@@ -43,6 +43,7 @@ CONTRACTS=(
     run_core_source_archive_contract.sh
     run_host_tools_record_contract.sh
     run_native_exports_contract.sh
+    run_actions_lock_coverage_contract.sh
     run_core_source_list_contract.sh
     run_release_provenance_contract.sh
     run_privileged_remote_script_contract.sh

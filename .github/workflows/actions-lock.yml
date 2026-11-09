@@ -1,0 +1,42 @@
+# Verify .github/workflows/actions.lock: every action a workflow uses, and every
+# action those actions use, is locked to the commit recorded there, and each locked
+# commit still verifies upstream. gh-actions-lock's own verify-lockfile
+# template, with the extension pinned, a weekly run for pins that stop verifying
+# upstream, and this repo's local composites kept as ./ (actionlint refuses $/):
+# run_actions_lock_coverage_contract.sh covers what they run, offline, in every
+# commit's hook.
+name: Actions Lock
+
+on:
+  push:
+    branches: [main, github_ci]
+    paths: ['.github/**']
+  pull_request:
+    branches: [main]
+    paths: ['.github/**']
+  schedule:
+    - cron: '41 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify the actions lockfile
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify every workflow's locked actions
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh extension install github/gh-actions-lock --pin v0.4.1
+          gh actions-lock --verify --ignore-local-actions --no-interactive
