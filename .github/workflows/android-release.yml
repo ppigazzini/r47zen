@@ -1436,8 +1436,11 @@ jobs:
           echo "aab_evidence_archive_name=${aab_evidence_archive_name}" >> "$GITHUB_OUTPUT"
           echo "apk_evidence_archive_name=${apk_evidence_archive_name}" >> "$GITHUB_OUTPUT"
 
+      # With no predicate and no SBOM, actions/attest makes SLSA build provenance;
+      # actions/attest-build-provenance is a wrapper over it whose README sends new
+      # workflows here.
       - name: Attest build provenance for the published artifacts
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           # Attest the exact signed bytes that ship on the GitHub release, and
           # the two packaging-evidence archives that document them, so a
@@ -1450,6 +1453,25 @@ jobs:
             release-aab/*.aab
             release-apk/*packaging-evidence.zip
             release-aab/*packaging-evidence.zip
+
+      # The SPDX inventory the signed APK carries, which the AAB carries too, attested
+      # for both: the provenance names this repository's commit alone, and the
+      # inventory names the core's (r47-upstream-core's versionInfo), every module
+      # with its SHA-256, and the graph, for a verifier or a scanner.
+      - name: Check the APK and the AAB ship one SPDX inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp release-apk/compliance-assets/THIRD-PARTY.spdx.json \
+            release-aab/compliance-assets/THIRD-PARTY.spdx.json
+
+      - name: Attest the SPDX inventory for the published APK and AAB
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            release-apk/*.apk
+            release-aab/*.aab
+          sbom-path: release-apk/compliance-assets/THIRD-PARTY.spdx.json
 
       - name: Verify build provenance attestation
         env:
@@ -1470,6 +1492,13 @@ jobs:
             gh attestation verify "${artifact}" \
               --repo "${GITHUB_REPOSITORY}" \
               --signer-workflow "${SIGNER_WORKFLOW}"
+          done
+          for artifact in release-apk/*.apk release-aab/*.aab; do
+            echo "Verifying the SPDX inventory attestation for ${artifact}"
+            gh attestation verify "${artifact}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --signer-workflow "${SIGNER_WORKFLOW}" \
+              --predicate-type https://spdx.dev/Document/v2.3
           done
 
       - name: Write release notes

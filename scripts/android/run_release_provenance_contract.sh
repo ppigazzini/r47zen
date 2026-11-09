@@ -3,9 +3,11 @@
 # Contract: the production release must publish a SLSA build-provenance
 # attestation for the artifacts it ships AND verify it in the same run. The
 # publish-production-release job in android-release.yml must therefore declare
-# the id-token:write and attestations:write permissions, run
-# actions/attest-build-provenance over the published APK and AAB and both
-# packaging-evidence archives, and verify each with `gh attestation verify`.
+# the id-token:write and attestations:write permissions, run actions/attest
+# over the published APK and AAB and both packaging-evidence archives, and
+# verify each with `gh attestation verify`. It must also attest the SPDX
+# inventory the APK ships for the APK and the AAB with actions/attest's
+# sbom-path, and verify that with the SPDX 2.3 predicate type.
 # Pure host test, no SDK needed.
 
 set -Eeuo pipefail
@@ -22,7 +24,11 @@ live="$(strip_hash_comments <<<"$block")"
 missing=""
 grep -q 'id-token: write' <<<"$live" || missing="$missing id-token:write"
 grep -q 'attestations: write' <<<"$live" || missing="$missing attestations:write"
-grep -q 'uses: actions/attest-build-provenance@' <<<"$live" || missing="$missing actions/attest-build-provenance"
+[ "$(grep -c 'uses: actions/attest@' <<<"$live")" -ge 2 ] || missing="$missing actions/attest(provenance-and-sbom)"
+grep -q 'sbom-path: release-apk/compliance-assets/THIRD-PARTY.spdx.json' <<<"$live" ||
+    missing="$missing sbom-path"
+grep -q -- '--predicate-type https://spdx.dev/Document/v2.3' <<<"$live" ||
+    missing="$missing verify-sbom"
 # Require a real `gh attestation verify` command, not just a mention in a
 # comment (strip_hash_comments), so the attestation is re-verified in the run.
 grep -q 'gh attestation verify' <<<"$live" ||
@@ -43,7 +49,7 @@ fi
 # no `if:` and no `continue-on-error`.
 step_gates() {
     awk '
-        /^      - name:/ { in_step = ($0 ~ /Attest build provenance|Verify build provenance/) ; name = $0; next }
+        /^      - name:/ { in_step = ($0 ~ /Attest build provenance|Attest the SPDX inventory|Verify build provenance/) ; name = $0; next }
         in_step && /^        (if|continue-on-error):/ { print name ": " $0 }
     ' <<<"$1"
 }
@@ -51,5 +57,7 @@ gated="$(step_gates "$live")"
 [ -z "$gated" ] || contract_fail "an attestation step can be skipped:" "$gated"
 seeded="$(sed 's/^      - name: Attest build provenance for the published artifacts$/&\n        if: ${{ false }}/' <<<"$live")"
 [ -n "$(step_gates "$seeded")" ] || contract_fail "the step-gate check missed a seeded if: on the attest step"
+seeded="$(sed 's/^      - name: Attest the SPDX inventory for the published APK and AAB$/&\n        continue-on-error: true/' <<<"$live")"
+[ -n "$(step_gates "$seeded")" ] || contract_fail "the step-gate check missed a seeded continue-on-error on the SBOM step"
 
-contract_pass "publish-production-release attests and verifies build provenance for the published artifacts."
+contract_pass "publish-production-release attests and verifies build provenance and the SPDX inventory for the published artifacts."

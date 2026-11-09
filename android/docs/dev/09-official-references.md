@@ -439,10 +439,12 @@ Current repository icon surfaces:
   artifact upload and download behavior for GitHub Actions.
 - [Using artifact attestations to establish provenance for builds](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations):
   the permissions and `gh attestation verify` that `publish-production-release`
-  and `upload-to-play` use. The page's examples call `actions/attest`;
-  `android-release.yml` calls `actions/attest-build-provenance`, a wrapper
-  whose README keeps it for existing workflows and sends new ones to
-  `actions/attest`.
+  and `upload-to-play` use. `android-release.yml` calls `actions/attest`, as
+  the page's examples do, twice: with no predicate it makes SLSA build
+  provenance, and with `sbom-path` an SBOM attestation, whose SPDX 2.3
+  predicate type `gh attestation verify --predicate-type` names.
+  `actions/attest-build-provenance` is a wrapper over it whose README sends new
+  workflows to `actions/attest`.
 - [Configuring OpenID Connect in Google Cloud Platform](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-google-cloud-platform)
   and [OpenID Connect reference](https://docs.github.com/en/actions/reference/security/oidc):
   the `id-token: write` exchange in `upload-to-play`, the token claims, and the

@@ -965,9 +965,13 @@ This workflow job:
   from the collected compliance assets, provenance, mapping, symbols, and
   packaging reports
 - attests SLSA build provenance for the APK, the AAB, and both
-  packaging-evidence zips, then verifies each attestation against this
-  workflow's identity with `gh attestation verify`, before anything is
-  published
+  packaging-evidence zips with `actions/attest`; after checking that the APK
+  and the AAB ship one `THIRD-PARTY.spdx.json`, attests that inventory for both
+  with `sbom-path`, since the provenance names this repository's commit alone
+  and the inventory names the core's; then verifies each attestation
+  against this workflow's identity with `gh attestation verify`, the inventory
+  with `--predicate-type https://spdx.dev/Document/v2.3`, before anything is
+  published. The README gives users the same commands
 - creates or updates the GitHub release tag `r47zen-v<version>` titled
   `R47 Zen <version>`
 - attaches the signed installable APK, the signed Play upload AAB, and both

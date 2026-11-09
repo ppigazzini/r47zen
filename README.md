@@ -107,6 +107,17 @@ SHA-256:
 The CI workflow refuses to publish a pre-release that carries any other
 signer, and each pre-release's notes repeat the value.
 
+Every production release's APK, AAB, and packaging-evidence archives also
+carry a build provenance attestation from the release workflow. Releases after
+0.2.0 add an attestation of the SPDX inventory the APK and the AAB ship, which
+names the upstream core commit and every library with its SHA-256. With the
+GitHub CLI:
+
+    gh attestation verify <file> --repo ppigazzini/r47zen \
+        --signer-workflow ppigazzini/r47zen/.github/workflows/android-release.yml
+
+Add `--predicate-type https://spdx.dev/Document/v2.3` to check the inventory.
+
 Google Play signs the APKs it delivers with its own app-signing key, so an
 install from Play does not carry this certificate. Android updates an app only
 with the signer it was installed with: a Play install and a GitHub install
