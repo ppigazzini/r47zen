@@ -57,8 +57,9 @@ and limits.
    [00-project-and-upstream.md](android/docs/dev/00-project-and-upstream.md)
 2. **`__DEV/` is git-ignored and maintainer-only.** Never commit it, and never
    rest a tracked claim on content only its author can see - a fresh clone does
-   not have it. Naming the path to mark it ignored is fine. Tracked
-   documentation lives in `android/docs/dev/`.
+   not have it. Never cite an ID from a note in it, in a page, a comment, or a
+   commit message: say what the ID stands for. Naming the path to mark it
+   ignored is fine. Tracked documentation lives in `android/docs/dev/`.
    [10-writing.md](android/docs/dev/10-writing.md#the-rules)
 3. **ASCII by default** in tracked docs. No ASCII-art boxes; use mermaid.
    **American spelling** everywhere this repo writes: pages, comments,

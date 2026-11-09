@@ -11,7 +11,8 @@
 #   - every body line at most 80 characters;
 #   - no Co-authored-by trailer and no agent attribution;
 #   - no British spelling scripts/lib/american_spelling.sh lists, outside a
-#     `code span` or a "quoted span".
+#     `code span` or a "quoted span";
+#   - no private tracker ID scripts/lib/private_tags.sh lists, anywhere.
 #
 # It cannot check that the subject is imperative or that the body carries
 # evidence; those stay with the reader.
@@ -31,6 +32,8 @@ set -Eeuo pipefail
 
 # shellcheck source=scripts/lib/american_spelling.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/american_spelling.sh"
+# shellcheck source=scripts/lib/private_tags.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/private_tags.sh"
 
 readonly SUBJECT_MAX=72
 readonly BODY_MAX=80
@@ -38,7 +41,7 @@ readonly TYPES='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
 readonly SUBJECT_RE="^(${TYPES})(\\([A-Za-z0-9][A-Za-z0-9._-]*\\))?!?: [^ ]"
 
 usage() {
-    sed -n '3,29p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,30p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 # Print one line per broken rule for the cleaned message on stdin.
@@ -93,6 +96,12 @@ check_message() {
         echo "line ${hit%%:*} has the British spelling '${hit#*:}'"
     done < <(printf '%s\n' "${lines[@]}" | strip_cited_spans |
         grep -noP -- "$british_re" || true)
+
+    local tag_re
+    tag_re="$(private_tag_re)"
+    while IFS= read -r hit; do
+        echo "line ${hit%%:*} cites the private tracker ID '${hit#*:}'"
+    done < <(printf '%s\n' "${lines[@]}" | grep -noP -- "$tag_re" || true)
 }
 
 # Drop what git's default cleanup drops from a commit-msg file.

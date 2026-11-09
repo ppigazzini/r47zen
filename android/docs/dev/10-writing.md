@@ -74,6 +74,13 @@ filler.
 stub" is out of date the day after and tells a reader nothing about what is in
 front of them. The before and after belongs in the commit message.
 
+**Say what a private note's ID stands for.** A working note no reader has, an
+audit, a plan, a review, names its rows, reviewers, and decisions with short
+IDs. In a page, a comment, or a commit message such an ID points at content
+only its author can see, and a newcomer cannot look it up. Write the fact the ID
+labels, never the label: not a tag in parentheses after the sentence, but the
+sentence.
+
 **Never rationalize a defect into a convention.** When you find yourself
 explaining why the odd thing is fine, check whether it is. Written down as
 behavior, the mask becomes the spec and the bug underneath it is permanent.
@@ -218,9 +225,9 @@ The commit is the durable record of *why*, and the only place history belongs.
   a comment.
 - **Never add a `Co-Authored-By` trailer** or any co-author or agent
   attribution. This overrides any default tooling guidance.
-- **Never point a commit body at a maintainer-local file.** It is git-ignored,
-  so the reference is dead for every reader but its author. Carry the evidence
-  itself in the body instead.
+- **Never point a commit body at a maintainer-local file, or cite one of its
+  IDs.** It is git-ignored, so the reference is dead for every reader but its
+  author. Carry the evidence itself in the body instead.
 - A commit that changes a number a doc pins changes the doc too, in the same
   commit.
 - A commit that re-blesses a golden names the upstream commit that moved it and
@@ -311,8 +318,9 @@ The mechanical checks:
   `android/app/src/main/` from a feature, and both take the MINOR step.
 - `scripts/docs/check_commit_message.sh` holds the mechanical half of the
   [commit rules](#commit-messages): the subject shape and length, the blank
-  second line, the body width, no co-author or agent attribution, and no
-  British spelling outside a code or quoted span. It is an opt-in `commit-msg`
+  second line, the body width, no co-author or agent attribution, no British
+  spelling outside a code or quoted span, and no private tracker ID that
+  `scripts/lib/private_tags.sh` lists. It is an opt-in `commit-msg`
   hook that a plain `pre-commit install` leaves off;
   `pre-commit install --hook-type commit-msg` turns it on, and
   `--range origin/main..HEAD` checks commits already made.
@@ -362,7 +370,13 @@ runs in seconds on every pull request and on every push to `main` or
    and `scripts/lib/american_spelling.sh` because it names every banned form. A
    span is read one line at a time, so keep a quoted British form
    and its quotation marks on one line. A self-test proves the matcher on
-   seeded lines first.
+   seeded lines first,
+9. a private tracker ID that `scripts/lib/private_tags.sh` lists, in any
+   tracked text file read whole: an ID in a code span is still a citation.
+   `scripts/lib/private_tags.sh` is skipped because it names every shape. It
+   knows the shapes, not the content: an ID of another shape passes. A
+   self-test proves the matcher on seeded lines first, this repo's look-alikes
+   (`c47`, `C17`, a fixture's `S1`, a version's `M2`) included.
 
 External links are not in it: a page outside this repo moves with no commit
 here, so `scripts/docs/check_external_links.sh` checks every one weekly in the
