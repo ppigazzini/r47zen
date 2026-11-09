@@ -74,14 +74,30 @@ runner_label_gaps() {
         grep -vE ':[0-9]+:[[:space:]]*#' | sed "s#^$1/##" || true
 }
 
-# Print the rev of the pre-commit repo whose URL ends in /REPO, from CONFIG.
+# Print the tag of the pre-commit repo whose URL ends in /REPO, from CONFIG: the
+# `# frozen: <tag>` comment of a rev frozen to a commit, else the rev itself.
 precommit_rev() {
     awk -v repo="/$2" '
         /^[[:space:]]*-[[:space:]]*repo:/ {
             hit = substr($NF, length($NF) - length(repo) + 1) == repo
             next
         }
-        hit && /^[[:space:]]*rev:/ { print $2; exit }
+        hit && /^[[:space:]]*rev:/ {
+            if (match($0, /# frozen: [^[:space:]]+/)) { print substr($0, RSTART + 10, RLENGTH - 10) } else { print $2 }
+            exit
+        }
+    ' "$1"
+}
+
+# Print each third-party hook whose rev is not a 40-hex commit with a
+# `# frozen: <tag>` comment, as `pre-commit autoupdate --freeze` writes it. A tag
+# can be moved, and a hook runs on the maintainer's machine.
+unfrozen_hooks() {
+    awk '
+        /^[[:space:]]*-[[:space:]]*repo:/ { repo = $NF; next }
+        repo != "local" && repo != "meta" && /^[[:space:]]*rev:/ {
+            if ($2 !~ /^[0-9a-f]{40}$/ || $0 !~ /# frozen: [^[:space:]]+/) print repo ": rev " $2
+        }
     ' "$1"
 }
 
@@ -311,6 +327,18 @@ gaps="$(action_pin_gaps "$PROJECT_ROOT/.github")"
 gaps="$(runner_label_gaps "$PROJECT_ROOT/.github")"
 [ -z "$gaps" ] || contract_fail "a job runs on a floating -latest runner label:" "$gaps"
 
+unfrozen="$(unfrozen_hooks "$PROJECT_ROOT/.pre-commit-config.yaml")"
+[ -z "$unfrozen" ] || contract_fail "a pre-commit hook runs from a movable tag; freeze it to its commit:" "$unfrozen"
+seeded_hooks="$(mktemp)"
+printf '%s\n' '  - repo: https://github.com/rhysd/actionlint' '    rev: v1.7.12' >"$seeded_hooks"
+[ -n "$(unfrozen_hooks "$seeded_hooks")" ] || contract_fail "the frozen-hook check missed a bare tag"
+printf '%s\n' '  - repo: https://github.com/rhysd/actionlint' \
+    '    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12' >"$seeded_hooks"
+[ -z "$(unfrozen_hooks "$seeded_hooks")" ] || contract_fail "the frozen-hook check flagged a frozen rev"
+[ "$(precommit_rev "$seeded_hooks" rhysd/actionlint)" = v1.7.12 ] ||
+    contract_fail "precommit_rev does not read the tag of a frozen rev"
+rm -f "$seeded_hooks"
+
 gaps="$(tool_pin_gaps "$WORKFLOW_DIR/shell-lint.yml" "$PROJECT_ROOT/.pre-commit-config.yaml" \
     "$PROJECT_ROOT/uv.lock" "$PROJECT_ROOT/pyproject.toml" "$PROJECT_ROOT/.github")"
 [ -z "$gaps" ] || contract_fail "a tool is pinned differently in two places:" "$gaps"
@@ -323,4 +351,4 @@ dependabot_actions="$(awk '/package-ecosystem: "github-actions"/ { on = 1; next 
 grep -q '"/.github/actions/\*"' <<<"$dependabot_actions" ||
     contract_fail "dependabot.yml's github-actions entry does not scan /.github/actions/*, so the composite actions' pins get no pull request"
 
-contract_pass "every action has one SHA and tag, shfmt/shellcheck/actionlint/zizmor/ruff/uv/python agree across CI, pre-commit, and uv.lock, and every runner label is versioned, and Dependabot scans the composites."
+contract_pass "every action has one SHA and tag, shfmt/shellcheck/actionlint/zizmor/ruff/uv/python agree across CI, pre-commit, and uv.lock, and every runner label is versioned, Dependabot scans the composites, and every hook is frozen to a commit."

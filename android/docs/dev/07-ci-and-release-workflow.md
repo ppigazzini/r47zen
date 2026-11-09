@@ -1254,6 +1254,13 @@ nothing fails: both copies still resolve. `run_action_pin_consistency_contract.s
 - every `setup-python` `python-version` against `pyproject.toml`'s
   `requires-python` floor, ruff `target-version`, and ty `python-version`.
 
+Every third-party pre-commit hook runs from a commit, not a tag, as the actions do:
+`rev: <40 hex>  # frozen: <tag>`, the form `pre-commit autoupdate --freeze` writes,
+because a tag can be moved and a hook runs on the maintainer's machine.
+The contract reads the tag from the comment for the checks above and fails a bare
+tag. Whether Dependabot's `pre-commit` updates keep the frozen form is unproven
+until its first bump runs on `main`.
+
 So a bump edits every file that names the thing it bumps: search `.github/`,
 `.pre-commit-config.yaml`, and `pyproject.toml`, not the file that prompted it,
 and say in the commit which files each bump touched. Dependabot opens one
