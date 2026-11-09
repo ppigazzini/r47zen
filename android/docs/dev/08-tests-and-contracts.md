@@ -919,7 +919,10 @@ Android compatibility layer.
   mode, must back the entry out and leave the stack and the program as they were. A
   file answer with no request waiting must be refused and leave nothing in native,
   and one a request waits for must leave native its name, whole, or the last 255
-  bytes of a longer one, or none. It
+  bytes of a longer one, or none. Through a fake JNI table it holds two JNI
+  rules: a `NewStringUTF` that runs out of memory must have its exception
+  cleared before `jni_new_string_utf` tries the fallback, and the display copy
+  must make no JNI call between its critical get and release. It
   runs `fnSNAP` on the live core: a BMP of the whole screen must
   land at the name init armed, and the name must go empty, the two behaviors the
   offer in `hal/io.c` reads; its register print must land in `<base>/DATA`, the
