@@ -2,8 +2,8 @@
 <full-backup-content>
     <exclude domain="sharedpref" path="R47WorkDirPrefs.xml" />
     <exclude domain="sharedpref" path="R47Slots.xml" />
-    <exclude domain="file" path="backupR47_0.cfg.tmp" />
-    <exclude domain="file" path="backupR47_0.cfg.restoring" />
+    <exclude domain="file" path="backupR47.cfg.tmp" />
+    <exclude domain="file" path="backupR47.cfg.restoring" />
     <exclude domain="sharedpref" path="R47DataFolderMirror.xml" />
     <exclude domain="file" path="DATA" />
 </full-backup-content>

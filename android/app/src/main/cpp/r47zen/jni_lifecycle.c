@@ -140,14 +140,11 @@ void r47_native_preinit_path(const char *path) {
   mp_set_memory_functions(allocGmp, reallocGmp, freeGmp);
 }
 
-void r47_init_runtime(int slotId) {
+void r47_init_runtime(void) {
   // Hold screenMutex across the whole init, so a UI-thread trylock reader that
   // passes the ready gate can never interleave with doFnReset or restoreCalc.
   // The mutex is recursive, so the r47_force_refresh below re-enters it.
   pthread_mutex_lock(&screenMutex);
-
-  extern int current_slot_id;
-  current_slot_id = slotId;
 
   setupUI();
   init_lcd_buffers();
@@ -183,10 +180,10 @@ void r47_init_runtime(int slotId) {
 }
 
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
-    JNIEnv *env, jobject thiz, jint slotId) {
+    JNIEnv *env, jobject thiz) {
   Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(env,
                                                                         thiz);
-  r47_init_runtime(slotId);
+  r47_init_runtime();
 }
 
 static jint r47_next_tick_delay_ms(uint32_t now) {
@@ -244,50 +241,6 @@ Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative(JNIEnv *env,
   LOGI("saveStateNative: Save complete.");
 }
 
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_loadStateNative(JNIEnv *env,
-                                                              jobject thiz) {
-  (void)env;
-  (void)thiz;
-  LOGI("loadStateNative triggered");
-  if (!ram) {
-    return;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  extern void restoreCalc(void);
-  r47_restore_guard_begin();
-  restoreCalc();
-  if (r47_sanitize_graph_bounds_locked()) {
-    LOGI("loadStateNative: sanitized restored graph bounds");
-  }
-  extern void scanLabelsAndPrograms(void);
-  extern void defineCurrentProgramFromGlobalStepNumber(
-      int16_t globalStepNumber);
-  extern void defineCurrentStep(void);
-  extern void defineFirstDisplayedStep(void);
-  extern void defineCurrentProgramFromCurrentStep(void);
-  extern void updateMatrixHeightCache(void);
-  extern uint16_t currentLocalStepNumber;
-  extern uint16_t currentProgramNumber;
-  extern programList_t *programList;
-  scanLabelsAndPrograms();
-  if (currentProgramNumber > 0) {
-    defineCurrentProgramFromGlobalStepNumber(
-        currentLocalStepNumber +
-        abs(programList[currentProgramNumber - 1].step) - 1);
-  }
-  defineCurrentStep();
-  defineFirstDisplayedStep();
-  defineCurrentProgramFromCurrentStep();
-  updateMatrixHeightCache();
-  refreshScreen(190);
-  refreshLcd(NULL);
-  lcd_refresh();
-  r47_restore_guard_end();
-  pthread_mutex_unlock(&screenMutex);
-}
-
 void r47_save_background_state_locked(void) {
   // Upstream's own saves stop a running stopwatch first, which folds its elapsed time
   // into timerValue; timerStartTime is not saved, so a file saved running would restore
@@ -325,14 +278,4 @@ void r47_force_refresh(void) {
   refreshLcd(NULL);
   lcd_refresh();
   pthread_mutex_unlock(&screenMutex);
-}
-
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_setSlotNative(JNIEnv *env,
-                                                            jobject thiz,
-                                                            jint slot) {
-  (void)env;
-  (void)thiz;
-  extern int current_slot_id;
-  current_slot_id = slot;
 }

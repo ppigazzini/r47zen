@@ -125,7 +125,6 @@
     <ID>TooGenericExceptionCaught:DisplayActionController.kt:DisplayActionController$error: Exception</ID>
     <ID>TooGenericExceptionCaught:NativeCoreRuntime.kt:NativeCoreRuntime.Companion$error: Exception</ID>
     <ID>TooGenericExceptionCaught:NativeCoreRuntime.kt:NativeCoreRuntime.Companion$error: Throwable</ID>
-    <ID>TooGenericExceptionCaught:SlotSessionController.kt:SlotSessionController$error: Exception</ID>
     <ID>TooGenericExceptionCaught:StorageAccessCoordinator.kt:StorageAccessCoordinator$error: Exception</ID>
     <ID>TooGenericExceptionCaught:WindowModeController.kt:WindowModeController$error: Exception</ID>
     <ID>TooGenericExceptionCaught:WorkDirectory.kt:WorkDirectory$error: Exception</ID>

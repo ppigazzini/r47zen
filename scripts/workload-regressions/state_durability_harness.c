@@ -43,7 +43,7 @@ extern void copyRegisterToClipboardString(calcRegister_t, char *, bool_t);
 extern pthread_mutex_t screenMutex;
 extern void r47_initialize_native_bridge_state(void);
 extern void r47_native_preinit_path(const char *path);
-extern void r47_init_runtime(int slotId);
+extern void r47_init_runtime(void);
 extern void r47_save_background_state_locked(void);
 
 static const char *workDir;
@@ -69,7 +69,7 @@ void __wrap_r47_show_warning(const char *text) {
 static void startCalculator(void) {
   r47_initialize_native_bridge_state();
   r47_native_preinit_path(workDir);
-  r47_init_runtime(0);
+  r47_init_runtime();
 }
 
 static void saveOnce(void) {
@@ -207,7 +207,7 @@ static int takeKeptStateFiles(void) {
   }
   struct dirent *entry;
   while ((entry = readdir(dir)) != NULL) {
-    if (strncmp(entry->d_name, "backupR47_0.cfg.v", 17) == 0) {
+    if (strncmp(entry->d_name, "backupR47.cfg.v", 15) == 0) {
       char path[1400];
       snprintf(path, sizeof(path), "%s/%s", workDir, entry->d_name);
       unlink(path);
@@ -220,7 +220,7 @@ static int takeKeptStateFiles(void) {
 
 static void writeRestoreMarker(const char *count) {
   char marker[1100];
-  snprintf(marker, sizeof(marker), "%s/backupR47_0.cfg.restoring", workDir);
+  snprintf(marker, sizeof(marker), "%s/backupR47.cfg.restoring", workDir);
   writeBytes(marker, count, strlen(count));
 }
 
@@ -267,7 +267,7 @@ static void sweepCuts(const char *path, const char *saved, size_t length, long s
 }
 
 static void statePath(char *path, size_t size) {
-  snprintf(path, size, "%s/backupR47_0.cfg", workDir);
+  snprintf(path, size, "%s/backupR47.cfg", workDir);
 }
 
 // ---- the relaunches -----------------------------------------------------------------
@@ -304,7 +304,7 @@ static void relaunchExpectingEither(void) {
 
 static void relaunchExpectingTheMarkerGone(void) {
   char marker[1100];
-  snprintf(marker, sizeof(marker), "%s/backupR47_0.cfg.restoring", workDir);
+  snprintf(marker, sizeof(marker), "%s/backupR47.cfg.restoring", workDir);
   startCalculator();
   CHECK(!fileExists(marker), "the marker outlived the restore and its first refresh");
 }
@@ -450,7 +450,7 @@ static void caseUnusableStateFileIsKeptAside(void) {
     writeWithField(path, saved, length, "backupVersion", versions[i]);
     execSelfInChild("--relaunch-expect-fresh");
     char prefix[64];
-    snprintf(prefix, sizeof(prefix), "backupR47_0.cfg.v%ld.", versions[i]);
+    snprintf(prefix, sizeof(prefix), "backupR47.cfg.v%ld.", versions[i]);
     CHECK(countFilesStartingWith(prefix) == 1, "version %ld was not kept as %s<time>",
           versions[i], prefix);
     takeKeptStateFiles();
@@ -468,7 +468,7 @@ static void caseAFileThatCrashedTwoStartsIsSetAside(void) {
   writeRestoreMarker("1\n");
   execSelfInChild("--relaunch-expect-saved-stack");
   execSelfInChild("--relaunch-expect-marker-gone");
-  CHECK(countFilesStartingWith("backupR47_0.cfg.crashed.") == 0,
+  CHECK(countFilesStartingWith("backupR47.cfg.crashed.") == 0,
         "one failed start set the file aside");
 
   // Each set-aside copy keeps its own name.
@@ -476,9 +476,9 @@ static void caseAFileThatCrashedTwoStartsIsSetAside(void) {
     saveOnce();
     writeRestoreMarker("2\n");
     execSelfInChild("--relaunch-expect-fresh");
-    CHECK(countFilesStartingWith("backupR47_0.cfg.crashed.") == round,
+    CHECK(countFilesStartingWith("backupR47.cfg.crashed.") == round,
           "two failed starts kept %d copies, not %d",
-          countFilesStartingWith("backupR47_0.cfg.crashed."), round);
+          countFilesStartingWith("backupR47.cfg.crashed."), round);
     sleep(1); // a second copy in the same second takes a suffix, not the same name
   }
 }

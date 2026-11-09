@@ -82,6 +82,98 @@ static int write_autosave(size_t bytes) {
   return reports;
 }
 
+static void write_text(const char *path, const char *text) {
+  FILE *file = fopen(path, "w");
+  if (file == NULL || fputs(text, file) < 0 || fclose(file) != 0) {
+    fprintf(stderr, "FATAL: cannot write %s: %s\n", path, strerror(errno));
+    exit(2);
+  }
+}
+
+// What a file holds, or "" when it is missing.
+static const char *read_text(const char *path) {
+  static char text[64];
+  text[0] = '\0';
+  FILE *file = fopen(path, "r");
+  if (file != NULL) {
+    const size_t got = fread(text, 1, sizeof(text) - 1, file);
+    text[got] = '\0';
+    fclose(file);
+  }
+  return text;
+}
+
+static int expect_text(const char *dir, const char *name, const char *expected) {
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "%s/%s", dir, name);
+  const char *actual = read_text(path);
+  if (strcmp(actual, expected) != 0) {
+    fprintf(stderr, "FAIL: %s holds '%s', want '%s'\n", path, actual, expected);
+    return 1;
+  }
+  return 0;
+}
+
+static void remove_tree(const char *dir) {
+  char command[PATH_MAX + 16];
+  snprintf(command, sizeof(command), "rm -rf '%s'", dir);
+  if (system(command) != 0) {
+    fprintf(stderr, "FATAL: cannot remove %s\n", dir);
+    exit(2);
+  }
+}
+
+// Versions before 0.3.0 named the state file and the saves with a slot number, 0, that
+// no screen could change. The base path moves each to upstream's name once, so an
+// upgraded install opens its own state, and never over a file of the new name.
+static int check_slot_name_migration(void) {
+  char dir[256];
+  char saves[320];
+  char path[PATH_MAX];
+  int failures = 0;
+  snprintf(dir, sizeof(dir), "/tmp/r47-hal-io-migrate-%ld", (long)getpid());
+  snprintf(saves, sizeof(saves), "%s/%s", dir, SAVE_DIR);
+  remove_tree(dir);
+  mkdir(dir, 0700);
+  mkdir(saves, 0700);
+  snprintf(path, sizeof(path), "%s/backupR47_0.cfg", dir);
+  write_text(path, "old state");
+  snprintf(path, sizeof(path), "%s/backupR47_0.cfg.restoring", dir);
+  write_text(path, "1");
+  snprintf(path, sizeof(path), "%s/backupR47_0.cfg.tmp", dir);
+  write_text(path, "half");
+  snprintf(path, sizeof(path), "%s/R47_0.sav", saves);
+  write_text(path, "old save");
+  snprintf(path, sizeof(path), "%s/R47auto_0.sav", saves);
+  write_text(path, "old autosave");
+
+  set_android_base_path(dir);
+  failures |= expect_text(dir, "backupR47.cfg", "old state");
+  failures |= expect_text(dir, "backupR47.cfg.restoring", "1");
+  failures |= expect_text(saves, SAVE_FILE, "old save");
+  failures |= expect_text(saves, AUTO_SAVE_FILE, "old autosave");
+  failures |= expect_text(dir, "backupR47_0.cfg", "");
+  failures |= expect_text(dir, "backupR47_0.cfg.tmp", "");
+  failures |= expect_text(saves, "R47_0.sav", "");
+  failures |= expect_text(saves, "R47auto_0.sav", "");
+
+  // A file of the new name is newer than any old one: it stays, and so does the old.
+  snprintf(path, sizeof(path), "%s/backupR47_0.cfg", dir);
+  write_text(path, "older state");
+  set_android_base_path(dir);
+  failures |= expect_text(dir, "backupR47.cfg", "old state");
+  failures |= expect_text(dir, "backupR47_0.cfg", "older state");
+
+  if (failures == 0) {
+    printf("OK: the slot-numbered state and saves move to upstream's names once\n");
+  }
+  if (chdir("/") != 0) {
+    failures |= 1;
+  }
+  remove_tree(dir);
+  return failures;
+}
+
 static int expect_reports(const char *what, int actual, int expected) {
   if (actual != expected) {
     fprintf(stderr, "FAIL: %s: expected %d report(s), got %d\n", what,
@@ -96,14 +188,6 @@ static int expect_reports(const char *what, int actual, int expected) {
 // fails or cannot start must leave the file it would have replaced as it was.
 static char backup[600];
 static char backup_temp[640];
-
-static void write_text(const char *path, const char *text) {
-  FILE *file = fopen(path, "w");
-  if (file == NULL || fputs(text, file) < 0 || fclose(file) != 0) {
-    fprintf(stderr, "FATAL: cannot write %s\n", path);
-    exit(2);
-  }
-}
 
 static int holds(const char *path, const char *text) {
   char seen[64] = "";
@@ -168,16 +252,16 @@ int main(void) {
   mkdir(base, 0700);
   // The core leaves the working directory for DATA, so a relative base is held as the
   // absolute path it named: given from /tmp, it must still be the folder in /tmp.
+  int failures = check_slot_name_migration();
   if (chdir("/tmp") != 0) {
     fprintf(stderr, "FATAL: cannot enter /tmp\n");
     return 2;
   }
   set_android_base_path(strrchr(base, '/') + 1);
   snprintf(save_dir, sizeof(save_dir), "%s/%s", base, SAVE_DIR);
-  snprintf(autosave, sizeof(autosave), "%s/R47auto_0.sav", save_dir);
+  snprintf(autosave, sizeof(autosave), "%s/%s", save_dir, AUTO_SAVE_FILE);
 
-  int failures = 0;
-  snprintf(backup, sizeof(backup), "%s/backupR47_0.cfg", base);
+  snprintf(backup, sizeof(backup), "%s/backupR47.cfg", base);
   snprintf(backup_temp, sizeof(backup_temp), "%s.tmp", backup);
   failures |= check_state_file_replacement();
   char warning[] = "This is a WP43 program";
@@ -215,7 +299,7 @@ int main(void) {
   ioFileClose();
   failures |= expect_reports("closing a file opened for reading is not reported",
                              reports, 0);
-  if (strcmp(fileNameSelected, "R47auto_0.sav") != 0) {
+  if (strcmp(fileNameSelected, AUTO_SAVE_FILE) != 0) {
     fprintf(stderr, "FAIL: a read of the autosave recorded '%s'\n", fileNameSelected);
     failures |= 1;
   }

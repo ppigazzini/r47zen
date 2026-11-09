@@ -24,7 +24,7 @@ class HapticFeedbackControllerTest {
 
     @Before
     fun clearStateBeforeTest() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -33,7 +33,7 @@ class HapticFeedbackControllerTest {
 
     @After
     fun clearStateAfterTest() {
-        context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -42,7 +42,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun performClick_enabledDispatchesVirtualKeyHapticFeedbackOnTargetView() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val view = AcceptingHapticView(context)
         val controller = HapticFeedbackController(context)
         controller.syncFromPreferences(preferences)
@@ -55,7 +55,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun performClick_disabledSuppressesViewBasedHapticFeedback() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putBoolean("haptic_enabled", false)
             .commit()
@@ -71,7 +71,7 @@ class HapticFeedbackControllerTest {
     // On API 32 and below a view declines when the user turned touch feedback off.
     @Test
     fun performClick_defaultPathGivesNothingWhenTheViewDeclines() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val vibratorManager = context.getSystemService(VibratorManager::class.java)
         val shadowVibrator = shadowOf(vibratorManager.defaultVibrator)
         shadowVibrator.setHasVibrator(true)
@@ -86,7 +86,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun performClick_customDurationOverridesViewFeedbackAndUsesAppOwnedPulse() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putBoolean(HapticFeedbackController.KEY_HAPTIC_USE_ANDROID_DEFAULT, false)
             .putInt(HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS, 6)
@@ -106,7 +106,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun performClick_customModeWithZeroDurationSuppressesFeedback() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putBoolean(HapticFeedbackController.KEY_HAPTIC_USE_ANDROID_DEFAULT, false)
             .putInt(HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS, 0)
@@ -126,7 +126,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun performClick_customDurationStillUsesAppOwnedPulseWhenViewFeedbackReturnsFalse() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putBoolean(HapticFeedbackController.KEY_HAPTIC_USE_ANDROID_DEFAULT, false)
             .putInt(HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS, 6)
@@ -145,7 +145,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun syncFromPreferences_clampsStoredCustomDurationIntoSupportedRange() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putInt(HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS, 101)
             .commit()
@@ -161,7 +161,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun syncFromPreferences_migratesLegacyCustomDurationIntoExplicitCustomMode() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putInt(HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS, 6)
             .commit()
@@ -186,7 +186,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun onPreferenceChanged_returnsFalseForUnknownKey() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val controller = HapticFeedbackController(context)
 
         assertFalse(controller.onPreferenceChanged(preferences, "beeper_enabled"))
@@ -194,7 +194,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun onPreferenceChanged_hapticEnabledUpdatesViewBasedDispatchGate() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val view = AcceptingHapticView(context)
         val controller = HapticFeedbackController(context)
 
@@ -209,7 +209,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun onPreferenceChanged_customDurationUpdatesControllerState() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         val vibratorManager = context.getSystemService(VibratorManager::class.java)
         val shadowVibrator = shadowOf(vibratorManager.defaultVibrator)
         shadowVibrator.setHasVibrator(true)
@@ -236,7 +236,7 @@ class HapticFeedbackControllerTest {
 
     @Test
     fun onPreferenceChanged_androidDefaultToggleRestoresViewBasedDispatch() {
-        val preferences = context.getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
         preferences.edit()
             .putBoolean(HapticFeedbackController.KEY_HAPTIC_USE_ANDROID_DEFAULT, false)
             .putInt(HapticFeedbackController.KEY_HAPTIC_KEYPRESS_DURATION_MS, 4)

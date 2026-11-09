@@ -162,7 +162,7 @@ int main(void) {
     fprintf(stderr, "FATAL: cannot start startup reader thread\n");
     return 1;
   }
-  r47_init_runtime(0);
+  r47_init_runtime();
   atomic_store_explicit(&g_init_done, true, memory_order_relaxed);
   pthread_join(startup_reader, NULL);
 

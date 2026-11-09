@@ -41,7 +41,19 @@ int create_dir(char *dir) {
 
 static char android_base_path[512] = "";
 static int android_base_path_ready = 0;
-int current_slot_id = 0; // Linked via JNI
+// The state file, as upstream's simulator names it. Versions before 0.3.0 put a slot
+// number, 0, in it and in the saves' names; set_android_base_path moves those once.
+#if (CALCMODEL == USER_R47)
+#define STATE_FILE "backupR47.cfg"
+#define SLOT_STATE_FILE "backupR47_0.cfg"
+#define SLOT_SAVE_FILE "R47_0.sav"
+#define SLOT_AUTO_SAVE_FILE "R47auto_0.sav"
+#else
+#define STATE_FILE "backup.cfg"
+#define SLOT_STATE_FILE "backup_0.cfg"
+#define SLOT_SAVE_FILE "C47_0.sav"
+#define SLOT_AUTO_SAVE_FILE "C47auto_0.sav"
+#endif
 
 static FILE *openedFile = NULL;
 // Whether openedFile was opened for writing, and whether a write to it has
@@ -66,23 +78,22 @@ extern const char *r47_picked_file_name(void);
 static bool setAsideUnusableStateFile(const char *path);
 static int has_android_base_path(void);
 
-// Where a SAVE and an automatic save of this slot live. Every path here is the base
-// path, which set_android_base_path holds to 511 bytes, and a short name, in a buffer
-// of 1024 bytes or more, so none is cut; a cut would still fail the operation.
+// Where a SAVE and an automatic save live, under upstream's names. Every path here is
+// the base path, which set_android_base_path holds to 511 bytes, and a short name, in a
+// buffer of 1024 bytes or more, so none is cut; a cut would still fail the operation.
 static bool savePath(char *out, size_t size, bool automatic) {
-#if (CALCMODEL == USER_R47)
-  return r47_format(out, size, "%s/%s/R47%s_%d.sav", android_base_path,
-                    SAVE_DIR, automatic ? "auto" : "", current_slot_id);
-#else
-  return r47_format(out, size, "%s/%s/C47%s_%d.sav", android_base_path,
-                    SAVE_DIR, automatic ? "auto" : "", current_slot_id);
-#endif
+  return r47_format(out, size, "%s/%s/%s", android_base_path, SAVE_DIR,
+                    automatic ? AUTO_SAVE_FILE : SAVE_FILE);
+}
+
+static bool statePath(char *out, size_t size) {
+  return r47_format(out, size, "%s/%s", android_base_path, STATE_FILE);
 }
 
 // DELBkup removes SAVE_DIR "/" SAVE_FILE, a path relative to a working directory an app
 // does not have, so on Android it removed nothing and said nothing. Every remove in this
 // library is linked here (-Wl,--wrap=remove in CMakeLists.txt): that one removes the
-// slot's SAVE and automatic save, both of which the hardware's DELBkup deletes. Any other
+// SAVE and automatic save, both of which the hardware's DELBkup deletes. Any other
 // path is removed as remove() would, so a build that links the glue without the wrap
 // needs nothing from it.
 int __wrap_remove(const char *path) {
@@ -102,6 +113,38 @@ int __wrap_remove(const char *path) {
     }
   }
   return result;
+}
+
+// Moves <base>/<from> to <base>/<to> when only the first exists. A file of the new name
+// is newer than any old one, so it is never replaced, and the old one is then left.
+static void moveToUpstreamName(const char *from, const char *to) {
+  char oldPath[1024];
+  char newPath[1024];
+  if (!r47_format(oldPath, sizeof(oldPath), "%s/%s", android_base_path, from) ||
+      !r47_format(newPath, sizeof(newPath), "%s/%s", android_base_path, to) ||
+      access(oldPath, F_OK) != 0 || access(newPath, F_OK) == 0) {
+    return;
+  }
+  if (rename(oldPath, newPath) != 0) {
+    LOGE("Cannot move %s to %s: %s", oldPath, newPath, strerror(errno));
+  }
+}
+
+// Once, at start, before anything opens them: the state file, its restore count, and
+// the two saves move from their slot-numbered names to upstream's. A temporary copy is
+// a save that never finished, so it goes. Files a failed restore set aside keep their
+// names, which say what they are.
+static void moveSlotNamedFiles(void) {
+  moveToUpstreamName(SLOT_STATE_FILE, STATE_FILE);
+  moveToUpstreamName(SLOT_STATE_FILE ".restoring", STATE_FILE ".restoring");
+  moveToUpstreamName(SAVE_DIR "/" SLOT_SAVE_FILE, SAVE_DIR "/" SAVE_FILE);
+  moveToUpstreamName(SAVE_DIR "/" SLOT_AUTO_SAVE_FILE,
+                     SAVE_DIR "/" AUTO_SAVE_FILE);
+  char temp[1024];
+  if (r47_format(temp, sizeof(temp), "%s/%s.tmp", android_base_path,
+                 SLOT_STATE_FILE)) {
+    unlink(temp);
+  }
 }
 
 static void ensure_android_subdir(const char *subdir) {
@@ -173,6 +216,7 @@ void set_android_base_path(const char *path) {
   ensure_android_subdir(PROGRAMS_DIR);
   ensure_android_subdir(SAVE_DIR);
   ensure_android_subdir(DATA_DIR);
+  moveSlotNamedFiles();
   workInDataDir();
 }
 
@@ -307,13 +351,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     named = savePath(fullpath, sizeof(fullpath), true);
     break;
   case ioPathBackup:
-#if (CALCMODEL == USER_R47)
-    named = r47_format(fullpath, sizeof(fullpath), "%s/backupR47_%d.cfg",
-                       android_base_path, current_slot_id);
-#else
-    named = r47_format(fullpath, sizeof(fullpath), "%s/backup_%d.cfg",
-                       android_base_path, current_slot_id);
-#endif
+    named = statePath(fullpath, sizeof(fullpath));
     break;
   case ioPathPgmFile:
   case ioPathSaveProgram:
@@ -558,13 +596,7 @@ void r47_restore_guard_begin(void) {
     return;
   }
   char state[PATH_MAX];
-#if (CALCMODEL == USER_R47)
-  const bool named = r47_format(state, sizeof(state), "%s/backupR47_%d.cfg",
-                                android_base_path, current_slot_id);
-#else
-  const bool named = r47_format(state, sizeof(state), "%s/backup_%d.cfg",
-                                android_base_path, current_slot_id);
-#endif
+  const bool named = statePath(state, sizeof(state));
   if (!named || !r47_format(restoreMarker, sizeof(restoreMarker),
                             "%s.restoring", state)) {
     return; // no guard: the restore runs as it would without one

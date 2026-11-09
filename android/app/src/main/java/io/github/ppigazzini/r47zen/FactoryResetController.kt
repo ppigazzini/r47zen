@@ -103,8 +103,8 @@ internal class FactoryResetController(
 
     private fun clearInternalAppData() {
         releaseDocumentGrants()
-        activity.deleteSharedPreferences(SlotStore.APP_PREFS_NAME)
-        activity.deleteSharedPreferences(SlotStore.SLOT_PREFS_NAME)
+        activity.deleteSharedPreferences(AppPreferences.NAME)
+        activity.deleteSharedPreferences(AppPreferences.RETIRED_SLOTS_NAME)
         activity.deleteSharedPreferences(WorkDirectory.PREFS_NAME)
         activity.databaseList().forEach { activity.deleteDatabase(it) }
         clearDirectoryContents(activity.filesDir)

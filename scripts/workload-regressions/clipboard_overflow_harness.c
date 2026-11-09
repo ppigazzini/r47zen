@@ -925,7 +925,7 @@ int main(void) {
 
   r47_initialize_native_bridge_state();
   r47_native_preinit_path(runtime_dir);
-  r47_init_runtime(0);
+  r47_init_runtime();
 
   int failures = check_statistical_sum_rows();
   failures += check_paste_number();

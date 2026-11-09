@@ -40,7 +40,7 @@ static void dropKeptStateFiles(void) {
   }
   struct dirent *entry;
   while ((entry = readdir(folder)) != NULL) {
-    if (strncmp(entry->d_name, "backupR47_0.cfg.", 16) == 0) {
+    if (strncmp(entry->d_name, "backupR47.cfg.", 14) == 0) {
       char path[1100];
       snprintf(path, sizeof(path), "%s/%s", dir, entry->d_name);
       unlink(path);
@@ -92,14 +92,14 @@ int LLVMFuzzerInitialize(int *argc, char ***argv) {
   // its own first refresh.
   r47_initialize_native_bridge_state();
   r47_native_preinit_path(dir);
-  r47_init_runtime(0);
+  r47_init_runtime();
 
   switch (target) {
   case targetProgram:
     snprintf(inputPath, sizeof(inputPath), "%s/PROGRAMS/program.p47", dir);
     break;
   case targetBackup:
-    snprintf(inputPath, sizeof(inputPath), "%s/backupR47_0.cfg", dir);
+    snprintf(inputPath, sizeof(inputPath), "%s/backupR47.cfg", dir);
     break;
   case targetState:
   case targetData:
@@ -125,7 +125,7 @@ int LLVMFuzzerInitialize(int *argc, char ***argv) {
     fillState();
     saveCalc();
     char saved[1100];
-    snprintf(saved, sizeof(saved), "%s/backupR47_0.cfg", dir);
+    snprintf(saved, sizeof(saved), "%s/backupR47.cfg", dir);
     if (rename(saved, seed) != 0) {
       perror("FUZZ_SEED_BACKUP");
       exit(2);

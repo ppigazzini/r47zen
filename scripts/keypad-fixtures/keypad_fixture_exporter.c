@@ -271,7 +271,7 @@ static bool apply_tam_scene(void) {
 
 static bool capture_scenario(const scenario_definition_t *scenario,
                              scenario_capture_t *capture) {
-  r47_init_runtime(0);
+  r47_init_runtime();
   if (!scenario->apply()) {
     return false;
   }

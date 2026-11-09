@@ -1,15 +1,15 @@
 # Kotlin Shell Architecture
 
 This page maps the Kotlin shell: the single-activity coordinator, helper
-ownership, lifecycle, storage, settings, slot flow, input flow, and direct
-live-stop routing. Read `00-project-and-upstream.md` and
+ownership, lifecycle, storage, settings, input flow, and direct live-stop
+routing. Read `00-project-and-upstream.md` and
 `01-build-and-source-layout.md` first.
 
 ## Top-level model
 
 The Android app is a single-activity, view-based shell around a long-lived
-native core. `MainActivity` coordinates Android lifecycle, preferences, slot
-selection, settings, and external integrations. It does not own the calculator
+native core. `MainActivity` coordinates Android lifecycle, preferences,
+settings, and external integrations. It does not own the calculator
 engine loop.
 
 The keypad render path is explicitly spec-first: `CalculatorKeyView` and
@@ -48,9 +48,9 @@ grouped by role; the directory itself is the authority when a file is added:
   `C47TextRenderer.kt`, `C47TypefacePolicy.kt`, `MainKeyLabelMirrors.kt`,
   `SoftkeyOverlayPainter.kt`, `SettingsMenuGlyph.kt`, `R47Geometry.kt`,
   `R47KeypadPolicy.kt`, `TopLabelLaneLayout.kt`, and `LcdThemePolicy.kt`
-- storage and slots: `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`,
+- storage: `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`,
   `DataFolderMirror.kt`, `ProviderLookup.kt`, `WorkDirectory.kt`, `SavedManual.kt`,
-  `SlotSessionController.kt`, and `SlotStore.kt`
+  and `AppPreferences.kt`
 - keyboard and keypad models: `PhysicalKeyboardInputController.kt`,
   `PhysicalKeyboardInput.kt`, `PhysicalKeyboardBindingTables.kt`,
   `PhysicalKeyboardShortcutId.kt`, `KeypadSnapshot.kt`,
@@ -82,7 +82,7 @@ flowchart LR
 | activity and settings coordination | `MainActivity`, `SettingsActivity`, `SettingsSwitchPreference` | startup, preferences, PiP, intent routing, helper wiring, and explicit settings-switch widget tinting | `03-upstream-interface-surfaces.md` |
 | native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `06-runtime-hot-paths.md` |
 | overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `05-ui-rendering-and-gtk-mapping.md` |
-| storage and slot coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SavedManual`, `SlotSessionController`, `SlotStore` | SAF routing, where each file picker starts, the work-directory tree `SettingsActivity` stores, the saved manual's read grant, slot metadata, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
+| storage coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SavedManual` | SAF routing, where each file picker starts, the work-directory tree `SettingsActivity` stores, the saved manual's read grant, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
 | Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `03-upstream-interface-surfaces.md` |
 
 ## Architecture boundary
@@ -97,7 +97,7 @@ flowchart LR
   native snapshot mode, which native composes, `user` included, and Kotlin
   composes only `virtuoso` after decode, while the softkey mode masks decoded
   softkey scene bits before rendering
-- `KeypadTopology`, slot metadata, work-directory preferences, and shell
+- `KeypadTopology`, work-directory preferences, and shell
   preferences are Android-local models
 - geometry constants, render-spec builders, label placement formulas, painter
   policy, and chrome projection are rendering contracts owned by
@@ -165,7 +165,7 @@ callbacks.
   sets content view, and applies display-cutout mode; `initializeStartupControllers()`
   wires `WindowModeController`, `FactoryResetController`,
   `StorageAccessCoordinator`, `NativeFileRequestGate`, `DisplayActionController`,
-  `PhysicalKeyboardInputController`, and `SlotSessionController`;
+  and `PhysicalKeyboardInputController`;
   `initializeOverlayAndPreferences(...)` binds `ReplicaOverlay`,
   `ReplicaOverlayController`, `MainActivityPreferenceController` with its
   initial pass, which applies the stored LCD palette before the overlay's first
@@ -300,12 +300,17 @@ The live on-screen stop path is narrower than the general queue path:
 That rule keeps normal `EXIT` semantics outside long-running program execution
 while matching the desktop simulator's stop-key parity during an active run.
 
-## Persistence and slot model
+## Persistence model
 
-- slot metadata lives in `SlotStore`
-- the active slot ID is mirrored into native code through `setSlotNative(...)`
-- slot switching follows one ordered background flow: save current state, update
-  slot ID, load target state
+- the app holds one calculator state, `backupR47.cfg` in the app's files
+  directory, and `SAVE` and the automatic save are `SAVFILES/R47.sav` and
+  `SAVFILES/R47auto.sav`: upstream's simulator names, from its `hal/io.h`.
+  Versions before 0.3.0 put a slot number, `_0`, in all three, from a slot list
+  no screen could switch; that switch was deleted, and `hal/io.c` moves each
+  old file to the new name once, when the base path is set, never over a file
+  of the new name. `AppPreferences.NAME` is the shared preferences file every
+  setting uses, and `AppPreferences.RETIRED_SLOTS_NAME` is the slot list those
+  versions wrote, which a factory reset deletes
 - SAF-backed user files remain outside the internal app directory contract
 - `DataFolderMirror` copies the files the core writes by a relative name in
   `<filesDir>/DATA`, its working directory, to the work directory: prints to DATA and
@@ -356,8 +361,8 @@ while matching the desktop simulator's stop-key parity during an active run.
   another version
 - deleting the preferences does not end a grant, so a factory reset also releases
   every persisted grant through `FactoryResetController`
-- manifest backup rules intentionally exclude `R47Slots` and the preferences file
-  holding the work-directory and saved-manual URIs because slot URIs and SAF grants
+- manifest backup rules intentionally exclude the retired `R47Slots` and the
+  preferences file holding the work-directory and saved-manual URIs because SAF grants
   are device-specific; general shell preferences remain migratable
 
 ## Current platform shape
@@ -487,4 +492,4 @@ while matching the desktop simulator's stop-key parity during an active run.
   prefer a small Kotlin coordinator plus core-thread work instead of splitting
   state across both sides.
 - If a new feature needs durable calculator state, decide first whether the true
-  owner is the native core, Android preferences, or Android-side slot metadata.
+  owner is the native core or Android preferences.
