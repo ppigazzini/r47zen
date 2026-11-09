@@ -44,6 +44,24 @@ resolve jobs runs only on `main`.
    closed testing track, and `production` the production track
    ([`upload-to-play`](07-ci-and-release-workflow.md#upload-to-play)).
 
+## Dry run
+
+A dry run of the same dispatch, on any branch, builds, signs with a key it makes,
+verifies, and publishes nothing; run it after a change to the release lane, before
+the release that needs the change:
+
+```sh
+gh workflow run android-release.yml --ref <branch> \
+  -f confirm_version_code=<R47_DEFAULT_ANDROID_VERSION_CODE> \
+  -f confirm_version=<R47_DEFAULT_ANDROID_VERSION_NAME> \
+  -f dry_run=true
+```
+
+It refuses any `play_track` but `none`, so leave that input out. It does not touch
+the release key, either environment, the attestation, the GitHub release, or Play
+([dry run](07-ci-and-release-workflow.md#dry-run)), so those still first run at the
+release.
+
 ## Dispatch
 
 Type the two numbers from step 2 as confirmations:
