@@ -44,7 +44,8 @@ listed, a listed file is missing, or a build keeps a list of its own. Only the
 program-load test bridge, `jni_program_load_test.c`, stays out of it; an
 instrumentation build adds it. The glue follows `r47zen/.clang-format` (LLVM style, includes kept in their order,
 comments as written); `scripts/android/check_native_format.sh` checks it with
-the pinned NDK's `clang-format`, and `--fix` applies it.
+the pinned NDK's `clang-format`, in CI and as the `native-format` pre-commit
+hook, and `--fix` applies it.
 `scripts/android/run_native_clang_tidy.sh` runs the pinned NDK's `clang-tidy`
 with `r47zen/.clang-tidy`, which enables the static analyzer and the bugprone
 checks and says why it turns each other check off, and fails on any finding. Of
