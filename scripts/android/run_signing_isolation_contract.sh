@@ -61,7 +61,7 @@ find_signing_isolation_violations() {
             }
         }
         BEGIN {
-            split("actions/checkout actions/setup-java actions/download-artifact actions/upload-artifact ./.github/actions/setup-signing-tools google-github-actions/auth r0adkll/upload-google-play actions/attest-build-provenance softprops/action-gh-release actions/deploy-pages", names, " ")
+            split("actions/checkout actions/setup-java actions/download-artifact actions/upload-artifact ./.github/actions/setup-signing-tools google-github-actions/auth r0adkll/upload-google-play actions/attest softprops/action-gh-release actions/deploy-pages", names, " ")
             for (i in names) {
                 allowed[names[i]] = 1
             }
