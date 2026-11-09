@@ -123,8 +123,9 @@ bash ./scripts/upstream-sync/upstream.sh sync --latest --write-lock
 ./scripts/android/build_android.sh --doctor
 ```
 
-The module-local lane is only valid when the staged native inputs are already
-current:
+The module-local lane re-prepares the staged native inputs itself, through
+Gradle's `prepareStagedNativeInputs`, so it needs `meson`, `ninja`, and
+`xlsxio_xlsx2csv` like the full build:
 
 ```bash
 cd android && ./gradlew assembleDebug
