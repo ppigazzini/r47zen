@@ -1365,6 +1365,27 @@ jobs:
           bash ./scripts/android/native_mutation_spot_check.sh \
             2>&1 | tee ci-artifacts/logs/android-native-mutation-spot-check.log
 
+      # A snapshot boots only on the emulator build and system image that made
+      # it. The SDK cache does not pin the emulator, so when its entry was rebuilt
+      # with a newer one, the old AVD entry kept hitting and every run rejected
+      # its snapshot ("incompatible snapshot version") and booted cold.
+      - name: Read the emulator and system image revisions
+        id: emulator-revisions
+        shell: bash
+        env:
+          ANDROID_TEST_API_LEVEL: ${{ steps.defaults.outputs.android_test_api_level }}
+        run: |
+          set -euo pipefail
+          revision() { sed -n 's/^Pkg\.Revision=//p' "$1"; }
+          emulator="$(revision "$ANDROID_SDK_ROOT/emulator/source.properties")"
+          image="$(revision "$ANDROID_SDK_ROOT/system-images/android-$ANDROID_TEST_API_LEVEL/default/x86_64/source.properties")"
+          [[ -n "$emulator" && -n "$image" ]] || {
+            echo "Could not read the emulator ($emulator) or system image ($image) revision." >&2
+            exit 1
+          }
+          echo "emulator=$emulator" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
       - name: Restore Android emulator AVD cache
         id: avd-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -1372,9 +1393,8 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          # v2: a v1 entry holds the 16 KB smoke's AVD under this name, and an
-          # entry never changes, so v1 restores an AVD whose image is missing.
-          key: ${{ runner.os }}-android-avd-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-pixel_7-v2
+          # v3: keyed on the revisions above as well.
+          key: ${{ runner.os }}-android-avd-${{ steps.defaults.outputs.android_test_api_level }}-default-x86_64-pixel_7-emulator-${{ steps.emulator-revisions.outputs.emulator }}-image-${{ steps.emulator-revisions.outputs.image }}-v3
 
       - name: Enable KVM access for Android emulator
         shell: bash
