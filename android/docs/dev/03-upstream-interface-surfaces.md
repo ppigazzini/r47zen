@@ -22,7 +22,7 @@ verification surfaces.
 | direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `pasteNumberNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `processKeyAction(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c`, `keypad_scene.c`, and `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
-| native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()`, `onFileWriteFailed()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned (`test_jni_registration_contract.py`), and reattach must not redraw the LCD |
+| native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()`, `onFileWriteFailed()`, `onCoreWarning()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned (`test_jni_registration_contract.py`), and reattach must not redraw the LCD |
 | storage and yield boundary | `StorageAccessCoordinator` and `DocumentTransfer` return a pipe or a private file through `onFileSelectedNative()`, or cancel through `onFileCanceledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
 
 ## Bridge Flow
@@ -212,11 +212,15 @@ flowchart LR
 
 - `updateNativeActivityRef()` stores a global reference to `MainActivity` and
   caches the method IDs for `requestFile(...)`, `playTone(...)`,
-  `processCoreTasks()`, and `onFileWriteFailed()`. It does not redraw the LCD
+  `processCoreTasks()`, `onFileWriteFailed()`, and `onCoreWarning(...)`. It does
+  not redraw the LCD
   on reattach. Only the core thread writes or reads these globals
   ([04](04-native-core-and-jni.md#activity-reference-writers-and-readers)).
 - `onFileWriteFailed()` is how `hal/io.c` reports a file it could not write in
   full; it posts a toast, because upstream reports only a failed open.
+- `onCoreWarning(...)` is how upstream's `show_warning`, through `r47_show_warning`,
+  reaches the user: a program or a state file the core could not take whole. It
+  posts a dialog, since upstream's warnings run to five lines.
 - `processCoreTasksNative()` is the re-entry hook used by
   `yieldToAndroidWithMs(...)`. It calls back into `MainActivity.processCoreTasks()`
   so queued Android-side work can run while the native core is yielding.

@@ -30,6 +30,12 @@ static char labelStorage[32];
 void stringToASCII(const char *in, char *out) { strcpy(out, in); }
 
 static int reports = 0;
+// The host side of a core warning: the bridge's real one calls into MainActivity.
+static char warned[256] = "";
+void r47_show_warning(const char *text) {
+  snprintf(warned, sizeof(warned), "%s", text);
+}
+
 void r47_report_file_write_failure(void) { reports++; }
 
 static int requestIsSave;

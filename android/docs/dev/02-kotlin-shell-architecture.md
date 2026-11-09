@@ -37,6 +37,7 @@ grouped by role; the directory itself is the authority when a file is added:
 - shell coordination: `ReplicaOverlayController.kt`,
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
   `WindowModeController.kt`, `SystemBarInsets.kt`, `FactoryResetController.kt`,
+  `CoreWarning.kt`,
   `HapticFeedbackController.kt`, `AudioEngine.kt`, `LiveKeyRouter.kt`,
   `LiveProgramStopKeyPolicy.kt`, `GraphGestureAccumulator.kt`,
   `GraphGestureFlusher.kt`, and `NativeShellCodes.kt`

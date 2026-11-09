@@ -35,6 +35,12 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
 }
 
 // The host side of the report: the bridge's real one calls into MainActivity.
+// The host side of a core warning: the bridge's real one calls into MainActivity.
+static char warned[256] = "";
+void r47_show_warning(const char *text) {
+  snprintf(warned, sizeof(warned), "%s", text);
+}
+
 void r47_report_file_write_failure(void) {
   reports++;
 }
@@ -162,6 +168,10 @@ int main(void) {
   snprintf(backup, sizeof(backup), "%s/backupR47_0.cfg", base);
   snprintf(backup_temp, sizeof(backup_temp), "%s.tmp", backup);
   failures |= check_state_file_replacement();
+  char warning[] = "This is a WP43 program";
+  show_warning(warning);
+  failures |= expect("a core warning reaches the host whole",
+                     strcmp(warned, "This is a WP43 program") == 0);
 
   point_autosave_at(NULL);
   failures |= expect_reports("a write the disk takes is not reported",

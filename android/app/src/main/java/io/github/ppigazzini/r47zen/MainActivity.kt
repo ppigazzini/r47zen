@@ -111,6 +111,14 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
+    // Called from the core thread when upstream raises a warning through show_warning:
+    // a program or a state file it could not take whole. Upstream's run to five lines,
+    // so it is a dialog, not a Toast.
+    @Keep
+    fun onCoreWarning(text: String) {
+        mainHandler.post { showCalculatorWarning(this, text.trim()) }
+    }
+
     // A process killed behind the picker comes back with the answer and no request.
     private fun answerNativeFileRequest(fd: Int): Boolean {
         val taken = onFileSelectedNative(fd)

@@ -55,6 +55,7 @@ static char replaceTemp[PATH_MAX + 8] = "";
 extern int requestAndroidFile(int isSave, const char *defaultName,
                               int fileType);
 extern void r47_report_file_write_failure(void);
+extern void r47_show_warning(const char *text);
 
 static void ensure_android_subdir(const char *subdir) {
   char buf[1024];
@@ -414,5 +415,7 @@ int save_programfile(const char *fpath, const char *fname, void *data) {
 int load_programfile(const char *fpath, const char *fname, void *data) {
   return MRET_LOADSTATE;
 }
-void show_warning(char *string) {}
+// A core warning, such as a program or a state file it could not take whole, goes to
+// the user in a dialog.
+void show_warning(char *string) { r47_show_warning(string); }
 void fnDiskInfo(uint16_t unused) {}
