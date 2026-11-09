@@ -12,7 +12,7 @@
 #   R47_VERSION_CODE_INPUT, R47_VERSION_NAME_INPUT  from resolve-release-inputs
 #   RELEASE_APK_NAME, RELEASE_BUNDLE_NAME           from the build job
 #   UPSTREAM_URL, UPSTREAM_COMMIT                   from resolve-upstream-core
-#   UPSTREAM_VERSION                                from the build job
+#   UPSTREAM_VERSION, HOST_TOOLS                    from the build job
 #
 # It reads ci-artifacts/release-signed/ and ci-artifacts/release-unsigned/ and
 # writes ci-artifacts/release-aab/ and ci-artifacts/release-apk/.
@@ -65,6 +65,7 @@ evidence_args=(
     --upstream-source-repository-url "$UPSTREAM_URL"
     --upstream-source-commit "$UPSTREAM_COMMIT"
     --upstream-version "${UPSTREAM_VERSION:-}"
+    --host-tools "${HOST_TOOLS:-}"
     --xlsxio-source-repository-url "$R47_DEFAULT_XLSXIO_URL"
     --xlsxio-source-commit "$R47_DEFAULT_XLSXIO_COMMIT"
     --application-id "$R47_DEFAULT_ANDROID_APPLICATION_ID"

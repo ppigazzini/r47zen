@@ -214,6 +214,13 @@ verify_evidence_dir() {
             exit 1
         fi
     fi
+    # A release records the host tools that generated shipped code, which the
+    # runner image chooses: a FreeType update can change the LCD font bitmaps with
+    # no commit here.
+    if [[ "$expected_signing_mode" == "release" && -z "$(read_metadata_value host_tools "$metadata_file")" ]]; then
+        echo "FAIL: ${expected_type} ${artifact_name} records no host_tools (describe_host_tools.sh in the build job)." >&2
+        exit 1
+    fi
     if [[ "$expected_type" == "apk" ]]; then
         apk_signing_cert="$signing_cert"
     else

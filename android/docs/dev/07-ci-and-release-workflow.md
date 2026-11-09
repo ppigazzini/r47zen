@@ -578,9 +578,14 @@ It:
   for a bundle, `BundleConfig.pb`'s uncompressed native libraries at
   `PAGE_ALIGNMENT_16K`, which Play requires from 2027-02-01
   (`r47_contracts/page_alignment_16k.py`), the signer
-  certificate digest, the dev version, and the upstream core's own version
+  certificate digest, the dev version, the upstream core's own version
   (`upstream_version`, `VERSION1` from `src/c47/defines.h`, read by
-  `scripts/android/read_upstream_version.sh` in the build job)
+  `scripts/android/read_upstream_version.sh` in the build job), and the host
+  tools that generated shipped code (`host_tools`, the Meson, Ninja, C compiler,
+  and FreeType versions `scripts/android/describe_host_tools.sh` reads in the
+  build job: the build dependencies take whatever the runner image's archive
+  holds, and `ttf2RasterFonts` renders the LCD fonts with FreeType into a source
+  the library compiles)
 - off `pull_request`, fails unless that digest equals
   `R47_DEFAULT_PRERELEASE_SIGNER_CERT_SHA256` in
   `android/r47-defaults.properties`, so a dev APK signed by any other key is
@@ -1176,7 +1181,7 @@ Runs after whichever signing job ran and before anything is published: on
 `main` after `sign-production-release`, in a dry run after `sign-dry-run`. It
 downloads the signed APK and AAB workflow artifacts by ID and checks
 each against its recorded packaging evidence (signing mode, ABIs, version,
-checksums, and the signer certificate SHA-256) with
+checksums, the signer certificate SHA-256, and a `host_tools` record) with
 `scripts/android/verify_published_release_artifacts.sh`.
 `publish-production-release` needs this job and downloads the same two
 artifacts, so the bytes it checks are the bytes the release attaches and the

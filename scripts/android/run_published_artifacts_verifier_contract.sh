@@ -37,9 +37,10 @@ OTHER_CERT="deadbeefcafef00dfeedface0123456789abcdef0123456789abcdef01234567"
 pass=0
 fail=0
 
-# write_bundle <dir> <type> <name> <vc> <vn> <sign> <abis> <sig:yes|no> <cert>
+# write_bundle <dir> <type> <name> <vc> <vn> <sign> <abis> <sig:yes|no> <cert> [tools|none]
 write_bundle() {
     local dir="$1" type="$2" name="$3" vc="$4" vn="$5" sign="$6" abis="$7" sig="$8" cert="${9-}"
+    local tools="${10:-meson 1.3.2 ninja 1.11.1 gcc 14.2.0 libfreetype6 2.13.2+dfsg-1ubuntu0.2}"
     mkdir -p "$dir"
     printf 'fake-%s-bytes' "$type" >"$dir/$name"
     if [ "$type" = apk ] && [ "$sig" = yes ]; then
@@ -53,6 +54,7 @@ write_bundle() {
         echo "artifact_signed=$sign"
         # Omit the cert line entirely when unset, to mimic a pre-cert build.
         [ -n "$cert" ] && echo "artifact_signing_cert_sha256=$cert"
+        [ "$tools" = none ] || echo "host_tools=$tools"
     } >"$dir/BUILD-METADATA.txt"
     # Mimic the evidence collector: digest recorded under the build-time path.
     sha256sum "$dir/$name" | sed "s#$dir/#ci-artifacts/release-$type/#" >"$dir/SHA256SUMS.txt"
@@ -131,6 +133,10 @@ assert_case "debug signing mode fails" fail "apk signing mode" "$work/debug_apk"
 # A signed release missing its recorded signer cert digest must be rejected.
 write_bundle "$work/nocert_apk" apk app.apk "$VC" "$VN" release "$PIN_ABI" yes ""
 assert_case "signed release without a cert digest fails" fail "apk app.apk has no recorded signing certificate digest" "$work/nocert_apk" "$work/valid_aab" "$VC" "$VN" "$PIN_ABI"
+
+# A release that does not record the host tools that generated its code fails.
+write_bundle "$work/notools_aab" aab app.aab "$VC" "$VN" release "" no "$CERT" none
+assert_case "release without a host_tools record fails" fail "aab app.aab records no host_tools" "$work/valid_apk" "$work/notools_aab" "$VC" "$VN" "$PIN_ABI"
 
 # APK and AAB signed by different keys must be rejected.
 write_bundle "$work/othercert_aab" aab app.aab "$VC" "$VN" release "" no "$OTHER_CERT"

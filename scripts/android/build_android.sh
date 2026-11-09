@@ -1162,6 +1162,7 @@ if [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; then
         --upstream-source-commit "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" \
         --xlsxio-source-repository-url "$XLSXIO_SOURCE_REPOSITORY_URL_VALUE" \
         --xlsxio-source-commit "$XLSXIO_SOURCE_COMMIT_VALUE" \
+        --host-tools "$(bash "$ANDROID_SCRIPTS_DIR/describe_host_tools.sh")" \
         --signing-mode "$PACKAGING_SIGNING_MODE"
 fi
 
