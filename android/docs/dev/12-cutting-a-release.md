@@ -14,9 +14,13 @@ resolve jobs runs only on `main`.
 
 ## Before you dispatch
 
-1. **The commit is on `main` and `android-ci` is green on it.** The release
-   builds the dispatched ref's overlay with the newest upstream HEAD, so a red
-   `ci-required` on the same commit is a failure you are about to ship.
+1. **The commit is on `main` and `android-ci` is green on it, with the
+   upstream HEAD the release will take.** The release builds the dispatched
+   ref's overlay with the newest upstream HEAD, and its `require-green-ci` job
+   refuses the run unless android-ci published the `-dev` release, with its
+   APK, for exactly that pair, which it does only when every required lane
+   passed. When upstream moved since the last run on `main`, run android-ci on
+   `main` first, or pin `upstream_commit` to a pair it passed.
 
    ```sh
    gh run list --workflow android-ci.yml --branch main --limit 1
@@ -137,6 +141,7 @@ cause.
 | `android/r47-defaults.properties says R47_DEFAULT_ANDROID_VERSION_CODE=<x>, confirm_version_code says <y>.` (or `..._VERSION_NAME=...`, `confirm_version`) | the typed confirmation is not the file | dispatch again with the file's value, or fix the file first |
 | `R47_DEFAULT_ANDROID_VERSION_CODE must be <n> (previous production release used <m>), got <x>.` | the file's code is not the previous plus one, usually a forgotten "open the next release" commit | commit `<n>` and its version, then dispatch |
 | `R47_DEFAULT_ANDROID_VERSION_CODE <x> is above 100000; ...` | a date was written as the code | commit the counter |
+| `No -dev release r47zen-<u8>-<a8>-dev with an APK: android-ci has not passed on ...` (in `require-green-ci`) | upstream moved since android-ci last passed on `main`, or android-ci failed on this pair | `gh workflow run android-ci.yml --ref main`, then dispatch once it publishes; or dispatch with `upstream_commit` set to a pair it passed |
 | `... the release takes the PATCH step, <v>, not <x>.` | app code is unchanged since the previous release, and the file names another version | commit `<v>` |
 | `App code (android/app/src/main/) changed since <prev> ... The release takes the MINOR step, PATCH reset: <v> ...` | app code changed, and the file names a PATCH step | commit `<v>` ([rules](10-writing.md#version-numbers)) |
 | `Commit <sha> of the previous release <prev> is not in the local history ...` | the checkout lost history | rerun; the job checks out with `fetch-depth: 0` |
