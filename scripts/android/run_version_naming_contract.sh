@@ -94,6 +94,29 @@ check "malformed: pre-release suffix" fail 0.1.13-1 "" "" "$app_changed"
 check "previous commit outside the history" fail 0.1.14 0.1.13 \
     0123456789abcdef0123456789abcdef01234567 "$app_changed"
 
+# A previous release whose commit is on no ref, as a re-cut followed by a rewrite of
+# main leaves it: a fresh clone does not have it, so a rerun repeats the refusal, and
+# the message must say what does help. A tag at the commit, fetched, does.
+default_branch="$(git -C "$repo" symbolic-ref --short HEAD)"
+git -C "$repo" checkout -q -b gone "$base"
+echo 'echo gone' >"$repo/scripts/gone.sh"
+gone="$(commit "on no ref")"
+git -C "$repo" checkout -q "$default_branch"
+git -C "$repo" branch -q -D gone
+clone="$work/clone"
+git clone -q --no-local "$repo" "$clone"
+refusal="$(bash "$CHECKER" --repo "$clone" --version 0.2.0 --previous-version 0.1.14 \
+    --previous-commit "$gone" --head "$app_changed" 2>&1 >/dev/null || true)"
+grep -q "is on no ref" <<<"$refusal" && grep -q "a rerun repeats" <<<"$refusal" ||
+    contract_fail "a previous commit on no ref is not explained: $refusal"
+git -C "$repo" tag keep-gone "$gone"
+git -C "$clone" fetch -q --tags origin
+check_in_clone() {
+    bash "$CHECKER" --repo "$clone" --version 0.2.0 --previous-version 0.1.14 \
+        --previous-commit "$gone" --head "$app_changed" >/dev/null 2>&1
+}
+check_in_clone || contract_fail "a tag at the previous release's commit did not let the check run"
+
 expected="$(bash "$CHECKER" --repo "$repo" --version 0.1.13 --previous-version "$old" \
     --previous-commit "$base" --head "$repo_only" | sed -n 's/^expected=//p')"
 [ "$expected" = "0.1.13" ] || contract_fail "expected= names '$expected', not 0.1.13."
