@@ -6,6 +6,7 @@ import com.google.android.gms.oss.licenses.plugin.LicensesTask
 import groovy.xml.XmlSlurper
 import javax.inject.Inject
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.result.ResolvedDependencyResult
 
 plugins {
     alias(libs.plugins.android.application)
@@ -266,6 +267,7 @@ def createSpdxPackage = { Map values ->
 
     [
         'versionInfo',
+        'supplier',
         'summary',
         'description',
         'homepage',
@@ -279,6 +281,9 @@ def createSpdxPackage = { Map values ->
 
     if (values.externalRefs) {
         packageEntry.externalRefs = values.externalRefs
+    }
+    if (values.checksums) {
+        packageEntry.checksums = values.checksums
     }
 
     return packageEntry
@@ -839,21 +844,47 @@ tasks.register('generateXlsxioLicense') {
     }
 }
 
-// The third-party SPDX package list, as a provider generateThirdPartySpdx
-// takes as an input. Gradle evaluates it only when a build schedules that task,
-// after the project is configured, and the configuration-cache entry stores the
-// plain strings and maps it returns. An afterEvaluate block here resolved
-// releaseRuntimeClasspath and read every dependency's POM while configuring
-// every build, `help` included, which Gradle reports as "resolved during
-// configuration time".
-def spdxRuntimePackages = providers.provider {
+// Each runtime module's repository, by the group list settings.gradle filters
+// Google's repository with: SPDX and purl name where the bytes came from, and
+// Maven Central holds none of Google's groups. Central's address is the
+// one mavenCentral() resolves from.
+def googleMavenGroups = gradle.ext.r47GoogleMavenGroups as List<String>
+def mavenRepositoryUrlFor = { String group ->
+    googleMavenGroups.any { group == it || group.startsWith("${it}.") } ?
+        'https://dl.google.com/dl/android/maven2' : 'https://repo.maven.apache.org/maven2'
+}
+// The file each module was verified as and its SHA-256, from the dependency
+// verification metadata Gradle holds every download to: the inventory names the
+// bytes the build took, with no download of its own.
+def verificationMetadataText = providers.fileContents(
+    rootProject.layout.projectDirectory.file('gradle/verification-metadata.xml')
+).asText
+// decNumber states its version in the source the core compiles.
+def decNumberLocalHeaderText = providers.fileContents(
+    objects.fileProperty().fileValue(new File(repositoryRootDir, 'dep/decNumberICU/decNumberLocal.h'))
+).asText
+
+// The third-party SPDX packages and relationships, as a provider
+// generateThirdPartySpdx takes as an input. Gradle evaluates it only when a build
+// schedules that task, after the project is configured, and the
+// configuration-cache entry stores the plain strings and maps it returns. An
+// afterEvaluate block here resolved releaseRuntimeClasspath and read every
+// dependency's POM while configuring every build, `help` included, which Gradle
+// reports as "resolved during configuration time".
+def spdxRuntimeInventory = providers.provider {
     def packages = []
+    def relationships = []
     def addSpdxPackage = { Map values ->
         packages << createSpdxPackage(values)
     }
+    def relate = { String from, String type, String to ->
+        relationships << [spdxElementId: from, relationshipType: type, relatedSpdxElement: to]
+    }
+    def appRef = toSpdxRef('r47zen-source')
+    def upstreamCoreRef = toSpdxRef('r47-upstream-core')
 
     addSpdxPackage([
-        SPDXID          : toSpdxRef('r47zen-source'),
+        SPDXID          : appRef,
         name            : 'r47zen',
         downloadLocation: androidSourceRepositoryUrl ?: 'NOASSERTION',
         licenseDeclared : 'GPL-3.0-only',
@@ -861,18 +892,58 @@ def spdxRuntimePackages = providers.provider {
         summary         : 'Android fork source repository for the packaged R47 application.',
         sourceInfo      : 'Recorded from the local Git checkout used for this build.'
     ])
+    relate('SPDXRef-DOCUMENT', 'DESCRIBES', appRef)
 
-    if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
-        addSpdxPackage([
-            SPDXID          : toSpdxRef('r47-upstream-core'),
-            name            : 'r47-upstream-core',
-            downloadLocation: upstreamSourceRepositoryUrl,
-            licenseDeclared : 'GPL-3.0-only',
-            versionInfo     : upstreamSourceCommit,
-            summary         : 'Authoritative upstream core revision synchronized into the Android build.',
-            sourceInfo      : 'Recorded from the synchronized upstream core metadata for this build.'
-        ])
+    addSpdxPackage([
+        SPDXID          : upstreamCoreRef,
+        name            : 'r47-upstream-core',
+        downloadLocation: upstreamSourceRepositoryUrl ?: 'NOASSERTION',
+        licenseDeclared : 'GPL-3.0-only',
+        versionInfo     : upstreamSourceCommit ?: 'unknown',
+        summary         : 'Authoritative upstream core revision synchronized into the Android build.',
+        sourceInfo      : 'Recorded from the synchronized upstream core metadata for this build.'
+    ])
+    relate(appRef, 'DEPENDS_ON', upstreamCoreRef)
+
+    def decNumberVersion = (decNumberLocalHeaderText.get() =~ /#define\s+DECVERSION\s+"decNumber ([0-9.]+)"/).with {
+        it.find() ? it.group(1) : null
     }
+    if (!decNumberVersion) {
+        throw new GradleException('dep/decNumberICU/decNumberLocal.h states no DECVERSION "decNumber <version>".')
+    }
+    addSpdxPackage([
+        SPDXID          : toSpdxRef('decnumbericu'),
+        name            : 'decNumberICU',
+        downloadLocation: 'NOASSERTION',
+        licenseDeclared : 'ICU',
+        versionInfo     : decNumberVersion,
+        summary         : 'Decimal arithmetic the upstream core carries under dep/decNumberICU.',
+        sourceInfo      : 'Version from DECVERSION in dep/decNumberICU/decNumberLocal.h; the notice is dep/decNumberICU/ICU-license.html.'
+    ])
+    relate(upstreamCoreRef, 'CONTAINS', toSpdxRef('decnumbericu'))
+
+    addSpdxPackage([
+        SPDXID          : toSpdxRef('pcg-basic'),
+        name            : 'PCG Random Number Generation for C',
+        downloadLocation: 'git+https://github.com/imneme/pcg-c-basic.git',
+        homepage        : 'https://www.pcg-random.org',
+        licenseDeclared : 'Apache-2.0',
+        copyrightText   : "Copyright 2014 Melissa O'Neill <oneill@pcg-random.org>",
+        summary         : 'Random number generator the upstream core carries as src/c47/mathematics/pcg_basic.c and pcg_basic.h.',
+        sourceInfo      : 'The upstream core modified these files from pcg-c-basic, which has no release version.'
+    ])
+    relate(upstreamCoreRef, 'CONTAINS', toSpdxRef('pcg-basic'))
+
+    addSpdxPackage([
+        SPDXID          : toSpdxRef('mini-gmp-fallback'),
+        name            : 'mini-gmp fallback',
+        downloadLocation: 'https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2',
+        licenseDeclared : 'LGPL-3.0-or-later OR GPL-2.0-or-later',
+        versionInfo     : '6.2.1',
+        summary         : 'Big integer arithmetic the app builds from android/compat/mini-gmp-fallback.',
+        sourceInfo      : "mini-gmp from GMP 6.2.1, modified here to hand the core's allocation hooks each block's size."
+    ])
+    relate(appRef, 'DEPENDS_ON', toSpdxRef('mini-gmp-fallback'))
 
     addSpdxPackage([
         SPDXID          : toSpdxRef('xlsxio'),
@@ -880,31 +951,25 @@ def spdxRuntimePackages = providers.provider {
         downloadLocation: xlsxioSourceRepositoryUrl ?: 'NOASSERTION',
         licenseDeclared : 'MIT',
         versionInfo     : xlsxioSourceCommit ?: 'unknown',
-        summary         : 'Vendored spreadsheet I/O dependency packaged with the Android build.',
+        summary         : "Host tool (xlsxio_xlsx2csv) the build runs for upstream's font generation; none of its code ships in the app.",
         sourceInfo      : 'Version and source URL come from the shared Android defaults or explicit build properties.'
     ])
-
-    addSpdxPackage([
-        SPDXID          : toSpdxRef('decnumbericu'),
-        name            : 'decNumberICU',
-        downloadLocation: 'NOASSERTION',
-        licenseDeclared : 'ICU',
-        summary         : 'Vendored decimal arithmetic sources under dep/decNumberICU.',
-        sourceInfo      : 'Notice source is hydrated from upstream at dep/decNumberICU/ICU-license.html during the build.'
-    ])
-
-    addSpdxPackage([
-        SPDXID          : toSpdxRef('mini-gmp-fallback'),
-        name            : 'mini-gmp fallback',
-        downloadLocation: 'https://gmplib.org/',
-        licenseDeclared : 'LGPL-3.0-or-later OR GPL-2.0-or-later',
-        summary         : 'Fallback big integer implementation under android/compat/mini-gmp-fallback.',
-        sourceInfo      : 'Notice text is recorded in the repo-owned notice inventory.'
-    ])
+    relate(toSpdxRef('xlsxio'), 'BUILD_TOOL_OF', appRef)
 
     def runtimeConfiguration = configurations.findByName('releaseRuntimeClasspath') ?: configurations.findByName('debugRuntimeClasspath')
     if (runtimeConfiguration != null) {
-        def runtimeModules = runtimeConfiguration.incoming.resolutionResult.allComponents
+        def verifiedArtifacts = [:]
+        new XmlSlurper(false, false).parseText(verificationMetadataText.get()).components.component.each { component ->
+            verifiedArtifacts["${component.@group}:${component.@name}:${component.@version}".toString()] =
+                component.artifact.collect { artifact ->
+                    [name: artifact.@name.toString(), sha256: artifact.sha256.@value.toString()]
+                }
+        }
+        def mavenRef = { ModuleComponentIdentifier moduleId ->
+            toSpdxRef("maven-${moduleId.group}-${moduleId.module}-${moduleId.version}".toString())
+        }
+        def resolution = runtimeConfiguration.incoming.resolutionResult
+        def runtimeModules = resolution.allComponents
             .collect { it.id }
             .findAll { it instanceof ModuleComponentIdentifier }
             .unique { id -> "${id.group}:${id.module}:${id.version}" }
@@ -913,26 +978,27 @@ def spdxRuntimePackages = providers.provider {
             }
 
         runtimeModules.each { ModuleComponentIdentifier moduleId ->
-            def licenses = []
-            def pomUrl = null
-
+            def coordinates = "${moduleId.group}:${moduleId.module}:${moduleId.version}".toString()
+            // A module that failed its POM read fails the build: a shipped
+            // NOASSERTION would hide it.
+            def pom
             try {
                 def pomConfiguration = configurations.detachedConfiguration(
-                    dependencies.create("${moduleId.group}:${moduleId.module}:${moduleId.version}@pom")
+                    dependencies.create("${coordinates}@pom")
                 )
                 pomConfiguration.transitive = false
-                def pomFile = pomConfiguration.singleFile
-                def pom = new XmlSlurper(false, false).parse(pomFile)
-                licenses = pom.licenses.license.collect { licenseNode ->
-                    [
-                        name: licenseNode.name.text()?.trim(),
-                        url : licenseNode.url.text()?.trim()
-                    ]
-                }
-                pomUrl = pom.url.text()?.trim()
-            } catch (Exception ignored) {
-                licenses = []
+                pom = new XmlSlurper(false, false).parse(pomConfiguration.singleFile)
+            } catch (Exception failure) {
+                throw new GradleException("Could not read the POM of runtime module ${coordinates}.", failure)
             }
+            def licenses = pom.licenses.license.collect { licenseNode ->
+                [
+                    name: licenseNode.name.text()?.trim(),
+                    url : licenseNode.url.text()?.trim()
+                ]
+            }
+            def pomUrl = pom.url.text()?.trim()
+            def organization = pom.organization.name.text()?.trim()
 
             def knownSpdxLicenses = licenses.collect { license ->
                 mapPomLicenseToSpdx(license.name as String, license.url as String)
@@ -942,25 +1008,58 @@ def spdxRuntimePackages = providers.provider {
                 [license.name, license.url].findAll { it }.join(' - ')
             }.findAll { it }.join('; ')
 
+            // The runtime file: an AAR or a JAR; a module that is only metadata,
+            // such as one Gradle redirects to a platform module, names its .module
+            // or .pom.
+            def fileStem = "${moduleId.module}-${moduleId.version}"
+            def artifacts = verifiedArtifacts[coordinates] ?: []
+            def artifact = ['aar', 'jar', 'module', 'pom'].findResult { extension ->
+                artifacts.find { it.name == "${fileStem}.${extension}".toString() }
+            }
+            if (artifact == null || !(artifact.sha256 ==~ /[0-9a-f]{64}/)) {
+                throw new GradleException("gradle/verification-metadata.xml has no SHA-256 for ${coordinates}; regenerate it (scripts/android/update_dependency_verification.sh).")
+            }
+            def repositoryUrl = mavenRepositoryUrlFor(moduleId.group)
+            def repositoryQualifier = URLEncoder.encode(repositoryUrl - 'https://', 'UTF-8')
+
             addSpdxPackage([
-                SPDXID          : toSpdxRef("maven-${moduleId.group}-${moduleId.module}-${moduleId.version}".toString()),
+                SPDXID          : mavenRef(moduleId),
                 name            : "${moduleId.group}:${moduleId.module}".toString(),
-                downloadLocation: "https://repo1.maven.org/maven2/${moduleId.group.replace('.', '/')}/${moduleId.module}/${moduleId.version}".toString(),
+                downloadLocation: "${repositoryUrl}/${moduleId.group.replace('.', '/')}/${moduleId.module}/${moduleId.version}/${artifact.name}".toString(),
                 licenseDeclared : knownSpdxLicenses.size() == 1 ? knownSpdxLicenses[0] : 'NOASSERTION',
                 versionInfo     : moduleId.version.toString(),
+                supplier        : organization ? "Organization: ${organization}".toString() : 'NOASSERTION',
                 homepage        : pomUrl ?: null,
-                summary         : "Android runtime dependency ${moduleId.group}:${moduleId.module}:${moduleId.version}.".toString(),
+                summary         : "Android runtime dependency ${coordinates}.".toString(),
                 licenseComments : rawLicenseSummary ?: 'License metadata was not available in the resolved POM.',
-                sourceInfo      : 'Collected from the resolved runtime classpath and each dependency POM.',
+                sourceInfo      : 'Collected from the resolved runtime classpath, each dependency POM, and the dependency verification metadata.',
+                checksums       : [[algorithm: 'SHA256', checksumValue: artifact.sha256]],
                 externalRefs    : [[
                     referenceCategory: 'PACKAGE-MANAGER',
                     referenceType    : 'purl',
-                    referenceLocator : "pkg:maven/${moduleId.group}/${moduleId.module}@${moduleId.version}".toString()
+                    referenceLocator : "pkg:maven/${moduleId.group}/${moduleId.module}@${moduleId.version}?repository_url=${repositoryQualifier}".toString()
                 ]]
             ])
         }
+
+        // The resolved graph: the app depends on its direct modules, and each
+        // module on its own.
+        def edges = new TreeSet<String>()
+        resolution.allComponents.each { component ->
+            def from = component.id instanceof ModuleComponentIdentifier ? mavenRef(component.id as ModuleComponentIdentifier) : appRef
+            component.dependencies.findAll { it instanceof ResolvedDependencyResult }.each { dependency ->
+                def selected = (dependency as ResolvedDependencyResult).selected.id
+                if (selected instanceof ModuleComponentIdentifier) {
+                    edges << "${from} ${mavenRef(selected as ModuleComponentIdentifier)}".toString()
+                }
+            }
+        }
+        edges.each { edge ->
+            def (from, to) = edge.split(' ')
+            relate(from, 'DEPENDS_ON', to)
+        }
     }
-    packages
+    [packages: packages, relationships: relationships]
 }
 
 // The SPDX creation time is the source commit's, not the clock's, so two
@@ -986,16 +1085,16 @@ tasks.register('generateThirdPartySpdx') {
     def spdxOutputFile = new File(spdxAssetsDir, 'THIRD-PARTY.spdx.json')
     outputs.file(spdxOutputFile)
 
-    inputs.property('spdxPackages', spdxRuntimePackages)
+    inputs.property('spdxInventory', spdxRuntimeInventory)
     inputs.property('spdxCreatedEpochSeconds', spdxCreatedEpochSeconds)
 
     def documentSourceCommit = androidSourceCommit
-    def documentPackages = spdxRuntimePackages
+    def documentInventory = spdxRuntimeInventory
     def documentCreated = new Date(spdxCreatedEpochSeconds * 1000L).format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))
 
     doLast {
         spdxAssetsDir.mkdirs()
-        def packages = documentPackages.get()
+        def inventory = documentInventory.get()
 
         def spdxDocument = [
             spdxVersion      : 'SPDX-2.3',
@@ -1007,8 +1106,8 @@ tasks.register('generateThirdPartySpdx') {
                 created : documentCreated,
                 creators: ['Tool: Gradle generateThirdPartySpdx task']
             ],
-            documentDescribes: packages.collect { it.SPDXID },
-            packages         : packages
+            packages         : inventory.packages,
+            relationships    : inventory.relationships
         ]
 
         spdxOutputFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(spdxDocument)) + '\n'

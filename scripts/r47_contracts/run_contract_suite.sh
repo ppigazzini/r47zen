@@ -28,6 +28,7 @@ TEST_MODULES=(
     r47_contracts.test_settings_default_reads_contract
     r47_contracts.test_launcher_icon_contract
     r47_contracts.test_page_alignment_16k_contract
+    r47_contracts.test_spdx_inventory_contract
     r47_contracts.test_robolectric_sdk_owner_contract
     r47_contracts.test_device_test_api_contract
     r47_contracts.test_keypad_snapshot_wire_contract

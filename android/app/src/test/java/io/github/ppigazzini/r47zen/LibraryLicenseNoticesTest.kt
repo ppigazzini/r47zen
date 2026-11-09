@@ -3,6 +3,7 @@ package io.github.ppigazzini.r47zen
 import android.widget.ListView
 import androidx.preference.Preference
 import com.google.android.material.appbar.MaterialToolbar
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -62,6 +63,38 @@ class LibraryLicenseNoticesTest {
         }
     }
 
+    // Every component the shipped SPDX inventory names outside Maven has a repo
+    // notice under the license the inventory declares, every copyright it states
+    // is in a notice the app shows, and an Apache-2.0 component comes with the
+    // license's own text (section 4(a)). PCG was linked and in neither.
+    @Test
+    fun everyComponentOutsideMaven_hasARepoNoticeUnderItsLicense() {
+        val assets = Robolectric.buildActivity(SettingsActivity::class.java).get().assets
+        fun read(path: String) = assets.open(path).bufferedReader().use { it.readText() }
+        val entries = JSONObject(read("repo-notices/NOTICE-INDEX.json")).getJSONArray("entries")
+        val notices = (0 until entries.length()).map { entries.getJSONObject(it) }
+        val textByLicense = notices.groupBy({ it.getString("declaredLicense") }) { read(it.getString("assetPath")) }
+        val allNoticeText = textByLicense.values.flatten().joinToString("\n")
+        val packages = JSONObject(read("THIRD-PARTY.spdx.json")).getJSONArray("packages")
+        val outsideMaven = (0 until packages.length()).map { packages.getJSONObject(it) }
+            .filterNot { it.getString("SPDXID").startsWith("SPDXRef-maven-") }
+
+        assertTrue(outsideMaven.any { it.getString("name").startsWith("PCG") })
+        for (component in outsideMaven) {
+            val name = component.getString("name")
+            val license = component.getString("licenseDeclared")
+            assertTrue("$name: no repo notice under $license", license in textByLicense)
+            val copyright = component.optString("copyrightText", "NOASSERTION")
+            if (copyright != "NOASSERTION") {
+                assertTrue("$name: no notice states $copyright", copyright in allNoticeText)
+            }
+        }
+        assertTrue(
+            "no Apache-2.0 notice holds the license's terms",
+            textByLicense["Apache-2.0"].orEmpty().any { APACHE_TERMS_HEADING in it },
+        )
+    }
+
     @Test
     fun noticeIndex_withoutExtras_stillListsTheRepoNotices() {
         val index = Robolectric.buildActivity(RepoNoticeIndexActivity::class.java).setup().get()
@@ -71,5 +104,9 @@ class LibraryLicenseNoticesTest {
             index.getString(R.string.repo_notice_catalog_title),
             index.findViewById<MaterialToolbar>(R.id.top_app_bar).title,
         )
+    }
+
+    private companion object {
+        const val APACHE_TERMS_HEADING = "TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION"
     }
 }

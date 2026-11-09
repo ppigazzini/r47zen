@@ -406,7 +406,10 @@ while matching the desktop simulator's stop-key parity during an active run.
   white surfaces when the device stays in light theme
 - the notice screens are `RepoNoticeIndexActivity` over an asset index and
   `NoticeAssetActivity` for one text. The repo-owned notices come from
-  `android/compliance/repo-notices/components.json`; the Android library
+  `android/compliance/repo-notices/components.json`, one for each component the
+  SPDX inventory names outside Maven, under its declared license: PCG's
+  copyright with the Apache 2.0 text beside it, decNumber, mini-gmp, xlsxio, and
+  the GPL; the Android library
   licenses come from the `oss-licenses` Gradle plugin, which reads each runtime
   dependency's POM and embedded license, and from
   `generate<Variant>LibraryLicenseAssets` in `app/build.gradle`, which turns

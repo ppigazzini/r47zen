@@ -351,7 +351,29 @@ dependency repositories. A plain `content {}` filter is not exclusive: a
 group Google misses would still fall through to Maven Central or the Plugin Portal,
 where a same-coordinate artifact would be taken. Gradle then refuses any
 repository a build script adds, so the root `buildscript` names none and takes the
-Kotlin Gradle plugin from the plugin repositories.
+Kotlin Gradle plugin from the plugin repositories. The groups are one list,
+`r47GoogleMavenGroups`, which the dependency filter loops over; the plugin block
+runs before the rest of the script and cannot see it, so it repeats the four, and
+`test_spdx_inventory_contract.py` holds the two equal.
+
+### SPDX inventory
+
+`generateThirdPartySpdx` in `app/build.gradle` packages `THIRD-PARTY.spdx.json`,
+SPDX 2.3, into every variant's assets. Each runtime Maven module is located at
+its file, the AAR or JAR, or the `.module` or `.pom` of a module that is only
+metadata, in the repository `r47GoogleMavenGroups` sends its group to:
+`https://dl.google.com/dl/android/maven2` or `https://repo.maven.apache.org/maven2`.
+Its purl names that repository in `repository_url`, as the purl spec asks for any
+other than Central, and its SHA-256 is the one the verification metadata above
+holds, so a module that file lacks fails the task. The supplier is the POM's
+organization, and a POM the build cannot read fails it too. Relationships carry
+the resolved graph (`DEPENDS_ON`), the core's `CONTAINS` of decNumber and PCG,
+mini-gmp under the app, and xlsxio as `BUILD_TOOL_OF`, since none of its code
+ships. This is the shape the SPDX project's own Gradle plugin writes. On
+2026-11-09 the 84 Maven locations each answered 200; the 0.3.0 dry run's
+inventory had placed 71 Google modules on Central, where none of them is.
+The packaging evidence runs `r47_contracts/spdx_inventory.py`
+on the inventory each artifact carries.
 
 ## Job graph
 
@@ -548,7 +570,9 @@ It:
   alignment, ELF `LOAD` segment alignment, the four compliance assets the build
   packages (`COPYING`, `LICENSE.txt`, `SOURCE`, `THIRD-PARTY.spdx.json`), whose
   absence fails it rather than letting it write a stand-in
-  (`check_compliance_assets.sh`), no library exporting the test bridge or a
+  (`check_compliance_assets.sh`), an SPDX inventory that locates each module in
+  its repository with its checksum and license, lists every linked component,
+  and relates every package to the app (`r47_contracts/spdx_inventory.py`), no library exporting the test bridge or a
   `main` (`check_shipped_symbols.sh`, which also reads the bundle's libraries),
   each library's GNU_RELRO ending on a 16 KB boundary or where its LOAD ends, and
   for a bundle, `BundleConfig.pb`'s uncompressed native libraries at

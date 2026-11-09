@@ -30,9 +30,27 @@
       "declaredLicense": "LGPL-3.0-or-later OR GPL-2.0-or-later"
     },
     {
+      "id": "pcg-basic-notice",
+      "title": "PCG Random Number Generation for C",
+      "summary": "Copyright and license notice of the random number generator in the calculator core.",
+      "sourcePath": "android/compliance/repo-notices/source-texts/pcg-basic-notice.txt",
+      "assetPath": "repo-notices/pcg/NOTICE.txt",
+      "contentType": "text/plain",
+      "declaredLicense": "Apache-2.0"
+    },
+    {
+      "id": "apache-2.0-license",
+      "title": "Apache License 2.0",
+      "summary": "License text for PCG and the Apache-2.0 libraries.",
+      "sourcePath": "android/compliance/repo-notices/source-texts/apache-2.0.txt",
+      "assetPath": "repo-notices/apache-2.0/LICENSE-2.0.txt",
+      "contentType": "text/plain",
+      "declaredLicense": "Apache-2.0"
+    },
+    {
       "id": "xlsxio-mit-license",
       "title": "xlsxio MIT license",
-      "summary": "License text for the vendored xlsxio dependency.",
+      "summary": "License text for xlsxio, a host tool the build runs; none of its code ships in the app.",
       "sourcePath": "android/compliance/repo-notices/source-texts/xlsxio-mit.txt",
       "assetPath": "repo-notices/xlsxio/LICENSE.txt",
       "contentType": "text/plain",

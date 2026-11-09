@@ -1,0 +1,190 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "R47 Android third-party inventory",
+  "documentNamespace": "https://r47.invalid/spdx/android/fixture",
+  "creationInfo": {
+    "created": "2026-11-09T11:18:11Z",
+    "creators": [
+      "Tool: Gradle generateThirdPartySpdx task"
+    ]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-r47zen-source",
+      "name": "r47zen",
+      "downloadLocation": "https://github.com/ppigazzini/r47zen",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "GPL-3.0-only",
+      "copyrightText": "NOASSERTION",
+      "versionInfo": "0000000000000000000000000000000000000000",
+      "summary": "Android fork source repository for the packaged R47 application.",
+      "sourceInfo": "Recorded from the local Git checkout used for this build."
+    },
+    {
+      "SPDXID": "SPDXRef-r47-upstream-core",
+      "name": "r47-upstream-core",
+      "downloadLocation": "https://gitlab.com/rpncalculators/c43.git",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "GPL-3.0-only",
+      "copyrightText": "NOASSERTION",
+      "versionInfo": "1d203e24b3db11dc8d02757f61f74cce969022e8",
+      "summary": "Authoritative upstream core revision synchronized into the Android build.",
+      "sourceInfo": "Recorded from the synchronized upstream core metadata for this build."
+    },
+    {
+      "SPDXID": "SPDXRef-decnumbericu",
+      "name": "decNumberICU",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "ICU",
+      "copyrightText": "NOASSERTION",
+      "versionInfo": "3.68",
+      "summary": "Decimal arithmetic the upstream core carries under dep/decNumberICU.",
+      "sourceInfo": "Version from DECVERSION in dep/decNumberICU/decNumberLocal.h; the notice is dep/decNumberICU/ICU-license.html."
+    },
+    {
+      "SPDXID": "SPDXRef-pcg-basic",
+      "name": "PCG Random Number Generation for C",
+      "downloadLocation": "git+https://github.com/imneme/pcg-c-basic.git",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "Copyright 2014 Melissa O'Neill <oneill@pcg-random.org>",
+      "summary": "Random number generator the upstream core carries as src/c47/mathematics/pcg_basic.c and pcg_basic.h.",
+      "homepage": "https://www.pcg-random.org",
+      "sourceInfo": "The upstream core modified these files from pcg-c-basic, which has no release version."
+    },
+    {
+      "SPDXID": "SPDXRef-mini-gmp-fallback",
+      "name": "mini-gmp fallback",
+      "downloadLocation": "https://gmplib.org/download/gmp/gmp-6.2.1.tar.bz2",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-or-later OR GPL-2.0-or-later",
+      "copyrightText": "NOASSERTION",
+      "versionInfo": "6.2.1",
+      "summary": "Big integer arithmetic the app builds from android/compat/mini-gmp-fallback.",
+      "sourceInfo": "mini-gmp from GMP 6.2.1, modified here to hand the core's allocation hooks each block's size."
+    },
+    {
+      "SPDXID": "SPDXRef-xlsxio",
+      "name": "xlsxio",
+      "downloadLocation": "https://github.com/brechtsanders/xlsxio",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "versionInfo": "a8b74053127033fcd4788c1a3e651e47c79aa21d",
+      "summary": "Host tool (xlsxio_xlsx2csv) the build runs for upstream's font generation; none of its code ships in the app.",
+      "sourceInfo": "Version and source URL come from the shared Android defaults or explicit build properties."
+    },
+    {
+      "SPDXID": "SPDXRef-maven-androidx.core-core-ktx-1.19.1",
+      "name": "androidx.core:core-ktx",
+      "downloadLocation": "https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.19.1/core-ktx-1.19.1.aar",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "versionInfo": "1.19.1",
+      "supplier": "Organization: The Android Open Source Project",
+      "summary": "Android runtime dependency androidx.core:core-ktx:1.19.1.",
+      "homepage": "https://developer.android.com/jetpack/androidx/releases/core#1.19.1",
+      "licenseComments": "The Apache Software License, Version 2.0 - http://www.apache.org/licenses/LICENSE-2.0.txt",
+      "sourceInfo": "Collected from the resolved runtime classpath, each dependency POM, and the dependency verification metadata.",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/androidx.core/core-ktx@1.19.1?repository_url=dl.google.com%2Fdl%2Fandroid%2Fmaven2"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9a3e2919e64026ad18b42bf9931e8fea90a6a70e95e13a26519841e926fe5913"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-maven-org.jetbrains.kotlin-kotlin-stdlib-2.4.21",
+      "name": "org.jetbrains.kotlin:kotlin-stdlib",
+      "downloadLocation": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.21/kotlin-stdlib-2.4.21.jar",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "versionInfo": "2.4.21",
+      "supplier": "NOASSERTION",
+      "summary": "Android runtime dependency org.jetbrains.kotlin:kotlin-stdlib:2.4.21.",
+      "homepage": "https://kotlinlang.org/",
+      "licenseComments": "Apache-2.0 - http://www.apache.org/licenses/LICENSE-2.0.txt",
+      "sourceInfo": "Collected from the resolved runtime classpath, each dependency POM, and the dependency verification metadata.",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.4.21?repository_url=repo.maven.apache.org%2Fmaven2"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "bd8250210584cb659847dce9cda660f8e9906e5def7fbebcea93dc6dcb6a88a3"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-r47zen-source"
+    },
+    {
+      "spdxElementId": "SPDXRef-r47zen-source",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-r47-upstream-core"
+    },
+    {
+      "spdxElementId": "SPDXRef-r47-upstream-core",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-decnumbericu"
+    },
+    {
+      "spdxElementId": "SPDXRef-r47-upstream-core",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-pcg-basic"
+    },
+    {
+      "spdxElementId": "SPDXRef-r47zen-source",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-mini-gmp-fallback"
+    },
+    {
+      "spdxElementId": "SPDXRef-xlsxio",
+      "relationshipType": "BUILD_TOOL_OF",
+      "relatedSpdxElement": "SPDXRef-r47zen-source"
+    },
+    {
+      "spdxElementId": "SPDXRef-maven-androidx.core-core-ktx-1.19.1",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-maven-org.jetbrains.kotlin-kotlin-stdlib-2.4.21"
+    },
+    {
+      "spdxElementId": "SPDXRef-r47zen-source",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-maven-androidx.core-core-ktx-1.19.1"
+    },
+    {
+      "spdxElementId": "SPDXRef-r47zen-source",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-maven-org.jetbrains.kotlin-kotlin-stdlib-2.4.21"
+    }
+  ]
+}
