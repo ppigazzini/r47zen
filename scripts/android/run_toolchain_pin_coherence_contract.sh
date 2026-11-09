@@ -103,4 +103,16 @@ if [ -n "$reference_drift" ]; then
     contract_fail "release-notes links in ${references_file} do not match the pins:" "$reference_drift"
 fi
 
+# The wrapper task writes the properties and, run a second time, the jar that reads
+# them. A sweep that edits the properties by hand keeps an old jar, which ignores
+# keys it predates: the 9.3 jar ignored retries and retryBackOffMs. So
+# every key the properties set must be one the jar's WrapperExecutor names.
+wrapper_dir="$(dirname "$wrapper_file")"
+executor_strings="$(unzip -p "$wrapper_dir/gradle-wrapper.jar" org/gradle/wrapper/WrapperExecutor.class | strings)"
+for key in retries retryBackOffMs networkTimeout validateDistributionUrl distributionSha256Sum; do
+    if grep -q "^${key}=" "$wrapper_file" && ! grep -qx "$key" <<<"$executor_strings"; then
+        contract_fail "gradle-wrapper.properties sets ${key}, which the tracked gradle-wrapper.jar does not read; run the wrapper task twice"
+    fi
+done
+
 contract_pass "documentary pins and the release-notes links match their sources (Gradle ${wrapper_gradle}, AGP ${catalog_agp})."
