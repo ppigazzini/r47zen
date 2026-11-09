@@ -19,6 +19,14 @@ pluginManagement {
 	}
 }
 
+// The groups, with their subgroups, that only Google's repository serves. The app's
+// SPDX inventory reads this list through gradle.ext to name the repository each
+// runtime module came from, and the packaging evidence reads it from this file.
+// pluginManagement runs before the rest of this script and cannot see it, so it
+// repeats the list; test_spdx_inventory_contract.py holds the two equal.
+def r47GoogleMavenGroups = ['androidx', 'com.android', 'com.google.android', 'com.google.testing.platform']
+gradle.ext.r47GoogleMavenGroups = r47GoogleMavenGroups
+
 dependencyResolutionManagement {
 	repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
 	repositories {
@@ -28,10 +36,7 @@ dependencyResolutionManagement {
 		exclusiveContent {
 			forRepository { google() }
 			filter {
-				includeGroupAndSubgroups("androidx")
-				includeGroupAndSubgroups("com.android")
-				includeGroupAndSubgroups("com.google.android")
-				includeGroupAndSubgroups("com.google.testing.platform")
+				r47GoogleMavenGroups.each { group -> includeGroupAndSubgroups(group) }
 			}
 		}
 		mavenCentral()

@@ -14,6 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/ci_contract.sh
 source "$SCRIPT_DIR/../lib/ci_contract.sh"
 CHECK="$SCRIPT_DIR/check_compliance_assets.sh"
+SPDX_FIXTURE="$SCRIPT_DIR/../r47_contracts/data/spdx_inventory_fixture.json"
 COLLECT="$SCRIPT_DIR/collect_packaging_evidence.sh"
 
 work="$(mktemp -d)"
@@ -22,9 +23,10 @@ trap 'rm -rf "$work"' EXIT
 make_tree() {
     local root="$1"
     mkdir -p "$root/assets/repo-notices"
-    for name in COPYING LICENSE.txt SOURCE THIRD-PARTY.spdx.json; do
+    for name in COPYING LICENSE.txt SOURCE; do
         printf '%s\n' "$name" >"$root/assets/$name"
     done
+    cp "$SPDX_FIXTURE" "$root/assets/THIRD-PARTY.spdx.json"
     printf 'notice\n' >"$root/assets/repo-notices/index.json"
 }
 
@@ -49,6 +51,15 @@ for name in COPYING LICENSE.txt SOURCE THIRD-PARTY.spdx.json; do
             contract_fail "check_compliance_assets.sh wrote $name for an artifact $how it"
     done
 done
+
+# An inventory that places a Google module on Maven Central fails the check;
+# spdx_inventory.py's own tests hold the rest.
+make_tree "$work/central"
+sed -i 's#https://dl.google.com/dl/android/maven2/androidx#https://repo.maven.apache.org/maven2/androidx#' \
+    "$work/central/assets/THIRD-PARTY.spdx.json"
+if bash "$CHECK" "$work/central" assets "$work/out-central" 2>/dev/null; then
+    contract_fail "check_compliance_assets.sh passed an inventory that places a Google module on Maven Central"
+fi
 
 live="$(strip_hash_comments <"$COLLECT")"
 for root in '"assets"' '"base/assets"'; do

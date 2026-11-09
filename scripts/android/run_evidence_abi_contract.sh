@@ -25,9 +25,10 @@ bundle() {
     shift
     rm -rf "$work/tree"
     mkdir -p "$work/tree/base/assets"
-    for asset in COPYING LICENSE.txt SOURCE THIRD-PARTY.spdx.json; do
+    for asset in COPYING LICENSE.txt SOURCE; do
         echo "$asset" >"$work/tree/base/assets/$asset"
     done
+    cp "$SCRIPT_DIR/../r47_contracts/data/spdx_inventory_fixture.json" "$work/tree/base/assets/THIRD-PARTY.spdx.json"
     # A BundleConfig.pb with uncompressed native libraries at PAGE_ALIGNMENT_16K,
     # as every real bundle carries: fields 2 > 2 > (1: true, 2: 16K).
     printf '\x12\x06\x12\x04\x08\x01\x10\x02' >"$work/tree/BundleConfig.pb"

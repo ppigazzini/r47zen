@@ -7,7 +7,10 @@
 # and THIRD-PARTY.spdx.json. An artifact that lost one ships without its
 # license notice or its source pointer, so the evidence must say so and stop,
 # not write a stand-in of its own. repo-notices/ comes along when
-# present.
+# present. The SPDX inventory must also pass r47_contracts/spdx_inventory.py,
+# which reads Google's Maven groups from android/settings.gradle: each module
+# located in the repository it came from, with its checksum and license, every
+# linked component present, and every package related to the app.
 #
 # Usage: check_compliance_assets.sh <unpacked dir> <asset root> <evidence dir>
 #   <asset root> is assets for an APK and base/assets for an AAB. Writes
@@ -43,4 +46,6 @@ if [[ -d "$unpack_dir/$asset_root/repo-notices" ]]; then
     rm -rf "$compliance_dir/repo-notices"
     cp -R "$unpack_dir/$asset_root/repo-notices" "$compliance_dir/repo-notices"
 fi
+python3 "$(dirname "$0")/../r47_contracts/spdx_inventory.py" \
+    "$compliance_dir/THIRD-PARTY.spdx.json" "$(dirname "$0")/../../android/settings.gradle"
 find "$compliance_dir" -type f | sed "s#^$destination_dir/##" | sort >"$destination_dir/PACKAGED-COMPLIANCE-ASSETS.txt"

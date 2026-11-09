@@ -36,7 +36,7 @@ builds of `main`: they install as a separate app, beside the release.
 
 GNU General Public License, version 3; `COPYING` holds the text. The app's
 license screens show the notices of the third-party code it is built with:
-decNumber, mini-gmp, xlsxio, and the AndroidX libraries.
+decNumber, mini-gmp, PCG, xlsxio, and the AndroidX libraries.
 
 ## Repo Layout
 

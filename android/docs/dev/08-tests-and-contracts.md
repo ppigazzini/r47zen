@@ -223,6 +223,16 @@ runs. What each one locks:
   `DEFAULT` constant, not a literal of its own; every such setting has a `KEY_`
   constant, and the scanner is proven on seeded literals first. A read through
   another variable or a helper is out of its reach
+- `test_spdx_inventory_contract.py`: `spdx_inventory.py`, which the packaging
+  evidence runs on each artifact's `THIRD-PARTY.spdx.json`, passes
+  `data/spdx_inventory_fixture.json`, cut from a generated inventory, and fails
+  each seed: a Google module located on Central, a purl with no
+  `repository_url`, no SHA-256, an unread license (Guava's empty
+  `listenablefuture` excepted), PCG left out, a package nothing relates, a
+  relationship to no package, a second `DESCRIBES`. It also holds the group rule
+  to subgroups, the plugin block's groups to `r47GoogleMavenGroups`, the
+  generator to the checker's two repository URLs, PCG's notice to the header
+  upstream ships, and `check_compliance_assets.sh` to running the check
 - `test_page_alignment_16k_contract.py`: `page_alignment_16k.py`, which the
   packaging evidence runs on what ships, passes a GNU_RELRO that ends where its
   LOAD ends (the 0.3.0 dry run's library) or on a 16 KB boundary and fails one
@@ -651,7 +661,10 @@ source is missing from this page:
   merged for the variant under test, so a variant whose
   `library-licenses/NOTICE-INDEX.json` is missing or empty fails on the JVM, and
   so does an entry whose text is only a link; the release variant, which CI's
-  JVM lane runs, lists every Maven library
+  JVM lane runs, lists every Maven library. It also requires a repo notice under
+  the declared license of every component the shipped SPDX inventory names
+  outside Maven, every copyright that inventory states in a notice, and the
+  Apache 2.0 terms with an Apache component; it failed first on PCG
 - `KeyboardLayoutContractResources.kt`, `KeypadFixtureResources.kt`,
   `TestJsonResources.kt`, `KeypadTestSnapshots.kt`, and `FakeDocumentProvider.kt`
   are helpers, not tests: the first three load the keyboard-layout contract, the
@@ -1308,7 +1321,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_green_ci_pair_contract.sh` | `require_green_ci_pair.sh` passes a `-dev` release with an APK and fails one without, an empty answer, a missing tag, and a short commit, and passes with a warning under `--warn-only`; `android-release.yml`'s build needs `require-green-ci`, which reads the release and warns only in a dry run | yes, fixtures |
 | `run_stale_release_assets_contract.sh` | `stale_release_assets.sh` lists the first cut's four files on a tag holding both cuts, nothing on one holding only the new, and nothing (and fails) when an uploaded file is missing; `publish-production-release` deletes what it lists after the upload, only on `allow_overwrite` | yes, fixtures |
 | `run_dependency_verification_contract.sh` | `android/gradle/verification-metadata.xml` exists, verifies metadata with SHA-256 checksums, and holds the build classpath's kotlin-stdlib; no `gradle.properties` entry, workflow, or script loosens verification, and only `update_dependency_verification.sh` writes the file | file check |
-| `run_compliance_assets_contract.sh` | `check_compliance_assets.sh` passes an unpacked artifact carrying `COPYING`, `LICENSE.txt`, `SOURCE`, and `THIRD-PARTY.spdx.json`, and fails one lacking any, or holding it empty, writing none in its place; `collect_packaging_evidence.sh` calls it for the APK and the AAB and writes no compliance file of its own | yes, fixtures |
+| `run_compliance_assets_contract.sh` | `check_compliance_assets.sh` passes an unpacked artifact carrying `COPYING`, `LICENSE.txt`, `SOURCE`, and `THIRD-PARTY.spdx.json`, and fails one lacking any, or holding it empty, writing none in its place, or whose inventory places a Google module on Maven Central; `collect_packaging_evidence.sh` calls it for the APK and the AAB and writes no compliance file of its own | yes, fixtures |
 | `run_log_upload_contract.sh` | every workflow job that tees a log into `ci-artifacts/logs` uploads that path with `if: always()` | yes, fixture |
 | `run_release_dry_run_contract.sh` | `android-release.yml`'s `dry_run` is off by default; `sign-production-release`, `publish-production-release`, and `upload-to-play` run only on `main` and never in a dry run; `sign-dry-run` runs only in one and binds no environment, secret, or Play variable; a dry run refuses a Play track; a real release is held to the tracked signer pin | yes, fixtures |
 | `run_signing_isolation_contract.sh` | no job that names a signing key or the Play upload identity, reads every secret (`toJSON(secrets)`, `secrets[...]`, `secrets: inherit`), binds the `production-release` or `play-upload` environment, or holds a write-scoped token, builds or runs upstream code, uses an action off its allowlist (so none restores an Actions cache), or pastes a `${{ }}` expression into its run script; `setup-signing-tools` uses only `setup-android` | yes, fixtures |
