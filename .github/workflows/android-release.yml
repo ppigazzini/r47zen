@@ -1348,15 +1348,69 @@ jobs:
           unzip -p "${apks[0]}" lib/arm64-v8a/libr47zen.so >"$library"
           READELF=readelf bash ./scripts/security/check_native_hardening.sh "$library"
 
+  package-core-source:
+    name: Archive the core's source for the release
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
+    # The release carries the core's tree at its commit beside the binaries built
+    # from it, as GPL-3.0 section 6 asks of a distributor that cannot ensure
+    # upstream's server keeps it. Only git runs here, no upstream code,
+    # and the job holds no secret; the commit and URL come from
+    # resolve-upstream-core, not from the build job.
+    needs:
+      - resolve-release-inputs
+      - resolve-upstream-core
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    outputs:
+      source_artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      source_archive_name: ${{ steps.archive.outputs.name }}
+    steps:
+      - name: Check out the archive script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/android/archive_core_source.sh
+            scripts/android/resolve_android_artifact_metadata.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Archive the core at the release's commit
+        id: archive
+        shell: bash
+        env:
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          VERSION_NAME: ${{ needs.resolve-release-inputs.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
+            --upstream-commit "$UPSTREAM_COMMIT" \
+            --android-commit "$GITHUB_SHA" \
+            --version "$VERSION_NAME")"
+          name="${R47_ANDROID_RELEASE_ARTIFACT_STEM}_core-source.tar.gz"
+          bash ./scripts/android/archive_core_source.sh "$UPSTREAM_URL" "$UPSTREAM_COMMIT" "release-source/${name}"
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the core source archive
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: core-source
+          path: release-source/
+          if-no-files-found: error
+          retention-days: 30
+
   publish-production-release:
     name: Publish production GitHub release
     if: github.ref == 'refs/heads/main' && !inputs.dry_run
     needs:
       - resolve-release-inputs
+      - resolve-upstream-core
       - build-production-release-bundle
       - sign-production-release
       - verify-production-release
       - verify-signed-artifacts
+      - package-core-source
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
@@ -1389,6 +1443,28 @@ jobs:
           artifact-ids: ${{ needs.sign-production-release.outputs.apk_artifact_id }}
           merge-multiple: true
           path: release-apk
+
+      - name: Download the core source archive
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.package-core-source.outputs.source_artifact_id }}
+          merge-multiple: true
+          path: release-source
+
+      # The archive must be the core this release was built from: its one top
+      # directory names the commit resolve-upstream-core resolved.
+      - name: Check the core source archive names the release's core
+        shell: bash
+        env:
+          SOURCE_ARCHIVE: release-source/${{ needs.package-core-source.outputs.source_archive_name }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+          roots="$(tar -tzf "$SOURCE_ARCHIVE" | cut -d/ -f1 | sort -u)"
+          [[ "$roots" == "c47-${UPSTREAM_COMMIT}" ]] || {
+            echo "The core source archive holds '${roots}', not c47-${UPSTREAM_COMMIT}." >&2
+            exit 1
+          }
 
       - name: Pack release evidence archives
         id: evidence
@@ -1453,6 +1529,7 @@ jobs:
             release-aab/*.aab
             release-apk/*packaging-evidence.zip
             release-aab/*packaging-evidence.zip
+            release-source/*_core-source.tar.gz
 
       # The SPDX inventory the signed APK carries, which the AAB carries too, attested
       # for both: the provenance names this repository's commit alone, and the
@@ -1487,7 +1564,8 @@ jobs:
           # workflow's identity so an attestation produced by any OTHER workflow
           # in the repo cannot satisfy the check.
           for artifact in release-apk/*.apk release-aab/*.aab \
-            release-apk/*packaging-evidence.zip release-aab/*packaging-evidence.zip; do
+            release-apk/*packaging-evidence.zip release-aab/*packaging-evidence.zip \
+            release-source/*_core-source.tar.gz; do
             echo "Verifying build provenance for ${artifact}"
             gh attestation verify "${artifact}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -1510,6 +1588,7 @@ jobs:
           R47_PREVIOUS_SIGNING_CERT: ${{ needs.resolve-release-inputs.outputs.previous_signing_cert_sha256 }}
           APK_EVIDENCE_ARCHIVE_NAME: ${{ steps.evidence.outputs.apk_evidence_archive_name }}
           AAB_EVIDENCE_ARCHIVE_NAME: ${{ steps.evidence.outputs.aab_evidence_archive_name }}
+          CORE_SOURCE_ARCHIVE_NAME: ${{ needs.package-core-source.outputs.source_archive_name }}
         run: |
           set -euo pipefail
 
@@ -1577,11 +1656,17 @@ jobs:
           commit ${xlsxio_commit} to satisfy the upstream font-generation
           contract.
 
+          The source of the calculator core these assets are built from is
+          attached as ${CORE_SOURCE_ARCHIVE_NAME}: upstream's tree at the commit
+          above, without its docs/ manuals, from which nothing in the app is
+          built. This repository's source is the release tag's.
+
           Included assets:
           - ${apk_name}
           - ${aab_name}
           - ${APK_EVIDENCE_ARCHIVE_NAME}
           - ${AAB_EVIDENCE_ARCHIVE_NAME}
+          - ${CORE_SOURCE_ARCHIVE_NAME}
 
           Notes:
           - This GitHub release was published from the ${R47_RELEASE_MODE} signed
@@ -1611,6 +1696,7 @@ jobs:
             release-aab/*.aab
             release-apk/${{ steps.evidence.outputs.apk_evidence_archive_name }}
             release-aab/${{ steps.evidence.outputs.aab_evidence_archive_name }}
+            release-source/${{ needs.package-core-source.outputs.source_archive_name }}
           fail_on_unmatched_files: true
           # Only replace assets on an existing tag when the dispatch explicitly
           # asked for a re-cut; the resolve-release-inputs guard already fails a
@@ -1634,12 +1720,13 @@ jobs:
           R47_RELEASE_TAG: ${{ needs.resolve-release-inputs.outputs.release_tag }}
           APK_EVIDENCE: ${{ steps.evidence.outputs.apk_evidence_archive_name }}
           AAB_EVIDENCE: ${{ steps.evidence.outputs.aab_evidence_archive_name }}
+          CORE_SOURCE: ${{ needs.package-core-source.outputs.source_archive_name }}
         run: |
           set -euo pipefail
 
           shopt -s nullglob
           uploaded=(release-apk/*.apk release-aab/*.aab)
-          uploaded=("${uploaded[@]##*/}" "$APK_EVIDENCE" "$AAB_EVIDENCE")
+          uploaded=("${uploaded[@]##*/}" "$APK_EVIDENCE" "$AAB_EVIDENCE" "$CORE_SOURCE")
           assets_json="${RUNNER_TEMP}/release-assets.json"
           gh release view "$R47_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets >"$assets_json"
           stale="$(bash ./scripts/android/stale_release_assets.sh --assets-json "$assets_json" "${uploaded[@]}")"

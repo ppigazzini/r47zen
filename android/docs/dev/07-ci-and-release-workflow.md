@@ -731,6 +731,11 @@ which the gate reads as unpublished. The notes name the dev version, the
 upstream commit with its `C47 <version>`, and the signing certificate, and
 the run summary links the release and the APK.
 
+Beside the APK it attaches `<APK stem>_core-source.tar.gz`, the source of the
+core the APK is built from, which `scripts/android/archive_core_source.sh`
+writes with git alone from the URL and commit `resolve-upstream-core` resolved;
+the job fails when the build's metadata names another core (below).
+
 This prerelease is intentionally separate from the manual production release
 channel. The APK uses a dedicated prerelease signing key and never reuses the
 production release key.
@@ -777,6 +782,7 @@ flowchart TD
   S[sign-production-release<br/>production-release environment]
   D[sign-dry-run<br/>dry run only, key made in the job]
   V[verify-production-release<br/>emulator, throwaway key]
+  SRC[package-core-source<br/>git only, no secrets]
   W[verify-signed-artifacts<br/>before publication]
   I[publish-production-release]
   J[versioned GitHub release]
@@ -802,6 +808,9 @@ flowchart TD
   S --> I
   V --> I
   W --> I
+  B --> SRC
+  C --> SRC
+  SRC --> I
   I --> J
   I --> P
   P --> K
@@ -945,6 +954,22 @@ the same steps with a key it makes. It:
   `BUILD-METADATA.txt`, `SHA256SUMS.txt`, `mapping.txt`,
   `native-debug-symbols.zip`, and the compliance-assets payload
 
+### `package-core-source`
+
+Runs on `main`, or in a dry run, with no secret and no write token. It runs
+`scripts/android/archive_core_source.sh` on the URL and commit
+`resolve-upstream-core` resolved, never on the build job's word, and uploads
+`<release stem>_core-source.tar.gz`: upstream's tree at that commit under
+`c47-<commit>/`, without `docs/`. A published APK is object code of the GPL-3.0
+core, and section 6(d) lets a distributor point at source on another party's
+server only while it ensures the server keeps it, which this repository cannot
+ensure for upstream's GitLab, so every published binary carries the core's tree.
+`docs/` holds the manuals, from which nothing in the app is built:
+measured on upstream's 8e872462c9, a whole archive takes 104 MB compressed and
+one without `docs/` 12 MB. Only git runs, fetching objects and writing the
+archive; no upstream code executes. This repository's own source is the release
+tag's.
+
 ### `publish-production-release`
 
 This workflow job:
@@ -952,8 +977,11 @@ This workflow job:
 - downloads the signed AAB and APK workflow artifact bundles, by the IDs
   `sign-production-release` returned, after it, `verify-production-release`,
   and `verify-signed-artifacts` succeed
-- reads every `BUILD-METADATA.txt` value through `read_build_metadata.sh`, its only
-  checked-out file. The build job that wrote the metadata compiled and ran upstream
+- downloads the core source archive `package-core-source` made, and fails
+  unless its one top directory is `c47-<commit>` for the commit
+  `resolve-upstream-core` resolved
+- reads every `BUILD-METADATA.txt` value through `read_build_metadata.sh`, one of
+  its two checked-out files, beside `stale_release_assets.sh`. The build job that wrote the metadata compiled and ran upstream
   code, so a value of the wrong shape for its kind is refused, not used: bash
   arithmetic on a crafted version would run a command in this job. The release summary takes
   the version from `resolve-release-inputs`, which read it from this repository, and
@@ -964,8 +992,8 @@ This workflow job:
   `<stem>_aab-packaging-evidence.zip` and `<stem>_apk-packaging-evidence.zip`,
   from the collected compliance assets, provenance, mapping, symbols, and
   packaging reports
-- attests SLSA build provenance for the APK, the AAB, and both
-  packaging-evidence zips with `actions/attest`; after checking that the APK
+- attests SLSA build provenance for the APK, the AAB, both
+  packaging-evidence zips, and the core source archive with `actions/attest`; after checking that the APK
   and the AAB ship one `THIRD-PARTY.spdx.json`, attests that inventory for both
   with `sbom-path`, since the provenance names this repository's commit alone
   and the inventory names the core's; then verifies each attestation
@@ -974,8 +1002,9 @@ This workflow job:
   published. The README gives users the same commands
 - creates or updates the GitHub release tag `r47zen-v<version>` titled
   `R47 Zen <version>`
-- attaches the signed installable APK, the signed Play upload AAB, and both
-  packaging-evidence archives to that GitHub release
+- attaches the signed installable APK, the signed Play upload AAB, both
+  packaging-evidence archives, and the core source archive to that GitHub
+  release
 - on an `allow_overwrite` re-cut, then removes from the tag every file the
   upload did not write, through `scripts/android/stale_release_assets.sh`: each
   file is named after both commits and the overwrite replaces only a file of the
