@@ -222,11 +222,13 @@ flowchart TD
 
 Current repository icon surfaces:
 
-- Drawing source, geometry only:
+- Drawing source:
   `android/app/src/main/assets/icons/r47zen.svg`. Nothing generates the runtime
-  vectors from it and no gate compares them, so a change must reach both by
-  hand. The shipped background color is `ic_launcher_background` in
-  `android/app/src/main/res/values/colors.xml`; the SVG's differs.
+  vectors from it, so a change must reach each by hand, and
+  `scripts/r47_contracts/test_launcher_icon_contract.py` fails until it does:
+  the full icons draw the SVG's paths in its colors, the adaptive foreground
+  draws them but the background, and `ic_launcher_background` in
+  `android/app/src/main/res/values/colors.xml` is the SVG's background.
 - Adaptive icon XML:
   `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` and
   `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml`
