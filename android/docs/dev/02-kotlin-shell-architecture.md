@@ -37,11 +37,12 @@ grouped by role; the directory itself is the authority when a file is added:
 - shell coordination: `ReplicaOverlayController.kt`,
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
   `WindowModeController.kt`, `SystemBarInsets.kt`, `FactoryResetController.kt`,
-  `CoreWarning.kt`,
+  `CoreWarning.kt`, `MainMenuButtonDescription.kt`,
   `HapticFeedbackController.kt`, `AudioEngine.kt`, `LiveKeyRouter.kt`,
   `LiveProgramStopKeyPolicy.kt`, `GraphGestureAccumulator.kt`,
   `GraphGestureFlusher.kt`, and `NativeShellCodes.kt`
-- rendering and geometry: `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt`,
+- rendering and geometry: `ReplicaOverlay.kt`, `PackedLcdRaster.kt`,
+  `ReplicaKeypadLayout.kt`,
   `ReplicaChromeLayout.kt`, `CalculatorKeyView.kt`,
   `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `KeyRenderPainter.kt`,
   `C47TextRenderer.kt`, `C47TypefacePolicy.kt`, `MainKeyLabelMirrors.kt`,
@@ -163,7 +164,7 @@ callbacks.
   `configureActivityShell()` sets the music stream, inflates view binding,
   sets content view, and applies display-cutout mode; `initializeStartupControllers()`
   wires `WindowModeController`, `FactoryResetController`,
-  `StorageAccessCoordinator`, `DisplayActionController`,
+  `StorageAccessCoordinator`, `NativeFileRequestGate`, `DisplayActionController`,
   `PhysicalKeyboardInputController`, and `SlotSessionController`;
   `initializeOverlayAndPreferences(...)` binds `ReplicaOverlay`,
   `ReplicaOverlayController`, `MainActivityPreferenceController` with its

@@ -16,8 +16,8 @@ extern void execTimerApp(uint16_t timerType);
 void r47_save_background_state_locked(void);
 
 // Set once, at the end of r47_init_runtime, and never cleared. The UI thread is
-// live before the core finishes init (MainActivity posts a keypad refresh and an
-// LCD theme after first layout), so every UI-thread entry point that touches
+// live before the core finishes init (MainActivity posts a keypad refresh after
+// first layout), so every UI-thread entry point that touches
 // core state gates on r47_runtime_ready() first. The release store publishes
 // ram, the softmenu stack, lcd_buffer, and packedDisplayBuffer; the acquire load
 // in the readers is what makes those pointers safe to follow.

@@ -28,7 +28,7 @@ The Android module builds one shared library: `r47zen`. `MainActivity`
 loads it from a static initializer via `System.loadLibrary("r47zen")`.
 
 The Android-owned CMake target keeps that single-library load path. It does
-not ship same-ABI CPU-specific variants or a runtime dispatcher. When
+not ship same-ABI CPU-specific variants or a runtime dispatcher.
 `android/app/src/main/cpp/CMakeLists.txt` applies target-scoped ThinLTO compile
 and link flags to the release-native target configs, `Release` and
 `RelWithDebInfo`, and uses `lld` for the link step. That keeps Android

@@ -599,9 +599,8 @@ The verification surface for this text-rendering split is:
 - `scripts/r47_contracts/test_key_label_geometry_contract.py` and
   `scripts/r47_contracts/test_key_font_policy_contract.py` for the checked-in
   geometry, shared painter-stage, and font-policy contracts
-- `.github/workflows/android-ci.yml` and `.github/workflows/android-release.yml`
-  through the existing `:app:testDebugUnitTest` job; no workflow split changed
-  for this refactor
+- `.github/workflows/android-ci.yml` and `.github/workflows/android-release.yml`,
+  which run the JVM suite as `:app:testReleaseUnitTest`
 
 For the faceplate legends specifically, Android follows the upstream GTK rule:
 an underlined F or G label means that legend opens a menu, while a non-

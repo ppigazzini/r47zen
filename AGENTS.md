@@ -169,9 +169,9 @@ make repeattest                                      # the same, keeping build.s
 
 ## Facts that surprise people
 
-- **A lane failing does not mean this repo changed.** Every lane resolves
-  upstream HEAD at runtime, so an upstream commit breaks CI here with no commit
-  here. Pin `upstream.lock` locally to tell the two apart.
+- **A lane failing does not mean this repo changed.** Every lane that builds or
+  tests the core resolves upstream HEAD at runtime, so an upstream commit breaks
+  CI here with no commit here. Pin `upstream.lock` locally to tell the two apart.
 - **Switching upstream commits locally could corrupt the staged tree**, and it
   surfaced as unrelated clang/NDK errors. The two causes measured were the
   sync's: it kept files upstream had removed, and it gave changed files their
