@@ -227,10 +227,13 @@ Focused verification for this lifecycle contract lives in
 
 ## Input surfaces
 
-The Kotlin shell accepts input from four paths:
+The Kotlin shell accepts input from five paths:
 
 - on-screen keys built by `ReplicaKeypadLayout`
-- accessibility click activation on those same key views once they hold focus
+- accessibility click activation on those same key views once they hold focus,
+  each announced as a button with a name in words: `KeySpeech` speaks the R47
+  fonts' private glyphs by function (x squared, not ROMAN NUMERAL THREE), and Zen
+  or hidden softkey labels keep the name of the labels they hide
 - physical keyboard mappings handled by `PhysicalKeyboardInputController`,
   `PhysicalKeyboardMapper`, and `PhysicalKeyboardBindingTables`
 - the projected top-bezel main-menu button coordinated by
@@ -245,6 +248,17 @@ The Kotlin shell accepts input from four paths:
 A PiP window is not a path: the system takes every touch on it for its own
 controls, so the app receives none
 ([PiP](https://developer.android.com/develop/ui/views/picture-in-picture)).
+
+The LCD is a bitmap, so a screen reader reaches the display through
+`ReplicaOverlay.lcdAccessibilityNode`, a child laid over the LCD window of the
+current chrome. Its description is the display's text, a polite live region
+speaks a new one, and an error the screen shows is also the node's error
+(`AccessibilityNodeInfo.setError`). While an accessibility service runs, every
+LCD frame restarts a wait of `DISPLAY_DESCRIPTION_SETTLE_MS` (300 ms), so a typed
+number or a running program asks once, after it: `describeDisplayNative` runs as a
+core task and answers through `onDisplayText`
+([03](03-upstream-interface-surfaces.md)). With no service running, nothing is
+asked. A keypad rebuild keeps the node (`clearReplicaViews`).
 
 Each path ultimately resolves to core-thread work or a small Android-side action.
 

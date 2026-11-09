@@ -193,8 +193,9 @@ class ReplicaOverlayControllerLabelModeTest {
         controller.applyKeypadLabelModes(MainKeyDynamicMode.ON, SoftkeyDynamicMode.OFF)
         controller.refreshDynamicKeys(snapshot = runtimeSnapshot)
 
+        // The labels are hidden, not the key: a screen reader still names it.
         val softkeyView = requireNotNull(findKeyView(overlay, 38))
-        assertEquals("", softkeyView.contentDescription.toString())
+        assertEquals("FILE, LOAD", softkeyView.contentDescription.toString())
     }
 
     @Test
@@ -235,8 +236,10 @@ class ReplicaOverlayControllerLabelModeTest {
         val mainKeyView = requireNotNull(findKeyView(overlay, mainKeyCode))
         val softkeyView = requireNotNull(findKeyView(overlay, 38))
 
-        assertEquals("", mainKeyView.contentDescription.toString())
-        assertEquals("", softkeyView.contentDescription.toString())
+        // Zen hides the drawn labels, not the keys: a screen reader still names them, from
+        // the labels before they were hidden.
+        assertEquals("7, f LASTx, g STK", mainKeyView.contentDescription.toString())
+        assertEquals("FILE, LOAD", softkeyView.contentDescription.toString())
     }
 
     @Test

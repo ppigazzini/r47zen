@@ -787,6 +787,65 @@ static int check_volume_softkeys_show_no_value(void) {
   return 0;
 }
 
+// What a screen reader hears of the display: the error it shows, the number being
+// typed, else X as Copy X gives it, cut on a whole character. Return the number of
+// failures.
+static int check_display_text(void) {
+  int failures = 0;
+  bool isError = true;
+  pthread_mutex_lock(&screenMutex);
+  convertDoubleToReal34Register(15.0, REGISTER_X);
+  char *x = r47_display_text_locked(&isError);
+  if (x == NULL || strcmp(x, "15.") != 0 || isError) {
+    fprintf(stderr, "FAIL: the display of X 15 read '%s', error %d\n", x ? x : "(null)",
+            isError);
+    failures++;
+  }
+  free(x);
+
+  const uint8_t savedMode = calcMode;
+  calcMode = CM_NIM;
+  strcpy(aimBuffer, "12");
+  char *typed = r47_display_text_locked(&isError);
+  if (typed == NULL || strcmp(typed, "12") != 0 || isError) {
+    fprintf(stderr, "FAIL: the number being typed read '%s'\n", typed ? typed : "(null)");
+    failures++;
+  }
+  free(typed);
+  aimBuffer[0] = 0;
+  calcMode = savedMode;
+
+  lastErrorCode = ERROR_ARG_EXCEEDS_FUNCTION_DOMAIN;
+  char *error = r47_display_text_locked(&isError);
+  if (error == NULL || strcmp(error, "An argument exceeds the function domain") != 0 ||
+      !isError) {
+    fprintf(stderr, "FAIL: the error shown read '%s', error %d\n", error ? error : "(null)",
+            isError);
+    failures++;
+  }
+  free(error);
+  lastErrorCode = 0;
+
+  // A text past the cap is cut at a character's first byte.
+  static char longText[R47_DISPLAY_TEXT_MAX + 8];
+  memset(longText, 'a', R47_DISPLAY_TEXT_MAX - 1);
+  longText[R47_DISPLAY_TEXT_MAX - 1] = 0;
+  calcMode = CM_AIM;
+  strcpy(aimBuffer, longText);
+  strcat(aimBuffer, STD_SIGMA STD_SIGMA);
+  char *cut = r47_display_text_locked(&isError);
+  if (cut == NULL || strlen(cut) != R47_DISPLAY_TEXT_MAX - 1) {
+    fprintf(stderr, "FAIL: a long text was cut to %zu bytes, want %d\n",
+            cut ? strlen(cut) : 0, R47_DISPLAY_TEXT_MAX - 1);
+    failures++;
+  }
+  free(cut);
+  aimBuffer[0] = 0;
+  calcMode = savedMode;
+  pthread_mutex_unlock(&screenMutex);
+  return failures;
+}
+
 // Run action with stderr sent to a file, write what it caught back to stderr, and
 // say whether that holds needle. A fault inside action aborts with its report in
 // the file, so the line before it names the step.
@@ -944,6 +1003,7 @@ int main(void) {
   failures += check_capture_ends_with_the_copy();
   failures += check_aim_faces_follow_num_lock();
   failures += check_volume_softkeys_show_no_value();
+  failures += check_display_text();
 
   // Ten numbered registers of 2^60000 make the all-registers copy about 220 KB,
   // and X and Y of it make the stack copy twice the digits. Keep the set inside

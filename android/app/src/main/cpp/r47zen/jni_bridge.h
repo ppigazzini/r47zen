@@ -32,6 +32,7 @@ extern jmethodID g_playToneId;
 extern jmethodID g_processCoreTasksId;
 extern jmethodID g_fileWriteFailedId;
 extern jmethodID g_warningId;
+extern jmethodID g_displayTextId;
 
 typedef struct {
   JNIEnv *env;
@@ -206,6 +207,14 @@ void r47_restore_guard_end(void);
 // One of upstream's clipboard copies in screen.c, such as copyRegisterXToClipboard,
 // as text the caller frees, or NULL when the copy could not allocate.
 char *r47_capture_clipboard_locked(void (*copy)(void));
+// What the display shows, as UTF-8 for a screen reader: the error the screen
+// shows, the TAM prompt's entry, the number or alpha text being typed, else X as
+// Copy X gives it; cut on a whole character to R47_DISPLAY_TEXT_MAX bytes. NULL
+// before the core has its memory or when it cannot allocate; the caller frees it.
+// *isError says the text is the error the screen shows.
+#define R47_DISPLAY_TEXT_MAX 400
+char *r47_display_text_locked(bool *isError);
+void r47_show_display_text(bool isError, const char *text);
 
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(
@@ -262,6 +271,9 @@ Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative(
     JNIEnv *env, jobject thiz);
 JNIEXPORT jstring JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative(
+    JNIEnv *env, jobject thiz);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_MainActivity_describeDisplayNative(
     JNIEnv *env, jobject thiz);
 JNIEXPORT jint JNICALL
 Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration(

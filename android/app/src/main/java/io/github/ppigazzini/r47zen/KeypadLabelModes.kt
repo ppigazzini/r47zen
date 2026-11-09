@@ -69,6 +69,7 @@ private fun KeypadSnapshot.applyVirtuosoBlankKeycaps(): KeypadSnapshot {
 
 private fun KeypadKeySnapshot.withVirtuosoMainKeyMode(): KeypadKeySnapshot {
     return copy(
+        spokenLabel = spokenLabel ?: KeySpeech.mainKey(primaryLabel, fLabel, gLabel),
         primaryLabel = "",
         fLabel = "",
         gLabel = "",
@@ -84,6 +85,7 @@ private fun KeypadKeySnapshot.withSoftkeyDynamicMode(mode: SoftkeyDynamicMode): 
     return when (mode) {
         SoftkeyDynamicMode.ON -> this
         SoftkeyDynamicMode.GRAPHIC -> copy(
+            spokenLabel = spokenLabel ?: spokenSoftkey(),
             primaryLabel = "",
             auxLabel = "",
             sceneFlags = sceneFlags and
@@ -93,6 +95,7 @@ private fun KeypadKeySnapshot.withSoftkeyDynamicMode(mode: SoftkeyDynamicMode): 
         )
 
         SoftkeyDynamicMode.OFF -> copy(
+            spokenLabel = spokenLabel ?: spokenSoftkey(),
             primaryLabel = "",
             auxLabel = "",
             sceneFlags = sceneFlags and
@@ -107,4 +110,9 @@ private fun KeypadKeySnapshot.withSoftkeyDynamicMode(mode: SoftkeyDynamicMode): 
             showValue = KeypadKeySnapshot.NO_VALUE,
         )
     }
+}
+
+private fun KeypadKeySnapshot.spokenSoftkey(): String? {
+    val aux = auxLabel.takeIf { hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT) }
+    return KeySpeech.softkey(primaryLabel, aux).ifBlank { null }
 }

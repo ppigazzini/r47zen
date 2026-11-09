@@ -532,19 +532,20 @@ target.
 
 ### Activity reference writers and readers
 
-Native code reaches the current `MainActivity` through six globals in
+Native code reaches the current `MainActivity` through seven globals in
 `jni_activity_bridge.c`: `g_mainActivityObj` and the cached method IDs
 `g_requestFileId`, `g_playToneId`, `g_processCoreTasksId`,
-`g_fileWriteFailedId`, and `g_warningId`. This table is their state inventory for the checks in
+`g_fileWriteFailedId`, `g_warningId`, and `g_displayTextId`. This table is their
+state inventory for the checks in
 [11-reviewing-a-change.md](11-reviewing-a-change.md#the-four-checks).
 
 | access | function | thread |
 |---|---|---|
 | write | `updateNativeActivityRef`, from `initNative` and, on reattach, from `NativeCoreRuntime`'s core-thread attach | core |
 | write | `releaseNativeRuntime`, from `NativeCoreRuntime.releaseFinishedHost` as the core thread leaves its loop with no host attached | core |
-| read | `processCoreTasksNative` (`jni_activity_bridge.c`), `r47_report_file_write_failure` and `r47_show_warning` (`jni_activity_bridge.c`), `_Buzz` (`hal/audio.c`), `requestAndroidFile` (`jni_storage.c`), `triggerQuit` (`hal/power.c`) | core |
+| read | `processCoreTasksNative` (`jni_activity_bridge.c`), `r47_report_file_write_failure`, `r47_show_warning`, and `r47_show_display_text` (`jni_activity_bridge.c`), `_Buzz` (`hal/audio.c`), `requestAndroidFile` (`jni_storage.c`), `triggerQuit` (`hal/power.c`) | core |
 
-No lock covers the five globals, and none is needed: every reader and both
+No lock covers the seven globals, and none is needed: every reader and both
 writers run on the core thread, so a reader never sees a reference half
 deleted. The main thread never calls `releaseNativeRuntime`; a Kotlin path that
 did would be the race this table exists to rule out. `NativeCoreRuntimeTest`

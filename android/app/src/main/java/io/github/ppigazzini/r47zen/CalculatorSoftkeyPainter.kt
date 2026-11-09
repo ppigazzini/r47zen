@@ -334,12 +334,9 @@ internal class CalculatorSoftkeyPainter(
     }
 
     private fun buildAccessibilitySpec(keyState: KeypadKeySnapshot): AccessibilitySpec {
+        val aux = keyState.auxLabel.takeIf { keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT) }
         return AccessibilitySpec(buildString {
-            append(keyState.primaryLabel)
-            if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT) && keyState.auxLabel.isNotBlank()) {
-                append(", ")
-                append(keyState.auxLabel)
-            }
+            append(KeySpeech.softkey(keyState.primaryLabel, aux))
             val valueText = formatSoftkeyValue(keyState.showValue)
             if (valueText.isNotBlank()) {
                 append(", ")

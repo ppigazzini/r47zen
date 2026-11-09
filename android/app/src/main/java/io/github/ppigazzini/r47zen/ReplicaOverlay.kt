@@ -19,6 +19,8 @@ import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.accessibility.AccessibilityManager
+import android.view.accessibility.AccessibilityNodeInfo
 import android.util.Log
 import androidx.core.graphics.withTranslation
 import kotlin.math.PI
@@ -95,6 +97,10 @@ internal object GraphTouchVisualPolicy {
     // One mouse-wheel notch scales the graph as a pinch of this factor does: up, the
     // positive AXIS_VSCROLL, zooms in, as a pinch spreading apart does.
     const val WHEEL_NOTCH_SCALE = 1.1f
+
+    // How long the LCD's frames must hold still before the display's text is read for
+    // a screen reader: one read for a typed number, not one per digit.
+    const val DISPLAY_DESCRIPTION_SETTLE_MS = 300L
 
     fun wheelScaleFactor(notches: Float): Float = WHEEL_NOTCH_SCALE.pow(notches)
 }
@@ -200,6 +206,30 @@ class ReplicaOverlay @JvmOverloads constructor(
     var onLcdPinchListener: ((Float) -> Unit)? = null
     var onLcdResetListener: (() -> Unit)? = null
 
+    // The LCD is a bitmap, so a screen reader finds the display through this view laid
+    // over it: its description is the display's text, a polite live region
+    // speaks a new one, and an error is also the node's error. The text comes from
+    // onDisplayDescriptionWanted, asked once the frames settle for
+    // DISPLAY_DESCRIPTION_SETTLE_MS and only while an accessibility service runs; the
+    // calculator answers when it is at rest, so a running program is read once, at stop.
+    internal val lcdAccessibilityNode: View = View(context).apply {
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+        accessibilityLiveRegion = ACCESSIBILITY_LIVE_REGION_POLITE
+        contentDescription = context.getString(R.string.lcd_accessibility_label)
+        accessibilityDelegate = object : AccessibilityDelegate() {
+            override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
+                super.onInitializeAccessibilityNodeInfo(host, info)
+                if (displayIsError) {
+                    info.isContentInvalid = true
+                    info.error = host.contentDescription
+                }
+            }
+        }
+    }
+    private var displayIsError = false
+    var onDisplayDescriptionWanted: (() -> Unit)? = null
+    private val describeDisplay = Runnable { onDisplayDescriptionWanted?.invoke() }
+
     // A mouse's secondary click, anywhere on the replica: the app's context menu,
     // where Android's large-screen guidance puts a right click.
     var onSecondaryClick: (() -> Unit)? = null
@@ -257,6 +287,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         // Allow drawing outside individual key boundaries
         clipChildren = false
         clipToPadding = false
+
+        addView(lcdAccessibilityNode, LayoutParams(0f, 0f, 0f, 0f))
 
         scaleGestureDetector = ScaleGestureDetector(
             context,
@@ -476,7 +508,46 @@ class ReplicaOverlay @JvmOverloads constructor(
             return false
         }
         requestLcdRedraw()
+        scheduleDisplayDescription()
         return true
+    }
+
+    // Every frame restarts the wait, so a burst of frames, a typed number or a running
+    // program, asks once after it.
+    private fun scheduleDisplayDescription() {
+        val accessibility = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+        if (accessibility?.isEnabled != true) {
+            return
+        }
+        removeCallbacks(describeDisplay)
+        postDelayed(describeDisplay, GraphTouchVisualPolicy.DISPLAY_DESCRIPTION_SETTLE_MS)
+    }
+
+    fun setDisplayDescription(text: String, isError: Boolean) {
+        val description = text.trim().ifEmpty { context.getString(R.string.lcd_accessibility_label) }
+        if (description == lcdAccessibilityNode.contentDescription?.toString() && isError == displayIsError) {
+            return
+        }
+        displayIsError = isError
+        lcdAccessibilityNode.contentDescription = description
+    }
+
+    // Removes the replica's keys, zones, and button, and keeps the LCD's node.
+    fun clearReplicaViews() {
+        for (index in childCount - 1 downTo 0) {
+            if (getChildAt(index) !== lcdAccessibilityNode) {
+                removeViewAt(index)
+            }
+        }
+    }
+
+    // The LCD node takes the LCD window of the current chrome; every other child its own.
+    private fun logicalParamsOf(child: View): LayoutParams {
+        if (child !== lcdAccessibilityNode) {
+            return child.layoutParams as LayoutParams
+        }
+        val spec = currentChromeSpec()
+        return LayoutParams(spec.lcdWindowLeft, spec.lcdWindowTop, spec.lcdWindowWidth, spec.lcdWindowHeight)
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
@@ -757,7 +828,7 @@ class ReplicaOverlay @JvmOverloads constructor(
             val projection = chromeLayout.computeProjection(w.toFloat(), h.toFloat())
             for (i in 0 until childCount) {
                 val child = getChildAt(i)
-                val lp = child.layoutParams as LayoutParams
+                val lp = logicalParamsOf(child)
                 val childWidth = (lp.logicalWidth * projection.scale).roundToInt().coerceAtLeast(0)
                 val childHeight = (lp.logicalHeight * projection.scale).roundToInt().coerceAtLeast(0)
                 child.measure(
@@ -787,7 +858,7 @@ class ReplicaOverlay @JvmOverloads constructor(
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
-            val lp = child.layoutParams as LayoutParams
+            val lp = logicalParamsOf(child)
             val left = (projection.offsetX + lp.logicalX * projection.scale).roundToInt()
             val top = (projection.offsetY + lp.logicalY * projection.scale).roundToInt()
             child.layout(left, top, left + child.measuredWidth, top + child.measuredHeight)

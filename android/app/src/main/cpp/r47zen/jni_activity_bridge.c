@@ -7,6 +7,7 @@ jmethodID g_playToneId = NULL;
 jmethodID g_processCoreTasksId = NULL;
 jmethodID g_fileWriteFailedId = NULL;
 jmethodID g_warningId = NULL;
+jmethodID g_displayTextId = NULL;
 
 void processCoreTasksNative(void) {
   if (!g_mainActivityObj || !g_jvm || !g_processCoreTasksId) {
@@ -67,4 +68,29 @@ void r47_show_warning(const char *text) {
     (*scope.env)->DeleteLocalRef(scope.env, message);
   }
   jni_release_env(&scope, "r47_show_warning");
+}
+
+// The core thread: what the display shows, for a screen reader, after
+// describeDisplayNative. isError says the text is the error the screen shows.
+void r47_show_display_text(bool isError, const char *text) {
+  if (!g_mainActivityObj || !g_jvm || !g_displayTextId) {
+    return;
+  }
+
+  jni_env_scope_t scope;
+  if (!jni_acquire_env(&scope, "r47_show_display_text")) {
+    return;
+  }
+
+  jstring message = jni_new_string_utf(scope.env, text != NULL ? text : "", "",
+                                       "r47_show_display_text");
+  if (message != NULL) {
+    (*scope.env)
+        ->CallVoidMethod(scope.env, g_mainActivityObj, g_displayTextId,
+                         isError ? JNI_TRUE : JNI_FALSE, message);
+    jni_check_and_clear_exception(scope.env,
+                                  "r47_show_display_text CallVoidMethod");
+    (*scope.env)->DeleteLocalRef(scope.env, message);
+  }
+  jni_release_env(&scope, "r47_show_display_text");
 }

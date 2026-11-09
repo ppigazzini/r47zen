@@ -94,6 +94,17 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         AudioEngine.updateSettings(isBeeperEnabled, beeperVolume)
     }
 
+    // Called from the core thread after describeDisplayNative: what the display shows,
+    // for a screen reader; isError when it is the error the screen shows.
+    @Keep
+    fun onDisplayText(isError: Boolean, text: String) {
+        mainHandler.post {
+            if (::replicaOverlay.isInitialized) {
+                replicaOverlay.setDisplayDescription(text, isError)
+            }
+        }
+    }
+
     @Keep
     fun playTone(milliHz: Int, durationMs: Int) {
         AudioEngine.playTone(milliHz, durationMs)
@@ -288,6 +299,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         replicaOverlay.onLcdPinchListener = graphGestureFlusher::addScale
         replicaOverlay.onLcdResetListener = ::queueGraphReset
         replicaOverlay.onSecondaryClick = ::openMainMenu
+        replicaOverlay.onDisplayDescriptionWanted = { offerCoreTask(Runnable { describeDisplayNative() }) }
         keypadSnapshotStore = createKeypadSnapshotStore()
         replicaOverlayController = createReplicaOverlayController()
         replicaOverlayController.bindOverlay()
@@ -594,6 +606,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun getClipboardXRegisterNative(): String?
     private external fun getClipboardStackRegistersNative(): String?
     private external fun getClipboardAllRegistersNative(): String?
+    private external fun describeDisplayNative()
     private external fun getPackedDisplayGeneration(): Int
     private external fun getPackedDisplayBuffer(buffer: ByteArray): Boolean
     private external fun getKeypadSnapshotGeneration(): Int
