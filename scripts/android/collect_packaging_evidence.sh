@@ -428,8 +428,9 @@ if [[ "$artifact_type" == "apk" ]]; then
     fi
 
     # The storage tests' host activity joins a release manifest only when an
-    # instrumented lane asks for it (r47.includeInstrumentationHost); a shipped
-    # APK never declares it.
+    # instrumented lane asks for it (r47.includeInstrumentationHost), and so does
+    # gwpAsanMode="always", which crashes on what it finds; a shipped APK
+    # declares neither.
     aapt2_bin="$android_sdk_root/build-tools/$build_tools_version/aapt2"
     [[ -x "$aapt2_bin" ]] || {
         echo "Unable to locate aapt2 in the pinned build-tools $build_tools_version." >&2
@@ -438,6 +439,10 @@ if [[ "$artifact_type" == "apk" ]]; then
     manifest_tree="$("$aapt2_bin" dump xmltree --file AndroidManifest.xml "$primary_artifact_path")"
     if grep -q 'StorageAccessTestActivity' <<<"$manifest_tree"; then
         echo "The APK manifest declares StorageAccessTestActivity, a test host." >&2
+        exit 1
+    fi
+    if grep -q "gwpAsanMode" <<<"$manifest_tree"; then
+        echo "The APK manifest sets gwpAsanMode, which only test builds set." >&2
         exit 1
     fi
 

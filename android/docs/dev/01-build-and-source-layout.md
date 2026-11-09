@@ -429,9 +429,12 @@ Public maintainer entrypoints:
   `StorageAccessTestActivity` from `src/instrumentationHost`, which has to be in
   the app's manifest: it joins the debug source set always and the release one
   only with `-Pr47.includeInstrumentationHost=true`, which the instrumented
-  lanes pass, so a release androidTest build without it does not compile.
+  lanes pass, so a release androidTest build without it does not compile. The
+  same manifest sets `android:gwpAsanMode="always"`, so the debug build and
+  every instrumented run crash on a heap error GWP-ASan samples.
   `collect_packaging_evidence.sh` fails a signed APK whose manifest declares
-  it. The JVM tests host on a plain `ComponentActivity`.
+  the test host or sets `gwpAsanMode`. The JVM tests host on a plain
+  `ComponentActivity`.
   `:app:connectedDebugAndroidTest` requires a device or emulator, and
   `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
   emulator is `x86_64`. The current required emulator-backed coverage includes
