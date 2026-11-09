@@ -316,6 +316,30 @@ The limits:
   hold whatever that code wrote under `~/.gradle`. No signing job restores it
   ([Signing isolation](#signing-isolation)).
 
+## Dependency verification
+
+`android/gradle/verification-metadata.xml` holds the SHA-256 of every artifact
+the Gradle build resolves, plugins included, and its presence makes Gradle
+check each artifact against it, whether it comes from a repository or a cache,
+and fail on one it lacks or that differs. A version pin names
+coordinates; this names content, so a replaced artifact under the same
+coordinates, on a repository or in a restored cache, stops the build that would
+sign it. Signatures are not checked: SHA-256 only, as decided.
+
+The cost is a regeneration per bump: `scripts/android/update_dependency_verification.sh`
+starts the file empty and runs the tasks CI runs, in both test build types,
+because AGP resolves some configurations (lint, aapt2, the kover and detekt
+tools) only while their tasks run. It skips the native build, which resolves
+nothing from a repository. Commit its diff with the bump, after reading it:
+Gradle records whatever the repositories serve at that moment. Dependabot's
+Gradle pull requests do not write the file, so each needs that run pushed on
+top. aapt2 is resolved per host OS and the file holds the Linux one; a build on
+another OS needs `--dependency-verification lenient`.
+`scripts/android/run_dependency_verification_contract.sh` holds the file strict:
+present, verifying metadata, SHA-256, and loosened by no property, workflow, or
+script. Robolectric's `android-all` jars are fetched by Robolectric at test
+time, not by Gradle, so they are outside it.
+
 ## Job graph
 
 ### `upstream-simulator-sanity`
