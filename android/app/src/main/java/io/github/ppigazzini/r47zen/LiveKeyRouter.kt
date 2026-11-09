@@ -7,7 +7,7 @@ internal object LiveKeyRouter {
      * side effect (swallow vs forward).
      *
      * Contract (the consumer half of the direct-stop seam, which the
-     * native [LiveProgramStopKeyPolicy] key-code check and the run-state gate
+     * [LiveProgramStopKeyPolicy] check of the core's key codes and the run-state gate
      * only cover in halves):
      *
      * - [queryDirectStopGate] is the side-effecting native publisher; it is

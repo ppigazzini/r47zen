@@ -727,8 +727,9 @@ This workflow:
 - resolves the upstream commit through
   `scripts/upstream-sync/upstream.sh resolve --latest`, so a production release
   ships the same newest upstream HEAD that CI builds and tests, never a frozen
-  older revision; the resolved commit is recorded in the release tag and
-  `BUILD-METADATA.txt` so the artifact stays traceable after the fact
+  older revision; the resolved commit is recorded in the release notes and
+  `BUILD-METADATA.txt` (the tag is `r47zen-v<version>`), so the artifact stays
+  traceable after the fact
 - accepts an optional `upstream_commit` dispatch input as a CI-reachable
   roadblock pin: when set to a full 40-character commit SHA,
   `resolve-upstream-core` resolves `--locked --commit <sha>` and the release is

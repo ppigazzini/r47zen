@@ -122,7 +122,7 @@ owns the fix.
 | symptom | usual cause | go to |
 |---|---|---|
 | clang or NDK errors in upstream files you did not touch, after switching upstream commits | the staged tree mixes two cores | remove `android/.staged-native`, `build.sim`, `android/app/.cxx`, and `android/app/build`, then [rebuild from the top](01-build-and-source-layout.md#when-to-rebuild-from-the-top) |
-| a CI lane fails with no commit here | upstream HEAD moved; every lane resolves it | pin `upstream.lock` to the last good commit to tell the two apart ([00](00-project-and-upstream.md#what-the-upstream-project-is)) |
+| a CI lane fails with no commit here | upstream HEAD moved; every lane that builds or tests the core resolves it | pin `upstream.lock` to the last good commit to tell the two apart ([00](00-project-and-upstream.md#what-the-upstream-project-is)) |
 | `--android-only` refuses to build | the staged inputs no longer match the sources | the full build ([build entry points](01-build-and-source-layout.md#build-entry-points)) |
 | a contract golden fails after a sync | an upstream input it derives from moved | the [provenance ledger](08-tests-and-contracts.md#upstream-provenance-ledger), before any re-bless |
 | Gradle says "Cannot find a Java installation on your machine" | the pinned build JDK is not installed | [checked-in defaults](01-build-and-source-layout.md#checked-in-defaults); `build_android.sh --doctor` names it |

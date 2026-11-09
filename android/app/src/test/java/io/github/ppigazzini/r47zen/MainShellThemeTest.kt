@@ -101,7 +101,10 @@ class MainShellThemeTest {
         val activity = buildThemedActivity()
 
         assertEquals(
-            "Welcome to R47 Zen\nTap the orange and blue rectangles at top right to open the menu for Settings, Copy Actions, and Paste Number.\nSet Keypad Layout and Working Directory there.",
+            "Welcome to R47 Zen\n" +
+                "Tap the orange and blue rectangles at top right to open the menu for " +
+                "Settings, Copy Actions, and Paste Number.\n" +
+                "Set Keypad Layout and Work Directory there.",
             activity.getString(R.string.settings_entry_hint_message),
         )
     }

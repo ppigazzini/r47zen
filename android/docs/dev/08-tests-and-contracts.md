@@ -78,7 +78,7 @@ The canonical R47 contract suite lives under `scripts/r47_contracts/`.
 The maintained entry point is
 `bash ./scripts/r47_contracts/run_contract_suite.sh`.
 That runner uses the repo-managed Python environment through
-`uv run --group dev ...` so `ruff`, `ty`, and the `fontTools`-backed font
+`uv run --locked --group dev ...` so `ruff`, `ty`, and the `fontTools`-backed font
 derivation scripts all use the same maintained dependency set.
 The `python-contracts` job in `android-ci.yml` calls that runner, so the
 keyboard-layout audit stays in the standard execution lane.
@@ -306,20 +306,20 @@ Two findings, gated differently on purpose:
 
 ```bash
 # report drift and coverage (exit 0); the contract suite runs this last
-PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance
+PYTHONPATH=scripts uv run --locked --group dev python -m r47_contracts.upstream_provenance
 
 # the same, with the verdict on any drift: goldens unaffected, or what changed;
 # runs the derivers and guarding tests, writes nothing; android-ci's summary
-PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance \
+PYTHONPATH=scripts uv run --locked --group dev python -m r47_contracts.upstream_provenance \
     --classify-drift
 
 # re-record in the commit that re-blesses a golden - a deliberate act; refuses
 # while a golden is not what its deriver makes of the tree
-PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance \
+PYTHONPATH=scripts uv run --locked --group dev python -m r47_contracts.upstream_provenance \
     --record --upstream-commit <sha>
 
 # re-record a move that changed no golden; refuses otherwise
-PYTHONPATH=scripts uv run --group dev python -m r47_contracts.upstream_provenance \
+PYTHONPATH=scripts uv run --locked --group dev python -m r47_contracts.upstream_provenance \
     --record-if-unaffected
 ```
 

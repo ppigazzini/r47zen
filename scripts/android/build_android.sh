@@ -18,9 +18,11 @@
 #   * --doctor reports the host toolchain and the staged tree, and exits
 #     before any build step.
 #
-# NOT done here: Android lint, and the release APK and bundle, which CI's
-# release lanes build with Gradle directly; --validate-release-pgo builds only
-# the release native library, to check it consumes the profile.
+# NOT done here: Android lint, and the production release APK and bundle,
+# which android-release.yml builds with Gradle directly; R47_RELEASE_CHANNEL=dev
+# makes this script build the dev release APK, as android-ci does, and
+# --validate-release-pgo builds only the release native library, to check it
+# consumes the profile.
 # android/docs/dev/01-build-and-source-layout.md owns each flag; --help lists
 # them.
 

@@ -126,9 +126,6 @@ flowchart LR
   executing inside the asynchronous `R/S` key worker while that worker owns
   `screenMutex`; if `requestStopProgramNative()` waits on the mutex, the
   bounded-stop regression turns back into an unbounded hang.
-- That queue-bound control path is not the whole Android ANR story. Touch
-  dispatch itself stays lightweight; the stronger current suspect is the
-  main-thread snapshot export path in `NativeDisplayRefreshLoop`.
 - `sendSimKeyNative(String, boolean, boolean)` is the string-key path used by
   the physical keyboard mapper and display actions. It is a cold simulation or
   control surface, not the hot keypad path. `r47_send_sim_key` bails out when
@@ -147,8 +144,9 @@ flowchart LR
   so the key tables, USER assignments, and the shift state do not apply. It depends
   on `processKeyAction(...)` accepting these items in the normal and program-entry
   modes; `clipboard_overflow_harness.c` fails when it stops.
-- All of these paths lock `screenMutex`, so they must stay short and must not
-  add Android-side blocking work inside the native critical section.
+- Every path above but `requestStopProgramNative()` locks `screenMutex`, so each
+  must stay short and must not add Android-side blocking work inside the native
+  critical section.
 
 ## Display And Keypad Snapshot Export
 

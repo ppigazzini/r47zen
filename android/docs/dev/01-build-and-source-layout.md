@@ -369,8 +369,10 @@ Public maintainer entrypoints:
   that let the wrapper own the host-side PGO collector and the Android
   release-native consumer check in one pass, while `--host-pgo-output-dir`
   chooses the emitted `.profdata` location.
-  It also forwards optional extra Gradle arguments from `R47_GRADLE_ARGS`, which
-  is how hosted CI applies the temporary multi-ABI emulator override. Add
+  It also forwards optional extra Gradle arguments from `R47_GRADLE_ARGS`, split
+  on blanks; CI passes its daemon and console flags there. Hosted CI's
+  emulator ABI override is `R47_CONNECTED_ANDROID_TEST_ABI_FILTERS`, which
+  `run_connected_android_tests.sh` reads. Add
   `--verify-packaging` when you want the local build to write the same release
   evidence files CI publishes for Android APK artifacts.
 - `./scripts/android/build_android.sh --android-only` is the preferred fast Android-only path.

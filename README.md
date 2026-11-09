@@ -81,7 +81,8 @@ simulator build, not the Android lane; see `android/docs/dev/` for this repo's
 build. Full local pipeline: `android/docs/dev/01-build-and-source-layout.md`.
 
 Signed prerelease and production release publication run from the CI and
-release workflows. Nightly `-dev` snapshot pre-releases are pruned on a
+release workflows. The `-dev` snapshot pre-releases, which each push to `main`
+and each nightly build publish, are pruned on a
 schedule (short TTL, newest few retained) while signed releases are kept. See
 `android/docs/dev/07-ci-and-release-workflow.md` for the lane split,
 signing-key policy, retention, and published artifacts.
