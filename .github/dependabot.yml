@@ -4,8 +4,11 @@
 #
 # - github-actions: the workflows pin every third-party action to a full commit
 #   SHA with a reviewed `# vX.Y.Z` comment; Dependabot proposes the SHA + comment
-#   bump. The `/` directory scan also covers the composite actions under
-#   `.github/actions/**`.
+#   bump. `/` scans .github/workflows and a root action.yml only, so the
+#   composite actions under .github/actions/ are listed too: setup-android, which
+#   runs in both signing jobs, appears nowhere else. One group per directory, so a
+#   pin a workflow and a composite share arrives in two pull requests, which
+#   run_action_pin_consistency_contract.sh fails apart; merge them together.
 # - gradle: the Android app dependencies and AGP/plugin versions, so a
 #   vulnerable transitive library surfaces as a PR instead of shipping silently.
 # - uv: the Python contract and tooling dependencies in `pyproject.toml` and
@@ -22,7 +25,9 @@
 version: 2
 updates:
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
     cooldown:

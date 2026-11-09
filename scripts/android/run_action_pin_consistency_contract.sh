@@ -315,4 +315,12 @@ gaps="$(tool_pin_gaps "$WORKFLOW_DIR/shell-lint.yml" "$PROJECT_ROOT/.pre-commit-
     "$PROJECT_ROOT/uv.lock" "$PROJECT_ROOT/pyproject.toml" "$PROJECT_ROOT/.github")"
 [ -z "$gaps" ] || contract_fail "a tool is pinned differently in two places:" "$gaps"
 
-contract_pass "every action has one SHA and tag, shfmt/shellcheck/actionlint/zizmor/ruff/uv/python agree across CI, pre-commit, and uv.lock, and every runner label is versioned."
+# Dependabot's `/` reads .github/workflows and a root action.yml only, so the
+# composites, where setup-android lives, need their own directory in the
+# github-actions entry, or no pull request ever moves their pins.
+dependabot_actions="$(awk '/package-ecosystem: "github-actions"/ { on = 1; next }
+    on && /package-ecosystem:/ { on = 0 } on' "$PROJECT_ROOT/.github/dependabot.yml")"
+grep -q '"/.github/actions/\*"' <<<"$dependabot_actions" ||
+    contract_fail "dependabot.yml's github-actions entry does not scan /.github/actions/*, so the composite actions' pins get no pull request"
+
+contract_pass "every action has one SHA and tag, shfmt/shellcheck/actionlint/zizmor/ruff/uv/python agree across CI, pre-commit, and uv.lock, and every runner label is versioned, and Dependabot scans the composites."
