@@ -30,6 +30,9 @@
 #     the one file a reader came for.                                -> check 7
 #   * American spelling is a writing rule; a British form arrives by habit, in
 #     a page, a comment, or an identifier, and reads fine in review. -> check 8
+#   * A working note no reader has names its rows, reviewers, and decisions
+#     with IDs. Cited in a page or a comment, such an ID reads as a reference
+#     and points at content only its author can see.                 -> check 9
 #
 # NOT checked, deliberately: whether a sentence is true. A fluent invented
 # rationale parses, links, and names no dead path. Only a reader catches that.
@@ -65,7 +68,7 @@ if [[ ${#DOCS[@]} -eq 0 ]]; then
     echo "docs rot gate: no tracked markdown found (is this a git checkout?)" >&2
     exit 1
 fi
-log "docs rot gate over ${#DOCS[@]} tracked markdown files and, for check 8, all tracked text"
+log "docs rot gate over ${#DOCS[@]} tracked markdown files and, for checks 8 and 9, all tracked text"
 
 # --- 1. every internal link resolves ------------------------------------------
 # Resolve relative to the LINKING FILE's directory, not the cwd: README.md links
@@ -319,6 +322,30 @@ done < <(
     done
 )
 log "check 8: tracked text uses American spelling ($n British forms)"
+
+# --- 9. tracked text cites no private tracker ID ------------------------------
+# scripts/lib/private_tags.sh lists the shapes a private note's IDs take. Every
+# tracked text file is read whole, code spans included: an ID in a code span is
+# still a citation. The list file names the shapes, so it is skipped.
+n=0
+# shellcheck source=scripts/lib/private_tags.sh
+source "$REPO_ROOT/scripts/lib/private_tags.sh"
+tag_re="$(private_tag_re)"
+# Prove the matcher before trusting its silence. A seed is built from halves so
+# this file holds no ID of its own; the good seeds are this repo's look-alikes.
+seed_bad="$(printf '%s\n' "local (NAT""-09)." "BLD""-03 named" "by decis""ion 11" "(P""5)")"
+seed_good="$(printf '%s\n' "c47, C17, C23, and C11" "S1=HEAD in a fixture" \
+    "junit-bom-5.11.0-M2" "UP-TO-DATE" "the CI lane" "a P5 fixture" "the decision")"
+if [[ "$(grep -cP -- "$tag_re" <<<"$seed_bad")" -ne 4 ]] ||
+    grep -qP -- "$tag_re" <<<"$seed_good"; then
+    note "SELF-TEST     check 9 gave a wrong verdict on a seeded line"
+    n=$((n + 1))
+fi
+while IFS= read -r hit; do
+    note "PRIVATE-ID    $hit"
+    n=$((n + 1))
+done < <(git grep -nIP -- "$tag_re" -- . ':!scripts/lib/private_tags.sh')
+log "check 9: tracked text cites no private tracker ID ($n IDs)"
 
 if [[ "$fail" -ne 0 ]]; then
     log "DOCS GATE FAILED"

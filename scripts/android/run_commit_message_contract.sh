@@ -56,6 +56,8 @@ line80="$(pad 80 'Body ')"
 line81="$(pad 81 'Body ')"
 # Built from halves so this file holds no form the docs gate bans.
 british="col""our"
+tag="NAT""-09"
+decision="decis""ion 11"
 
 expect_pass "scoped subject with a body" \
     $'docs(dev): add the seam review page\n\nSay why.\n'
@@ -76,6 +78,8 @@ expect_pass "British spelling in a code span" \
     $'test: pin it\n\nThe call is `'"${british}"$'Map()`.\n'
 expect_pass "American forms the list must not catch" \
     $'fix: keep it\n\nThe color, the cancellation, and the analyses held.\n'
+expect_pass "look-alikes of a private ID" \
+    $'build: bump it\n\nc47 on C17, S1 at HEAD, junit 5.11.0-M2, UP-TO-DATE.\n'
 
 expect_fail "subject at 73" "${subject73}"$'\n' "subject is 73 characters"
 expect_fail "scope with a space" $'fix(upstream sync): retry\n' "single-token scope"
@@ -100,6 +104,15 @@ expect_fail "British spelling in an identifier" \
     $'test: pin it\n\nRename LCD_'"${british^^}"$'_TOLERANCE.\n' \
     "line 3 has the British spelling '${british^^}'"
 expect_fail "empty message" $'# only a comment\n\n' "the message is empty"
+expect_fail "private tracker ID in a body" \
+    $'fix: export less\n\nOnly JNI leaves the library ('"${tag}"$').\n' \
+    "line 3 cites the private tracker ID '${tag}'"
+expect_fail "private tracker ID in a code span" \
+    $'fix: export less\n\nSee `'"${tag}"$'`.\n' \
+    "line 3 cites the private tracker ID '${tag}'"
+expect_fail "numbered decision" \
+    $'ci: wait for it\n\nAs '"${decision}"$' says.\n' \
+    "line 3 cites the private tracker ID '${decision}'"
 
 # --range reads committed messages through git, so prove it on a scratch
 # repository: one good commit, one bad, and only the bad one is named.
