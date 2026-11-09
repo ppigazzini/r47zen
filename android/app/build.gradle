@@ -129,7 +129,12 @@ def generatedComplianceAssetsDir = layout.buildDirectory.dir('generated/assets/c
 def generatedRuntimeAssetsDir = layout.buildDirectory.dir('generated/assets/runtime').get().asFile.path
 def stagedNativeCppDir = rootProject.file('.staged-native/cpp').absolutePath
 def nativePrepScript = rootProject.file('../scripts/android/prepare_native_build_inputs.sh').absolutePath
-def repoNoticeInventory = new JsonSlurper().parse(repoNoticeInventoryFile)
+// Read through providers.fileContents so the configuration cache records the
+// file's content: JsonSlurper's own read happens inside Groovy, which Gradle's
+// instrumentation does not reach, so an edited notice could package stale.
+def repoNoticeInventory = new JsonSlurper().parseText(
+    providers.fileContents(rootProject.layout.projectDirectory.file('compliance/repo-notices/components.json')).asText.get()
+)
 def releaseMinifyEnabled = readBooleanProperty('r47.releaseMinify', true)
 def releaseShrinkResourcesEnabled = readBooleanProperty('r47.releaseShrinkResources', releaseMinifyEnabled)
 def releaseNativeDebugSymbolLevel = (readOptionalProperty('r47.releaseNativeDebugSymbolLevel', 'R47_RELEASE_NATIVE_DEBUG_SYMBOL_LEVEL') ?: 'FULL').toUpperCase()
