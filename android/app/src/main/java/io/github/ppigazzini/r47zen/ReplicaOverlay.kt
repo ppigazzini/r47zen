@@ -12,7 +12,9 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
 import android.util.TypedValue
+import android.view.InputDevice
 import android.view.MotionEvent
+import android.view.PointerIcon
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewConfiguration
@@ -23,6 +25,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -88,6 +91,12 @@ internal object GraphTouchVisualPolicy {
     fun isSignificantPinch(scaleFactor: Float): Boolean {
         return scaleFactor.isFinite() && abs(scaleFactor - 1f) >= PINCH_EPSILON
     }
+
+    // One mouse-wheel notch scales the graph as a pinch of this factor does: up, the
+    // positive AXIS_VSCROLL, zooms in, as a pinch spreading apart does.
+    const val WHEEL_NOTCH_SCALE = 1.1f
+
+    fun wheelScaleFactor(notches: Float): Float = WHEEL_NOTCH_SCALE.pow(notches)
 }
 
 class ReplicaOverlay @JvmOverloads constructor(
@@ -190,6 +199,11 @@ class ReplicaOverlay @JvmOverloads constructor(
     var onLcdPanListener: ((Float, Float) -> Unit)? = null
     var onLcdPinchListener: ((Float) -> Unit)? = null
     var onLcdResetListener: (() -> Unit)? = null
+
+    // A mouse's secondary click, anywhere on the replica: the app's context menu,
+    // where Android's large-screen guidance puts a right click.
+    var onSecondaryClick: (() -> Unit)? = null
+    private var secondaryClickActive = false
     var onSettingsDiscoveryCompleted: (() -> Unit)? = null
 
     // Whether the first-run hint shows, each time that changes. The card is
@@ -467,6 +481,11 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (isPiPMode) return false
+        // A right click presses no key: the overlay takes the whole click, down to up.
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN && isSecondaryMouseClick(ev)) {
+            secondaryClickActive = true
+            return true
+        }
         if (!lcdGraphTouchEnabled) {
             lcdGestureActive = false
             lcdPanStarted = false
@@ -507,6 +526,16 @@ class ReplicaOverlay @JvmOverloads constructor(
     // gets no touch: the system takes them all for its own controls.
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (secondaryClickActive) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_UP -> {
+                    secondaryClickActive = false
+                    onSecondaryClick?.invoke()
+                }
+                MotionEvent.ACTION_CANCEL -> secondaryClickActive = false
+            }
+            return true
+        }
         if (!lcdGraphTouchEnabled) {
             lcdGestureActive = false
             lcdPanStarted = false
@@ -677,6 +706,9 @@ class ReplicaOverlay @JvmOverloads constructor(
         val showTouchZone: Boolean = false,
     ) : ViewGroup.LayoutParams(0, 0)
 
+    // Every view placed here is a key, a key's touch zone, or the menu button, so a
+    // mouse over one shows the hand a button takes; the LCD and the case keep the
+    // arrow.
     fun addReplicaView(
         view: View,
         x: Float,
@@ -685,7 +717,35 @@ class ReplicaOverlay @JvmOverloads constructor(
         h: Float,
         showTouchZone: Boolean = false,
     ) {
+        view.pointerIcon = PointerIcon.getSystemIcon(context, PointerIcon.TYPE_HAND)
         addView(view, LayoutParams(x, y, w, h, showTouchZone))
+    }
+
+    // A mouse wheel or a trackpad's two-finger scroll over the LCD zooms the graph as
+    // a pinch does, under the same switch, so a desktop user without touch can zoom.
+    // A PiP window takes no input of its own.
+    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (isLcdWheelScroll(event)) {
+            val scaleFactor = GraphTouchVisualPolicy.wheelScaleFactor(event.getAxisValue(MotionEvent.AXIS_VSCROLL))
+            if (GraphTouchVisualPolicy.isSignificantPinch(scaleFactor)) {
+                onLcdPinchListener?.invoke(scaleFactor)
+                return true
+            }
+        }
+        return super.onGenericMotionEvent(event)
+    }
+
+    private fun isLcdWheelScroll(event: MotionEvent): Boolean {
+        val isPointerScroll = event.actionMasked == MotionEvent.ACTION_SCROLL &&
+            event.isFromSource(InputDevice.SOURCE_CLASS_POINTER)
+        return isPointerScroll && !isPiPMode && lcdGraphTouchEnabled && isPointInLcd(event.x, event.y)
+    }
+
+    private fun isSecondaryMouseClick(event: MotionEvent): Boolean {
+        val buttons = event.buttonState
+        return event.isFromSource(InputDevice.SOURCE_MOUSE) &&
+            buttons and MotionEvent.BUTTON_SECONDARY != 0 &&
+            buttons and MotionEvent.BUTTON_PRIMARY == 0
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

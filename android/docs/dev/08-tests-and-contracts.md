@@ -535,6 +535,17 @@ source is missing from this page:
 - `PhysicalKeyboardInputParityTest.kt`: locks printable, function-key,
   shortcut, and modifier-tap mapping behavior across the Android-owned mapping
   and shortcut tables, and that HOME and MYMENU pass their `NativeShellCodes`
+  values to the menu entry
+- `PhysicalKeyboardInputControllerTest.kt`: Ctrl+V pastes once per press, not
+  on a repeat or with Shift or Alt, sends no key, and its Ctrl release shifts
+  nothing; the Menu key opens the main menu on its release and sends nothing
+- `ReplicaOverlayPointerInputTest.kt`: a right click on a key presses nothing
+  and asks for the menu on release; the overlay leaves a left click to the key,
+  which presses for it; one wheel notch over the LCD scales by
+  `WHEEL_NOTCH_SCALE`, up in and down out, and does nothing off the LCD or with
+  the graph switch off; every replica view shows the hand pointer. Robolectric
+  routes a synthetic mouse event to no child of a ViewGroup, so the left click
+  reaches the key's touch zone directly
 - `ReplicaOverlayVisualPolicyTest.kt`: locks shell-owned keyboard focus,
   including `FOCUS_BLOCK_DESCENDANTS`, so the first DPAD event is routed to the
   calculator instead of Android focus search

@@ -91,7 +91,6 @@
     <ID>ReturnCount:CalculatorKeyView.kt:CalculatorKeyView$internal fun currentMainKeyBodyWidthForTest: Float</ID>
     <ID>ReturnCount:CalculatorKeyView.kt:CalculatorKeyView$private fun buildMainKeyRenderSpec: KeyRenderSpec?</ID>
     <ID>ReturnCount:CalculatorKeyView.kt:CalculatorKeyView$private fun normalizedTextSizePx: Float</ID>
-    <ID>ReturnCount:DisplayActionController.kt:DisplayActionController$private fun pasteFromClipboard</ID>
     <ID>ReturnCount:GraphGestureAccumulator.kt:GraphGestureAccumulator$private fun consumePanStep: Float</ID>
     <ID>ReturnCount:GraphGestureAccumulator.kt:GraphGestureAccumulator$private fun sanitizePendingPanComponent: Float</ID>
     <ID>ReturnCount:GraphGestureAccumulator.kt:GraphGestureAccumulator$private fun takePanStep: Float</ID>
