@@ -128,7 +128,10 @@ if [[ ! "$previous_commit" =~ ^[0-9a-f]{7,40}$ ]]; then
     exit 1
 fi
 if ! git -C "$repo" cat-file -e "${previous_commit}^{commit}" 2>/dev/null; then
-    echo "Commit ${previous_commit} of the previous release ${previous_version} is not in the local history; a CI checkout needs fetch-depth 0." >&2
+    # The release job checks out with fetch-depth 0, so the commit is on no ref the
+    # repository has: a re-cut followed by a rewrite of main leaves it so. A rerun
+    # fetches the same refs and fails the same way.
+    echo "Commit ${previous_commit} of the previous release ${previous_version} is on no ref this checkout fetched, so a rerun repeats this: push a tag or branch at that commit, from a clone that still has it, then dispatch again." >&2
     exit 1
 fi
 
