@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import java.io.File
+import java.util.UUID
 
 internal class FactoryResetController(
     private val activity: Activity,
@@ -21,9 +22,15 @@ internal class FactoryResetController(
         private const val FACTORY_RESET_RESTART_DELAY_MS = 250L
         private const val FACTORY_RESET_RESTART_REQUEST_CODE = 4701
 
+        // MainActivity is exported, so any app can send it this action. Only an intent this
+        // process built carries the token, and a new process has a new one.
+        private const val EXTRA_RESET_TOKEN = "io.github.ppigazzini.r47zen.extra.RESET_TOKEN"
+        private val resetToken = UUID.randomUUID().toString()
+
         fun createIntent(context: Context): Intent {
             return Intent(context, MainActivity::class.java).apply {
                 action = ACTION_FACTORY_RESET
+                putExtra(EXTRA_RESET_TOKEN, resetToken)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
         }
@@ -33,7 +40,8 @@ internal class FactoryResetController(
         private set
 
     fun isFactoryResetIntent(intent: Intent?): Boolean {
-        return intent?.action == ACTION_FACTORY_RESET
+        return intent?.action == ACTION_FACTORY_RESET &&
+            intent.getStringExtra(EXTRA_RESET_TOKEN) == resetToken
     }
 
     fun handleResetRequest() {

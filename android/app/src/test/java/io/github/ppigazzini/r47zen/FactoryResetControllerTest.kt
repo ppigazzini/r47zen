@@ -1,5 +1,6 @@
 package io.github.ppigazzini.r47zen
 
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.core.net.toUri
 import org.junit.Assert.assertEquals
@@ -83,6 +84,25 @@ class FactoryResetControllerTest {
 
         assertEquals(manual, SavedManual.read(activity))
         assertEquals(listOf(manual), activity.contentResolver.persistedUriPermissions.map { it.uri })
+    }
+
+    @Test
+    fun anIntentFromAnotherAppDoesNotReset() {
+        // MainActivity is exported: any app can send the action, with any extra it guesses.
+        val fromOtherApp = Intent().apply {
+            action = FactoryResetController.createIntent(activity).action
+        }
+        assertFalse(controller(coreThreadRunning = false).isFactoryResetIntent(fromOtherApp))
+        assertFalse(
+            controller(coreThreadRunning = false).isFactoryResetIntent(fromOtherApp.putExtra("token", "guess")),
+        )
+    }
+
+    @Test
+    fun anIntentFromSettingsResets() {
+        assertTrue(
+            controller(coreThreadRunning = false).isFactoryResetIntent(FactoryResetController.createIntent(activity)),
+        )
     }
 
     private fun seedSavedState(): File {

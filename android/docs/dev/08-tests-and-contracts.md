@@ -494,7 +494,8 @@ source is missing from this page:
   opening Settings, a missing file saying so and staying remembered until replaced, a
   refused grant opening once, and a dialog when no PDF app exists that names the file
   and opens the hosted manual only if asked. `FactoryResetControllerTest.kt` locks that a reset releases every grant
-  and a destroy with no wipe keeps them. Handing a persisted grant to a real PDF
+  and a destroy with no wipe keeps them, and that a reset intent another app
+  sends, with or without a guessed token, is not one. Handing a persisted grant to a real PDF
   app needs a device
 - `SettingsActivityThemeTest.kt`: locks the settings-owned dark surface theme
   contract, the explicit checked switch tint mapping of orange track plus blue

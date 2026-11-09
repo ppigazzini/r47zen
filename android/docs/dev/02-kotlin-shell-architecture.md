@@ -198,7 +198,10 @@ callbacks.
   join fence, `FactoryResetController` keeps the data and the shared runtime
   state: a live thread would autosave into a wiped directory, and a reset
   shared state would let the relaunch start a second core thread
-  (`FactoryResetControllerTest`).
+  (`FactoryResetControllerTest`). `MainActivity` is exported, so a reset intent
+  counts only when it carries the token `FactoryResetController.createIntent`
+  puts in it, a fresh one per process: another app's intent with the same action
+  starts the app and wipes nothing.
 - `onPictureInPictureModeChanged()` routes PiP state through
   `ReplicaOverlayController`, which switches the overlay between normal shell
   mode and PiP mode and treats PiP exit as a geometry-replay boundary for the
