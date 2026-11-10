@@ -151,7 +151,8 @@ runs. What each one locks:
 
 - `validate_geometry_dataset.py`: structural and spacing checks for the
   physical dataset plus Android UI contract validation against `R47Geometry.kt`,
-  `R47KeypadPolicy.kt`, and `CalculatorKeyView.kt`; this covers the
+  `R47KeypadPolicy.kt`, `CalculatorKeyView.kt`, `SettingsMenuGlyph.kt`, and
+  `ReplicaOverlay.kt`; this covers the
   native-only `chrome.lcd_windows.native` contract, the top-right
   `chrome.main_menu_button` rectangle, the native `400 x 240` aspect-ratio
   lock, integer width and height for native mode, and the rule that
@@ -400,6 +401,24 @@ code, finds unused code, and proves nothing about behavior.
 Each JVM test file and what it locks; `run_docs_lint.sh` fails when a test
 source is missing from this page:
 
+- `CoreWarningTest.kt`: a core warning shows every line of a five-line message in
+  a dialog, not a Toast
+- `DisplayActionControllerTest.kt`: the main and Copy menus carry upstream's copy
+  items and the dark popup theme; each copy writes its payload, and a copy the
+  clipboard refuses or the core cannot build says so and does not crash; Settings
+  and Picture in Picture route; Paste Number tolerates an empty clip, enters the
+  whole number in one core task, refuses a clip that is not one number without
+  touching the core, and says so when the core refuses it
+- `LiveKeyRouterTest.kt`: a stop key is forwarded when the direct-stop gate
+  declines and swallowed only when it accepts; any other key, `KEY_CANCEL`
+  included, is forwarded without querying the gate
+- `LiveProgramStopKeyPolicyTest.kt`: the stop key codes match upstream's run loop,
+  and only `EXIT` and `R/S` publish a direct stop across the key space
+- `PasteNumberTest.kt`: clip text to tokens: signs after the digits they negate,
+  both imaginary forms, what Copy X writes, a comma as a radix mark only where it
+  cannot be grouping, space around the number but not between digits, only ASCII
+  digits, and a refusal of anything that is not one number or is past the scan
+  limit
 - `KeypadFixtureContractTest.kt`: asserts that the exported keypad-fixture
   manifest still matches `KeypadSnapshot` contract values such as scene version,
   metadata length, key count, and labels-per-key
@@ -764,7 +783,8 @@ Each instrumentation source and what it covers:
   `displayActionController` by name, which holds while the connected lane builds
   release unminified. It reads, and lets the app read, the clipboard with the
   shell's `READ_CLIPBOARD_IN_BACKGROUND`: from API 33 a clipboard overlay can hold
-  the focus, and the platform refuses an unfocused app's reads. The popup menu's
+  the focus, and the platform refuses an unfocused app's reads. The class carries
+  `@SdkSuppress(minSdkVersion = 29)`, so the minSdk row skips it. The popup menu's
   own drawing and the graph gestures stay without a device test
 - The connected-device lane includes a required `MANSLV2.p47`
   bounded-stop regression inside that shared per-fixture wrapper: after
@@ -882,8 +902,9 @@ Android compatibility layer.
   A core `exit` is a finding, which libFuzzer reports itself, so the fuzzer does not link
   `exit` to the logged abort the app does: that wrap would reach libFuzzer's own `exit`.
   Every sanitizer report halts the run but those `fuzz_core_ubsan_suppressions.txt`
-  names, each with its reason: today two of the vendored decNumber's, a wrapping
-  exponent in its string reader and the sign-bit shift it packs digits with, which
+  names, each with its reason: today two faults of the vendored decNumber's, each
+  in its `decQuad` and `decDouble` form, a wrapping exponent in its string reader
+  and the sign-bit shift it packs digits with, which
   ordinary arithmetic reaches too. The fuzzer found both in data files. A fault in
   C47's own readers is never suppressed, so a run that reaches one upstream has not
   fixed yet, such as an out-of-range menu item id after LOADST, fails every time: read
@@ -1167,9 +1188,10 @@ Android compatibility layer.
   Three of the mutants are scored by these property tests, because the example
   tests let them survive.
 - `scripts/android/native_mutation_spot_check.sh` scores the glue the same way:
-  four mutants of `hal/io.c` (a short write never reported, a state save offered
-  the data file's name, a pipe's `fsync` `EINVAL` counted as a failed save) and
-  `hal/lcd.c` (a screen write that leaves the keypad generation as it was) must each compile and
+  four mutants, three of `hal/io.c` (a short write never reported, a state save
+  offered the data file's name, a pipe's `fsync` `EINVAL` counted as a failed
+  save) and one of `hal/lcd.c` (a screen write that leaves the keypad generation
+  as it was), must each compile and
   make `run_hal_io_contract.sh` or `run_keypad_generation_contract.sh` print a
   FAIL line. A survivor, or a mutant that does not compile, fails the run. The
   `android-tests` job runs it after the Kotlin spot check; `jni_input.c`, which
@@ -1216,8 +1238,9 @@ Android compatibility layer.
   repo-owned restore allowlist would re-own authoritative upstream root
   surfaces, and also when a tracked root entry, a file or a directory, is
   missing from that allowlist (the overlay would then replace it, or a file in
-  it, with upstream's copy); `sync` runs that same guard before it restores
-  tracked paths, and the `restore-boundary` pre-commit hook runs it on every
+  it, with upstream's copy); `sync` runs that same guard before it fetches or
+  writes anything, and leaves the listed paths out of what it writes, and the
+  `restore-boundary` pre-commit hook runs it on every
   commit. It reads the index, so it sees what the commit adds
 - `scripts/upstream-sync/test_resolver_policy.sh` runs `upstream.sh` against
   a throwaway local repository standing in for upstream: with no pin, `--auto`
@@ -1315,10 +1338,11 @@ paths in the project root: `res/testPgms/testPgms.bin`, `src/testSuite/tests`, a
 `R47_SUITE_RUN=<suite>` runs a suite so unpacked from the project root and checks
 it as above, building nothing. In `android-ci.yml` the build job builds the tar
 after its x86_64 run, and `upstream-suite-arm64` runs it on an arm64 runner
-([07](07-ci-and-release-workflow.md#upstream-suite-arm64)). The build step
-continues on error, but `ci-required` waits on the arm64 job, which then has no
-suite to run and fails, so a failure on either side stops the dev prerelease of
-that pair.
+([07](07-ci-and-release-workflow.md#upstream-suite-arm64)). A failure of the
+x86_64 run fails the build job and stops the dev prerelease of that pair. The
+arm64 build step continues on error; `upstream-suite-arm64` then has no suite to
+run and fails, which turns `ci-required` red, but `publish-main-snapshot` waits
+on neither, so the prerelease still publishes.
 
 The only known failure is an ALGDEP case in `algdep_cov.txt`: with mini-gmp, Y,
 the confidence it reports, is 13 where the case expects 10. Built with the full
@@ -1405,7 +1429,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_stale_release_assets_contract.sh` | `stale_release_assets.sh` lists the first cut's four files on a tag holding both cuts, nothing on one holding only the new, and nothing (and fails) when an uploaded file is missing; `publish-production-release` deletes what it lists after the upload, only on `allow_overwrite` | yes, fixtures |
 | `run_dependency_verification_contract.sh` | `android/gradle/verification-metadata.xml` exists, verifies metadata with SHA-256 checksums, and holds the build classpath's kotlin-stdlib; no `gradle.properties` entry, workflow, or script loosens verification, and only `update_dependency_verification.sh` writes the file | file check |
 | `run_compliance_assets_contract.sh` | `check_compliance_assets.sh` passes an unpacked artifact carrying `COPYING`, `LICENSE.txt`, `SOURCE`, and `THIRD-PARTY.spdx.json`, and fails one lacking any, or holding it empty, writing none in its place, or whose inventory places a Google module on Maven Central; `collect_packaging_evidence.sh` calls it for the APK and the AAB and writes no compliance file of its own | yes, fixtures |
-| `run_log_upload_contract.sh` | every workflow job that tees a log into `ci-artifacts/logs` uploads that path with `if: always()` | yes, fixture |
+| `run_log_upload_contract.sh` | every workflow job that tees a log into `ci-artifacts/logs` has an `if: always()` upload step whose path names something under `ci-artifacts/logs`; it does not check that each teed file is in that path | yes, fixture |
 | `run_release_dry_run_contract.sh` | `android-release.yml`'s `dry_run` is off by default; `sign-production-release`, `publish-production-release`, and `upload-to-play` run only on `main` and never in a dry run; `sign-dry-run` runs only in one and binds no environment, secret, or Play variable; a dry run refuses a Play track; a real release is held to the tracked signer pin | yes, fixtures |
 | `run_signing_isolation_contract.sh` | no job that names a signing key or the Play upload identity, reads every secret (`toJSON(secrets)`, `secrets[...]`, `secrets: inherit`), binds the `production-release` or `play-upload` environment, or holds a write-scoped token, builds or runs upstream code, uses an action off its allowlist (so none restores an Actions cache), or pastes a `${{ }}` expression into its run script; `setup-signing-tools` uses only `setup-android` | yes, fixtures |
 | `run_release_provenance_contract.sh` | `publish-production-release` attests and verifies SLSA provenance for the APK, the AAB, and both packaging-evidence zips with `actions/attest`, with the permissions that needs, and attests the APK's `THIRD-PARTY.spdx.json` for the APK and the AAB with `sbom-path` and verifies it with the SPDX 2.3 predicate type; live lines only, so a commented-out step fails it, and no attest or verify step takes an `if:` or `continue-on-error` (seeded on two steps) | text |

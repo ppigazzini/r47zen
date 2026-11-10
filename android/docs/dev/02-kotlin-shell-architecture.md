@@ -40,7 +40,7 @@ grouped by role; the directory itself is the authority when a file is added:
   `CoreWarning.kt`, `MainMenuButtonDescription.kt`,
   `HapticFeedbackController.kt`, `AudioEngine.kt`, `LiveKeyRouter.kt`,
   `LiveProgramStopKeyPolicy.kt`, `GraphGestureAccumulator.kt`,
-  `GraphGestureFlusher.kt`, and `NativeShellCodes.kt`
+  `GraphGestureFlusher.kt`, `NativeShellCodes.kt`, and `PasteNumber.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `PackedLcdRaster.kt`,
   `ReplicaKeypadLayout.kt`,
   `ReplicaChromeLayout.kt`, `CalculatorKeyView.kt`,
@@ -425,7 +425,8 @@ while matching the desktop simulator's stop-key parity during an active run.
   Both popup layers use a dedicated dark popup theme so device light mode can
   never flip the shell menu to a light surface, while `ReplicaOverlay` treats
   only the projected marker as the settings target, not the full top bezel, and
-  dismisses the onboarding card on the first shell touch
+  dismisses the onboarding card on the first shell touch while LCD graph touch
+  is on; with it off, the card waits for a menu tap
 - `SettingsActivity` is Preference-based and its host layout is adaptive: the
   base `settings_activity.xml` uses `ConstraintLayout`, and
   `layout-w600dp/settings_activity.xml` centers the preferences inside a
@@ -479,8 +480,9 @@ while matching the desktop simulator's stop-key parity during an active run.
   selected palette
 - `show_developer_performance_hud` is a developer-only Android setting.
   `MainActivityPreferenceController.kt` reads that toggle plus the companion
-  `developer_performance_hud_window_millis` slider and dispatches them
-  directly to `ReplicaOverlay.kt` and `NativeDisplayRefreshLoop.kt`, while the
+  `developer_performance_hud_window_millis` slider, pushes the toggle to
+  `ReplicaOverlay.kt`, and keeps both values, which `NativeDisplayRefreshLoop.kt`
+  reads each frame through lambdas `MainActivity` hands it, while the
   loop supplies the sampled `DeveloperPerformanceSnapshot` label data used by
   the overlay. The fixed settings copy names those fields as UI Hz, LCD Hz,
   dirty-row percent, and LCD update ms (`Upd` on the HUD: copy, decode, and
@@ -489,7 +491,7 @@ while matching the desktop simulator's stop-key parity during an active run.
   rate. The second field counts accepted non-empty packed LCD snapshot copies,
   not raw native row writes. Read `06-runtime-hot-paths.md` for the default
   `500 ms` sample window, the `100..1000 ms` clamp, and the exact `DR` and
-  `Copy` semantics.
+  `Upd` semantics.
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout` uses
   press-only keypad haptics for calculator interaction. `ACTION_DOWN`
   uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` clears pressed

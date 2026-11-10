@@ -271,8 +271,10 @@ jobs:
     if: github.ref == 'refs/heads/main' || inputs.dry_run
     # The release builds whatever upstream HEAD is at dispatch, so a green
     # android-ci on the overlay alone proves nothing about the core it ships with.
-    # android-ci publishes the pair's -dev release, with its APK, only after every
-    # lane ci-required names passed on it. A dry run off main has none, and warns.
+    # android-ci publishes the pair's -dev release, with its APK, only after its
+    # build job and device tests passed on it; the contract suite and the arm64
+    # suite gate ci-required, not that publish. A dry run off main has none, and
+    # warns.
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
@@ -1733,7 +1735,7 @@ jobs:
 
       # A re-cut's files are named after its own commits, and the overwrite above
       # replaces only a file of the same name, so a re-cut whose overlay or core
-      # moved leaves the first cut's four files beside its own, and the next release
+      # moved leaves the first cut's five files beside its own, and the next release
       # refuses two evidence archives. They go after the upload, never
       # before: a delete first leaves no evidence when the upload fails.
       - name: Remove the previous cut's files from the tag

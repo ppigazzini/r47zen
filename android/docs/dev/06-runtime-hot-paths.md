@@ -13,7 +13,7 @@ contract-to-regression map that proves these loops.
 | Path | Trigger and cadence | Main files | Why it is hot | Main failure mode |
 | --- | --- | --- | --- | --- |
 | core-thread coordinator | `NativeCoreRuntime` loop while the app is running; drains tasks, calls `tick()`, then waits for queued work up to the returned deadline | `NativeCoreRuntime.kt`, `jni_lifecycle.c` | every Android-owned action reaches the core through this loop | blocking work or queue growth stalls native progress |
-| live stop delivery during RUN | user presses live `R/S` or `EXIT` while a program is already running; `MainActivity` first tries direct stop publication and only falls back to the normal key queue when native state says the run is already idle | `MainActivity.kt`, `ReplicaOverlayController.kt`, `NativeCoreRuntime.kt`, `jni_input.c`, `android_runtime.c` | this is the control-plane path that decides whether Android can publish stop intent without waiting on the core-owner queue | shared-core loops that never observe `programRunStop` can still ignore the published stop and make the app appear hung |
+| live stop delivery during RUN | user presses live `R/S` or `EXIT` while a program is already running; `MainActivity` first tries direct stop publication and only falls back to the normal key queue when native state says no program is running or paused: at rest, or parked in an interactive wait such as `PGM_WAITING` | `MainActivity.kt`, `ReplicaOverlayController.kt`, `NativeCoreRuntime.kt`, `jni_input.c`, `android_runtime.c` | this is the control-plane path that decides whether Android can publish stop intent without waiting on the core-owner queue | shared-core loops that never observe `programRunStop` can still ignore the published stop and make the app appear hung |
 | direct-stop refresh finalization | after live `R/S` or `EXIT` publishes stop during RUN or PAUSE, native code marks a pending stop-refresh request and the next `tick()` or `yieldToAndroidWithMs()` consumes it under `screenMutex` | `jni_input.c`, `jni_lifecycle.c`, `android_runtime.c` | this is the display-plane path that makes the first stop look finished instead of waiting for a second key press or explicit refresh | if `SCRUPD_AUTO` or `reDraw` is not rearmed here, graph pixels and post-stop text can mix on the first stop |
 | native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms, one byte test for a finished `SNAP`, then returns the next wake delay | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle; a finished `SNAP`, even one from a long-held `EXIT`, parks this tick on the save picker, as any file request parks the core, and the pause-side save waits behind it |
 | frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad snapshots refresh every 500 ms or on generation change | `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | breaking generation or busy-copy handling can regress to stale or blocking keypad refreshes |
@@ -68,13 +68,13 @@ flowchart LR
   thread drains the queue on its way out, and releases the native activity
   globals there when no host is attached
   ([04](04-native-core-and-jni.md#activity-reference-writers-and-readers)).
-- The same queue still carries normal keypad input from touch, PiP, and
-  physical keyboard controllers.
+- The same queue still carries normal keypad input from touch and the
+  physical keyboard controller; the PiP window takes no input.
 - LCD graph pan and pinch reach it through `GraphGestureFlusher`: one flush
   task queued at a time, flushes at least 16 ms apart, one batch per task.
   Each flush is a heavy upstream re-solve, so a drag that re-solved back to
   back would hold the queue.
-- Live touchscreen and PiP `R/S` or `EXIT` bypass that queue through
+- Live touchscreen `R/S` or `EXIT` bypass that queue through
   `requestStopProgramNative()`; every other key follows the normal queued
   path.
 - The direct stop seam is therefore not "more work on the queue". It publishes
@@ -211,7 +211,7 @@ a copy adds a row here in the same commit.
 | copy | owner | written by (thread) | read by (thread) | change signal |
 |---|---|---|---|---|
 | `lcd_buffer` | `hal/lcd.c`, drawn by the upstream core | upstream drawing through `lcd_line_addr`, `bitblt24` (and `lcd_fill_rect` on top of it), and `lcd_clear_buf` (core) | `LCD_write_line` through `lcd_refresh`, `lcd_refresh_lines`, and `lcd_clear_buf`; `lcd_buffer_pixel_on` (core) | row byte 0, set on every write, cleared by `LCD_write_line` |
-| `packedDisplayBuffer` | `hal/lcd.c`, under `packedDisplayMutex` | `LCD_write_line` (core) | `lcd_try_take_packed_snapshot`, through `getPackedDisplayBuffer`, with a trylock (main) | row byte 0, set when the row's pixels changed and cleared by the take; `packedDisplayGeneration` |
+| `packedDisplayBuffer` | `hal/lcd.c`, under `packedDisplayMutex` | `LCD_write_line`, and `init_lcd_buffers` once (core); in an instrumentation build also the bridge's injection (`jni_program_load_test.c`) | `lcd_try_take_packed_snapshot`, through `getPackedDisplayBuffer`, with a trylock (main) | row byte 0, set when the row's pixels changed and cleared by the take; `packedDisplayGeneration` |
 | `packedLcdBuffer` | `NativeDisplayRefreshLoop` | `getPackedDisplayBuffer`, every byte of every row (main) | `ReplicaOverlay.updatePackedLcd` (main) | row byte 0 as copied |
 | the frame in `PackedLcdRaster` | `PackedLcdRaster`, held by `ReplicaOverlay` | `applyFrame`, the flagged rows or every row of the first frame (main) | `decodeRow` (main) | none |
 | `PackedLcdRaster.bitmap` | `PackedLcdRaster` | `decodeRow`, from the constructor, `applyFrame`, and `setPalette` (main) | `ReplicaOverlay.dispatchDraw` (main) | the overlay's `requestLcdRedraw`, after `applyFrame` reports a changed row and after every `setPalette` |
@@ -292,14 +292,14 @@ corrupts a graph or mixes status text into an otherwise stable LCD snapshot.
   value so the shell does not relayout every time the frame loop polls.
 - `ReplicaKeypadLayout.updateDynamicKeys(...)` updates every `CalculatorKeyView`
   only when `sceneContractVersion > 0`, then requests layout once.
-- Geometry-affecting preference changes do not immediately replay the scene.
+- The overlay bind and PiP exit do not immediately replay the scene.
   `markGeometryChange()` sets a pending flag, and
   `schedulePendingGeometrySceneReplay()` waits until the next real overlay
   layout before forcing one replay.
 - `CalculatorKeyView` keeps a cached `mainKeyRenderSpec` and refreshes it when
   label, layout-class, or size changes move main-key geometry.
 - `CalculatorSoftkeyPainter` caches the resolved `KeyRenderSpec` by the
-  current snapshot, font set, size, pressed state, and draw-surface flag, so an
+  current snapshot, font set, size, and pressed state, so an
   unchanged softkey frame stays on the painter path without rebuilding the spec
   graph. Unnecessary softkey `invalidate()` churn still costs a repaint; it does
   not cost a spec rebuild.
@@ -307,7 +307,7 @@ corrupts a graph or mixes status text into an otherwise stable LCD snapshot.
   pending geometry replay and the next real overlay layout reapplies the
   current scene once.
 - After layout, `applyTopLabelPlacementsAfterLayout(...)` reruns the row-local
-  top-label solver only for the visible key views in the affected lanes.
+  top-label solver for the visible key views of every main-key lane.
 
 This path becomes expensive when unchanged snapshots stop being filtered, when
 layout is requested more than once per scene change, or when scene work is
@@ -329,12 +329,13 @@ moved into the per-frame LCD path.
   while the thread would wait for the picker anyway and the main thread is not
   held.
 - While a file request is pending, `isCoreBlockingForIo` is true, a C11
-  atomic the lock-free signal contract holds. `r47_send_sim_key(...)` and the
-  graph-touch gate check it. Their app callers run as core tasks, and the core
+  atomic the lock-free signal contract holds. `r47_send_sim_key(...)`,
+  `r47_paste_number(...)`, and the graph-touch gate check it. Their app callers run as core tasks, and the core
   thread is the one parked, so they never see it set; the instrumentation
   bridge's threads do.
-- `hal/io.c::ioFileOpen(...)` is what sends state, program, RTF export, and
-  manual-save traffic onto this boundary in the first place.
+- `hal/io.c::ioFileOpen(...)` is what sends state, program, RTF export,
+  register data export and import, and manual-save traffic onto this boundary in
+  the first place, and the `SNAP` offer reaches `requestAndroidFile` too.
 - This path is also one of the two core-owned consumption points for the
   pending stop-refresh handshake because it can reacquire `screenMutex`, apply
   the full refresh, and then continue the long run. Queued non-stop work still
@@ -348,8 +349,8 @@ program, a save or load operation, or a progress or pause loop.
 - The hot path described above runs heavy workloads without starving the
   queue, keeps LCD updates responsive, and publishes live `R/S` or `EXIT` stop
   intent without waiting on the core queue. Direct stop publication schedules a
-  core-owned full refresh, so the first post-stop LCD matches an explicit
-  `forceRefresh()` on graph workloads.
+  core-owned full refresh; no test compares the first post-stop LCD with an
+  explicit `forceRefresh()`.
 - One Android-only hang remains, and it is a gap rather than a design: a
   shared-core program that drifts into a non-terminating `NaN` loop never
   reaches a path that observes `programRunStop` or yields back through an
@@ -376,9 +377,10 @@ program, a save or load operation, or a progress or pause loop.
   covers renderer stability for the borderless native shell, and that the
   overlay intercepts a touch below the top bezel strip but not one on it.
 - `android/app/src/androidTest/java/io/github/ppigazzini/r47zen/DisplayLifecycleInstrumentedTest.kt`
-  proves that passive lifecycle edges preserve a staged `SPIRALk` graph and
-  that the first direct stop on that same workload matches an explicit
-  `forceRefresh()` snapshot.
+  proves that passive lifecycle edges preserve a staged `SPIRALk` graph, that
+  the direct stop gate declines the interactive waits, and that the real
+  `requestStopProgramNative` honors the run-state gate in each state it
+  injects.
 - `scripts/workload-regressions/run_workload_regressions.sh` exercises the host
   Android-compatibility wait and progress path across the canonical host
   workload set: the imported `.p47` fixtures `BinetV4.p47`, `GudrmPL.p47`,

@@ -22,7 +22,7 @@ verification surfaces.
 | direct input dispatch | `sendKey()`, `sendSimKeyNative()`, `sendSimMenuNative()`, `pasteNumberNative()`, `requestStopProgramNative()` | `jni_input.c` | `btnPressed(...)`, `btnReleased(...)`, `showSoftmenu(...)`, `processKeyAction(...)`, `runFunction(...)`, `fnStopProgram(...)` | `requestStopProgramNative()` publishes stop plus a pending stop-refresh request without taking `screenMutex`; `tick()` and `yieldToAndroidWithMs()` later consume that request under `screenMutex`, while the remaining input paths still serialize on `screenMutex`, and some skip while `isCoreBlockingForIo` is true |
 | LCD and keypad snapshot export | `getPackedDisplayGeneration()`, `getPackedDisplayBuffer()`, `getKeypadSnapshotGeneration()`, `copyKeypadSnapshotNative()` | `jni_display.c`, `keypad_scene.c`, and `hal/lcd.c` | `packedDisplayGeneration`, packed LCD rows, keypad snapshot generation, visible key tables, label resolvers | the generation checks short-circuit unchanged LCD and keypad work; `getPackedDisplayBuffer()` and `copyKeypadSnapshotNative()` both exit early before `r47_runtime_ready()` and when the lock is busy |
 | instrumentation-only runtime probes | `ProgramLoadTestBridge.forceRefresh()`, `saveBackgroundStateForTest()`, `captureDisplayHash()`, `beginSimFunction()`, `snapshotState()` | `jni_program_load_test.c` | `r47_force_refresh()`, `r47_save_background_state_locked()`, packed LCD snapshot state, READP or RUN workers | lifecycle snapshot hashes must ignore packed-row transport metadata so assertions compare visible LCD bytes only |
-| native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()`, `onFileWriteFailed()`, `onCoreWarning()`, `onDisplayText()` | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned (`test_jni_registration_contract.py`), and reattach must not redraw the LCD |
+| native to activity callbacks | `requestFile()`, `playTone()`, `processCoreTasks()`, `onFileWriteFailed()`, `onCoreWarning()`, `onDisplayText()`, `quitApp()` (through `hal/power.c`'s own lookup) | `updateNativeActivityRef()` refreshes the global activity reference and caches `jmethodID`s; `processCoreTasksNative()` calls back into Java | lets long native waits service Android work | cached method IDs and Kotlin method signatures must stay aligned (`test_jni_registration_contract.py`), and reattach must not redraw the LCD |
 | storage and yield boundary | `StorageAccessCoordinator` and `DocumentTransfer` return a pipe, or a private file with the name the provider shows, through `onFileSelectedNative()`, or cancel through `onFileCanceledNative()` | `jni_storage.c` plus `android_runtime.c` | `ioFileOpen(...)`, long-running waits, timer refresh | both paths release and later reacquire the recursive `screenMutex` |
 
 ## Bridge Flow
@@ -46,7 +46,8 @@ flowchart LR
   `MainActivity` external-method surface. Signature drift is a hard failure, so
   change Kotlin declarations, `JNINativeMethod` entries, and native
   implementations in the same edit.
-- `NativeCoreRuntime.startOrAttachCoreThread()` initializes native state only
+- `NativeCoreRuntime.initializeOrReattach()`, on the core thread
+  `startOrAttachCoreThread()` starts, initializes native state only
   once. The first attach calls `nativePreInit(...)` and `initNative(...)`; a
   later attach, from either the live or a restarted core thread, runs
   `updateNativeActivityRef()` on the core thread. Reattach never redraws and
@@ -129,7 +130,7 @@ flowchart LR
   `screenMutex`; if `requestStopProgramNative()` waits on the mutex, the
   bounded-stop regression turns back into an unbounded hang.
 - `sendSimKeyNative(String, boolean, boolean)` is the string-key path used by
-  the physical keyboard mapper and display actions. It is a cold simulation or
+  the physical keyboard controller and the instrumentation bridge. It is a cold simulation or
   control surface, not the hot keypad path. `r47_send_sim_key` bails out when
   `isCoreBlockingForIo` is set; the app calls it only as a core task, which
   cannot run while the core thread is the one parked in a SAF file request, so
@@ -264,8 +265,9 @@ yield behavior.
 
 ## Storage, Yield, And Re-Entrancy Boundary
 
-- `hal/io.c::ioFileOpen(...)` intercepts state, program, RTF-export, and manual
-  save paths into `requestAndroidFile(...)` when the Android build is active.
+- `hal/io.c::ioFileOpen(...)` intercepts state, program, RTF-export, register
+  data export and import, and manual save paths into `requestAndroidFile(...)`
+  when the Android build is active.
 - `hal/io.c::r47_offer_snap()` reaches `requestAndroidFile(...)` from `tick()`
   for the capture upstream's `fnScreenDump` wrote to `_ioFileNameOverride`. That
   function clearing the name is the signal, so a change there stops the offer with
@@ -306,15 +308,14 @@ Of GLib's clocks it supplies `g_get_monotonic_time()` and `g_get_real_time()` in
 `glib_clock.c`, apart from the JNI code, so the arm64 build of upstream's suite
 links them as the app does.
 
-`android_runtime.c` owns these compatibility symbols, and every GLib, GDK, or
-GTK function it defines is one of them:
+`android_runtime.c` owns the other compatibility symbols, and every GLib, GDK,
+or GTK function it defines is one of them:
 
 - `g_main_context_iteration(...)`
 - `gtk_main_iteration()`
 - `gtk_events_pending()`
 - `g_timeout_add(...)` and `gdk_threads_add_timeout(...)`
 - `g_source_remove(...)`
-- `g_get_monotonic_time()` and `g_get_real_time()`
 - `yieldToAndroidWithMs(...)` and `yieldToAndroid()`, the Android-owned yield
   the loop calls
 

@@ -92,9 +92,10 @@ dev APK is assembled before its profile exists, so its library is not
 profile-guided, and its release notes say so.
 
 The library links with `r47zen/exports.map`, a version script that exports
-`JNI_OnLoad`, which registers `CalculatorEngine`'s natives by pointer, and the
-`Java_` names the instrumentation-only `ProgramLoadTestBridge` binds by name, and
-makes every other symbol local. ThinLTO then
+`JNI_OnLoad`, which registers `MainActivity`'s natives by pointer, and every
+`Java_` name: `MainActivity`'s implementations and, in a build with the
+instrumentation-only `ProgramLoadTestBridge`, the bridge's, which it binds by
+name. It makes every other symbol local. ThinLTO then
 internalizes the core, so inlining moves: the release lane's emulator tests run
 on that build, PGO included. `check_native_exports.sh`, run by
 `check_native_hardening.sh` on every packaged library, fails any other export.
@@ -180,7 +181,9 @@ appears below; `run_docs_lint.sh` fails when one does not:
   It makes no JNI call, so the keypad fixture exporter and the TSan harness run
   it as the app does
 - `jni_clipboard.c` for clipboard-export queries for X, stack, and
-  all-register payloads
+  all-register payloads, and for `describeDisplayNative` and
+  `r47_display_text_locked`, what a screen reader hears of the display
+- `legacy_printf.c` for the `sprintf` family on Android 7.0 to 8.1 (below)
 - `hal/power.c` for the core's power and exit hooks, which close the activity
   through `MainActivity.quitApp`
 - `jni_storage.c` for SAF-backed blocking file handoff
@@ -254,7 +257,9 @@ APK whose dex lacks one. The entries cover:
 
 - activity reattachment and final runtime release
 - native pre-init, init, and tick
-- key, menu, and function dispatch, plus direct live-program stop publication
+- key and menu dispatch, Paste Number (`pasteNumberNative`), the display's
+  description (`describeDisplayNative`), the graph reset (`resetGraphNative`),
+  plus direct live-program stop publication
 - LCD graph-touch dispatch for drag-pan and pinch-zoom, gated to the proven
   graph-active path (`CM_GRAPH` with menus `-MNU_PLOT_FUNC` and
   `-MNU_GRAPHS`) and defined as a no-op outside supported graph screens
@@ -354,8 +359,9 @@ supports that model by keeping shared synchronization in native code:
 
 - `NativeCoreRuntime` drains queued work, calls `tick()`, then waits on
   `coreTasks.poll(nextDelay, ...)` for the returned deadline instead of
-  sleeping a fixed 10 ms; `dispose(stopApp = true)` clears the queue and
-  offers a sentinel runnable so a blocked wait wakes promptly
+  sleeping a fixed 10 ms; `dispose(stopApp = true)` keeps the queue, so a
+  pending save still runs, and offers a sentinel runnable so a blocked wait
+  wakes promptly
 - `screenMutex` is recursive
 - `r47_init_runtime(...)` holds `screenMutex` for the whole init and sets
   `r47_runtime_ready()` last (a release store, read with acquire). Every
@@ -370,9 +376,10 @@ supports that model by keeping shared synchronization in native code:
   work, offers a finished `SNAP`, and returns the next required wake delay through
   `r47_next_tick_delay_ms(...)`; when the lock is busy it returns `1` so the
   Kotlin side stays responsive without reviving the rejected async scheduler
-- `yieldToAndroidWithMs()` refreshes the LCD, releases the recursive screen
-  lock, advances due timer callbacks, lets Android process queued work, sleeps
-  briefly, and then reacquires the lock
+- `yieldToAndroidWithMs()` advances due timer callbacks and refreshes the LCD
+  (or runs a pending stop refresh) under the recursive screen lock, then
+  releases it, lets Android process queued work, sleeps briefly, reacquires the
+  lock, and applies a stop refresh that arrived meanwhile
 - `NativeDisplayRefreshLoop` uses `Choreographer.postFrameCallback(...)` on the
   main looper, first reads `getPackedDisplayGeneration()`, only calls
   `getPackedDisplayBuffer(...)` when the generation changes, retries the same
@@ -425,7 +432,8 @@ supports that model by keeping shared synchronization in native code:
   `ProgramFixtureInstrumentedTest`, `FactorsInstrumentedTest`,
   `ClipboardRoundTripInstrumentedTest`, `DisplayDescriptionInstrumentedTest`,
   `DisplayLifecycleInstrumentedTest`, `DocumentLoopInstrumentedTest`,
-  `GraphTouchStressInstrumentedTest`, and `KeypadTouchInstrumentedTest`. Each
+  `GraphRedrawInstrumentedTest`, `GraphTouchStressInstrumentedTest`, and
+  `KeypadTouchInstrumentedTest`. Each
   call that touches core state takes `screenMutex`. It provides READP or RUN worker
   control, a seed of X as a long integer or a real, X as the clipboard copies it,
   explicit refresh and background-save helpers, LCD refresh count, a
@@ -478,8 +486,10 @@ supports that model by keeping shared synchronization in native code:
   (`ProgramLoadTestBridge.directStopAllowedForRunState(...)`), so
   `DisplayLifecycleInstrumentedTest.directStopGateDeclinesInteractiveWaitStates`
   asserts the decline contract deterministically across every run state, and
-  `busySpiralkAcceptsLiveDirectStop` proves the live seam still accepts a stop
-  for a genuinely-busy program.
+  `requestStopProgramHonorsRunStateGateEndToEnd` drives the real
+  `requestStopProgramNative` through each run state it injects, accepting the
+  stop for `PGM_RUNNING` and `PGM_PAUSED`; no test runs a busy program to a
+  live stop.
 - That lock-free property is required, not optional. The grouped Android
   `MANSLV2` fixture can still be executing inside the asynchronous `R/S`
   worker while that worker owns `screenMutex`; a blocking or try-lock stop
@@ -488,9 +498,9 @@ supports that model by keeping shared synchronization in native code:
   `android_runtime.c` are the two core-owned consumption points for that
   pending stop-refresh request. They re-arm `SCRUPD_AUTO`, set
   `reDraw = true`, run `refreshScreen(190)`, `refreshLcd(NULL)`, and
-  `lcd_refresh()`, then push `nextScreenRefresh` forward so the first direct
-  stop on a staged `SPIRALk` graph already matches `r47_force_refresh()`
-  without moving redraw work onto the UI thread.
+  `lcd_refresh()`, then push `nextScreenRefresh` forward, so the stop redraws
+  on the core thread without moving redraw work onto the UI thread. No test
+  compares that redraw with `r47_force_refresh()`.
 - Android's official ANR guidance explicitly calls out main-thread lock
   contention as a foreground input-dispatch failure mode. The whole-snapshot
   try-copy keeps blocking keypad export off the UI thread.
@@ -527,18 +537,18 @@ successor attaches
 (`activityRecreationPreservesSpiralkGraphSnapshot`). The native runtime persists
 across recreation (`NativeCoreRuntime`'s `isCoreThreadStarted` /
 `isNativeInitializedShared` are process-shared, so the recreated Activity
-re-attaches rather than re-initializing), but recreation **does re-render
-`packedDisplayBuffer` from calculator state**. A raw injected framebuffer
-therefore cannot survive recreation -- the state render replaces the injected
-pattern -- so the recreation snapshot test must assert over a state-derived
-image. It keeps a real `SPIRALk` graph: a graph display is cursor-free and
-byte-stable, so re-rendering it from the persisted graph state reproduces the
-same framebuffer. The *Settings-style pause/resume* transition re-renders the
-same way against upstream HEAD, which this page tracks, so
+re-attaches rather than re-initializing, and runs only
+`updateNativeActivityRef`). Recreation itself redraws nothing, but the core
+thread's tick keeps refreshing the LCD from calculator state, so a raw injected
+framebuffer can be replaced between two captures. The recreation snapshot test
+therefore asserts over a state-derived image. It keeps a real `SPIRALk` graph:
+a graph display is cursor-free and byte-stable, so re-rendering it from the
+persisted graph state reproduces the same framebuffer. The *Settings-style
+pause/resume* transition touches no native state, and
 `pauseResumePreservesSpiralkGraphSnapshot` drives the same `SPIRALk` graph and
 compares a `forceRefresh` render of the persisted state before and after the
 transition: pause/resume must preserve the calculator state, so the state-derived
-render is byte-identical whether or not `onResume` itself redraws. The local
+render is byte-identical whatever the tick redraws in between. The local
 16 KB runtime smoke script reuses the recreation probe on a connected 16 KB
 target.
 
@@ -828,14 +838,12 @@ emulator-backed test runs, but the shipped debug artifact remains
 the 16 KB requirements for ELF and APK alignment.
 
 The CI lane verifies that contract by checking zip alignment and native library
-`LOAD` segment alignment in the built APK. It does not check two things the
-16 KB page names: that a `GNU_RELRO` segment ends on a 16 KB boundary or has no
-writable data after it in its `LOAD`, and that an AAB requests
-`PAGE_ALIGNMENT_16K` (`bundletool dump config`).
-`scripts/security/check_native_hardening.sh` checks only that `GNU_RELRO`
-exists. The Play bundle, the artifact the 2027 Play rule applies to, therefore
-carries no alignment proof of its own, and a toolchain change that breaks either
-reaches Play unseen. The `android-tests` lane uses
+`LOAD` segment alignment in the built APK. It also checks the two things the
+16 KB page names beyond those: `collect_packaging_evidence.sh` holds each
+library's `GNU_RELRO` to end on a 16 KB page (`check_relro`), and the AAB's
+`BundleConfig.pb` to request `PAGE_ALIGNMENT_16K`
+(`page_alignment_16k.py bundle-config`), so the Play bundle, the artifact the
+2027 Play rule applies to, carries its own proof. The `android-tests` lane uses
 the temporary multi-ABI override only for hosted `x86_64` emulator execution.
 
 Runtime proof for the same contract lives in

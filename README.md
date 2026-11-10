@@ -38,7 +38,7 @@ GNU General Public License, version 3; `COPYING` holds the text. The app's
 license screens show the notices of the third-party code it is built with:
 decNumber, mini-gmp, PCG, xlsxio, and the AndroidX libraries. Every release and
 pre-release on GitHub attaches the source of the calculator core its APK is
-built from, as `<APK name>_core-source.tar.gz`; this repository's source is the
+built from, as `<APK file name without .apk>_core-source.tar.gz`; this repository's source is the
 release tag's.
 
 ## Repo Layout

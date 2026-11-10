@@ -106,8 +106,9 @@ hydrated on demand, or only exercised in CI before updating the docs.
 - machine-readable Android tool defaults live in
   `android/r47-defaults.properties`, one `R47_DEFAULT_*` key each: the compile,
   target, and minimum SDK, the compile SDK minor, build tools, NDK, CMake, the
-  shipped ABI filter, the hosted test API level and ABI filters, and the
-  pinned xlsxio URL plus commit. Read the values from the file; a page that
+  Gradle and AGP versions, the shipped ABI filter, the hosted test and 16 KB
+  test API levels and the test ABI filters, the pinned xlsxio URL plus commit,
+  and the minizip version, URLs, and checksums, among others. Read the values from the file; a page that
   copies one is wrong the day the key moves.
 - two of those keys are about Java and they are not interchangeable. Read the
   values from the file; what matters here is which is which:
@@ -156,7 +157,8 @@ hydrated on demand, or only exercised in CI before updating the docs.
   equal to it.
 - Jetifier explicitly disabled in `android/gradle.properties`
 - base `namespace` and `applicationId` `io.github.ppigazzini.r47zen`
-- Android app, debug, release, JVM-test, and instrumentation-test sources live under
+- the app, JVM-test, instrumentation-test, and instrumentation-host sources
+  (`main`, `test`, `androidTest`, and `instrumentationHost`) live under
   `app/src/**/java/io/github/ppigazzini/r47zen` so manifest, layout, and JNI class
   wiring stay aligned with that checked-in identity
 - debug builds add `applicationIdSuffix ".debug"`
@@ -232,8 +234,9 @@ Top-level repo-owned overlay paths:
 - `scripts/` owns repo-only automation, including the stable maintainer
   entry points `scripts/android/build_android.sh` and
   `scripts/upstream-sync/upstream.sh`, plus grouped implementations under
-  `scripts/android/`, `scripts/r47_contracts/`, `scripts/upstream-sync/`,
-  `scripts/keypad-fixtures/`, `scripts/package-notices/`, and
+  `scripts/android/`, `scripts/docs/`, `scripts/keypad-fixtures/`,
+  `scripts/lib/`, `scripts/package-notices/`, `scripts/r47_contracts/`,
+  `scripts/security/`, `scripts/upstream-sync/`, `scripts/windows/`, and
   `scripts/workload-regressions/`.
 - `.github/` and the tracked root files (`git ls-files | grep -v /`), among
   them `upstream.source`, `pyproject.toml`, and `.pre-commit-config.yaml`, are
@@ -346,8 +349,10 @@ Public maintainer entry points:
   entry point. It detects Java and the Android NDK, resolves one shared
   upstream commit through `scripts/upstream-sync/upstream.sh`,
   syncs that resolved core with `sync --if-missing --commit`, which skips only
-  when `src/c47`, the root Meson inputs, `dep/decNumberICU`, and the canonical
-  calculator fonts are present and the last complete sync wrote that commit,
+  when every path `UPSTREAM_REQUIRED_DIRS` and `UPSTREAM_REQUIRED_FILES` name in
+  `upstream.sh` (among them `src/c47`, the root Meson inputs, `dep/decNumberICU`,
+  the `Makefile`, and `tools/onARaspberry`) and the canonical calculator fonts
+  are present and the last complete sync wrote that commit,
   so the commit the build stamps is the tree it builds, runs
   `scripts/android/build_sim_assets.sh` to reconfigure `build.sim` through
   Meson and build `ninja sim`,
@@ -383,8 +388,10 @@ Public maintainer entry points:
   on blanks; CI passes its daemon and console flags there. Hosted CI's
   emulator ABI override is `R47_CONNECTED_ANDROID_TEST_ABI_FILTERS`, which
   `run_connected_android_tests.sh` reads. Add
-  `--verify-packaging` when you want the local build to write the same release
-  evidence files CI publishes for Android APK artifacts.
+  `--verify-packaging` with `R47_RELEASE_CHANNEL=dev` when you want the local
+  build to write the same release evidence files CI publishes for Android APK
+  artifacts. On the default debug build it fails: that APK carries the
+  instrumentation host and `gwpAsanMode`, which the collector refuses.
 - `./scripts/android/build_android.sh --android-only` is the faster
   Android-only path. It skips the script's resolve, hydration, `ninja sim`, and
   clean, and refuses to continue unless
@@ -435,11 +442,13 @@ Public maintainer entry points:
   a release androidTest build without it does not compile. The same manifest sets
   `android:gwpAsanMode="always"`, so the debug build and every instrumented run
   crash on a heap error GWP-ASan samples. `collect_packaging_evidence.sh` fails a
-  signed APK whose manifest declares either test host or sets `gwpAsanMode`. The
+  signed APK whose manifest declares either test host or sets `gwpAsanMode`,
+  whatever its variant, so it also fails the debug APK. The
   JVM tests host on a plain `ComponentActivity`.
-  `:app:connectedDebugAndroidTest` requires a device or emulator, and
-  `-Pr47.abiFilters=arm64-v8a,x86_64` is the supported override when that
-  emulator is `x86_64`. The current required emulator-backed coverage includes
+  `:app:connectedDebugAndroidTest` requires a device or emulator and
+  `-Pr47.includeProgramLoadTestBridge=true`, without which most instrumented
+  classes find no bridge natives, and `-Pr47.abiFilters=arm64-v8a,x86_64` is the
+  supported override when that emulator is `x86_64`. The current required emulator-backed coverage includes
   the repo-owned `scripts/android/run_connected_android_tests.sh` wrapper,
   which runs one selection per class: each non-fixture instrumentation class on
   its own, then the whole `ProgramFixtureInstrumentedTest` class, which covers
@@ -479,10 +488,11 @@ Public maintainer entry points:
   the upstream-shaped desktop lane. Android full builds drive the same
   `build.sim` Meson/Ninja targets through `scripts/android/build_sim_assets.sh`
   rather than routing through the root Makefile. Each `android-ci.yml` run that
-  the release gate lets build runs upstream's suite twice on the upstream commit
-  it resolves: as upstream builds
-  it, in `upstream-simulator-sanity`, and as the app builds the core, in the
-  build job, through `run_upstream_suite_android_config.sh`. The release lane runs
+  the release gate lets build runs upstream's suite three times on the upstream
+  commit it resolves: as upstream builds
+  it, in `upstream-simulator-sanity`, as the app builds the core, in the
+  build job, through `run_upstream_suite_android_config.sh`, and as the app
+  builds it for arm64, in `upstream-suite-arm64`. The release lane runs
   only the first, through `./scripts/android/build_android.sh --run-sim-tests`,
   which stages the generated `testPgms.bin` into `res/testPgms/` before running
   `meson test -C build.sim`; the second there would be a new gate on a release,
@@ -540,8 +550,8 @@ Internal helpers:
 - `scripts/android/run_connected_android_tests.sh` owns the grouped hosted
   emulator instrumentation wrapper. It runs each non-fixture Android test class
   as a selection of its own and the whole `ProgramFixtureInstrumentedTest`
-  class, which runs each program fixture it names, as a last one under GNU
-  `timeout`; all are required.
+  class, which runs each program fixture it names, as a last one, each
+  selection under GNU `timeout`; all are required.
 - `scripts/workload-regressions/run_workload_regressions.sh` owns the grouped
   workload-regression implementation: it compiles the host harness once, runs
   each required fixture in its own host process, and applies the same outer
@@ -655,7 +665,9 @@ Build-safety rule:
   zipalign, ELF `LOAD` segment, SHA256, and provenance evidence beside it. The
   expected ABI list comes from `R47_VERIFY_PACKAGING_ABIS` when set, else the
   active `-Pr47.abiFilters=...` override forwarded through `R47_GRADLE_ARGS`,
-  else `R47_DEFAULT_ANDROID_ABI_FILTERS`.
+  else `R47_DEFAULT_ANDROID_ABI_FILTERS`. On the debug APK the collector then
+  fails its manifest check, since debug carries the instrumentation host and
+  `gwpAsanMode`; the dev channel's APK passes it.
 
 ## Local Start-To-End Pipeline
 
@@ -699,7 +711,8 @@ shell:
    `android/gradle/wrapper/` is missing, restore the tracked wrapper files.
 
 7. Check `adb devices`. Only run `:app:connectedDebugAndroidTest` when at least
-   one device or emulator is attached. If the emulator is `x86_64`, add
+   one device or emulator is attached, with
+   `-Pr47.includeProgramLoadTestBridge=true`. If the emulator is `x86_64`, add
    `-Pr47.abiFilters=arm64-v8a,x86_64`.
 8. When the task needs runtime proof on a real 16 KB target, run the focused
   connected-device lane:
@@ -756,8 +769,9 @@ names, and release gating.
 - `android/app/build.gradle` defines release signing from
   `r47.releaseStoreFile`, `r47.releaseStorePassword`, `r47.releaseKeyAlias`,
   and `r47.releaseKeyPassword`. Supplying only some of those values is a hard
-  configuration error. CI supplies none of them: both CI lanes build unsigned
-  and sign outside Gradle, so this path serves a maintainer host only.
+  configuration error. The shipped bytes never take this path: both CI lanes
+  build unsigned and sign outside Gradle. In CI only `verify-production-release`
+  supplies them, with a throwaway keystore, for its test installs.
 - Release builds default `minifyEnabled` and `shrinkResources` to `true` and
   request `ndk.debugSymbolLevel "FULL"`.
 - `bundleRelease` is the canonical AAB command. `assembleRelease` remains
@@ -781,9 +795,11 @@ names, and release gating.
   lifecycle changes:
     `cd android && ./gradlew :app:assembleReleaseAndroidTest -Pr47.releaseChannel=dev -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`,
   then run `scripts/android/run_connected_android_tests.sh` on a device or
-  emulator with all four `R47_PRERELEASE_*` inputs set; any keystore works, and
-  CI generates a throwaway one in-job for these installs. Add
-  `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`. The
+  emulator with all four `R47_PRERELEASE_*` inputs set and the
+  `R47_CONNECTED_ANDROID_TEST_*` variables it requires; any keystore works, and
+  CI generates a throwaway one in-job for these installs. Set
+  `R47_CONNECTED_ANDROID_TEST_ABI_FILTERS=arm64-v8a,x86_64` when that emulator
+  is `x86_64`. The
   hosted gate runs one selection per non-fixture class plus one bounded
   `ProgramFixtureInstrumentedTest` selection that covers
   `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and
@@ -793,7 +809,7 @@ names, and release gating.
   Settings return, or packed-LCD lifecycle preservation, the same release-path
   wrapper lane must also pass `DisplayLifecycleInstrumentedTest`.
 - JNI, HAL, CMake, or packaging changes: `./scripts/android/build_android.sh`.
-- packaging evidence changes with local proof: `./scripts/android/build_android.sh --verify-packaging`
+- packaging evidence changes with local proof: `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --verify-packaging`
 - root core or generator changes: `make test` and then `./scripts/android/build_android.sh`.
   If `xlsxio_xlsx2csv` is only available in the pinned cache, export the cached
   `~/.cache/r47/xlsxio/<commit>/bin` path first.

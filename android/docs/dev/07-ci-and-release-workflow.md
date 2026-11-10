@@ -68,7 +68,8 @@ flowchart TD
 - lock every action the workflows run, and every action those actions run, in
   `.github/workflows/actions.lock` ([Actions lockfile](#actions-lockfile))
 - publish logs and packaging evidence as first-class artifacts
-- publish the main snapshot only after all required lanes pass
+- publish the main snapshot only after the build, the device tests, the release
+  gate, and the simulator sanity lane pass
 - keep production signing and user-facing release publication in a separate
   protected manual-only workflow
 - keep every signing key off any runner that syncs, compiles, or runs the
@@ -200,10 +201,11 @@ right after the install, with `actions/cache/save`, before the job's own steps
 sync and build upstream code, so an entry holds what `sdkmanager` installed. The
 xlsxio composite saves the same way, right after its build. The release lane
 goes further and restores no entry a job could have written after running the
-upstream core: no Gradle cache, xlsxio built from source (`cache: 'false'`), and
-only the SDK and AVD entries restored, never saved, so a hostile commit cannot
-plant a cache entry that a later release, even one pinned to a clean core,
-runs. `run_setup_android_composite_contract.sh` and
+upstream core: no Gradle cache, xlsxio built from source (`cache: 'false'`), the
+SDK entry saved only on a miss, by the composite right after its install and
+before any upstream code runs, and the AVD entry restored only, so a hostile
+commit cannot plant a cache entry that a later release, even one pinned to a
+clean core, runs. `run_setup_android_composite_contract.sh` and
 `run_gradle_cache_contract.sh` hold it. `./.github/actions/setup-signing-tools`
 installs `build-tools;<R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION>` from Google
 into an empty SDK root under `RUNNER_TEMP`, about 150 MB, and nothing else.
@@ -616,8 +618,10 @@ code is collected on x86-64. The job runs on an `ubuntu-26.04-arm` runner:
 - uploads its log and the suite's as
   `r47zen-<upstream short>-<android short>-upstream-suite-arm64-log`
 
-It holds no secret. `ci-required` waits on it, so a failure here stops the dev prerelease, and through
-[`require-green-ci`](#require-green-ci) the release, of that pair.
+It holds no secret. `ci-required` waits on it, so a failure here turns
+`ci-required` red. It stops neither the dev prerelease nor, through
+[`require-green-ci`](#require-green-ci), the release of that pair:
+`publish-main-snapshot` does not wait on this job.
 
 ### `android-tests`
 
@@ -726,8 +730,9 @@ instrumentation fixtures, or Android-only test seams.
 
 ### `publish-main-snapshot`
 
-This job runs only on `main` after the release gate passes and all required
-verification jobs succeed.
+This job runs only on `main` after the release gate, the simulator sanity lane,
+the build, the dev signing, and the device tests succeed. It does not wait on
+`python-contracts` or `upstream-suite-arm64`, which `ci-required` also names.
 
 It publishes on `main` for push, schedule, and manual-dispatch CI runs after
 the required verification lanes pass.
@@ -928,11 +933,12 @@ the release key, the environments, the attestation, or Play;
 
 Before the build, it asks for android-ci's `-dev` release of the release's exact
 commit pair, `r47zen-<upstream8>-<android8>-dev`, and refuses the run unless that
-release carries an APK: android-ci publishes it only after every lane
-`ci-required` names passed on that pair, so a core that moved since the last run
-on `main` stops here instead of shipping untested by the contract suite, the
-hardening and format checks, clang-tidy, detekt, and the coverage gate, none of
-which the release lane runs. `scripts/android/require_green_ci_pair.sh`
+release carries an APK: android-ci publishes it only after the build job and
+the device tests passed on that pair, so a core that moved since the last run on
+`main` stops here instead of shipping untested by the format check, clang-tidy,
+detekt, and the coverage gate, none of which the release lane runs; it runs its
+own hardening check on the signed library. The contract suite and the arm64
+suite gate `ci-required` but not that publish, so they do not stop a release. `scripts/android/require_green_ci_pair.sh`
 reads the release, and `run_green_ci_pair_contract.sh` holds it on fixtures. A
 dry run off `main`, which android-ci publishes nothing for, gets a warning.
 
@@ -1023,7 +1029,7 @@ This workflow job:
 - on an `allow_overwrite` re-cut, then removes from the tag every file the
   upload did not write, through `scripts/android/stale_release_assets.sh`: each
   file is named after both commits and the overwrite replaces only a file of the
-  same name, so the first cut's four files would stay beside the new ones and
+  same name, so the first cut's five files would stay beside the new ones and
   the next release would refuse two evidence archives. It removes nothing unless
   the release holds every file just uploaded, and never before the upload, so a
   failed upload leaves the first cut whole. The tag stays on the first cut's
@@ -1083,7 +1089,7 @@ Runs on `main` after `publish-production-release` unless the dispatch sets
   against this workflow, so Play receives only the bytes the GitHub release
   attested
 - fails unless the AAB's `BUILD-METADATA.txt` records the run's version
-  code, and fails before any network call when either `play-upload`
+  code, and fails before it contacts Google when either `play-upload`
   variable is empty
 - writes the `play_release_notes` input, or by default the version and the
   calculator core (`C47 <version>` and the upstream short commit), as the
@@ -1398,7 +1404,7 @@ So a bump edits every file that names the thing it bumps: search `.github/`,
 and say in the commit which files each bump touched. Dependabot opens one
 pull request per ecosystem, and each moves its own file alone: the `pre-commit`
 group a hook rev, not the `shell-lint.yml` pin beside it, ruff in `uv.lock`, or
-the uv version and checksum in the two `setup-uv` steps; the `uv` group ruff or ty
+the uv version and checksum in the two `setup-uv` steps; the `python` group ruff or ty
 in `uv.lock`, not the hook rev. Such a pull request fails this contract until the
 other copy moves in the same pull request. The `github-actions` entry scans `/`,
 which reads `.github/workflows` alone, and `/.github/actions/*`, the composites,
@@ -1518,7 +1524,7 @@ Use the smallest local lane that matches the failure surface:
 - diagnostic host wait or progress regression:
   `scripts/workload-regressions/run_workload_regressions.sh`
 - full Android dev-prerelease build and staged-input refresh:
-  `./scripts/android/build_android.sh --run-sim-tests`
+  `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --run-sim-tests`
 - CI-matching Android build plus host-core PGO collection and release-native
   validation:
   `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
@@ -1529,7 +1535,7 @@ Use the smallest local lane that matches the failure surface:
   `R47_SUITE_RUN=android/build/upstream-suite-app-target/testSuite` before it
   runs the suite
 - CI-matching Android pre-emulator build plus JVM slice:
-  `cd android && ./gradlew :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.releaseChannelBuildToken=<token> -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
+  `cd android && ./gradlew :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.releaseChannel=dev -Pr47.releaseChannelBuildToken=<token> -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.includeProgramLoadTestBridge=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`
 - Android lint-only regression with current staged inputs:
   `cd android && ./gradlew lint`
 - Android JVM tests with current staged inputs:
@@ -1556,7 +1562,9 @@ Use the smallest local lane that matches the failure surface:
   `scripts/android/sign_android_artifacts.sh`, passwords in
   `R47_SIGNING_STORE_PASSWORD` and `R47_SIGNING_KEY_PASSWORD`. The four
   `r47.releaseStore*` / `r47.releaseKey*` inputs still make Gradle sign in one
-  step on a maintainer host; CI does not use them
+  step; the shipped bytes never take that path, and in CI only
+  `verify-production-release` does, with a throwaway keystore, for its test
+  installs
 
 If the task touches staging, generated inputs, or upstream hydration, prefer
 the full build script over isolated Gradle invocations.

@@ -1,7 +1,7 @@
 /* Only the JNI entry points leave libr47zen.so. JNI_OnLoad registers
-   CalculatorEngine's natives by pointer; the Java_ names are the ones the
-   instrumentation-only ProgramLoadTestBridge binds by name, which a release
-   build does not compile. Everything else is local: no lookup at each load,
+   MainActivity's natives by pointer; the Java_ names are MainActivity's
+   implementations and, in a build with the instrumentation-only
+   ProgramLoadTestBridge, the ones it binds by name. Everything else is local: no lookup at each load,
    no PLT hop between the library's own units, and no name another library
    could collide with (developer.android.com/training/articles/perf-jni).
    scripts/android/check_native_exports.sh holds a built library to it. */

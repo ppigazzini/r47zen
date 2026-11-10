@@ -4,8 +4,9 @@
 # The release resolves upstream HEAD at dispatch, so a green android-ci on the
 # overlay commit says nothing about a core that moved since. android-ci publishes
 # the -dev pre-release r47zen-<upstream8>-<android8>-dev, with its APK, only after
-# every lane ci-required names passed on exactly that pair, so that release with
-# an APK on it is the proof. This reads `gh release view <tag> --json
+# its build job and device tests passed on exactly that pair, so that release with
+# an APK on it is the proof. The contract suite and the arm64 suite gate
+# ci-required, not that publish. This reads `gh release view <tag> --json
 # assets` from a file, written by the caller, so the contract can feed it
 # fixtures; a missing or empty file means the tag does not exist.
 #

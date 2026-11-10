@@ -18,8 +18,10 @@ resolve jobs runs only on `main`, except in a dry run, which publishes nothing.
    upstream HEAD the release will take.** The release builds the dispatched
    ref's overlay with the newest upstream HEAD, and its `require-green-ci` job
    refuses the run unless android-ci published the `-dev` release, with its
-   APK, for exactly that pair, which it does only when every required lane
-   passed. When upstream moved since the last run on `main`, run android-ci on
+   APK, for exactly that pair, which it does only when the build job and the
+   device tests passed; the contract suite and the arm64 suite turn
+   `ci-required` red without stopping it, so check them on that run too. When
+   upstream moved since the last run on `main`, run android-ci on
    `main` first, or pin `upstream_commit` to a pair it passed.
 
    ```sh
@@ -161,7 +163,7 @@ cause.
 | `allow_overwrite=true re-cuts <tag>, so the version must stay <v>, not <x>.` | a re-cut republishes the previous release under its own tag, which stays on the first cut's commit while the release records the new one | set the file back to that release's numbers, or release the next ones |
 | `Could not determine whether <tag> exists (git ls-remote exit <n>); ...` | the tag check failed on the network or auth | rerun the failed job |
 | `Expected one APK evidence archive on <tag>, found 0.`, `The APK evidence of <tag> records no signing certificate ...`, or `... records no android_source_commit ...` | the previous release lacks the evidence the reinstall notice and the version check read | restore the previous release's APK packaging-evidence asset; the workflow will not publish without it |
-| `Expected one APK evidence archive on <tag>, found 2.` | a re-cut whose overlay or core moved published beside the first cut, since every file is named after both commits; a re-cut removes the first cut's four files after its upload, so this comes from a re-cut that did not finish that removal | delete the four files of the cut that is not the release (`gh release delete-asset <tag> <name>`), then dispatch |
+| `Expected one APK evidence archive on <tag>, found 2.` | a re-cut whose overlay or core moved published beside the first cut, since every file is named after both commits; a re-cut removes the first cut's five files after its upload, so this comes from a re-cut that did not finish that removal | delete the five files of the cut that is not the release (`gh release delete-asset <tag> <name>`), then dispatch |
 | `Missing required production release signing secret for <name>.` | an `R47_RELEASE_*` secret is missing from the `production-release` environment | see [Repository settings](07-ci-and-release-workflow.md#repository-settings) |
 | `publish-production-release` fails | the release action, `softprops/action-gh-release` at the version `android-release.yml` pins, creates a non-prerelease as a draft and publishes it only after every upload, so a first publish that failed leaves a draft and no tag; a re-cut, which overwrites, deletes each asset before uploading its new one, so a failed re-cut can leave the published release short of an asset | `gh run rerun <run id> --failed`, which reuses the signed artifacts within their 30-day retention. Before any fresh dispatch instead, delete the leftover draft (`gh release delete r47zen-v<version>`), or the new run uploads beside its assets |
 | `upload-to-play` fails with "The service is currently unavailable" | a transient Play 5xx after the GitHub release is published | `gh run rerun <run id> --failed`, which reruns that job alone on the same signed AAB within its 30-day retention |

@@ -75,7 +75,8 @@ flowchart LR
   upstream-style clipboard exports on that same projected top-right affordance.
   Both popups are forced through the dark popup theme so phone light mode can
   never change shell menu surfaces, and the retained onboarding card clears on
-  the first shell touch instead of waiting for a menu tap
+  the first shell touch while LCD graph touch is on, instead of waiting for a
+  menu tap
 - PiP uses the LCD-only contract: `WindowModeController` requests the exact
   native `400 x 240` width-over-height ratio, then `ReplicaOverlay` draws the
   LCD full-window, so the native shell projection does not change PiP geometry.
@@ -94,7 +95,7 @@ keypad all look correct locally but are globally misplaced together.
   state; this page covers ownership while `06-runtime-hot-paths.md` covers the
   cadence and skip gates
 - `ReplicaOverlayController` owns geometry-triggered same-snapshot replay for
-  the keypad path. Chrome-geometry changes and PiP exit mark a geometry
+  the keypad path. The overlay bind and PiP exit mark a geometry
   change, wait for a real overlay layout boundary, then replay the current
   scene once.
 - `ReplicaChromeLayout` owns the native LCD rectangle and shell projection.
@@ -223,7 +224,8 @@ Render split:
   the GTK simulator, which sends every press: there a blank press runs `NOP`, which
   adds a program step in program entry, ends a number being typed, and consumes a
   shift. A key the core has pressed always gets its release, even if it turned
-  disabled while held. Physical `F1` to `F6` and Picture in Picture skip this gate
+  disabled while held. Physical `F1` to `F6` skip this gate; the Picture in
+  Picture window takes no input
 - `CalculatorSoftkeyPainter` owns softkey value-field bounds, overlay center,
   preview accents, reverse-video states, strike marks, and the final softkey
   `KeyRenderSpec`. Each text color it draws meets the 4.5:1 that Android's core
@@ -234,7 +236,7 @@ Render split:
   minimum, so its touch targets fall under 48 dp in a window under about 609 dp
   tall, such as a small split-screen pane: a minimum would cut those panes off
 - `CalculatorSoftkeyPainter` caches that softkey spec by snapshot, font set,
-  size, pressed state, and draw-surface flag, then routes shared chrome,
+  size, and pressed state, then routes shared chrome,
   label, and line stages through `KeyRenderPainter` while delegating overlay-
   only marks to `SoftkeyOverlayPainter`
 - both key renderers keep Android-owned font rendering quality local to the
