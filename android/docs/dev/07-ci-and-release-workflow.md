@@ -701,12 +701,13 @@ The hosted instrumentation lane relies on:
   activity closes so one long-running fixture cannot strand the next grouped
   case on CI
 - the one-class release-path selections of `FactorsInstrumentedTest`,
-  `ClipboardRoundTripInstrumentedTest`, `DisplayLifecycleInstrumentedTest`,
-  `DocumentLoopInstrumentedTest`,
+  `ClipboardRoundTripInstrumentedTest`, `DisplayDescriptionInstrumentedTest`,
+  `DisplayLifecycleInstrumentedTest`, `DocumentLoopInstrumentedTest`,
   `GraphRedrawInstrumentedTest`, `GraphTouchStressInstrumentedTest`,
   `KeypadTouchInstrumentedTest`, `StorageAccessCoordinatorInstrumentedTest`, and
   `SystemBarInsetsInstrumentedTest` for Android math, Copy and Paste through
-  the clipboard, passive lifecycle LCD preservation, the file loop through the
+  the clipboard, the LCD's text for a screen reader, passive lifecycle LCD
+  preservation, the file loop through the
   core, redraw-path sanity, extreme graph-touch restore-bounds stress, key
   touches on the real activity, SAF coordination, and system-bar insets on the
   same signed release test

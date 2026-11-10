@@ -743,6 +743,10 @@ Each instrumentation source and what it covers:
   graph-bounds stability under repeated very large pan and pinch deltas, and
   separately verifies the restore path sanitizes injected invalid graph bounds
   before refresh
+- `DisplayDescriptionInstrumentedTest.kt`: on the real `MainActivity`, the LCD's
+  node says the number being typed (1 2), then X (15 after ENTER 3 +), then
+  upstream's error text for x! of -1 with the node marked as an error, each through
+  the overlay's ask, `describeDisplayNative` as a core task, and `onDisplayText`
 - `KeypadTouchInstrumentedTest.kt`: the real `MainActivity` from a touch to the
   core. It injects a press and a release at the center of the key views for 1, 2,
   ENTER, 3, and +, which run each key's touch listener,
