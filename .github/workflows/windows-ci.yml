@@ -164,6 +164,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.artifact_suffix }}-ccache-
 
       - name: Configure compiler cache
+        id: ccache
         run: |
           set -euo pipefail
 
@@ -265,7 +266,9 @@ jobs:
             dist_windows 2>&1 | tee "$log_file"
 
       - name: Show compiler cache stats
-        if: always()
+        # After a failed build too, but only once ccache is configured: with
+        # no ccache the step fails and buries the real error under its own.
+        if: always() && steps.ccache.outcome == 'success'
         run: |
           set -euo pipefail
           ccache --show-stats

@@ -283,6 +283,7 @@ jobs:
             ${{ runner.os }}-simsanity-ccache-
 
       - name: Configure compiler cache
+        id: ccache
         shell: bash
         run: |
           set -euo pipefail
@@ -334,7 +335,9 @@ jobs:
           make test
 
       - name: Show compiler cache stats
-        if: always()
+        # After a failed build too, but only once ccache is configured: with
+        # no ccache the step fails and buries the real error under its own.
+        if: always() && steps.ccache.outcome == 'success'
         shell: bash
         run: ccache --show-stats
 
@@ -515,6 +518,7 @@ jobs:
             ${{ runner.os }}-buildpkg-ccache-
 
       - name: Configure compiler cache
+        id: ccache
         shell: bash
         run: |
           set -euo pipefail
@@ -696,7 +700,9 @@ jobs:
           echo "host_tools=${host_tools}" >> "$GITHUB_OUTPUT"
 
       - name: Show compiler cache stats
-        if: always()
+        # After a failed build too, but only once ccache is configured: with
+        # no ccache the step fails and buries the real error under its own.
+        if: always() && steps.ccache.outcome == 'success'
         shell: bash
         run: ccache --show-stats
 

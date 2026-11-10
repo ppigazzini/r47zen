@@ -178,6 +178,7 @@ jobs:
             ${{ runner.os }}-linux-ccache-
 
       - name: Configure compiler cache
+        id: ccache
         shell: bash
         run: |
           set -euo pipefail
@@ -251,7 +252,9 @@ jobs:
             dist_linux 2>&1 | tee ci-artifacts/logs/build-linux.log
 
       - name: Show compiler cache stats
-        if: always()
+        # After a failed build too, but only once ccache is configured: with
+        # no ccache the step fails and buries the real error under its own.
+        if: always() && steps.ccache.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
