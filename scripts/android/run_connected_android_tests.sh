@@ -26,6 +26,7 @@ R47_CONNECTED_ANDROID_SELECTION_TIMEOUT="${R47_CONNECTED_ANDROID_SELECTION_TIMEO
 NON_FIXTURE_TEST_CLASSES=(
     "io.github.ppigazzini.r47zen.FactorsInstrumentedTest"
     "io.github.ppigazzini.r47zen.ClipboardRoundTripInstrumentedTest"
+    "io.github.ppigazzini.r47zen.DisplayDescriptionInstrumentedTest"
     "io.github.ppigazzini.r47zen.DisplayLifecycleInstrumentedTest"
     "io.github.ppigazzini.r47zen.DocumentLoopInstrumentedTest"
     "io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest"
