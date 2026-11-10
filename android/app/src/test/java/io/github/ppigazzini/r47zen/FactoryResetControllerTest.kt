@@ -24,6 +24,7 @@ class FactoryResetControllerTest {
         .get()
     private var sharedStateResets = 0
     private var releases = 0
+    private var kills = 0
 
     @Test
     fun resetDestroy_withTheCoreStopped_resetsSharedStateAndWipesFiles() {
@@ -34,20 +35,23 @@ class FactoryResetControllerTest {
 
         assertEquals(1, sharedStateResets)
         assertEquals(0, releases)
+        assertEquals(0, kills)
         assertFalse(savedState.exists())
     }
 
     @Test
-    fun resetDestroy_withTheCoreStillRunning_keepsFilesAndSharedState() {
+    fun resetDestroy_withTheCoreStillRunning_keepsFilesAndEndsTheProcess() {
         val savedState = seedSavedState()
         val controller = resettingController(coreThreadRunning = true)
 
         controller.handleDestroy(shouldStopApp = true)
 
         // A live core thread would autosave into a wiped directory, and a shared
-        // state reset would let the relaunch start a second core thread.
+        // state reset would let the relaunch start a second core thread. A relaunch
+        // into this process would attach to the busy thread instead, so it ends.
         assertEquals(0, sharedStateResets)
         assertEquals(1, releases)
+        assertEquals(1, kills)
         assertTrue(savedState.exists())
     }
 
@@ -60,6 +64,7 @@ class FactoryResetControllerTest {
 
         assertEquals(0, sharedStateResets)
         assertEquals(1, releases)
+        assertEquals(0, kills)
         assertTrue(savedState.exists())
     }
 
@@ -119,6 +124,22 @@ class FactoryResetControllerTest {
     }
 
     @Test
+    fun aResetRequestStopsARunningProgramBeforeItStopsTheCore() {
+        // A running program keeps the core thread in its task, past the dispose fence,
+        // and the reset would then be skipped.
+        registerLaunchActivity()
+        val calls = mutableListOf<String>()
+        val controller = controller(
+            onResetRequested = { calls += "dispose" },
+            stopRunningProgram = { calls += "stop" },
+        )
+
+        controller.handleResetRequest()
+
+        assertEquals(listOf("stop", "dispose"), calls)
+    }
+
+    @Test
     fun anIntentFromSettingsResets() {
         assertTrue(
             controller(coreThreadRunning = false).isFactoryResetIntent(FactoryResetController.createIntent(activity)),
@@ -149,6 +170,7 @@ class FactoryResetControllerTest {
     private fun controller(
         coreThreadRunning: Boolean = false,
         onResetRequested: () -> Unit = {},
+        stopRunningProgram: () -> Unit = {},
     ): FactoryResetController {
         return FactoryResetController(
             activity = activity,
@@ -156,6 +178,7 @@ class FactoryResetControllerTest {
             onDestroyFactoryReset = { sharedStateResets++ },
             onDestroyFinish = { releases++ },
             isCoreThreadRunning = { coreThreadRunning },
-        )
+            stopRunningProgram = stopRunningProgram,
+        ).also { it.killProcess = { kills++ } }
     }
 }

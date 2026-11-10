@@ -233,6 +233,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             onDestroyFactoryReset = ::handleFactoryResetDestroy,
             onDestroyFinish = ::handleFactoryResetFinish,
             isCoreThreadRunning = NativeCoreRuntime::isCoreThreadRunning,
+            stopRunningProgram = { requestStopProgramNative() },
         )
     }
 

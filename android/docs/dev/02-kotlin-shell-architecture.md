@@ -197,11 +197,15 @@ callbacks.
   It stops the shared runtime when the activity is actually finishing, never
   touches the native activity globals (the core thread releases them), and on
   the factory-reset path clears internal app data
-  only once the core thread has stopped. When the thread outlived the dispose
-  join fence, `FactoryResetController` keeps the data and the shared runtime
-  state: a live thread would autosave into a wiped directory, and a reset
-  shared state would let the relaunch start a second core thread
-  (`FactoryResetControllerTest`). `MainActivity` is exported, so a reset intent
+  only once the core thread has stopped. A reset first stops a running program
+  through `requestStopProgramNative()`, as `R/S` does, since the program would keep
+  the thread in its task past the dispose join fence. When the thread still
+  outlived the fence, `FactoryResetController` keeps the data and the shared
+  runtime state, and ends the process: a live thread would autosave into a wiped
+  directory, a reset shared state would let the relaunch start a second core
+  thread, and a relaunch into the same process would attach to the busy thread,
+  which answers no keypad snapshot. The relaunch then starts a fresh process on
+  the old state (`FactoryResetControllerTest`). `MainActivity` is exported, so a reset intent
   counts only when it carries the token `FactoryResetController.createIntent`
   puts in it, a fresh one per process: another app's intent with the same action
   starts the app and wipes nothing.

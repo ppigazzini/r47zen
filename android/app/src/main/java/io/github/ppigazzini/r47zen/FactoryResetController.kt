@@ -5,6 +5,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Process
 import android.util.Log
 import java.io.File
 import java.util.UUID
@@ -15,6 +16,7 @@ internal class FactoryResetController(
     private val onDestroyFactoryReset: () -> Unit,
     private val onDestroyFinish: () -> Unit,
     private val isCoreThreadRunning: () -> Boolean,
+    private val stopRunningProgram: () -> Unit,
 ) {
     companion object {
         private const val TAG = "R47FactoryReset"
@@ -39,6 +41,10 @@ internal class FactoryResetController(
     var isResetInProgress = false
         private set
 
+    // Ends the process when a reset cannot run; a test replaces it, since ending the
+    // test's own process would end the run.
+    internal var killProcess: () -> Unit = { Process.killProcess(Process.myPid()) }
+
     fun isFactoryResetIntent(intent: Intent?): Boolean {
         return intent?.action == ACTION_FACTORY_RESET &&
             intent.getStringExtra(EXTRA_RESET_TOKEN) == resetToken
@@ -60,6 +66,10 @@ internal class FactoryResetController(
 
         isResetInProgress = true
         scheduleRestart(relaunchIntent)
+        // A running program keeps the core thread inside its task, past the join fence
+        // onResetRequested waits on, and the reset would be skipped. Stop it first, as
+        // R/S does.
+        stopRunningProgram()
         onResetRequested()
         activity.finishAffinity()
         activity.finishAndRemoveTask()
@@ -67,13 +77,16 @@ internal class FactoryResetController(
 
     fun handleDestroy(shouldStopApp: Boolean) {
         if (isResetInProgress && isCoreThreadRunning()) {
-            // The core thread outlived the dispose join fence: a long program, or
-            // a file request still waiting. Wiping now would race the autosave it
-            // runs on its way out, and resetting the shared runtime state would
-            // let the relaunch start a second core thread beside it. Keep the
-            // data; the relaunch shows the old state and the reset can be retried.
+            // The core thread outlived the dispose join fence: a long operation the
+            // stop did not reach, or a file request still waiting. Wiping now would
+            // race the autosave it runs on its way out, and resetting the shared
+            // runtime state would let the relaunch start a second core thread beside
+            // it. Keep the data, and end the process: a relaunch into it would attach
+            // to the busy thread, which answers no keypad snapshot. The relaunch
+            // starts fresh on the old state, and the reset can be retried.
             Log.e(TAG, "Factory reset skipped: the core thread is still running")
             onDestroyFinish()
+            killProcess()
         } else if (isResetInProgress) {
             onDestroyFactoryReset()
             clearInternalAppData()

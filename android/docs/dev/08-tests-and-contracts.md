@@ -628,7 +628,9 @@ source is missing from this page:
   refused grant opening once, and a dialog when no PDF app exists that names the file
   and opens the hosted manual only if asked. `FactoryResetControllerTest.kt` locks that a reset releases every grant
   and a destroy with no wipe keeps them, that a reset request schedules the relaunch,
-  finishes the activity, and runs once however often it is asked, and that a reset
+  finishes the activity, and runs once however often it is asked, that it stops a
+  running program before it stops the core, that a reset the still-running core
+  thread skips keeps the files and ends the process, and that a reset
   intent another app sends, with or without a guessed token, is not one. Handing a persisted grant to a real PDF
   app needs a device
 - `SettingsActivityThemeTest.kt`: locks the settings-owned dark surface theme
