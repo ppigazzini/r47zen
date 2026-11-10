@@ -551,7 +551,10 @@ Internal helpers:
   emulator instrumentation wrapper. It runs each non-fixture Android test class
   as a selection of its own and the whole `ProgramFixtureInstrumentedTest`
   class, which runs each program fixture it names, as a last one, each
-  selection under GNU `timeout`; all are required.
+  selection under GNU `timeout`; all are required. First it marks Android's
+  "Viewing full screen" confirmation seen
+  (`settings put secure immersive_mode_confirmations confirmed`): on Android 7
+  that system window covers the app and the system refuses a test's tap on it.
 - `scripts/workload-regressions/run_workload_regressions.sh` owns the grouped
   workload-regression implementation: it compiles the host harness once, runs
   each required fixture in its own host process, and applies the same outer

@@ -309,6 +309,10 @@ done
 cd "$ANDROID_DIR"
 rm -rf "$SELECTION_RESULTS_ROOT"
 DEVICE_API_LEVEL="$(device_api_level)"
+# The first app that hides the system bars gets Android's "Viewing full screen"
+# window on top, and the system refuses a test's tap that lands on it (Android 7:
+# SecurityException, INJECT_EVENTS). Mark it seen, as the user's tap would.
+adb shell settings put secure immersive_mode_confirmations confirmed >/dev/null 2>&1 || true
 
 for selection_spec in "${TEST_SELECTION_SPECS[@]}"; do
     IFS='|' read -r selection_name selection_filter timeout_duration kill_after <<<"$selection_spec"
