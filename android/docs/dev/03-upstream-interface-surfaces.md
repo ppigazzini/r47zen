@@ -108,7 +108,11 @@ flowchart LR
   points.
 - `sendKey(int)` is the main numeric key path. It maps key codes `1..37` onto
   `btnPressed(...)` or `btnReleased(...)` and key codes `38..43` onto the
-  dedicated function-key press and release handlers.
+  dedicated function-key press and release handlers. `0` releases the key last
+  pressed. `R47_KEY_CANCEL` (`-1`) lets it up for a touch the platform canceled:
+  it sets `showFunctionNameItem` to `ITM_NOP`, the abort upstream's release path
+  already knows, stops a pending single step, and skips the release of a key or
+  softkey an `ASSIGN` waits for.
 - `MainActivity.dispatchLiveKey(...)` is the live touch seam. It
   routes `R/S` and `EXIT` through `requestStopProgramNative()` before queue
   fallback, so live stop publication does not wait on the core-owner queue.

@@ -536,6 +536,38 @@ Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative(
   (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
 }
 
+// Run upstream's release of the key sendKey last pressed. Caller holds screenMutex.
+static void r47_release_pressed_key_locked(void) {
+  if (currentPressedKeyCode >= 38 && currentPressedKeyCode <= 43) {
+    btnFnReleased(NULL, &releaseEvent, currentPressedKeyStr);
+  } else if (currentPressedKeyCode >= 1 && currentPressedKeyCode <= 37) {
+    btnReleased(NULL, &releaseEvent, currentPressedKeyStr);
+  }
+}
+
+// Let the key sendKey last pressed up, for a touch the platform canceled, without
+// running what its release would. A function name on show is what the press has
+// left to do, so clearing it is the abort upstream's release path already knows.
+// A single step and an ASSIGN act on the release without reading that name, so
+// those two are stopped here. What the press did, such as a digit, stays done.
+// Caller holds screenMutex.
+static void r47_cancel_pressed_key_locked(void) {
+  if (currentPressedKeyCode == 0) {
+    return;
+  }
+  if (programRunStop == PGM_SINGLE_STEP) {
+    programRunStop = PGM_STOPPED;
+  }
+  // A softkey's press writes "ASSIGN " to tamBuffer, so its test is the key still down.
+  const bool assigning = calcMode == CM_ASSIGN && itemToBeAssigned != 0 &&
+                         (tamBuffer[0] == 0 || FN_key_pressed != 0);
+  showFunctionNameItem = ITM_NOP;
+  FN_timed_out_to_NOP_or_Executed = true;
+  if (!assigning) {
+    r47_release_pressed_key_locked();
+  }
+}
+
 JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
     JNIEnv *env, jobject thiz, jint keyCode) {
   (void)env;
@@ -565,13 +597,13 @@ JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
     return;
   }
 
-  LOGD("sendKey: UP (last=%d)", currentPressedKeyCode);
-
   pthread_mutex_lock(&screenMutex);
-  if (currentPressedKeyCode >= 38 && currentPressedKeyCode <= 43) {
-    btnFnReleased(NULL, &releaseEvent, currentPressedKeyStr);
-  } else if (currentPressedKeyCode >= 1 && currentPressedKeyCode <= 37) {
-    btnReleased(NULL, &releaseEvent, currentPressedKeyStr);
+  if (keyCode == R47_KEY_CANCEL) {
+    LOGD("sendKey: CANCEL (last=%d)", currentPressedKeyCode);
+    r47_cancel_pressed_key_locked();
+  } else {
+    LOGD("sendKey: UP (last=%d)", currentPressedKeyCode);
+    r47_release_pressed_key_locked();
   }
   pthread_mutex_unlock(&screenMutex);
   currentPressedKeyCode = 0;

@@ -57,6 +57,9 @@ _KOTLIN_SHELL_CODE: Final = re.compile(r"const val (\w+) = (\d+)")
 _C_SHELL_CASE: Final = re.compile(
     r"case R47_SHELL_(\w+):\s*return (-?)([A-Za-z_]\w*|\d+);",
 )
+_LIVE_KEY_ROUTER: Final = KOTLIN_R47ZEN_ROOT / "LiveKeyRouter.kt"
+_C_KEY_CANCEL: Final = re.compile(r"^#define R47_KEY_CANCEL \((-?\d+)\)$", re.MULTILINE)
+_KOTLIN_KEY_CANCEL: Final = re.compile(r"const val KEY_CANCEL = (-?\d+)")
 
 
 def _native_registered_methods() -> set[str]:
@@ -201,7 +204,7 @@ class NativeCallbackContractTest(unittest.TestCase):
 
 
 class NativeShellCodeContractTest(unittest.TestCase):
-    """Verify the shell codes agree across C and Kotlin and resolve to symbols."""
+    """Verify the shell and key cancel codes agree across C and Kotlin."""
 
     def test_shell_codes_parse(self) -> None:
         """The parsers must find codes on both sides, guarding against regex rot."""
@@ -237,6 +240,18 @@ class NativeShellCodeContractTest(unittest.TestCase):
             message = (
                 "shell codes resolved to raw item numbers, not items.h symbols: "
                 f"{numeric}"
+            )
+            raise AssertionError(message)
+
+    def test_c_and_kotlin_key_cancel_match(self) -> None:
+        """A canceled touch's code must be one value in jni_bridge.h and Kotlin."""
+        native = _C_KEY_CANCEL.findall(_JNI_BRIDGE.read_text(encoding="utf-8"))
+        kotlin = _KOTLIN_KEY_CANCEL.findall(
+            _LIVE_KEY_ROUTER.read_text(encoding="utf-8"),
+        )
+        if len(native) != 1 or native != kotlin:
+            message = (
+                f"key cancel drift: jni_bridge.h={native} LiveKeyRouter.kt={kotlin}"
             )
             raise AssertionError(message)
 

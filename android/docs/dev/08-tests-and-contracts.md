@@ -255,7 +255,8 @@ runs. What each one locks:
   `GetMethodID` in the glue names a `@Keep` `MainActivity` method with the same
   JNI signature, checked on a seeded drift first; the
   `R47_SHELL_*` codes in `jni_bridge.h` equal `NativeShellCodes.kt`, and
-  `jni_input.c` resolves each to an `items.h` symbol, never a number
+  `jni_input.c` resolves each to an `items.h` symbol, never a number; and
+  `R47_KEY_CANCEL` equals `LiveKeyRouter.KEY_CANCEL`
 - `test_robolectric_sdk_owner_contract.py`: no `robolectric.properties` sets
   `sdk`, `minSdk`, or `maxSdk`, and no JVM test `@Config` does but
   `ApiLevelArmsTest.kt`, whose levels must lie from
@@ -649,7 +650,8 @@ source is missing from this page:
   `haptic_keypress_duration_ms` `0..100` clamp, the Android-default versus
   custom override split, the press-only view-based
   `HapticFeedbackConstants.VIRTUAL_KEY` keypad cadence, the
-  release-without-haptic path, the cancel-without-haptic path, no vibration when
+  release-without-haptic path, the cancel-without-haptic path that sends
+  `LiveKeyRouter.KEY_CANCEL`, no vibration when
   the default path's view declines, the short one-shot override when the user
   opts into a custom keypress-duration override, and none when custom mode is set
   to `0 ms`; the haptics test also sends a real two-pointer
@@ -1028,7 +1030,10 @@ Android compatibility layer.
   and the VOL softkeys must show no value, `NOVAL`, as GTK's `getBeepVolume` answers.
   What a screen reader hears of the display must be X as Copy X gives it, the
   number being typed, or the error shown, marked as one, and a long text must be
-  cut at a character's first byte.
+  cut at a character's first byte. A key `sendKey` lets up with `R47_KEY_CANCEL`
+  must run nothing its release would: `+` must leave X alone, a single step must
+  leave X and the run state alone, and a key or a softkey an `ASSIGN` waits for
+  must stay unassigned; a whole `+` after the cancel must still add.
   Then it fills
   ten numbered registers, X, and Y with 2^60000, 18062 digits, and each copy must
   hold all of them: X once, the stack twice, all registers twelve times.

@@ -488,9 +488,12 @@ while matching the desktop simulator's stop-key parity during an active run.
   `Copy` semantics.
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout` uses
   press-only keypad haptics for calculator interaction. `ACTION_DOWN`
-  uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` and
-  `ACTION_CANCEL` only clear pressed state and send key `0` with no release
-  pulse. `HapticFeedbackController` owns the three preference-driven states
+  uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` clears pressed
+  state and sends key `0` and `ACTION_CANCEL` clears it and sends
+  `LiveKeyRouter.KEY_CANCEL`, neither with a release pulse. A canceled touch runs
+  nothing the press had left for its release: a function does not run, a single
+  step does not step, and an `ASSIGN` does not assign. What upstream does on the
+  press itself stays done: a digit is already entered. `HapticFeedbackController` owns the three preference-driven states
   behind that press path: `haptic_enabled` is the master gate,
   `haptic_use_android_default` is a dependent default-on toggle, and
   `haptic_keypress_duration_ms` is a custom `0..100 ms` slider that only

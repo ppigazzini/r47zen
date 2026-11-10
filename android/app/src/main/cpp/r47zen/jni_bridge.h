@@ -25,6 +25,11 @@
 #define R47_SHELL_MENU_HOME 1
 #define R47_SHELL_MENU_MY_MENU 2
 
+// The code Kotlin passes to sendKey for a touch the platform canceled; 0 is a
+// release, and 1 to 43 a press. LiveKeyRouter.KEY_CANCEL mirrors it, and
+// test_jni_registration_contract.py holds the two equal.
+#define R47_KEY_CANCEL (-1)
+
 extern JavaVM *g_jvm;
 extern jobject g_mainActivityObj;
 extern jmethodID g_requestFileId;

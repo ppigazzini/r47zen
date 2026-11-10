@@ -298,7 +298,7 @@ internal object ReplicaKeypadLayout {
 
                 MotionEvent.ACTION_CANCEL -> {
                     feedbackView.isPressed = false
-                    dispatchKey(0)
+                    dispatchKey(LiveKeyRouter.KEY_CANCEL)
                 }
             }
             true

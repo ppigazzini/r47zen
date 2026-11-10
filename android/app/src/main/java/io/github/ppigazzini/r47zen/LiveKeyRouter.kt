@@ -2,6 +2,14 @@ package io.github.ppigazzini.r47zen
 
 internal object LiveKeyRouter {
     /**
+     * Passed where a key code goes, for a touch the platform canceled: sendKey lets
+     * the key up without running what its release would. jni_bridge.h's
+     * R47_KEY_CANCEL mirrors it, and test_jni_registration_contract.py holds the two
+     * equal.
+     */
+    const val KEY_CANCEL = -1
+
+    /**
      * Route one live keypad press between the out-of-band direct stop and the
      * normal core queue, and returns nothing because the consequence is the
      * side effect (swallow vs forward).

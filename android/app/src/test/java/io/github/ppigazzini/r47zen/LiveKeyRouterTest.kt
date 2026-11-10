@@ -33,7 +33,7 @@ class LiveKeyRouterTest {
         // The direct-stop gate is the native fnStopProgram publisher. It must never
         // be consulted for a non-stop key, even if it would accept -- otherwise an
         // ordinary keypress could publish a spurious stop.
-        for (keyCode in listOf(-1, 0, 1, 32, 34, 35, 37, 38, 64)) {
+        for (keyCode in listOf(LiveKeyRouter.KEY_CANCEL, 0, 1, 32, 34, 35, 37, 38, 64)) {
             forwarded.clear()
             gateQueries = 0
             route(keyCode, gateAccepts = true)

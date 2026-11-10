@@ -6,8 +6,8 @@
 // It holds the copies whole: the statistical sums of an all-registers copy,
 // matrices to 60x60 with every value and whole UTF-8, and registers of 2^60000
 // (18062 digits) whose copies no fixed cap may cut. It holds the capture to the
-// one copy it runs. It also holds paste, SNAP, and the file answer to the live
-// core (see each check).
+// one copy it runs. It also holds paste, SNAP, the file answer, and a canceled
+// key to the live core (see each check).
 
 #include "jni_bridge.h"
 #include "keypad_fixture_bridge.h"
@@ -846,6 +846,97 @@ static int check_display_text(void) {
   return failures;
 }
 
+// sendKey's codes for the keys check_canceled_key presses.
+enum {
+  SEND_KEY_FIRST = 1,
+  SEND_KEY_DOWN = 28,
+  SEND_KEY_PLUS = 37,
+  SEND_KEY_SOFTKEY_1 = 38,
+};
+
+extern void runFunction(int16_t func);
+extern void showSoftmenu(int16_t id);
+extern void goToGlobalStep(int32_t step);
+
+static void send_key(int code) {
+  Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, code);
+}
+
+// Start an ASSIGN of + and press the key, or softkey, it waits for.
+static void press_into_assign(int code) {
+  reset_paste_state();
+  if (code == SEND_KEY_SOFTKEY_1) {
+    showSoftmenu(-MNU_MyMenu);
+  }
+  runFunction(ITM_ASSIGN);
+  itemToBeAssigned = ITM_ADD;
+  send_key(code);
+}
+
+// Leave ASSIGN as the cases found the core, with no softmenu but HOME.
+static void leave_assign(void) {
+  itemToBeAssigned = 0;
+  reset_paste_state();
+  showSoftmenu(-MNU_HOME);
+}
+
+// A touch the platform canceled reaches sendKey as R47_KEY_CANCEL, which lets the
+// key up without running what its release would: + adds nothing, a single step
+// runs no step, and an ASSIGN, to a key or a softkey, assigns nothing. A whole
+// press after the cancel still runs. The single step runs the program
+// check_paste_number left, whose first step is the number 8. Return the number of
+// failures.
+static int check_canceled_key(void) {
+  int failures = 0;
+
+  reset_paste_state();
+  send_key(SEND_KEY_PLUS);
+  send_key(R47_KEY_CANCEL);
+  failures += expect_register("canceled +", REGISTER_X, "7.");
+  send_key(SEND_KEY_PLUS);
+  send_key(0);
+  failures += expect_register("+ after a cancel", REGISTER_X, "15.");
+
+  reset_paste_state();
+  goToGlobalStep(1);
+  send_key(SEND_KEY_DOWN);
+  if (programRunStop != PGM_SINGLE_STEP) {
+    fprintf(stderr, "FAIL: the down key started no single step: runStop %d\n",
+            programRunStop);
+    failures++;
+  }
+  send_key(R47_KEY_CANCEL);
+  if (programRunStop == PGM_SINGLE_STEP) {
+    fprintf(stderr, "FAIL: a canceled single step left runStop %d\n", programRunStop);
+    failures++;
+  }
+  failures += expect_register("canceled single step", REGISTER_X, "7.");
+  programRunStop = PGM_STOPPED;
+
+  const calcKey_t keyBefore = kbd_usr[0];
+  press_into_assign(SEND_KEY_FIRST);
+  send_key(R47_KEY_CANCEL);
+  if (kbd_usr[0].primary != keyBefore.primary || calcMode != CM_ASSIGN) {
+    fprintf(stderr, "FAIL: a canceled key took the ASSIGN: %d to %d, mode %d\n",
+            keyBefore.primary, kbd_usr[0].primary, calcMode);
+    failures++;
+  }
+  kbd_usr[0] = keyBefore;
+  leave_assign();
+
+  const int16_t softkeyBefore = userMenuItems[0].item;
+  press_into_assign(SEND_KEY_SOFTKEY_1);
+  send_key(R47_KEY_CANCEL);
+  if (userMenuItems[0].item != softkeyBefore || calcMode != CM_ASSIGN) {
+    fprintf(stderr, "FAIL: a canceled softkey took the ASSIGN: %d to %d, mode %d\n",
+            softkeyBefore, userMenuItems[0].item, calcMode);
+    failures++;
+  }
+  userMenuItems[0].item = softkeyBefore;
+  leave_assign();
+  return failures;
+}
+
 // Run action with stderr sent to a file, write what it caught back to stderr, and
 // say whether that holds needle. A fault inside action aborts with its report in
 // the file, so the line before it names the step.
@@ -1004,6 +1095,7 @@ int main(void) {
   failures += check_aim_faces_follow_num_lock();
   failures += check_volume_softkeys_show_no_value();
   failures += check_display_text();
+  failures += check_canceled_key();
 
   // Ten numbered registers of 2^60000 make the all-registers copy about 220 KB,
   // and X and Y of it make the stack copy twice the digits. Keep the set inside
