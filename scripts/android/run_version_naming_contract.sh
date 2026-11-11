@@ -2,9 +2,12 @@
 
 # Contract: the version and naming rules a release is held to.
 #
-# check_release_version.sh must take the PATCH step when android/app/src/main/
-# is unchanged since the previous release, even when only tests, CI, or docs
-# changed, and the MINOR step with PATCH 0 (or the MAJOR step) when it changed.
+# check_release_version.sh must take the MINOR step with PATCH 0 (or the MAJOR
+# step) when a feature changed android/app/src/main/ since the previous release:
+# a feat commit, a commit with "!" after its type, or one with no Conventional
+# Commits type. It must take the PATCH step when fixes and other types alone
+# changed it, when a feature outside it or one reverted before the release did,
+# and when only tests, CI, or docs changed.
 # From a pre-release name, the release that every release before these rules
 # was (0.1.13-signed.2026102901), the steps drop the suffix as npm semver's
 # inc() does. It must refuse a malformed version, a skipped or repeated one,
@@ -58,12 +61,24 @@ mkdir -p "$repo/android/app/src/main" "$repo/android/app/src/test" "$repo/script
 echo 'class App' >"$repo/android/app/src/main/App.kt"
 echo 'class AppTest' >"$repo/android/app/src/test/AppTest.kt"
 echo 'echo ci' >"$repo/scripts/ci.sh"
-base="$(commit base)"
+base="$(commit "chore: base")"
 echo 'echo ci2' >"$repo/scripts/ci.sh"
 echo 'class AppTest2' >"$repo/android/app/src/test/AppTest.kt"
-repo_only="$(commit "ci and tests")"
+repo_only="$(commit "ci: change CI and tests")"
 echo 'class App2' >"$repo/android/app/src/main/App.kt"
-app_changed="$(commit "app code")"
+app_changed="$(commit "feat(app): add a feature")"
+echo 'class App3' >"$repo/android/app/src/main/App.kt"
+app_fixed="$(commit "fix(app): fix the feature")"
+echo 'echo ci3' >"$repo/scripts/ci.sh"
+feature_outside="$(commit "feat(ci): add a feature outside the app")"
+echo 'class App4' >"$repo/android/app/src/main/App.kt"
+breaking_fix="$(commit "fix(app)!: fix the feature, breaking a setting")"
+echo 'class App5' >"$repo/android/app/src/main/App.kt"
+untyped="$(commit "change the app with no type")"
+echo 'class App6' >"$repo/android/app/src/main/App.kt"
+commit "feat(app): add a feature" >/dev/null
+echo 'class App5' >"$repo/android/app/src/main/App.kt"
+reverted="$(commit "revert: drop the feature")"
 
 # check <desc> <want pass|fail> <version> <previous version> <previous commit> <head>
 check() {
@@ -89,6 +104,14 @@ check "release, app changed: MINOR with PATCH 0" pass 0.2.0 0.1.14 "$base" "$app
 check "release, app changed: MAJOR" pass 1.0.0 0.1.14 "$base" "$app_changed"
 check "release, app changed: PATCH is refused" fail 0.1.15 0.1.14 "$base" "$app_changed"
 check "release, app changed: PATCH must reset" fail 0.2.1 0.1.14 "$base" "$app_changed"
+check "release, app fixed only: PATCH" pass 0.2.1 0.2.0 "$app_changed" "$app_fixed"
+check "release, app fixed only: no MINOR step" fail 0.3.0 0.2.0 "$app_changed" "$app_fixed"
+check "release, app fixed and a feature outside it: PATCH" pass 0.2.1 0.2.0 "$app_changed" "$feature_outside"
+check "release, a breaking fix: MINOR step" pass 0.3.0 0.2.0 "$feature_outside" "$breaking_fix"
+check "release, a breaking fix: PATCH is refused" fail 0.2.1 0.2.0 "$feature_outside" "$breaking_fix"
+check "release, an untyped app change: MINOR step" pass 0.3.0 0.2.0 "$breaking_fix" "$untyped"
+check "release, an untyped app change: PATCH is refused" fail 0.2.1 0.2.0 "$breaking_fix" "$untyped"
+check "release, a feature reverted before it: PATCH" pass 0.2.1 0.2.0 "$untyped" "$reverted"
 check "first release: any major.minor.patch" pass 0.1.13 "" "" "$app_changed"
 check "malformed: two fields" fail 0.1 "" "" "$app_changed"
 check "malformed: leading zero" fail 0.01.3 "" "" "$app_changed"

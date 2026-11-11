@@ -473,6 +473,12 @@ Current repository icon surfaces:
   [version rules](10-writing.md#version-numbers) follow; item 3 (a modified
   release is a new version), item 7 (PATCH resets on a MINOR step), item 9
   (a `-` suffix makes a pre-release), and item 11 (precedence).
+- [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
+  the subject form the [commit rules](10-writing.md#commit-messages) follow,
+  and the release step a type implies: `fix` correlates with PATCH, `feat`
+  with MINOR, and a `!` after the type or scope, or a `BREAKING CHANGE:`
+  footer, with MAJOR. `check_release_version.sh` reads the type and the `!`
+  of each commit that touched app code.
 - [node-semver increment fixtures](https://github.com/npm/node-semver/blob/main/test/fixtures/increments.js):
   how npm's `inc()` steps from a pre-release (`['1.2.3-4', 'patch', '1.2.3']`,
   `['1.2.3-4', 'minor', '1.3.0']`), which `check_release_version.sh` follows

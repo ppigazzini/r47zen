@@ -893,11 +893,11 @@ This workflow:
   track
 - holds the version to the [version rules](10-writing.md#version-numbers)
   with `scripts/android/check_release_version.sh`: a plain
-  `major.minor.patch`, the PATCH step from the previous release when
-  `android/app/src/main/` is unchanged since the commit that release was built
-  from (`android_source_commit` in its APK evidence), and the MINOR step with
-  PATCH 0 when it changed. The diff needs that commit, so
-  `resolve-release-inputs` checks out with `fetch-depth: 0`
+  `major.minor.patch`, the MINOR step with PATCH 0 when a `feat` commit, or
+  one with a `!` or no type, changed `android/app/src/main/` since the commit
+  the previous release was built from (`android_source_commit` in its APK
+  evidence), and the PATCH step otherwise. The diff and the log need that
+  commit, so `resolve-release-inputs` checks out with `fetch-depth: 0`
 - derives the release tag `r47zen-v<version>` and the title
   `R47 Zen <version>` once, in `resolve-release-inputs`, which runs no
   upstream code; the tag-exists guard and the publish step read the same value

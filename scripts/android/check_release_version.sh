@@ -2,11 +2,15 @@
 
 # Hold a production release version to the rules in
 # android/docs/dev/10-writing.md#version-numbers: every release gets a new
-# major.minor.patch, a release whose app code changed since the previous
-# release bumps MINOR and resets PATCH (or bumps MAJOR), and any other release
-# bumps PATCH. App code is android/app/src/main/, what this repo ships in the
-# APK. A release that changes only the upstream firmware, CI, the build, tests,
-# or docs is a PATCH release.
+# major.minor.patch. A release whose app code a feature changed since the
+# previous release bumps MINOR and resets PATCH (or bumps MAJOR); any other
+# release bumps PATCH. App code is android/app/src/main/, what this repo ships
+# in the APK. A feature is a commit since the previous release that touches app
+# code and whose Conventional Commits subject is feat, or carries a "!" after
+# its type or scope. A subject with no Conventional Commits type also counts, so
+# a commit the rules cannot read never passes as a fix. A release that changes
+# app code by fixes and other types only, or only the upstream firmware, CI, the
+# build, tests, or docs, is a PATCH release.
 #
 # The previous release is named by its version, from the
 # "- Android version <name> (<code>)" line resolve_previous_release.sh reads,
@@ -135,27 +139,46 @@ if ! git -C "$repo" cat-file -e "${previous_commit}^{commit}" 2>/dev/null; then
     exit 1
 fi
 
+# The net change decides whether app code changed at all, so a feature reverted
+# before the release leaves a PATCH release; the commits decide what kind of change.
 changed="$(git -C "$repo" diff --name-only "$previous_commit" "$head_rev" -- "$app_code_path")"
 
+features=""
 if [[ -n "$changed" ]]; then
+    conventional_re='^([a-z]+)(\([^)]*\))?(!)?: '
+    while read -r sha subject; do
+        if [[ "$subject" =~ $conventional_re && "${BASH_REMATCH[1]}" != "feat" && -z "${BASH_REMATCH[3]}" ]]; then
+            continue
+        fi
+        features+="${sha} ${subject}"$'\n'
+    done < <(git -C "$repo" log --no-merges --format='%h %s' "${previous_commit}..${head_rev}" -- "$app_code_path")
+fi
+
+if [[ -n "$features" ]]; then
     echo "app_changed=true"
     echo "expected=${minor_step}"
     if [[ "$version" == "$minor_step" || "$version" == "$major_step" ]]; then
         exit 0
     fi
-    count="$(wc -l <<<"$changed" | tr -d ' ')"
+    count="$(grep -c . <<<"$features")"
     {
-        echo "App code (${app_code_path}) changed since ${previous_version}, ${count} file(s), for example:"
-        head -n 5 <<<"$changed" | sed 's/^/  /'
+        echo "A feature changed app code (${app_code_path}) since ${previous_version}, ${count} commit(s), for example:"
+        head -n 5 <<<"$features" | sed 's/^/  /'
         echo "The release takes the MINOR step, PATCH reset: ${minor_step} (or ${major_step} for a MAJOR step), not ${version}."
     } >&2
     exit 1
 fi
 
-echo "app_changed=false"
+if [[ -n "$changed" ]]; then
+    echo "app_changed=true"
+    reason="App code (${app_code_path}) changed since ${previous_version} by no feature, only fixes and other types"
+else
+    echo "app_changed=false"
+    reason="App code (${app_code_path}) is unchanged since ${previous_version}"
+fi
 echo "expected=${patch_step}"
 if [[ "$version" == "$patch_step" ]]; then
     exit 0
 fi
-echo "App code (${app_code_path}) is unchanged since ${previous_version}: the release takes the PATCH step, ${patch_step}, not ${version}." >&2
+echo "${reason}: the release takes the PATCH step, ${patch_step}, not ${version}." >&2
 exit 1

@@ -41,9 +41,9 @@ resolve jobs runs only on `main`, except in a dry run, which publishes nothing.
    version is the next SemVer step
    ([rules](10-writing.md#version-numbers)). The `Check the next release
    numbers` step of `android-ci`'s `upstream-release-gate` job runs the same
-   checks on every run and warns when they fail. If app code changed since the
-   previous release and the file still names a PATCH step, commit the MINOR
-   step first.
+   checks on every run and warns when they fail. If a `feat` commit changed app
+   code since the previous release and the file still names a PATCH step,
+   commit the MINOR step first.
 
 3. **Choose the Play track.** `none`, the default, publishes the GitHub
    release alone; `internal` is the internal testing track, `alpha` the
@@ -157,8 +157,8 @@ cause.
 | `R47_DEFAULT_ANDROID_VERSION_CODE must be <n> (previous production release used <m>), got <x>.` | the file's code is not the previous plus one, usually a forgotten "open the next release" commit | commit `<n>` and its version, then dispatch |
 | `R47_DEFAULT_ANDROID_VERSION_CODE <x> is above 100000; ...` | a date was written as the code | commit the counter |
 | `No -dev release r47zen-<u8>-<a8>-dev with an APK: android-ci has not passed on ...` (in `require-green-ci`) | upstream moved since android-ci last passed on `main`, or android-ci failed on this pair | `gh workflow run android-ci.yml --ref main`, then dispatch once it publishes; or dispatch with `upstream_commit` set to a pair it passed |
-| `... the release takes the PATCH step, <v>, not <x>.` | app code is unchanged since the previous release, and the file names another version | commit `<v>` |
-| `App code (android/app/src/main/) changed since <prev> ... The release takes the MINOR step, PATCH reset: <v> ...` | app code changed, and the file names a PATCH step | commit `<v>` ([rules](10-writing.md#version-numbers)) |
+| `... the release takes the PATCH step, <v>, not <x>.` | no feature changed app code since the previous release: it is unchanged, or fixes and other types alone changed it; and the file names another version | commit `<v>` |
+| `A feature changed app code (android/app/src/main/) since <prev> ... The release takes the MINOR step, PATCH reset: <v> ...` | a commit that touched app code is `feat`, carries a `!`, or has no type, as the message lists, and the file names a PATCH step | commit `<v>` ([rules](10-writing.md#version-numbers)) |
 | `Commit <sha> of the previous release <prev> is on no ref this checkout fetched, so a rerun repeats this: ...` | the previous release's `android_source_commit` is on no branch or tag, as a re-cut followed by a rewrite of `main` leaves it; the job already checks out with `fetch-depth: 0` | push a tag or branch at that commit, from a clone that still has it (`git push origin <sha>:refs/tags/<name>`), then dispatch again |
 | `Release tag <tag> already exists; refusing to overwrite a published release.` | that version was released | commit the next version; set `allow_overwrite=true` only to re-cut that release on purpose |
 | `allow_overwrite=true re-cuts version code <x>, which Play refuses to take twice; ...` | a re-cut keeps the code, and Play takes a code once | re-cut with `play_track=none`, or release the next code |

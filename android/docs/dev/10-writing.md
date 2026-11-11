@@ -247,12 +247,22 @@ rules ([the gates](#the-gates)); the release procedure is
   (SemVer item 3). SemVer owns the format and the sort order. The MINOR and
   PATCH rules below are this repo's decision: SemVer item 4 leaves a `0.y.z`
   version free, and items 6 and 7 bind a version from `1.0.0` on.
-- **App code changed since the previous release: MINOR, PATCH reset to 0.**
-  App code is `android/app/src/main/`, what this repo ships in the APK. A
-  change there takes `0.1.14` to `0.2.0`, whether it fixes or adds; a MAJOR
-  step (`1.0.0`) also passes.
-- **Anything else: PATCH.** A release that changes only the upstream
-  firmware, CI, the build, tests, or docs takes `0.1.13` to `0.1.14`.
+- **A feature in app code since the previous release: MINOR, PATCH reset to
+  0.** App code is `android/app/src/main/`, what this repo ships in the APK.
+  A feature is a commit that touches it and whose
+  [commit](#commit-messages) type is `feat`, or that carries a `!` after its
+  type or scope (`fix(settings)!:`), Conventional Commits' mark of a breaking
+  change. Such a commit takes `0.1.14` to `0.2.0`; a MAJOR step (`1.0.0`) also
+  passes. A subject with no type counts as a feature, so a commit the check
+  cannot read never passes as a fix. The check reads the subject's `!` and
+  not a `BREAKING CHANGE:` footer, and it never requires MAJOR: from `1.0.0`
+  on, SemVer item 8 makes a breaking change a MAJOR step, a rule the check
+  does not yet hold.
+- **Anything else: PATCH.** A release whose app code changed by `fix`,
+  `refactor`, and the other types alone, or that changes only the upstream
+  firmware, CI, the build, tests, or docs, takes `0.1.13` to `0.1.14`. So
+  does a release whose feature was reverted before it: the net change to app
+  code decides whether it changed at all.
 - **From a pre-release, drop the suffix.** SemVer sorts
   `0.1.13-signed.2026102901` before the plain `0.1.13`, so the PATCH step from
   it is `0.1.13` and the MINOR step `0.2.0`, as npm semver's `inc()` steps.
@@ -260,8 +270,8 @@ rules ([the gates](#the-gates)); the release procedure is
   one: `R47_DEFAULT_ANDROID_VERSION_CODE`, the previous code plus one, and
   `R47_DEFAULT_ANDROID_VERSION_NAME`. Right after a release, a commit opens
   the next numbers (`chore(release): open 0.1.14 (11)` after 0.1.13 with code
-  10), and a commit that changes app code moves a pending PATCH step to the
-  MINOR step. The release form confirms both numbers; it never invents them.
+  10), and a feature in app code moves a pending PATCH step to the MINOR
+  step. The release form confirms both numbers; it never invents them.
 - **A dev build is a pre-release of the next version**,
   `<version>-<run>.<attempt>`: `0.1.14-53.1` sorts after `0.1.13` and before
   `0.1.14`. The `-` already makes it a pre-release, so it carries no label.
@@ -314,8 +324,9 @@ The mechanical checks:
   the release lane's `resolve-release-inputs` refuses a version that breaks
   them, and `android-ci`'s `upstream-release-gate` warns on every run.
   `scripts/android/run_version_naming_contract.sh` proves it on a seeded
-  repository. It reads only paths: it cannot tell a fix under
-  `android/app/src/main/` from a feature, and both take the MINOR step.
+  repository. It reads the paths a commit touches and the type its subject
+  claims, not what the change does: a feature committed as `fix` takes the
+  PATCH step, and only review catches it.
 - `scripts/docs/check_commit_message.sh` holds the mechanical half of the
   [commit rules](#commit-messages): the subject shape and length, the blank
   second line, the body width, no co-author or agent attribution, no British

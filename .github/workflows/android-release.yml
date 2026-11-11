@@ -212,8 +212,8 @@ jobs:
             fi
           else
             # Every release gets a new major.minor.patch: MINOR with PATCH 0
-            # when app code changed since the previous release, PATCH
-            # otherwise (android/docs/dev/10-writing.md#version-numbers).
+            # when a feature changed app code since the previous release,
+            # PATCH otherwise (android/docs/dev/10-writing.md#version-numbers).
             bash ./scripts/android/check_release_version.sh \
               --version "$version_name" \
               --previous-version "$previous_name" \
