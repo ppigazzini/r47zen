@@ -578,8 +578,10 @@ It:
   for a bundle, `BundleConfig.pb`'s uncompressed native libraries at
   `PAGE_ALIGNMENT_16K`, which Play requires from 2027-02-01
   (`r47_contracts/page_alignment_16k.py`), the signer
-  certificate digest, the dev version, the upstream core's own version
-  (`upstream_version`, `VERSION1` from `src/c47/defines.h`, read by
+  certificate digest, the dev version, the upstream release the core is
+  (`upstream_version`, `VERSION1` from `src/c47/defines.h` when upstream's tag
+  of that name points at the core commit, else an empty line, which the release
+  notes show as `C47 custom build`; read by
   `scripts/android/read_upstream_version.sh` in the build job), and the host
   tools that generated shipped code (`host_tools`, the Meson, Ninja, C compiler,
   and FreeType versions `scripts/android/describe_host_tools.sh` reads in the
@@ -748,8 +750,9 @@ The tag stays commit-only because `upstream-release-gate` keys on it. A rebuild
 of the same commit pair names its APK by its own run, so the job first deletes
 the tag's earlier assets; until the new ones land the tag carries no APK,
 which the gate reads as unpublished. The notes name the dev version, the
-upstream commit with its `C47 <version>`, and the signing certificate, and
-the run summary links the release and the APK.
+upstream commit with its `C47 <version>`, or `C47 custom build` when the core
+commit is no release tag, the Android commit, and the signing certificate,
+and the run summary links the release and the APK.
 
 Beside the APK it attaches `<APK stem>_core-source.tar.gz`, the source of the
 core the APK is built from, which `scripts/android/archive_core_source.sh`
@@ -907,9 +910,11 @@ This workflow:
   -Pr47.pgoProfilePath=...` unsigned, so the release APK and AAB consume the
   same collected host-core profile that the wrapper already validated, and
   fails if AGP reports a signed APK or the bundle carries a JAR signature
-- reads the upstream core's own version with
-  `scripts/android/read_upstream_version.sh` and passes it to Gradle as
-  `r47.upstreamVersion`, which the About line shows beside the core commit
+- reads the upstream release the core is with
+  `scripts/android/read_upstream_version.sh`, empty unless the core commit is
+  that release's tag, and passes it to Gradle as `r47.upstreamVersion` for the
+  About line's core line
+  ([01](01-build-and-source-layout.md#checked-in-defaults))
 - uploads the release build logs, the host-core PGO artifact bundle, and the
   unsigned APK, unsigned AAB, `mapping.txt`, and `native-debug-symbols.zip` as
   `r47zen_<version>_<upstream short>_<android short>-unsigned`
@@ -1051,7 +1056,8 @@ This workflow job:
   "Reinstall required" notice naming that release and its certificate:
   Android refuses an update across a signer change. `resolve-release-inputs`
   downloads that evidence and fails when it records no certificate
-- names the upstream commit with its `C47 <version>` in the notes
+- names the upstream commit with its `C47 <version>`, or `C47 custom build`
+  when the core commit is no release tag, and the Android commit in the notes
 - writes a run summary: the release link, the signing certificate, the Play
   track, and the two lines that open the next release
 
@@ -1094,10 +1100,11 @@ Runs on `main` after `publish-production-release` unless the dispatch sets
 - fails unless the AAB's `BUILD-METADATA.txt` records the run's version
   code, and fails before it contacts Google when either `play-upload`
   variable is empty
-- writes the `play_release_notes` input, or by default the version and the
-  calculator core (`C47 <version>` and the upstream short commit), as the
-  en-US release notes; Play refuses more than 500 characters per language,
-  and so does the job
+- writes the `play_release_notes` input, or by default the About line as one
+  line, `R47 Zen <version> (<code>), <android8>. Core: C47 custom build
+  <core8>.`, with `C47 <version>, <core8>` when the core commit is that
+  release's tag, as the en-US release notes; Play refuses more than 500
+  characters per language, and so does the job
 - exchanges the job's GitHub OIDC token for a short-lived token of the Play
   upload service account through `google-github-actions/auth`. No key exists
   and the job names no secret

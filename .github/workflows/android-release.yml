@@ -462,7 +462,9 @@ jobs:
             "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
-          echo "upstream_version=$(bash ./scripts/android/read_upstream_version.sh src/c47/defines.h)" >> "$GITHUB_OUTPUT"
+          echo "upstream_version=$(bash ./scripts/android/read_upstream_version.sh src/c47/defines.h \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}")" >> "$GITHUB_OUTPUT"
 
       - name: Set release metadata
         id: meta
@@ -1634,10 +1636,8 @@ jobs:
           signer_cert=$(bash ./scripts/android/read_build_metadata.sh release-apk/BUILD-METADATA.txt artifact_signing_cert_sha256 sha256)
           upstream_short_commit="${upstream_commit:0:8}"
           android_short_commit="${android_commit:0:8}"
-          core_label=""
-          if [[ -n "$upstream_version" ]]; then
-            core_label=" (C47 ${upstream_version})"
-          fi
+          # upstream_version is empty unless the core commit is that release's tag.
+          core_label=" (C47 ${upstream_version:-custom build})"
 
           cat > release-notes.md <<EOF
           - Release tag ${R47_RELEASE_TAG}
@@ -1883,10 +1883,14 @@ jobs:
           fi
 
           notes="$R47_PLAY_RELEASE_NOTES"
-          if [[ -z "$notes" && -n "$upstream_version" ]]; then
-            notes="R47 Zen ${version_name}. Calculator core C47 ${upstream_version} (${upstream_commit:0:8})."
-          elif [[ -z "$notes" ]]; then
-            notes="R47 Zen ${version_name}. Calculator core commit ${upstream_commit:0:8}."
+          if [[ -z "$notes" ]]; then
+            # The About line's two lines as one; upstream_version is empty unless
+            # the core commit is that release's tag.
+            core="C47 custom build ${upstream_commit:0:8}"
+            if [[ -n "$upstream_version" ]]; then
+              core="C47 ${upstream_version}, ${upstream_commit:0:8}"
+            fi
+            notes="R47 Zen ${version_name} (${version_code}), ${android_commit:0:8}. Core: ${core}."
           fi
           # Play refuses release notes over 500 characters per language.
           if [[ "${#notes}" -gt 500 ]]; then

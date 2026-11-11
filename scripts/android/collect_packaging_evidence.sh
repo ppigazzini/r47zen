@@ -552,7 +552,15 @@ write_metadata_line "run_id" "$run_id" "$build_metadata_file"
 write_metadata_line "run_attempt" "$run_attempt" "$build_metadata_file"
 write_metadata_line "upstream_url" "$upstream_source_repository_url" "$build_metadata_file"
 write_metadata_line "upstream_commit" "$upstream_source_commit" "$build_metadata_file"
-write_metadata_line "upstream_version" "$upstream_version" "$build_metadata_file"
+# The upstream release the core is, from read_upstream_version.sh in the build job:
+# empty when the core commit is no release tag. The line is written either way, since
+# read_build_metadata.sh refuses a missing key and the notes read an empty one as a
+# custom build.
+if [[ ! "$upstream_version" =~ ^[0-9A-Za-z.-]{0,40}$ ]]; then
+    echo "Refusing the upstream version '${upstream_version}'." >&2
+    exit 1
+fi
+printf 'upstream_version=%s\n' "$upstream_version" >>"$build_metadata_file"
 # The host tools that generated shipped code, from describe_host_tools.sh in the
 # build job, which ran upstream code: one plain line or none.
 if [[ -n "$host_tools" && ! "$host_tools" =~ ^[A-Za-z0-9\ ._()+-]{1,200}$ ]]; then

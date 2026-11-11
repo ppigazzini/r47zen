@@ -166,10 +166,18 @@ hydrated on demand, or only exercised in CI before updating the docs.
   `r47.coreVersion`; without the first two, Gradle reads the next release's
   numbers from `R47_DEFAULT_ANDROID_VERSION_CODE` and
   `R47_DEFAULT_ANDROID_VERSION_NAME` in `android/r47-defaults.properties`
-- `r47.upstreamVersion`, the upstream core's `VERSION1` that
-  `build_android.sh` reads with `scripts/android/read_upstream_version.sh`,
-  joins the core commit on the About line as `C47 <version>, <commit>`; an
-  empty or malformed value leaves the commit alone
+- the About line names both commits, as the published file names do:
+  `R47 Zen <versionName> (<versionCode>), <android8>`, then
+  `Core: C47 custom build <core8>`. `<android8>` comes from
+  `r47.sourceCommit`; a build without it reads its own tree and adds `-mod`
+  for uncommitted changes. `r47.upstreamVersion`, which `build_android.sh`
+  takes from `scripts/android/read_upstream_version.sh`, is the core's
+  `VERSION1` only when upstream's tag of that name points at the core commit,
+  and then the core line reads `Core: C47 <version>, <core8>`. Upstream sets
+  `VERSION1` when it cuts a release and keeps it until the next, so a commit
+  between releases carries the last release's number, and upstream's own
+  build names it `custom build <commit>`. `SettingsPreferenceSummaryTest`
+  locks the format, `run_version_naming_contract.sh` the tag check
 - release minify and resource shrinking default to on via
   `r47.releaseMinify` and `r47.releaseShrinkResources`
 - `r47.releaseChannel=dev` switches the release install identity to `.dev`,
@@ -646,7 +654,8 @@ Build-safety rule:
   reconfigures `build.sim` through Meson with Android-owned options and then
   builds `ninja sim` directly.
 3. `scripts/android/stage_native_sources.sh` copies the synced core tree,
-  `dep/decNumberICU`, generated outputs, `vcs.h`, `r47_backup_version.h` (the state
+  `dep/decNumberICU`, generated outputs, `vcs.h` (the core commit, which the
+  core's VERSION screen shows after `custom build`), `r47_backup_version.h` (the state
   file versions `restoreCalc()` takes, read from `saveRestoreBackup.c`), and mini-gmp
   inputs into
   `android/.staged-native/cpp`, then regenerates

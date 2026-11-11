@@ -620,7 +620,9 @@ jobs:
             "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
-          echo "upstream_version=$(bash ./scripts/android/read_upstream_version.sh src/c47/defines.h)" >> "$GITHUB_OUTPUT"
+          echo "upstream_version=$(bash ./scripts/android/read_upstream_version.sh src/c47/defines.h \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}")" >> "$GITHUB_OUTPUT"
 
       - name: Set build metadata
         id: meta
@@ -1745,10 +1747,8 @@ jobs:
           version_name=$(bash ./scripts/android/read_build_metadata.sh release-assets/BUILD-METADATA.txt version_name dev-version-name)
           version_code=$(bash ./scripts/android/read_build_metadata.sh release-assets/BUILD-METADATA.txt version_code version-code)
           signer_cert=$(bash ./scripts/android/read_build_metadata.sh release-assets/BUILD-METADATA.txt artifact_signing_cert_sha256 sha256)
-          core_label=""
-          if [[ -n "$upstream_version" ]]; then
-            core_label=" (C47 ${upstream_version})"
-          fi
+          # upstream_version is empty unless the core commit is that release's tag.
+          core_label=" (C47 ${upstream_version:-custom build})"
 
           cat > release-notes.md <<EOF
           - Snapshot tag ${release_tag}
@@ -1855,7 +1855,7 @@ jobs:
             echo
             echo "- Release: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG}"
             echo "- APK: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${dev_apk_name}"
-            echo "- Upstream commit: \`${upstream_commit}\`${upstream_version:+ (C47 ${upstream_version})}"
+            echo "- Upstream commit: \`${upstream_commit}\` (C47 ${upstream_version:-custom build})"
           } >> "$GITHUB_STEP_SUMMARY"
 
   ci-required:

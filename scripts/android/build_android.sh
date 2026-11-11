@@ -1021,9 +1021,11 @@ echo "--- Building APK ---"
 # Pass detected NDK/SDK versions as Project Properties to override build.gradle defaults
 GRADLE_PROPS=("-Pr47.ndkVersion=$IF_NDK_VERSION")
 GRADLE_PROPS+=("-Pr47.coreVersion=$COMMIT_HASH")
-# The About line names the core by its own version beside the commit; read it
-# from the staged copy, which is what this build compiles.
-UPSTREAM_VERSION_VALUE=$(bash "$ANDROID_SCRIPTS_DIR/read_upstream_version.sh" "$STAGED_CPP_DIR/c47/defines.h")
+# The About line names the core by its release when the core commit is that
+# release's tag, and as a custom build otherwise; read the release from the
+# staged copy, which is what this build compiles.
+UPSTREAM_VERSION_VALUE=$(bash "$ANDROID_SCRIPTS_DIR/read_upstream_version.sh" "$STAGED_CPP_DIR/c47/defines.h" \
+    "${RESOLVED_UPSTREAM_URL-}" "${RESOLVED_UPSTREAM_COMMIT-}")
 if [ -n "$UPSTREAM_VERSION_VALUE" ]; then GRADLE_PROPS+=("-Pr47.upstreamVersion=$UPSTREAM_VERSION_VALUE"); fi
 RELEASE_CHANNEL_OVERRIDE=${R47_RELEASE_CHANNEL-}
 RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE=${R47_RELEASE_CHANNEL_BUILD_TOKEN-}

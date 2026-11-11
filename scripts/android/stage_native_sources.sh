@@ -120,11 +120,15 @@ for generated_file in "${generated_files[@]}"; do
     copy_file_if_changed "$generated_file" "$GENERATED_DEST/$(basename "$generated_file")"
 done
 
+# The core's VERSION screen shows VCS_COMMIT_ID after "custom build", as
+# upstream's own build does. Upstream's build appends -mod for uncommitted
+# changes (git describe --dirty=-mod in src/c47/meson.build); the staged
+# sources are the core commit as fetched, so the commit goes alone.
 generated_vcs="$(mktemp)"
 cat >"$generated_vcs" <<EOF
 #if !defined(VCS_H)
   #define VCS_H
-  #define VCS_COMMIT_ID  "$CORE_HASH-mod"
+  #define VCS_COMMIT_ID  "$CORE_HASH"
 #endif
 EOF
 copy_file_if_changed "$generated_vcs" "$GENERATED_DEST/vcs.h"

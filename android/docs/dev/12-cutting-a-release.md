@@ -81,7 +81,9 @@ gh run watch "$(gh run list --workflow android-release.yml --limit 1 --json data
 ```
 
 `play_release_notes` sets the Play notes (500 characters at most); left blank,
-they name the version and the calculator core. In the GitHub UI: Actions ->
+they repeat the About line: the version and its code, the Android commit, and
+the core, `C47 custom build <commit>` unless the core commit is upstream's tag
+of the release its `VERSION1` names. In the GitHub UI: Actions ->
 Android Release -> Run workflow, with the same inputs.
 
 The jobs run in this order; a job starts when every job above it that it

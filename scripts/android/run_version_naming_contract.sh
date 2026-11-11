@@ -10,8 +10,10 @@
 # inc() does. It must refuse a malformed version, a skipped or repeated one,
 # and a previous commit missing from the history.
 #
-# read_upstream_version.sh must print VERSION1 from a defines.h and print
-# nothing for a missing file or a malformed define.
+# read_upstream_version.sh must print VERSION1 from a defines.h only when
+# upstream's tag of that name, annotated or lightweight, points at the core
+# commit, and nothing for a commit past the release, a remote it cannot read, no
+# commit, a missing file, or a malformed define.
 #
 # resolve_android_artifact_metadata.sh must name files
 # r47zen_<version>_<upstream8>_<android8>.<ext>, keep the commit-only dev tag
@@ -121,15 +123,41 @@ expected="$(bash "$CHECKER" --repo "$repo" --version 0.1.13 --previous-version "
     --previous-commit "$base" --head "$repo_only" | sed -n 's/^expected=//p')"
 [ "$expected" = "0.1.13" ] || contract_fail "expected= names '$expected', not 0.1.13."
 
+# An upstream whose release 00.109.05.00b2 is an annotated tag, a commit past it
+# that still reads 00.109.05.00b2, and a release 00.109.05.00b3 cut as a
+# lightweight tag.
+core="$work/core"
+git init -q "$core"
+core_commit() {
+    git -C "$core" -c user.name=contract -c user.email=contract@example.invalid \
+        commit -q --allow-empty -m "$1"
+    git -C "$core" rev-parse HEAD
+}
+released="$(core_commit release)"
+git -C "$core" -c user.name=contract -c user.email=contract@example.invalid \
+    tag -a -m release 00.109.05.00b2
+past_release="$(core_commit "past the release")"
+lightweight="$(core_commit "next release")"
+git -C "$core" tag 00.109.05.00b3
+
 defines="$work/defines.h"
 printf '%s\n' '// Version 00.109.02.07b11   Public Release' \
     '#define VERSION1 "00.109.05.00b2"       // major . minor . build' >"$defines"
-[ "$(bash "$READER" "$defines")" = "00.109.05.00b2" ] ||
-    contract_fail "read_upstream_version.sh did not read VERSION1."
-[ -z "$(bash "$READER" "$work/absent.h")" ] ||
-    contract_fail "read_upstream_version.sh printed a value for a missing file."
-printf '%s\n' '#define VERSION1 "00.109 beta"' >"$defines"
+[ "$(bash "$READER" "$defines" "$core" "$released")" = "00.109.05.00b2" ] ||
+    contract_fail "read_upstream_version.sh did not name the commit of an annotated release tag."
+[ -z "$(bash "$READER" "$defines" "$core" "$past_release")" ] ||
+    contract_fail "read_upstream_version.sh named a commit past the release as the release."
 [ -z "$(bash "$READER" "$defines")" ] ||
+    contract_fail "read_upstream_version.sh named a release with no commit to check."
+[ -z "$(R47_NET_RETRY_ATTEMPTS=1 bash "$READER" "$defines" "$work/no-remote" "$released" 2>/dev/null)" ] ||
+    contract_fail "read_upstream_version.sh named a release it could not look up."
+[ -z "$(bash "$READER" "$work/absent.h" "$core" "$released")" ] ||
+    contract_fail "read_upstream_version.sh printed a value for a missing file."
+printf '%s\n' '#define VERSION1 "00.109.05.00b3"' >"$defines"
+[ "$(bash "$READER" "$defines" "$core" "$lightweight")" = "00.109.05.00b3" ] ||
+    contract_fail "read_upstream_version.sh did not name the commit of a lightweight release tag."
+printf '%s\n' '#define VERSION1 "00.109 beta"' >"$defines"
+[ -z "$(bash "$READER" "$defines" "$core" "$released")" ] ||
     contract_fail "read_upstream_version.sh printed a malformed VERSION1."
 
 release_names="$(bash "$NAMER" --upstream-commit d8f0c932085890d4a18699560f1fd234065e29b7 \

@@ -122,6 +122,15 @@ def inferredAndroidSourceRepositoryUrl = normalizeRepositoryUrl(readGitOutput(['
 def defaultApplicationId = readDefaultValue('R47_DEFAULT_ANDROID_APPLICATION_ID')
 def androidSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.sourceRepositoryUrl') ?: inferredAndroidSourceRepositoryUrl ?: "https://github.com/ppigazzini/r47zen").toString())
 def androidSourceCommit = (project.findProperty('r47.sourceCommit') ?: readGitOutput(['rev-parse', 'HEAD']) ?: 'unknown').toString()
+// The Android commit the About line names, eight characters as in the published
+// file names. A build given no r47.sourceCommit reads its own tree and marks
+// uncommitted changes with -mod, as upstream's build marks its own (git describe
+// --dirty=-mod in src/c47/meson.build): rev-parse alone would name such a tree
+// by a commit it is not.
+def aboutAndroidCommit = project.findProperty('r47.sourceCommit')
+    ? androidSourceCommit.take(8)
+    : (readGitOutput(['describe', '--always', '--abbrev=40', '--dirty=-mod', '--match=NeVeRmAtCh'])
+        ?.with { it.take(8) + (it.endsWith('-mod') ? '-mod' : '') } ?: 'unknown')
 def upstreamSourceRepositoryUrl = normalizeRepositoryUrl(project.findProperty('r47.upstreamSourceRepositoryUrl')?.toString())
 def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toString()?.trim()
 def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.xlsxioSourceRepositoryUrl') ?: System.getenv('R47_XLSXIO_URL') ?: System.getenv('XLSXIO_URL') ?: readDefaultValue('R47_DEFAULT_XLSXIO_URL')).toString())
@@ -328,14 +337,17 @@ android {
     // of the r47zen_<version>_... file name, so it keeps to [0-9A-Za-z.-].
     def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z.-]/, "-")
     def normalizedReleaseChannelBuildToken = releaseChannelBuildToken?.replaceAll(/[^0-9A-Za-z.-]/, "-")
-    // The upstream core's own version (VERSION1 in src/c47/defines.h), read by
-    // scripts/android/read_upstream_version.sh; empty or malformed shows the
-    // commit alone.
+    // The upstream release the core is, from scripts/android/read_upstream_version.sh:
+    // VERSION1 in src/c47/defines.h when upstream's tag of that name points at the
+    // core commit, else empty. Empty or malformed names the core as upstream's own
+    // build names a commit with no release tag (src/c47/version.h.in), so the About
+    // line and the core's VERSION screen agree.
     def upstreamVersion = (project.findProperty('r47.upstreamVersion') ?: '').toString()
     if (!(upstreamVersion ==~ /[0-9A-Za-z.-]{1,40}/)) {
         upstreamVersion = ''
     }
-    def coreLabel = upstreamVersion ? "C47 ${upstreamVersion}, ${coreVersion.take(8)}" : coreVersion
+    def coreShortCommit = coreVersion.take(8)
+    def coreLabel = upstreamVersion ? "C47 ${upstreamVersion}, ${coreShortCommit}" : "C47 custom build ${coreShortCommit}"
     def releaseVersionCode = Integer.parseInt((project.findProperty('r47.versionCode') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_CODE')).toString())
     def releaseVersionName = (project.findProperty('r47.versionName') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_NAME')).toString()
     def isDevReleaseChannel = releaseChannel == 'dev'
@@ -376,7 +388,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = releaseVersionCode
         versionName = releaseVersionName
-        resValue "string", "about_version_summary", "R47 Zen ${effectiveAboutVersionName} (Core: ${coreLabel})"
+        // The app line, then the core line; aapt reads the escaped \n as a line break.
+        resValue "string", "about_version_summary",
+            "R47 Zen ${effectiveAboutVersionName} (${releaseVersionCode}), ${aboutAndroidCommit}\\nCore: ${coreLabel}"
         resValue "string", "android_source_repository_url", androidSourceRepositoryUrl
 
         // Use property override if provided, otherwise default to a verified version

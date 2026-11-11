@@ -8,9 +8,11 @@
 # - The reader prints the real values of the 0.2.0 release and of a dev build.
 # - It refuses, and never evaluates, a value of the wrong shape, a key that is missing
 #   or given twice, and a kind it does not know.
+# - collect_packaging_evidence.sh writes an upstream_version the reader takes, empty
+#   for a core with no release tag included, and refuses one of another shape.
 # - No workflow reads a BUILD-METADATA.txt key with a bare sed.
 #
-# Pure host test.
+# Host test; the writer's check builds a fixture bundle with cc and zip.
 
 set -Eeuo pipefail
 
@@ -73,6 +75,47 @@ printf 'version_code=12\nversion_code=13\n' >"$fixture/BUILD-METADATA.txt"
 printf 'version_name=0.2.0\n' >"$fixture/BUILD-METADATA.txt"
 ! read_value version_code version-code >/dev/null || contract_fail "the reader took a missing key."
 ! read_value version_name nonsense >/dev/null || contract_fail "the reader took an unknown kind."
+
+# The writer and the reader together: collect_packaging_evidence.sh, run on a fixture
+# bundle, writes an upstream_version the reader takes, the release's or the empty one
+# of a core with no release tag, and refuses one of another shape. The bundle carries
+# the release's ABIs, as the release evidence expects them.
+# shellcheck source=android/r47-defaults.properties
+. "$PROJECT_ROOT/android/r47-defaults.properties"
+IFS=, read -r -a release_abis <<<"$R47_DEFAULT_ANDROID_ABI_FILTERS"
+mkdir -p "$fixture/tree/base/assets"
+for asset in COPYING LICENSE.txt SOURCE; do
+    echo "$asset" >"$fixture/tree/base/assets/$asset"
+done
+cp "$SCRIPT_DIR/../r47_contracts/data/spdx_inventory_fixture.json" \
+    "$fixture/tree/base/assets/THIRD-PARTY.spdx.json"
+# Uncompressed native libraries at PAGE_ALIGNMENT_16K, as every real bundle carries.
+printf '\x12\x06\x12\x04\x08\x01\x10\x02' >"$fixture/tree/BundleConfig.pb"
+printf 'int r47_entry(void) { return 0; }\n' >"$fixture/lib.c"
+cc -shared -fPIC -o "$fixture/lib.so" "$fixture/lib.c"
+for abi in "${release_abis[@]}"; do
+    mkdir -p "$fixture/tree/base/lib/$abi"
+    cp "$fixture/lib.so" "$fixture/tree/base/lib/$abi/libr47zen.so"
+done
+(cd "$fixture/tree" && zip -qr "$fixture/fixture.aab" .)
+collect() {
+    rm -rf "$fixture/out"
+    bash "$PROJECT_ROOT/scripts/android/collect_packaging_evidence.sh" --variant release \
+        --bundle "$fixture/fixture.aab" --output-dir "$fixture/out" \
+        --expected-abis "$R47_DEFAULT_ANDROID_ABI_FILTERS" --upstream-version "$1" \
+        >"$fixture/collect.log" 2>&1
+}
+for written in 00.109.05.00b2 ""; do
+    collect "$written" || contract_fail "the evidence refused upstream version '$written':" \
+        "$(cat "$fixture/collect.log")"
+    read_back="$(bash "$READER" "$fixture/out/BUILD-METADATA.txt" upstream_version text)" ||
+        contract_fail "the reader refused the upstream version '$written' the evidence wrote."
+    [ "$read_back" = "$written" ] ||
+        contract_fail "the evidence wrote upstream version '$written' and the reader read '$read_back'."
+done
+if collect $'00.109\nversion_code=1'; then
+    contract_fail "the evidence wrote an upstream version that adds a key."
+fi
 
 bare="$(workflow_grep "sed -n 's/\^[a-z_0-9]*=//p' [^ |]*BUILD-METADATA\.txt" || true)"
 [ -z "$bare" ] || contract_fail "workflows read BUILD-METADATA.txt without read_build_metadata.sh:" "$bare"

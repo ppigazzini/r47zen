@@ -405,7 +405,18 @@ class SettingsPreferenceSummaryTest {
             "About R47 Zen",
             context.getString(R.string.settings_about_category_title),
         )
-        assertTrue(context.getString(R.string.about_version_summary).startsWith("R47 Zen "))
+        // Both commits, as the published file names carry them: the app line names
+        // the Android commit, the core line the core's release and commit, or
+        // upstream's "custom build" label for a commit that is no release.
+        val summary = context.getString(R.string.about_version_summary)
+        val commit = "([0-9a-f]{8}|unknown)"
+        assertTrue(
+            summary,
+            Regex(
+                "R47 Zen [0-9A-Za-z.-]+ \\(\\d+\\), $commit(-mod)?\n" +
+                    "Core: C47 (custom build $commit|[0-9A-Za-z.-]+, $commit)",
+            ).matches(summary),
+        )
     }
 
     @Test
