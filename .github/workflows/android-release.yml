@@ -1428,7 +1428,10 @@ jobs:
 
   publish-production-release:
     name: Publish production GitHub release
-    if: github.ref == 'refs/heads/main' && !inputs.dry_run
+    # sign-dry-run, which a real release skips, is an ancestor through
+    # verify-signed-artifacts, and an if with no status function skips a job behind
+    # any skipped ancestor. So always(), and each need must have succeeded.
+    if: always() && github.ref == 'refs/heads/main' && !inputs.dry_run && needs.resolve-release-inputs.result == 'success' && needs.resolve-upstream-core.result == 'success' && needs.build-production-release-bundle.result == 'success' && needs.sign-production-release.result == 'success' && needs.verify-production-release.result == 'success' && needs.verify-signed-artifacts.result == 'success' && needs.package-core-source.result == 'success'
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
@@ -1800,7 +1803,8 @@ jobs:
 
   upload-to-play:
     name: Upload signed AAB to Google Play
-    if: github.ref == 'refs/heads/main' && !inputs.dry_run && inputs.play_track != 'none'
+    # Behind sign-dry-run too, so the same form as publish-production-release.
+    if: always() && github.ref == 'refs/heads/main' && !inputs.dry_run && inputs.play_track != 'none' && needs.resolve-release-inputs.result == 'success' && needs.build-production-release-bundle.result == 'success' && needs.sign-production-release.result == 'success' && needs.publish-production-release.result == 'success'
     needs:
       - resolve-release-inputs
       - build-production-release-bundle

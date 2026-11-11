@@ -920,8 +920,11 @@ The `dry_run` input, off by default, runs the release lane on any branch and
 publishes nothing, so a change to the lane runs before the release that needs it.
 `resolve-release-inputs` refuses a dry run with any `play_track` but `none`. The
 build and both verify jobs run as they would on `main`. `sign-production-release`,
-`publish-production-release`, and `upload-to-play` never run in a dry run, and
-[`sign-dry-run`](#sign-production-release) signs the same bytes with a key it
+`publish-production-release`, and `upload-to-play` never run in a dry run. A
+real release skips `sign-dry-run`, an ancestor of the last two through
+`verify-signed-artifacts`, and GitHub skips a job behind a skipped ancestor
+unless its `if` names a status function, so both take `always()` and require
+each of their needs to have succeeded. [`sign-dry-run`](#sign-production-release) signs the same bytes with a key it
 generates and throws away, binding no environment and naming no secret.
 `verify-signed-artifacts` then holds the artifacts to that key's certificate in
 place of the tracked pin. `scripts/android/run_release_dry_run_contract.sh` holds

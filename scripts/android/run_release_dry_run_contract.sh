@@ -11,6 +11,11 @@
 #   * dry_run is a boolean input that defaults to false;
 #   * publish-production-release, upload-to-play, and sign-production-release
 #     run only on main and only when dry_run is false;
+#   * publish-production-release and upload-to-play have sign-dry-run, which a
+#     real release skips, as an ancestor, so each condition takes always() and
+#     requires each of its needs to have succeeded: with no status function,
+#     GitHub skips a job behind any skipped ancestor, and a real release would
+#     publish nothing;
 #   * sign-dry-run runs only in a dry run, binds no environment, and names no
 #     secret and no Play variable, so it can neither reach the release key nor
 #     the Play identity;
@@ -53,6 +58,20 @@ check_release_workflow() {
             "$condition" != *"!inputs.dry_run"* ]]; then
             echo "$job does not run on main only and never in a dry run: if: ${condition:-<none>}"
         fi
+    done
+
+    local need
+    for job in publish-production-release upload-to-play; do
+        condition="$(job_if "$file" "$job")"
+        if [[ "$condition" != "always() && "* ]]; then
+            echo "$job would be skipped behind sign-dry-run in a real release: if: ${condition:-<none>}"
+        fi
+        while IFS= read -r need; do
+            if [[ "$condition" != *"needs.$need.result == 'success'"* ]]; then
+                echo "$job does not require its need $need to have succeeded"
+            fi
+        done < <(workflow_job_block "$file" "$job" | strip_hash_comments |
+            awk '/^    needs:$/ { on = 1; next } on && /^      - / { print $2; next } on { exit }')
     done
 
     block="$(workflow_job_block "$file" sign-dry-run | strip_hash_comments)"
@@ -99,6 +118,9 @@ seed() {
 
 seed publish-in-dry-run "/^  publish-production-release:/,/^    if:/ s/ && !inputs\\.dry_run//"
 seed play-in-dry-run "/^  upload-to-play:/,/^    if:/ s/ && !inputs\\.dry_run//"
+seed publish-skipped-behind-dry-run "/^  publish-production-release:/,/^    if:/ s/if: always\\(\\) && /if: /"
+seed play-skipped-behind-dry-run "/^  upload-to-play:/,/^    if:/ s/if: always\\(\\) && /if: /"
+seed publish-takes-a-failed-need "/^  publish-production-release:/,/^    if:/ s/ && needs\\.package-core-source\\.result == 'success'//"
 seed sign-real-in-dry-run "/^  sign-production-release:/,/^    if:/ s/ && !inputs\\.dry_run//"
 seed dry-run-environment "/^  sign-dry-run:/,/^    if:/ s/^(    if: .*)$/\\1\\n    environment: production-release/"
 seed dry-run-secret "/^  sign-dry-run:/,/^  [a-z]/ s/R47_SIGNING_STORE_PASSWORD: throwaway/R47_SIGNING_STORE_PASSWORD: \${{ secrets.R47_RELEASE_STORE_PASSWORD }}/"
@@ -110,4 +132,4 @@ if [ -n "$violations" ]; then
     mapfile -t lines <<<"$violations"
     contract_fail "android-release.yml's dry run could publish or reach a credential:" "${lines[@]}"
 fi
-contract_pass "the release dry run publishes nothing and holds no credential (7 seeds flagged)."
+contract_pass "the release dry run publishes nothing and holds no credential (10 seeds flagged)."
