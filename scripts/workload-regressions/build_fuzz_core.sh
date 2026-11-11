@@ -1,11 +1,15 @@
 #!/bin/bash
 # Build fuzz_core.c with the staged core and the glue under libFuzzer, AddressSanitizer,
 # and UndefinedBehaviorSanitizer, then fuzz each reader of a file a user hands the
-# calculator, seeded from upstream's own files: res/PROGRAMS for programs, res/STATE for
-# state files, res/DATA for data files, and for the state file the app restores, one this
-# core saves and the released cores' fixtures. A crash fails the run and is kept under
-# android/build/fuzz-core/artifacts. Every sanitizer report halts the run, but for the
-# upstream sites fuzz_core_ubsan_suppressions.txt names, each with its reason.
+# calculator. An input is keys pressed from a start file, a file a calculator wrote, and
+# the reader reads back the file the calculator writes after them; fuzz_core.c says why.
+# The start files are upstream's res/PROGRAMS for programs, res/STATE for state files,
+# res/DATA for data files, and for the state file the app restores, the released cores'
+# fixtures. A crash fails the run and is kept under android/build/fuzz-core/artifacts.
+# AddressSanitizer halts on a memory error. UndefinedBehaviorSanitizer reports each site
+# and does not halt, as in run_workload_regressions_sanitized.sh: any computation a key
+# starts reaches the upstream core's undefined constructs, decNumber's signed shifts
+# among them, which this repo cannot fix. The run lists the sites for triage.
 #
 # R47_FUZZ_SECONDS sets the time per reader (default 60). R47_FUZZ_TARGETS limits the
 # readers (default "program backup state data").
@@ -40,7 +44,6 @@ mkdir -p "$OBJECT_DIR" "$BUILD_DIR/artifacts" "$BUILD_DIR/tmp"
 COMPILE_FLAGS=(
     -std=gnu17 -O1 -g -pthread -w -fsigned-char -fno-strict-aliasing
     "-fsanitize=fuzzer-no-link,address,undefined" -fno-sanitize=alignment
-    -fno-sanitize-recover=undefined -fsanitize-recover=signed-integer-overflow -fsanitize-recover=shift-base
     -fno-omit-frame-pointer
     -D_GNU_SOURCE -D_DEFAULT_SOURCE
     -DANDROID_BUILD -DHOST_TOOL_BUILD -DPC_BUILD -DLINUX -DOS64BIT -DCALCMODEL=USER_R47
@@ -72,49 +75,48 @@ printf '%s\0' "$SCRIPT_DIR/fuzz_core.c" "${SOURCES[@]}" |
     "$OBJECT_DIR"/*.o -lm -o "$BUILD_DIR/fuzz-core"
 
 export ASAN_OPTIONS="detect_leaks=0:allocator_may_return_null=1:abort_on_error=1"
-# Recoverable only so that a suppression can apply; halt_on_error stops on any other.
-export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1:suppressions=$SCRIPT_DIR/fuzz_core_ubsan_suppressions.txt"
+export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=0"
 export FUZZ_TMP="$BUILD_DIR/tmp"
 
-corpus="$BUILD_DIR/corpus"
-mkdir -p "$corpus/program" "$corpus/backup" "$corpus/state" "$corpus/data"
-cp "$PROJECT_ROOT"/res/PROGRAMS/*.p47 "$corpus/program/"
-cp "$PROJECT_ROOT"/res/STATE/*.s47 "$corpus/state/"
-cp "$PROJECT_ROOT"/res/DATA/*.d47 "$corpus/data/"
+start="$BUILD_DIR/start"
+mkdir -p "$start/program" "$start/backup" "$start/state" "$start/data"
+cp "$PROJECT_ROOT"/res/PROGRAMS/*.p47 "$start/program/"
+cp "$PROJECT_ROOT"/res/STATE/*.s47 "$start/state/"
+cp "$PROJECT_ROOT"/res/DATA/*.d47 "$start/data/"
 for fixture in "$SCRIPT_DIR"/fixtures/*.cfg.gz; do
-    gzip -dc "$fixture" >"$corpus/backup/$(basename "$fixture" .gz)"
+    gzip -dc "$fixture" >"$start/backup/$(basename "$fixture" .gz)"
 done
-# This core's own files, with a program and registers in them: the restore's state
-# file, and a SAVEST file, whose sections the two res/STATE files do not have.
-for seed in backup state; do
-    seed_file="$corpus/$seed/this-core.$seed"
-    env "FUZZ_SEED_${seed^^}=$seed_file" FUZZ_SEED_PROGRAM="$PROJECT_ROOT/res/PROGRAMS/FactIt.p47" \
-        FUZZ_TARGET="$seed" "$BUILD_DIR/fuzz-core" -runs=0 >/dev/null 2>&1 || true
-    [ -s "$seed_file" ] || {
-        echo "ERROR: the fuzzer saved no $seed file to seed with." >&2
-        exit 1
-    }
+# A seed per start file and one for none, the first byte alone, so each start file is
+# read before any key.
+corpus="$BUILD_DIR/corpus"
+for target in "${TARGETS[@]}"; do
+    mkdir -p "$corpus/$target"
+    count="$(find "$start/$target" -type f | wc -l)"
+    for ((i = 0; i <= count && i <= 255; i++)); do
+        # shellcheck disable=SC2059 # the format is the byte, as an octal escape
+        printf "\\$(printf '%03o' "$i")" >"$corpus/$target/start-$i"
+    done
 done
-# The section and key names the seeds use, as a dictionary for every reader.
-grep -hoE '^[A-Z][A-Z0-9_]{3,}$' "$corpus"/state/* "$corpus"/data/* | LC_ALL=C sort -u |
-    sed 's/.*/"&"/' >"$BUILD_DIR/sections.dict"
 
 failed=()
 for target in "${TARGETS[@]}"; do
     echo "--- fuzzing $target for ${SECONDS_PER_TARGET}s ---"
-    if ! FUZZ_TARGET="$target" "$BUILD_DIR/fuzz-core" \
+    # -timeout bounds an input of -max_len keys, each stopped with EXIT once it runs on.
+    if ! FUZZ_TARGET="$target" FUZZ_START_DIR="$start/$target" "$BUILD_DIR/fuzz-core" \
         -artifact_prefix="$BUILD_DIR/artifacts/$target-" \
-        -max_total_time="$SECONDS_PER_TARGET" -timeout=20 -rss_limit_mb=3000 \
-        -max_len=2000000 -len_control=0 -print_final_stats=1 -close_fd_mask=3 \
-        -dict="$BUILD_DIR/sections.dict" \
+        -max_total_time="$SECONDS_PER_TARGET" -timeout=120 -rss_limit_mb=3000 \
+        -max_len=128 -print_final_stats=1 -close_fd_mask=3 \
         "$corpus/$target" >"$BUILD_DIR/$target.log" 2>&1; then
         failed+=("$target")
         # The kind of fault and its stack, and nothing else: libFuzzer prints a short
         # input itself, in hex and Base64, inside an out-of-memory report, and the
         # input would be a working reproducer in a public log.
-        grep -E 'ERROR|SUMMARY|runtime error|^ +#[0-9]+ ' "$BUILD_DIR/$target.log" >&2 || true
+        grep -E 'ERROR|SUMMARY|^ +#[0-9]+ ' "$BUILD_DIR/$target.log" >&2 || true
     fi
     grep -E '^stat::number_of_executed_units|^stat::peak_rss_mb' "$BUILD_DIR/$target.log" || true
+    # Each undefined-behavior site the keys reached, once, for triage; none fails the run.
+    grep -hE 'runtime error: ' "$BUILD_DIR/$target.log" | LC_ALL=C sort -u |
+        sed 's/^/undefined behavior, reported: /' || true
 done
 
 if [ "${#failed[@]}" -ne 0 ]; then

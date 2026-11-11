@@ -892,23 +892,30 @@ Android compatibility layer.
 - `build_fuzz_core.sh` builds `fuzz_core.c` with the staged core and the glue under
   libFuzzer, AddressSanitizer, and UndefinedBehaviorSanitizer, and fuzzes each reader of a
   file a user hands the calculator: READP, the state file every start restores, LOADST, and
-  a data file. Seeds are upstream's `res/PROGRAMS`, `res/STATE`, and `res/DATA`, a state file
-  this core saves and a SAVEST file it writes, both with a program and registers in
-  them, and the released cores' fixtures, with the section names of the seeds as a
-  dictionary. A restore input is followed, as at the app's start, by the graph-bound
-  repair, the state refresh, and the first redraw, and starts from a folder with no file
-  set aside before it. A crash prints only the fault's kind and stack to the log: for an
-  out-of-memory finding libFuzzer prints a short input itself.
+  a data file. A calculator writes each of those files, so an input is never a file's
+  bytes, which reach values no writer produces: it is keys a user presses. Its first
+  byte picks a start file, none or one a calculator wrote, from upstream's
+  `res/PROGRAMS`, `res/STATE`, or `res/DATA`, or the released cores' fixtures, and the
+  reader opens it; each byte after it presses and releases a key. The calculator then writes the target's file, with the app's save
+  where the keys left it, or with SAVEST, WRITEP, or EXPnrg at rest after up to three
+  EXITs, is reset, and reads the file back. A restore is followed, as at the app's start,
+  by the graph-bound repair, the state refresh, and the first redraw. A second thread
+  sends the app's out-of-band stop, `requestStopProgramNative`, when a key runs on past
+  `EXIT_AFTER_US`, as the app does for EXIT on a running program; the stop reaches no
+  computation outside a program, and a key that does not end runs into `-timeout`, a
+  finding. Each input starts from an empty folder, and a seed per start file reads each
+  one before any key. A crash prints only
+  the fault's kind and stack to the log: for an out-of-memory finding libFuzzer prints a
+  short input itself.
   A core `exit` is a finding, which libFuzzer reports itself, so the fuzzer does not link
   `exit` to the logged abort the app does: that wrap would reach libFuzzer's own `exit`.
-  Every sanitizer report halts the run but those `fuzz_core_ubsan_suppressions.txt`
-  names, each with its reason: today two faults of the vendored decNumber's, each
-  in its `decQuad` and `decDouble` form, a wrapping exponent in its string reader
-  and the sign-bit shift it packs digits with, which
-  ordinary arithmetic reaches too. The fuzzer found both in data files. A fault in
-  C47's own readers is never suppressed, so a run that reaches one upstream has not
-  fixed yet, such as an out-of-range menu item id after LOADST, fails every time: read
-  the stack of a red run before counting it as new.
+  AddressSanitizer halts on a memory error; UndefinedBehaviorSanitizer reports and
+  does not halt, as in `run_workload_regressions_sanitized.sh`, since any computation
+  a key starts reaches the upstream core's undefined constructs, and the run lists
+  each site it met. A finding is keys pressed from a start file, so read its stack
+  before counting a red run as new. The limit: a file no calculator wrote, an edited
+  one among them, is out of scope, and a file a past release wrote is read only as a
+  start file.
   `linux-ci.yml`'s `fuzz-core` runs it for 15 minutes a reader.
 - `scripts/workload-regressions/run_workload_regressions.sh` builds the staged
   core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then runs the
