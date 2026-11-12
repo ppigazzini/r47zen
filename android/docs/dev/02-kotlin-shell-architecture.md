@@ -334,7 +334,10 @@ Ctrl+A copy X, the stack, and every register through GTK's own commands. Two key
 also reach the app's menu, which GTK has no counterpart of: Ctrl+V runs `Paste
 Number` and still reaches the calculator, where GTK binds nothing to it and it
 only marks Ctrl as used, so the Ctrl release toggles no shift; and the
-keyboard's Menu key, no PC key, opens the main menu.
+keyboard's Menu key, no PC key, opens the main menu. A Shift or Ctrl whose up
+Android cancels, as it does when focus leaves the window, goes as a cancel
+(`cancelPcKeyNative`), which ends the key and toggles no shift: it was not let go
+on purpose. Any other canceled up is still sent as a release.
 
 `Paste Number` enters one real or complex number, or refuses the clip whole, since
 a number typed from part of a clip is a wrong number on the stack. `PasteNumber.kt`

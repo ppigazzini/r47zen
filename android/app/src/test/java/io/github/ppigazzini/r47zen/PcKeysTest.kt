@@ -92,6 +92,7 @@ class PcKeysTest {
         val sent = mutableListOf<Triple<Int, Int, Boolean>>()
         val controller = PhysicalKeyboardInputController(
             sendPcKey = { keysym, state, press -> sent += Triple(keysym, state, press) },
+            cancelPcKey = { },
         )
 
         assertTrue(controller.onKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_S)))

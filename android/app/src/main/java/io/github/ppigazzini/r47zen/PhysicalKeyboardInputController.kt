@@ -14,6 +14,7 @@ import android.view.KeyEvent
  */
 internal class PhysicalKeyboardInputController(
     private val sendPcKey: (keysym: Int, state: Int, press: Boolean) -> Unit,
+    private val cancelPcKey: (keysym: Int) -> Unit,
     private val onPaste: () -> Unit = {},
     private val onMainMenu: () -> Unit = {},
 ) {
@@ -26,12 +27,23 @@ internal class PhysicalKeyboardInputController(
         }
         val isKeyEdge = event.action == KeyEvent.ACTION_DOWN || event.action == KeyEvent.ACTION_UP
         val key = PcKeys.translate(event)?.takeIf { isKeyEdge }
-        key?.let { sendPcKey(it.keysym, it.state, event.action == KeyEvent.ACTION_DOWN) }
+        when {
+            key == null -> Unit
+            // Android cancels a key's up when focus leaves the window with the key down:
+            // a Shift or Ctrl so ended toggles no shift. Any other key still sends its release.
+            event.action == KeyEvent.ACTION_UP && event.isCanceled && isShiftOrCtrl(event.keyCode) ->
+                cancelPcKey(key.keysym)
+            else -> sendPcKey(key.keysym, key.state, event.action == KeyEvent.ACTION_DOWN)
+        }
         if (isPasteChord(event)) {
             onPaste()
         }
         return key != null
     }
+
+    private fun isShiftOrCtrl(keyCode: Int): Boolean =
+        keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT ||
+            keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
 
     private fun isPasteChord(event: KeyEvent): Boolean {
         return event.action == KeyEvent.ACTION_DOWN &&

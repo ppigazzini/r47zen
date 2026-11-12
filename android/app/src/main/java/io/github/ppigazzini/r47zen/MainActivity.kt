@@ -220,6 +220,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun createPhysicalKeyboardInputController(): PhysicalKeyboardInputController {
         return PhysicalKeyboardInputController(
             sendPcKey = CalculatorEngine::sendPcKeyNative,
+            cancelPcKey = CalculatorEngine::cancelPcKeyNative,
             onPaste = { displayActionController.pasteFromClipboard() },
             onMainMenu = ::openMainMenu,
         )

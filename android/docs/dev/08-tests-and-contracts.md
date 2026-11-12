@@ -575,7 +575,9 @@ source is missing from this page:
   without an accessibility service; a keypad rebuild keeps the node
 - `PhysicalKeyboardInputControllerTest.kt`: Ctrl+V pastes once per press, not
   on a repeat or with Shift or Alt, and its press and release still reach the
-  calculator; the Menu key opens the main menu on its release and sends nothing
+  calculator; the Menu key opens the main menu on its release and sends nothing;
+  a Shift or Ctrl whose up Android cancels goes as a cancel, and any other
+  canceled up as a release
 - `ReplicaOverlayPointerInputTest.kt`: a right click on a key presses nothing
   and asks for the menu on release; the overlay leaves a left click to the key,
   which presses for it; one wheel notch over the LCD scales by
@@ -980,10 +982,12 @@ Android compatibility layer.
   calls functions and presses no key, so it holds none of `btnPressed`,
   `btnReleased`, TAM, AIM, or the shifts. An early return seeded into
   `btnReleased` fails this case and many others.
-- Twelve cases follow it for the PC keyboard, each what upstream's GTK handler
-  gives: a PC key keeps its place between two touch keys (1, a shifted PC E for the
-  constant e, and `-` give 1 - e); a period is the decimal point; a lone Shift is f
-  and a lone Ctrl is g; in integer entry with a base, `a` is a hex digit; in USER mode
+- Thirteen cases follow it for the PC keyboard, each what upstream's GTK handler
+  gives but one: a PC key keeps its place between two touch keys (1, a shifted PC E
+  for the constant e, and `-` give 1 - e); a period is the decimal point; a lone
+  Shift is f and a lone Ctrl is g; a Shift or Ctrl up Android canceled, which GTK
+  never gets, shifts nothing, and leaves no Shift held, so the next Shift is f, the
+  `f` letter still shifts, and `q` in AIM still types Q; in integer entry with a base, `a` is a hex digit; in USER mode
   a letter runs its item by name, whatever key a user moved it to; a held g stops
   `t`; the `f` letter finds the shift on all four R47 layouts; letters in AIM type in
   the case the calculator shows; STO then a letter names the register; a character

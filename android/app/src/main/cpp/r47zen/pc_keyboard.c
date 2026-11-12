@@ -1171,7 +1171,9 @@ static void releaseCtrl(void) {
   }
 }
 
-static void keyReleasedNow(uint32_t keyval) {
+// A canceled release ends the key as its release does but toggles no shift: the
+// host canceled the key's up, so it was not let go on purpose.
+static void keyReleasedNow(uint32_t keyval, bool canceled) {
   if (event_keyval == keyval + CTRL_State) {
     event_keyval = 99999999;
   }
@@ -1180,14 +1182,14 @@ static void keyReleasedNow(uint32_t keyval) {
   case GDK_KEY_Shift_R:
     event_command_shift = 0;
     // f on the release, so a PC shifted character still types
-    if (SHIFT_State != 0) {
+    if (SHIFT_State != 0 && !canceled) {
       releaseShift();
     }
     SHIFT_State = 0;
     break;
   case GDK_KEY_Control_L:
   case GDK_KEY_Control_R:
-    if (CTRL_State != 0 && !ctrlUsed) {
+    if (CTRL_State != 0 && !ctrlUsed && !canceled) {
       releaseCtrl();
     }
     CTRL_State = 0;
@@ -1783,7 +1785,16 @@ void r47_pc_key_handle(uint32_t keyval, uint32_t state, bool press, bool busy) {
   if (press) {
     keyPressedNow(keyval, state);
   } else {
-    keyReleasedNow(keyval);
+    keyReleasedNow(keyval, false);
   }
+  pcKeyBusy = false;
+}
+
+// A Shift or Ctrl up Android canceled, as it does when focus leaves the window with
+// the key down. GTK has no such event: X11 sends no release on a focus-out.
+void r47_pc_key_cancel(uint32_t keyval, bool busy) {
+  R47_CALCULATOR_THREAD_ONLY();
+  pcKeyBusy = busy;
+  keyReleasedNow(keyval, true);
   pcKeyBusy = false;
 }
