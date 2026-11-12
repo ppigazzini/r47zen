@@ -9,9 +9,8 @@ import android.view.KeyEvent
  * opens the main menu.
  */
 internal class PhysicalKeyboardInputController(
-    private val offerCoreTask: (Runnable) -> Unit,
-    private val sendSimKeyNative: (String, Boolean, Boolean) -> Unit,
-    private val sendSimMenuNative: (Int) -> Unit,
+    private val sendKey: (Int) -> Unit,
+    private val showShellMenu: (Int) -> Unit,
     private val onPaste: () -> Unit = {},
     private val onMainMenu: () -> Unit = {},
 ) {
@@ -71,23 +70,15 @@ internal class PhysicalKeyboardInputController(
             return true
         }
 
-
         PhysicalKeyboardMapper.resolve(keyCode, event)?.let { action ->
             activeKeyIdMap[keyCode] = action
             when (action) {
                 is PhysicalKeyboardAction.NativeKey -> {
-                    offerCoreTask(Runnable {
-                        sendSimKeyNative(action.id, action.isFunctionKey, false)
-                    })
+                    sendKey(SimKeyIds.code(action.id, action.isFunctionKey))
                 }
 
                 is PhysicalKeyboardAction.Shortcut -> {
-                    PhysicalKeyboardShortcuts.dispatch(
-                        action,
-                        offerCoreTask,
-                        sendSimKeyNative,
-                        sendSimMenuNative,
-                    )
+                    PhysicalKeyboardShortcuts.dispatch(action, sendKey, showShellMenu)
                 }
             }
             return true
@@ -119,9 +110,7 @@ internal class PhysicalKeyboardInputController(
 
         activeKeyIdMap.remove(keyCode)?.let { action ->
             if (action is PhysicalKeyboardAction.NativeKey) {
-                offerCoreTask(Runnable {
-                    sendSimKeyNative(action.id, action.isFunctionKey, true)
-                })
+                sendKey(CalculatorEngine.KEY_RELEASE)
             }
             return true
         }
@@ -130,15 +119,8 @@ internal class PhysicalKeyboardInputController(
     }
 
     private fun tapModifier(id: String) {
-        // Route through the core task queue like every other input path. The
-        // native key handler takes screenMutex and executes the full btnClicked
-        // handler; calling it directly on the UI thread would let a modifier tap
-        // block there while a program holds the mutex on the core thread, risk an
-        // ANR, and run core key handling on the wrong thread.
-        offerCoreTask(Runnable {
-            sendSimKeyNative(id, false, false)
-            sendSimKeyNative(id, false, true)
-        })
+        sendKey(SimKeyIds.code(id, false))
+        sendKey(CalculatorEngine.KEY_RELEASE)
     }
 
     private fun forgetModifier(keyCode: Int) {

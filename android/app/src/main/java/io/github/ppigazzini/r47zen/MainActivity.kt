@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -13,7 +14,6 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.widget.Toast
-import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.TooltipCompat
 import androidx.core.content.edit
@@ -21,17 +21,16 @@ import io.github.ppigazzini.r47zen.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import com.google.android.material.color.MaterialColors
-import kotlin.math.abs
 
-class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
+class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener, CalculatorHost {
 
     private val TAG = "R47Activity"
     private lateinit var binding: ActivityMainBinding
     private lateinit var replicaOverlay: ReplicaOverlay
-    private lateinit var coreRuntime: NativeCoreRuntime
+    private lateinit var displayRefreshLoop: DisplayRefreshLoop
     private lateinit var storageAccessCoordinator: StorageAccessCoordinator
-    private lateinit var nativeFileRequestGate: NativeFileRequestGate
     private lateinit var displayActionController: DisplayActionController
+    private val calculatorAnswers by lazy { CalculatorAnswers(applicationContext, mainHandler) }
     private lateinit var factoryResetController: FactoryResetController
     private lateinit var physicalKeyboardInputController: PhysicalKeyboardInputController
     private lateinit var preferenceController: MainActivityPreferenceController
@@ -59,9 +58,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         ),
         minFlushIntervalMs = GRAPH_GESTURE_MIN_FLUSH_INTERVAL_MS,
         uptimeMillis = SystemClock::uptimeMillis,
-        post = { mainHandler.post(it) },
         postDelayed = { task, delayMs -> mainHandler.postDelayed(task, delayMs) },
-        offerCoreTask = ::offerCoreTask,
         applyBatch = ::applyGraphGestureBatch,
     )
 
@@ -77,13 +74,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         // Minimum spacing between gesture flushes. Each flush re-solves the
         // graph (fnEqSolvGraph), so an unthrottled fast drag/pinch can drive the
         // heavy upstream solver far faster than the display can show, piling up
-        // re-solves (and DrwMX rebuilds) on the core thread. Coalescing to about
+        // re-solves (and DrwMX rebuilds) on the calculator thread. Coalescing to about
         // one re-solve per display frame caps that load with no visible cost.
         private const val GRAPH_GESTURE_MIN_FLUSH_INTERVAL_MS = 16L
-
-        init {
-            System.loadLibrary("r47zen")
-        }
 
         fun createFactoryResetIntent(context: Context): Intent {
             return FactoryResetController.createIntent(context)
@@ -94,49 +87,31 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         AudioEngine.updateSettings(isBeeperEnabled, beeperVolume)
     }
 
-    // Called from the core thread after describeDisplayNative: what the display shows,
-    // for a screen reader; isError when it is the error the screen shows.
-    @Keep
-    fun onDisplayText(isError: Boolean, text: String) {
-        mainHandler.post {
-            if (::replicaOverlay.isInitialized) {
-                replicaOverlay.setDisplayDescription(text, isError)
-            }
+    override fun showDisplayText(isError: Boolean, text: String) {
+        if (::replicaOverlay.isInitialized) {
+            replicaOverlay.setDisplayDescription(text, isError)
         }
     }
 
-    @Keep
-    fun playTone(milliHz: Int, durationMs: Int) {
-        AudioEngine.playTone(milliHz, durationMs)
+    override fun onClipboardText(what: Int, text: String) {
+        calculatorAnswers.onClipboardText(what, text)
     }
 
-    // Called from the core thread when hal/io.c could not write a file in full.
-    // Upstream reports only a failed open, so this is the one signal a user
-    // gets that a save or an autosave is truncated.
-    @Keep
-    fun onFileWriteFailed() {
-        mainHandler.post {
-            Toast.makeText(applicationContext, R.string.file_write_failed, Toast.LENGTH_LONG).show()
-        }
+    override fun setClipboardText(text: String) {
+        calculatorAnswers.setClipboardText(text)
     }
 
-    // Called from the core thread when upstream raises a warning through show_warning:
-    // a program or a state file it could not take whole. Upstream's run to five lines,
-    // so it is a dialog, not a Toast.
-    @Keep
-    fun onCoreWarning(text: String) {
-        mainHandler.post { showCalculatorWarning(this, text.trim()) }
+    override fun onPasteResult(pasted: Boolean) {
+        calculatorAnswers.onPasteResult(pasted)
+    }
+
+    override fun showWarning(text: String) {
+        showCalculatorWarning(this, text)
     }
 
     // A process killed behind the picker comes back with the answer and no request.
-    private fun answerNativeFileRequest(fd: Int, name: String?): Boolean {
-        val taken = onFileSelectedNative(fd, name)
-        if (!taken) {
-            mainHandler.post {
-                Toast.makeText(applicationContext, R.string.file_request_lost, Toast.LENGTH_LONG).show()
-            }
-        }
-        return taken
+    override fun onFileRequestLost() {
+        Toast.makeText(applicationContext, R.string.file_request_lost, Toast.LENGTH_LONG).show()
     }
 
     private fun applyLcdTheme(theme: String, luminancePercent: Int, isNegative: Boolean) {
@@ -145,6 +120,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
         if (prefs == null || key == null) return
+        if (key == MainActivityPreferenceController.KEY_AUTO_SAVE_MINIMIZE) {
+            syncAutoSaveSetting()
+        }
         preferenceController.onPreferenceChanged(key)
     }
 
@@ -155,36 +133,22 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         return super.dispatchKeyEvent(event)
     }
 
-    private fun offerCoreTask(task: Runnable) {
-        coreRuntime.offerTask(task)
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (physicalKeyboardInputController.onKeyDown(keyCode, event)) {
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
     }
 
-    private fun queueGraphReset() {
-        offerCoreTask(Runnable { resetGraphNative() })
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (physicalKeyboardInputController.onKeyUp(keyCode)) {
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     private fun applyGraphGestureBatch(batch: GraphGestureBatch) {
-        val hasPan =
-            abs(batch.panDxNorm) > GRAPH_PAN_FLUSH_EPSILON ||
-                abs(batch.panDyNorm) > GRAPH_PAN_FLUSH_EPSILON
-        val hasScale = abs(batch.scaleFactor - 1f) > GRAPH_SCALE_FLUSH_EPSILON
-        // Apply a combined drag+pinch in one native call so the heavy graph
-        // re-solve runs once per batch instead of twice during fast play. Fall
-        // back to the single-axis bridges otherwise.
-        when {
-            hasPan && hasScale ->
-                applyGraphPanZoomNative(batch.panDxNorm, batch.panDyNorm, batch.scaleFactor)
-            hasPan -> applyGraphPanNative(batch.panDxNorm, batch.panDyNorm)
-            hasScale -> applyGraphPinchZoomNative(batch.scaleFactor)
-        }
-    }
-
-    private fun dispatchLiveKey(keyCode: Int) {
-        LiveKeyRouter.route(
-            keyCode,
-            queryDirectStopGate = { requestStopProgramNative() },
-            forwardToCore = { code -> offerCoreTask(Runnable { sendKey(code) }) },
-        )
+        CalculatorEngine.graphGestureNative(batch.panDxNorm, batch.panDyNorm, batch.scaleFactor)
     }
 
     private fun configureActivityShell() {
@@ -198,13 +162,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         windowModeController.fitContentToSafeArea(binding.root)
         factoryResetController = createFactoryResetController()
         storageAccessCoordinator = createStorageAccessCoordinator()
-        nativeFileRequestGate = NativeFileRequestGate(
-            post = { mainHandler.post(it) },
-            findStart = PickerStart.of(applicationContext)::find,
-            launch = storageAccessCoordinator::requestNativeFile,
-            selectNative = ::answerNativeFileRequest,
-            cancelNative = ::onFileCanceledNative,
-        )
         displayActionController = createDisplayActionController()
         physicalKeyboardInputController = createPhysicalKeyboardInputController()
     }
@@ -232,33 +189,32 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             onResetRequested = ::handleFactoryResetRequested,
             onDestroyFactoryReset = ::handleFactoryResetDestroy,
             onDestroyFinish = ::handleFactoryResetFinish,
-            isCoreThreadRunning = NativeCoreRuntime::isCoreThreadRunning,
-            stopRunningProgram = { requestStopProgramNative() },
         )
     }
 
     private fun handleFactoryResetRequested() {
-        coreRuntime.dispose(stopApp = true, evenBesideAnotherWindow = true)
+        displayRefreshLoop.stop()
+        CalculatorEngine.stopForFactoryReset()
         AudioEngine.stop()
     }
 
-    // Neither destroy path touches the native activity globals: the core thread
-    // releases them on its way out (NativeCoreRuntime.releaseFinishedHost).
     private fun handleFactoryResetDestroy() {
         AudioEngine.stop()
-        NativeCoreRuntime.resetSharedState()
     }
 
+    // A second instance finishing leaves the first one using the audio.
     private fun handleFactoryResetFinish() {
-        AudioEngine.stop()
+        if (!CalculatorEngine.hasHost()) {
+            AudioEngine.stop()
+        }
     }
 
     private fun createStorageAccessCoordinator(): StorageAccessCoordinator {
         return StorageAccessCoordinator(
             activity = this,
-            onNativeFileSelected = { fd, name -> nativeFileRequestGate.deliverSelected(fd, name) },
-            onNativeFileCanceled = { nativeFileRequestGate.deliverCanceled() },
-            onLoadTransferStarted = { nativeFileRequestGate.beginTransfer() },
+            onNativeFileSelected = CalculatorEngine.fileRequestGate::deliverSelected,
+            onNativeFileCanceled = { CalculatorEngine.fileRequestGate.deliverCanceled() },
+            onLoadTransferStarted = { CalculatorEngine.fileRequestGate.beginTransfer() },
         ).also { coordinator ->
             coordinator.registerLaunchers()
         }
@@ -267,21 +223,16 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun createDisplayActionController(): DisplayActionController {
         return DisplayActionController(
             context = this,
-            mainHandler = mainHandler,
-            offerCoreTask = ::offerCoreTask,
-            getClipboardXRegisterNative = ::getClipboardXRegisterNative,
-            getClipboardStackRegistersNative = ::getClipboardStackRegistersNative,
-            getClipboardAllRegistersNative = ::getClipboardAllRegistersNative,
-            pasteNumberNative = ::pasteNumberNative,
+            copyRegisters = CalculatorEngine::copyRegistersNative,
+            pasteNumberNative = CalculatorEngine::pasteNumberNative,
             enterPiP = windowModeController::enterPictureInPicture,
         )
     }
 
     private fun createPhysicalKeyboardInputController(): PhysicalKeyboardInputController {
         return PhysicalKeyboardInputController(
-            offerCoreTask = ::offerCoreTask,
-            sendSimKeyNative = ::sendSimKeyNative,
-            sendSimMenuNative = ::sendSimMenuNative,
+            sendKey = CalculatorEngine::sendKey,
+            showShellMenu = CalculatorEngine::showShellMenuNative,
             onPaste = { displayActionController.pasteFromClipboard() },
             onMainMenu = ::openMainMenu,
         )
@@ -298,9 +249,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         replicaOverlay.onSettingsDiscoveryCompleted = ::markSettingsDiscoveryComplete
         replicaOverlay.onLcdPanListener = graphGestureFlusher::addPan
         replicaOverlay.onLcdPinchListener = graphGestureFlusher::addScale
-        replicaOverlay.onLcdResetListener = ::queueGraphReset
+        replicaOverlay.onLcdResetListener = CalculatorEngine::resetGraphNative
         replicaOverlay.onSecondaryClick = ::openMainMenu
-        replicaOverlay.onDisplayDescriptionWanted = { offerCoreTask(Runnable { describeDisplayNative() }) }
+        replicaOverlay.onDisplayDescriptionWanted = { CalculatorEngine.describeDisplayNative() }
         keypadSnapshotStore = createKeypadSnapshotStore()
         replicaOverlayController = createReplicaOverlayController()
         replicaOverlayController.bindOverlay()
@@ -389,16 +340,16 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             context = this,
             overlay = replicaOverlay,
             performHapticClick = hapticFeedbackController::performClick,
-            dispatchLiveKey = ::dispatchLiveKey,
+            dispatchLiveKey = CalculatorEngine::dispatchKey,
             getKeypadSnapshot = keypadSnapshotStore::snapshotForMode,
-            isRuntimeReady = NativeCoreRuntime::isNativeInitialized,
+            isRuntimeReady = CalculatorEngine::isReady,
         )
     }
 
     private fun createKeypadSnapshotStore(): NativeKeypadSnapshotStore {
         return NativeKeypadSnapshotStore(
-            getKeypadSnapshotGeneration = ::getKeypadSnapshotGeneration,
-            copyKeypadSnapshotNative = ::copyKeypadSnapshotNative,
+            getKeypadSnapshotGeneration = CalculatorEngine::getKeypadSnapshotGeneration,
+            copyKeypadSnapshotNative = CalculatorEngine::copyKeypadSnapshotNative,
         )
     }
 
@@ -421,30 +372,34 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         startActivity(Intent(this, SettingsActivity::class.java))
     }
 
-    private fun startCoreRuntime() {
-        coreRuntime = createCoreRuntime()
-        coreRuntime.attach()
-        AudioEngine.start { NativeCoreRuntime.isAppRunning() }
+    private fun syncAutoSaveSetting() {
+        CalculatorEngine.setAutoSaveNative(
+            appPreferences.getBoolean(
+                MainActivityPreferenceController.KEY_AUTO_SAVE_MINIMIZE,
+                MainActivityPreferenceController.DEFAULT_AUTO_SAVE_MINIMIZE,
+            ),
+        )
     }
 
-    private fun createCoreRuntime(): NativeCoreRuntime {
-        return NativeCoreRuntime(
-            filesDirPath = filesDir.absolutePath,
-            nativePreInit = ::nativePreInit,
-            initNative = ::initNative,
-            updateNativeActivityRef = ::updateNativeActivityRef,
-            releaseNativeRuntime = ::releaseNativeRuntime,
-            tick = ::tick,
-            saveStateNative = ::saveStateNative,
-            getPackedDisplayGeneration = ::getPackedDisplayGeneration,
-            getPackedDisplayBuffer = ::getPackedDisplayBuffer,
-            getKeypadSnapshotGeneration = ::getKeypadSnapshotGeneration,
+    private fun startCalculator() {
+        syncAutoSaveSetting()
+        CalculatorEngine.start(this)
+        displayRefreshLoop = createDisplayRefreshLoop()
+    }
+
+    private fun createDisplayRefreshLoop(): DisplayRefreshLoop {
+        return NativeDisplayRefreshLoop(
+            isAppRunning = CalculatorEngine::isThreadRunning,
+            isNativeInitialized = CalculatorEngine::isReady,
+            isPerformanceSnapshotEnabled = { preferenceController.showDeveloperPerformanceHud },
+            getPerformanceWindowMillis = { preferenceController.developerPerformanceHudWindowMillis.toLong() },
+            getPackedDisplayGeneration = CalculatorEngine::getPackedDisplayGeneration,
+            getPackedDisplayBuffer = CalculatorEngine::getPackedDisplayBuffer,
+            getKeypadSnapshotGeneration = CalculatorEngine::getKeypadSnapshotGeneration,
             getMainKeyDynamicModeCode = replicaOverlayController::currentMainKeyDynamicModeCode,
             refreshKeypadSnapshot = keypadSnapshotStore::refreshSnapshot,
             onPackedLcd = replicaOverlay::updatePackedLcd,
             onDynamicRefresh = replicaOverlayController::refreshDynamicKeys,
-            isPerformanceSnapshotEnabled = { preferenceController.showDeveloperPerformanceHud },
-            getPerformanceWindowMillis = { preferenceController.developerPerformanceHudWindowMillis.toLong() },
             onPerformanceSnapshot = replicaOverlay::updateDeveloperPerformanceSnapshot,
         )
     }
@@ -461,43 +416,34 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         val prefs = appPreferences
         initializeStartupControllers()
         initializeOverlayAndPreferences(prefs)
-        startCoreRuntime()
+        startCalculator()
         handleInitialIntent()
     }
-
-    private external fun updateNativeActivityRef()
 
     override fun onDestroy() {
         // Drop any delayed callbacks (e.g. the graph-gesture flush) so they cannot
         // fire against a destroyed activity.
         mainHandler.removeCallbacksAndMessages(null)
-        // Guard the lateinit controllers: if onCreate threw before startCoreRuntime
+        // Guard the lateinit controllers: if onCreate threw before startCalculator
         // assigned them, onDestroy still runs, and an unguarded access would mask
         // the original crash with an UninitializedPropertyAccessException.
         val resetInProgress =
             ::factoryResetController.isInitialized && factoryResetController.isResetInProgress
         Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=$resetInProgress")
         val shouldStopApp = isFinishing || resetInProgress
-        // The core thread may be parked in requestAndroidFile. A request whose
-        // posted launch was just dropped is canceled always. A launched picker
-        // whose result has not arrived is canceled only when the app stops: a
-        // recreated Activity still receives that result, but a finishing one
-        // never does, and the core thread would wait out the dispose fence.
-        if (::nativeFileRequestGate.isInitialized) {
-            nativeFileRequestGate.cancelPending()
-            if (shouldStopApp) {
-                nativeFileRequestGate.cancelUnanswered()
-            }
+        // A launched picker whose result has not arrived is canceled when the Activity that
+        // opened it finishes: a recreated Activity still receives that result, but a finishing
+        // one never does, and the calculator thread would stay parked in requestAndroidFile.
+        if (shouldStopApp) {
+            CalculatorEngine.cancelFileRequestOf(this)
         }
-        // A window finishing beside another leaves the core and the audio to that one.
-        val appStopped = if (::coreRuntime.isInitialized) {
-            coreRuntime.dispose(stopApp = shouldStopApp, evenBesideAnotherWindow = resetInProgress)
-        } else {
-            shouldStopApp
+        if (::displayRefreshLoop.isInitialized) {
+            displayRefreshLoop.stop()
         }
+        CalculatorEngine.detachHost(this, recreating = !shouldStopApp)
         appPreferences.unregisterOnSharedPreferenceChangeListener(this)
         if (::factoryResetController.isInitialized) {
-            factoryResetController.handleDestroy(appStopped)
+            factoryResetController.handleDestroy(shouldStopApp)
         }
         super.onDestroy()
     }
@@ -512,7 +458,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onStart() {
         super.onStart()
-        NativeCoreRuntime.onHostStarted()
+        // Here, not in onCreate: this may be an instance coming back from behind another that
+        // has just finished, which took the calculator's host and the audio with it.
+        CalculatorEngine.attachHost(this)
+        AudioEngine.start(CalculatorEngine::isThreadRunning)
+        CalculatorEngine.onHostStarted()
+        displayRefreshLoop.start()
     }
 
     override fun onResume() {
@@ -540,37 +491,29 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         appPreferences.edit { putBoolean(PREF_SETTINGS_DISCOVERY_PENDING, false) }
     }
 
-    override fun onPause() {
-        super.onPause()
-        val isEnteringPiP = windowModeController.isEnteringPictureInPicture()
-        Log.i(TAG, "onPause: isEnteringPiP=$isEnteringPiP")
-        val autoSave = appPreferences.getBoolean(
-            MainActivityPreferenceController.KEY_AUTO_SAVE_MINIMIZE,
-            MainActivityPreferenceController.DEFAULT_AUTO_SAVE_MINIMIZE,
-        )
-        if (!isEnteringPiP && !factoryResetController.isResetInProgress && autoSave) {
-            Log.i(TAG, "Auto-saving state on pause (synchronous via core thread)...")
-            coreRuntime.saveStateOnPause(autoSaveEnabled = true)
-        }
-    }
-
     override fun onStop() {
+        displayRefreshLoop.stop()
         // The user leaves the app to reach a print: the files go to the work directory now.
         DataFolderMirror.shared(this).mirror()
-        // After onPause, so the background save has already been queued: the
-        // parked core thread still runs every task, it only stops ticking.
-        NativeCoreRuntime.onHostStopped()
+        // The first point at which the system may kill this process, and PiP's close
+        // arrives here with no pause before it.
+        CalculatorEngine.onHostStopped(
+            stopping = this,
+            saveState = !factoryResetController.isResetInProgress &&
+                appPreferences.getBoolean(
+                    MainActivityPreferenceController.KEY_AUTO_SAVE_MINIMIZE,
+                    MainActivityPreferenceController.DEFAULT_AUTO_SAVE_MINIMIZE,
+                ),
+        )
         super.onStop()
     }
 
-    @Keep
-    fun requestFile(isSave: Boolean, defaultName: String, fileType: Int) {
-        nativeFileRequestGate.request(isSave, defaultName, fileType)
+    override fun launchFilePicker(isSave: Boolean, defaultName: String, start: Uri?) {
+        storageAccessCoordinator.requestNativeFile(isSave, defaultName, start)
     }
 
-    @Keep
-    fun quitApp() {
-        Log.i(TAG, "quitApp called from native")
+    override fun onCalculatorOff() {
+        Log.i(TAG, "The calculator switched off")
         mainHandler.post {
             val forceClose = appPreferences.getBoolean(
                 MainActivityPreferenceController.KEY_FORCE_CLOSE_ON_EXIT,
@@ -584,43 +527,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
-    @Keep
-    fun processCoreTasks() {
-        coreRuntime.processCoreTasks()
-    }
-
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         windowModeController.handlePictureInPictureModeChanged(isInPictureInPictureMode)
     }
-
-    private external fun nativePreInit(storagePath: String)
-    private external fun initNative()
-    private external fun tick(): Int
-    private external fun releaseNativeRuntime()
-    private external fun sendKey(keyCode: Int)
-    private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)
-    private external fun sendSimMenuNative(shellMenu: Int)
-    private external fun pasteNumberNative(tokens: String): Boolean
-    private external fun applyGraphPanNative(dxNorm: Float, dyNorm: Float): Boolean
-    private external fun applyGraphPinchZoomNative(scaleFactor: Float): Boolean
-    private external fun applyGraphPanZoomNative(dxNorm: Float, dyNorm: Float, scaleFactor: Float): Boolean
-    private external fun resetGraphNative(): Boolean
-    private external fun saveStateNative()
-    private external fun getClipboardXRegisterNative(): String?
-    private external fun getClipboardStackRegistersNative(): String?
-    private external fun getClipboardAllRegistersNative(): String?
-    private external fun describeDisplayNative()
-    private external fun getPackedDisplayGeneration(): Int
-    private external fun getPackedDisplayBuffer(buffer: ByteArray): Boolean
-    private external fun getKeypadSnapshotGeneration(): Int
-    private external fun copyKeypadSnapshotNative(
-        mainKeyDynamicMode: Int,
-        metaBuffer: IntArray,
-        labelsBuffer: Array<String>,
-    ): Boolean
-    private external fun requestStopProgramNative(): Boolean
-
-    private external fun onFileSelectedNative(fd: Int, name: String?): Boolean
-    private external fun onFileCanceledNative()
 }

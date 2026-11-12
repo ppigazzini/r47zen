@@ -62,16 +62,12 @@ class ClipboardRoundTripInstrumentedTest {
             onDisplayActions(scenario) {
                 it.handleMainMenuSelection(DisplayActionController.MENU_PASTE_NUMBER) {}
             }
-            // The paste and the touched ENTER are core tasks, run in order: the paste
-            // opens number entry with X still 0, and ENTER closes it. A bridge read waits
-            // for neither, so poll X.
+            // The paste is a service request and leaves number entry open, with X still
+            // 0. A read at rest runs after the requests queued before it, so the paste
+            // has run when it returns; then ENTER closes the entry.
+            ProgramLoadTestBridge.getXRegisterClipboardText()
             tap(scenario, KEY_ENTER)
-            var x = ""
-            val pasted = waitUntil(ANSWER_TIMEOUT_MS) {
-                x = ProgramLoadTestBridge.getXRegisterClipboardText()
-                x == copied
-            }
-            assertTrue("Paste Number then ENTER left X '$x'", pasted)
+            assertEquals("Paste Number then ENTER left X", copied, ProgramLoadTestBridge.getXRegisterClipboardText())
         }
     }
 
@@ -93,8 +89,8 @@ class ClipboardRoundTripInstrumentedTest {
         return context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     }
 
-    // The text of the clip Copy X makes, labeled as DisplayActionController labels it,
-    // so a clip left from before the copy does not count.
+    // The text of the clip Copy X makes, labeled as CalculatorAnswers labels it, so a
+    // clip left from before the copy does not count.
     private fun clipboardText(): String? {
         val clip = clipboard().primaryClip ?: return null
         val copiedByTheApp = clip.description?.label == COPY_X_LABEL && clip.itemCount > 0
@@ -105,7 +101,7 @@ class ClipboardRoundTripInstrumentedTest {
         const val READ_CLIPBOARD_IN_BACKGROUND = "android.permission.READ_CLIPBOARD_IN_BACKGROUND"
         const val COPY_X_LABEL = "R47 X Register"
         const val RUNTIME_READY_TIMEOUT_MS = 15_000L
-        // The copy is a core task, then a post to the main thread.
+        // The copy is answered at rest, then on the main thread.
         const val ANSWER_TIMEOUT_MS = 15_000L
     }
 }

@@ -118,61 +118,9 @@ class NativeFileRequestGateTest {
     }
 
     @Test
-    fun postedRequest_launchesOnce_andALaterDestroyCancelsNothing() {
-        gate.request(isSave = true, defaultName = "state.s47", fileType = 3)
-        posted.removeFirst().run()
-        gate.cancelPending()
-
-        assertEquals(listOf(Triple(true, "state.s47", null)), launches)
-        assertEquals(listOf(3 to true), lookups)
-        assertEquals(0, cancels)
-    }
-
-    // onDestroy can run while the core thread is still finding the start folder: its
-    // cancel is the request's one answer, and the launch posted after it does nothing.
-    @Test
-    fun aDestroyDuringTheLookupCancelsOnce_andTheLaterLaunchDoesNothing() {
-        startFolder = { _, _ ->
-            gate.cancelPending()
-            null
-        }
-        gate.request(isSave = true, defaultName = "state.s47", fileType = 0)
-        posted.removeFirst().run()
-
-        assertTrue(launches.isEmpty())
-        assertEquals(1, cancels)
-    }
-
-    @Test
-    fun requestDroppedByDestroy_cancelsNativeOnce_andAStaleCallbackLaunchesNothing() {
-        gate.request(isSave = false, defaultName = "", fileType = 1)
-
-        // onDestroy removed the posted callback before it ran.
-        gate.cancelPending()
-        assertEquals(1, cancels)
-
-        // Were the callback to run after all, it must not launch a second outcome.
-        posted.removeFirst().run()
-        gate.cancelPending()
-        assertTrue(launches.isEmpty())
-        assertEquals(1, cancels)
-    }
-
-    @Test
-    fun cancelPending_withNoRequestInFlight_cancelsNothing() {
-        gate.cancelPending()
-
-        assertEquals(0, cancels)
-        assertTrue(posted.isEmpty())
-    }
-
-    @Test
     fun launchedPickerWithNoAnswer_isCanceledOnceWhenTheAppStops() {
         gate.request(isSave = true, defaultName = "state.s47", fileType = 0)
         posted.removeFirst().run()
-
-        gate.cancelPending()
-        assertEquals("a launched picker is not a dropped launch", 0, cancels)
 
         gate.cancelUnanswered()
         gate.cancelUnanswered()
@@ -210,16 +158,5 @@ class NativeFileRequestGateTest {
         gate.deliverSelected(7, null)
 
         assertEquals(listOf(7), closedFds)
-    }
-
-    @Test
-    fun cancelUnanswered_leavesAPostedRequestToCancelPending() {
-        gate.request(isSave = true, defaultName = "program.p47", fileType = 1)
-
-        gate.cancelUnanswered()
-        assertEquals(0, cancels)
-
-        gate.cancelPending()
-        assertEquals(1, cancels)
     }
 }

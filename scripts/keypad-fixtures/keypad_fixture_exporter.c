@@ -349,7 +349,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  r47_initialize_native_bridge_state();
   r47_native_preinit_path(runtime_dir);
 
   for (size_t index = 0; index < sizeof(scenarios) / sizeof(scenarios[0]);

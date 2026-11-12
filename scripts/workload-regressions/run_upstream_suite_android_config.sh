@@ -24,9 +24,7 @@
 # the code under test is the arm64 code the app ships, which no other CI step runs:
 # the release's target, sysroot, and -m flags are kept, the glue's GTK stand-ins
 # (stubs/, android_mocks.h with HOST_TOOL_BUILD) and its clocks (glib_clock.c) take
-# GTK's place, with a headless event loop (suite_event_loop_stand_ins.c) for the
-# loop calls the app answers through JNI, and the suite links static against
-# bionic. It runs nothing: it packs
+# GTK's place, and the suite links static against bionic. It runs nothing: it packs
 # the suite and the files it reads, paths relative to the project root, into
 # android/build/upstream-suite-app-target/upstream-suite-app-target.tar.
 # R47_SUITE_RUN=<suite> runs a suite built elsewhere from the project root, where that
@@ -256,10 +254,9 @@ for index, unit in enumerate(units):
 jobs.append((str(root), [*launcher, cc, *app_flags, "-w", f"-I{gmp_dir}", "-c",
                          str(gmp_dir / "mini-gmp.c"), "-o", str(build_dir / "objects/mini-gmp.o")]))
 if for_app:  # every glue unit gets android_mocks.h through -include, as in the app
-    for source in (glue / "glib_clock.c", root / "scripts/workload-regressions/suite_event_loop_stand_ins.c"):
-        jobs.append((str(root), [*launcher, cc, *app_flags, *stand_ins, f"-I{gmp_dir}", "-include",
-                                 str(glue / "android_mocks.h"), "-w", "-c", str(source),
-                                 "-o", str(build_dir / f"objects/{source.stem}.o")]))
+    jobs.append((str(root), [*launcher, cc, *app_flags, *stand_ins, f"-I{gmp_dir}", "-include",
+                             str(glue / "android_mocks.h"), "-w", "-c", str(glue / "glib_clock.c"),
+                             "-o", str(build_dir / "objects/glib_clock.o")]))
 lane_macros = macros(jobs[0][0], [t for t in jobs[0][1] if t not in launcher])
 if release_macros != lane_macros:
     fail(f"the lane would build {lane_macros}, the release builds {release_macros}.")

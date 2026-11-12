@@ -59,8 +59,7 @@ you review one.
   entry points, ownership boundaries, staged inputs, compile flow, and
   checkout-sensitive root surfaces.
 - [02-kotlin-shell-architecture.md](02-kotlin-shell-architecture.md): Android
-  lifecycle, helper ownership, storage, settings, input flow, and direct
-  live-stop routing.
+  lifecycle, helper ownership, storage, settings, and input flow.
 - [03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md): the
   detailed interface from the Android shell into upstream-owned runtime
   behavior.
@@ -68,8 +67,8 @@ you review one.
   registration, Android HAL seams, SAF bridge behavior, and native packaging.
 - [05-ui-rendering-and-gtk-mapping.md](05-ui-rendering-and-gtk-mapping.md):
   logical canvas, LCD projection, keypad geometry, and renderer rules.
-- [06-runtime-hot-paths.md](06-runtime-hot-paths.md): the main hot loops,
-  redraw paths, and regression-sensitive lock boundaries.
+- [06-runtime-hot-paths.md](06-runtime-hot-paths.md): the calculator thread and
+  its rule, the main hot loops, and redraw paths.
 - [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md): GitHub
   Actions lane split, release gating, artifacts, and local reproduction.
 - [08-tests-and-contracts.md](08-tests-and-contracts.md): the maintainer map
@@ -129,7 +128,7 @@ owns the fix.
 | lint fails in CI on a change that built locally | builds do not run lint | `cd android && ./gradlew lint` ([the gates](10-writing.md#the-gates)) |
 | docs lint fails on a page you did not edit | a path you renamed or a file you added is named, or missing, there | [the gates](10-writing.md#the-gates) lists each check |
 | a key label, a softkey, or the keypad layout looks wrong | scene export, render spec, or projection | [debug by symptom](05-ui-rendering-and-gtk-mapping.md#debug-by-symptom) |
-| the UI stalls while a program runs | a long native run that does not yield | [yield and SAF I/O boundary](06-runtime-hot-paths.md#yield-and-saf-io-boundary) and [the residual hang](06-runtime-hot-paths.md#residual-hang-nan-driven-non-yielding-runs) |
+| a key does nothing, or the LCD stops changing, while a program runs | what a computation does with keys, or a core loop with no poll | [what a key does during a computation](06-runtime-hot-paths.md#what-a-key-does-during-a-computation) and [the residual hang](06-runtime-hot-paths.md#residual-hang-a-core-loop-with-no-poll) |
 | a release dispatch, or its Play upload, fails | an input refusal, or Play state | [when the workflow refuses](12-cutting-a-release.md#when-the-workflow-refuses) |
 | Obtainium finds no APK, picks the other app, or reads no version for R47 Zen | an APK name, the `-dev` release title, or the production tag changed shape | the README's [Obtainium section](../../../README.md#update-with-obtainium) and `run_version_naming_contract.sh` in [Host CI Contracts](08-tests-and-contracts.md#host-ci-contracts) |
 
@@ -153,10 +152,17 @@ Each term links the page that owns it.
 - **glue**: the repo-owned C under `android/app/src/main/cpp/r47zen` that
   `glue_sources.txt` lists: the JNI bridge and the HAL
   ([04](04-native-core-and-jni.md#native-library-shape)).
-- **core thread**: the one thread that runs the native core and owns its
-  lifecycle ([06](06-runtime-hot-paths.md#core-thread-coordinator)).
-- **generation**: a counter the core bumps when the LCD or the keypad scene
-  changes, so a reader copies only on a change
+- **calculator thread**: the one thread that runs core code, upstream's main loop
+  on a thread of its own for the life of the process
+  ([06](06-runtime-hot-paths.md#calculator-thread)).
+- **at rest**: the calculator thread asleep in the main loop with no program running
+  or paused, the only time a service request runs
+  ([06](06-runtime-hot-paths.md#calculator-thread)).
+- **service request**: host work that is not a key, such as a paste or a save, queued
+  apart from the key buffer a long operation wipes
+  ([04](04-native-core-and-jni.md#key-and-service-state)).
+- **generation**: a counter the calculator thread bumps when the LCD or the keypad
+  scene changes, so a reader copies only on a change
   ([06](06-runtime-hot-paths.md#frame-refresh-loop)).
 - **scene**: one keypad state, every key's labels, roles, and flags, as the
   core exports it ([05](05-ui-rendering-and-gtk-mapping.md#display-and-scene-handoff)).

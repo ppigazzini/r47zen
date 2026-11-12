@@ -1,4 +1,8 @@
+// The instrumented tests' bridge, which only an instrumentation build compiles. It
+// holds the app's one threading rule: everything that touches core state runs on
+// the calculator thread at rest, through r47_run_at_rest.
 #include "jni_bridge.h"
+#include "host_services.h"
 #include "hal/lcd.h"
 
 #include <math.h>
@@ -19,44 +23,11 @@ enum {
   R47_PROGRAM_LOAD_LCD_REFRESH_INDEX = 6,
 };
 
-static pthread_mutex_t r47_program_load_worker_mutex =
-    PTHREAD_MUTEX_INITIALIZER;
-static bool_t r47_program_load_worker_running = false;
+static _Atomic bool r47_program_load_busy = false;
 
-typedef struct {
-  int key_code;
-} r47_program_load_key_sequence_t;
-
-static void *r47_program_load_worker_main(void *arg) {
-  int func_id = (int)(intptr_t)arg;
-
-  pthread_mutex_lock(&screenMutex);
-  extern void runFunction(int16_t id);
-  runFunction((int16_t)func_id);
-  pthread_mutex_unlock(&screenMutex);
-
-  pthread_mutex_lock(&r47_program_load_worker_mutex);
-  r47_program_load_worker_running = false;
-  pthread_mutex_unlock(&r47_program_load_worker_mutex);
-
-  return NULL;
-}
-
-static void *r47_program_load_key_worker_main(void *arg) {
-  r47_program_load_key_sequence_t *request =
-      (r47_program_load_key_sequence_t *)arg;
-
-  Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL,
-                                                        request->key_code);
-  Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, 0);
-  free(request);
-
-  pthread_mutex_lock(&r47_program_load_worker_mutex);
-  r47_program_load_worker_running = false;
-  pthread_mutex_unlock(&r47_program_load_worker_mutex);
-
-  return NULL;
-}
+extern uint8_t *packedDisplayBuffer;
+extern pthread_mutex_t packedDisplayMutex;
+extern void doFnReset(uint16_t confirmation, bool_t autoSav);
 
 static bool r47_seed_spiralk_input(void) {
   reallocateRegister(REGISTER_J, dtReal34, 0, amNone);
@@ -64,10 +35,7 @@ static bool r47_seed_spiralk_input(void) {
   return true;
 }
 
-static uint64_t r47_capture_display_hash_locked(void) {
-  extern uint8_t *packedDisplayBuffer;
-  extern pthread_mutex_t packedDisplayMutex;
-
+static uint64_t r47_capture_display_hash(void) {
   if (!packedDisplayBuffer) {
     return 0;
   }
@@ -121,54 +89,82 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isRuntimeReadyNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-  return ram != NULL ? JNI_TRUE : JNI_FALSE;
+  return r47_runtime_ready() ? JNI_TRUE : JNI_FALSE;
 }
 
-// Put a decimal number in X, as a long integer or a real, under screenMutex.
-static bool r47_seed_x_locked(const char *decimal, bool longInteger) {
+typedef struct {
+  char decimal[64];
+  bool longInteger;
   bool seeded;
-  if (longInteger) {
+} r47_x_seed_t;
+
+static void seedXAtRest(void *arg) {
+  r47_x_seed_t *seed = arg;
+  if (seed->longInteger) {
     longInteger_t value;
     longIntegerInit(value);
-    seeded = stringToLongInteger(decimal, 10, value) == 0;
-    if (seeded) {
+    seed->seeded = stringToLongInteger(seed->decimal, 10, value) == 0;
+    if (seed->seeded) {
       convertLongIntegerToLongIntegerRegister(value, REGISTER_X);
     }
     longIntegerFree(value);
   } else {
     reallocateRegister(REGISTER_X, dtReal34, 0, amNone);
-    stringToReal34(decimal, REGISTER_REAL34_DATA(REGISTER_X));
-    seeded = !real34IsNaN(REGISTER_REAL34_DATA(REGISTER_X));
+    stringToReal34(seed->decimal, REGISTER_REAL34_DATA(REGISTER_X));
+    seed->seeded = !real34IsNaN(REGISTER_REAL34_DATA(REGISTER_X));
   }
-  if (seeded) {
+  if (seed->seeded) {
     fnRefreshState();
     r47_force_refresh();
   }
-  return seeded;
 }
 
+// Put a decimal number in X, as a long integer or a real, on the calculator thread.
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_seedXNative(
     JNIEnv *env, jobject thiz, jstring decimal, jboolean longInteger) {
   (void)thiz;
-  if (!ram || decimal == NULL) {
-    return JNI_FALSE;
-  }
-  const char *chars = (*env)->GetStringUTFChars(env, decimal, NULL);
+  r47_x_seed_t seed = {
+      .decimal = "", .longInteger = longInteger == JNI_TRUE, .seeded = false};
+  const char *chars =
+      decimal != NULL ? (*env)->GetStringUTFChars(env, decimal, NULL) : NULL;
   if (chars == NULL) {
     return JNI_FALSE;
   }
-  char copy[64];
-  const bool fits = r47_format(copy, sizeof(copy), "%s", chars);
+  const bool fits = r47_format(seed.decimal, sizeof(seed.decimal), "%s", chars);
   (*env)->ReleaseStringUTFChars(env, decimal, chars);
   if (!fits) {
     return JNI_FALSE;
   }
+  r47_run_at_rest(seedXAtRest, &seed);
+  return seed.seeded ? JNI_TRUE : JNI_FALSE;
+}
 
-  pthread_mutex_lock(&screenMutex);
-  const bool seeded = r47_seed_x_locked(copy, longInteger == JNI_TRUE);
-  pthread_mutex_unlock(&screenMutex);
-  return seeded ? JNI_TRUE : JNI_FALSE;
+// X as the Copy menu copies it, whole.
+static void readXClipboardAtRest(void *arg) {
+  *(char **)arg = r47_clipboard_text(R47_COPY_X);
+}
+
+// X as the clipboard copies it: a matrix as "RxC" and each element, row by row.
+JNIEXPORT jstring JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterClipboardTextNative(
+    JNIEnv *env, jobject thiz) {
+  (void)thiz;
+  char *text = NULL;
+  r47_run_at_rest(readXClipboardAtRest, &text);
+  jstring result = jni_new_string_utf(
+      env, text, "", "ProgramLoadTestBridge.getXRegisterClipboardText");
+  free(text);
+  return result;
+}
+
+static void seedSpiralkAtRest(void *arg) {
+  bool *seeded = arg;
+  *seeded = r47_seed_spiralk_input();
+  if (*seeded) {
+    fnRefreshState();
+    r47_force_refresh();
+  }
 }
 
 JNIEXPORT jboolean JNICALL
@@ -176,19 +172,14 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_seedSpiralkInputNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-  if (!ram) {
-    return JNI_FALSE;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  bool seeded = r47_seed_spiralk_input();
-  if (seeded) {
-    fnRefreshState();
-    r47_force_refresh();
-  }
-  pthread_mutex_unlock(&screenMutex);
-
+  bool seeded = false;
+  r47_run_at_rest(seedSpiralkAtRest, &seeded);
   return seeded ? JNI_TRUE : JNI_FALSE;
+}
+
+static void forceRefreshAtRest(void *arg) {
+  (void)arg;
+  r47_force_refresh();
 }
 
 JNIEXPORT void JNICALL
@@ -196,7 +187,12 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_forceRefreshNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-  r47_force_refresh();
+  r47_run_at_rest(forceRefreshAtRest, NULL);
+}
+
+static void saveAtRest(void *arg) {
+  (void)arg;
+  r47_save_settled();
 }
 
 JNIEXPORT void JNICALL
@@ -204,16 +200,7 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_saveBackgroundStateForTes
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-
-  if (!ram) {
-    return;
-  }
-
-  extern void r47_save_background_state_locked(void);
-
-  pthread_mutex_lock(&screenMutex);
-  r47_save_background_state_locked();
-  pthread_mutex_unlock(&screenMutex);
+  r47_run_at_rest(saveAtRest, NULL);
 }
 
 JNIEXPORT jlong JNICALL
@@ -221,25 +208,13 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_captureDisplayHashNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-
-  if (!ram) {
-    return 0;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  uint64_t hash = r47_capture_display_hash_locked();
-  pthread_mutex_unlock(&screenMutex);
-  return (jlong)hash;
+  return (jlong)r47_capture_display_hash();
 }
 
 // Writes a deterministic, non-trivial pattern into the hashed bytes of the
 // packed display framebuffer so a lifecycle event's effect on the framebuffer
 // can be checked without running a graphing program.
-// The caller must already hold screenMutex.
-static void r47_fill_test_display_pattern_locked(void) {
-  extern uint8_t *packedDisplayBuffer;
-  extern pthread_mutex_t packedDisplayMutex;
-
+static void r47_fill_test_display_pattern(void) {
   pthread_mutex_lock(&packedDisplayMutex);
   for (size_t row = 0; row < SCREEN_HEIGHT; row++) {
     uint8_t *snapshot_line = packedDisplayBuffer + row * LCD_ROW_SIZE_BYTES;
@@ -251,103 +226,85 @@ static void r47_fill_test_display_pattern_locked(void) {
   pthread_mutex_unlock(&packedDisplayMutex);
 }
 
+static void saveKeepsDisplayAtRest(void *arg) {
+  bool *kept = arg;
+  r47_fill_test_display_pattern();
+  const uint64_t before_save = r47_capture_display_hash();
+  r47_save_settled();
+  *kept = before_save == r47_capture_display_hash() && before_save != 0u;
+}
+
 // Deterministic proof that a background save does not corrupt the visible
-// framebuffer. r47_save_background_state_locked
-// only calls saveCalc(), which serializes calculator state and never touches
-// packedDisplayBuffer, so the contract holds for ANY framebuffer -- there is no
-// need to run a graphing program emergently to produce one. A deterministic
-// non-trivial pattern is injected, the framebuffer is hashed, the background save
-// runs, and it is re-hashed, all while screenMutex is held so no async redraw can
-// interleave. Returns true when the save preserved the (non-trivial) framebuffer.
+// framebuffer. saveCalc serializes calculator state and never touches
+// packedDisplayBuffer, so the contract holds for ANY framebuffer. All of it runs on
+// the calculator thread, so no redraw can interleave.
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_backgroundSaveKeepsInjectedDisplayBufferForTestNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-
-  if (!ram) {
-    return JNI_FALSE;
-  }
-
-  extern uint8_t *packedDisplayBuffer;
-  extern void r47_save_background_state_locked(void);
-
   if (!packedDisplayBuffer) {
     return JNI_FALSE;
   }
-
-  pthread_mutex_lock(&screenMutex);
-  r47_fill_test_display_pattern_locked();
-  uint64_t before_save = r47_capture_display_hash_locked();
-  r47_save_background_state_locked();
-  uint64_t after_save = r47_capture_display_hash_locked();
-  pthread_mutex_unlock(&screenMutex);
-
-  return (before_save == after_save && before_save != 0u) ? JNI_TRUE
-                                                          : JNI_FALSE;
+  bool kept = false;
+  r47_run_at_rest(saveKeepsDisplayAtRest, &kept);
+  return kept ? JNI_TRUE : JNI_FALSE;
 }
 
-// Injects the deterministic non-trivial framebuffer pattern and returns its hash,
-// atomically under screenMutex. The pause/resume
-// and recreation lifecycle transitions are display-passive -- the native runtime
-// and packedDisplayBuffer persist across them and are not re-rendered (the core
-// thread and native-init flags are process-shared, so a recreated Activity
-// re-attaches without re-init) -- so the test injects this pattern, drives the
-// Android lifecycle event, and re-hashes via captureDisplayHash, expecting the
-// returned hash to be preserved. Returns 0 if the framebuffer is unavailable.
+static void injectDisplayAtRest(void *arg) {
+  uint64_t *hash = arg;
+  r47_fill_test_display_pattern();
+  *hash = r47_capture_display_hash();
+}
+
+// Injects the deterministic framebuffer pattern and returns its hash. The pause,
+// resume, and recreation transitions are display-passive: the calculator and
+// packedDisplayBuffer outlive each Activity and are not re-rendered, so the test
+// injects this pattern, drives the lifecycle event, and re-hashes.
 JNIEXPORT jlong JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_injectDeterministicDisplayBufferForTestNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-
-  if (!ram) {
-    return 0;
-  }
-
-  extern uint8_t *packedDisplayBuffer;
-
   if (!packedDisplayBuffer) {
     return 0;
   }
-
-  pthread_mutex_lock(&screenMutex);
-  r47_fill_test_display_pattern_locked();
-  uint64_t hash = r47_capture_display_hash_locked();
-  pthread_mutex_unlock(&screenMutex);
-
+  uint64_t hash = 0;
+  r47_run_at_rest(injectDisplayAtRest, &hash);
   return (jlong)hash;
 }
+
+static void setRedrawAtRest(void *arg) { reDraw = *(bool *)arg; }
 
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setRedrawFlagForTestNative(
     JNIEnv *env, jobject thiz, jboolean enabled) {
   (void)env;
   (void)thiz;
-
-  if (!ram) {
-    return;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  reDraw = enabled == JNI_TRUE;
-  pthread_mutex_unlock(&screenMutex);
+  bool value = enabled == JNI_TRUE;
+  r47_run_at_rest(setRedrawAtRest, &value);
 }
+
+static void readRedrawAtRest(void *arg) { *(bool *)arg = reDraw; }
 
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isRedrawFlagSetForTestNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
+  bool value = false;
+  r47_run_at_rest(readRedrawAtRest, &value);
+  return value ? JNI_TRUE : JNI_FALSE;
+}
 
-  if (!ram) {
-    return JNI_FALSE;
-  }
+typedef struct {
+  int iterations;
+  bool ok;
+} graphStress_t;
 
-  pthread_mutex_lock(&screenMutex);
-  jboolean enabled = reDraw ? JNI_TRUE : JNI_FALSE;
-  pthread_mutex_unlock(&screenMutex);
-  return enabled;
+static void graphStressAtRest(void *arg) {
+  graphStress_t *stress = arg;
+  stress->ok = r47_graph_touch_no_nan_stress(stress->iterations);
 }
 
 JNIEXPORT jboolean JNICALL
@@ -355,34 +312,13 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_runExtremeGraphTouchStres
     JNIEnv *env, jobject thiz, jint iterations) {
   (void)env;
   (void)thiz;
-
-  if (!ram) {
-    return JNI_FALSE;
-  }
-
-  int loops = (int)iterations;
-  if (loops <= 0) {
-    loops = 1;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-  bool ok = r47_graph_touch_no_nan_stress_locked(loops);
-  pthread_mutex_unlock(&screenMutex);
-  return ok ? JNI_TRUE : JNI_FALSE;
+  graphStress_t stress = {(int)iterations <= 0 ? 1 : (int)iterations, false};
+  r47_run_at_rest(graphStressAtRest, &stress);
+  return stress.ok ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_restoreSanitizesInvalidGraphBoundsNative(
-    JNIEnv *env, jobject thiz) {
-  (void)env;
-  (void)thiz;
-
-  if (!ram) {
-    return JNI_FALSE;
-  }
-
-  pthread_mutex_lock(&screenMutex);
-
+static void sanitizeBoundsAtRest(void *arg) {
+  bool *ok = arg;
   const float savedXMin = r47_graph_bound_to_float(x_min);
   const float savedXMax = r47_graph_bound_to_float(x_max);
   const float savedYMin = r47_graph_bound_to_float(y_min);
@@ -393,23 +329,37 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_restoreSanitizesInvalidGr
   r47_graph_bound_from_float(4.0f, y_min);
   r47_graph_bound_from_float(4.0f, y_max);
 
-  bool changed = r47_sanitize_graph_bounds_locked();
+  const bool changed = r47_sanitize_graph_bounds();
   const float sanXMin = r47_graph_bound_to_float(x_min);
   const float sanXMax = r47_graph_bound_to_float(x_max);
   const float sanYMin = r47_graph_bound_to_float(y_min);
   const float sanYMax = r47_graph_bound_to_float(y_max);
-  bool ok = changed && isfinite(sanXMin) && isfinite(sanXMax) &&
-            isfinite(sanYMin) && isfinite(sanYMax) && sanXMin < sanXMax &&
-            sanYMin < sanYMax;
+  *ok = changed && isfinite(sanXMin) && isfinite(sanXMax) &&
+        isfinite(sanYMin) && isfinite(sanYMax) && sanXMin < sanXMax &&
+        sanYMin < sanYMax;
 
   r47_graph_bound_from_float(savedXMin, x_min);
   r47_graph_bound_from_float(savedXMax, x_max);
   r47_graph_bound_from_float(savedYMin, y_min);
   r47_graph_bound_from_float(savedYMax, y_max);
-  r47_sync_graph_bounds_reserved_vars_locked();
+  r47_sync_graph_bounds_reserved_vars();
+}
 
-  pthread_mutex_unlock(&screenMutex);
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_restoreSanitizesInvalidGraphBoundsNative(
+    JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+  bool ok = false;
+  r47_run_at_rest(sanitizeBoundsAtRest, &ok);
   return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+static void resetAtRest(void *arg) {
+  (void)arg;
+  doFnReset(CONFIRMED, false);
+  fnRefreshState();
+  r47_force_refresh();
 }
 
 JNIEXPORT void JNICALL
@@ -417,17 +367,11 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_resetRuntimeNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-  if (!ram) {
-    return;
-  }
+  r47_run_at_rest(resetAtRest, NULL);
+}
 
-  extern void doFnReset(uint16_t confirmation, bool_t autoSav);
-
-  pthread_mutex_lock(&screenMutex);
-  doFnReset(CONFIRMED, false);
-  fnRefreshState();
-  r47_force_refresh();
-  pthread_mutex_unlock(&screenMutex);
+static void runFunctionAtRest(void *arg) {
+  runFunction((int16_t)(intptr_t)arg);
 }
 
 JNIEXPORT void JNICALL
@@ -435,7 +379,7 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_sendSimFunctionNative(
     JNIEnv *env, jobject thiz, jint funcId) {
   (void)env;
   (void)thiz;
-  r47_send_sim_function((int)funcId);
+  r47_run_at_rest(runFunctionAtRest, (void *)(intptr_t)funcId);
 }
 
 JNIEXPORT void JNICALL
@@ -443,142 +387,70 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease) {
   (void)thiz;
-  if (!ram ||
-      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed)) {
-    return;
-  }
-
+  (void)isFn;
   const char *nativeKeyId = (*env)->GetStringUTFChars(env, keyId, 0);
   if (!nativeKeyId ||
       jni_check_and_clear_exception(
           env, "ProgramLoadTestBridge.sendSimKey GetStringUTFChars")) {
-    // Release before bailing: GetStringUTFChars can return a valid copy even
-    // when an exception is pending, and an early return must not leak it
-    // (mirrors the production sendSimKeyNative path in jni_input.c).
     if (nativeKeyId) {
       (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
     }
     return;
   }
 
-  r47_send_sim_key(nativeKeyId, isFn == JNI_TRUE, isRelease == JNI_TRUE);
+  // "00" to "36" is a key and "1" to "6" a softkey.
+  const int code = nativeKeyId[1] == 0
+                       ? nativeKeyId[0] - '1' + 38
+                       : (nativeKeyId[0] - '0') * 10 + nativeKeyId[1] - '0' + 1;
+  r47_key_push(isRelease == JNI_TRUE ? 0 : code);
   (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
 }
 
+static void resetRefreshCountAtRest(void *arg) {
+  (void)arg;
+  r47_reset_host_lcd_refresh_count();
+}
+
+static void beginFunctionAtRest(void *arg) {
+  runFunction((int16_t)(intptr_t)arg);
+  atomic_store(&r47_program_load_busy, false);
+}
+
+// Starts a function on the calculator thread and returns at once. The test polls
+// isSimFunctionRunning and presses keys meanwhile, which the function's polls see.
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_beginSimFunctionNative(
     JNIEnv *env, jobject thiz, jint funcId) {
   (void)env;
   (void)thiz;
-
-  if (!ram) {
+  if (atomic_exchange(&r47_program_load_busy, true)) {
     return JNI_FALSE;
   }
-
-  pthread_mutex_lock(&screenMutex);
-  r47_reset_host_lcd_refresh_count();
-  pthread_mutex_unlock(&screenMutex);
-
-  pthread_mutex_lock(&r47_program_load_worker_mutex);
-  if (r47_program_load_worker_running) {
-    pthread_mutex_unlock(&r47_program_load_worker_mutex);
-    return JNI_FALSE;
-  }
-  r47_program_load_worker_running = true;
-  pthread_mutex_unlock(&r47_program_load_worker_mutex);
-
-  pthread_t worker_thread;
-  if (pthread_create(&worker_thread, NULL, r47_program_load_worker_main,
-                     (void *)(intptr_t)funcId) != 0) {
-    pthread_mutex_lock(&r47_program_load_worker_mutex);
-    r47_program_load_worker_running = false;
-    pthread_mutex_unlock(&r47_program_load_worker_mutex);
-    return JNI_FALSE;
-  }
-
-  pthread_detach(worker_thread);
+  r47_run_at_rest(resetRefreshCountAtRest, NULL);
+  r47_run_at_rest_async(beginFunctionAtRest, (void *)(intptr_t)funcId);
   return JNI_TRUE;
 }
 
+static void markRestReached(void *arg) {
+  (void)arg;
+  atomic_store(&r47_program_load_busy, false);
+}
+
+// Presses one key through the same path as the keypad, and counts as running until
+// the calculator is back at rest.
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_beginMainActivityKeySequenceNative(
     JNIEnv *env, jobject thiz, jint keyCode) {
   (void)env;
   (void)thiz;
-
-  if (!ram) {
+  if (atomic_exchange(&r47_program_load_busy, true)) {
     return JNI_FALSE;
   }
-
-  pthread_mutex_lock(&screenMutex);
-  r47_reset_host_lcd_refresh_count();
-  pthread_mutex_unlock(&screenMutex);
-
-  pthread_mutex_lock(&r47_program_load_worker_mutex);
-  if (r47_program_load_worker_running) {
-    pthread_mutex_unlock(&r47_program_load_worker_mutex);
-    return JNI_FALSE;
-  }
-  r47_program_load_worker_running = true;
-  pthread_mutex_unlock(&r47_program_load_worker_mutex);
-
-  r47_program_load_key_sequence_t *request =
-      (r47_program_load_key_sequence_t *)malloc(sizeof(*request));
-  if (request == NULL) {
-    pthread_mutex_lock(&r47_program_load_worker_mutex);
-    r47_program_load_worker_running = false;
-    pthread_mutex_unlock(&r47_program_load_worker_mutex);
-    return JNI_FALSE;
-  }
-  request->key_code = (int)keyCode;
-
-  pthread_t worker_thread;
-  if (pthread_create(&worker_thread, NULL, r47_program_load_key_worker_main,
-                     request) != 0) {
-    free(request);
-    pthread_mutex_lock(&r47_program_load_worker_mutex);
-    r47_program_load_worker_running = false;
-    pthread_mutex_unlock(&r47_program_load_worker_mutex);
-    return JNI_FALSE;
-  }
-
-  pthread_detach(worker_thread);
+  r47_run_at_rest(resetRefreshCountAtRest, NULL);
+  r47_key_push((int)keyCode);
+  r47_key_push(0);
+  r47_run_at_rest_async(markRestReached, NULL);
   return JNI_TRUE;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_requestStopProgramNative(
-    JNIEnv *env, jobject thiz) {
-  (void)thiz;
-
-  return Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(
-      env, NULL);
-}
-
-// Pure, side-effect-free probe of the out-of-band direct-stop run-state gate, so
-// the run-state contract can be asserted deterministically without driving a
-// real program into a specific (timing-dependent) run state. Mirrors the gate
-// consulted by MainActivity.dispatchLiveKey before it swallows R/S/EXIT.
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_directStopAllowedForRunStateNative(
-    JNIEnv *env, jobject thiz, jint runState) {
-  (void)env;
-  (void)thiz;
-  return r47_direct_stop_allowed((uint16_t)runState) ? JNI_TRUE : JNI_FALSE;
-}
-
-// Inject a run state directly so the REAL requestStopProgramNative gate can be
-// asserted end to end across every run state deterministically, instead of
-// waiting for a graphing program to emergently reach a busy state. Safe because
-// fnStopProgram() only sets
-// programRunStop = PGM_WAITING and clears a screen flag; it dereferences no
-// program state. Tests must resetRuntime() afterward to restore isolation.
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_setProgramRunStopForTestNative(
-    JNIEnv *env, jobject thiz, jint runState) {
-  (void)env;
-  (void)thiz;
-  programRunStop = (uint8_t)runState;
 }
 
 JNIEXPORT void JNICALL
@@ -602,12 +474,11 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isSimFunctionRunningNativ
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
+  return atomic_load(&r47_program_load_busy) ? JNI_TRUE : JNI_FALSE;
+}
 
-  pthread_mutex_lock(&r47_program_load_worker_mutex);
-  jboolean is_running = r47_program_load_worker_running ? JNI_TRUE : JNI_FALSE;
-  pthread_mutex_unlock(&r47_program_load_worker_mutex);
-
-  return is_running;
+static void readStateAtRest(void *arg) {
+  r47_fill_program_load_state_values((jint *)arg);
 }
 
 JNIEXPORT jintArray JNICALL
@@ -617,33 +488,27 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_snapshotStateNative(
 
   jint values[R47_PROGRAM_LOAD_STATE_LENGTH];
   memset(values, 0, sizeof(values));
-
-  if (ram) {
-    pthread_mutex_lock(&screenMutex);
-    r47_fill_program_load_state_values(values);
-    pthread_mutex_unlock(&screenMutex);
-  }
-
+  r47_run_at_rest(readStateAtRest, values);
   return r47_new_program_load_state_array(env, values);
 }
 
+// The busy test's read: during a computation there is no state to read.
 JNIEXPORT jintArray JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_snapshotStateIfAvailableNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
 
+  if (atomic_load(&r47_program_load_busy)) {
+    return NULL;
+  }
   jint values[R47_PROGRAM_LOAD_STATE_LENGTH];
   memset(values, 0, sizeof(values));
-
-  if (ram) {
-    if (pthread_mutex_trylock(&screenMutex) != 0) {
-      return NULL;
-    }
-    r47_fill_program_load_state_values(values);
-    pthread_mutex_unlock(&screenMutex);
-  }
-
+  r47_run_at_rest(readStateAtRest, values);
   return r47_new_program_load_state_array(env, values);
+}
+
+static void readXTypeAtRest(void *arg) {
+  *(jint *)arg = (jint)getRegisterDataType(REGISTER_X);
 }
 
 JNIEXPORT jint JNICALL
@@ -651,33 +516,7 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterTypeNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
-
   jint result = 0;
-  if (ram) {
-    pthread_mutex_lock(&screenMutex);
-    result = (jint)getRegisterDataType(REGISTER_X);
-    pthread_mutex_unlock(&screenMutex);
-  }
-
-  return result;
-}
-
-JNIEXPORT jstring JNICALL
-Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_getXRegisterClipboardTextNative(
-    JNIEnv *env, jobject thiz) {
-  (void)thiz;
-
-  // X as the Copy menu copies it, whole: a matrix as "RxC" and each element, row
-  // by row.
-  char *text = NULL;
-  if (ram) {
-    pthread_mutex_lock(&screenMutex);
-    text = r47_capture_clipboard_locked(copyRegisterXToClipboard);
-    pthread_mutex_unlock(&screenMutex);
-  }
-
-  jstring result = jni_new_string_utf(
-      env, text, "", "ProgramLoadTestBridge.getXRegisterClipboardText");
-  free(text);
+  r47_run_at_rest(readXTypeAtRest, &result);
   return result;
 }

@@ -3,13 +3,13 @@
 # Check that a minified APK still carries every name the native bridge looks up
 # at runtime. R8 renames and removes what no keep rule names, and a JNI lookup
 # by a name R8 changed fails only on a device: RegisterNatives in JNI_OnLoad
-# aborts the library load, a GetMethodID returns NULL. The expected names come
+# aborts the library load, a bindMethod returns NULL. The expected names come
 # from the C sources, not from a list here:
 #
-#   - the class MAIN_ACTIVITY_CLASS in jni_bridge.h names, which FindClass loads;
+#   - the class CALCULATOR_ENGINE_CLASS in jni_bridge.h names, which FindClass loads;
 #   - every {"name", "signature", ...} entry of the RegisterNatives table in
 #     jni_registration.c, each of which must be a native method of that class;
-#   - every GetMethodID(env, clazz, "name", "signature") in the glue, each of
+#   - every bindMethod(env, clazz, "name", "signature") in the glue, each of
 #     which must be a method of that class.
 #
 # Usage:
@@ -57,8 +57,8 @@ done
 [[ -n "$apk" || -n "$dexdump_output" ]] || fail "Pass --apk or --dexdump-output."
 
 # --- the names the C sources look up ---------------------------------------
-class_path="$(sed -n 's/^#define MAIN_ACTIVITY_CLASS "\([^"]*\)".*/\1/p' "$GLUE_DIR/jni_bridge.h")"
-[[ -n "$class_path" ]] || fail "No MAIN_ACTIVITY_CLASS in $GLUE_DIR/jni_bridge.h."
+class_path="$(sed -n 's/^#define CALCULATOR_ENGINE_CLASS "\([^"]*\)".*/\1/p' "$GLUE_DIR/jni_bridge.h")"
+[[ -n "$class_path" ]] || fail "No CALCULATOR_ENGINE_CLASS in $GLUE_DIR/jni_bridge.h."
 class_descriptor="L${class_path};"
 
 natives="$(grep -oE '\{"[A-Za-z0-9_]+", "[^"]+",' "$GLUE_DIR/jni_registration.c" |
@@ -67,9 +67,9 @@ natives="$(grep -oE '\{"[A-Za-z0-9_]+", "[^"]+",' "$GLUE_DIR/jni_registration.c"
 
 glue_sources=("$GLUE_DIR"/*.c "$GLUE_DIR"/hal/*.c)
 callbacks="$(cat "${glue_sources[@]}" | tr '\n' ' ' |
-    grep -oE 'GetMethodID\([^,]+,[^,]+,[[:space:]]*"[A-Za-z0-9_]+",[[:space:]]*"[^"]+"' |
+    grep -oE 'bindMethod\([^,]+,[^,]+,[[:space:]]*"[A-Za-z0-9_]+",[[:space:]]*"[^"]+"' |
     sed -E 's/.*"([A-Za-z0-9_]+)",[[:space:]]*"([^"]+)"$/\1 \2/' | sort -u)"
-[[ -n "$callbacks" ]] || fail "No GetMethodID call found in $GLUE_DIR."
+[[ -n "$callbacks" ]] || fail "No bindMethod call found in $GLUE_DIR."
 
 # --- the methods the dex holds ------------------------------------------------
 if [[ -n "$apk" ]]; then
@@ -121,7 +121,7 @@ while read -r name signature; do
 done <<<"$natives"
 while read -r name signature; do
     has_method "$name" "$signature" ||
-        missing+=("$name$signature (GetMethodID)")
+        missing+=("$name$signature (bindMethod)")
 done <<<"$callbacks"
 
 if [[ "${#missing[@]}" -gt 0 ]]; then
@@ -129,4 +129,4 @@ if [[ "${#missing[@]}" -gt 0 ]]; then
     printf '  %s\n' "${missing[@]}" >&2
     exit 1
 fi
-echo "JNI surface intact: $class_descriptor carries $(grep -c . <<<"$natives") registered natives and $(grep -c . <<<"$callbacks") GetMethodID callbacks."
+echo "JNI surface intact: $class_descriptor carries $(grep -c . <<<"$natives") registered natives and $(grep -c . <<<"$callbacks") bindMethod callbacks."

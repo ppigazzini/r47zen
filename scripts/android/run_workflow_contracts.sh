@@ -29,8 +29,6 @@ CONTRACTS=(
     run_version_naming_contract.sh
     run_production_signing_scope_contract.sh
     run_signing_isolation_contract.sh
-    run_legacy_printf_contract.sh
-    run_native_stand_ins_contract.sh
     run_release_dry_run_contract.sh
     run_green_ci_pair_contract.sh
     run_log_upload_contract.sh
@@ -43,6 +41,8 @@ CONTRACTS=(
     run_core_source_archive_contract.sh
     run_host_tools_record_contract.sh
     run_native_exports_contract.sh
+    run_legacy_printf_contract.sh
+    run_native_stand_ins_contract.sh
     run_actions_lock_coverage_contract.sh
     run_core_source_list_contract.sh
     run_release_provenance_contract.sh
@@ -52,7 +52,6 @@ CONTRACTS=(
     run_toolchain_pin_coherence_contract.sh
     run_build_jdk_pin_coherence_contract.sh
     run_action_pin_consistency_contract.sh
-    run_wrap_safe_time_contract.sh
     run_setup_android_packages_contract.sh
     run_setup_android_composite_contract.sh
     run_gradle_cache_contract.sh
@@ -67,6 +66,7 @@ CONTRACTS=(
     run_commit_message_contract.sh
     run_quiet_grep_pipeline_contract.sh
     run_jni_surface_check_contract.sh
+    run_upstream_hal_contract.sh
     run_glue_sources_contract.sh
     run_merge_request_watch_contract.sh
     run_build_metadata_reader_contract.sh

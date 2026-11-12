@@ -2,9 +2,9 @@
 
 # Contract: scripts/android/check_jni_surface.sh, which fails a minified APK
 # that lost a name the native bridge looks up, can fail. It runs over dexdump
-# text: a complete MainActivity built here from the C sources' own names
+# text: a complete CalculatorEngine built here from the C sources' own names
 # passes, and a copy missing one registered native, one that keeps the name but
-# lost its native flag, one missing a GetMethodID callback, one with the
+# lost its native flag, one missing a bindMethod callback, one with the
 # callback's signature changed, and one with the class renamed each fail. The
 # release lane runs the checker over the shipped APK, inside
 # collect_packaging_evidence.sh. Pure host test, no SDK needed.
@@ -21,8 +21,8 @@ GLUE_DIR="$PROJECT_ROOT/android/app/src/main/cpp/r47zen"
 fixture_dir="$(mktemp -d)"
 trap 'rm -rf "$fixture_dir"' EXIT
 
-class_path="$(sed -n 's/^#define MAIN_ACTIVITY_CLASS "\([^"]*\)".*/\1/p' "$GLUE_DIR/jni_bridge.h")"
-[ -n "$class_path" ] || contract_fail "no MAIN_ACTIVITY_CLASS in jni_bridge.h"
+class_path="$(sed -n 's/^#define CALCULATOR_ENGINE_CLASS "\([^"]*\)".*/\1/p' "$GLUE_DIR/jni_bridge.h")"
+[ -n "$class_path" ] || contract_fail "no CALCULATOR_ENGINE_CLASS in jni_bridge.h"
 
 # One dexdump method stanza; ACCESS is the access line's text.
 method_stanza() {
@@ -45,15 +45,15 @@ method_stanza() {
         done
     echo "  Virtual methods   -"
     cat "$GLUE_DIR"/*.c "$GLUE_DIR"/hal/*.c | tr '\n' ' ' |
-        grep -oE 'GetMethodID\([^,]+,[^,]+,[[:space:]]*"[A-Za-z0-9_]+",[[:space:]]*"[^"]+"' |
+        grep -oE 'bindMethod\([^,]+,[^,]+,[[:space:]]*"[A-Za-z0-9_]+",[[:space:]]*"[^"]+"' |
         sed -E 's/.*"([A-Za-z0-9_]+)",[[:space:]]*"([^"]+)"$/\1 \2/' |
         while read -r name signature; do
             method_stanza "$name" "$signature" '0x0011 (PUBLIC FINAL)'
         done
 } >"$fixture_dir/complete.txt"
 
-grep -q "name          : 'tick'" "$fixture_dir/complete.txt" ||
-    contract_fail "the complete fixture holds no tick native; the extraction read nothing."
+grep -q "name          : 'sendKey'" "$fixture_dir/complete.txt" ||
+    contract_fail "the complete fixture holds no sendKey native; the extraction read nothing."
 grep -q "name          : 'playTone'" "$fixture_dir/complete.txt" ||
     contract_fail "the complete fixture holds no playTone callback; the extraction read nothing."
 
@@ -69,7 +69,7 @@ drop_method() {
         \$0 ~ /name +: '$1'/ { skip[NR - 1] = 1; skip[NR] = 1; skip[NR + 1] = 1; skip[NR + 2] = 1 }
         END { for (i = 1; i <= NR; i++) if (!(i in skip)) print lines[i] }"
 }
-seed missing-native "$(drop_method tick)"
+seed missing-native "$(drop_method sendKey)"
 seed not-native '
     /name +: '\''sendKey'\''/ { hit = 1 }
     hit && /access/ { sub(/0x0112 \(PRIVATE FINAL NATIVE\)/, "0x0012 (PRIVATE FINAL)"); hit = 0 }
@@ -79,7 +79,7 @@ seed changed-signature '
     /name +: '\''requestFile'\''/ { hit = 1 }
     hit && /type/ { sub(/'\''[^'\'']*'\''/, "'\''(ZLjava/lang/String;)V'\''"); hit = 0 }
     { print }'
-seed renamed-class '{ sub(/MainActivity;/, "a;") } { print }'
+seed renamed-class '{ sub(/CalculatorEngine;/, "a;") } { print }'
 
 bash "$CHECKER" --dexdump-output "$fixture_dir/complete.txt" >/dev/null ||
     contract_fail "the checker rejected the complete fixture."
@@ -89,4 +89,4 @@ for fixture in missing-native not-native missing-callback changed-signature rena
     fi
 done
 
-contract_pass "check_jni_surface.sh passes the complete MainActivity and fails each of 5 seeded losses."
+contract_pass "check_jni_surface.sh passes the complete CalculatorEngine and fails each of 5 seeded losses."

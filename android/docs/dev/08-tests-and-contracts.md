@@ -18,14 +18,14 @@ flowchart TD
     C[Python geometry and visual-policy contracts]
     D[JVM contract and parity tests]
     E[Instrumentation seams and runtime execution]
-    F[Host workload regression]
+    F[Host workload regression and thread harnesses]
     G[Full Android build and CI lanes]
 
     A --> B
     B -->|geometry, label, visual policy| C
     B -->|decoder, renderer, keypad, runtime, keyboard| D
     B -->|READP, SAF, graph redraw, device runtime| E
-    B -->|pause, wait, progress, PC_BUILD bridge| F
+    B -->|pause, wait, progress, calculator thread, DMCP HAL| F
     C --> G
     D --> G
     E --> G
@@ -44,24 +44,23 @@ flowchart TD
 | overlay geometry replay for unchanged keypad scenes | `MainActivity.kt`, `ReplicaOverlayController.kt`, `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt` | `MainKeySnapshotRenderTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | keypad scene export manifest and decoder | `KeypadSnapshot`, exported keypad fixtures, `keypad_scene.c` | `KeypadFixtureContractTest.kt`, `KeypadSnapshotDecoderTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | exported keypad fixtures against the core of today | `android/app/src/test/resources/keypad-fixtures/`, the staged core, `keypad_scene.c` | `scripts/keypad-fixtures/report_keypad_fixture_drift.sh`: it lists what drifted, up to 12 changes a scene, and fails on a failed export, a scene it cannot read, or drift with no upstream move, which it can tell apart only until upstream next moves after a re-export | the `android-ci.yml` build job, which marks the step and not the job, or the script after a full build; on drift, re-export with `export_upstream_keypad_fixtures.sh`, re-derive the keyboard-layout and font-policy goldens, which read the fixtures, once each move is root-caused, and run `:app:testDebugUnitTest`, which runs `KeypadTopLabelLayoutTest.kt` on the new scenes |
-| rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `ReplicaOverlayController.kt`, `KeypadLabelModes.kt`, `C47TypefacePolicy.kt` | `CalculatorKeyViewRenderSpecTest.kt`, `CalculatorKeyViewFontSelectionTest.kt`, `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `SoftkeyTextContrastTest.kt`, `ReplicaOverlayGoldenTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
+| rendered keypad and softkey semantics | `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `ReplicaOverlayController.kt`, `KeypadLabelModes.kt`, `C47TypefacePolicy.kt` | `CalculatorKeyViewRenderSpecTest.kt`, `CalculatorKeyViewFontSelectionTest.kt`, `ExportedKeypadFixtureRenderTest.kt`, `CalculatorSoftkeyPainterContractTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt`, `ReplicaOverlayGoldenTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
 | physical keyboard mapping and first-key shell focus routing | `PhysicalKeyboardBindingTables.kt`, `PhysicalKeyboardMapper`, `PhysicalKeyboardInputController`, `ReplicaOverlay.kt` | `PhysicalKeyboardInputParityTest.kt`, `ReplicaOverlayVisualPolicyTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.PhysicalKeyboardInputParityTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest` |
-| core thread, display loop, and runtime gate behavior | `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_lifecycle.c`, `jni_display.c`, `android_runtime.c` | `NativeCoreRuntimeTest.kt`, `NativeDisplayRefreshLoopTest.kt`, `GraphRedrawInstrumentedTest.kt`, `KeypadTouchInstrumentedTest.kt`, `run_workload_regressions.sh` | focused JVM tests first, then the host workload lane when the compatibility path moved |
-| live program-stop key routing (which keys publish the out-of-band direct stop, which run states accept it, and whether a key is forwarded or swallowed) | `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `MainActivity.kt` `dispatchLiveKey`, `jni_input.c` `r47_direct_stop_allowed`, upstream `src/c47/programming/input.c` (`key == 36 || key == 33` while `*prevStop == PGM_RUNNING`) | `scripts/r47_contracts/test_live_stop_key_policy_contract.py` (cross-source lock of the Kotlin policy to upstream `input.c`), `LiveProgramStopKeyPolicyTest.kt` (literal-code key-set sweep), `LiveKeyRouterTest.kt` (forward when the gate declines, swallow only when it accepts, never query the gate for non-stop keys), `DisplayLifecycleInstrumentedTest.directStopGateDeclinesInteractiveWaitStates` (pure run-state gate predicate) and `requestStopProgramHonorsRunStateGateEndToEnd` (the real `requestStopProgramNative` exercised end to end across every run state via deterministic `setProgramRunStop` injection rather than an emergent 90 s SPIRALk busy-stop wait), `ProgramFixtureInstrumentedTest` (rejects a direct stop accepted while parked in an interactive wait) | `scripts/r47_contracts/run_contract_suite.sh` and `:app:testReleaseUnitTest --tests io.github.ppigazzini.r47zen.LiveProgramStopKeyPolicyTest --tests io.github.ppigazzini.r47zen.LiveKeyRouterTest`, then the connected lane when the native gate or bridge moved |
+| calculator thread, key buffer, service queue, and display loop | `CalculatorEngine.kt`, `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_lifecycle.c`, `jni_display.c`, `hal/keys.c`, `host_services.c`, `keypad_scene.c` | `build_calculator_thread_harness.sh`, `scripts/workload-regressions/build_bridge_tsan_harness.sh`, `NativeDisplayRefreshLoopTest.kt`, `NativeKeypadSnapshotStoreTest.kt`, `GraphRedrawInstrumentedTest.kt`, `KeypadTouchInstrumentedTest.kt`, `run_workload_regressions.sh` | the two harnesses first, then the focused JVM tests, then the host workload lane when long runs moved |
+| what `hal/keys.c` assumes about who sleeps (upstream's `sys_sleep` callers against `calculatorAtRest`) | `hal/keys.c`, upstream `src/c47/c47.c` and `src/c47/programming/input.c` | `run_upstream_hal_contract.sh` | `bash ./scripts/android/run_upstream_hal_contract.sh "$PWD/src"` after an upstream sync |
 | developer performance HUD preference, configurable sample-window slider, snapshot transport, and shell visibility | `DeveloperPerformanceSnapshot.kt`, `NativeDisplayRefreshLoop.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml` | `NativeDisplayRefreshLoopTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `ReplicaOverlayGoldenTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.NativeDisplayRefreshLoopTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest` |
 | graph LCD touch gate (proven `CM_GRAPH` path with `-MNU_PLOT_FUNC` and `-MNU_GRAPHS`), multi-touch pointer continuity, post-start continuation deadband for stationary-finger jitter, bounded queued-pan backlog capping (`<= 4.0f` normalized backlog per axis), bounded per-apply pan splitting (`<= 1.0f` normalized per native apply), widened pinch queue clamp (`0.4f..2.5f`), native oversized-input rejection, transactional finite graph-bounds commit checks (`+/-1.0e38f`), restore-time graph-bounds sanitization after `restoreCalc()`, and LCD graph-touch settings copy | `ReplicaOverlay.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `GraphGestureAccumulator.kt`, `android/app/src/main/cpp/r47zen/jni_input.c`, `android/app/src/main/cpp/r47zen/jni_lifecycle.c`, `android/app/src/main/cpp/r47zen/jni_program_load_test.c`, `android/app/src/main/res/values/strings.xml` | `GraphGestureAccumulatorTest.kt`, `ReplicaOverlayGoldenTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `GraphTouchStressInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.GraphGestureAccumulatorTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest && ./gradlew :app:assembleDebugAndroidTest :app:connectedDebugAndroidTest --tests io.github.ppigazzini.r47zen.GraphTouchStressInstrumentedTest` |
-| stop delivery and first-stop LCD cleanup during long-running program execution | `MainActivity.kt`, `LiveProgramStopKeyPolicy.kt`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, `ReplicaOverlayController.kt`, `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `NativeCoreRuntime.kt`, `jni_display.c`, `jni_input.c`, `jni_lifecycle.c`, `android_runtime.c` | `LiveProgramStopKeyPolicyTest.kt`, `NativeDisplayRefreshLoopTest.kt`, `ReplicaOverlayControllerLabelModeTest.kt`, `ProgramFixtureInstrumentedTest.kt`, `DisplayLifecycleInstrumentedTest.kt`, `scripts/workload-regressions/run_workload_regressions.sh`, and focused JVM stop-routing checks | rerun `LiveProgramStopKeyPolicyTest` first, then the host workload lane, then `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest` when the Android-owned stop or first-stop refresh seam moved |
-| settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `NativeCoreRuntime.kt`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh`; on the JVM, `NativeCoreRuntimeTest.kt` (only the core thread releases the activity globals, a stopped host parks the loop, and a host that attaches during the thread's exit gets a fresh thread), `NativeFileRequestGateTest.kt`, and `FactoryResetControllerTest.kt` | `:app:testDebugUnitTest` first, then `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
+| stop delivery during long-running execution: `R/S` and `EXIT` on the FIFO, and what upstream's polls do with them | `hal/keys.c`, upstream `exitKeyWaiting` in `src/c47/c47Extensions/addons.c`, `runProgram` in `src/c47/programming/lblGtoXeq.c`, `fnPause` in `src/c47/programming/input.c`, `ProgramLoadTestBridge.kt`, `jni_program_load_test.c` | `calculator_thread_harness.c`, `scripts/workload-regressions/run_workload_regressions.sh`, `ProgramFixtureInstrumentedTest.kt`, `DisplayLifecycleInstrumentedTest.kt` | the calculator thread harness first, then the host workload lane, then `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest` |
+| settings lifecycle and activity recreation LCD preservation | `MainActivity.kt`, `CalculatorEngine.kt`, `jni_upcalls.c`, `jni_lifecycle.c`, `ProgramLoadTestBridge.kt` | `DisplayLifecycleInstrumentedTest.kt`, `scripts/android/run_16kb_runtime_smoke.sh`; on the host, the save, OFF, parking, and stop cases of `calculator_thread_harness.c`; on the JVM, `NativeFileRequestGateTest.kt` and `FactoryResetControllerTest.kt` | the calculator thread harness and `:app:testDebugUnitTest` first, then `:app:assembleDebugAndroidTest` plus `:app:connectedDebugAndroidTest`, or `bash ./scripts/android/run_16kb_runtime_smoke.sh` when 16 KB runtime proof matters |
 | settings behavior copy, main-shell menu copy, follow-up copy-popup parity, developer performance HUD copy, fixed dark shell and popup theme invariants, the explicit checked settings-switch orange-track and blue-thumb tint mapping, adaptive settings host layout, and dependent keypress haptic default-toggle plus custom-duration copy | `SettingsActivity.kt`, `SettingsSwitchPreference.kt`, `MainActivity.kt`, `DisplayActionController.kt`, `android/app/src/main/cpp/r47zen/jni_clipboard.c`, `android/app/src/main/cpp/r47zen/hal/gui.c`, `android/app/src/main/res/layout/settings_activity.xml`, `android/app/src/main/res/layout-w600dp/settings_activity.xml`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `SettingsActivityThemeTest.kt`, `SettingsPreferenceSummaryTest.kt`, `SettingsLinkTest.kt`, `MainShellThemeTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.SettingsActivityThemeTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest --tests io.github.ppigazzini.r47zen.SettingsLinkTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest` |
-| core warnings: upstream's `show_warning` to a dialog | `hal/io.c`, `jni_activity_bridge.c`, `jni_lifecycle.c`, `MainActivity.kt`, `CoreWarning.kt` | `CoreWarningTest.kt` (every line of a five-line warning in a dialog, no Toast), `scripts/android/run_hal_io_contract.sh` (the text reaches the host whole), `test_jni_registration_contract.py` (the `onCoreWarning` lookup matches its `@Keep` method) | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.CoreWarningTest`; `bash ./scripts/android/run_hal_io_contract.sh` |
-| Paste Number: clip text to tokens, the one core task, every refusal, and tokens to stack values against the live core | `PasteNumber.kt`, `DisplayActionController.kt`, `android/app/src/main/cpp/r47zen/jni_input.c` | `PasteNumberTest.kt`, `DisplayActionControllerTest.kt`, `scripts/workload-regressions/clipboard_overflow_harness.c` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.PasteNumberTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest`; `bash ./scripts/workload-regressions/build_clipboard_overflow_harness.sh` |
+| Paste Number: clip text to tokens, the one service request, every refusal, tokens to stack values against the live core, and a paste across a computation | `PasteNumber.kt`, `DisplayActionController.kt`, `android/app/src/main/cpp/r47zen/jni_input.c`, `host_services.c` | `PasteNumberTest.kt`, `DisplayActionControllerTest.kt`, `CalculatorAnswersTest.kt`, `scripts/workload-regressions/clipboard_overflow_harness.c`, `calculator_thread_harness.c`, `ClipboardRoundTripInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.PasteNumberTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest`; `bash ./scripts/workload-regressions/build_clipboard_overflow_harness.sh` |
 | keypad haptic gate, Android-default toggle versus custom `0..100 ms` override, and press-only keypad cadence | `HapticFeedbackController.kt`, `ReplicaKeypadLayout.kt`, `MainActivity.kt`, `SettingsActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/strings.xml`, `AndroidManifest.xml` | `HapticFeedbackControllerTest.kt`, `ReplicaKeypadLayoutHapticsTest.kt`, `SettingsPreferenceSummaryTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.HapticFeedbackControllerTest --tests io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest` |
 | beeper volume normalization and audio settings dispatch | `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `MainActivity.kt` | `MainActivityPreferenceControllerTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest` |
 | LCD display theme normalization, inverse polarity, palette contrast, palette ownership, and the LCD raster | `LcdThemePolicy.kt`, `PackedLcdRaster.kt`, `ReplicaOverlay.kt`, `MainActivityPreferenceController.kt`, `MainActivity.kt`, `android/app/src/main/res/xml/root_preferences.xml`, `android/app/src/main/res/values/arrays.xml`, `android/app/src/main/res/values/strings.xml` | `LcdThemePolicyTest.kt`, `PackedLcdRasterTest.kt`, `ReplicaOverlayLcdOrderTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt`, `scripts/r47_contracts/test_lcd_palette_owner_contract.py` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdThemePolicyTest --tests io.github.ppigazzini.r47zen.PackedLcdRasterTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayLcdOrderTest --tests io.github.ppigazzini.r47zen.MainActivityPreferenceControllerTest --tests io.github.ppigazzini.r47zen.SettingsPreferenceSummaryTest`, then the grouped `scripts/r47_contracts` lane |
 | system-bar and cutout insets on every screen, fixed shell-menu copy, orange-blue touch-target placement, copy-popup shape, first-touch discovery-hint dismissal, and any retained discovery-hint surfaces | `MainActivity.kt`, `DisplayActionController.kt`, `WindowModeController.kt`, `SystemBarInsets.kt`, `ReplicaOverlay.kt`, `android/app/src/main/res/values/strings.xml`, `android/app/src/main/res/values/themes.xml` | `DisplayActionControllerTest.kt`, `MainShellThemeTest.kt`, `ReplicaOverlayVisualPolicyTest.kt`, `SystemBarInsetsTest.kt`, `WindowModeControllerTest.kt`, `SystemBarInsetsInstrumentedTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.DisplayActionControllerTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayVisualPolicyTest --tests io.github.ppigazzini.r47zen.SystemBarInsetsTest --tests io.github.ppigazzini.r47zen.WindowModeControllerTest`, then the `SystemBarInsetsInstrumentedTest` connected selection |
 | SAF picker, where each picker starts, document transfer, the copy of the core's prints, work-directory tree persistence, and the saved manual's grant | `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`, `DataFolderMirror.kt`, `ProviderLookup.kt`, `NativeFileRequestGate.kt`, `SettingsActivity.kt`, `WorkDirectory.kt`, `SavedManual.kt`, `FactoryResetController.kt`, `jni_storage.c`, `hal/io.c` | `StorageAccessCoordinatorTest.kt`, `PickerStartTest.kt`, `DocumentTransferTest.kt`, `DataFolderMirrorTest.kt`, `NativeFileRequestGateTest.kt`, `SettingsWorkDirectoryTest.kt`, `WorkDirectoryTest.kt`, `WorkDirectoryProviderTest.kt`, `SavedManualTest.kt`, `FactoryResetControllerTest.kt`, `StorageAccessCoordinatorInstrumentedTest.kt`, `DocumentLoopInstrumentedTest.kt`, `scripts/android/run_hal_io_contract.sh` | JVM tests first, then `:app:assembleDebugAndroidTest` and instrumentation when the Android-only seam moved |
 | program load and run through Android READP | `android/app/build.gradle` `stageProgramFixtureAssets` (androidTest assets only), `ProgramLoadTestBridge.kt`, `jni_program_load_test.c`, staged `PROGRAMS` fixtures | `ProgramFixtureInstrumentedTest.kt`, `FactorsInstrumentedTest.kt` | `:app:compileReleaseAndroidTestKotlin` first for harness edits, then the grouped `ProgramFixtureInstrumentation` connected selection through `scripts/android/run_connected_android_tests.sh` |
-| pause, wait, and progress compatibility in `PC_BUILD` mode, plus per-fixture numeric program results | `android_runtime.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
+| pause, wait, and progress under the DMCP HAL in `PC_BUILD` mode, plus per-fixture numeric program results | `hal/keys.c`, staged core, workload harness, imported `.p47` fixtures | `scripts/workload-regressions/run_workload_regressions.sh`, `host_workload_regression.c` (liveness for every fixture plus an X-register oracle: `NQueens.p47` seeded with `N = 8` must return the independently verified valid 8-queens solution) | the `host-workload-regressions` lane in `linux-ci.yml` (no emulator), then `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo` when the collector-driven CI contract moved |
 | Android HAL compatibility with upstream `PC_BUILD` helper exports | `android/app/src/main/cpp/r47zen/hal/io.c`, `android/app/src/main/cpp/r47zen/hal/lcd.c`, staged core headers under `src/c47/hal/` | `:app:buildCMakeRelWithDebInfo`, `:app:externalNativeBuildRelease`, and latest-upstream scratch reproduction after `upstream.sh sync --latest` plus `hydrate_submodules.sh` when the staged core moved. A signature change fails the build, but a changed *meaning* behind an unchanged signature does not: `scripts/android/run_keypad_generation_contract.sh` is the behavioral half for `hal/lcd.c`, and locks the `bitblt24` blit semantics documented in `src/c47/hal/lcd.h`; `scripts/android/run_hal_io_contract.sh` locks the write-failure report and the `SNAP` offer of `hal/io.c`, and `clipboard_overflow_harness.c` holds `fnSNAP` to what the offer reads | rerun the narrow native Gradle build first, then `run_keypad_generation_contract.sh` and `run_hal_io_contract.sh`, then the latest-upstream Android build lane when new upstream HAL symbols appear |
 | upstream's own cases as the app builds the core: mini-gmp, the GMP names, R47, and the release's compiler and flags | `r47zen/gmp_names.h`, the staged mini-gmp, the release's `compile_commands.json`, upstream's `src/testSuite` | `scripts/workload-regressions/run_upstream_suite_android_config.sh` ([below](#upstream-suite-on-the-apps-configuration)) | an `R47_RELEASE_CHANNEL=dev` build, then that script; the `android-ci.yml` build job runs it, and builds it for arm64 for `upstream-suite-arm64` to run |
 | upstream sync restore boundary | `scripts/upstream-sync/upstream.sh` | `scripts/upstream-sync/upstream.sh verify-restore-boundary` | `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary` |
@@ -205,10 +204,6 @@ runs. What each one locks:
   cut of `SUP UP` and `SUB DN` to `SUP` and `SUB`), and drift between
   the live payload and the checked-in `r47_keyboard_layout_contract.json`
   document
-- `derive_live_stop_key_policy.py` and `test_live_stop_key_policy_contract.py`:
-  the live `R/S` and `EXIT` stop codes and their `PGM_RUNNING` guard, parsed
-  from upstream `src/c47/programming/input.c`, against
-  `LiveProgramStopKeyPolicy.kt`; a cross-source oracle, not a snapshot
 - `test_lcd_packed_row_contract.py`: `LCD_ROW_SIZE_BYTES` in `hal/lcd.h`
   against the Kotlin `PACKED_ROW_SIZE_BYTES`, and the packed buffer size as row
   stride times pixel height
@@ -251,13 +246,12 @@ runs. What each one locks:
   offset agree between `keypad_fixture_bridge.h`, `KeypadSnapshot.kt`, and the
   exported fixture manifest
 - `test_jni_registration_contract.py`: the `RegisterNatives` table in
-  `jni_registration.c` and `MainActivity`'s `external fun` set are equal, and
+  `jni_registration.c` and `CalculatorEngine`'s `external fun` set are equal, and
   each entry binds the implementation with the same name suffix; every
-  `GetMethodID` in the glue names a `@Keep` `MainActivity` method with the same
+  `bindMethod` in the glue names a `@Keep` `CalculatorEngine` method with the same
   JNI signature, checked on a seeded drift first; the
   `R47_SHELL_*` codes in `jni_bridge.h` equal `NativeShellCodes.kt`, and
-  `jni_input.c` resolves each to an `items.h` symbol, never a number; and
-  `R47_KEY_CANCEL` equals `LiveKeyRouter.KEY_CANCEL`
+  `jni_input.c` resolves each to an `items.h` symbol, never a number
 - `test_robolectric_sdk_owner_contract.py`: no `robolectric.properties` sets
   `sdk`, `minSdk`, or `maxSdk`, and no JVM test `@Config` does but
   `ApiLevelArmsTest.kt`, whose levels must lie from
@@ -307,8 +301,7 @@ with every signature unchanged, so a changed hash is the only sign. Each names
 the file under `android/app/src/main/cpp/r47zen/hal/` to re-read and the
 contract or harness that holds it (`hal_surfaces()`). A moved HAL file is never
 cleared by `--record-if-unaffected`: its verdict asks for that re-read, then
-`--record`. The contract test reads the headers from the hydrated tree, so a
-header upstream adds fails it until the ledger watches the header.
+`--record`.
 
 Two findings, gated differently on purpose:
 
@@ -401,19 +394,12 @@ code, finds unused code, and proves nothing about behavior.
 Each JVM test file and what it locks; `run_docs_lint.sh` fails when a test
 source is missing from this page:
 
-- `CoreWarningTest.kt`: a core warning shows every line of a five-line message in
-  a dialog, not a Toast
 - `DisplayActionControllerTest.kt`: the main and Copy menus carry upstream's copy
-  items and the dark popup theme; each copy writes its payload, and a copy the
-  clipboard refuses or the core cannot build says so and does not crash; Settings
-  and Picture in Picture route; Paste Number tolerates an empty clip, enters the
-  whole number in one core task, refuses a clip that is not one number without
-  touching the core, and says so when the core refuses it
-- `LiveKeyRouterTest.kt`: a stop key is forwarded when the direct-stop gate
-  declines and swallowed only when it accepts; any other key, `KEY_CANCEL`
-  included, is forwarded without querying the gate
-- `LiveProgramStopKeyPolicyTest.kt`: the stop key codes match upstream's run loop,
-  and only `EXIT` and `R/S` publish a direct stop across the key space
+  items and the dark popup theme; each copy kind asks the calculator for its text;
+  a menu item the controller does not know is left to Android; Settings and
+  Picture in Picture route; Paste Number tolerates an empty clip, sends the whole
+  number as one request, refuses a clip that is not one number without touching
+  the core, and says so when the request is refused
 - `PasteNumberTest.kt`: clip text to tokens: signs after the digits they negate,
   both imaginary forms, what Copy X writes, a comma as a radix mark only where it
   cannot be grouping, space around the number but not between digits, only ASCII
@@ -555,7 +541,6 @@ source is missing from this page:
 - `PhysicalKeyboardInputParityTest.kt`: locks printable, function-key,
   shortcut, and modifier-tap mapping behavior across the Android-owned mapping
   and shortcut tables, and that HOME and MYMENU pass their `NativeShellCodes`
-  values to the menu entry
 - `KeySpeechTest.kt`: every label of every exported keypad scene is spoken in
   printable ASCII words, the R47 glyphs by function (`x\u2162` is "x squared"),
   every rendered key a scene enables with labels has a name in words and the
@@ -579,19 +564,6 @@ source is missing from this page:
 - `ReplicaOverlayVisualPolicyTest.kt`: locks shell-owned keyboard focus,
   including `FOCUS_BLOCK_DESCENDANTS`, so the first DPAD event is routed to the
   calculator instead of Android focus search
-- `NativeCoreRuntimeTest.kt`: locks single-init, queued-task,
-  save-on-pause, and native-deadline waiting behavior on the core thread; that
-  a save queued before dispose stops the loop runs in the shutdown drain; that
-  every reattach, from the live or a restarted core thread, swaps the activity
-  ref on the core thread, while the first attach leaves it to `initNative`;
-  that a dispose releases the activity globals on the core thread and never
-  from the calling thread, even past the join fence; that a host attaching
-  while the core thread exits gets a fresh core thread; that a stopped host
-  parks the loop, which still runs tasks but does not tick, until the host
-  starts, and only the last window to stop parks it; that a window closed beside
-  another keeps the core running and hands that one the host, while a factory reset
-  stops the core even so; and that an `Error` on the core thread stops the runtime
-  as an exception does
 - `NativeDisplayRefreshLoopTest.kt`: locks packed-display generation gating,
   unchanged-frame skip behavior, keypad-generation retry-after-busy-copy,
   cached-snapshot reuse, no-synthetic-empty refresh behavior, that a copy which
@@ -636,12 +608,11 @@ source is missing from this page:
   and `DocumentLoopInstrumentedTest.kt` the whole loop through the core
 - `NativeFileRequestGateTest.kt`: locks that a native file request ends in
   exactly one result or cancel: the start folder is found before the launch is
-  posted, a lookup that throws still launches with none, a dropped launch is
-  canceled on destroy, a
+  posted, a lookup that throws still launches with none, a
   launched picker with no answer is canceled once when the app stops, an
   answered one is not, a transferred document reaches native with its name, an
-  answer reaching a recreated Activity's gate still
-  reaches native, and an answer no core thread takes closes its descriptor
+  answer reaching a recreated Activity's gate still reaches native, and an answer
+  no calculator thread takes closes its descriptor
 - `SettingsLinkTest.kt`: locks that the external links in Settings show a
   toast instead of crashing when no app can open them
 - `SavedManualTest.kt`: locks the saved manual against a fake provider: a read-only
@@ -649,12 +620,10 @@ source is missing from this page:
   picker changing nothing, one tap with no picker once saved, that tap asking the
   provider only on the lookup worker, no provider query on opening Settings, a missing file saying so and staying remembered until replaced, a
   refused grant opening once, and a dialog when no PDF app exists that names the file
-  and opens the hosted manual only if asked. `FactoryResetControllerTest.kt` locks that a reset releases every grant
-  and a destroy with no wipe keeps them, that a reset request schedules the relaunch,
-  finishes the activity, and runs once however often it is asked, that it stops a
-  running program before it stops the core, that a reset the still-running core
-  thread skips keeps the files and ends the process, and that a reset
-  intent another app sends, with or without a guessed token, is not one. Handing a persisted grant to a real PDF
+  and opens the hosted manual only if asked. `FactoryResetControllerTest.kt` locks that a reset wipes the files,
+  ends the process, and releases every grant, that a destroy with no wipe keeps
+  them, that a reset request schedules the relaunch, finishes the activity, and runs
+  once however often it is asked, and that an intent from another app does not reset. Handing a persisted grant to a real PDF
   app needs a device
 - `SettingsActivityThemeTest.kt`: locks the settings-owned dark surface theme
   contract, the explicit checked switch tint mapping of orange track plus blue
@@ -675,8 +644,7 @@ source is missing from this page:
   `haptic_keypress_duration_ms` `0..100` clamp, the Android-default versus
   custom override split, the press-only view-based
   `HapticFeedbackConstants.VIRTUAL_KEY` keypad cadence, the
-  release-without-haptic path, the cancel-without-haptic path that sends
-  `LiveKeyRouter.KEY_CANCEL`, no vibration when
+  release-without-haptic path, the cancel-without-haptic path, no vibration when
   the default path's view declines, the short one-shot override when the user
   opts into a custom keypress-duration override, and none when custom mode is set
   to `0 ms`; the haptics test also sends a real two-pointer
@@ -693,10 +661,24 @@ source is missing from this page:
   accumulator so non-finite pan input is dropped, queued pinch scale stays
   clamped to `0.4f..2.5f`, and oversized queued pan is split into bounded
   per-apply chunks before JNI apply
-- `GraphGestureFlusherTest.kt`: with a fake clock, main looper, and core queue,
-  locks that deltas coalesce into one queued flush, that a flush applies one
-  batch even when deltas arrive during it, that flushes keep the minimum
-  interval, and that no motion is lost across flushes
+- `CalculatorHostSlotTest.kt`: locks that the Activity last started speaks for the
+  calculator: a second instance finishing leaves the first as host, does not own the
+  first one's picker, and a recreated Activity takes over the picker its predecessor
+  opened.
+- `AudioEngineTest.kt`: locks that a note plays for exactly the time the calculator thread
+  waits, that clearing the queue drops every note not started, that the queue stops at
+  its cap, and that a disabled beeper queues nothing.
+- `CalculatorAnswersTest.kt`: locks that a core warning shows every line in a dialog, and
+  that the text of a copy reaches the clipboard with
+  its confirmation before Android 13 and none from 13, where the system confirms it,
+  that text the core copies reaches it with none, that a copy the
+  clipboard refuses, or an empty one the calculator could not build, says so and
+  leaves the clipboard and the app as they were, and that only a refused paste shows
+  a toast
+- `GraphGestureFlusherTest.kt`: with a fake clock and main looper, locks that a
+  first delta flushes at once, that deltas inside the interval coalesce into one
+  batch, that flushes keep the minimum interval, and that no motion is lost across
+  flushes
 - `GraphGestureAccumulatorPropertyTest.kt`: a Kotest `checkAll` property test
   from a fixed seed that proves the same clamp, split, drop, and bounded-drain
   invariants hold across a randomized finite and non-finite input space, not
@@ -729,6 +711,10 @@ source is missing from this page:
   snapshot from a few key states, and the last answers a document transfer's
   provider calls as a test tells it to
 
+`CalculatorEngine` itself has no JVM test, because its `init` loads the native
+library. Its behavior is on the host harnesses below and in the instrumentation
+suite.
+
 Use `cd android && ./gradlew :app:testDebugUnitTest` as the smallest grouped
 lane when one of those Kotlin- or Robolectric-owned contracts changes.
 
@@ -736,18 +722,20 @@ lane when one of those Kotlin- or Robolectric-owned contracts changes.
 
 The instrumentation suite under
 `android/app/src/androidTest/java/io/github/ppigazzini/r47zen/` is the device or emulator
-surface for Android-only runtime seams.
+surface for Android-only runtime seams. CI's `x86_64` emulator runs it against the
+calculator thread; no phone runs it.
 
 Each instrumentation source and what it covers:
 
 - `ProgramLoadTestBridge.kt`: exposes the instrumentation-only native bridge for
-  runtime readiness, async function execution, redraw flags, seeding helpers,
-  direct-stop publication, and state snapshots, including a visible-LCD
+  runtime readiness, function and key sequences that return at once, redraw flags,
+  seeding helpers, `pressRunStopKey()`, and state snapshots, including a visible-LCD
   snapshot hash that ignores transport dirty flags, plus an extreme graph-touch
   stress hook used to prove oversized pan and pinch inputs are rejected without
   mutating graph bounds under repeated extremes, plus a restore-sanitization
   hook that injects invalid graph bounds and verifies the restore path repairs
-  them before refresh
+  them before refresh. Its native half runs everything that touches core state on the
+  calculator thread at rest, through `r47_run_at_rest`
 - `ProgramFixtureInstrumentedTest.kt`: stages canonical `PROGRAMS` fixtures and
   exposes one Android test method per required fixture so the hosted emulator
   lane can batch `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`,
@@ -760,10 +748,9 @@ Each instrumentation source and what it covers:
   mid-solve, and `SPIRALk` leaves in X its own loop limit, not a result
 - `scripts/android/run_connected_android_tests.sh`: owns the hosted emulator
   wrapper that runs each non-fixture instrumentation class in a selection of
-  its own, each bounded by `R47_CONNECTED_ANDROID_SELECTION_TIMEOUT` (10 minutes),
-  and the complete `ProgramFixtureInstrumentedTest` class under its own bounded
-  outer timeout, failing the lane if a selection hangs, runs no test, or reports
-  a class other than the one it asked for
+  its own and the complete `ProgramFixtureInstrumentedTest` class under one
+  bounded outer timeout, failing the lane if a selection hangs, runs no test,
+  or reports a class other than the one it asked for
 - `GraphTouchStressInstrumentedTest.kt`: launches `MainActivity`, waits for
   runtime readiness, runs extreme native graph-touch stress iterations through
   `ProgramLoadTestBridge.runExtremeGraphTouchStress(...)` to prove
@@ -772,14 +759,16 @@ Each instrumentation source and what it covers:
   before refresh
 - `DisplayDescriptionInstrumentedTest.kt`: on the real `MainActivity`, the LCD's
   node says the number being typed (1 2), then X (15 after ENTER 3 +), then
-  upstream's error text for x! of -1 with the node marked as an error, each through
-  the overlay's ask, `describeDisplayNative` as a core task, and `onDisplayText`
+  upstream's error text for x! of -1, a long integer factLonI refuses whatever
+  the flags, with the node marked as an error (1/x of 0 answers Infinity, since
+  the R47 profile sets special results), each
+  through `describeDisplayNative`, the calculator thread, and `onDisplayText`
 - `KeypadTouchInstrumentedTest.kt`: the real `MainActivity` from a touch to the
   core. It injects a press and a release at the center of the key views for 1, 2,
   ENTER, 3, and +, which run each key's touch listener,
-  `ReplicaOverlayController.dispatchKey`, the core task `MainActivity` queues for
-  it, JNI, and the core, and requires X = 15, polled, since a bridge read does not
-  wait for queued core tasks. `KeypadTouches.kt` holds the touch helper
+  `ReplicaOverlayController.dispatchKey`, the `CalculatorEngine.dispatchKey`
+  MainActivity wires to it, JNI, and the key buffer, and requires X = 15.
+  `KeypadTouches.kt` holds the touch helper
 - `ClipboardRoundTripInstrumentedTest.kt`: runs the handlers the Copy X and Paste
   Number menu items call on the real `MainActivity`. X's text must reach the system
   clipboard; after X is overwritten, Paste Number opens number entry with it, and
@@ -789,36 +778,22 @@ Each instrumentation source and what it covers:
   shell's `READ_CLIPBOARD_IN_BACKGROUND`: from API 33 a clipboard overlay can hold
   the focus, and the platform refuses an unfocused app's reads. The class carries
   `@SdkSuppress(minSdkVersion = 29)`, so the minSdk row skips it. The popup menu's
-  own drawing and the graph gestures stay without a device test
+  own drawing, the graph gestures, and
+  state loads stay without a device test
 - The connected-device lane includes a required `MANSLV2.p47`
   bounded-stop regression inside that shared per-fixture wrapper: after
-  observed post-load activity it requests a direct stop through
-  `ProgramLoadTestBridge.requestStopProgram()`, which reuses the same upstream
-  `fnStopProgram(0)` publisher as live `R/S` and `EXIT`. The Android fixture
-  resets every staged run to the upstream `doFnReset(CONFIRMED, false)`
-  baseline before load and skips blocked state snapshots rather than stalling
-  the test thread behind `screenMutex`, including the terminal load-timeout
-  path after a `READP` worker exceeds its budget. Blocking `snapshotState()` is
-  only safe after the worker is idle; when the worker still owns
-  `screenMutex`, the harness must fall back to `trySnapshotState()` and report
-  failure without waiting on the mutex. The direct-stop publisher itself must
-  also stay lock-free, because `MANSLV2` can still be running inside the
-  asynchronous `R/S` worker while that worker owns `screenMutex`. That keeps
-  the harness publishing the
-  bounded stop request while the shared core is busy. That proves the required
-  Android bounded-stop delivery path through the owned seam, and the hosted
-  wrapper fails the lane if `MANSLV2` times out rather than downgrading it to
-  degraded coverage. The grouped PROGRAMS harness waits for actual
-  calculator `programRunStop` quiescence rather than the short-lived `R/S`
-  key-dispatch worker and performs cleanup before the activity closes: it
-  drains only genuinely-busy `PGM_RUNNING`/`PGM_PAUSED` fixtures through the
-  out-of-band stop and lets the forceful `resetRuntime()` (`doFnReset`) clear
-  any program parked in the interactive `PGM_WAITING`/`PGM_RESUMING` states,
-  which prevents one hung fixture from leaking runtime state into the next CI
-  case without spinning on a stop the parked program is entitled to decline. The remaining gap is narrower: there is still no
-  focused device lane proving that a
-  forced-busy keypad snapshot path stays responsive under every non-yielding
-  shared-core loop.
+  observed post-load activity it presses `R/S` through
+  `ProgramLoadTestBridge.pressRunStopKey()`, the same key on the same FIFO as the
+  live keypad. The Android fixture resets every staged run to the upstream
+  `doFnReset(CONFIRMED, false)` baseline before load and reads state through
+  `trySnapshotState()`, which answers null while the run has not returned rather than
+  stalling the test thread until rest. Blocking `snapshotState()` is only safe after
+  the run returned. The hosted wrapper fails the lane if `MANSLV2` times out rather
+  than downgrading it to degraded coverage. The grouped PROGRAMS harness performs
+  cleanup before the activity closes: it presses `R/S` while a `PGM_RUNNING` or
+  `PGM_PAUSED` fixture has not returned, and the forceful `resetRuntime()`
+  (`doFnReset`) clears any program parked in the interactive `PGM_WAITING` state, so
+  one hung fixture does not leak runtime state into the next CI case.
 - `DisplayLifecycleInstrumentedTest.kt`: locks the lifecycle LCD contract so a
   background save, a Settings-style pause or resume, and full
   `ActivityScenario.recreate()` preserve the visible packed LCD snapshot. The
@@ -826,24 +801,12 @@ Each instrumentation source and what it covers:
   `packedDisplayBuffer`), so `backgroundSavePreservesInjectedDisplaySnapshot`
   injects a non-trivial framebuffer via
   `ProgramLoadTestBridge.backgroundSaveKeepsInjectedDisplayBuffer` and asserts the
-  save leaves it unchanged, with no program run.
-  Pause/resume and recreation both **re-render `packedDisplayBuffer` from
-  calculator state** against upstream HEAD, so a raw injected framebuffer
-  survives neither and neither can be asserted that way. Instead
+  save leaves it unchanged, all on the calculator thread at rest, with no program run.
+  The main loop keeps repainting from calculator state, so an injected framebuffer
+  cannot be asserted across a lifecycle event. Instead
   `pauseResumePreservesSpiralkGraphSnapshot` and
   `activityRecreationPreservesSpiralkGraphSnapshot` both drive a real `SPIRALk`
-  graph -- a cursor-free, byte-stable display whose re-render from the persisted
-  graph state reproduces the same framebuffer. Its
-  `directStopGateDeclinesInteractiveWaitStates` case is the
-  runtime-regression guard: it probes the pure `r47_direct_stop_allowed`
-  predicate (via `ProgramLoadTestBridge.directStopAllowedForRunState`) across
-  every run state and asserts the out-of-band direct stop is **declined** for
-  the interactive `PGM_WAITING`/`PGM_RESUMING` waits (so the live keypad cannot
-  swallow `R/S`/`EXIT` mid-program) and accepted only for busy
-  `PGM_RUNNING`/`PGM_PAUSED`. `requestStopProgramHonorsRunStateGateEndToEnd` then
-  injects each run state via `setProgramRunStop` and asserts the real
-  `requestStopProgram()` accepts the busy states and declines the rest end to
-  end, tying the predicate to the real seam without a program run.
+  graph -- a cursor-free, byte-stable display.
 - `FactorsInstrumentedTest.kt`: factors three inputs on the device's core and
   holds each answer to the input's factorization: distinct primes, each with a
   multiplicity of at least 1, that multiply back to the input, so a composite left
@@ -855,15 +818,16 @@ Each instrumentation source and what it covers:
   with no name, a load through a private copy with the provider's name, and
   cancellation, on the Android file-descriptor seam
 - `DocumentLoopInstrumentedTest.kt`: the real file loop on the real `MainActivity`,
-  with no descriptor handed in through the bridge. SAVEST and LOADST run as core
-  tasks, ask `requestAndroidFile` for a file on the core thread, the activity
-  launches the picker, an `Instrumentation.ActivityMonitor` answers it with a
-  document of `RecordingDocumentProvider` (from `src/instrumentationHost`), and
+  with no descriptor handed in through the bridge. SAVEST and LOADST ask
+  `requestAndroidFile` for a file, the activity launches the picker, an
+  `Instrumentation.ActivityMonitor` answers it with a document of
+  `RecordingDocumentProvider` (from `src/instrumentationHost`), and
   `DocumentTransfer` moves the bytes. A save must open the provider with `"wt"` only
   and replace a longer stale document whole, the provider truncating only when the
-  mode asks; LOADST of that document must give X back; and a document the provider
-  refuses must cancel the request, so LOADST returns. It needs API 26, for the
-  monitor's `onStartActivity`. The failure Toast is not observed
+  mode asks; LOADST of that document must give X back, and STATE# then the name
+  `RecordingDocumentProvider` shows for it; and a document the provider
+  refuses must cancel the request, so LOADST returns to rest. The failure Toast is
+  not observed
 - `SystemBarInsetsInstrumentedTest.kt`: with fullscreen off, requires the main
   calculator view and the Settings toolbar and list to lie inside the real
   system-bar and cutout insets, and requires a non-zero status-bar inset so the
@@ -904,11 +868,9 @@ Android compatibility layer.
   where the keys left it, or with SAVEST, WRITEP, or EXPnrg at rest after up to three
   EXITs, is reset, and reads the file back. A restore is followed, as at the app's start,
   by the graph-bound repair, the state refresh, and the first redraw. A second thread
-  sends the app's out-of-band stop, `requestStopProgramNative`, when a key runs on past
-  `EXIT_AFTER_US`, as the app does for EXIT on a running program; the stop reaches no
-  computation outside a program, and a key that does not end runs into `-timeout`, a
-  finding. Each input starts from an empty folder, and a seed per start file reads each
-  one before any key. A crash prints only
+  presses EXIT when a key runs on past `EXIT_AFTER_US`, as a user stops a program; a key
+  that takes no EXIT runs into `-timeout`, a finding. Each input starts from an empty
+  folder, and a seed per start file reads each one before any key. A crash prints only
   the fault's kind and stack to the log: for an out-of-memory finding libFuzzer prints a
   short input itself.
   A core `exit` is a finding, which libFuzzer reports itself, so the fuzzer does not link
@@ -921,16 +883,70 @@ Android compatibility layer.
   one among them, is out of scope, and a file a past release wrote is read only as a
   start file.
   `linux-ci.yml`'s `fuzz-core` runs it for 15 minutes a reader.
+- `build_calculator_thread_harness.sh` builds
+  `calculator_thread_harness.c` with the staged core and
+  the glue under AddressSanitizer and UndefinedBehaviorSanitizer, and runs upstream's
+  real `mainLoop()` on a thread started as `CalculatorEngine` starts it. Each case runs
+  in its own process, and the main thread only pushes keys and service requests and
+  reads core state on the calculator thread at rest, so the harness holds the app's
+  rule too. The cases are its `cases[]` table: keys keep their order; `FACTORS` gives
+  the right factors, and a digit during it does nothing; `EXIT` and `R/S` stop a computation, and `R/S` runs nothing
+  afterward; both stop a program loop; a stop key survives the buffer wipe; a tone
+  takes its time and stops with the program; a cancel takes back a key, leaves no
+  single step, and does not assign; OFF saves and keeps the calculator alive; a save at
+  rest finishes inside the fence, a save during a computation runs at the next rest and
+  not before, and the fence does not wait for a busy calculator; a paste survives a
+  computation; an idle checkpoint keeps typed work, with none when autosave is off; a
+  save runs inside a pause; a kill during saves never cuts the file; a failed save keeps
+  the file and the process; a save keeps the running calculator's state; a state file
+  holding a run state restores to rest; the keypad publishes only what changed; a
+  stopped host parks the thread; a stop ends the thread during a computation; the
+  allocator's bad-free report does not crash when a recursive program reaches it; a
+  state file cut inside a line, before or inside the memory image, or of another version
+  or RAM size, is kept aside and the calculator starts afresh, and one cut at a line's
+  end restores whole or is kept, never garbage; a file whose restore did not finish
+  twice is set aside on the third start, under a name of its own each time; a core exit aborts; a cold start keeps `LX` to `UY` and a matrix
+  in X that fills memory; `DELBkup` removes both saves; a cut screen capture is not
+  offered; a save leaves a running stopwatch's fields as they were and saves its time;
+  the state files of released cores, `scripts/workload-regressions/fixtures/`, which
+  `make_state_fixture.sh` saves with a host build of each release's own overlay and
+  core, not a phone, restore, and so does the file this core saves from them; they reach the
+  harness through a directory whose name holds a quote and a space, and gzip unpacks them
+  with no shell between, so a path read as a command fails the case; user keys from upstream's `xfnToR47user.s47` survive a save; one press of `R/S` or `EXIT` ends a `KEY?` or `VIEW` loop, and a `PSE`
+  loop when it lands inside a pause; a stop or a pending save still gets through a `VIEW` loop; a double tap of
+  `R/S` leaves the program stoppable; `KEY?` sees a key
+  behind a `VIEW`; a quit survives a redraw and the ring's wipe; a held key holds a program
+  until its release, a cancel, or a stopping host; parking stops a running timer; a save
+  runs inside a timed pause, and none in a pause inside a solver; a save keeps a question
+  on screen; a short write keeps the file; a save syncs the file and its directory; a slow
+  save still answers inside the fence; a checkpoint waits for a quiet moment; OFF leaves
+  the file with autosave off; a canceled softkey does not assign; a keypad mode the full
+  queue refused is asked for again; `AUTXEQ` runs the program on a relaunch; a wrong program
+  file gives the whole warning; in AIM the key that shows N, whose `g` face is 7, shows 7
+  with NUM on, as GTK draws it, and the VOL softkeys show no value, `NOVAL`, as GTK's
+  `getBeepVolume` answers; what a screen reader hears of the display is X as Copy X
+  gives it, the number being typed, or the error shown, marked as one, and a long text
+  is cut at a character's first byte; and the queued tones end with the run. It wraps
+  `r47_upcall_play_tone`, `r47_upcall_tones_clear`, `r47_upcall_quit`,
+  `r47_upcall_paste_result`, and `r47_upcall_warning` at link time, so the other up-calls
+  do nothing and no JVM is involved, `fsync` and `fwrite`, so a case controls the disk, and
+  `pthread_cond_timedwait`, so a case can see a thread wait with no deadline.
+  A case passes only by reaching its end with a private exit status, because upstream's
+  `saveCalc` calls `exit(0)` when it cannot open its file. UndefinedBehaviorSanitizer
+  does not recover, so undefined behavior in the glue or the core fails the case. Before it links, the script fails on any definition
+  in `hal/` that no object refers to, apart from the three the script names with the
+  build that uses each, and it proves that check on a seed. It runs in the `host-workload-regressions` lane of `linux-ci.yml`. It proves
+  nothing about ART, bionic, or arm64.
 - `scripts/workload-regressions/run_workload_regressions.sh` builds the staged
   core plus Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then runs the
-  canonical host workload set through the host compatibility path: the
-  imported `.p47` fixtures `BinetV4.p47`, `GudrmPL.p47`, `MANSLV2.p47`,
-  `NQueens.p47`, and `SPIRALk.p47`. Every imported fixture runs in its own
-  host process under the same outer timeout-and-kill safety net, while
-  `MANSLV2` remains the bounded direct-stop-after-activity probe inside that
-  framework. It runs as the dedicated `host-workload-regressions` lane in
-  `linux-ci.yml` on every pull request (no emulator), in addition to remaining
-  the focused host compatibility rerun surface.
+  canonical host workload set: the imported `.p47` fixtures `BinetV4.p47`,
+  `GudrmPL.p47`, `MANSLV2.p47`, `NQueens.p47`, and `SPIRALk.p47`. Every imported
+  fixture runs in its own host process under the same outer timeout-and-kill safety
+  net, while `MANSLV2` remains the bounded stop-after-activity probe inside that
+  framework. It has no calculator thread and no main loop: a worker thread runs the
+  function while the harness pushes keys and watches. It runs as the dedicated
+  `host-workload-regressions` lane in `linux-ci.yml` on every pull request (no
+  emulator), in addition to remaining the focused host rerun surface.
 - Every fixture must end with no calculator error in `lastErrorCode`. The
   harness reads it every 5 ms while the program runs and once more after the
   worker returns, since an error that ends a program between two reads is seen
@@ -955,9 +971,9 @@ Android compatibility layer.
   then in Y, reaches it. So that pin shows the run reached `EXIT`, not that the
   size is right, and nothing asserts Y. Its plot image stays unpinned
   because the number of points plotted before it finishes is not reproducible
-  across machines. Only `MANSLV2` stays liveness-only, because its direct-stop
-  interrupt leaves no completed state to assert; it fails if it finishes
-  before any direct stop was requested, since the stop seam then went untested.
+  across machines. `MANSLV2` stays liveness-only, because the `R/S` that
+  interrupts it leaves no completed state to assert; it fails if it finishes
+  before the stop was pushed, since the stop then went untested.
   That check is only as good as the window before the stop: `MANSLV2` ends by
   itself after a time that depends on the machine and the build, so the
   `stop_after_activity_ms` of its scenario must stay a small fraction of the
@@ -983,15 +999,14 @@ Android compatibility layer.
   of the upstream change and diff it by row: `GudrmPL` paints all three
   softkey rows (`y 171..239`), so a diff confined to `y >= 171` is changed
   chrome, and any plot-area row that moves is a changed result.
-- That host probe does not prove the Android stop-delivery or UI-thread ANR
-  contract. It does prove that the shared compatibility path can start the five
-  imported fixtures, compute the verified 8-queens result, and accept a bounded
-  direct stop for `MANSLV2`, before Android-shell responsiveness enters the
-  picture. The outer timeout keeps a hung workload from hanging the lane; in
-  the correctness lane that timeout fails the run, and only the tolerate
-  settings the sanitized and PGO lanes set turn it into degraded coverage.
-- That host-only compatibility path does not widen the Android emulator
-  `PROGRAMS` fixture matrix.
+- That host workload lane does not prove the Android stop-delivery or UI-thread ANR
+  contract. It does prove that the shared core can start the five imported fixtures,
+  compute the verified 8-queens result, and stop `MANSLV2` on a pushed `R/S` within a
+  bound, before Android-shell responsiveness enters the picture. The outer timeout
+  keeps a hung workload from hanging the lane; in the correctness lane that timeout
+  fails the run, and only the tolerate settings the sanitized and PGO lanes set turn
+  it into degraded coverage.
+- That host-only path does not widen the Android emulator `PROGRAMS` fixture matrix.
 - `scripts/workload-regressions/run_workload_regressions_sanitized.sh` reruns
   the same corpus with the staged core and Android bridge built under
   AddressSanitizer and UndefinedBehaviorSanitizer, so the most-executed
@@ -1012,43 +1027,24 @@ Android compatibility layer.
   (default 2) of its count after the first re-solve and below
   `MAX_FREE_REGIONS - 1`, so a slow leak fails long before it exhausts the
   table on a device. A negative slack forces the failure path, which is how to
-  check the assertion still fires. `R47_GRAPH_HARNESS_ITERS` bounds the run;
+  check the assertion still fires. The full default soak stops at about re-solve 326,000 on an overrun in upstream's
+  `figlabel`, which glibc's `_FORTIFY_SOURCE=3` turns into an abort: the softkey label
+  `LX` with the value `-1.0002` needs 17 bytes of a 16-byte buffer. It is not this
+  harness's subject, and the CI bound never reaches it. `R47_GRAPH_HARNESS_ITERS` bounds the run;
   the `host-workload-regressions` job of `linux-ci.yml` runs 4000 re-solves.
-- `scripts/workload-regressions/build_state_durability_harness.sh` builds
-  `state_durability_harness.c` with the staged core and the glue under
-  AddressSanitizer, with the app's link wraps of `exit` and `remove` and a wrap of
-  `r47_show_warning` that counts the user's warnings, and runs it in the same CI
-  job. Each case runs in its own process and restarts the calculator in a fresh
-  one, which restores through `r47_init_runtime` as the app does. A state file cut
-  at fixed offsets and at steps through it, cut at line ends before the memory
-  image or between two of its lines, from a version below upstream's floor or
-  above this core's, or for another RAM size, is kept aside with one warning and
-  the calculator starts afresh; a cut at a line's end restores whole or is kept,
-  never garbage. A file whose restore did not finish twice is set aside, under a
-  name of its own each time, and one unfinished restore is not enough. The state
-  files of released cores, `scripts/workload-regressions/fixtures/`, which
-  `make_state_fixture.sh` saves with a host build of each release, not a phone,
-  restore, every cut of them is restored or kept, and the file this core saves
-  from them restores too. They reach the harness through a directory whose name
-  holds a quote and a space, and gzip unpacks them with no shell between, so a
-  path read as a command fails the case. A save leaves a running stopwatch's fields as they were
-  and saves its time; a cold start keeps `LX` to `UY` as stored and a matrix in X
-  that fills memory; user keys from upstream's `xfnToR47user.s47` survive a save;
-  and an `exit` in the core aborts. With the structure check, the stopwatch fold,
-  or the repair-only bounds sync seeded out, its cases fail.
 - `scripts/workload-regressions/build_clipboard_overflow_harness.sh` builds
   `clipboard_overflow_harness.c` with the same tree under AddressSanitizer
-  and runs it in the same CI job, in a fresh directory, since init restores the
-  state file a run saves. First it holds the Copy menu's text, which upstream's
-  builders make: after one Sigma+ of x = 2 and y = 3, the all-registers copy has
-  every `SR` row, and `SR14` and `SR23` hold 4 ln 3 and 16. Next it holds
+  and runs it in the same CI job. First it holds the Copy menu's text, which
+  upstream's builders make: after one Sigma+ of x = 2 and y = 3, the
+  all-registers copy has every `SR` row, and `SR14` and `SR23` hold 4 ln 3 and 16.
+  Next it holds
   `r47_paste_number` to the core. Every token string `PasteNumberTest.kt` expects,
   bar the 256 digits past the display width, must leave its value in X and lift the
   stack once. One digit must do so under a USER assignment and a pending shift, and
   clear the shift. In program entry a number is one step and two pastes are two steps
   in order, at the top of a program and in the middle of one. In the matrix editor a
   paste enters the cell and refuses a cell still being typed. A paste in alpha entry,
-  under a parameter prompt, in a catalog, during a run, or with a bad token must leave
+  under a parameter prompt, in a catalog, or with a bad token must leave
   X alone. A token the core drops, past the display width or `RNG` or in integer input
   mode, must back the entry out and leave the stack and the program as they were. A
   file answer with no request waiting must be refused and leave nothing in native,
@@ -1060,43 +1056,31 @@ Android compatibility layer.
   runs `fnSNAP` on the live core: a BMP of the whole screen must
   land at the name init armed, and the name must go empty, the two behaviors the
   offer in `hal/io.c` reads; its register print must land in `<base>/DATA`, the
-  core's working directory, with no help from the harness. With no picker, a
-  `tick`, the offer's one caller, must
-  then drop the capture and arm again. A copy of X as a 30x30 and a 60x60 real
-  matrix, and a 20x20 and a 40x40 complex one, must give every value and be whole
-  UTF-8. The Copy menu's copy must reach its capture, and a copy after it must be
-  dropped and logged, not written through a capture that has gone. In AIM the
-  key that shows N, whose `g` face is 7, must show 7 with NUM on, as GTK draws it,
-  and the VOL softkeys must show no value, `NOVAL`, as GTK's `getBeepVolume` answers.
-  What a screen reader hears of the display must be X as Copy X gives it, the
-  number being typed, or the error shown, marked as one, and a long text must be
-  cut at a character's first byte. A key `sendKey` lets up with `R47_KEY_CANCEL`
-  must run nothing its release would: `+` must leave X alone, a single step must
-  leave X and the run state alone, and a key or a softkey an `ASSIGN` waits for
-  must stay unassigned; a whole `+` after the cancel must still add.
-  Then it fills
-  ten numbered registers, X, and Y with 2^60000, 18062 digits, and each copy must
-  hold all of them: X once, the stack twice, all registers twelve times.
-  AddressSanitizer aborts on an overrun. It fails when a register does not take
-  the value, since the pool then keeps the old one. No other part of the copied
-  text is checked.
+  core's working directory, with no help from the harness. With no picker, `r47_services_run()`, the offer's one
+  caller, must then drop the capture and arm again. A copy of X as a 30x30 and a
+  60x60 real matrix, and a 20x20 and a 40x40 complex one, must give every value and
+  be whole UTF-8. The Copy menu's
+  copy must reach its capture and not the clipboard, and a copy of the core's own
+  after it, as a PC Ctrl+C makes, must reach the clipboard, which the link wraps. Then it fills ten numbered registers, X, and
+  Y with 2^60000, 18062 digits, and each copy must hold all of them: X once, the
+  stack twice, all registers twelve times. AddressSanitizer aborts on an overrun.
+  It fails when a register does not take the value, since the pool then keeps the
+  old one. No other part of the copied text is checked.
 - `scripts/android/run_keypad_generation_contract.sh` links `hal/lcd.c` alone on
   the host -- no emulator, no device -- and runs
-  `scripts/android/keypad_generation_contract_test.c`. It asserts six
-  `hal/lcd.c` contracts. First, `LCD_write_line` must bump
-  `keypadSnapshotGeneration`, the signal the display loop uses to re-read dynamic
-  softkeys such as the EQN editor. Second, `init_lcd_buffers` must leave the
-  unused `screenData` compatibility framebuffer NULL, so no dead 384 KB stays
-  resident. Third, `bitblt24` must implement the `fill` semantics of upstream
+  `scripts/android/keypad_generation_contract_test.c`. It asserts five
+  `hal/lcd.c` contracts. First, `LCD_write_line` must mark the keypad dirty, which is
+  what makes the calculator thread publish dynamic softkeys such as the EQN editor.
+  Second, `bitblt24` must implement the `fill` semantics of upstream
   `src/c47/hal/lcd.h`: with `BLT_NONE` only the pixels where `val` has a 1 are
   written, and with `BLT_SET` the dx columns are written white before `BLT_OR`
-  and dark before `BLT_ANDN`. That third one is the reason the test exists in
+  and dark before `BLT_ANDN`. That one is the reason the test exists in
   this shape.
   `bitblt24` keeps its signature across upstream revisions, so a divergence in
   what `fill` *means* compiles clean and shows up only as wrong pixels: upstream
   492298ff redefined it and rewrote `softmenus.c` `drawKeyFrame` to depend on the
   new reading, which turned the softkey frame into a silent no-op against the
-  older Android implementation. Fourth, `lcd_buffer` must use the polarity of
+  older Android implementation. Third, `lcd_buffer` must use the polarity of
   the upstream simulator HALs, which upstream 1560394c moved onto the DMCP one:
   a 1 bit is white, so `BLT_OR` draws dark by clearing bits, `lcd_clear_buf`
   leaves no pixel on, `lcd_buffer_pixel_on` reads a 0 bit as on, and
@@ -1107,13 +1091,13 @@ Android compatibility layer.
   show that: swapping the two ops and the reader cancels out, which is why the
   BinetV4 hash did not move when the HAL did. The polarity assertions count
   dark pixels over a whole row, so they stay valid independently of the column
-  mirroring inside the Android `bitblt24`. Fifth, `LCD_write_line` flags a
+  mirroring inside the Android `bitblt24`. Fourth, `LCD_write_line` flags a
   packed row and bumps `packedDisplayGeneration` only when the row's pixels
   changed, `init_lcd_buffers` flags every packed row, and
   `lcd_try_take_packed_snapshot` copies every row, clears every flag, and
-  refuses while the core holds `packedDisplayMutex`; `PackedLcdRaster` decodes
+  refuses while `packedDisplayMutex` is held; `PackedLcdRaster` decodes
   every flagged row without comparing, so a wrong flag either way reaches the
-  screen. Sixth, a dark pixel drawn at `(x, y)` lands alone at pixel byte
+  screen. Fifth, a dark pixel drawn at `(x, y)` lands alone at pixel byte
   `49 - x / 8`, mask `0x80 >> x % 8`, of packed row `y`: the mirroring, pinned,
   and the rule `PackedLcdRaster` decodes by. It runs in the
   `host-workload-regressions` lane of `linux-ci.yml`.
@@ -1122,24 +1106,21 @@ Android compatibility layer.
   `scripts/android/hal_io_contract_test.c`. The autosave file is made a link to
   the device under test: a write `/dev/full` refuses is reported once per file,
   whether the flush or the writes themselves find it, and a regular file, a
-  read, and `/dev/null`, whose `fsync` answers `EINVAL`, are not reported. A save of
-  the state file replaces it whole and leaves no `.tmp`; one whose writes fail, or
-  that cannot open its `.tmp`, reports once and leaves the old file as it was,
-  the second returning `FILE_CANCEL`. A read after a seek that fails, on a FIFO
-  holding bytes, takes nothing, and `r47_format` fails a text that does not fit
-  and leaves nothing of it. The core must work in the base path's DATA folder,
-  and a base given as a relative path must still name the folder it named. A
-  read of the autosave records its name,
-  `R47auto.sav`, as GTK's `ioFileOpen` records the file it reads. The state file
-  and the two saves of a version before 0.3.0, named with a slot number, move to
-  upstream's names once when the base path is set, with an unfinished temporary
-  copy dropped, and a file already under the new name is never replaced. It also
+  read, and `/dev/null`, whose `fsync` answers `EINVAL`, are not reported. A read
+  after a seek that fails, on a FIFO holding bytes, takes nothing, and `r47_format`
+  fails a text that does not fit and leaves nothing of it. The core must work in the
+  base path's DATA folder, and a base given as a relative path must still name the
+  folder it named. A read of the autosave
+  records its name, `R47auto.sav`, as GTK's `ioFileOpen` records the file it
+  reads. The state file and the two saves of a version before 0.3.0, named with a
+  slot number, move to upstream's names once when the base path is set, with an
+  unfinished temporary copy dropped, and a file already under the new name is
+  never replaced. It also
   builds `hal/io.c` with that branch compiled in and runs
   `scripts/android/hal_io_saf_contract_test.c`: each file path asks for its name and
-  folder, `WRXPall`'s two bulk paths are refused with no picker and, in a work
-  directory that takes files, no file written, a picked document's read records
-  the end of its name, the last 19 bytes, and a save records none, and a save
-  through a pipe arrives whole with nothing reported. That test
+  folder, `WRXPall`'s two bulk paths are refused with no picker, a picked document's
+  read records the end of its name, the last 19 bytes, and a save records none, and
+  a save through a pipe arrives whole with nothing reported. That test
   also holds the `SNAP` offer: an armed
   name asks for nothing, even with a file beside it; a finished capture reaches the
   picker's file as a dated `.bmp` in category 3; and a cancel, a refused write, and a
@@ -1147,29 +1128,28 @@ Android compatibility layer.
   armed. It runs in the `host-workload-regressions` lane of `linux-ci.yml`.
 - `scripts/workload-regressions/build_bridge_tsan_harness.sh` builds
   `bridge_tsan_harness.c` with the staged core and Android bridge under
-  ThreadSanitizer and races the UI read path
-  against the core, the one concurrency surface the single-threaded ASan/UBSan
-  lanes never exercise. A startup phase runs the UI entry points -- the keypad
-  copy through `r47_try_copy_app_keypad_snapshot` and the packed-display copy
-  through `r47_try_take_packed_display`, the native half of
-  `getPackedDisplayBuffer` -- while `r47_init_runtime` runs, which is what locks
-  the init lock and the `r47_runtime_ready()` gate. A steady-state phase then
-  has a producer thread drive `sendKey` plus `r47_force_refresh` while a
-  consumer thread samples the generation counters, reads the keypad through
-  `r47_get_keypad_meta`, and takes the packed display through
-  `r47_try_take_packed_display`. A data race or
-  lock-order inversion in the Android-owned bridge is the hard gate and aborts
-  the run; `bridge_tsan_suppressions.txt` is the upstream-core-only escape hatch
-  (it holds no active entry: the bridge's `screenMutex`/`packedDisplayMutex`
-  fully serialize the core, so no upstream race surfaces), matching how the sanitized
-  workload lane defers un-ownable upstream undefined behavior. The harness is
-  what proves the `hal/lcd.c` display-change signals
-  (`packedDisplayGeneration`, `keypadSnapshotGeneration`) are race-free under
-  their lock-free read path; those are C11 relaxed atomics, not plain `volatile`,
-  because plain `volatile` leaves the concurrent access a data race the harness
-  flags. It runs in the `host-workload-regressions` lane beside the ASan/UBSan
-  run (`setarch -R` disables ASLR so ThreadSanitizer can map its shadow);
-  `R47_TSAN_HARNESS_ITERS` bounds the run.
+  ThreadSanitizer and races the other threads against the calculator thread, the one
+  concurrency surface the ASan/UBSan lanes do not race. It runs
+  `r47_calculator_main` on a thread of its own. A startup phase runs the UI entry
+  points -- the keypad copy through `r47_try_copy_app_keypad_snapshot` and the
+  packed-display copy through `r47_try_take_packed_display`, the native half of
+  `getPackedDisplayBuffer` -- while init runs, which is what locks the
+  `r47_runtime_ready()` gate. A steady-state phase then has a producer thread push keys
+  and service requests, a shell menu, a gesture, a copy, and a save, while a consumer
+  thread samples the generations and takes both copies. A data race or lock-order
+  inversion in the Android-owned bridge is the hard gate and aborts the run, and no lock
+  serializes the core, so a race on core state fails it too.
+  `bridge_tsan_suppressions.txt` is the upstream-core-only escape hatch (it holds no
+  active entry, because only the calculator thread runs core code), matching how the
+  sanitized workload lane defers un-ownable upstream undefined behavior. The harness is
+  what proves the lock-free signals (`packedDisplayGeneration`,
+  `publishedKeypadGeneration`, `requestedKeypadMode`) are race-free under their
+  lock-free read path; those are C11 atomics, not plain `volatile`, because plain
+  `volatile` leaves the concurrent access a data race the harness flags. It proves
+  only the paths it drives: a new native that reads core state from another thread
+  stays unseen until the harness calls it. It runs in the
+  `host-workload-regressions` lane beside the ASan/UBSan run (`setarch -R` disables ASLR
+  so ThreadSanitizer can map its shadow); `R47_TSAN_HARNESS_ITERS` bounds the run.
   `scripts/android/run_bridge_tsan_lane_contract.sh` keeps that gate from being
   quietly disarmed: reading live lines only, it requires `halt_on_error=1` in
   the `TSAN_OPTS` assignment and the run to use it, and admits a suppression
@@ -1180,13 +1160,12 @@ Android compatibility layer.
   on seeded fixtures first.
 - `scripts/android/mutation_spot_check.sh` measures assertion strength on the
   hardened seams: it applies known compile-clean semantic mutations to
-  `LiveProgramStopKeyPolicy.kt`, `LiveKeyRouter.kt`, `KeypadSnapshot.kt`,
+  `PhysicalKeyboardInput.kt`, `GraphGestureFlusher.kt`, `KeypadSnapshot.kt`,
   `LcdThemePolicy.kt`, `GraphGestureAccumulator.kt`, `PackedLcdRaster.kt`,
   `PasteNumber.kt`, `NativeFileRequestGate.kt`, `DocumentTransfer.kt`,
-  `DataFolderMirror.kt`, `SavedManual.kt`, and `CalculatorKeyView.kt`'s ASSIGN
-  gate, and asserts each
-  is killed by the matching JVM test (`LiveProgramStopKeyPolicyTest`,
-  `LiveKeyRouterTest`, `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
+  `SavedManual.kt`, and `CalculatorKeyView.kt`'s ASSIGN gate, and asserts each
+  is killed by the matching JVM test (`PhysicalKeyboardInputParityTest`,
+  `GraphGestureFlusherTest`, `KeypadSnapshotDecoderTest`, `LcdThemePolicyTest`,
   `GraphGestureAccumulatorTest`, `PackedLcdRasterTest`,
   `ReplicaOverlayLcdOrderTest`, `PasteNumberTest`, `NativeFileRequestGateTest`,
   `DocumentTransferTest`, `DataFolderMirrorTest`, `SavedManualTest`,
@@ -1207,8 +1186,8 @@ Android compatibility layer.
 - `scripts/android/native_mutation_spot_check.sh` scores the glue the same way:
   four mutants, three of `hal/io.c` (a short write never reported, a state save
   offered the data file's name, a pipe's `fsync` `EINVAL` counted as a failed
-  save) and one of `hal/lcd.c` (a screen write that leaves the keypad generation
-  as it was), must each compile and
+  save) and one of `hal/lcd.c` (a screen write that leaves the keypad clean), must
+  each compile and
   make `run_hal_io_contract.sh` or `run_keypad_generation_contract.sh` print a
   FAIL line. A survivor, or a mutant that does not compile, fails the run. The
   `android-tests` job runs it after the Kotlin spot check; `jni_input.c`, which
@@ -1243,10 +1222,7 @@ Android compatibility layer.
   collector, trains on a different corpus from this harness on purpose
   (`--help` lists it), so the two are separate verification surfaces
 - `scripts/workload-regressions/host_workload_regression.c` is the harness that
-  probes the wait, pause, progress, and workload-run behavior behind that lane;
-  its poll reads core state only while it holds `screenMutex`, which the worker
-  lets go only inside the core's pump, and it sends the direct stop with no
-  lock, as `requestStopProgramNative()` does
+  drives the wait, pause, progress, and workload-run behavior behind that lane
 - `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
   is the normal pull-request owner of the host-side PGO collector and the
   Android release-native PGO consumer check in one lane; the same job then runs
@@ -1299,8 +1275,8 @@ Android compatibility layer.
   `scripts/android/run_published_artifacts_verifier_contract.sh` locks the
   downstream verifier
 
-When a change touches staged-core compatibility, `yieldToAndroidWithMs(...)`,
-or wait and progress behavior, start with the host workload harness before you
+When a change touches `hal/keys.c`, the service queue, or wait and progress behavior,
+start with the calculator thread harness and the host workload harness before you
 assume the problem is Android UI code.
 
 ### Upstream Suite On The App's Configuration
@@ -1349,10 +1325,8 @@ target instead, arm64, so that the code under test is the code the app ships. It
 keeps `--target`, `--sysroot`, and the `-m` flags; it takes the host's include
 paths, `-m` flags, `WITH_PULSEAUDIO`, and `-pthread` out of the suite's units; it
 puts the glue's GTK stand-ins (`r47zen/stubs`, and `android_mocks.h` with
-`HOST_TOOL_BUILD`) and its clocks (`glib_clock.c`) where GTK was, with a headless
-event loop, `scripts/workload-regressions/suite_event_loop_stand_ins.c`, for the six
-loop calls the core makes and the app answers through JNI; and it links static
-against the NDK's Bionic. It runs nothing. It packs the suite with what it
+`HOST_TOOL_BUILD`) and its clocks (`glib_clock.c`) where GTK was; and it links
+static against the NDK's Bionic. It runs nothing. It packs the suite with what it
 reads at run time into
 `android/build/upstream-suite-app-target/upstream-suite-app-target.tar`, at their
 paths in the project root: `res/testPgms/testPgms.bin`, `src/testSuite/tests`, and
@@ -1393,8 +1367,8 @@ The other three names pass a wrong stand-in here. No core code calls
 `mpz_nextprime`: its one use, in `prime.c`, is commented out. Every caller of
 `longIntegerDivide2` (`mpz_div_2exp`) passes a value that is not negative, where
 `fdiv` and `tdiv` agree. A `mpz_fits_uint_p` without its upper bound passes every
-case. `run_native_stand_ins_contract.sh` holds those three instead, to what GMP
-gives on boundary values, computed apart in Python.
+case. The calculator thread harness's "the stand-ins agree with GMP" case holds
+those three instead.
 
 What the x86_64 run cannot see: it builds against glibc, whose `_FORTIFY_SOURCE`
 checks are not Bionic's, without arm64's `-mbranch-protection`, and with no fused
@@ -1436,14 +1410,14 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_core_source_list_contract.sh` | `r47_core_c47_sources` prints exactly the files a fixture `meson.build`'s `c47_src` lists, and fails on a listed file that is missing or no `c47_src`; no script globs `src/c47` for `*.c`, and the CMake list generator uses the helper | yes, a fixture tree |
 | `run_actions_lock_coverage_contract.sh` | `.github/workflows/actions.lock` records every remote action each workflow runs, those of the local composites it calls included, every workflow is in it, and it names no other, offline, as `gh actions-lock --verify-local` would; seeded with the never-run `setup-android` entries, the checkout entries, and a workflow left out | yes, seeded lockfiles |
 | `run_native_exports_contract.sh` | `check_native_exports.sh` passes a host-built library linked with the app's `r47zen/exports.map`, which defines a helper and a global and keeps `JNI_OnLoad` and a `Java_` function exported, and fails the same sources linked without the map, naming the helper; the app's CMakeLists links the map, `check_native_hardening.sh` runs the check, and the map keeps exactly `JNI_OnLoad` and `Java_*` global | yes, fixture libraries |
+| `run_native_stand_ins_contract.sh` | the glue's stand-ins, built with the host `cc` under AddressSanitizer and UBSan with `android_mocks.h` forced into the unit and the app's mini-gmp linked, give what GMP and glibc give: `mpz_fits_uint_p` at and past 2^32, `mpz_div_2exp` of a negative value, `mpz_nextprime`, `mpz_fib_ui`, and an `execinfo.h` `backtrace_symbols` array whose second entry reads | yes, boundary values computed apart |
+| `run_legacy_printf_contract.sh` | `r47zen/legacy_printf.c`, built with the host `cc` under AddressSanitizer and UBSan, formats as glibc's `vsnprintf` does, result, text, and truncation alike, at each buffer size from 0 to 80, on formats carrying the core's glyph bytes and every conversion and length the core uses; refuses `%n` and a positional argument; and takes only a format with a byte over 0x7f; the app's CMakeLists wraps all eight `sprintf` and `snprintf` entries, the glue lists the file, and each v-form wrapper leaves an ASCII format, and every call from API 28, to the platform | yes, a host-built formatter |
 | `run_shipped_symbols_contract.sh` | `check_shipped_symbols.sh` passes a library with no test entry point and fails one exporting a `ProgramLoadTestBridge` JNI function, an `r47_test_bridge_` function, or `main`, built here with the host `cc`; `collect_packaging_evidence.sh` runs it on every library of the APK and the bundle | yes, built libraries |
 | `run_core_source_archive_contract.sh` | `archive_core_source.sh`, on a fixture repository over `file://`, archives the commit asked, not the tip, under `c47-<commit>/` with the tree's files and without `docs/`, and refuses a short hash and an absent commit, leaving no file; `package-core-source` archives the commit `resolve-upstream-core` resolved, and the production publish needs it, checks the archive's top directory, attaches, attests, and verifies it, and keeps it in a re-cut; the dev publish archives the resolved commit, refuses a build naming another, and attaches it; each wiring check fails its seed | yes, fixture repository |
 | `run_shipped_build_smoke_contract.sh` | `run_shipped_build_smoke.sh` against a fake `adb`: passes a launch that stays up and a crash buffer naming only another package, and fails a Java exception or a native tombstone naming the package, a process that died or restarted, a refused install, and a launch without `Status: ok`; and `verify-production-release` needs the build job, downloads its PGO profile by artifact ID, sets `R47_PGO_PROFILE_PATH` for the whole job with no step override, builds the smoke APK with no R8 or test-bridge override, and runs the smoke, each wiring check failing its seed | yes, a fake `adb` |
 | `run_evidence_abi_contract.sh` | `collect_packaging_evidence.sh` refuses to run without `--expected-abis`, and on a fixture bundle passes the expected ABI and fails a missing or an extra one, so the AAB's `base/lib/` is checked as the APK's `lib/` is | yes, a fixture bundle |
 | `run_host_tools_record_contract.sh` | `describe_host_tools.sh`, on fake tools alone on its PATH, prints `meson <v> ninja <v> <gcc or clang> <v> <libfreetype6 or freetype2> <v>` with each version cut to the evidence's text characters, names clang, falls back to pkg-config without dpkg, and prints `absent` for a missing tool; both build jobs record it, both signing paths pass it, and `collect_packaging_evidence.sh` writes `host_tools` and refuses another shape | yes, fake tools |
 | `run_published_artifacts_verifier_contract.sh` | `verify_published_release_artifacts.sh` accepts a valid release and rejects tampered bytes, a wrong version, a leaked ABI, a wrong signing mode, an unsigned APK, a release with no `host_tools` record, signer mismatches, and a signed release checked with no pin or a malformed one, each on the check named for it; the tracked release and prerelease signer pins are 64 hex digits each, the README states both, the release workflow passes the release pin, and `sign-dev-prerelease` holds the dev APK to the prerelease pin | yes, synthetic evidence |
-| `run_legacy_printf_contract.sh` | `r47zen/legacy_printf.c`, built with the host `cc` under AddressSanitizer and UBSan, formats as glibc's `vsnprintf` does, result, text, and truncation alike, at each buffer size from 0 to 80, on formats carrying the core's glyph bytes and every conversion and length the core uses; refuses `%n` and a positional argument; and takes only a format with a byte over 0x7f; the app's CMakeLists wraps all eight `sprintf` and `snprintf` entries, the glue lists the file, and each v-form wrapper leaves an ASCII format, and every call from API 28, to the platform | yes, a host-built formatter |
-| `run_native_stand_ins_contract.sh` | the glue's stand-ins, built with the host `cc` under AddressSanitizer and UBSan with `android_mocks.h` forced into the unit and the app's mini-gmp linked, give what GMP and glibc give: `mpz_fits_uint_p` at and past 2^32, `mpz_div_2exp` of a negative value, `mpz_nextprime`, `mpz_fib_ui`, and an `execinfo.h` `backtrace_symbols` array whose second entry reads | yes, boundary values computed apart |
 | `run_previous_release_contract.sh` | `resolve_previous_release.sh` counts from the newest published counter release, names its tag and version, and skips drafts, prereleases, date-scheme codes, and quoted lines | yes, synthetic releases list |
 | `run_version_naming_contract.sh` | `check_release_version.sh` takes the MINOR step with PATCH 0 when a `feat` commit, one with a `!`, or one with no type changed `android/app/src/main/` since the previous release, and the PATCH step when fixes and other types alone changed it, a feature outside it or one reverted before the release did, or it is unchanged, drops a pre-release suffix as npm semver's `inc()` does, and refuses a malformed, skipped, or repeated version; `read_upstream_version.sh` prints `VERSION1` only when upstream's tag of that name, annotated or lightweight, points at the core commit, and nothing for a commit past the release, a remote it cannot read, no commit, a missing file, or a malformed define; `resolve_android_artifact_metadata.sh` names files `r47zen_<version>_<upstream8>_<android8>`, titles a dev release with the same stem, and keeps the commit-only dev tag; each of the README's two Obtainium link filters selects only its own app's APK name, and its version regexes cut the version out of the dev title and out of the production tag `r47zen-v<version>` that `android-release.yml` cuts | yes, seeded git repositories |
 | `run_production_signing_scope_contract.sh` | each signing key is named only by its signing job, and the Play upload identity only by `upload-to-play`, with no stored service-account key | yes, fixtures |
@@ -1461,12 +1435,11 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_toolchain_pin_coherence_contract.sh` | the documentary Gradle and AGP pins in `r47-defaults.properties` match the wrapper and the version catalog, and the release-notes links on [09-official-references.md](09-official-references.md) name the same AGP line and Gradle version | text |
 | `run_build_jdk_pin_coherence_contract.sh` | the Gradle toolchain, every `setup-java`, and the doctor read the build JDK pin: the pin is read into `buildJdkVersion` once and never reassigned, every `JavaLanguageVersion.of` takes it, and no `jvmToolchain` sets a second one; live code only | yes, seeded copies of the Gradle file and the doctor |
 | `run_action_pin_consistency_contract.sh` | one SHA and tag per action, shfmt, shellcheck, actionlint, zizmor, ruff, uv (version and checksum), and Python pinned alike in CI, pre-commit, `uv.lock`, and `pyproject.toml`, no `-latest` runner label, and Dependabot's `github-actions` entry scans `/.github/actions/*` (see [07](07-ci-and-release-workflow.md#pins-that-live-in-more-than-one-file)) | yes, fixtures |
-| `run_wrap_safe_time_contract.sh` | millisecond deadlines compare wrap-safely (it compiles `scripts/android/wrap_safe_time_contract_test.c` against `r47_time.h`), and every deadline site includes and calls the helpers, comments aside, with no raw comparison in either operand order | yes, compiles and runs a C test; the patterns prove themselves on seeded lines |
 | `run_setup_android_packages_contract.sh` | every `setup-android` use passes explicit `packages:` without the legacy `tools` package | text |
 | `run_setup_android_composite_contract.sh` | SDK setup lives only in the composite, its actions are SHA-pinned on live lines, each cache key covers every input its install step reads, the composite saves its cache itself with `actions/cache/save` (never `actions/cache`, which saves after the job's upstream steps), and each save names its restore's paths and key; no composite uses `actions/cache`; `android-release.yml` saves no cache and builds xlsxio with `cache: 'false'` | yes, cache-key and save fixtures |
 | `run_gradle_cache_contract.sh` | every job that runs `setup-gradle` sets `cache-provider: external`, restores `~/.gradle` on a key whose `hashFiles` patterns match every tracked Gradle build input under `android/`, and saves it gated on that restore's miss under the same path and primary key; no `setup-java` step takes a `cache:` input; `android-release.yml` caches no Gradle User Home (see [07](07-ci-and-release-workflow.md#gradle-cache)) | yes, seeded workflow fixtures |
 | `run_bridge_tsan_lane_contract.sh` | the TSan lane keeps `halt_on_error=1` and upstream-only suppressions (see above) | yes, fixtures |
-| `run_lock_free_signal_atomicity_contract.sh` | the lock-free display and refresh signals are defined C11 atomics, never plain `volatile`, comments aside, and every use in the glue is an `atomic_*(&signal, ...)` call | yes, fixtures |
+| `run_lock_free_signal_atomicity_contract.sh` | the lock-free signals (`packedDisplayGeneration`, `publishedKeypadGeneration`, `requestedKeypadMode`, `isCoreBlockingForIo`) are defined C11 atomics, never plain `volatile`, comments aside, and every use in the glue is an `atomic_*(&signal, ...)` call | yes, fixtures |
 | `run_mini_gmp_accounting_contract.sh` | the shipped mini-gmp hands the GMP accounting hooks the size of every block it frees or reallocates, so the count returns to zero (`scripts/android/mini_gmp_accounting_contract_test.c`) | yes, compiles and runs a C test under AddressSanitizer and UBSan, after it fails on a copy whose free passes size 0 |
 | `run_core_label_copy_contract.sh` | a core-encoded keypad label copied into a fixed buffer is cut between glyphs, never after a lead byte (`scripts/android/core_label_copy_contract_test.c` against `core_label.h`), and `keypad_scene.c` copies core labels only through `r47_copy_core_label` | yes, compiles and runs a C test; seeded line |
 | `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on; the test host activity (`r47.includeInstrumentationHost`) defaults off and `build-production-release-bundle` never turns it on; live code only | text |
@@ -1478,7 +1451,8 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_build_metadata_reader_contract.sh` | `read_build_metadata.sh` prints the real values of a release's and a dev build's `BUILD-METADATA.txt`, refuses without evaluating a value of the wrong shape, a key that is missing or given twice, and an unknown kind; `collect_packaging_evidence.sh`, run on a fixture bundle, writes an `upstream_version` the reader takes, the empty one of a core with no release tag included, and refuses one of another shape; and no workflow reads that file with a bare `sed` | yes, hostile values that would run a command, a fixture bundle built with `cc` and `zip`, and a seeded bare read |
 | `run_core_language_flags_contract.sh` | `CMakeLists.txt` and `collect_host_pgo_profile.sh` compile the core with `-fsigned-char -fno-strict-aliasing`, both firmware cross files still hold them, every other `-f` flag in their c_args and in the `dmcp_cargs` of their `meson.build` is one the contract lists as code layout, and `CMakeLists.txt` never names the opposite flag; comments do not count. With no hydrated core it checks the copies and its reader, and `linux-ci.yml` runs it again on the synced `src` | yes, a seeded cross file |
 | `run_merge_request_watch_contract.sh` | `watch_merge_request.sh` dispatches a branch's lanes on a merge ref only for a branch or merge commit no lane has seen, dispatches for a request that is open or locked while it merges, fails on one that is merged or closed or has no merge ref, and every lane it names takes `upstream_commit` and shows it in its run title | yes, runs the script against stub `curl`, `git`, and `gh` |
-| `run_jni_surface_check_contract.sh` | `check_jni_surface.sh`, which `collect_packaging_evidence.sh` runs over every signed APK, fails a dex that lost a registered native, a native flag, a `GetMethodID` callback, a callback signature, or the `MainActivity` class name | yes, fixtures built from the C sources' names |
+| `run_jni_surface_check_contract.sh` | `check_jni_surface.sh`, which `collect_packaging_evidence.sh` runs over every signed APK, fails a dex that lost a registered native, a native flag, a `bindMethod` callback, a callback signature, or the `CalculatorEngine` class name | yes, fixtures built from the C sources' names |
+| `run_upstream_hal_contract.sh` | upstream's `sys_sleep` callers outside DMCP-only code are exactly `mainLoop` and `goToSleepForMs`, the two `calculatorAtRest` in `hal/keys.c` assumes, so a new caller fails until someone reads it; a service could otherwise run inside a computation. It needs the hydrated `src/c47` and fails without it, so on a clone not yet synced it fails the `pre-commit` hook too | yes, a seeded caller and a DMCP-only one |
 | `run_quiet_grep_pipeline_contract.sh` | no script, workflow, or composite action pipes a command into `grep -q`: grep exits at its first match, the command feeding it dies of SIGPIPE, and under `pipefail` the match reads as a miss, so the output is captured first and matched with `<<<` | yes, fixtures |
 | `run_upstream_sync_contract.sh` | `upstream.sh sync` never writes a path this repo owns: tracked edits, staged and not, survive a sync with and without `--force`, and upstream's `AGENTS.md` never lands; a forward sync writes the changed files with the current time, keeps an unchanged file's mtime, and removes what the commit no longer holds, and a backward sync brings it back; it refuses, writing nothing, to overwrite a hydrated file edited since the last sync or a file of yours where the commit adds one, unless `--force`, and a path a build rewrites is not an edit; `--if-missing`, the build's sync, skips a hydrated tree only when the last complete sync wrote the resolved commit, and syncs one at another commit or with no record; a sync stopped halfway leaves the tracked tree clean and the lock unwritten, and the next sync completes it without `--force`; export-ignore'd files stay out and an executable keeps its bit. `hydrate_submodules.sh` leaves a submodule already at its commit alone, offline, with its edits, and a failed fetch keeps the old checkout | yes, runs both against a throwaway `file://` upstream and submodule and a throwaway copy of this repo |
 
@@ -1492,14 +1466,17 @@ when one of them guards something that matters.
   grouped contract-script lane first
 - keypad-scene export, decoder, renderer, keyboard, or runtime-coordinator
   change in Kotlin: run `cd android && ./gradlew :app:testDebugUnitTest`
-- SAF, `READP`, redraw-gate, direct-stop LCD cleanup, or other Android-only
+- SAF, `READP`, redraw-gate, or other Android-only
   runtime seam change: run
   `:app:assembleDebugAndroidTest`, then `:app:connectedDebugAndroidTest`
+- calculator thread, key buffer, service queue, or keypad publish change: run
+  `build_calculator_thread_harness.sh`, then
+  `scripts/workload-regressions/build_bridge_tsan_harness.sh`
 - 16 KB runtime proof on a connected target: run
   `bash ./scripts/android/run_16kb_runtime_smoke.sh`
 - sync allowlist or upstream overlay contract change: run
   `bash ./scripts/upstream-sync/upstream.sh verify-restore-boundary`
-- pause, wait, progress, or `PC_BUILD` event-loop compatibility change: run
+- pause, wait, or progress change: run
   `scripts/workload-regressions/run_workload_regressions.sh`
 - host-core PGO collector or release-native consumer change: run
   `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`

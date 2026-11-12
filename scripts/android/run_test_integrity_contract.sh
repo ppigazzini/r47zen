@@ -274,10 +274,10 @@ cat >"$connected_sandbox/bin/adb" <<'SH'
 [ "$*" = "shell getprop ro.build.version.sdk" ] && printf '%s\r\n' "${FAKE_API_LEVEL:-}"
 exit 0
 SH
-# A class given an SDK floor here, as a device test declares one with @SdkSuppress.
-suppressed_source="$connected_sandbox/android/app/src/androidTest/java/io/github/ppigazzini/r47zen/SystemBarInsetsInstrumentedTest.kt"
+# A class with an SDK floor, as ClipboardRoundTripInstrumentedTest declares it.
+suppressed_source="$connected_sandbox/android/app/src/androidTest/java/io/github/ppigazzini/r47zen/ClipboardRoundTripInstrumentedTest.kt"
 mkdir -p "$(dirname "$suppressed_source")"
-printf '@SdkSuppress(minSdkVersion = 29)\nclass SystemBarInsetsInstrumentedTest\n' >"$suppressed_source"
+printf '@SdkSuppress(minSdkVersion = 29)\nclass ClipboardRoundTripInstrumentedTest\n' >"$suppressed_source"
 # Run the first class of the filter, as connectedReleaseAndroidTest does with a
 # comma-joined list, and write two AGP-shaped results for it. The class that
 # FAKE_EMPTY_SELECTION names runs nothing; for the one FAKE_WRONG_SELECTION
@@ -392,13 +392,13 @@ grep -q -- "--kill-after=30s 10m .*class=io.github.ppigazzini.r47zen.GraphRedraw
 # Below its @SdkSuppress floor a class runs nothing by design, so the runner skips
 # it and says why (the minSdk row); at its floor, and for a class with none, a
 # selection that runs nothing still fails.
-run_connected "$tmp/connected-floor.log" FAKE_API_LEVEL=24 FAKE_EMPTY_SELECTION=SystemBarInsetsInstrumentedTest ||
+run_connected "$tmp/connected-floor.log" FAKE_API_LEVEL=24 FAKE_EMPTY_SELECTION=ClipboardRoundTripInstrumentedTest ||
     fail "connected runner failed a class below its SDK floor: $(tail -n 2 "$tmp/connected-floor.log")"
-grep -q "SystemBarInsetsInstrumentedTest skipped: .* needs API 29 (@SdkSuppress), the device runs 24" "$tmp/connected-floor.log" ||
+grep -q "ClipboardRoundTripInstrumentedTest skipped: .* needs API 29 (@SdkSuppress), the device runs 24" "$tmp/connected-floor.log" ||
     fail "connected runner did not say why it skipped a class below its SDK floor."
 expect_connected_failure "a class at its SDK floor that ran nothing" \
-    "SystemBarInsetsInstrumentedTest reported success but executed 0 tests" \
-    FAKE_API_LEVEL=29 FAKE_EMPTY_SELECTION=SystemBarInsetsInstrumentedTest
+    "ClipboardRoundTripInstrumentedTest reported success but executed 0 tests" \
+    FAKE_API_LEVEL=29 FAKE_EMPTY_SELECTION=ClipboardRoundTripInstrumentedTest
 expect_connected_failure "a class with no SDK floor that ran nothing on an old device" \
     "FactorsInstrumentedTest reported success but executed 0 tests" \
     FAKE_API_LEVEL=24 FAKE_EMPTY_SELECTION=FactorsInstrumentedTest

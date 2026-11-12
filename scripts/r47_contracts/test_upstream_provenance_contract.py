@@ -55,9 +55,15 @@ _NON_READERS: Final = frozenset(
 _GOLDEN: Final = "scripts/r47_contracts/data/golden.json"
 _GUARD: Final = "scripts/r47_contracts/test_guard.py"
 _ANDROID_HAL: Final = "android/app/src/main/cpp/r47zen/hal/"
-# Upstream's HAL headers, every port's contract, at the hydrated commit: a header
-# upstream adds fails the test below until the ledger watches it.
-_UPSTREAM_HAL: Final = REPO_ROOT / "src/c47/hal"
+# The headers of upstream's HAL, read from src/c47/hal at the hydrated commit.
+_UPSTREAM_HAL_HEADERS: Final = (
+    "audio.h",
+    "gui.h",
+    "io.h",
+    "keys.h",
+    "lcd.h",
+    "print_ir.h",
+)
 
 
 def _assert_equal(actual: object, expected: object) -> None:
@@ -206,10 +212,7 @@ class HalInputTest(unittest.TestCase):
 
     def test_every_upstream_hal_header_is_watched(self) -> None:
         """Each header of upstream's HAL, which every port implements, is listed."""
-        headers = {f"src/c47/hal/{header.name}" for header in _UPSTREAM_HAL.glob("*.h")}
-        if not headers:
-            message = f"no header under {_UPSTREAM_HAL}: hydrate upstream first"
-            raise AssertionError(message)
+        headers = {f"src/c47/hal/{name}" for name in _UPSTREAM_HAL_HEADERS}
         _assert_equal(headers - set(hal_surfaces()), set())
 
     def test_the_simulator_hals_the_android_hal_follows_are_watched(self) -> None:

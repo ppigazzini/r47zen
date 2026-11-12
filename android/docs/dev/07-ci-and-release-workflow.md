@@ -524,10 +524,15 @@ normal-pull-request host-core optimization sequence:
   the outer timeout and degraded to coverage; the other four fixtures must
   complete. No emulator
 - the same `host-workload-regressions` lane then runs
+  `build_calculator_thread_harness.sh`, which rebuilds
+  the staged core and Android bridge under AddressSanitizer and runs upstream's main
+  loop on a thread of its own, as the app does: keys during a computation, `EXIT` and
+  `R/S`, cancel, OFF, and saves. No emulator
+- the same `host-workload-regressions` lane then runs
   `scripts/workload-regressions/build_bridge_tsan_harness.sh`, which rebuilds the
-  staged core and Android bridge under ThreadSanitizer and races the live input
-  and refresh producer path against the UI read path -- the concurrency surface
-  the single-threaded ASan/UBSan run never exercises. A data race or lock-order
+  staged core and Android bridge under ThreadSanitizer and races the key and service
+  pushes and the UI read path against the calculator thread -- the concurrency surface
+  the ASan/UBSan runs never race. A data race or lock-order
   inversion in the Android-owned bridge fails the lane; upstream-core races are
   deferred to the empty, upstream-scoped `bridge_tsan_suppressions.txt`. No
   emulator
@@ -643,8 +648,9 @@ It:
   report and fails the lane if overall line coverage drops below the floor
   (`R47_DEFAULT_COVERAGE_MIN_TOTAL_LINE_PERCENT` in
   `android/r47-defaults.properties`, set by hand just below the last
-  measurement, over every hand-written class, the activities included) or if the
-  live program-stop routing seam loses full line coverage
+  measurement, over every hand-written class, the activities included) or if a
+  class in its `SEAM_CLASSES` list,
+  `GraphGestureFlusher` or `NativeFileRequestGate`, loses full line coverage
 - then runs `scripts/android/mutation_spot_check.sh` on every event, which
   fails the job when a seam mutant survives (see
   [08-tests-and-contracts.md](08-tests-and-contracts.md)), and
@@ -697,13 +703,13 @@ The hosted instrumentation lane relies on:
   `ProgramFixtureInstrumentedTest` class in one last bounded selection. That
   grouped PROGRAMS selection
   still includes the `MANSLV2` bounded-stop regression: it resets to the
-  upstream `doFnReset(CONFIRMED, false)` baseline before load, reuses the same
-  native `fnStopProgram(0)` publisher as live `R/S` and `EXIT`, and fails the
+  upstream `doFnReset(CONFIRMED, false)` baseline before load, presses `R/S` on the
+  same key buffer as the live keypad, and fails the
   Android lane if the grouped fixture selection hits the outer timeout. The
-  fixture harness itself must not call blocking `snapshotState()` after a
-  timed-out `READP` worker, because that worker can still own `screenMutex`.
-  The grouped harness falls back to non-blocking state reads until the worker
-  quiesces and performs bounded stop-and-reset cleanup before the
+  fixture harness itself must not call blocking `snapshotState()` while a
+  `READP` or key sequence has not returned, because that call waits for the
+  calculator to reach rest. The grouped harness falls back to non-blocking state
+  reads and performs bounded stop-and-reset cleanup before the
   activity closes so one long-running fixture cannot strand the next grouped
   case on CI
 - the one-class release-path selections of `FactorsInstrumentedTest`,

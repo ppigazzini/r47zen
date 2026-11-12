@@ -1,15 +1,14 @@
-// Host regression guard for the hal/lcd.c contracts: the keypad-snapshot
-// generation bump, the bitblt24 blit semantics the upstream core relies on, the
+// Host regression guard for the hal/lcd.c contracts: the keypad re-read a screen
+// write asks for, the bitblt24 blit semantics the upstream core relies on, the
 // lcd_buffer polarity those semantics are stated in, and the packed-row change
 // detection the Kotlin consumer trusts.
 //
-// The Android display loop re-reads the keypad/softkey snapshot only when
-// keypadSnapshotGeneration changes. Dynamic softmenus -- notably the EQN editor
-// (MNU_EQN) -- rebuild their softkey labels on the screen-refresh path
-// (refreshScreen -> LCD_write_line) with no key event at the instant the labels
-// change. So LCD_write_line MUST bump keypadSnapshotGeneration; decoupling that
-// bump leaves the EQN softkeys stale (wrong buttons) until the display loop's
-// 500 ms fallback. This test fails if that refresh coupling is removed.
+// The calculator thread publishes the keypad/softkey snapshot only when it was
+// marked dirty. Dynamic softmenus -- notably the EQN editor (MNU_EQN) -- rebuild
+// their softkey labels on the screen-refresh path (refreshScreen -> LCD_write_line)
+// with no key event at the instant the labels change. So LCD_write_line MUST mark
+// it dirty; decoupling that leaves the EQN softkeys stale (wrong buttons). This test
+// fails if that refresh coupling is removed.
 //
 // Built and run on the Linux host by run_keypad_generation_contract.sh; no
 // emulator or device is required.
@@ -25,10 +24,12 @@
 // upstream tree also has a hal/lcd.h, and it comes first on the include path.
 #include "../../android/app/src/main/cpp/r47zen/hal/lcd.h"
 
-// hal/lcd.c defines this as a C11 relaxed atomic (the lock-free display-change
-// signal); match the type so the bare reads below are valid atomic loads.
-extern _Atomic uint32_t keypadSnapshotGeneration;
-extern uint32_t *screenData;
+// hal/lcd.c calls these in keypad_scene.c; the test counts the marks.
+static uint32_t keypadDirtyMarks = 0;
+void r47_keypad_mark_dirty(void) { keypadDirtyMarks++; }
+void r47_keypad_publish_if_due(void) {}
+void fnScreenDump(uint16_t unused) { (void)unused; }
+
 extern void init_lcd_buffers(void);
 extern void LCD_write_line(uint8_t *line_buf);
 
@@ -398,40 +399,25 @@ int main(void) {
     return 1;
   }
 
-  // screenData is a NULL compatibility symbol referenced only by the compiled,
-  // never-invoked PC_BUILD GTK screenshot helpers. It must not be allocated:
-  // nothing on Android reads it, so a 384 KB framebuffer here would be dead
-  // resident memory.
-  if (screenData != NULL) {
-    fprintf(stderr,
-            "FAIL: init_lcd_buffers allocated screenData (%p); the unused "
-            "compatibility framebuffer must stay NULL.\n",
-            (void *)screenData);
-    return 1;
-  }
-  printf("OK: screenData left unallocated (no dead framebuffer)\n");
-
   if (check_first_frame_flags() != 0) {
     return 1;
   }
 
-  const uint32_t before = keypadSnapshotGeneration;
+  const uint32_t before = keypadDirtyMarks;
 
   // Refresh one row, exactly as the upstream refresh path does for a changed
   // line. This must invalidate the keypad snapshot for the consumer.
   lcd_buffer[0] = 1u;  // mark row 0 dirty
   LCD_write_line(lcd_buffer);
 
-  if (keypadSnapshotGeneration == before) {
+  if (keypadDirtyMarks == before) {
     fprintf(stderr,
-            "FAIL: LCD_write_line did not bump keypadSnapshotGeneration "
-            "(stayed %u). EQN and other dynamic softkeys would go stale.\n",
-            (unsigned int)before);
+            "FAIL: LCD_write_line did not mark the keypad dirty. EQN and other "
+            "dynamic softkeys would go stale.\n");
     return 1;
   }
 
-  printf("OK: LCD_write_line bumped keypadSnapshotGeneration %u -> %u\n",
-         (unsigned int)before, (unsigned int)keypadSnapshotGeneration);
+  printf("OK: LCD_write_line marked the keypad dirty\n");
 
   return check_bitblt24_fill_semantics() | check_polarity() |
          check_packed_change_detection() | check_snapshot_take() |

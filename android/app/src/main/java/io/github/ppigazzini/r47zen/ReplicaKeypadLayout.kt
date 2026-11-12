@@ -206,7 +206,7 @@ internal object ReplicaKeypadLayout {
             }
             performHapticClick(it)
             dispatchKey(slot.code)
-            dispatchKey(0)
+            dispatchKey(CalculatorEngine.KEY_RELEASE)
         }
         initialSnapshot?.let { keyView.updateLabels(it) }
         addTouchZone(
@@ -293,12 +293,12 @@ internal object ReplicaKeypadLayout {
 
                 MotionEvent.ACTION_UP -> {
                     feedbackView.isPressed = false
-                    dispatchKey(0)
+                    dispatchKey(CalculatorEngine.KEY_RELEASE)
                 }
 
                 MotionEvent.ACTION_CANCEL -> {
                     feedbackView.isPressed = false
-                    dispatchKey(LiveKeyRouter.KEY_CANCEL)
+                    dispatchKey(CalculatorEngine.KEY_CANCEL)
                 }
             }
             true

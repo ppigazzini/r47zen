@@ -59,13 +59,10 @@ enum {
       R47_KEYPAD_META_SHOW_VALUE_OFFSET + R47_KEYPAD_KEY_COUNT,
 };
 
-void r47_initialize_native_bridge_state(void);
 void r47_native_preinit_path(const char *path);
 void r47_init_runtime(void);
 bool r47_runtime_ready(void);
 void r47_force_refresh(void);
-void r47_send_sim_function(int funcId);
-void r47_send_sim_menu(int menuId);
 void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease);
 bool r47_paste_number(const char *tokens);
 void r47_fill_keyboard_state(int32_t *fill);

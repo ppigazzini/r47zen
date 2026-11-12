@@ -1,5 +1,5 @@
 #include "c47.h"
-#include "r47_format.h"
+#include "host_services.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,23 +56,21 @@ static int android_base_path_ready = 0;
 #endif
 
 static FILE *openedFile = NULL;
+static char replaceTarget[PATH_MAX] = "";
+static char replaceTemp[PATH_MAX + 8] = "";
 // Whether openedFile was opened for writing, and whether a write to it has
 // come up short. Upstream's HAL signatures return nothing, and upstream reports
 // only a failed open, so ioFileClose is where a lost write is noticed and
 // reported, once per file, through r47_report_file_write_failure.
 static bool openedFileWritable = false;
 static bool openedFileWriteFailed = false;
-// Whether a seek on openedFile failed; the file then reads as ended.
 static bool openedFileSeekFailed = false;
-// The state file a save is replacing, and the copy beside it the save writes.
-static char replaceTarget[PATH_MAX] = "";
-static char replaceTemp[PATH_MAX + 8] = "";
 // The folder WorkDirectory.kt starts the save picker in, for a screen capture.
 #define FILE_CATEGORY_SCREENS 3
+extern void r47_upcall_warning(const char *text);
 extern int requestAndroidFile(int isSave, const char *defaultName,
                               int fileType);
 extern void r47_report_file_write_failure(void);
-extern void r47_show_warning(const char *text);
 extern const char *r47_picked_file_name(void);
 
 static bool setAsideUnusableStateFile(const char *path);
@@ -423,32 +421,6 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
   return FILE_OK;
 }
 
-void ioFileWrite(const void *buffer, uint32_t size) {
-  if (!openedFile) {
-    return;
-  }
-  if (fwrite(buffer, 1, size, openedFile) != size && !openedFileWriteFailed) {
-    LOGE("ioFileWrite: short write: %s", strerror(errno));
-    openedFileWriteFailed = true;
-  }
-}
-
-uint32_t ioFileRead(void *buffer, uint32_t size) {
-  if (openedFile && !openedFileSeekFailed)
-    return fread(buffer, 1, size, openedFile);
-  return 0;
-}
-
-// A seek that fails would leave the next read at the wrong place, so the file reads as
-// ended from there, and a save through it counts as failed.
-void ioFileSeek(uint32_t position) {
-  if (openedFile && fseek(openedFile, position, SEEK_SET) != 0) {
-    LOGE("ioFileSeek: cannot reach %u: %s", position, strerror(errno));
-    openedFileSeekFailed = true;
-    openedFileWriteFailed = openedFileWritable;
-  }
-}
-
 // Why the core cannot take the state file at path, or NULL when it can, or when the file
 // cannot be read, which upstream's restore reports itself. The file is upstream's
 // "name:type:value" lines, each hexDump followed by its bytes at 32 to a line, so a file
@@ -577,7 +549,7 @@ static bool setAsideUnusableStateFile(const char *path) {
                "The saved state was not restored: %s.", problem);
   }
   LOGE("%s (%s)", warning, kept);
-  r47_show_warning(warning);
+  r47_upcall_warning(warning);
   return true;
 }
 
@@ -617,8 +589,8 @@ void r47_restore_guard_begin(void) {
     char kept[PATH_MAX + 64];
     if (keepAside(state, "crashed", kept, sizeof(kept))) {
       LOGE("restore failed %d times: kept %s", failed, kept);
-      r47_show_warning("The saved state did not restore, twice. A copy is "
-                       "kept, and the calculator starts afresh.");
+      r47_upcall_warning("The saved state did not restore, twice. A copy is "
+                         "kept, and the calculator starts afresh.");
     }
     failed = 0;
   }
@@ -671,6 +643,32 @@ static bool finishReplacingFile(bool failed) {
   return failed;
 }
 
+void ioFileWrite(const void *buffer, uint32_t size) {
+  if (!openedFile) {
+    return;
+  }
+  if (fwrite(buffer, 1, size, openedFile) != size && !openedFileWriteFailed) {
+    LOGE("ioFileWrite: short write: %s", strerror(errno));
+    openedFileWriteFailed = true;
+  }
+}
+
+uint32_t ioFileRead(void *buffer, uint32_t size) {
+  if (openedFile && !openedFileSeekFailed)
+    return fread(buffer, 1, size, openedFile);
+  return 0;
+}
+
+// A seek that fails would leave the next read at the wrong place, so the file reads as
+// ended from there, and a save through it counts as failed.
+void ioFileSeek(uint32_t position) {
+  if (openedFile && fseek(openedFile, position, SEEK_SET) != 0) {
+    LOGE("ioFileSeek: cannot reach %u: %s", position, strerror(errno));
+    openedFileSeekFailed = true;
+    openedFileWriteFailed = openedFileWritable;
+  }
+}
+
 void ioFileClose(void) {
   if (!openedFile) {
     return;
@@ -718,9 +716,9 @@ void r47_arm_snap(void) {
 }
 
 // Offer a finished capture through the save picker, then arm the next. fnScreenDump
-// clearing the name is the signal. The tick calls this on the core thread with
-// screenMutex held, and an armed name returns on the first test. A running program
-// reaches no tick, so of the SNAPs it takes before it stops only the first is kept.
+// clearing the name is the signal. The calculator thread calls this at rest, and an armed
+// name returns on the first test. A running program does not reach rest, so of the SNAPs
+// it takes before it stops only the first is kept.
 void r47_offer_snap(void) {
   if (_ioFileNameOverride[0] != '\0' || snapPath[0] == '\0' || openedFile) {
     return;
@@ -741,8 +739,9 @@ void r47_offer_snap(void) {
                             (uint32_t)header[5] << 24;
   if (capture && (size < 0 || (uint32_t)size != declared)) {
     LOGE("r47_offer_snap: capture holds %ld bytes of %u", size, declared);
-    r47_show_warning("The screen capture was not written in full, so it is not "
-                     "offered.");
+    r47_upcall_warning(
+        "The screen capture was not written in full, so it is not "
+        "offered.");
   } else if (capture && fseek(capture, 0, SEEK_SET) == 0) {
     char name[32];
     struct tm when;
@@ -775,19 +774,5 @@ void r47_offer_snap(void) {
 
 int ioEof(void) { return openedFile ? feof(openedFile) : 1; }
 
-int save_statefile(const char *fpath, const char *fname, void *data) {
-  return MRET_SAVESTATE;
-}
-int load_statefile(const char *fpath, const char *fname, void *data) {
-  return MRET_LOADSTATE;
-}
-int save_programfile(const char *fpath, const char *fname, void *data) {
-  return MRET_SAVESTATE;
-}
-int load_programfile(const char *fpath, const char *fname, void *data) {
-  return MRET_LOADSTATE;
-}
-// A core warning, such as a program or a state file it could not take whole, goes to
-// the user in a dialog.
-void show_warning(char *string) { r47_show_warning(string); }
+void show_warning(char *string) { r47_upcall_warning(string); }
 void fnDiskInfo(uint16_t unused) {}

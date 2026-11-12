@@ -163,10 +163,6 @@ _FONT_POLICY_SURFACES: Final = (
 _INPUT_SURFACES: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {
     "src/c47/assign.c": _KEYBOARD_LAYOUT_SURFACES,
     "src/c47/items.c": _KEYBOARD_LAYOUT_SURFACES,
-    "src/c47/programming/input.c": (
-        ("scripts/r47_contracts/derive_live_stop_key_policy.py",),
-        ("scripts/r47_contracts/test_live_stop_key_policy_contract.py",),
-    ),
     "res/fonts/C47__StandardFont.ttf": (
         (
             "scripts/r47_contracts/derive_key_font_policy.py",
@@ -203,9 +199,7 @@ _TEST_MODULE_SUFFIX: Final = ".py"
 # or harness that holds what it follows. A move here is never cleared by
 # --record-if-unaffected: it needs a reader.
 _ANDROID_HAL: Final = "android/app/src/main/cpp/r47zen/hal/"
-# The harness that runs the glue on the live core: it links every HAL file, and
-# holds the VOL softkeys' value (audio.c) and the clipboard capture (gui.c).
-_HAL_HARNESS: Final = "scripts/workload-regressions/build_clipboard_overflow_harness.sh"
+_HAL_HARNESS: Final = "scripts/workload-regressions/build_calculator_thread_harness.sh"
 _HAL_LCD: Final = (
     f"{_ANDROID_HAL}lcd.c",
     "scripts/android/run_keypad_generation_contract.sh",
@@ -215,6 +209,10 @@ _HAL_SURFACES: Final[dict[str, tuple[str, ...]]] = {
     "src/c47/hal/audio.h": (f"{_ANDROID_HAL}audio.c", _HAL_HARNESS),
     "src/c47/hal/gui.h": (f"{_ANDROID_HAL}gui.c", _HAL_HARNESS),
     "src/c47/hal/io.h": _HAL_IO,
+    "src/c47/hal/keys.h": (
+        f"{_ANDROID_HAL}keys.c",
+        "scripts/android/run_upstream_hal_contract.sh",
+    ),
     "src/c47/hal/lcd.h": _HAL_LCD,
     "src/c47/hal/print_ir.h": (f"{_ANDROID_HAL}print_ir.c", _HAL_HARNESS),
     "src/c47-gtk/hal/io.c": _HAL_IO,

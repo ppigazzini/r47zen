@@ -1,35 +1,22 @@
-// Host ThreadSanitizer harness over the JNI bridge's concurrent display
-// protocol. The production bridge runs the upstream C47 core on a dedicated
-// "R47CoreRuntime" thread (NativeCoreRuntime.kt) that mutates screen and packed
-// -display state under screenMutex and packedDisplayMutex, while the Android UI
-// thread reads that state behind matching pthread_mutex_trylock fast paths and
-// relaxed atomic generation counters (jni_display.c). Both existing sanitizer lanes
-// (build_graph_crash_harness.sh, run_workload_regressions_sanitized.sh) drive
-// the core single-threaded, so that producer/consumer protocol has never run
-// under a data-race adversary.
+// Host ThreadSanitizer harness over the threads of the running app. The calculator
+// runs upstream's main loop on a thread of its own (r47_calculator_main) and only it
+// touches core state; every other thread pushes a key or a service request, or copies
+// what the calculator thread published (jni_display.c, keypad_scene.c, hal/lcd.c).
+// Both other sanitizer lanes (build_graph_crash_harness.sh,
+// run_workload_regressions_sanitized.sh) drive the core on one thread, so this is
+// the only lane where that rule meets a data-race adversary.
 //
-// Two phases. The startup phase races the UI entry points against
-// r47_init_runtime itself: MainActivity posts a keypad refresh after first
-// layout, while the core thread is still initializing, so the UI-thread keypad
-// copy (r47_try_copy_app_keypad_snapshot, the function copyKeypadSnapshotNative
-// calls) and the packed-display copy (r47_try_take_packed_display, the native
-// half of getPackedDisplayBuffer) must be safe against an init in flight. The
-// steady-state phase races a producer thread (the live sendKey input path plus
-// r47_force_refresh, exactly as the core runtime drives the screen) against a
-// consumer thread that reproduces the UI read path: it samples the generation
-// counters the way getKeypadSnapshotGeneration / getPackedDisplayGeneration do,
-// reads the keypad snapshot under screenMutex via the real r47_get_keypad_meta
-// entry point, and takes the packed display through
-// r47_try_take_packed_display. Built under
-// -fsanitize=thread by build_bridge_tsan_harness.sh, a missing acquire on a
-// generation counter, a torn read across the trylock fast path, or a lock-order
-// inversion between the two display mutexes fails the harness instead of passing
-// every existing single-threaded check.
-//
-// R47_TSAN_HARNESS_ITERS bounds the run (default below) for a fast check.
-
+// Two phases. The startup phase races the UI entry points against the calculator's
+// own init: MainActivity posts a keypad refresh after first layout, while the thread
+// is still initializing. The steady-state phase races a producer, pushing keys and
+// requests as the UI does, against a consumer reading the way the display loop does.
+// A race here is a hard failure, because no lock serializes the core any more.
+#include "jni_bridge.h"
+#include "host_services.h"
 #include "keypad_fixture_bridge.h"
-#include "screen.h"
+// The repo-owned HAL header, by a path relative to this file: the staged upstream
+// tree also has a hal/lcd.h, and it comes first on the include path.
+#include "../../android/app/src/main/cpp/r47zen/hal/lcd.h"
 
 #include <pthread.h>
 #include <stdatomic.h>
@@ -39,24 +26,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
-// The repo-owned HAL header, by a path relative to this file: the staged
-// upstream tree also has a hal/lcd.h, and it comes first on the include path.
-#include "../../android/app/src/main/cpp/r47zen/hal/lcd.h"
+bool r47_try_take_packed_display(uint8_t *dst);
 
-// The live fixed-width key input path. It ignores its JNIEnv/jobject arguments
-// (jni_input.c), so the harness drives it with NULL the way the instrumentation
-// fixtures in jni_program_load_test.c already do.
-extern void Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(void *env, void *thiz,
-                                                                  int32_t keyCode);
-// The lock-free signals the UI thread samples without holding a display mutex.
-// Match hal/lcd.c's C11 atomic definitions so the consumer's relaxed loads are
-// exactly the production access, not a stronger-typed stand-in.
-extern _Atomic uint32_t packedDisplayGeneration;
-extern _Atomic uint32_t keypadSnapshotGeneration;
+static uint32_t g_consumer_sink = 0;
 
-// Sink to keep the consumer reads from being optimized away.
-static volatile uint32_t g_consumer_sink = 0;
 // Harness-owned handoff flags; atomic so the harness itself is race-free and
 // only the bridge's synchronization is under test.
 static atomic_bool g_producer_done = false;
@@ -74,17 +49,23 @@ static long harness_iterations(void) {
   return iterations;
 }
 
-// Producer: the core runtime side. Each iteration presses and releases a live
-// key and forces a screen refresh, so the core mutates screen state under
-// screenMutex and LCD_write_line writes the packed buffer and bumps both
-// generation counters under packedDisplayMutex.
+// Producer: the UI's push side. Keys, then a request that runs at rest, so the
+// calculator thread writes the packed display and publishes the keypad meanwhile.
 static void *producer_main(void *arg) {
   long iterations = *(const long *)arg;
   for (long i = 0; i < iterations; i++) {
     int keyCode = 1 + (int)(i % 37);
-    Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, keyCode);
-    Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(NULL, NULL, 0);
-    r47_force_refresh();
+    if (keyCode == 33 || keyCode == 36) {
+      continue; // leave run mode alone
+    }
+    r47_key_push(keyCode);
+    r47_key_push(0);
+    if ((i % 16) == 0) {
+      r47_service_shell_menu(R47_SHELL_MENU_HOME);
+      r47_service_graph_gesture(0.01f, 0.0f, 1.0f);
+      r47_service_copy(R47_COPY_X);
+      r47_service_save_and_wait(5000);
+    }
   }
   atomic_store_explicit(&g_producer_done, true, memory_order_relaxed);
   return NULL;
@@ -128,33 +109,37 @@ static void *startup_reader_main(void *arg) {
 
 static void *consumer_main(void *arg) {
   (void)arg;
-  int32_t meta[R47_KEYPAD_META_LENGTH];
+  static int32_t meta[R47_KEYPAD_META_LENGTH];
+  static char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+                    [R47_KEYPAD_LABEL_CAPACITY];
   long spins = 0;
   while (!atomic_load_explicit(&g_producer_done, memory_order_relaxed)) {
-    // Sample the generation counters the way the JNI getters do: a relaxed
-    // atomic load with no display mutex held.
-    uint32_t kg = atomic_load_explicit(&keypadSnapshotGeneration,
-                                       memory_order_relaxed);
+    extern _Atomic uint32_t packedDisplayGeneration;
+    // Sample the generations the way the JNI getters do: no mutex held.
+    uint32_t kg = r47_keypad_published_generation();
     uint32_t pg = atomic_load_explicit(&packedDisplayGeneration,
                                        memory_order_relaxed);
     g_consumer_sink ^= kg ^ pg;
 
-    // Real keypad snapshot read; r47_get_keypad_meta locks screenMutex.
-    r47_get_keypad_meta(meta, (spins & 1) != 0);
-    g_consumer_sink ^= (uint32_t)meta[R47_KEYPAD_META_CALC_MODE];
-
+    if (r47_try_copy_app_keypad_snapshot(meta, labels, (spins & 64) != 0)) {
+      g_consumer_sink ^= (uint32_t)meta[R47_KEYPAD_META_CALC_MODE];
+    }
     consumer_read_packed_display();
     spins++;
   }
-  fprintf(stderr, "consumer: %ld read spins\n", spins);
+  fprintf(stderr, "consumer: %ld spins\n", spins);
+  return NULL;
+}
+
+static void *calculator_main(void *arg) {
+  (void)arg;
+  r47_calculator_main();
   return NULL;
 }
 
 int main(void) {
   const char *runtime_dir = "/tmp/r47-bridge-tsan-harness";
   mkdir(runtime_dir, 0700);
-
-  r47_initialize_native_bridge_state();
   r47_native_preinit_path(runtime_dir);
 
   pthread_t startup_reader;
@@ -162,7 +147,14 @@ int main(void) {
     fprintf(stderr, "FATAL: cannot start startup reader thread\n");
     return 1;
   }
-  r47_init_runtime();
+  pthread_t calculator;
+  if (pthread_create(&calculator, NULL, calculator_main, NULL) != 0) {
+    fprintf(stderr, "FATAL: cannot start calculator thread\n");
+    return 1;
+  }
+  while (!r47_runtime_ready()) {
+    usleep(1000);
+  }
   atomic_store_explicit(&g_init_done, true, memory_order_relaxed);
   pthread_join(startup_reader, NULL);
 
@@ -182,6 +174,9 @@ int main(void) {
 
   pthread_join(producer, NULL);
   pthread_join(consumer, NULL);
+
+  r47_calculator_stop(false);
+  pthread_join(calculator, NULL);
 
   fprintf(stderr, "DONE: producer/consumer race completed (sink=%u)\n",
           g_consumer_sink);

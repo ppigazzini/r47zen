@@ -32,10 +32,7 @@
     <ID>LongParameterList:C47TextRenderer.kt:C47TextRenderer$private fun resolveTextMetrics: ResolvedTextMetrics?</ID>
     <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter</ID>
     <ID>LongParameterList:CalculatorSoftkeyPainter.kt:CalculatorSoftkeyPainter$fun draw</ID>
-    <ID>LongParameterList:DisplayActionController.kt:DisplayActionController</ID>
-    <ID>LongParameterList:GraphGestureFlusher.kt:GraphGestureFlusher</ID>
     <ID>LongParameterList:MainActivityPreferenceController.kt:MainActivityPreferenceController</ID>
-    <ID>LongParameterList:NativeCoreRuntime.kt:NativeCoreRuntime</ID>
     <ID>LongParameterList:NativeDisplayRefreshLoop.kt:NativeDisplayRefreshLoop</ID>
     <ID>LongParameterList:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$@SuppressLint("ClickableViewAccessibility") private fun addKey</ID>
     <ID>LongParameterList:ReplicaKeypadLayout.kt:ReplicaKeypadLayout$private fun addTouchZone</ID>
@@ -97,7 +94,6 @@
     <ID>ReturnCount:HapticFeedbackController.kt:HapticFeedbackController$fun onPreferenceChanged: Boolean</ID>
     <ID>ReturnCount:LcdThemePolicy.kt:LcdThemePolicy$private fun ensureTextContrast: Int</ID>
     <ID>ReturnCount:MainActivityPreferenceController.kt:MainActivityPreferenceController$fun onPreferenceChanged: Boolean</ID>
-    <ID>ReturnCount:NativeCoreRuntime.kt:NativeCoreRuntime.Companion$private fun runCoreIteration: Boolean</ID>
     <ID>ReturnCount:NativeKeypadSnapshotStore.kt:NativeKeypadSnapshotStore$fun refreshSnapshot: NativeKeypadSnapshotRefreshResult</ID>
     <ID>ReturnCount:PhysicalKeyboardInput.kt:PhysicalKeyboardMapper$fun resolve: PhysicalKeyboardAction?</ID>
     <ID>ReturnCount:PhysicalKeyboardInputController.kt:PhysicalKeyboardInputController$fun onKeyDown: Boolean</ID>
@@ -117,16 +113,12 @@
     <ID>SwallowedException:NoticeAssetActivity.kt:NoticeAssetActivity$e: IOException</ID>
     <ID>SwallowedException:RepoNoticeIndexActivity.kt:RepoNoticeIndexActivity$e: IOException</ID>
     <ID>TooGenericExceptionCaught:AudioEngine.kt:AudioEngine$error: Exception</ID>
-    <ID>TooGenericExceptionCaught:DisplayActionController.kt:DisplayActionController$error: Exception</ID>
-    <ID>TooGenericExceptionCaught:NativeCoreRuntime.kt:NativeCoreRuntime.Companion$error: Exception</ID>
-    <ID>TooGenericExceptionCaught:NativeCoreRuntime.kt:NativeCoreRuntime.Companion$error: Throwable</ID>
     <ID>TooGenericExceptionCaught:StorageAccessCoordinator.kt:StorageAccessCoordinator$error: Exception</ID>
     <ID>TooGenericExceptionCaught:WindowModeController.kt:WindowModeController$error: Exception</ID>
     <ID>TooGenericExceptionCaught:WorkDirectory.kt:WorkDirectory$error: Exception</ID>
     <ID>TooManyFunctions:C47TextRenderer.kt:C47TextRenderer</ID>
     <ID>TooManyFunctions:CalculatorKeyView.kt:CalculatorKeyView : ConstraintLayout</ID>
-    <ID>TooManyFunctions:MainActivity.kt:MainActivity : AppCompatActivityOnSharedPreferenceChangeListener</ID>
-    <ID>TooManyFunctions:NativeCoreRuntime.kt:NativeCoreRuntime$Companion</ID>
+    <ID>TooManyFunctions:MainActivity.kt:MainActivity : AppCompatActivityOnSharedPreferenceChangeListenerCalculatorHost</ID>
     <ID>TooManyFunctions:ReplicaOverlay.kt:ReplicaOverlay : ViewGroup</ID>
     <ID>TooManyFunctions:ReplicaOverlayController.kt:ReplicaOverlayController</ID>
     <ID>TooManyFunctions:TopLabelLaneLayout.kt:TopLabelLaneLayout</ID>

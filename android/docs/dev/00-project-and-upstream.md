@@ -177,7 +177,7 @@ At runtime, the Android overlay is responsible for:
 - lifecycle and settings coordination in Kotlin
 - input dispatch from touch, keyboard, and menus
 - SAF-backed storage UI and file-descriptor handoff
-- Android event-loop compatibility shims around the staged `PC_BUILD` core
+- the DMCP HAL the staged `PC_BUILD` core calls, and the thread its main loop runs on
 - LCD projection and keypad-scene rendering on Android views
 
 The upstream core remains the owner of calculator state, command execution,
@@ -196,8 +196,8 @@ menu logic, and most shared keypad or display semantics.
   compiles.
 - Read `03-upstream-interface-surfaces.md` when you need the detailed
   Android-to-upstream interface map.
-- Read `06-runtime-hot-paths.md` when you need the redraw, lock-boundary, and
-  loop-sensitive runtime paths.
+- Read `06-runtime-hot-paths.md` when you need the calculator thread, the redraw, and
+  the loop-sensitive runtime paths.
 
 ## Maintenance Rules
 

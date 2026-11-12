@@ -12,13 +12,12 @@ import org.robolectric.RobolectricTestRunner
 // the main menu and reaches nothing else.
 @RunWith(RobolectricTestRunner::class)
 class PhysicalKeyboardInputControllerTest {
-    private val sent = mutableListOf<Pair<String, Boolean>>()
+    private val sent = mutableListOf<Int>()
     private var pastes = 0
     private var menus = 0
     private val controller = PhysicalKeyboardInputController(
-        offerCoreTask = { it.run() },
-        sendSimKeyNative = { id, _, release -> sent += id to release },
-        sendSimMenuNative = {},
+        sendKey = { sent += it },
+        showShellMenu = {},
         onPaste = { pastes++ },
         onMainMenu = { menus++ },
     )
@@ -32,7 +31,7 @@ class PhysicalKeyboardInputControllerTest {
         assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CTRL_LEFT)))
 
         assertEquals(1, pastes)
-        assertEquals(emptyList<Pair<String, Boolean>>(), sent)
+        assertEquals(emptyList<Int>(), sent)
     }
 
     @Test
@@ -52,7 +51,7 @@ class PhysicalKeyboardInputControllerTest {
         assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MENU)))
 
         assertEquals(1, menus)
-        assertEquals(emptyList<Pair<String, Boolean>>(), sent)
+        assertEquals(emptyList<Int>(), sent)
     }
 
     // Android cancels a key's up when focus leaves the window, for a dialog, the main
@@ -64,7 +63,7 @@ class PhysicalKeyboardInputControllerTest {
             assertTrue(controller.onKeyEvent(canceledUp(code)))
         }
 
-        assertEquals(emptyList<Pair<String, Boolean>>(), sent)
+        assertEquals(emptyList<Int>(), sent)
     }
 
     @Test
@@ -74,7 +73,7 @@ class PhysicalKeyboardInputControllerTest {
         controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT))
         controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SHIFT_LEFT))
 
-        assertEquals(listOf(SimKeyIds.F_SHIFT to false, SimKeyIds.F_SHIFT to true), sent)
+        assertEquals(listOf(SimKeyIds.code(SimKeyIds.F_SHIFT, false), CalculatorEngine.KEY_RELEASE), sent)
     }
 
     private fun key(action: Int, code: Int, meta: Int = 0, repeat: Int = 0): KeyEvent {

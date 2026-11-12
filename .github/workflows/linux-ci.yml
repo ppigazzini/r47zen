@@ -520,26 +520,25 @@ jobs:
           set -euo pipefail
 
           # Build the Copy menu's path, upstream's clipboard builders behind
-          # r47_capture_clipboard_locked, under AddressSanitizer, and hold each
-          # copy whole: large matrices and registers of a huge long integer, with
-          # every value and whole UTF-8. An overrun aborts the run. Reuses the
-          # staged native inputs. No emulator.
+          # r47_clipboard_text, under AddressSanitizer, and hold each copy whole:
+          # large matrices and registers of a huge long integer, with every value
+          # and whole UTF-8. An overrun aborts the run. Reuses the staged native
+          # inputs. No emulator.
           mkdir -p ci-artifacts/logs
           bash ./scripts/workload-regressions/build_clipboard_overflow_harness.sh 2>&1 \
             | tee ci-artifacts/logs/clipboard-overflow-harness.log
 
-      - name: Run the state file durability harness
+      - name: Run the calculator thread harness
         shell: bash
         run: |
           set -euo pipefail
 
-          # Restore cut, older, newer, and wrong-size state files, and the
-          # released cores' files, on the app's runtime under AddressSanitizer:
-          # each restores whole or is kept aside with one warning, never as
-          # garbage. Reuses the staged native inputs. No emulator.
+          # Run upstream's main loop on a thread of its own, as the app does, under
+          # AddressSanitizer: keys during a computation, EXIT and R/S, cancel, OFF,
+          # and saves. Reuses the staged native inputs. No emulator.
           mkdir -p ci-artifacts/logs
-          bash ./scripts/workload-regressions/build_state_durability_harness.sh 2>&1 \
-            | tee ci-artifacts/logs/state-durability-harness.log
+          bash ./scripts/workload-regressions/build_calculator_thread_harness.sh 2>&1 \
+            | tee ci-artifacts/logs/calculator-thread-harness.log
 
       - name: Hold the core's language flags against the synced core
         shell: bash
@@ -556,10 +555,9 @@ jobs:
           set -euo pipefail
 
           # Assert the hal/lcd.c contracts keypad_generation_contract_test.c
-          # lists: the keypad-generation bump on a screen refresh, the NULL
-          # screenData, the bitblt24 fill semantics and polarity, the packed-row
-          # change flags and the snapshot take, and where a pixel lands in a
-          # packed row. Reuses the staged native inputs the workload step just
+          # lists: the keypad re-read a screen refresh asks for, the bitblt24
+          # fill semantics and polarity, the packed-row change flags and the
+          # snapshot take, and where a pixel lands in a packed row. Reuses the staged native inputs the workload step just
           # produced. No emulator required.
           bash ./scripts/android/run_keypad_generation_contract.sh 2>&1 \
             | tee ci-artifacts/logs/keypad-generation-contract.log

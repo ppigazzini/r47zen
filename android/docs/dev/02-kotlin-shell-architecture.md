@@ -1,16 +1,17 @@
 # Kotlin Shell Architecture
 
 This page maps the Kotlin shell: the single-activity coordinator, helper
-ownership, lifecycle, storage, settings, input flow, and direct live-stop
-routing. Read `00-project-and-upstream.md` and
-`01-build-and-source-layout.md` first.
+ownership, lifecycle, storage, settings, and input flow. Read
+`00-project-and-upstream.md` and `01-build-and-source-layout.md` first.
 
 ## Top-level model
 
 The Android app is a single-activity, view-based shell around a long-lived
 native core. `MainActivity` coordinates Android lifecycle, preferences,
-settings, and external integrations. It does not own the calculator
-engine loop.
+settings, and external integrations. It does not own the calculator:
+`CalculatorEngine`, a process-scoped object, runs upstream's main loop on a
+thread of its own and outlives each Activity, which registers as its
+`CalculatorHost` while it exists.
 
 The keypad render path is explicitly spec-first: `CalculatorKeyView` and
 `CalculatorSoftkeyPainter` resolve `KeyRenderSpec` data for one key, then
@@ -31,16 +32,16 @@ grouped by role; the directory itself is the authority when a file is added:
   `SettingsActivity.kt`, `SettingsSwitchPreference.kt`,
   `RepoNoticeIndexActivity.kt`, `NoticeAssetActivity.kt`, `ScreenToolbar.kt`,
   and `EnglishResourceContext.kt`
-- runtime loops: `NativeCoreRuntime.kt`, `NativeDisplayRefreshLoop.kt`,
+- runtime loops: `CalculatorEngine.kt`, `NativeDisplayRefreshLoop.kt`,
   `NativeKeypadSnapshotStore.kt`, `NativeFileRequestGate.kt`, and
   `DeveloperPerformanceSnapshot.kt`
 - shell coordination: `ReplicaOverlayController.kt`,
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
   `WindowModeController.kt`, `SystemBarInsets.kt`, `FactoryResetController.kt`,
-  `CoreWarning.kt`, `MainMenuButtonDescription.kt`,
-  `HapticFeedbackController.kt`, `AudioEngine.kt`, `LiveKeyRouter.kt`,
-  `LiveProgramStopKeyPolicy.kt`, `GraphGestureAccumulator.kt`,
-  `GraphGestureFlusher.kt`, `NativeShellCodes.kt`, and `PasteNumber.kt`
+  `HapticFeedbackController.kt`, `AudioEngine.kt`, `CalculatorAnswers.kt`,
+  `CalculatorHostSlot.kt`, `MainMenuButtonDescription.kt`, `PasteNumber.kt`,
+  `GraphGestureAccumulator.kt`, `GraphGestureFlusher.kt`, and
+  `NativeShellCodes.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `PackedLcdRaster.kt`,
   `ReplicaKeypadLayout.kt`,
   `ReplicaChromeLayout.kt`, `CalculatorKeyView.kt`,
@@ -63,17 +64,17 @@ grouped by role; the directory itself is the authority when a file is added:
 flowchart LR
     A[MainActivity]
     B[Helper controllers]
-    C[NativeCoreRuntime offerTask]
-    D[Core thread]
-    E[JNI bridge]
-    F[Upstream runtime]
+    C[CalculatorEngine externals]
+    D[Key buffer and service queue]
+    E[Calculator thread, upstream main loop]
+    F[Published LCD and keypad copies]
     G[NativeDisplayRefreshLoop]
     H[ReplicaOverlayController]
     I[ReplicaOverlay and ReplicaKeypadLayout]
 
-    A --> B --> C --> D --> E --> F
-    D --> G --> H --> I
+    A --> B --> C --> D --> E --> F --> G --> H --> I
     A --> H
+    E -->|up-calls through CalculatorHost| A
 ```
 
 ## Ownership by slice
@@ -81,10 +82,10 @@ flowchart LR
 | Concern | Primary Kotlin owner | Boundary this page cares about | Read next |
 | --- | --- | --- | --- |
 | activity and settings coordination | `MainActivity`, `SettingsActivity`, `SettingsSwitchPreference` | startup, preferences, PiP, intent routing, helper wiring, and explicit settings-switch widget tinting | `03-upstream-interface-surfaces.md` |
-| native execution coordination | `NativeCoreRuntime`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one core thread, one task queue, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `06-runtime-hot-paths.md` |
+| native execution coordination | `CalculatorEngine`, `NativeDisplayRefreshLoop`, `NativeKeypadSnapshotStore` | one calculator thread, one UI-side poller, one cached keypad snapshot owner, and one lightweight developer-only performance snapshot path | `06-runtime-hot-paths.md` |
 | overlay and scene coordination | `ReplicaOverlayController`, `ReplicaOverlay`, `ReplicaKeypadLayout` | scene application after layout, including PiP-exit geometry replay, not the geometry formulas themselves | `05-ui-rendering-and-gtk-mapping.md` |
 | storage coordination | `StorageAccessCoordinator`, `WorkDirectory`, `SavedManual` | SAF routing, where each file picker starts, the work-directory tree `SettingsActivity` stores, the saved manual's read grant, save and load ordering | `03-upstream-interface-surfaces.md`, `08-tests-and-contracts.md` |
-| Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into core-thread work or small Android-side actions | `03-upstream-interface-surfaces.md` |
+| Android input adapters | `DisplayActionController`, `PhysicalKeyboardInputController`, mapping tables | convert Android events into a key, a service request, or a small Android-side action | `03-upstream-interface-surfaces.md` |
 
 ## Architecture boundary
 
@@ -103,36 +104,43 @@ flowchart LR
 - geometry constants, render-spec builders, label placement formulas, painter
   policy, and chrome projection are rendering contracts owned by
   `05-ui-rendering-and-gtk-mapping.md`, not by this page
-- JNI signatures, cached callbacks, and lock-sensitive bridge behavior are
-  native-interface contracts owned by `04-native-core-and-jni.md` and
+- JNI signatures, up-call bindings, and the thread rule are native-interface
+  contracts owned by `04-native-core-and-jni.md` and
   `03-upstream-interface-surfaces.md`
 
 ## Main coordination flow
 
 Calculator state does not live in `Activity` fields. The durable owner is the
-native core plus `NativeCoreRuntime`'s shared thread and task queue.
+native core, and only the calculator thread runs core code
+([06](06-runtime-hot-paths.md#calculator-thread)).
 
 Main flow:
 
 1. `MainActivity` and helper controllers receive lifecycle, touch, keyboard,
    menu, PiP, and settings work.
-2. Native work enters `NativeCoreRuntime` through `offerCoreTask(...)` or the
-  small direct bridge methods exposed by `MainActivity`. The live touch stop
-  seam first applies `LiveProgramStopKeyPolicy` so `R/S` and `EXIT`
-  can call `requestStopProgramNative()` before queue fallback. LCD graph-touch
-  queueing also stays here: `ReplicaOverlay` starts pan only after
-  `ViewConfiguration` touch slop, keeps a smaller continuation deadband so
-  stationary finger jitter does not turn into endless micro-pan updates, and
-    `GraphGestureAccumulator` caps queued pan backlog to a small recent range,
-    slices the retained backlog into bounded per-apply chunks, and clamps queued
-    pinch scale before JNI apply. `GraphGestureFlusher` queues at most one
-    flush task at a time, spaces flushes at least 16 ms apart, and applies one
-    batch per task, so a continuous drag interleaves with the other queued core
-    tasks instead of re-solving back to back ahead of them.
-3. `NativeCoreRuntime` serializes calculator execution on one shared core
-   thread. The thread outlives each Activity and reaches its host only through
-   the runtime the latest `attach()` published, so a recreated Activity's
-   predecessor is released once the successor attaches.
+2. Native work crosses through `CalculatorEngine`, whose externals do one of
+   three things: push a key, queue a service request, or copy what the
+   calculator thread published. None of them runs core code, and none takes a
+   lock a computation holds. `saveStateNative` alone waits for the calculator,
+   and only when it is idle. LCD graph touch stays on the main thread up to the
+   push:
+   `ReplicaOverlay` starts pan only after `ViewConfiguration` touch slop and
+   keeps a smaller continuation deadband so stationary finger jitter does not
+   turn into endless micro-pan updates, `GraphGestureAccumulator` caps pending
+   pan to a small recent range, slices it into bounded per-apply chunks, and
+   clamps pinch scale before JNI, and `GraphGestureFlusher` spaces flushes at
+   least 16 ms apart and pushes one batch per flush, which native merges while
+   the calculator is busy.
+3. `CalculatorEngine.start()` starts the calculator thread once per process,
+   with a stack of `THREAD_STACK_BYTES`. A later Activity's call returns at
+   once. The thread reaches its host only through the `CalculatorHost` the
+   latest Activity attached, so a recreated Activity's predecessor is
+   collectable once it detaches in `onDestroy()`. `launchFilePicker` and
+   `onFileRequestLost` arrive on the main thread; the other host methods arrive on
+   the calculator thread, and post their Android work to the main handler or hand
+   it to `CalculatorAnswers`. What must outlive an Activity stays in
+   `CalculatorEngine`: the one `NativeFileRequestGate`, and the toasts for a lost
+   write and an upstream warning, from the application context.
 4. `NativeDisplayRefreshLoop` is the single UI-side poller for LCD and keypad
    scene state.
 5. `NativeDisplayRefreshLoop` watches packed-display and keypad-snapshot
@@ -147,17 +155,18 @@ Main flow:
   from `NativeDisplayRefreshLoop` also pass through the same softkey-mode mask
   normalization before scene apply.
 
-The performance snapshot stays Android-local. `NativeCoreRuntime` forwards it
-through `MainActivity`, `MainActivityPreferenceController` owns the
-`show_developer_performance_hud` preference, and `ReplicaOverlay` may paint the
-red developer HUD in the top shell area. This is a manual observability aid, not a
-runtime-policy seam or a replacement for real benchmark and profiler work.
+The performance snapshot stays Android-local. `MainActivity` wires it from
+`NativeDisplayRefreshLoop` to `ReplicaOverlay`,
+`MainActivityPreferenceController` owns the `show_developer_performance_hud`
+preference, and `ReplicaOverlay` may paint the red developer HUD in the top
+shell area. This is a manual observability aid, not a runtime-policy seam or a
+replacement for real benchmark and profiler work.
 
 This page stops at the coordination boundary. Read
-`06-runtime-hot-paths.md` for cadence, skip gates, and lock-sensitive loops;
+`06-runtime-hot-paths.md` for cadence, skip gates, and the thread rule;
 `05-ui-rendering-and-gtk-mapping.md` for geometry formulas and label placement;
 and `03-upstream-interface-surfaces.md` for the exact JNI entry points and
-callbacks.
+up-calls.
 
 ## Lifecycle contract
 
@@ -165,56 +174,71 @@ callbacks.
   `configureActivityShell()` sets the music stream, inflates view binding,
   and sets content view; `initializeStartupControllers()`
   wires `WindowModeController`, `FactoryResetController`,
-  `StorageAccessCoordinator`, `NativeFileRequestGate`, `DisplayActionController`,
-  and `PhysicalKeyboardInputController`;
+  `StorageAccessCoordinator`, `DisplayActionController`, and
+  `PhysicalKeyboardInputController`;
   `initializeOverlayAndPreferences(...)` binds `ReplicaOverlay`,
   `ReplicaOverlayController`, `MainActivityPreferenceController` with its
   initial pass, which applies the stored LCD palette before the overlay's first
   draw, deferred overlay preference application, and the settings-discovery
   tap handler;
-  `startCoreRuntime()` creates `NativeCoreRuntime`, attaches it, and starts
-  `AudioEngine`; `handleInitialIntent()` routes factory-reset intents after the
+  `startCalculator()` passes the autosave setting to native, calls
+  `CalculatorEngine.start()`, and creates the display loop; `handleInitialIntent()` routes
+  factory-reset intents after the
   shell and runtime are ready.
 - `onNewIntent()` is the reuse path for root-activity actions such as the
-  controlled factory-reset request.
-- `onStart()` and `onStop()` tell `NativeCoreRuntime` whether the calculator is
-  visible. While it is not, the core thread parks: it still runs every queued
-  task, including the background save, but stops the 5 ms tick. A running
-  program is unaffected, because it runs inside a task. `MainActivity` is resizeable
-  and of the standard launch mode, so on a large screen or in desktop windowing two
-  windows can run side by side, and Android starts the Activity coming back before
-  it stops the one leaving: the runtime counts the windows started and parks only
-  when none is.
-  `onStop()` first hands `DataFolderMirror` its copy of the core's prints and
-  unnamed captures, to run on that class's own worker.
+  controlled factory-reset request. `MainActivity` is exported, so that request
+  carries a token this process made, and an intent from another app does not reset.
+- `onStart()` attaches this Activity as the host, starts the audio thread if it is not
+  running, tells native the host is visible, and starts the display loop. `MainActivity`
+  is exported, so a second instance can sit on the first. Android starts the Activity
+  coming back before it stops or destroys the one leaving, so the last one started
+  speaks for the calculator. `CalculatorHostSlot` holds that rule: the stop of an
+  Activity that is no longer current does nothing, and the end of one stops the audio
+  only when no host is left. A picker's answer goes only to the Activity that launched it
+  or to what Android recreates from it, so only that Activity's finish cancels the
+  request.
+  `onStop()` is the first point at which the system may kill the process, and PiP's
+  close arrives there with no pause before it. It stops the display loop, hands
+  `DataFolderMirror` its copy of the core's prints to run on its own worker, and for
+  the current host `CalculatorEngine.onHostStopped(...)` does three things in order: it releases a
+  key still down, since `wait_for_key_release(0)` holds the calculator thread until
+  a release arrives; it queues a save, when `auto_save_minimize` is on and no factory
+  reset is in progress; and it tells native the host stopped, which parks the
+  calculator thread at rest. A running program is unaffected, because it does not
+  sleep at rest.
+- An idle calculator, or one already saving, finishes that save inside
+  `SAVE_FENCE_MILLIS`, and the save is
+  display-passive: `saveCalc` does not touch the LCD. A calculator in a computation,
+  a program's pause, or a parked file request cannot answer, so the wait gives up
+  after a short grace period and the save stays pending until it can run
+  ([06](06-runtime-hot-paths.md#calculator-thread)). If the process dies first, the
+  last completed save stands, whole. `auto_save_minimize` also governs the idle
+  checkpoint, the save before a picker, and the save after OFF, whose default action
+  minimizes the app, through `setAutoSaveNative`. This is read
+  from the code and held on the host; none of it has run on a device.
 - `onResume()` lets the overlay-side resume path run without forcing a native
   LCD redraw, and queries no document provider: the work directory is checked
   when a file request needs it. The app asks for no directory at startup. A
   normal Settings round-trip must preserve the current calculator snapshot.
-- `onPause()` performs a synchronous native save when auto-save on minimize is
-  enabled and the app is not moving into PiP or a reset-driven relaunch. That
-  save is lifecycle-passive from the LCD point of view and must not rebuild the
-  visible screen.
-- `onDestroy()` cancels a native file request whose posted launch it just
-  dropped (`NativeFileRequestGate`), and, when the activity is finishing, also
-  a launched picker that has not answered, since its result will never arrive.
-  It stops the shared runtime when the activity is actually finishing and no other
-  window lives; one that does gets the host, if the finishing one had it, and keeps
-  the audio. It never
-  touches the native activity globals (the core thread releases them), and on
-  the factory-reset path clears internal app data
-  only once the core thread has stopped. A reset first stops a running program
-  through `requestStopProgramNative()`, as `R/S` does, since the program would keep
-  the thread in its task past the dispose join fence. When the thread still
-  outlived the fence, `FactoryResetController` keeps the data and the shared
-  runtime state, and ends the process: a live thread would autosave into a wiped
-  directory, a reset shared state would let the relaunch start a second core
-  thread, and a relaunch into the same process would attach to the busy thread,
-  which answers no keypad snapshot. The relaunch then starts a fresh process on
-  the old state (`FactoryResetControllerTest`). `MainActivity` is exported, so a reset intent
-  counts only when it carries the token `FactoryResetController.createIntent`
-  puts in it, a fresh one per process: another app's intent with the same action
-  starts the app and wipes nothing.
+- `MainActivity` overrides no `onPause()`. Entering PiP pauses without stopping,
+  so it neither saves nor parks.
+- `onCalculatorOff()` is the up-call that follows OFF, once the calculator has
+  saved: it posts `moveTaskToBack(true)`, or `finishAndRemoveTask()` when
+  `force_close_on_exit` is on. The calculator thread goes back into the main
+  loop, so the next launch finds a running calculator.
+- `onDestroy()` cancels, when the activity is finishing, a launched picker that has
+  not answered, since its result will never arrive. A recreated Activity leaves the
+  picker alone, because the `NativeFileRequestGate` lives in `CalculatorEngine` and
+  the new Activity receives the answer. It stops the display loop and detaches as the
+  host. Finishing does not stop the calculator, whose thread lives as long as the
+  process.
+- A factory reset is the one path that ends it.
+  `CalculatorEngine.stopForFactoryReset()` asks for no save, which turns
+  `r47_save_settled()` into a no-op, and joins up to `STOP_JOIN_FENCE_MILLIS`.
+  `FactoryResetController.handleDestroy(...)` then clears internal app data and ends
+  the process, whether or not the thread returned: a program that never polls cannot
+  save into the wiped directory, and the alarm's relaunch starts with every native
+  static fresh (`FactoryResetControllerTest`).
 - `onPictureInPictureModeChanged()` routes PiP state through
   `ReplicaOverlayController`, which switches the overlay between normal shell
   mode and PiP mode and treats PiP exit as a geometry-replay boundary for the
@@ -268,18 +292,30 @@ current chrome. Its description is the display's text, a polite live region
 speaks a new one, and an error the screen shows is also the node's error
 (`AccessibilityNodeInfo.setError`). While an accessibility service runs, every
 LCD frame restarts a wait of `DISPLAY_DESCRIPTION_SETTLE_MS` (300 ms), so a typed
-number or a running program asks once, after it: `describeDisplayNative` runs as a
-core task and answers through `onDisplayText`
+number or a running program asks once, after it, through `describeDisplayNative`;
+the calculator answers when it is at rest, so a program is read once, at its stop
 ([03](03-upstream-interface-surfaces.md)). With no service running, nothing is
 asked. A keypad rebuild keeps the node (`clearReplicaViews`).
 
-Each path ultimately resolves to core-thread work or a small Android-side action.
+Each path ultimately resolves to a key on the FIFO, a service request, or a
+small Android-side action.
+
+Every key, from the keypad and the physical keyboard, goes through the one
+FIFO in `hal/keys.c`, in the order it was pushed, and Kotlin never decides what a
+key means. `R/S` and `EXIT` have no path of their own: a running program or a
+long operation polls the buffer and sees them
+([06](06-runtime-hot-paths.md#what-a-key-does-during-a-computation)). A touch the
+platform cancels sends `CalculatorEngine.KEY_CANCEL` instead of a release, and
+what the press had left to do on its release does not happen: a function does not
+run, a single step does not step, and an `ASSIGN` does not assign. What upstream does
+on the press itself stays done: a digit is already entered.
 
 The on-screen keypad takes one key at a time, as the hardware scans it:
 `ReplicaOverlay` disables motion-event splitting, so a second finger reaches
 the first touched key view as `ACTION_POINTER_*`, which the key listeners
-ignore. Native input keeps one pressed-key slot, so a second `ACTION_DOWN` on
-another key would leave the first key pressed with no release.
+ignore. The core keeps one pressed key and has one release code for every key,
+so a second `ACTION_DOWN` on another key would leave the first key pressed with
+no release.
 
 The physical-keyboard HOME and MYMENU shortcuts pass `NativeShellCodes` values,
 never upstream item numbers: `items.h` renumbers between upstream revisions, so
@@ -295,24 +331,26 @@ nothing either: it was not let go on purpose.
 a number typed from part of a clip is a wrong number on the stack. `PasteNumber.kt`
 refuses text it cannot read as one number: a date, two numbers, `1,234` (1.234 or
 1234 by locale), digits other than ASCII, or digits apart by any Unicode space,
-a no-break space among them. Its classes are spelled out, since `\d` and `\s`
-match Unicode on Android and ASCII on the JVM that runs its tests. One core task
-then calls `pasteNumberNative`, whose
-`r47_paste_number` enters the items through `processKeyAction`, below the key
-tables, under one lock, so USER assignments, a pending shift, and the multi-press
-timers cannot turn a digit into a function and no key press can land inside the
-number.
+a no-break space among them. Its classes are spelled out, since `\d` and `\s` match
+Unicode on Android and ASCII on the JVM that runs its tests. `pasteNumberNative` then queues one service request, so a clip
+pasted during a computation waits for rest instead of being lost, and a full
+queue refuses it. At rest `r47_paste_number` enters the items through
+`processKeyAction`, below the key tables, in one call on the calculator thread, so
+USER assignments, a pending shift, and the multi-press timers cannot turn a digit
+into a function and no key press can land inside the number. The answer returns
+through `onPasteResult`, and only a refusal shows a toast.
 
 It refuses when the core would read digits as something else: alpha entry, a
-parameter prompt, a catalog, a running program, or a matrix cell the user is still
-typing. The digits enter as typed digits do, so the last short integer base applies
-to them. It also backs the entry out when
-the core drops a token, which number entry does with no error: a digit past the
-display width, an exponent digit past the `RNG` setting, the radix mark in integer
-input mode. The width depends on the grouping settings, so no fixed length guards
-it. `PasteNumberTest.kt` locks clip text to tokens,
-`DisplayActionControllerTest.kt` locks the core task and the refusals, and
-`clipboard_overflow_harness.c` locks tokens to stack values against the live core
+parameter prompt, a catalog, or a matrix cell the user is still typing. The digits
+enter as typed digits do, so the last short integer base applies to them. It also
+backs the entry out when the core drops a token, which number entry does with no
+error: a digit past the display width, an exponent digit past the `RNG` setting,
+the radix mark in integer input mode. The width depends on the grouping settings,
+so no fixed length guards it. `PasteNumberTest.kt` locks clip text to tokens,
+`DisplayActionControllerTest.kt` locks the one request and the refusals,
+`CalculatorAnswersTest.kt` locks the answer,
+`clipboard_overflow_harness.c` locks tokens to stack values against the live core,
+and `calculator_thread_harness.c` locks a paste across a computation
 ([08](08-tests-and-contracts.md)). It does not paste dates, times, tagged angles,
 matrices, or strings.
 
@@ -321,23 +359,6 @@ keyboard path. It stays focusable in touch mode, blocks descendant focus
 navigation, and keeps touchscreen focus from suppressing the shell, so the
 first DPAD event reaches `MainActivity` and the physical-keyboard controller
 instead of Android focus search on keypad descendants.
-
-The live on-screen stop path is narrower than the general queue path:
-
-- `ReplicaOverlayController` routes touch through
-  `MainActivity.dispatchLiveKey(...)`
-- `LiveProgramStopKeyPolicy` marks only key codes `36` (`R/S`) and `33`
-  (`EXIT`) as direct live-stop candidates
-- `dispatchLiveKey(...)` delegates the forward-vs-swallow decision to the pure
-  `LiveKeyRouter.route(...)`: it consults the side-effecting
-  `requestStopProgramNative()` gate only for those stop-candidate keys, and only
-  falls back to queued `sendKey(...)` when the gate declines (no program running
-  or paused). The split keeps the routing consequence unit-testable
-  (`LiveKeyRouterTest`) without an emulator, separately from the native gate
-  predicate
-
-That rule keeps normal `EXIT` semantics outside long-running program execution
-while matching the desktop simulator's stop-key parity during an active run.
 
 ## Persistence model
 
@@ -370,7 +391,7 @@ while matching the desktop simulator's stop-key parity during an active run.
   `PickerStartTest.aWorkDirectoryTheAppCannotUse_isNotAskedForAFolder`)
 - no provider call runs on the main thread, since a provider is another app and a
   binder call to it can block for as long as it takes to answer. A file request finds
-  where its picker starts on the core thread, which waits for the answer anyway:
+  where its picker starts on the calculator thread, which waits for the answer anyway:
   `PickerStart` gives the work directory's folder for the file type, made for a save
   and only found for a load, so a canceled load leaves no folder, or the work
   directory itself with no such folder. Settings shows the
@@ -399,9 +420,10 @@ while matching the desktop simulator's stop-key parity during an active run.
   another version
 - deleting the preferences does not end a grant, so a factory reset also releases
   every persisted grant through `FactoryResetController`
-- manifest backup rules intentionally exclude the retired `R47Slots` and the
-  preferences file holding the work-directory and saved-manual URIs because SAF grants
-  are device-specific; general shell preferences remain migratable
+- manifest backup rules intentionally exclude the retired `R47Slots` and the preferences file
+  holding the work-directory and saved-manual URIs because SAF grants
+  are device-specific, and the state file's temporary copy; general shell
+  preferences remain migratable
 
 ## Current platform shape
 
@@ -503,11 +525,9 @@ while matching the desktop simulator's stop-key parity during an active run.
 - keypad haptics are Android-view concerns first: `ReplicaKeypadLayout` uses
   press-only keypad haptics for calculator interaction. `ACTION_DOWN`
   uses `HapticFeedbackConstants.VIRTUAL_KEY`, while `ACTION_UP` clears pressed
-  state and sends key `0` and `ACTION_CANCEL` clears it and sends
-  `LiveKeyRouter.KEY_CANCEL`, neither with a release pulse. A canceled touch runs
-  nothing the press had left for its release: a function does not run, a single
-  step does not step, and an `ASSIGN` does not assign. What upstream does on the
-  press itself stays done: a digit is already entered. `HapticFeedbackController` owns the three preference-driven states
+  state and sends key `0` and `ACTION_CANCEL` clears it and sends `KEY_CANCEL`,
+  neither with a release pulse. `HapticFeedbackController` owns the three
+  preference-driven states
   behind that press path: `haptic_enabled` is the master gate,
   `haptic_use_android_default` is a dependent default-on toggle, and
   `haptic_keypress_duration_ms` is a custom `0..100 ms` slider that only
@@ -537,7 +557,9 @@ while matching the desktop simulator's stop-key parity during an active run.
 - When adding a native call, update the Kotlin external declaration and the JNI
   registration table together.
 - When a feature needs both Android lifecycle logic and native execution,
-  prefer a small Kotlin coordinator plus core-thread work instead of splitting
-  state across both sides.
+  prefer a small Kotlin coordinator plus a service request that answers through
+  an up-call instead of splitting state across both sides.
+- Never run core code from another thread. A new native pushes a key, queues a
+  service request, or copies what the calculator thread published.
 - If a new feature needs durable calculator state, decide first whether the true
   owner is the native core or Android preferences.

@@ -31,12 +31,10 @@ static char labelStorage[32];
 void stringToASCII(const char *in, char *out) { strcpy(out, in); }
 
 static int reports = 0;
-// show_warning in hal/io.c reports through it, and so does a capture cut short; the
-// bridge's real one calls into MainActivity.
-static char warned[256] = "";
+// show_warning in hal/io.c reports through it, and so does a capture cut short.
 static int warnings = 0;
-void r47_show_warning(const char *text) {
-  snprintf(warned, sizeof(warned), "%s", text);
+void r47_upcall_warning(const char *text) {
+  (void)text;
   warnings++;
 }
 

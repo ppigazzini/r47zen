@@ -23,15 +23,15 @@ class FactorsInstrumentedTest {
     fun factorsRunsThroughAndroidRuntime() {
         val failures = mutableListOf<String>()
 
-        ActivityScenario.launch(MainActivity::class.java).use { _ ->
+        ActivityScenario.launch(MainActivity::class.java).use {
             assertTrue(
                 "Native runtime did not become ready for FACTORS coverage",
                 waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
             )
             for (input in INPUTS) {
-                factor(input)?.let { failures += it }
-                // A FACTORS still running holds screenMutex, and the next reset would
-                // wait for it with no end.
+                factor(input)?.let { failure -> failures += failure }
+                // A FACTORS that R/S did not stop holds the calculator thread, and the
+                // next reset would wait for rest with no end.
                 if (ProgramLoadTestBridge.isSimFunctionRunning()) {
                     break
                 }
@@ -58,11 +58,15 @@ class FactorsInstrumentedTest {
             return buildFailure(input, "run", "failed to start the asynchronous FACTORS worker")
         }
         val completed = waitUntil(FACTORS_TIMEOUT_MS) { !ProgramLoadTestBridge.isSimFunctionRunning() }
-        // Reading the result takes screenMutex, which a FACTORS still running holds:
-        // fail with no read.
+        // Reading the result waits for rest, which a FACTORS still running never
+        // reaches: stop it as a user does, and fail.
         if (!completed) {
+            ProgramLoadTestBridge.pressRunStopKey()
+            waitUntil(STOP_TIMEOUT_MS) { !ProgramLoadTestBridge.isSimFunctionRunning() }
             return buildFailure(input, "run", "FACTORS did not return within $FACTORS_TIMEOUT_MS ms")
         }
+        // The text first: the call that reads it at rest publishes the state as it
+        // ends, so the snapshot reads what FACTORS left, not an earlier state.
         val text = ProgramLoadTestBridge.getXRegisterClipboardText()
         val finalState = ProgramLoadTestBridge.snapshotState()
         return when {
@@ -141,6 +145,7 @@ class FactorsInstrumentedTest {
         private const val ERROR_NONE = 0
         private const val RUNTIME_READY_TIMEOUT_MS = 15_000L
         private const val FACTORS_TIMEOUT_MS = 45_000L
+        private const val STOP_TIMEOUT_MS = 5_000L
         private const val POLL_INTERVAL_MS = 25L
         private const val PRIME_CERTAINTY = 64
     }
