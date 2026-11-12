@@ -204,6 +204,7 @@ internal object CalculatorEngine {
     @JvmStatic external fun cancelKey()
     @JvmStatic external fun releaseKeyIfDown()
     @JvmStatic external fun sendPcKeyNative(keysym: Int, state: Int, press: Boolean)
+    @JvmStatic external fun cancelPcKeyNative(keysym: Int)
     @JvmStatic external fun graphGestureNative(dxNorm: Float, dyNorm: Float, scale: Float)
     @JvmStatic external fun resetGraphNative()
     @JvmStatic external fun pasteNumberNative(tokens: String): Boolean

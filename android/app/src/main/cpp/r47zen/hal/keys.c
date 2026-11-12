@@ -21,6 +21,7 @@
 typedef enum {
   hostPcKeyPress,
   hostPcKeyRelease,
+  hostPcKeyCancel,
   hostShiftF,
   hostShiftG,
   hostCancelPress,
@@ -176,19 +177,31 @@ void r47_key_push(int code) {
   pthread_mutex_unlock(&keyMutex);
 }
 
-// Any thread. A PC key's press or release, as upstream's keyPushPcEvent sends it:
-// one host event, which pc_keyboard.c handles when the calculator thread pops it.
-void r47_key_push_pc(uint32_t keyval, uint32_t state, bool press) {
-  pthread_mutex_lock(&keyMutex);
-  pushHostLocked(press ? hostPcKeyPress : hostPcKeyRelease, keyval, state);
+static void pushPcLocked(hostEventKind_t kind, uint32_t keyval,
+                         uint32_t state) {
+  pushHostLocked(kind, keyval, state);
   // A press a busy calculator took from a PC key is waited for in
   // wait_for_key_release, which this release's host event, queued behind the wait,
   // cannot end, so its arrival does. Any PC key's release ends it: the press keeps no
   // keysym. Upstream's keyPushPcEvent leaves the flag set.
-  if (!press && pcPressPushed) {
+  if (kind != hostPcKeyPress && pcPressPushed) {
     pushedKeyDown = false;
     pcPressPushed = false;
   }
+}
+
+// Any thread. A PC key's press or release, as upstream's keyPushPcEvent sends it:
+// one host event, which pc_keyboard.c handles when the calculator thread pops it.
+void r47_key_push_pc(uint32_t keyval, uint32_t state, bool press) {
+  pthread_mutex_lock(&keyMutex);
+  pushPcLocked(press ? hostPcKeyPress : hostPcKeyRelease, keyval, state);
+  pthread_mutex_unlock(&keyMutex);
+}
+
+// Any thread. A PC key's up the host canceled: a release that toggles no shift.
+void r47_key_cancel_pc(uint32_t keyval) {
+  pthread_mutex_lock(&keyMutex);
+  pushPcLocked(hostPcKeyCancel, keyval, 0);
   pthread_mutex_unlock(&keyMutex);
 }
 
@@ -251,6 +264,20 @@ void r47_key_push_quit(void) {
   pthread_mutex_unlock(&keyMutex);
 }
 
+static bool isPcEvent(hostEvent_t event) {
+  return event.kind == hostPcKeyPress || event.kind == hostPcKeyRelease ||
+         event.kind == hostPcKeyCancel;
+}
+
+static void handlePcEvent(hostEvent_t event, bool busy) {
+  if (event.kind == hostPcKeyCancel) {
+    r47_pc_key_cancel(event.keyval, busy);
+  } else {
+    r47_pc_key_handle(event.keyval, event.state, event.kind == hostPcKeyPress,
+                      busy);
+  }
+}
+
 // A host event popped during a long operation. Nothing here may run a calculator
 // function, which is what keeps a computation from being re-entered, but upstream's
 // one exception: a PC Ctrl command, a copy or a capture, in a program's pause. A
@@ -261,7 +288,7 @@ void r47_key_push_quit(void) {
 // does.
 static void translateHostEvent(int key) {
   const hostEvent_t event = hostEventOf(key);
-  if (event.kind == hostPcKeyPress || event.kind == hostPcKeyRelease) {
+  if (isPcEvent(event)) {
     if (r47_pc_key_in_text_entry()) {
       inKeyBuffer((uint8_t)key);
       return;
@@ -269,8 +296,7 @@ static void translateHostEvent(int key) {
     pthread_mutex_lock(&keyMutex);
     beginInsertAtHeadLocked();
     pthread_mutex_unlock(&keyMutex);
-    r47_pc_key_handle(event.keyval, event.state, event.kind == hostPcKeyPress,
-                      true);
+    handlePcEvent(event, true);
     pthread_mutex_lock(&keyMutex);
     insertAt = -1;
     pthread_mutex_unlock(&keyMutex);
@@ -326,7 +352,8 @@ void keyDispatchHostEvent(int key) {
     r47_pc_key_handle(event.keyval, event.state, true, false);
     break;
   case hostPcKeyRelease:
-    r47_pc_key_handle(event.keyval, event.state, false, false);
+  case hostPcKeyCancel:
+    handlePcEvent(event, false);
     // A PC key's press pushed while busy is over once its release comes at rest,
     // where the release runs and pushes nothing, so no wait for a release may hold.
     pthread_mutex_lock(&keyMutex);

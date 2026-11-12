@@ -571,6 +571,14 @@ Java_io_github_ppigazzini_r47zen_CalculatorEngine_sendPcKeyNative(
 }
 
 JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_cancelPcKeyNative(
+    JNIEnv *env, jclass clazz, jint keyval) {
+  (void)env;
+  (void)clazz;
+  r47_key_cancel_pc((uint32_t)keyval);
+}
+
+JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_CalculatorEngine_graphGestureNative(
     JNIEnv *env, jclass clazz, jfloat dxNorm, jfloat dyNorm, jfloat scale) {
   (void)env;
