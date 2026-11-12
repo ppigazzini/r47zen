@@ -279,8 +279,10 @@ static bool stage_program_file(const char *runtime_dir, const char *program_root
   return copy_file(source_path, destination_path);
 }
 
-// The worker owns the core while it runs, and this thread reads only what it left and
-// pushes keys; the core passes back at the join.
+// The worker owns the core while it runs. This thread pushes keys and, with no lock,
+// samples programRunStop, lastErrorCode, currentLocalStepNumber, and
+// temporaryInformation: a data race, which no lane catches, since none builds this
+// harness with ThreadSanitizer. The core passes back at the join.
 static void *run_function_worker(void *user_data) {
   function_worker_t *worker = (function_worker_t *)user_data;
   r47_keys_claim_calculator_thread();
@@ -585,8 +587,8 @@ static workload_result_t run_program_fixture_workload(
             (unsigned int)programRunStop);
     return WORKLOAD_RESULT_FAIL;
   }
-  // A bounded-stop scenario tests the direct stop only if one was requested: a
-  // program that ends by itself inside the window would pass without it.
+  // A bounded-stop scenario tests the stop only if its R/S was pushed: a program
+  // that ends by itself inside the window would pass without it.
   if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
       !requested_direct_stop) {
     fprintf(stderr,

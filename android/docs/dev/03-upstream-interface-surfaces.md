@@ -74,7 +74,9 @@ flowchart LR
   way out, and only a factory reset calls it.
 - `clearInterruptedRun()` runs after every restore. A state file can hold a run
   state, because a file request saves before it parks, inside a running program
-  too, and a pending save can run in a program's pause. A running state leaves the
+  too, a pending save can run in a program's pause, and once the host has stopped
+  a pending save runs at the next poll of a computation or a running program
+  (`saveIfHostStopped`). A running state leaves the
   keys dead, and a solver flag turns `EXIT` into
   "Solver abort" and switches undo off, so `programRunStop`, the hourglass,
   `FLAG_SOLVING`, and `FLAG_INTING` are cleared.
@@ -169,18 +171,25 @@ flowchart LR
   `pemAlpha(...)`, a hex digit or a register name through `addItemToBuffer(...)`,
   and a lone Shift or Ctrl clicks the layout's own shift key. A computation that
   pops it gets only what `pcKeyHandle` gives while busy: the key a row clicks, or
-  the key its item sits on, pushed at the head of the buffer; a key in text entry
+  the key its item sits on, pushed at the head of the buffer, and a Ctrl command,
+  a copy or a capture, run only in a program's pause; a key in text entry
   waits whole in the ring buffer for the main loop. Its row tables, keysym map, and
   dead-key table are copied from what the app's build compiles of `gtkGui.c`, the
   keysyms' values from X11's `keysymdef.h`, and `test_physical_keyboard_contract.py`
   holds them, and the letters and calls of its Ctrl commands, to both. A softkey a
   PC key pressed while the calculator was busy is released at rest only if the core
   still holds one, where upstream's release would shift by a negative count, and it
-  leaves no key down for the next wait. Its release ends the wait for it at once,
-  even while the calculator is still busy: the release's host event waits behind
-  that very wait, and upstream's `keyPushPcEvent` leaves the key down. Left out, for want of an Android
+  leaves no key down for the next wait. The release of a PC key ends the wait for
+  such a press at once, even while the calculator is still busy: the release's host
+  event waits behind that very wait, and upstream's `keyPushPcEvent` leaves the key
+  down. Any PC key's release ends it, since the buffer records no keysym for the
+  press. Left out, for want of an Android
   counterpart: Ctrl+P, GTK's printer window, and Ctrl+H, Ctrl+M, and Ctrl+K, the
-  screen, menu, and X register images `src/c47-gtk/hal/lcd.c` copies.
+  screen, menu, and X register images `src/c47-gtk/hal/lcd.c` copies. Not ported
+  either: GTK chooses its rows at run time through `shortcutProfile`
+  (`src/c47/defines.h`), so a calculator whose `calcModel` is C47 gets GTK's C47
+  rows and any other model outside the R47 family (`isR47FAM`), such as DM42,
+  none, where the port always runs the R47 rows.
 - `pasteNumberNative(String)` queues the tokens `PasteNumber.kt` writes; a true
   return means queued, and the answer comes through `onPasteResult`. At rest
   `r47_paste_number` resolves each token to its `ITM_*` item, again never a number

@@ -52,8 +52,11 @@ flowchart LR
 One rule holds this model: only the calculator thread runs core code. Every other
 thread pushes a key, queues a service request, or copies what that thread published.
 There is no lock around core state, because one thread owns it, and no Kotlin task
-queue. Nothing services Android work from inside a computation, so a key can never
-re-enter one.
+queue. Inside a computation the thread runs no service request, and a key does only
+what the computation's poll makes of it, so a key can never re-enter one
+([below](#what-a-key-does-during-a-computation)). A save can run there: in a
+program's pause, before a picker, and, once the host has stopped, at a poll
+(**Saves** below).
 
 Two checks hold the rule. In a debug build, `R47_CALCULATOR_THREAD_ONLY()` in
 `host_services.h` aborts when a key, sleep, or timer function of `hal/keys.c` that the
@@ -69,8 +72,10 @@ instrumentation bridge, which it does not compile. `runCalculatorNative` is the 
 exception: it is the calculator thread.
 
 - `CalculatorEngine.start()` runs `runCalculatorNative` on the `R47Calculator`
-  thread, once per process, with a stack of `THREAD_STACK_BYTES`, the size upstream's
-  simulator main thread gets.
+  thread, once per process, with a stack of `THREAD_STACK_BYTES`, the stack the
+  Linux simulator's calculator thread gets: upstream starts that thread with
+  `g_thread_new` in `src/c47-gtk/hal/gui.c`, whose default stack glibc sizes from
+  the stack limit, 8 MiB under the usual `ulimit -s` of 8192.
 - `r47_calculator_main()` runs init, one AUTXEQ, and upstream's `mainLoop()` in
   `src/c47/c47.c`, in the shape of upstream's `calcThreadMain`. `mainLoop()` owns the
   timers, the screen refresh, and key dispatch, and calls `sys_sleep()` when it has
@@ -109,7 +114,7 @@ exception: it is the calculator thread.
     the start's restore. The image holds the run, which a restore clears, so the
     state the run ends in is saved too, at the next rest, host stopped or not: a
     save that ran away from rest leaves `restSaveOwed`, and the checkpoint is then
-    due at once. With the host in front a save still waits for rest.
+    due at once. With the host in front a save waits for rest or such a pause.
 - **Parking.** A sleep at rest with the host stopped waits with no deadline.
   Upstream's timers are deadlines against the clock, so the first wake fires every one
   that came due. A running or paused program never parks.
@@ -169,7 +174,7 @@ thread is doing:
   computation enters when it ends.
 - A press must get a release, because `wait_for_key_release(0)` holds the calculator
   thread until one arrives. The keypad sends one, `ACTION_CANCEL` sends a cancel, a
-  PC key's release ends the wait for the press a busy calculator took from it, and
+  PC key's release ends the wait for a press a busy calculator took from a PC key, and
   `onHostStopped` and `r47_calculator_stop` release whatever is still down.
 - A loop of `PSE` steps can lose a stop key in one window, on every build, since
   both ends are upstream's: the outermost `runProgram` polls when the 128 ms slot of

@@ -2,8 +2,8 @@
 # Build and run the calculator thread harness under AddressSanitizer and
 # UndefinedBehaviorSanitizer. It runs upstream's main loop on a thread of its own,
 # as the app does, and proves what that model promises: a key during a computation
-# never re-enters the core, EXIT and R/S stop one, a save waits for rest, and OFF
-# saves and keeps the calculator alive.
+# never re-enters the core, EXIT and R/S stop one, a save waits for rest or a pause
+# unless the host has stopped, and OFF saves and keeps the calculator alive.
 #
 # --coverage builds the same harness with gcov's counters in upstream's key-path files
 # and the glue, in a directory of its own, runs every case, and writes coverage.txt
