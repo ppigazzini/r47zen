@@ -49,7 +49,8 @@ static int insertAt = -1; // while the calculator thread adds keys at the head
 static pthread_t insertThread;
 static int64_t timerDeadlineUs[SYS_TIMERS]; // monotonic, 0 while not running
 static int64_t lastMinute = 0;
-static _Atomic bool hostStopped = false;
+static bool hostStopped =
+    false; // under keyMutex: a sleep decides its wait from it
 static _Atomic bool calculatorIdle = false;
 static int64_t processStartUs = 0;
 uint32_t calc_state = 0;
@@ -490,8 +491,8 @@ static bool calculatorAtRest(void) {
 }
 
 void r47_keys_on_host_stopped(bool stopped) {
-  atomic_store(&hostStopped, stopped);
   pthread_mutex_lock(&keyMutex);
+  hostStopped = stopped;
   pthread_cond_broadcast(&keyCond);
   pthread_mutex_unlock(&keyMutex);
 }
@@ -522,8 +523,15 @@ static void saveIfInPause(void) {
 // which a restore clears, and the blocks the computation held, which stay allocated
 // until RESET. Not while the core has a file open, since the HAL holds one and a save
 // opens its own, and not before the start's restore is done.
+static bool hostIsStopped(void) {
+  pthread_mutex_lock(&keyMutex);
+  const bool stopped = hostStopped;
+  pthread_mutex_unlock(&keyMutex);
+  return stopped;
+}
+
 static void saveIfHostStopped(void) {
-  if (atomic_load(&hostStopped) && r47_runtime_ready() && !r47_io_file_open()) {
+  if (hostIsStopped() && r47_runtime_ready() && !r47_io_file_open()) {
     r47_services_save_pending();
   }
 }
@@ -537,10 +545,10 @@ void sys_sleep(void) {
   // A request can change what the main loop must do next, such as switch off, so
   // the loop looks again before anything sleeps.
   bool ran = false;
-  const bool stopped = atomic_load(&hostStopped);
+  const bool stoppedBefore = hostIsStopped();
   if (atRest) {
     ran = r47_services_run();
-    ran = r47_services_checkpoint(stopped) || ran;
+    ran = r47_services_checkpoint(stoppedBefore) || ran;
     r47_keypad_publish_at_rest();
     r47_tones_at_rest();
   } else {
@@ -548,6 +556,9 @@ void sys_sleep(void) {
   }
 
   pthread_mutex_lock(&keyMutex);
+  // Read again under the lock the wait takes: a host started since the read above has
+  // broadcast already, and a wait chosen from the stale value would miss its timers.
+  const bool stopped = hostStopped;
   if (keyCount == 0 && !quitPending && !ran &&
       !(atRest && r47_services_pending()) &&
       !(pauseCanSave() && r47_services_save_waiting())) {

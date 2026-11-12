@@ -535,7 +535,7 @@ them; the transfer worker posts `onLost` to it rather than read the host.
 | `quitPending` | `hal/keys.c`, under `keyMutex` | `r47_key_push_quit` (any); `keyDispatchHostEvent` (calculator) | `sys_sleep`, `popKey` (calculator) | `keyCond` |
 | `quitInRing` | `hal/keys.c`, under `keyMutex` | `keyPopForMainLoop`, `popKey`, `keyDispatchHostEvent` (calculator) | `key_empty` (calculator) | none; one thread |
 | `timerDeadlineUs` | `hal/keys.c`, under `keyMutex` | `sys_timer_start`, `sys_timer_disable`, `sys_sleep` (calculator) | `sys_sleep` (calculator) | none |
-| `hostStopped` | `hal/keys.c`, atomic | `r47_keys_on_host_stopped` (main) | `sys_sleep`, and `key_empty` through `saveIfHostStopped` (calculator) | `keyCond` |
+| `hostStopped` | `hal/keys.c`, under `keyMutex` | `r47_keys_on_host_stopped` (main) | `sys_sleep`, again under the lock its wait takes, and `key_empty` through `saveIfHostStopped` (calculator) | `keyCond` |
 | `calculatorIdle` | `hal/keys.c`, atomic | `sys_sleep`, around its wait at rest (calculator) | `r47_service_save_and_wait` (main) | polled through the grace period |
 | `calculatorThread`, `calculatorThreadKnown`, debug builds only | `hal/keys.c`; the flag atomic, release and acquire | `r47_keys_init` (calculator); a host tool's `r47_keys_claim_calculator_thread` | `r47_assert_calculator_thread` (any) | the flag's release store |
 | `queue`, `queueHead`, `queueCount` | `host_services.c`, under `serviceMutex` | `enqueue` (any); `r47_services_run` (calculator) | `r47_services_run`, `r47_services_pending` (calculator) | `r47_keys_wake` |

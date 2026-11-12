@@ -211,6 +211,7 @@ fi
     -Wl,--wrap=fsync \
     -Wl,--wrap=fwrite \
     -Wl,--wrap=pthread_cond_timedwait \
+    -Wl,--wrap=r47_tones_at_rest \
     "$OBJECT_DIR"/*.o \
     -lm \
     -o "$BUILD_DIR/calculator-thread-harness"
