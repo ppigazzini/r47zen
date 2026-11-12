@@ -99,7 +99,9 @@ flowchart LR
   computation or a running program for a pending save (`saveIfHostStopped` in
   `key_empty()`), unless the core has a file open. The last two can run inside a
   computation: the saved image then holds the run, which a restore clears, and
-  the blocks the computation held, which stay allocated until RESET.
+  the blocks the computation held, which stay allocated until RESET. Either one
+  leaves a save owed at the next rest, which the checkpoint takes at once, host
+  stopped or not, so the state the run ends in reaches the disk too.
 - `setAutoSaveNative(...)` passes the `auto_save_minimize` setting. With it off there
   is no idle checkpoint, no save before a picker, and no save after OFF, and
   `onHostStopped` checks the setting itself.
