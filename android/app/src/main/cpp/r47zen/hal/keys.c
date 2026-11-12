@@ -179,6 +179,13 @@ void r47_key_push(int code) {
 void r47_key_push_pc(uint32_t keyval, uint32_t state, bool press) {
   pthread_mutex_lock(&keyMutex);
   pushHostLocked(press ? hostPcKeyPress : hostPcKeyRelease, keyval, state);
+  // A press a busy calculator took from a PC key is waited for in
+  // wait_for_key_release, which this release's host event, queued behind the wait,
+  // cannot end, so its arrival does. Upstream's keyPushPcEvent leaves the flag set.
+  if (!press && pcPressPushed) {
+    pushedKeyDown = false;
+    pcPressPushed = false;
+  }
   pthread_mutex_unlock(&keyMutex);
 }
 
