@@ -518,7 +518,7 @@ that thread.
 | `hostEvents` slots | `hal/keys.c` | `pushHostLocked`, under `keyMutex` (any), which a full FIFO stops before it writes a slot | `hostEventOf`, under `keyMutex` (calculator) | the slot's key code, popped under `keyMutex` |
 | `insertAt`, `insertThread` | `hal/keys.c`, under `keyMutex` | `translateHostEvent`, `cancelPressedKey` (calculator) | `pushLocked`, which puts a key at the head only for the thread that set them | none |
 | `CTRL_State`, `SHIFT_State`, `event_keyval`, `ctrlUsed`, `pcKeyBusy` | `pc_keyboard.c` | `r47_pc_key_handle` (calculator) | the same | none; one thread |
-| `pushedKeyDown` | `hal/keys.c`, under `keyMutex` | `r47_key_push`, `r47_key_cancel`, `r47_key_release_if_down` (any) | `wait_for_key_release` (calculator) | `keyCond` |
+| `pushedKeyDown` | `hal/keys.c`, under `keyMutex` | `r47_key_push`, `r47_key_cancel`, `r47_key_release_if_down`, and a PC key's release in `r47_key_push_pc` (any); `r47_key_push_key` and `keyDispatchHostEvent` (calculator) | `wait_for_key_release` (calculator) | `keyCond` |
 | `quitPending` | `hal/keys.c`, under `keyMutex` | `r47_key_push_quit` (any); `keyDispatchHostEvent` (calculator) | `sys_sleep`, `keyPopForMainLoop` (calculator) | `keyCond` |
 | `timerDeadlineUs` | `hal/keys.c`, under `keyMutex` | `sys_timer_start`, `sys_timer_disable`, `sys_sleep` (calculator) | `sys_sleep` (calculator) | none |
 | `hostStopped` | `hal/keys.c`, atomic | `r47_keys_on_host_stopped` (main) | `sys_sleep` (calculator) | `keyCond` |

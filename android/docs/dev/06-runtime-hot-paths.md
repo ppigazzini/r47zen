@@ -166,7 +166,8 @@ thread is doing:
 - A service request is not a key, so these wipes cannot reach it. A paste during a
   computation enters when it ends.
 - A press must get a release, because `wait_for_key_release(0)` holds the calculator
-  thread until one arrives. The keypad sends one, `ACTION_CANCEL` sends a cancel, and
+  thread until one arrives. The keypad sends one, `ACTION_CANCEL` sends a cancel, a
+  PC key's release ends the wait for the press a busy calculator took from it, and
   `onHostStopped` and `r47_calculator_stop` release whatever is still down.
 - A loop of `PSE` steps can lose a stop key in one window, on every build, since
   both ends are upstream's: the outermost `runProgram` polls when the 128 ms slot of

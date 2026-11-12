@@ -2506,6 +2506,25 @@ static void caseDisplayTextIsWhatTheScreenShows(void) {
         d.cutLength, R47_DISPLAY_TEXT_MAX - 1);
 }
 
+// A PC softkey pressed during a computation and let go while it still runs: the
+// computation's next poll waits for that release, which comes as a host event the
+// wait itself holds back, so only the release's arrival can end the wait. Escape
+// then stops the computation.
+static void casePcSoftkeyReleasedDuringAComputationEndsItsWait(void) {
+  startCalculator();
+  startSlowFactors();
+  r47_key_push_pc(PC_F1, 0, true);
+  sleepMs(300);
+  r47_key_push_pc(PC_F1, 0, false);
+  pcTap(PC_ESCAPE);
+  atomic_store(&probeRan, false);
+  r47_run_at_rest_async(markProbeRan, NULL);
+  for (int i = 0; i < 300 && !atomic_load(&probeRan); i++) {
+    sleepMs(10);
+  }
+  CHECK(atomic_load(&probeRan), "the calculator still waits for a PC softkey's release");
+}
+
 static const testCase_t cases[] = {
     {"a core call off its thread aborts", caseACoreCallOffItsThreadAborts},
     {"the stand-ins agree with GMP", caseTheStandInsAgreeWithGmp},
@@ -2533,6 +2552,8 @@ static const testCase_t cases[] = {
     {"a PC key during a computation only pushes keys", casePcKeyDuringAComputationOnlyPushesKeys},
     {"a PC softkey released at rest leaves no key down",
      casePcSoftkeyReleasedAtRestLeavesNoKeyDown},
+    {"a PC softkey released during a computation ends its wait",
+     casePcSoftkeyReleasedDuringAComputationEndsItsWait},
     {"AIM faces follow NUM", caseAimFacesFollowNumLock},
     {"the VOL softkeys show no value", caseVolumeSoftkeysShowNoValue},
     {"the display text is what the screen shows", caseDisplayTextIsWhatTheScreenShows},
