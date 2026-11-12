@@ -189,17 +189,20 @@ up-calls.
   carries a token this process made, and an intent from another app does not reset.
 - `onStart()` attaches this Activity as the host, starts the audio thread if it is not
   running, tells native the host is visible, and starts the display loop. `MainActivity`
-  is exported, so a second instance can sit on the first. Android starts the Activity
-  coming back before it stops or destroys the one leaving, so the last one started
-  speaks for the calculator. `CalculatorHostSlot` holds that rule: the stop of an
-  Activity that is no longer current does nothing, and the end of one stops the audio
-  only when no host is left. A picker's answer goes only to the Activity that launched it
-  or to what Android recreates from it, so only that Activity's finish cancels the
-  request.
+  is exported, so a second instance can sit on the first, and on a large screen or in
+  desktop windowing two can run side by side. Android starts the Activity coming back
+  before it stops or destroys the one leaving, so the last one started speaks for the
+  calculator. `CalculatorHostSlot` holds that rule over every live and every started
+  Activity: the stop of one while another is started does nothing, the end of the
+  current one hands the host to the last started, else the last live, and the end of
+  one stops the audio only when no host is left. A picker's answer goes only to the
+  Activity that launched it or to what Android recreates from it, which keeps its
+  `hostId` in its saved instance state, so only that id owns the request, and only its
+  finish cancels it.
   `onStop()` is the first point at which the system may kill the process, and PiP's
   close arrives there with no pause before it. It stops the display loop, hands
   `DataFolderMirror` its copy of the core's prints to run on its own worker, and for
-  the current host `CalculatorEngine.onHostStopped(...)` does three things in order: it releases a
+  the last Activity started to stop `CalculatorEngine.onHostStopped(...)` does three things in order: it releases a
   key still down, since `wait_for_key_release(0)` holds the calculator thread until
   a release arrives; it queues a save, when `auto_save_minimize` is on and no factory
   reset is in progress; and it tells native the host stopped, which parks the

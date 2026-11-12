@@ -511,10 +511,10 @@ Native code reaches Kotlin through `g_jvm` and the class reference and method ID
 |---|---|---|
 | write | `JNI_OnLoad` and `r47_upcalls_bind`, once, inside `System.loadLibrary` | the thread that first touches `CalculatorEngine`, before the calculator thread starts |
 | read | `r47_upcall_*`, from `requestAndroidFile`, `_Buzz`, `r47_report_file_write_failure`, `show_warning`, `guiSetClipboardText`, `runService`, and `r47_calculator_main` | calculator |
-| write `CalculatorHostSlot.current` | `attachHost`, `detachHost` | main |
+| write `CalculatorHostSlot.current` | `attachHost`, `detachHost`, and `onHostStopped` through `stop` | main |
 | read `CalculatorHostSlot.current` | the `@Keep` up-calls `onCalculatorOff`, `onClipboardText`, `setClipboardText`, and `onPasteResult` | calculator |
 | read `CalculatorHostSlot.current` | `onHostStopped`, `hasHost`, and what `onDisplayText`, `onWarning`, and `fileRequestGate`'s launch and `onLost` post | main |
-| write and read `CalculatorHostSlot.pickerOwner`, `pickerWaitsForRecreatedOwner` | `attachHost`, `detachHost`, `fileRequestGate`'s launch through `pickerLaunchedBy`, and `cancelFileRequestOf` through `ownsPicker` | main |
+| write and read `CalculatorHostSlot.live`, `started`, `pickerOwnerId` | `attachHost`, `detachHost`, `onHostStopped` through `stop`, `fileRequestGate`'s launch through `pickerLaunchedBy`, and `cancelFileRequestOf` through `ownsPicker` | main |
 
 No lock covers the bindings, and none is needed: they are written once before the
 only thread that reads them exists, and nothing clears them. Native holds no

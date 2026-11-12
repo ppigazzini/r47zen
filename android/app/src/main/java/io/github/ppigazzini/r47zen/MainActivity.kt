@@ -21,10 +21,15 @@ import io.github.ppigazzini.r47zen.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import com.google.android.material.color.MaterialColors
+import java.util.UUID
 
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener, CalculatorHost {
 
     private val TAG = "R47Activity"
+
+    // Kept across a recreation, so that the recreated Activity still owns its picker.
+    override lateinit var hostId: String
+        private set
     private lateinit var binding: ActivityMainBinding
     private lateinit var replicaOverlay: ReplicaOverlay
     private lateinit var displayRefreshLoop: DisplayRefreshLoop
@@ -64,6 +69,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     companion object {
         private const val PREF_SETTINGS_DISCOVERY_PENDING = "settings_discovery_pending"
+        private const val STATE_HOST_ID = "io.github.ppigazzini.r47zen.HOST_ID"
         private const val GRAPH_PAN_FLUSH_EPSILON = 0.0005f
         private const val GRAPH_PAN_APPLY_LIMIT = 1f
         private const val GRAPH_PAN_PENDING_LIMIT = GRAPH_PAN_APPLY_LIMIT * 4f
@@ -400,12 +406,18 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        hostId = savedInstanceState?.getString(STATE_HOST_ID) ?: UUID.randomUUID().toString()
         configureActivityShell()
         val prefs = appPreferences
         initializeStartupControllers()
         initializeOverlayAndPreferences(prefs)
         startCalculator()
         handleInitialIntent()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(STATE_HOST_ID, hostId)
     }
 
     override fun onDestroy() {
@@ -440,8 +452,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onStart() {
         super.onStart()
-        // Here, not in onCreate: this may be an instance coming back from behind another that
-        // has just finished, which took the calculator's host and the audio with it.
+        // Here, not in onCreate: the window started last speaks for the calculator, and this one
+        // may be coming back from behind another.
         CalculatorEngine.attachHost(this)
         AudioEngine.start(CalculatorEngine::isThreadRunning)
         CalculatorEngine.onHostStarted()

@@ -689,9 +689,12 @@ source is missing from this page:
   per-apply chunks before JNI apply
 - `CalculatorHostSlotTest.kt`: locks that the Activity last started speaks for the
   calculator: a second instance finishing leaves the first as host, does not own the
-  first one's picker, a recreated Activity takes over the picker its predecessor
-  opened, and a finished Activity owns no picker, so the calculator, which outlives
-  it, keeps no reference to it.
+  first one's picker; a window closed beside another parks nothing and leaves the
+  other as host, and only the last window to stop leaves none in front; a destroyed
+  host falls back to the last started, else the last live; a recreated Activity,
+  which keeps its predecessor's id, keeps the picker even when another window started
+  first; and a finished or destroyed Activity owns no picker and is never current
+  again, so the calculator, which outlives it, keeps no reference to it.
 - `AudioEngineTest.kt`: locks that a note plays for exactly the time the calculator thread
   waits, that clearing the queue drops every note not started, that the queue stops at
   its cap, and that a disabled beeper queues nothing.
