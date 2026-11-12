@@ -467,6 +467,8 @@ static workload_result_t run_program_fixture_workload(
 
   load_step = currentLocalStepNumber;
   max_step = currentLocalStepNumber;
+  // runProgram pushes the screen once as a run starts, so only a refresh after that one
+  // shows the program did something.
   r47_reset_host_lcd_refresh_count();
   if (!start_worker(&worker, run_function_id, run_parameter, uses_param,
                     &worker_thread)) {
@@ -494,7 +496,7 @@ static workload_result_t run_program_fixture_workload(
     saw_view = saw_view || temporaryInformation == TI_VIEW_REGISTER;
     saw_waiting = saw_waiting || programRunStop == PGM_WAITING;
     lcd_refresh_count = r47_get_host_lcd_refresh_count();
-    saw_lcd_refresh = saw_lcd_refresh || lcd_refresh_count > 0u;
+    saw_lcd_refresh = saw_lcd_refresh || lcd_refresh_count > 1u;
 
     if (programRunStop == PGM_PAUSED) {
       saw_pause = true;
@@ -567,7 +569,7 @@ static workload_result_t run_program_fixture_workload(
   saw_waiting = saw_waiting || programRunStop == PGM_WAITING;
   saw_view = saw_view || temporaryInformation == TI_VIEW_REGISTER;
   lcd_refresh_count = r47_get_host_lcd_refresh_count();
-  saw_lcd_refresh = saw_lcd_refresh || lcd_refresh_count > 0u;
+  saw_lcd_refresh = saw_lcd_refresh || lcd_refresh_count > 1u;
 
   if (max_step <= load_step && !saw_pause && !saw_waiting && !saw_view &&
       !saw_lcd_refresh) {
