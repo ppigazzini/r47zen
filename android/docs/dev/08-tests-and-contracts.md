@@ -948,7 +948,8 @@ Android compatibility layer.
   loop when it lands inside a pause; a stop or a pending save still gets through a `VIEW` loop; a double tap of
   `R/S` leaves the program stoppable; `KEY?` sees a key
   behind a `VIEW`; a quit survives a redraw and the ring's wipe; a held key holds a program
-  until its release, a cancel, or a stopping host; parking stops a running timer; a save
+  until its release, a cancel, or a stopping host; parking stops a running timer, and a
+  host started inside a sleep still gets its timers; a save
   runs inside a timed pause, and none in a pause inside a solver; a save keeps a question
   on screen; a short write keeps the file; a save syncs the file and its directory; a slow
   save still answers inside the fence; a checkpoint waits for a quiet moment; OFF leaves
