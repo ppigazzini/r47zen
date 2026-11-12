@@ -30,7 +30,8 @@
 #    a selection of its own and report results for exactly that class; a later
 #    selection that runs nothing fails even after earlier ones ran tests; a
 #    stale result file never counts; each selection's results survive for the
-#    artifact upload.
+#    artifact upload; a selection the outer timeout stops, with 124 or 137, fails
+#    the run, and it ran under its bound and a kill-after.
 # 5. The connected runner's class list is the androidTest classes on disk:
 #    every androidTest file whose live code declares a @Test is a selection,
 #    and every selection is such a file. Both directions first prove they fail
@@ -302,7 +303,19 @@ cat >"$results/TEST-test(AVD) - 16.xml" <<XML
 </testsuite></testsuites>
 XML
 SH
-chmod +x "$connected_sandbox/bin/adb" "$connected_sandbox/android/gradlew"
+# Stands in for GNU timeout: records its arguments, and for the selection
+# FAKE_HANG_SELECTION names exits as timeout does when it had to stop the command.
+cat >"$connected_sandbox/bin/fake-timeout" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >>"$FAKE_TIMEOUT_LOG"
+while [[ "${1:-}" == --* ]]; do shift; done
+shift
+if [[ -n "${FAKE_HANG_SELECTION:-}" && "$*" == *"$FAKE_HANG_SELECTION"* ]]; then
+    exit "$FAKE_TIMEOUT_STATUS"
+fi
+exec "$@"
+SH
+chmod +x "$connected_sandbox/bin/adb" "$connected_sandbox/android/gradlew" "$connected_sandbox/bin/fake-timeout"
 
 # run_connected OUTPUT_FILE [NAME=VALUE...]: run the real runner in the sandbox
 # with the fake settings that follow, and return its exit status.
@@ -313,7 +326,8 @@ run_connected() {
         export PATH="$connected_sandbox/bin:$PATH"
         export R47_CONNECTED_ANDROID_DIR="$connected_sandbox/android"
         export R47_CONNECTED_ANDROID_LOG_DIR="$tmp/connected-logs"
-        unset GITHUB_ACTIONS GITHUB_STEP_SUMMARY FAKE_EMPTY_SELECTION FAKE_WRONG_SELECTION FAKE_API_LEVEL
+        unset GITHUB_ACTIONS GITHUB_STEP_SUMMARY FAKE_EMPTY_SELECTION FAKE_WRONG_SELECTION FAKE_API_LEVEL \
+            FAKE_HANG_SELECTION FAKE_TIMEOUT_STATUS FAKE_TIMEOUT_LOG R47_CONNECTED_ANDROID_TIMEOUT_BIN
         local setting name
         for setting in "$@"; do
             export "${setting?}"
@@ -360,6 +374,20 @@ expect_connected_failure "a later selection that ran nothing, after earlier ones
 expect_connected_failure "a selection whose results report another class" \
     "GraphRedrawInstrumentedTest asked for io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest" \
     FAKE_WRONG_SELECTION=GraphRedrawInstrumentedTest
+
+# A device test that hangs, on a picker or a lock, must fail its own selection at
+# the per-selection bound, whichever way timeout ends it, and the bound must be passed.
+for timeout_status in 124 137; do
+    : >"$tmp/fake-timeout.log"
+    expect_connected_failure "a selection the outer timeout stopped ($timeout_status)" \
+        "GraphRedrawInstrumentedTest did not finish within the Android connected-test budget" \
+        R47_CONNECTED_ANDROID_TIMEOUT_BIN="$connected_sandbox/bin/fake-timeout" \
+        FAKE_TIMEOUT_LOG="$tmp/fake-timeout.log" FAKE_HANG_SELECTION=GraphRedrawInstrumentedTest \
+        FAKE_TIMEOUT_STATUS="$timeout_status"
+done
+grep -q -- "--kill-after=30s 10m .*class=io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest" \
+    "$tmp/fake-timeout.log" ||
+    fail "the hung selection did not run under its 10m bound and a kill-after: $(grep GraphRedraw "$tmp/fake-timeout.log" | head -n 1)"
 
 # Below its @SdkSuppress floor a class runs nothing by design, so the runner skips
 # it and says why (the minSdk row); at its floor, and for a class with none, a
