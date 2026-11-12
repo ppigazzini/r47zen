@@ -109,6 +109,14 @@ void __wrap_r47_tones_at_rest(void) {
     r47_keys_on_host_stopped(false);
   }
 }
+// Upstream's refreshLcd, which the main loop calls once a SCREEN_REFRESH_PERIOD and
+// which counts a shown function name down by a whole period on each call.
+static atomic_int refreshLcdCount = 0;
+extern void __real_refreshLcd(void);
+void __wrap_refreshLcd(void) {
+  atomic_fetch_add(&refreshLcdCount, 1);
+  __real_refreshLcd();
+}
 // Bytes the disk still takes, or -1 for no limit. A write that does not fit takes none.
 static atomic_long diskRoom = -1;
 extern size_t __real_fwrite(const void *data, size_t size, size_t count, FILE *file);
@@ -1985,6 +1993,25 @@ static void caseCheckpointRetriesAFailedSave(void) {
   CHECK(backupInode() != first, "no checkpoint wrote the state the refused save lost");
 }
 
+static void nothingAtRest(void *arg) { (void)arg; }
+
+// A service at rest leaves refreshLcd to the main loop's period: one call more would
+// take a period off a held key's function name, so a burst of services, as a screen
+// reader's descriptions come, makes no more calls than the periods it lasts.
+static void caseServicesAddNoLcdRefresh(void) {
+  startCalculator();
+  readState();
+  const int64_t start = nowMs();
+  const int before = atomic_load(&refreshLcdCount);
+  for (int i = 0; i < 50; i++) {
+    r47_run_at_rest(nothingAtRest, NULL);
+  }
+  const int calls = atomic_load(&refreshLcdCount) - before;
+  const int periods = (int)((nowMs() - start) / SCREEN_REFRESH_PERIOD) + 2;
+  CHECK(calls <= periods, "50 services made %d refreshLcd calls in %d periods", calls,
+        periods);
+}
+
 static void caseSaveReachesTheDisk(void) {
   startCalculator();
   readState();
@@ -2724,6 +2751,7 @@ static const testCase_t cases[] = {
      caseFenceDoesNotWaitForABusyCalculator},
     {"an idle checkpoint keeps typed work", caseIdleCheckpointKeepsTypedWork},
     {"the checkpoint retries a save the disk refused", caseCheckpointRetriesAFailedSave},
+    {"services add no LCD refresh", caseServicesAddNoLcdRefresh},
     {"no checkpoint with autosave off", caseNoCheckpointWithAutosaveOff},
     {"a save runs inside a pause", caseSaveRunsInsideAPause},
     {"a kill during saves never cuts the file", caseKillDuringSavesNeverCutsTheFile},
