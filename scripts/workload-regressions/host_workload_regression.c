@@ -585,6 +585,11 @@ static workload_result_t run_program_fixture_workload(
             scenario->program_name);
     return WORKLOAD_RESULT_FAIL;
   }
+  // The loop above polls every 5 ms while the worker runs, so an error that ends
+  // the program between two polls is seen only here.
+  if (fail_last_error(scenario->program_name)) {
+    return WORKLOAD_RESULT_FAIL;
+  }
 
   saw_pause = saw_pause || programRunStop == PGM_PAUSED;
   saw_waiting = saw_waiting || programRunStop == PGM_WAITING;

@@ -926,7 +926,11 @@ Android compatibility layer.
   `MANSLV2` remains the bounded direct-stop-after-activity probe inside that
   framework. It runs as the dedicated `host-workload-regressions` lane in
   `linux-ci.yml` on every pull request (no emulator), in addition to remaining
-  the focused host compatibility rerun surface
+  the focused host compatibility rerun surface.
+- Every fixture must end with no calculator error in `lastErrorCode`. The
+  harness reads it every 5 ms while the program runs and once more after the
+  worker returns, since an error that ends a program between two reads is seen
+  only then.
 - Every fixture must end with `gmpMemInBytes` at 0, the invariant upstream's
   own `items.c` self-check holds after each operation: a fixture that leaves a
   long integer allocated fails the lane. The vendored mini-gmp reports each
