@@ -59,6 +59,13 @@ static uint32_t checkpointIntervalMs = R47_CHECKPOINT_INTERVAL_MS;
 static uint32_t checkpointQuietMs = R47_CHECKPOINT_QUIET_MS;
 static bool inputSinceSave = false;
 static uint32_t lastSaveMs = 0;
+// A save at a poll or in a pause holds the state mid-run, so the state the run ends in
+// is saved at the next rest, host stopped or not. The calculator thread only.
+static bool restSaveOwed = false;
+// True while r47_services_run looks for keys at rest: that look polls, and a poll
+// takes a stopped host's pending save, which the run's own last step takes at rest.
+// The calculator thread only.
+static bool keysCheckedAtRest = false;
 static uint32_t lastInputMs = 0;
 static _Atomic bool autosaveEnabled = true;
 
@@ -205,6 +212,9 @@ void r47_services_note_input(void) {
 }
 
 int r47_services_checkpoint_due_ms(bool hostStopped) {
+  if (restSaveOwed && atomic_load(&autosaveEnabled)) {
+    return 0;
+  }
   if (!inputSinceSave || hostStopped || !atomic_load(&autosaveEnabled)) {
     return -1;
   }
@@ -223,6 +233,9 @@ bool r47_services_checkpoint(bool hostStopped) {
   if (r47_services_checkpoint_due_ms(hostStopped) != 0) {
     return false;
   }
+  // A save that cannot run now must not leave the checkpoint due, or every sleep
+  // would return at once.
+  restSaveOwed = false;
   saveMarked();
   return true;
 }
@@ -240,6 +253,9 @@ static void completeSaves(unsigned long upTo) {
 
 void r47_services_save_pending(void) {
   R47_CALCULATOR_THREAD_ONLY();
+  if (keysCheckedAtRest) {
+    return;
+  }
   pthread_mutex_lock(&serviceMutex);
   const unsigned long ticket = savesRequested;
   const bool pending = savesDone < ticket && !saveInProgress;
@@ -247,6 +263,7 @@ void r47_services_save_pending(void) {
   if (pending) {
     saveMarked();
     completeSaves(ticket);
+    restSaveOwed = true;
   }
 }
 
@@ -355,6 +372,13 @@ static void runService(const service_t *service) {
   }
 }
 
+static bool keysPendingAtRest(void) {
+  keysCheckedAtRest = true;
+  const bool pending = r47_keys_pending();
+  keysCheckedAtRest = false;
+  return pending;
+}
+
 bool r47_services_run(void) {
   R47_CALCULATOR_THREAD_ONLY();
   bool ran = false;
@@ -366,7 +390,7 @@ bool r47_services_run(void) {
       break;
     }
     pthread_mutex_unlock(&serviceMutex);
-    if (r47_keys_pending()) {
+    if (keysPendingAtRest()) {
       return ran;
     }
     pthread_mutex_lock(&serviceMutex);
@@ -382,7 +406,7 @@ bool r47_services_run(void) {
     ran = true;
   }
 
-  if (r47_keys_pending()) {
+  if (keysPendingAtRest()) {
     return ran;
   }
 
@@ -404,8 +428,10 @@ bool r47_services_run(void) {
     ran = true;
   }
 
-  // Last, so that it holds what the requests above changed.
+  // Last, so that it holds what the requests above changed. A save at rest pays a
+  // save a run owed.
   if (save) {
+    restSaveOwed = false;
     saveMarked();
     completeSaves(saveTicket);
     ran = true;
