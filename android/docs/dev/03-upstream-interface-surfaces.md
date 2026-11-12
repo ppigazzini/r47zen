@@ -174,7 +174,9 @@ flowchart LR
   holds them, and the letters and calls of its Ctrl commands, to both. A softkey a
   PC key pressed while the calculator was busy is released at rest only if the core
   still holds one, where upstream's release would shift by a negative count, and it
-  leaves no key down for the next wait. Left out, for want of an Android
+  leaves no key down for the next wait. Its release ends the wait for it at once,
+  even while the calculator is still busy: the release's host event waits behind
+  that very wait, and upstream's `keyPushPcEvent` leaves the key down. Left out, for want of an Android
   counterpart: Ctrl+P, GTK's printer window, and Ctrl+H, Ctrl+M, and Ctrl+K, the
   screen, menu, and X register images `src/c47-gtk/hal/lcd.c` copies.
 - `pasteNumberNative(String)` queues the tokens `PasteNumber.kt` writes; a true
