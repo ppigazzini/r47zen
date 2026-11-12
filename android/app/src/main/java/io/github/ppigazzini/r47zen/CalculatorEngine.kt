@@ -178,7 +178,7 @@ internal object CalculatorEngine {
         }
         releaseKeyIfDown()
         if (saveState && isReady() && !saveStateNative(SAVE_FENCE_MILLIS)) {
-            Log.w(TAG, "The calculator is busy: its state saves at its next poll or rest")
+            Log.w(TAG, "State not saved: busy, it saves at its next poll or rest; refused, at a checkpoint")
         }
         onHostStoppedNative(true)
     }

@@ -189,6 +189,8 @@ void r47_restore_guard_begin(void);
 void r47_restore_guard_end(void);
 // The calculator thread: the core has a file open through the HAL, which holds one.
 bool r47_io_file_open(void);
+// The calculator thread: whether a write failed since the last call, which clears it.
+bool r47_io_take_write_failure(void);
 void r47_calculator_main(void);
 void r47_calculator_stop(bool save);
 uint32_t r47_keypad_published_generation(void);

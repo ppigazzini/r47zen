@@ -98,8 +98,8 @@ exception: it is the calculator thread.
   since the last one; the file itself is replaced whole
   ([04](04-native-core-and-jni.md#file-io-boundary)):
   - at rest, for a save `onStop` asked for;
-  - at rest as an idle checkpoint, when a key arrived since the last save, the keys
-    have been quiet `R47_CHECKPOINT_QUIET_MS`, `R47_CHECKPOINT_INTERVAL_MS` has passed
+  - at rest as an idle checkpoint, when a key arrived since the last save or the
+    disk refused that save, the keys have been quiet `R47_CHECKPOINT_QUIET_MS`, `R47_CHECKPOINT_INTERVAL_MS` has passed
     since that save, the host is not stopped, and autosave is on;
   - in a program's pause, for a pending `onStop` save, when no solver, integral, or
     plot is under way, so the pause is a step boundary (`saveIfInPause`, from

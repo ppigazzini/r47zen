@@ -317,13 +317,15 @@ static void copyFile(const char *from, const char *to) {
 
 // A save has only the fence's grace to find the calculator idle, and a thread still
 // finishing the last request can take longer than that under the sanitizers.
-static void saveOnceIdle(void) {
+static bool saveWhenIdle(void) {
   readState();
   for (int i = 0; i < 1000 && !r47_keys_calculator_idle(); i++) {
     sleepMs(5);
   }
-  CHECK(r47_service_save_and_wait(5000), "no save");
+  return r47_service_save_and_wait(5000);
 }
+
+static void saveOnceIdle(void) { CHECK(saveWhenIdle(), "no save"); }
 
 static void loadProgramAtRest(void *arg) {
   (void)arg;
@@ -1944,7 +1946,7 @@ static void caseShortWriteKeepsTheFile(void) {
   CHECK(whole > 0, "no first save");
   setStack(0, 0, 3, 4);
   atomic_store(&diskFull, true);
-  saveOnceIdle();
+  CHECK(!saveWhenIdle(), "a save the disk refused answered saved");
   atomic_store(&diskFull, false);
   CHECK(backupSize() == whole, "a failed write changed the file: %ld to %ld", whole, backupSize());
   char temp[1024];
@@ -1952,6 +1954,35 @@ static void caseShortWriteKeepsTheFile(void) {
   CHECK(access(temp, F_OK) != 0, "a failed write left its temporary file");
   tap(KEY_PLUS);
   CHECK(strcmp(readState().x, "7.") == 0, "the calculator did not go on");
+}
+
+// Each save that lands renames a new file over the old one, so the inode tells them apart.
+static ino_t backupInode(void) {
+  char path[1024];
+  struct stat info;
+  snprintf(path, sizeof(path), "%s/backupR47.cfg", workDir);
+  return stat(path, &info) == 0 ? info.st_ino : 0;
+}
+
+// A save the disk refused is not taken as done: the next checkpoint writes the state
+// again once the disk has room, with no key pressed in between.
+static void caseCheckpointRetriesAFailedSave(void) {
+  startCalculator();
+  r47_services_set_checkpoint_timing(60000, 60000);
+  saveOnceIdle();
+  const ino_t first = backupInode();
+  CHECK(first != 0, "no first save");
+  tap(KEY_ONE);
+  atomic_store(&diskFull, true);
+  CHECK(!saveWhenIdle(), "a save the disk refused answered saved");
+  atomic_store(&diskFull, false);
+  CHECK(backupInode() == first, "a refused save replaced the file");
+  r47_services_set_checkpoint_timing(300, 100);
+  r47_keys_wake();
+  for (int i = 0; i < 300 && backupInode() == first; i++) {
+    sleepMs(10);
+  }
+  CHECK(backupInode() != first, "no checkpoint wrote the state the refused save lost");
 }
 
 static void caseSaveReachesTheDisk(void) {
@@ -2692,6 +2723,7 @@ static const testCase_t cases[] = {
     {"the fence does not wait for a busy calculator",
      caseFenceDoesNotWaitForABusyCalculator},
     {"an idle checkpoint keeps typed work", caseIdleCheckpointKeepsTypedWork},
+    {"the checkpoint retries a save the disk refused", caseCheckpointRetriesAFailedSave},
     {"no checkpoint with autosave off", caseNoCheckpointWithAutosaveOff},
     {"a save runs inside a pause", caseSaveRunsInsideAPause},
     {"a kill during saves never cuts the file", caseKillDuringSavesNeverCutsTheFile},

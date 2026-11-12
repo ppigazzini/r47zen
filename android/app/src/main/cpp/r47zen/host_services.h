@@ -98,15 +98,17 @@ void r47_services_save_pending(void);
 int r47_services_checkpoint_due_ms(bool hostStopped);
 // The calculator thread: a key arrived, so there is work to keep.
 void r47_services_note_input(void);
-void r47_services_note_saved(void);
+// The calculator thread: a save ran, and whether the state file took it.
+void r47_services_note_saved(bool saved);
 // The calculator thread at rest: save if a checkpoint is due.
 bool r47_services_checkpoint(bool hostStopped);
 
 // The calculator thread: write the state file, at rest, after OFF, in a program's
 // pause, before a picker, and, once the host has stopped, at a poll. saveCalc is
 // upstream's shutdown routine, so r47_save_settled undoes what it changes in the
-// running calculator.
-void r47_save_settled(void);
+// running calculator. False when the disk refused the file, which a toast reports
+// and the next checkpoint retries.
+bool r47_save_settled(void);
 // The calculator thread, before a picker: save unless the user turned autosave off.
 void r47_save_before_picker(void);
 

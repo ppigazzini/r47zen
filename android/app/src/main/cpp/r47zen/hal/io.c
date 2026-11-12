@@ -65,6 +65,9 @@ static char replaceTemp[PATH_MAX + 8] = "";
 static bool openedFileWritable = false;
 static bool openedFileWriteFailed = false;
 static bool openedFileSeekFailed = false;
+// Whether a write failed since r47_io_take_write_failure last asked: a save reads it
+// to tell a state file it wrote from one the disk refused.
+static bool writeFailed = false;
 // The folder WorkDirectory.kt starts the save picker in, for a screen capture.
 #define FILE_CATEGORY_SCREENS 3
 extern void r47_upcall_warning(const char *text);
@@ -72,6 +75,17 @@ extern int requestAndroidFile(int isSave, const char *defaultName,
                               int fileType);
 extern void r47_report_file_write_failure(void);
 extern const char *r47_picked_file_name(void);
+
+static void reportWriteFailure(void) {
+  writeFailed = true;
+  r47_report_file_write_failure();
+}
+
+bool r47_io_take_write_failure(void) {
+  const bool failed = writeFailed;
+  writeFailed = false;
+  return failed;
+}
 
 static bool setAsideUnusableStateFile(const char *path);
 static int has_android_base_path(void);
@@ -389,7 +403,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     if (!r47_format(replaceTarget, sizeof(replaceTarget), "%s", fullpath) ||
         !r47_format(replaceTemp, sizeof(replaceTemp), "%s.tmp", fullpath)) {
       replaceTarget[0] = '\0';
-      r47_report_file_write_failure();
+      reportWriteFailure();
       return FILE_CANCEL;
     }
     openedFile = fopen(replaceTemp, modeStr);
@@ -399,7 +413,7 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
     if (!openedFile) {
       LOGE("ioFileOpen: cannot write %s: %s", replaceTemp, strerror(errno));
       replaceTarget[0] = '\0';
-      r47_report_file_write_failure();
+      reportWriteFailure();
       return FILE_CANCEL;
     }
     return FILE_OK;
@@ -699,7 +713,7 @@ void ioFileClose(void) {
   openedFileSeekFailed = false;
   failed = finishReplacingFile(failed);
   if (failed) {
-    r47_report_file_write_failure();
+    reportWriteFailure();
   }
 }
 

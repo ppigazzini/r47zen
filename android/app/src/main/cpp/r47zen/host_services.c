@@ -48,6 +48,8 @@ static float gestureDy = 0.0f;
 static float gestureScale = 1.0f;
 static unsigned long savesRequested = 0;
 static unsigned long savesDone = 0;
+static unsigned long savedUpTo =
+    0; // the last ticket a save the disk took covered
 static bool saveInProgress = false;
 
 // An idle checkpoint bounds what a kill can cost, since onStop's save may not run
@@ -157,10 +159,11 @@ bool r47_service_save_and_wait(int timeoutMs) {
   while (!r47_keys_calculator_idle() && graceMs > 0) {
     pthread_mutex_lock(&serviceMutex);
     const bool finished = savesDone >= ticket;
+    const bool saved = savedUpTo >= ticket;
     const bool saving = saveInProgress;
     pthread_mutex_unlock(&serviceMutex);
     if (finished) {
-      return true;
+      return saved;
     }
     if (saving) {
       break;
@@ -178,7 +181,7 @@ bool r47_service_save_and_wait(int timeoutMs) {
       break;
     }
   }
-  const bool saved = savesDone >= ticket;
+  const bool saved = savedUpTo >= ticket;
   pthread_mutex_unlock(&serviceMutex);
   return saved;
 }
@@ -191,18 +194,21 @@ bool r47_services_autosave_enabled(void) {
   return atomic_load(&autosaveEnabled);
 }
 
-static void saveMarked(void) {
+static bool saveMarked(void) {
   pthread_mutex_lock(&serviceMutex);
   saveInProgress = true;
   pthread_mutex_unlock(&serviceMutex);
-  r47_save_settled();
+  const bool saved = r47_save_settled();
   pthread_mutex_lock(&serviceMutex);
   saveInProgress = false;
   pthread_mutex_unlock(&serviceMutex);
+  return saved;
 }
 
-void r47_services_note_saved(void) {
-  inputSinceSave = false;
+// A save the disk refused leaves the work unsaved, and the checkpoint tries again a
+// whole interval later, so a full disk is not written to on every rest.
+void r47_services_note_saved(bool saved) {
+  inputSinceSave = !saved;
   lastSaveMs = sys_current_ms();
 }
 
@@ -240,12 +246,16 @@ bool r47_services_checkpoint(bool hostStopped) {
   return true;
 }
 
-// Mark every save asked for so far as done, after one ran.
-static void completeSaves(unsigned long upTo) {
+// Mark every save asked for so far as done, after one ran, and as saved if the state
+// file took it. A later save the disk takes saves what an earlier refused one asked.
+static void completeSaves(unsigned long upTo, bool saved) {
   pthread_once(&saveCondOnce, initSaveCond);
   pthread_mutex_lock(&serviceMutex);
   if (upTo > savesDone) {
     savesDone = upTo;
+  }
+  if (saved && upTo > savedUpTo) {
+    savedUpTo = upTo;
   }
   pthread_cond_broadcast(&saveCond);
   pthread_mutex_unlock(&serviceMutex);
@@ -261,8 +271,7 @@ void r47_services_save_pending(void) {
   const bool pending = savesDone < ticket && !saveInProgress;
   pthread_mutex_unlock(&serviceMutex);
   if (pending) {
-    saveMarked();
-    completeSaves(ticket);
+    completeSaves(ticket, saveMarked());
     restSaveOwed = true;
   }
 }
@@ -432,8 +441,7 @@ bool r47_services_run(void) {
   // save a run owed.
   if (save) {
     restSaveOwed = false;
-    saveMarked();
-    completeSaves(saveTicket);
+    completeSaves(saveTicket, saveMarked());
     ran = true;
   }
 
