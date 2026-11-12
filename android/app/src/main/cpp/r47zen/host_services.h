@@ -133,6 +133,7 @@ void r47_keys_on_host_stopped(bool stopped);
 void r47_key_push(int code);
 void r47_key_cancel(void);
 void r47_key_push_pc(uint32_t keyval, uint32_t state, bool press);
+void r47_key_cancel_pc(uint32_t keyval);
 void r47_key_release_if_down(void);
 void r47_key_push_quit(void);
 bool r47_keys_calculator_idle(void);
@@ -146,6 +147,7 @@ void r47_key_push_click(const char *data, int button);
 // pc_keyboard.c, the calculator thread: upstream's pcKeyHandle, and whether a key
 // that arrives while the calculator is busy waits for it.
 void r47_pc_key_handle(uint32_t keyval, uint32_t state, bool press, bool busy);
+void r47_pc_key_cancel(uint32_t keyval, bool busy);
 bool r47_pc_key_in_text_entry(void);
 
 #endif // HOST_SERVICES_H

@@ -52,6 +52,9 @@ int register_calculator_engine_natives(JNIEnv *env) {
       {"sendPcKeyNative", "(IIZ)V",
        (void *)
            Java_io_github_ppigazzini_r47zen_CalculatorEngine_sendPcKeyNative},
+      {"cancelPcKeyNative", "(I)V",
+       (void *)
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_cancelPcKeyNative},
       {"graphGestureNative", "(FFF)V",
        (void *)
            Java_io_github_ppigazzini_r47zen_CalculatorEngine_graphGestureNative},

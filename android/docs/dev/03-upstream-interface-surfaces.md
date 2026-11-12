@@ -190,6 +190,13 @@ flowchart LR
   (`src/c47/defines.h`), so a calculator whose `calcModel` is C47 gets GTK's C47
   rows and any other model outside the R47 family (`isR47FAM`), such as DM42,
   none, where the port always runs the R47 rows.
+- `cancelPcKeyNative(keysym)` pushes, into the same FIFO, a Shift or Ctrl up that
+  Android canceled, as it does when focus leaves the window with the key down.
+  `pc_keyboard.c` ends the key as its release does, so no modifier stays held and
+  the next letter keeps its case, but toggles no shift: the key was not let go on
+  purpose. GTK has no such event, since X11 sends no release on a focus-out, and a
+  dropped up would leave Shift held for the next key, so the `f` letter would not
+  shift.
 - `pasteNumberNative(String)` queues the tokens `PasteNumber.kt` writes; a true
   return means queued, and the answer comes through `onPasteResult`. At rest
   `r47_paste_number` resolves each token to its `ITM_*` item, again never a number

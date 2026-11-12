@@ -643,6 +643,47 @@ static void casePcLoneShiftAndCtrlAreTheShifts(void) {
   CHECK(!s.shiftF && s.shiftG, "a lone Ctrl gave f=%d g=%d", s.shiftF, s.shiftG);
 }
 
+static void clearShiftsAtRest(void *arg) {
+  (void)arg;
+  shiftF = false;
+  shiftG = false;
+}
+
+// Android cancels a key's up when focus leaves the window with the key down. A
+// canceled Shift or Ctrl was not let go on purpose: it shifts nothing, the next
+// Shift is f again, and the Shift leaves no case behind: the f letter still shifts,
+// and q in AIM still types Q.
+static void casePcCanceledShiftOrCtrlShiftsNothing(void) {
+  startCalculator();
+  r47_key_push_pc(PC_SHIFT_L, 0, true);
+  r47_key_cancel_pc(PC_SHIFT_L);
+  r47_key_push_pc(PC_CONTROL_L, 0, true);
+  r47_key_cancel_pc(PC_CONTROL_L);
+  state_t s = readState();
+  CHECK(!s.shiftF && !s.shiftG, "a canceled Shift and Ctrl gave f=%d g=%d", s.shiftF,
+        s.shiftG);
+  r47_key_push_pc(PC_SHIFT_L, 0, true);
+  r47_key_push_pc(PC_SHIFT_L, PC_SHIFT_MASK, false);
+  s = readState();
+  CHECK(s.shiftF && !s.shiftG, "a Shift after a canceled one gave f=%d g=%d", s.shiftF,
+        s.shiftG);
+  r47_run_at_rest(clearShiftsAtRest, NULL);
+  r47_key_push_pc(PC_SHIFT_L, 0, true);
+  r47_key_cancel_pc(PC_SHIFT_L);
+  pcTap('f');
+  s = readState();
+  CHECK(s.shiftF && !s.shiftG, "f after a canceled Shift gave f=%d g=%d", s.shiftF,
+        s.shiftG);
+  r47_run_at_rest(clearShiftsAtRest, NULL);
+  r47_run_at_rest(enterAimAtRest, NULL);
+  r47_key_push_pc(PC_SHIFT_L, 0, true);
+  r47_key_cancel_pc(PC_SHIFT_L);
+  pcTap('q');
+  s = readState();
+  CHECK(s.calcMode == CM_AIM, "calcMode=%d", s.calcMode);
+  CHECK(strcmp(s.aim, "Q") == 0, "q after a canceled Shift typed aim=%s", s.aim);
+}
+
 static void setHexBaseAtRest(void *arg) {
   (void)arg;
   lastIntegerBase = 16;
@@ -2606,6 +2647,7 @@ static const testCase_t cases[] = {
     {"a PC key runs in order with the keys", casePcKeyRunsInOrderWithTheKeys},
     {"a PC period is the decimal point", casePcPeriodIsTheDecimalPoint},
     {"a lone PC Shift is f and a lone Ctrl is g", casePcLoneShiftAndCtrlAreTheShifts},
+    {"a canceled PC Shift or Ctrl shifts nothing", casePcCanceledShiftOrCtrlShiftsNothing},
     {"a PC letter in hex entry is a digit", casePcLetterInHexEntryIsADigit},
     {"a PC letter runs its item in USER mode", casePcLetterRunsItsItemInUserMode},
     {"a PC shift then a letter does nothing", casePcShiftThenLetterDoesNothing},
