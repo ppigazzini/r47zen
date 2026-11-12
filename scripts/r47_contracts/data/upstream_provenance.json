@@ -18,7 +18,7 @@
     },
     {
       "path": "src/c47-gtk/hal/lcd.c",
-      "sha256": "3d68099cc0842b9d567e86b3d859dd8bf5435a6ae683fd3a0f864b5e527e1178"
+      "sha256": "85d5efeaa4c3896b1aa13bd649cb6d540e69efb5c05d3f9f238d277814ecdc7f"
     },
     {
       "path": "src/c47/assign.c",
@@ -62,8 +62,8 @@
     }
   ],
   "recorded": {
-    "recorded_on": "2026-11-09",
-    "upstream_commit": "feb4a28130ac0142635e7341fb9e81ce38389bb0",
+    "recorded_on": "2026-11-12",
+    "upstream_commit": "243a24836b33230ee97807f688c7538840dbf84d",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 2

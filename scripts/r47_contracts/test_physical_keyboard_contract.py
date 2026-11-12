@@ -10,6 +10,9 @@ here, each check first failing on a seeded drift:
   unparsed;
 - its keysym table names the items and keysyms of gtkGui.c's `gdkKeyMap`, in order,
   and its `deadKeysMap` equals gtkGui.c's;
+- its Ctrl commands bind the letters gtkGui.c's Ctrl switch binds, to the same
+  calls, but the image copies GTK's own `hal/lcd.c` defines, which the app has no
+  counterpart for and the port's header names;
 - each keysym `PcKeys.kt` sends is one it defines, with the same value;
 - each `GDK_KEY_` value it defines, and each legacy keysym and code point of its
   keysym table, is X11's: a one-character name is that character's code, and the
@@ -74,6 +77,15 @@ _X11_KEYSYM: Final = re.compile(
     re.MULTILINE,
 )
 _LATIN1_END: Final = 0x100
+_GTK_CTRL_START: Final = "Continue with old key detection using event_keyval"
+_GTK_CTRL_CASE: Final = re.compile(r"case\s+(\w+)\s*\+\s*65536\s*:")
+_PORT_CTRL_CASE: Final = re.compile(r"case\s+'(.)'\s*\+\s*65536\s*:")
+_CTRL_CALL: Final = re.compile(r"^\s*(\w+)\((?:NOPARAM)?\);", re.MULTILINE)
+_GTK_LCD: Final = REPO_ROOT / "src" / "c47-gtk" / "hal" / "lcd.c"
+# The Ctrl copies the port leaves out: GTK draws each image in its own hal/lcd.c.
+_CTRL_NOT_PORTED: Final = frozenset(
+    {"copyScreenToClipboard", "copyMenuToClipboard", "copyRegisterXImageToClipboard"},
+)
 _KOTLIN_NOT_KEYSYMS: Final = frozenset({"UNICODE"})
 
 Row = tuple[str, ...]
@@ -238,6 +250,55 @@ def kotlin_mismatches(kotlin: dict[str, int], port: dict[str, int]) -> list[str]
     ]
 
 
+def _ctrl_blocks(body: str, case: re.Pattern[str]) -> dict[str, tuple[str, ...]]:
+    """Return each Ctrl letter's calls, one block of cases per `break;`."""
+    bound: dict[str, tuple[str, ...]] = {}
+    for block in body.split("break;"):
+        keys = case.findall(block)
+        calls = tuple(c for c in _CTRL_CALL.findall(block) if c != "printf")
+        for key in keys:
+            bound[key] = calls
+    return bound
+
+
+def _letter(token: str) -> str:
+    """Return the letter a gtkGui.c case names: `GDK_KEY_H`, or a code such as `83`."""
+    if token.startswith("GDK_KEY_"):
+        return token.removeprefix("GDK_KEY_")
+    return chr(int(token))
+
+
+def gtk_ctrl_commands(text: str) -> dict[str, tuple[str, ...]]:
+    """Return the calls gtkGui.c's Ctrl switch makes, per letter."""
+    start = text.index("switch(event_keyval) {", text.index(_GTK_CTRL_START))
+    body = compiled(text[start : text.index("default:;", start)])
+    return {_letter(k): v for k, v in _ctrl_blocks(body, _GTK_CTRL_CASE).items()}
+
+
+def port_ctrl_commands(text: str) -> dict[str, tuple[str, ...]]:
+    """Return the calls the port's runCtrlCommand makes, per letter."""
+    start = text.index("static void runCtrlCommand(void) {")
+    body = text[start : text.index("\n}\n", start)]
+    return _ctrl_blocks(body, _PORT_CTRL_CASE)
+
+
+def ctrl_drift(
+    gtk: dict[str, tuple[str, ...]],
+    port: dict[str, tuple[str, ...]],
+) -> list[str]:
+    """Return each letter whose calls differ, the image copies left out."""
+    expected = {
+        key: calls
+        for key, calls in gtk.items()
+        if not _CTRL_NOT_PORTED.intersection(calls)
+    }
+    return [
+        f"Ctrl+{key}: port {port.get(key)}, gtkGui.c {expected.get(key)}"
+        for key in sorted(expected.keys() | port.keys())
+        if port.get(key) != expected.get(key)
+    ]
+
+
 def _sources() -> tuple[str, str, str]:
     return (
         _GTK.read_text(encoding="utf-8"),
@@ -320,6 +381,56 @@ class PcKeyboardTextTablesTest(unittest.TestCase):
         seeded[0][1] = seeded[0][2]
         if seeded == expected:
             message = "a seeded dead key drift was not caught"
+            raise AssertionError(message)
+
+
+class PcKeyboardCtrlCommandsTest(unittest.TestCase):
+    """The port's Ctrl commands are gtkGui.c's, but the image copies."""
+
+    def test_each_ctrl_letter_makes_gtks_calls(self) -> None:
+        """Every letter of both switches, and the calls each one makes."""
+        gtk, port, _ = _sources()
+        expected = gtk_ctrl_commands(gtk)
+        found = port_ctrl_commands(port)
+        if not expected or not found:
+            message = "a Ctrl switch parsed empty"
+            raise AssertionError(message)
+        drift = ctrl_drift(expected, found)
+        if drift:
+            raise AssertionError("\n".join(drift))
+        seeded = port_ctrl_commands(
+            port.replace("case 'J' + 65536:", "case 'B' + 65536:", 1),
+        )
+        if not ctrl_drift(expected, seeded):
+            message = "a seeded Ctrl letter drift was not caught"
+            raise AssertionError(message)
+
+    def test_each_copy_left_out_is_gtks_own_and_named(self) -> None:
+        """Each image copy left out is defined in GTK's hal/lcd.c and named."""
+        gtk, port, _ = _sources()
+        lcd = _GTK_LCD.read_text(encoding="utf-8")
+        made = {call for calls in gtk_ctrl_commands(gtk).values() for call in calls}
+        header = port[: port.index("#include")]
+        wrong = [
+            call
+            for call in sorted(_CTRL_NOT_PORTED)
+            if call not in made
+            or not re.search(rf"^void {call}\(void\) \{{", lcd, re.MULTILINE)
+        ]
+        if wrong:
+            message = f"left out but not GTK's own Ctrl image copy: {wrong}"
+            raise AssertionError(message)
+        letters = sorted(
+            key
+            for key, calls in gtk_ctrl_commands(gtk).items()
+            if key.isupper() and _CTRL_NOT_PORTED.intersection(calls)
+        )
+        unnamed = [
+            key for key in letters if f"Ctrl+{key}" not in " ".join(header.split())
+        ]
+        if unnamed:
+            named = ", ".join(f"Ctrl+{key}" for key in unnamed)
+            message = f"pc_keyboard.c's header does not name {named}"
             raise AssertionError(message)
 
 
