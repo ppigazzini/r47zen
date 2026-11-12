@@ -99,6 +99,16 @@ int __wrap_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
   atomic_fetch_add(&timedWaits, 1);
   return __real_pthread_cond_timedwait(cond, mutex, until);
 }
+// Set by a case: the next sleep at rest starts the host from inside its own sleep, after it
+// read whether the host is stopped and before it locks to wait, as onStart can.
+static atomic_bool startHostInsideSleep = false;
+extern void __real_r47_tones_at_rest(void);
+void __wrap_r47_tones_at_rest(void) {
+  __real_r47_tones_at_rest();
+  if (atomic_exchange(&startHostInsideSleep, false)) {
+    r47_keys_on_host_stopped(false);
+  }
+}
 // Bytes the disk still takes, or -1 for no limit. A write that does not fit takes none.
 static atomic_long diskRoom = -1;
 extern size_t __real_fwrite(const void *data, size_t size, size_t count, FILE *file);
@@ -2563,6 +2573,22 @@ static void caseStoppedHostSavesTheRunsEndAtRest(void) {
   r47_keys_on_host_stopped(false);
 }
 
+// The host can start after a sleep read that it was stopped and before it locked to wait:
+// that sleep must still wait for its timers, or the clock and the key timers stall until
+// the next key.
+static void caseHostStartInsideASleepKeepsTheTimers(void) {
+  startCalculator();
+  r47_run_at_rest(armSpareTimerAtRest, NULL);
+  r47_keys_on_host_stopped(true);
+  sleepMs(200);
+  atomic_store(&timedWaits, 0);
+  atomic_store(&startHostInsideSleep, true);
+  r47_keys_wake();
+  sleepMs(300);
+  CHECK(!atomic_load(&startHostInsideSleep), "no sleep at rest ran, so this proves nothing");
+  CHECK(atomic_load(&timedWaits) > 0, "the host started inside a sleep, which then waited with no deadline");
+}
+
 static const testCase_t cases[] = {
     {"a core call off its thread aborts", caseACoreCallOffItsThreadAborts},
     {"the stand-ins agree with GMP", caseTheStandInsAgreeWithGmp},
@@ -2661,6 +2687,7 @@ static const testCase_t cases[] = {
     {"a cancel ends a hold", caseCancelEndsAHold},
     {"a stopping host ends a hold", caseStoppingHostEndsAHold},
     {"parking stops a running timer", caseParkingStopsARunningTimer},
+    {"a host start inside a sleep keeps the timers", caseHostStartInsideASleepKeepsTheTimers},
     {"a save runs inside a timed pause", caseSaveRunsInsideATimedPause},
     {"no save in a pause inside a solver", caseNoSaveInAPauseInsideASolver},
     {"a save keeps a question on screen", caseSaveKeepsAQuestionOnScreen},
