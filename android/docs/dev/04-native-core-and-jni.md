@@ -543,7 +543,7 @@ them; the transfer worker posts `onLost` to it rather than read the host.
 | `calculatorThread`, `calculatorThreadKnown`, debug builds only | `hal/keys.c`; the flag atomic, release and acquire | `r47_keys_init` (calculator); a host tool's `r47_keys_claim_calculator_thread` | `r47_assert_calculator_thread` (any) | the flag's release store |
 | `queue`, `queueHead`, `queueCount` | `host_services.c`, under `serviceMutex` | `enqueue` (any); `r47_services_run` (calculator) | `r47_services_run`, `r47_services_pending` (calculator) | `r47_keys_wake` |
 | merged gesture | `host_services.c`, under `serviceMutex` | `r47_service_graph_gesture` (any); `r47_services_run` (calculator) | `r47_services_run` (calculator) | `r47_keys_wake` |
-| `savesRequested`, `savesDone` | `host_services.c`, under `serviceMutex` | `r47_service_save_and_wait` (main); `completeSaves` (calculator) | both | `r47_keys_wake`, `saveCond` |
+| `savesRequested`, `savesDone`, `savedUpTo` | `host_services.c`, under `serviceMutex` | `r47_service_save_and_wait` (main); `completeSaves` (calculator) | both | `r47_keys_wake`, `saveCond` |
 | `saveInProgress` | `host_services.c`, under `serviceMutex` | `saveMarked` (calculator) | `r47_service_save_and_wait` (main); `r47_services_save_pending` (calculator) | polled through the grace period |
 | `inputSinceSave`, `lastInputMs`, `lastSaveMs` | `host_services.c` | `r47_services_note_input`, `r47_services_note_saved` (calculator) | `r47_services_checkpoint_due_ms` (calculator) | none; `sys_sleep` waits for the deadline |
 | `restSaveOwed` | `host_services.c` | `r47_services_save_pending`, `r47_services_note_saved`, `r47_services_checkpoint` (calculator) | `r47_services_checkpoint_due_ms` (calculator) | none; one thread, and the checkpoint is then due at once |
@@ -639,8 +639,11 @@ whole: `ioFileOpen(ioPathBackup, ioModeWrite)` opens `<file>.tmp` and `ioFileClo
 renames it over the file and syncs the directory. A failed write unlinks the
 temporary copy and reports through `r47_report_file_write_failure()`, and a save that
 cannot start returns `FILE_CANCEL`, because `saveCalc` ends the process on an error.
+Either one is recorded for `r47_save_settled()`, which then counts the save as
+refused: its ticket answers false and the checkpoint tries again.
 `calculator_thread_harness.c` kills a process during saves and fails on a cut file,
-and fails when a refused save or a short write changes the file or ends the process.
+and fails when a refused save or a short write changes the file or ends the process,
+when a refused save answers saved, or when no checkpoint writes the state it lost.
 
 The restore reads it back only after `ioFileOpen(ioPathBackup, ioModeRead)` checks
 the file's structure. Upstream writes `name:type:value` lines, each `hexDump` followed
