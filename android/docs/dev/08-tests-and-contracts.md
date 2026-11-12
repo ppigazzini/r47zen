@@ -312,8 +312,11 @@ shallow, so the local object store holds a single upstream commit and
 `upstream_commit` is a watermark for the snapshot as a whole.
 
 The ledger also records the upstream HAL files the Android HAL follows, which no
-golden derives from: every header in `src/c47/hal/`, and GTK's and the suite's
-`lcd.c` and `io.c`, the simulator HALs that change first in the same merge.
+golden derives from: every header in `src/c47/hal/`, GTK's and the suite's
+`lcd.c` and `io.c`, the simulator HALs that change first in the same merge, and
+GTK's key handler in `gtkGui.c`, which `pc_keyboard.c` ports and whose logic no
+contract holds; `run_upstream_hal_contract.sh` already hashes GTK's `hal/keys.c`
+whole.
 Upstream redefined `BLT_SET` (492298ff) and the `lcd_buffer` polarity (1560394c)
 with every signature unchanged, so a changed hash is the only sign. Each names
 the file under `android/app/src/main/cpp/r47zen/hal/` to re-read and the
