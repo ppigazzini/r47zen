@@ -18,6 +18,7 @@ class NativeFileRequestGateTest {
     private val names = mutableListOf<String?>()
     private val closedFds = mutableListOf<Int>()
     private var nativeWaiting = true
+    private var lost = 0
     private val gate = NativeFileRequestGate(
         post = { posted.addLast(it) },
         findStart = { fileType, isSave ->
@@ -25,12 +26,18 @@ class NativeFileRequestGateTest {
             startFolder(fileType, isSave)
         },
         launch = { isSave, defaultName, start -> launches += Triple(isSave, defaultName, start) },
-        selectNative = { fd, name ->
-            selections += fd
-            names += name
-            nativeWaiting
+        native = object : NativeFileAnswers {
+            override fun select(fd: Int, name: String?): Boolean {
+                selections += fd
+                names += name
+                return nativeWaiting
+            }
+
+            override fun cancel() {
+                cancels++
+            }
         },
-        cancelNative = { cancels++ },
+        onLost = { lost++ },
         closeLateFd = { closedFds += it },
     )
 
@@ -71,9 +78,9 @@ class NativeFileRequestGateTest {
     fun aTransferredDocument_reachesNative() {
         gate.request(isSave = false, defaultName = "", fileType = 1)
         posted.removeFirst().run()
-        gate.beginTransfer()
+        val transfer = gate.beginTransfer()
 
-        gate.deliverSelected(7, "mystate.s47")
+        gate.deliverTransferred(transfer, 7, "mystate.s47")
 
         assertEquals(listOf(7), selections)
         assertEquals(listOf<String?>("mystate.s47"), names)
@@ -85,12 +92,12 @@ class NativeFileRequestGateTest {
     fun stoppingDuringATransfer_cancelsNativeOnce_andClosesTheLateDescriptor() {
         gate.request(isSave = false, defaultName = "", fileType = 1)
         posted.removeFirst().run()
-        gate.beginTransfer()
+        val transfer = gate.beginTransfer()
 
         gate.cancelUnanswered()
         assertEquals(1, cancels)
 
-        gate.deliverSelected(7, null)
+        gate.deliverTransferred(transfer, 7, null)
         assertTrue(selections.isEmpty())
         assertEquals(listOf(7), closedFds)
     }
@@ -99,22 +106,12 @@ class NativeFileRequestGateTest {
     fun stoppingDuringATransfer_aLateFailureCancelsNothingMore() {
         gate.request(isSave = false, defaultName = "", fileType = 1)
         posted.removeFirst().run()
-        gate.beginTransfer()
+        val transfer = gate.beginTransfer()
 
         gate.cancelUnanswered()
-        gate.deliverCanceled()
+        gate.deliverTransferFailed(transfer)
 
         assertEquals(1, cancels)
-    }
-
-    @Test
-    fun aDocumentAnsweredAfterRecreation_stillReachesNative() {
-        // The recreated Activity's gate never launched the picker its answer reaches.
-        gate.beginTransfer()
-
-        gate.deliverSelected(7, null)
-
-        assertEquals(listOf(7), selections)
     }
 
     @Test
@@ -140,14 +137,13 @@ class NativeFileRequestGateTest {
     }
 
     @Test
-    fun answerReachingAGateThatNeverLaunched_stillReachesNative() {
-        // After a recreation the picker answers the new Activity, whose gate
-        // never launched, while the core thread still waits.
+    fun answerToAPickerThisProcessNeverLaunched_stillReachesNative() {
+        // The calculator thread decides whether a request waits: the gate forwards the
+        // answer whatever it saw.
         gate.deliverSelected(7, null)
-        gate.deliverCanceled()
 
         assertEquals(listOf(7), selections)
-        assertEquals(1, cancels)
+        assertTrue(closedFds.isEmpty())
     }
 
     @Test
@@ -158,5 +154,43 @@ class NativeFileRequestGateTest {
         gate.deliverSelected(7, null)
 
         assertEquals(listOf(7), closedFds)
+    }
+
+    // The load's copy arrives on the transfer worker, where no Toast can be made: the
+    // user hears of a lost answer on the main thread, through the gate's post.
+    @Test
+    fun aLostAnswer_tellsTheUserOnlyThroughThePost() {
+        nativeWaiting = false
+        val transfer = gate.beginTransfer()
+
+        gate.deliverTransferred(transfer, 7, null)
+
+        assertEquals(0, lost)
+        assertEquals(listOf(7), closedFds)
+        posted.removeFirst().run()
+        assertEquals(1, lost)
+    }
+
+    // A request abandoned while its copy is in flight is followed by the next one, which
+    // the late copy must not answer with the wrong file.
+    @Test
+    fun aLateCopyOfAnAbandonedRequest_answersNotTheNextOne() {
+        gate.request(isSave = false, defaultName = "", fileType = 1)
+        posted.removeFirst().run()
+        val abandoned = gate.beginTransfer()
+        gate.cancelUnanswered()
+        gate.request(isSave = true, defaultName = "state.s47", fileType = 0)
+        posted.removeFirst().run()
+
+        gate.deliverTransferred(abandoned, 7, null)
+        gate.deliverTransferFailed(abandoned)
+
+        assertTrue(selections.isEmpty())
+        assertEquals(listOf(7), closedFds)
+        assertEquals(1, cancels)
+        assertEquals(0, lost)
+
+        gate.deliverSelected(9, "state.s47")
+        assertEquals(listOf(9), selections)
     }
 }

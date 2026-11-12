@@ -32,9 +32,11 @@ internal class CalculatorHostSlot<H : Any> {
         if (current === host) {
             current = null
         }
-        if (recreating && pickerOwner === host) {
+        // The slot outlives every Activity, so one it still named would stay reachable,
+        // its views with it, until the next picker.
+        if (pickerOwner === host) {
             pickerOwner = null
-            pickerWaitsForRecreatedOwner = true
+            pickerWaitsForRecreatedOwner = recreating
         }
     }
 
