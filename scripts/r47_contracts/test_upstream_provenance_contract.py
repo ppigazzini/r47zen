@@ -223,6 +223,12 @@ class HalInputTest(unittest.TestCase):
                     message = f"{simulator}/{name} is not watched"
                     raise AssertionError(message)
 
+    def test_the_gtk_key_handler_the_port_follows_is_watched(self) -> None:
+        """pc_keyboard.c ports GTK's key handler, whose logic no contract holds."""
+        if "src/c47-gtk/gtkGui.c" not in hal_surfaces():
+            message = "src/c47-gtk/gtkGui.c is not watched"
+            raise AssertionError(message)
+
     def test_each_names_android_hal_code_and_a_guard_that_exist(self) -> None:
         """A move names the Android file to re-read and the contract that holds it."""
         for path, surfaces in hal_surfaces().items():
