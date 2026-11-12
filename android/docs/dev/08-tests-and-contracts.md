@@ -588,8 +588,10 @@ source is missing from this page:
   from the calling thread, even past the join fence; that a host attaching
   while the core thread exits gets a fresh core thread; that a stopped host
   parks the loop, which still runs tasks but does not tick, until the host
-  starts; and that an `Error` on the core thread stops the runtime as an
-  exception does
+  starts, and only the last window to stop parks it; that a window closed beside
+  another keeps the core running and hands that one the host, while a factory reset
+  stops the core even so; and that an `Error` on the core thread stops the runtime
+  as an exception does
 - `NativeDisplayRefreshLoopTest.kt`: locks packed-display generation gating,
   unchanged-frame skip behavior, keypad-generation retry-after-busy-copy,
   cached-snapshot reuse, no-synthetic-empty refresh behavior, that a copy which

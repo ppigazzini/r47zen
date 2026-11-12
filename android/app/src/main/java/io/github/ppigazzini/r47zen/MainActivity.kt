@@ -238,7 +238,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun handleFactoryResetRequested() {
-        coreRuntime.dispose(stopApp = true)
+        coreRuntime.dispose(stopApp = true, evenBesideAnotherWindow = true)
         AudioEngine.stop()
     }
 
@@ -489,12 +489,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 nativeFileRequestGate.cancelUnanswered()
             }
         }
-        if (::coreRuntime.isInitialized) {
-            coreRuntime.dispose(stopApp = shouldStopApp)
+        // A window finishing beside another leaves the core and the audio to that one.
+        val appStopped = if (::coreRuntime.isInitialized) {
+            coreRuntime.dispose(stopApp = shouldStopApp, evenBesideAnotherWindow = resetInProgress)
+        } else {
+            shouldStopApp
         }
         appPreferences.unregisterOnSharedPreferenceChangeListener(this)
         if (::factoryResetController.isInitialized) {
-            factoryResetController.handleDestroy(shouldStopApp)
+            factoryResetController.handleDestroy(appStopped)
         }
         super.onDestroy()
     }

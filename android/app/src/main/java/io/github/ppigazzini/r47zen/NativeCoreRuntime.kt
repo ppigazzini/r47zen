@@ -91,6 +91,13 @@ internal class NativeCoreRuntime(
         @Volatile
         private var isHostStopped = false
 
+        // Two windows can run side by side, on a large screen or in desktop windowing,
+        // and Android starts the Activity coming back before it stops the one leaving.
+        // So the core parks only when no window is started, and stops only when the last
+        // live one finishes. The main thread only.
+        private var startedHosts = 0
+        private val liveRuntimes = mutableListOf<NativeCoreRuntime>()
+
         // Orders attach() against the core thread's exit, so a host that
         // attaches while the thread is leaving its loop either finds it running
         // or gets a fresh one from it, never neither.
@@ -109,13 +116,19 @@ internal class NativeCoreRuntime(
 
         fun isAppRunning(): Boolean = isAppRunningShared
 
-        // The calculator host is invisible; let the core thread stop ticking.
+        // A window stopped; with none left started, let the core thread stop ticking.
         fun onHostStopped() {
-            isHostStopped = true
+            if (startedHosts > 0) {
+                startedHosts--
+            }
+            if (startedHosts == 0) {
+                isHostStopped = true
+            }
         }
 
-        // The calculator host is visible again; wake a parked core thread.
+        // A window started, so the calculator is visible; wake a parked core thread.
         fun onHostStarted() {
+            startedHosts++
             isHostStopped = false
             coreTasks.offer(Runnable {})
         }
@@ -143,6 +156,8 @@ internal class NativeCoreRuntime(
             isAppRunningShared = false
             isNativeInitializedShared = false
             isHostStopped = false
+            startedHosts = 0
+            liveRuntimes.clear()
             activeRuntime = null
         }
 
@@ -257,6 +272,8 @@ internal class NativeCoreRuntime(
 
     fun attach() {
         synchronized(lifecycleLock) {
+            liveRuntimes.remove(this)
+            liveRuntimes.add(this)
             activeRuntime = this
             isAppRunningShared = true
             startOrAttachCoreThread()
@@ -264,8 +281,23 @@ internal class NativeCoreRuntime(
         displayRefreshLoop.start()
     }
 
-    fun dispose(stopApp: Boolean) {
+    /**
+     * The Activity is destroyed. [stopApp], when it finishes, stops the core thread unless
+     * another window lives, which then gets the host if this one had it; a factory reset
+     * stops it [evenBesideAnotherWindow]. True when the core thread was stopped.
+     */
+    fun dispose(stopApp: Boolean, evenBesideAnotherWindow: Boolean = false): Boolean {
         displayRefreshLoop.stop()
+        val otherWindow = synchronized(lifecycleLock) {
+            liveRuntimes.remove(this)
+            liveRuntimes.lastOrNull()
+        }
+        if (stopApp && otherWindow != null && !evenBesideAnotherWindow) {
+            if (activeRuntime === this) {
+                otherWindow.attach()
+            }
+            return false
+        }
         if (stopApp) {
             isAppRunningShared = false
             // Wake the core thread so it observes the stop. Do NOT clear the
@@ -285,6 +317,7 @@ internal class NativeCoreRuntime(
                 activeRuntime = null
             }
         }
+        return stopApp
     }
 
     fun offerTask(task: Runnable) {

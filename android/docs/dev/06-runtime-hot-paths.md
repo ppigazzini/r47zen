@@ -54,8 +54,8 @@ flowchart LR
 - The thread body, `runCoreLoop()` in the companion, does three things in
   order: drain queued work, call `tick()`, then wait on `coreTasks.poll(...)`
   for the returned delay.
-- While no host is visible (`MainActivity.onStop` to `onStart`), the loop
-  parks: it drains tasks and waits up to a minute for the next one, and calls
+- While no host is visible (`MainActivity.onStop` to `onStart`, counted over every
+  window), the loop parks: it drains tasks and waits up to a minute for the next one, and calls
   no `tick()`. Upstream's timers are deadlines against the clock, so the first
   tick after `onStart` fires every one that came due. A running program never
   parks, because it runs inside a task. Before the park the loop wakes about
@@ -63,7 +63,9 @@ flowchart LR
 - `saveStateOnPause(...)` is also routed through this queue and waits on a
   `CountDownLatch`, which means blocking or slow native save work is visible at
   the activity lifecycle boundary.
-- `dispose(stopApp = true)` keeps the queue, so a pending save still runs, and
+- `dispose(stopApp = true)` stops nothing while another window lives, unless a
+  factory reset asks it to (`evenBesideAnotherWindow`), and hands that window the host.
+  When it does stop the core, it keeps the queue, so a pending save still runs, and
   offers a sentinel runnable so a blocked or parked wait wakes promptly. The
   thread drains the queue on its way out, and releases the native activity
   globals there when no host is attached

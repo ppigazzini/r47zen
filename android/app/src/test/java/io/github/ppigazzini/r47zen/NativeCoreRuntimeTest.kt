@@ -390,6 +390,88 @@ class NativeCoreRuntimeTest {
         waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
     }
 
+    // Two windows side by side, on a large screen or in desktop windowing: the one
+    // closed is stopped, then destroyed finishing, while the other stays on screen.
+    @Test
+    fun aWindowClosedBesideAnother_keepsTheCoreRunning_andHandsItTheHost() {
+        val initLatch = CountDownLatch(1)
+        val firstRefUpdates = AtomicInteger(0)
+        val firstTicks = AtomicInteger(0)
+        val first = createRuntime(
+            onInit = { initLatch.countDown() },
+            onUpdateActivityRef = { firstRefUpdates.incrementAndGet() },
+            tickOverride = {
+                firstTicks.incrementAndGet()
+                5
+            },
+        )
+        first.attach()
+        NativeCoreRuntime.onHostStarted()
+        assertTrue(initLatch.await(2, TimeUnit.SECONDS))
+        val secondRefUpdated = CountDownLatch(1)
+        val second = createRuntime(onUpdateActivityRef = { secondRefUpdated.countDown() })
+        second.attach()
+        NativeCoreRuntime.onHostStarted()
+        assertTrue(secondRefUpdated.await(2, TimeUnit.SECONDS))
+
+        NativeCoreRuntime.onHostStopped()
+        assertFalse("the app stopped beside a live window", second.dispose(stopApp = true))
+
+        assertTrue(NativeCoreRuntime.isAppRunning())
+        waitUntil("the first window is the host again", 2_000) { firstRefUpdates.get() == 1 }
+        val ticksBefore = firstTicks.get()
+        waitUntil("the core ticks for the first window", 2_000) { firstTicks.get() > ticksBefore }
+
+        assertTrue(first.dispose(stopApp = true))
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
+    }
+
+    @Test
+    fun onlyTheLastWindowToStop_parksTheCoreThread() {
+        val initLatch = CountDownLatch(1)
+        val ticks = AtomicInteger(0)
+        val runtime = createRuntime(
+            onInit = { initLatch.countDown() },
+            tickOverride = {
+                ticks.incrementAndGet()
+                5
+            },
+        )
+        runtime.attach()
+        NativeCoreRuntime.onHostStarted()
+        NativeCoreRuntime.onHostStarted()
+        assertTrue(initLatch.await(2, TimeUnit.SECONDS))
+
+        NativeCoreRuntime.onHostStopped()
+        roundTrip(runtime)
+        val ticksAfterFirstStop = ticks.get()
+        waitUntil("a window still in front keeps the ticks", 2_000) { ticks.get() > ticksAfterFirstStop }
+
+        NativeCoreRuntime.onHostStopped()
+        roundTrip(runtime)
+        val parkedTicks = ticks.get()
+        roundTrip(runtime)
+        roundTrip(runtime)
+        assertEquals("the last window's stop parks the core thread", parkedTicks, ticks.get())
+
+        runtime.dispose(stopApp = true)
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
+    }
+
+    @Test
+    fun aFactoryReset_stopsTheCore_evenBesideAnotherWindow() {
+        val initLatch = CountDownLatch(1)
+        val first = createRuntime(onInit = { initLatch.countDown() })
+        first.attach()
+        assertTrue(initLatch.await(2, TimeUnit.SECONDS))
+        val second = createRuntime()
+        second.attach()
+
+        assertTrue(second.dispose(stopApp = true, evenBesideAnotherWindow = true))
+        waitUntil("core thread stop", 2_000) { !NativeCoreRuntime.isCoreThreadRunning() }
+        assertFalse(NativeCoreRuntime.isAppRunning())
+    }
+
     @Test
     fun coreThreadError_stopsTheRuntimeLikeAnException() {
         val initLatch = CountDownLatch(1)

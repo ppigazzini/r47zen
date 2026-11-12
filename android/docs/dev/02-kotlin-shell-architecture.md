@@ -180,7 +180,11 @@ callbacks.
 - `onStart()` and `onStop()` tell `NativeCoreRuntime` whether the calculator is
   visible. While it is not, the core thread parks: it still runs every queued
   task, including the background save, but stops the 5 ms tick. A running
-  program is unaffected, because it runs inside a task.
+  program is unaffected, because it runs inside a task. `MainActivity` is resizeable
+  and of the standard launch mode, so on a large screen or in desktop windowing two
+  windows can run side by side, and Android starts the Activity coming back before
+  it stops the one leaving: the runtime counts the windows started and parks only
+  when none is.
   `onStop()` first hands `DataFolderMirror` its copy of the core's prints and
   unnamed captures, to run on that class's own worker.
 - `onResume()` lets the overlay-side resume path run without forcing a native
@@ -194,7 +198,9 @@ callbacks.
 - `onDestroy()` cancels a native file request whose posted launch it just
   dropped (`NativeFileRequestGate`), and, when the activity is finishing, also
   a launched picker that has not answered, since its result will never arrive.
-  It stops the shared runtime when the activity is actually finishing, never
+  It stops the shared runtime when the activity is actually finishing and no other
+  window lives; one that does gets the host, if the finishing one had it, and keeps
+  the audio. It never
   touches the native activity globals (the core thread releases them), and on
   the factory-reset path clears internal app data
   only once the core thread has stopped. A reset first stops a running program
