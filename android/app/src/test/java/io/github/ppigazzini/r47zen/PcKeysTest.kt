@@ -48,6 +48,8 @@ class PcKeysTest {
         assertEquals(0xff95, translate(KeyEvent.KEYCODE_NUMPAD_7)?.keysym)
         val shiftWithNumLock = KeyEvent.META_NUM_LOCK_ON or KeyEvent.META_SHIFT_ON
         assertEquals(0xff95, translate(KeyEvent.KEYCODE_NUMPAD_7, shiftWithNumLock)?.keysym)
+        // X11's keypad rule: Shift inverts NumLock both ways, so with NumLock off it gives KP_7.
+        assertEquals(0xffb7, translate(KeyEvent.KEYCODE_NUMPAD_7, KeyEvent.META_SHIFT_ON)?.keysym)
         assertEquals(0xff9f, translate(KeyEvent.KEYCODE_NUMPAD_DOT)?.keysym)
         assertEquals(0xffab, translate(KeyEvent.KEYCODE_NUMPAD_ADD)?.keysym)
     }

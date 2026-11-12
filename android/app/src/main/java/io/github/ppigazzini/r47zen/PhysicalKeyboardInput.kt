@@ -171,7 +171,7 @@ internal object PcKeys {
 
     private fun eventKeysym(event: KeyEvent): Int? {
         val keypadDigit = event.keyCode - KeyEvent.KEYCODE_NUMPAD_0
-        val keypadDigits = event.isNumLockOn && !event.isShiftPressed
+        val keypadDigits = event.isNumLockOn != event.isShiftPressed
         return when {
             event.keyCode in keyCodeKeysyms -> keyCodeKeysyms.getValue(event.keyCode)
             keypadDigit in keypadMoves.indices ->

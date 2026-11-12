@@ -561,7 +561,8 @@ source is missing from this page:
   dynamic full labels
 - `PcKeysTest.kt`: locks the Android key event to X11 translation: a letter and
   its shift, Ctrl's bit with the keysym kept, the special and function keys, the
-  keypad with and without NumLock, a modifier's own bit on its release only, the
+  keypad with and without NumLock, Shift turning either way, a modifier's own bit
+  on its release only, the
   Unicode and dead keysyms, keys left to Android, and that the controller sends
   each press and release
 - `KeySpeechTest.kt`: every label of every exported keypad scene is spoken in
