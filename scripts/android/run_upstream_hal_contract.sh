@@ -109,7 +109,7 @@ c47/c47Extensions/addons.c exitKeyWaiting 8030d46ce0e4b368
 c47/c47Extensions/addons.c C47PopKeyNoBuffer 43adde9ef6b15ead
 c47/c47Extensions/keyboardTweak.c emptyKeyBuffer 43fb990d79bd524a
 c47/c47Extensions/keyboardTweak.c keyBuffer_pop 6479ead70ef827a9
-c47/programming/lblGtoXeq.c runProgram c63da3b067a85133
+c47/programming/lblGtoXeq.c runProgram ca641aea3dfced04
 c47/programming/input.c goToSleepForMs c2879fb3431f8f1d
 c47/programming/input.c fnPause 094a7959d4c9f5ef
 c47/calcMode.c fnOff 6c1a7f7e7332686c'
