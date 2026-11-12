@@ -7,8 +7,8 @@
 // the only lane where that rule meets a data-race adversary.
 //
 // Two phases. The startup phase races the UI entry points against the calculator's
-// own init: MainActivity posts a keypad refresh after first layout, while the thread
-// is still initializing. The steady-state phase races a producer, pushing keys and
+// own init: MainActivity posts a keypad refresh after first layout, and onStart
+// starts the host, while the thread is still initializing. The steady-state phase races a producer, pushing keys and
 // requests as the UI does, against a consumer reading the way the display loop does.
 // A race here is a hard failure, because no lock serializes the core any more.
 #include "jni_bridge.h"
@@ -87,7 +87,9 @@ static void consumer_read_packed_display(void) {
   g_consumer_sink ^= acc;
 }
 
-// Startup phase: the UI side is live before r47_init_runtime returns.
+// Startup phase: the UI side is live before r47_init_runtime returns. onStart tells
+// the calculator the host started, which wakes it through keyCond, and it can do so
+// before the calculator thread has run a line.
 static void *startup_reader_main(void *arg) {
   (void)arg;
   static int32_t meta[R47_KEYPAD_META_LENGTH];
@@ -96,6 +98,7 @@ static void *startup_reader_main(void *arg) {
   long spins = 0;
   long copies = 0;
   while (!atomic_load_explicit(&g_init_done, memory_order_relaxed)) {
+    r47_keys_on_host_stopped(false);
     if (r47_try_copy_app_keypad_snapshot(meta, labels, 0)) {
       g_consumer_sink ^= (uint32_t)meta[R47_KEYPAD_META_CALC_MODE];
       copies++;

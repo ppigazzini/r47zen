@@ -1203,8 +1203,9 @@ Android compatibility layer.
   `r47_calculator_main` on a thread of its own. A startup phase runs the UI entry
   points -- the keypad copy through `r47_try_copy_app_keypad_snapshot` and the
   packed-display copy through `r47_try_take_packed_display`, the native half of
-  `getPackedDisplayBuffer` -- while init runs, which is what locks the
-  `r47_runtime_ready()` gate. A steady-state phase then has a producer thread push keys
+  `getPackedDisplayBuffer` -- and `onStart`'s host start, which broadcasts
+  `keyCond`, while init runs, which is what locks the `r47_runtime_ready()` gate
+  and `keyCond`'s one-time init. A steady-state phase then has a producer thread push keys
   and service requests, a PC key, a gesture, a copy, and a save, while a consumer
   thread samples the generations and takes both copies. A data race or lock-order
   inversion in the Android-owned bridge is the hard gate and aborts the run, and no lock

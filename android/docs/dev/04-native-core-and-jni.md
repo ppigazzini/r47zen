@@ -361,6 +361,9 @@ on it, but neither looks for a race.
 
 - `keyMutex` in `hal/keys.c` guards the FIFO, the pressed-key state, and the timers.
   `keyCond`, on `CLOCK_MONOTONIC`, wakes `sys_sleep` and `wait_for_key_release`.
+  `onStart` or a key can broadcast it before the calculator thread runs
+  `r47_keys_init`, so it is initialized once, through `pthread_once`, before its
+  first use on any thread.
 - `serviceMutex` in `host_services.c` guards the queue, the merged gesture, and the
   save tickets, and `saveCond` wakes `r47_service_save_and_wait`. `sys_sleep` takes
   `serviceMutex` under `keyMutex`, and no path takes them the other way, because a
