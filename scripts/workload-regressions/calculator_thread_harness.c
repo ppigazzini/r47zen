@@ -280,6 +280,12 @@ static void startSlowFactors(void) {
   waitUntilBusy();
 }
 
+// A stopped FACTORS leaves its input in X; one that ran to the end leaves the factors
+// there, so a stop that did nothing cannot pass as one that stopped it.
+static void checkFactorsStopped(const state_t *s, const char *stop) {
+  CHECK(strstr(s->x, SLOW_SEMIPRIME) != NULL, "%s did not stop FACTORS: X=%s", stop, s->x);
+}
+
 static void copyFile(const char *from, const char *to) {
   FILE *in = fopen(from, "rb");
   FILE *out = fopen(to, "wb");
@@ -449,6 +455,7 @@ static void caseExitStopsAComputation(void) {
   state_t s = readState();
   CHECK(nowMs() - start < 2000, "EXIT took %d ms", (int)(nowMs() - start));
   CHECK(s.calcMode == CM_NORMAL, "calcMode=%d", s.calcMode);
+  checkFactorsStopped(&s, "EXIT");
   setStack(0, 0, 3, 4);
   tap(KEY_PLUS);
   s = readState();
@@ -466,6 +473,7 @@ static void caseRunStopStopsAComputationAndRunsNothing(void) {
   state_t s = readState();
   CHECK(s.step == stepBefore, "R/S ran a program: step %d to %d", stepBefore, s.step);
   CHECK(s.runStop != PGM_RUNNING, "a program is running");
+  checkFactorsStopped(&s, "R/S");
 }
 
 static void assertLoopStopsOn(int key) {
@@ -813,6 +821,7 @@ static void casePcKeyDuringAComputationOnlyPushesKeys(void) {
   CHECK(nowMs() - start < 2000, "Escape took %d ms", (int)(nowMs() - start));
   CHECK(s.calcMode == CM_NORMAL && s.lastError == 0, "calcMode=%d lastError=%d", s.calcMode,
         s.lastError);
+  checkFactorsStopped(&s, "Escape");
 }
 
 static atomic_bool releaseWaitEnded;
