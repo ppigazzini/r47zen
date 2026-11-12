@@ -13,6 +13,10 @@
       "sha256": "08a1d17020b44e23e55ef892cb423ab2349d4491795d88d5673de4375cf46ca6"
     },
     {
+      "path": "src/c47-gtk/gtkGui.c",
+      "sha256": "59264fab259d409b42c40551a5b790600b11bee2491f0cb9d5b4c8e4b4c5f154"
+    },
+    {
       "path": "src/c47-gtk/hal/io.c",
       "sha256": "54ae24dcb625d04b235bc98a730e7928000b6f8d81b964ad64bc679bd4f73d56"
     },

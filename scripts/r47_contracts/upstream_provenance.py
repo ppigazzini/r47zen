@@ -195,7 +195,9 @@ _TEST_MODULE_SUFFIX: Final = ".py"
 # The upstream HAL files the Android HAL follows, which no golden derives from:
 # upstream redefined BLT_SET (492298ff) and the lcd_buffer polarity (1560394c)
 # with every signature unchanged, and a changed hash is the only thing that says
-# such a file moved. Each lists the Android code to re-read, then the contract
+# such a file moved. GTK's key handler in gtkGui.c is here too: pc_keyboard.c ports
+# it, and the keyboard contract holds only its data. Each lists the Android code to
+# re-read, then the contract
 # or harness that holds what it follows. A move here is never cleared by
 # --record-if-unaffected: it needs a reader.
 _ANDROID_HAL: Final = "android/app/src/main/cpp/r47zen/hal/"
@@ -217,6 +219,12 @@ _HAL_SURFACES: Final[dict[str, tuple[str, ...]]] = {
     "src/c47/hal/print_ir.h": (f"{_ANDROID_HAL}print_ir.c", _HAL_HARNESS),
     "src/c47-gtk/hal/io.c": _HAL_IO,
     "src/c47-gtk/hal/lcd.c": _HAL_LCD,
+    "src/c47-gtk/gtkGui.c": (
+        f"{_ANDROID_HAL}keys.c",
+        "android/app/src/main/cpp/r47zen/pc_keyboard.c",
+        "scripts/r47_contracts/test_physical_keyboard_contract.py",
+        _HAL_HARNESS,
+    ),
     "src/testSuite/hal/io.c": _HAL_IO,
     "src/testSuite/hal/lcd.c": _HAL_LCD,
 }
