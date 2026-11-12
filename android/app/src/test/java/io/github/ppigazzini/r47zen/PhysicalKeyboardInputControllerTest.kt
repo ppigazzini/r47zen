@@ -55,8 +55,34 @@ class PhysicalKeyboardInputControllerTest {
         assertEquals(emptyList<Pair<String, Boolean>>(), sent)
     }
 
+    // Android cancels a key's up when focus leaves the window, for a dialog, the main
+    // menu, or another app: the key was not let go on purpose.
+    @Test
+    fun aCanceledShiftOrCtrlUp_shiftsNothing() {
+        for (code in listOf(KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_CTRL_LEFT)) {
+            assertTrue(controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, code)))
+            assertTrue(controller.onKeyEvent(canceledUp(code)))
+        }
+
+        assertEquals(emptyList<Pair<String, Boolean>>(), sent)
+    }
+
+    @Test
+    fun aCanceledShiftUp_leavesTheNextShiftWorking() {
+        controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT))
+        controller.onKeyEvent(canceledUp(KeyEvent.KEYCODE_SHIFT_LEFT))
+        controller.onKeyEvent(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT))
+        controller.onKeyEvent(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SHIFT_LEFT))
+
+        assertEquals(listOf(SimKeyIds.F_SHIFT to false, SimKeyIds.F_SHIFT to true), sent)
+    }
+
     private fun key(action: Int, code: Int, meta: Int = 0, repeat: Int = 0): KeyEvent {
         return KeyEvent(0L, 0L, action, code, repeat, meta)
+    }
+
+    private fun canceledUp(code: Int): KeyEvent {
+        return KeyEvent(0L, 0L, KeyEvent.ACTION_UP, code, 0, 0, 0, 0, KeyEvent.FLAG_CANCELED)
     }
 
     private companion object {

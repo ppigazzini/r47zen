@@ -35,6 +35,12 @@ internal class PhysicalKeyboardInputController(
                 true
             }
             event.action == KeyEvent.ACTION_DOWN -> onKeyDown(event.keyCode, event)
+            event.action == KeyEvent.ACTION_UP && event.isCanceled && isShiftOrCtrl(event.keyCode) -> {
+                // Focus left with the key down, so it was not let go on purpose: forget it
+                // and shift nothing. Any other key still sends its release.
+                forgetModifier(event.keyCode)
+                true
+            }
             event.action == KeyEvent.ACTION_UP -> onKeyUp(event.keyCode)
             else -> false
         }
@@ -134,6 +140,20 @@ internal class PhysicalKeyboardInputController(
             sendSimKeyNative(id, false, true)
         })
     }
+
+    private fun forgetModifier(keyCode: Int) {
+        if (isShift(keyCode)) {
+            isPhysicalShiftHeld = false
+        } else {
+            isPhysicalCtrlHeld = false
+        }
+    }
+
+    private fun isShift(keyCode: Int): Boolean =
+        keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT
+
+    private fun isShiftOrCtrl(keyCode: Int): Boolean =
+        isShift(keyCode) || keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
 
     private fun isPasteChord(event: KeyEvent): Boolean {
         return event.action == KeyEvent.ACTION_DOWN &&

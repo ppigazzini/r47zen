@@ -281,7 +281,9 @@ never upstream item numbers: `items.h` renumbers between upstream revisions, so
 
 Two physical keys reach the app's own menu, which GTK has no counterpart of:
 Ctrl+V runs `Paste Number` in place of the V key, so a Ctrl so used shifts
-nothing on its release, and the keyboard's Menu key opens the main menu.
+nothing on its release, and the keyboard's Menu key opens the main menu. A Shift
+or Ctrl whose up Android cancels, as it does when focus leaves the window, shifts
+nothing either: it was not let go on purpose.
 
 `Paste Number` enters one real or complex number, or refuses the clip whole, since
 a number typed from part of a clip is a wrong number on the stack. `PasteNumber.kt`

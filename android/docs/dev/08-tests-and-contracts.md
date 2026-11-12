@@ -564,7 +564,9 @@ source is missing from this page:
   live region; the text replaces its label and an error is the node's error; a
   burst of frames asks once after `DISPLAY_DESCRIPTION_SETTLE_MS` and nothing
   without an accessibility service; a keypad rebuild keeps the node
-- `PhysicalKeyboardInputControllerTest.kt`: Ctrl+V pastes once per press, not
+- `PhysicalKeyboardInputControllerTest.kt`: a Shift or Ctrl whose up Android
+  cancels, as it does when focus leaves, shifts nothing, and the next Shift still
+  works; Ctrl+V pastes once per press, not
   on a repeat or with Shift or Alt, sends no key, and its Ctrl release shifts
   nothing; the Menu key opens the main menu on its release and sends nothing
 - `ReplicaOverlayPointerInputTest.kt`: a right click on a key presses nothing
