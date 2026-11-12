@@ -259,12 +259,15 @@ runs. What each one locks:
   `gtkGui.c` chain it copies, so the `RASPBERRY` rows are not among them, and a call
   left unparsed or a conditional it does not know fails; its keysym table names
   `gdkKeyMap`'s items and keysyms in order, and its `deadKeysMap` is `gtkGui.c`'s;
+  its Ctrl commands bind the letters `gtkGui.c`'s Ctrl switch binds, to the same
+  calls, but the screen, menu, and X register images, which must stay defined in
+  GTK's own `hal/lcd.c` and named in the port's header;
   every keysym `PcKeys` sends is one it defines, with the same value; and every
   keysym it defines, and its table's legacy keysyms and code points, are X11's, by
   the character for a one-character name and against `/usr/include/X11/keysymdef.h`
   on a host that has it. CI's runner has not, so there the table's values are
   reported skipped. Each check fails first on a seed. The handler's logic is not held
-  here; the PC cases of `calculator_thread_harness.c` run it
+  here; the PC cases of `calculator_thread_harness.c` run it.
 - `test_robolectric_sdk_owner_contract.py`: no `robolectric.properties` sets
   `sdk`, `minSdk`, or `maxSdk`, and no JVM test `@Config` does but
   `ApiLevelArmsTest.kt`, whose levels must lie from
