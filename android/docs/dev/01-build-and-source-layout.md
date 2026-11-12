@@ -490,8 +490,9 @@ Public maintainer entry points:
   repo treats it as a bounded interrupt contract rather than a completion
   contract.
   Both the host and Android-owned lanes must let it show post-load activity,
-  then stop on a pushed `R/S` inside a maintained budget and require a clean
-  stop verdict without calculator error.
+  then stop on a pushed `R/S` inside a maintained budget, and require that it
+  ends with no calculator error but "Solver abort" (`ERROR_SOLVER_ABORT`), which
+  their own `R/S` raises when it lands inside the solver.
 - `make sim` is the canonical root simulator and generator validation path for
   the upstream-shaped desktop lane. Android full builds drive the same
   `build.sim` Meson/Ninja targets through `scripts/android/build_sim_assets.sh`

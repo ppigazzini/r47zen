@@ -240,7 +240,10 @@ up-calls.
   `FactoryResetController.handleDestroy(...)` then clears internal app data and ends
   the process, whether or not the thread returned: a program that never polls cannot
   save into the wiped directory, and the alarm's relaunch starts with every native
-  static fresh (`FactoryResetControllerTest`).
+  static fresh. `FactoryResetControllerTest` holds the wipe and the end of the
+  process on the controller alone, with no calculator thread, and the calculator
+  thread harness holds that a stop with no save ends a computation and writes
+  nothing; no test wipes with the thread still running.
 - `onPictureInPictureModeChanged()` routes PiP state through
   `ReplicaOverlayController`, which switches the overlay between normal shell
   mode and PiP mode and treats PiP exit as a geometry-replay boundary for the
@@ -426,10 +429,14 @@ instead of Android focus search on keypad descendants.
   another version
 - deleting the preferences does not end a grant, so a factory reset also releases
   every persisted grant through `FactoryResetController`
-- manifest backup rules intentionally exclude the retired `R47Slots` and the preferences file
-  holding the work-directory and saved-manual URIs because SAF grants
-  are device-specific, and the state file's temporary copy; general shell
-  preferences remain migratable
+- `android/app/src/main/res/xml/backup_rules.xml` and, for cloud backup and device
+  transfer alike, `android/app/src/main/res/xml/data_extraction_rules.xml` exclude
+  the same files: `R47WorkDirPrefs.xml`, the work-directory and saved-manual URIs,
+  because a SAF grant is device-specific; the retired `R47Slots.xml`; the state
+  file's temporary copy, `backupR47.cfg.tmp`, and its restore marker,
+  `backupR47.cfg.restoring`; and `DATA` with `R47DataFolderMirror.xml`, its record
+  of copies (above). The state file and the other preferences go into a backup. No
+  test holds the two files to each other
 
 ## Current platform shape
 

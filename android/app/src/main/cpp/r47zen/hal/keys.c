@@ -2,7 +2,8 @@
 // upstream's src/c47-gtk/hal/keys.c. The calculator code runs on one thread of
 // its own, as it does on the hardware. Every other thread only pushes here, and
 // the calculator thread takes each key in the main loop or in a long operation,
-// and waits in sys_sleep for a key, a timer, a service request, or the minute.
+// and waits in sys_sleep for a key, a timer, a service request, a change of host
+// visibility, the minute, or a due checkpoint.
 #include "c47.h"
 #include "host_services.h"
 #include "jni_bridge.h"
@@ -181,7 +182,8 @@ void r47_key_push_pc(uint32_t keyval, uint32_t state, bool press) {
   pushHostLocked(press ? hostPcKeyPress : hostPcKeyRelease, keyval, state);
   // A press a busy calculator took from a PC key is waited for in
   // wait_for_key_release, which this release's host event, queued behind the wait,
-  // cannot end, so its arrival does. Upstream's keyPushPcEvent leaves the flag set.
+  // cannot end, so its arrival does. Any PC key's release ends it: the press keeps no
+  // keysym. Upstream's keyPushPcEvent leaves the flag set.
   if (!press && pcPressPushed) {
     pushedKeyDown = false;
     pcPressPushed = false;
@@ -515,8 +517,8 @@ static void saveIfInPause(void) {
 }
 
 // A stopped host can be frozen or killed before the calculator rests again, so a save it
-// asked for runs at the next poll of a computation or a running program, as 0.2.0's pump
-// saved there; with the host in front it waits for rest. The image then holds the run,
+// asked for runs at the next poll of a computation or a running program; with the host
+// in front it waits for rest or a pause that can save. The image then holds the run,
 // which a restore clears, and the blocks the computation held, which stay allocated
 // until RESET. Not while the core has a file open, since the HAL holds one and a save
 // opens its own, and not before the start's restore is done.

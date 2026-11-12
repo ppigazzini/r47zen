@@ -38,10 +38,12 @@ internal interface CalculatorHost {
 /**
  * The calculator: upstream's main loop on a thread of its own, for the life of the process.
  *
- * Only that thread runs core code. Every external below pushes a key or a request, or copies
- * something the calculator thread already published, so none of them can touch core state or wait
- * for a computation. It is an object so that it outlives each Activity, which registers as the
- * [CalculatorHost] while it exists.
+ * Only that thread runs core code, and [runCalculatorNative] is its body. Every other external
+ * pushes a key or a request, copies something the calculator thread already published, sets a
+ * flag that thread reads (a stop, the host's visibility, autosave), reads whether it is ready, or
+ * hands it a picked file, so none of them can touch core state or wait for a computation. It is an
+ * object so that it outlives each Activity, which registers as the [CalculatorHost] while it
+ * exists.
  */
 // One function per JNI binding, and JNI binds them all to this one class.
 @Suppress("TooManyFunctions")
@@ -49,11 +51,13 @@ internal object CalculatorEngine {
     private const val TAG = "R47Calculator"
     private const val THREAD_NAME = "R47Calculator"
 
-    // The simulator's main thread gets 8 MiB, which is what upstream's stack use is written against.
+    // The Linux simulator's calculator thread, from GLib's g_thread_new, gets glibc's default
+    // stack, which glibc sizes from the stack limit: 8 MiB under the usual ulimit -s of 8192.
     private const val THREAD_STACK_BYTES = 8L * 1024L * 1024L
 
     // Upper bound on how long the stop of the Activity blocks the main thread for a save. A save
-    // the calculator cannot take yet stays queued and runs when the calculator reaches rest.
+    // the calculator cannot take yet stays queued and runs at its next rest or step-boundary
+    // pause, or, once the host has stopped, at its next poll.
     private const val SAVE_FENCE_MILLIS = 750
 
     // Upper bound on how long a factory reset waits for the thread to end.
@@ -174,7 +178,7 @@ internal object CalculatorEngine {
         }
         releaseKeyIfDown()
         if (saveState && isReady() && !saveStateNative(SAVE_FENCE_MILLIS)) {
-            Log.w(TAG, "The calculator is busy: its state saves when it reaches rest")
+            Log.w(TAG, "The calculator is busy: its state saves at its next poll or rest")
         }
         onHostStoppedNative(true)
     }

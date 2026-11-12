@@ -1,10 +1,13 @@
-// Requests the host makes of the calculator that are not keys: paste, a shell
-// menu, a graph gesture, a copy, a save, the keypad label mode.
+// Requests the host makes of the calculator that are not keys: a paste, a graph
+// gesture or reset, a copy, a description of the display, the keypad label mode,
+// and a save.
 //
 // They live apart from the key buffer because a long operation wipes that buffer
 // (exitKeyWaiting drops every key but EXIT and R/S). Any thread queues one, and
-// the calculator thread runs it from sys_sleep at rest, so none of them can run
-// inside a computation or be lost to one. Each answers through an up-call.
+// the calculator thread runs it from sys_sleep at rest, so none of them is lost to
+// a computation, and none runs inside one but a save, which also runs in a
+// program's pause and, once the host has stopped, at a poll (hal/keys.c). A paste,
+// a copy, and a description answer through an up-call.
 #ifndef HOST_SERVICES_H
 #define HOST_SERVICES_H
 
@@ -69,7 +72,8 @@ void r47_service_graph_gesture(float dxNorm, float dyNorm, float scale);
 // Any thread but the calculator's. Queues a save and, if the calculator is at rest,
 // waits up to timeoutMs for it. A false return means it is still pending: the
 // calculator is busy or parked at a picker, where no wait could end, and the save
-// runs when it next reaches rest or a pause.
+// runs when it next reaches rest or a step-boundary pause, or, once the host has
+// stopped, at its next poll.
 bool r47_service_save_and_wait(int timeoutMs);
 
 // Any thread: whether idle saves may run, the user's autosave setting.
@@ -83,7 +87,8 @@ bool r47_services_pending(void);
 bool r47_services_save_waiting(void);
 bool r47_services_autosave_enabled(void);
 
-// The calculator thread, away from rest: run a save that is waiting. hal/keys.c calls
+// The calculator thread: run a save that is waiting, unless r47_services_run is
+// looking for keys at rest, whose own last step saves. hal/keys.c calls
 // it in a program's pause, a step boundary, and, for a stopped host only, at a poll
 // inside a computation or a running program, where the saved image holds the run.
 // The state the run ends in is then owed a save at the next rest.
@@ -97,9 +102,10 @@ void r47_services_note_saved(void);
 // The calculator thread at rest: save if a checkpoint is due.
 bool r47_services_checkpoint(bool hostStopped);
 
-// The calculator thread: write the state file. saveCalc is upstream's shutdown
-// routine, so it is called only at rest, in a pause, and from the picker's park, and
-// r47_save_settled undoes what it changes in the running calculator.
+// The calculator thread: write the state file, at rest, after OFF, in a program's
+// pause, before a picker, and, once the host has stopped, at a poll. saveCalc is
+// upstream's shutdown routine, so r47_save_settled undoes what it changes in the
+// running calculator.
 void r47_save_settled(void);
 // The calculator thread, before a picker: save unless the user turned autosave off.
 void r47_save_before_picker(void);
@@ -118,7 +124,8 @@ void r47_run_at_rest_async(void (*fn)(void *), void *arg);
 void r47_services_set_checkpoint_timing(uint32_t intervalMs, uint32_t quietMs);
 #endif // HOST_TOOL_BUILD || R47_TEST_BRIDGE
 
-// hal/keys.c: any thread.
+// hal/keys.c: any thread, but r47_keys_init, which the calculator thread runs before
+// anything else, and r47_keys_pending, which reads the buffers on that thread.
 void r47_keys_init(void);
 void r47_keys_from_host(bool fromHost);
 void r47_keys_wake(void);

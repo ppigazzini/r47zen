@@ -962,8 +962,8 @@ static void caseSaveWaitsForACalculatorThatIsBusy(void) {
 }
 
 // A stopped host can be frozen or killed before the calculator rests again, so the save
-// it asked for runs at the next poll of a computation, as 0.2.0's pump saved, instead of
-// waiting for the computation to end.
+// it asked for runs at the next poll of a computation instead of waiting for the
+// computation to end.
 static void caseStoppedHostSavesInsideAComputation(void) {
   startCalculator();
   startSlowFactors();
@@ -1441,9 +1441,7 @@ static void sweepCuts(const char *path, const char *saved, size_t length, long s
 }
 
 // A state file the core cannot take, from a cut anywhere in it, an old or a newer core,
-// or another memory size, is kept aside and the calculator starts afresh. 0.2.0 wrote
-// the file in place, so a kill during a save left a cut file that crashed every launch
-// or restored garbage.
+// or another memory size, is kept aside and the calculator starts afresh.
 static void caseUnusableStateFileIsKeptAside(void) {
   startCalculator();
   loadProgram("FactIt.p47");

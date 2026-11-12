@@ -966,8 +966,9 @@ Android compatibility layer.
   A case passes only by reaching its end with a private exit status, because upstream's
   `saveCalc` calls `exit(0)` when it cannot open its file. UndefinedBehaviorSanitizer
   does not recover, so undefined behavior in the glue or the core fails the case. Before it links, the script fails on any definition
-  in `hal/` that no object refers to, apart from the three the script names with the
-  build that uses each, and it proves that check on a seed. It runs in the `host-workload-regressions` lane of `linux-ci.yml`. It proves
+  in `hal/` that no object refers to, apart from those the script names in
+  `USED_OUTSIDE_THIS_HARNESS` with the build that uses each, and it proves that
+  check on a seed. It runs in the `host-workload-regressions` lane of `linux-ci.yml`. It proves
   nothing about ART, bionic, or arm64.
 - Its "key sequences give what the keys say" case holds a table of key sequences,
   each run through the key buffer from a reset calculator, to results written from
@@ -1009,7 +1010,9 @@ Android compatibility layer.
   function while the harness pushes keys and watches. It runs as the dedicated
   `host-workload-regressions` lane in `linux-ci.yml` on every pull request (no
   emulator), in addition to remaining the focused host rerun surface.
-- Every fixture must end with no calculator error in `lastErrorCode`. The
+- Every fixture must end with no calculator error in `lastErrorCode`, but
+  `MANSLV2`'s "Solver abort" (`ERROR_SOLVER_ABORT`), which the harness's own `R/S`
+  raises when it lands inside the solver. The
   harness reads it every 5 ms while the program runs and once more after the
   worker returns, since an error that ends a program between two reads is seen
   only then.

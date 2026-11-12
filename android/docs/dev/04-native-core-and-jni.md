@@ -185,9 +185,11 @@ appears below; `run_docs_lint.sh` fails when one does not:
   `sys_delay`, the clock, and the timers. It is the counterpart of upstream's
   `src/c47-gtk/hal/keys.c`, with no GTK types
 - `host_services.c` for the service queue: paste, graph gesture and
-  reset, copy, save, and keypad label mode. Any thread queues a request
-  and the calculator thread runs it from `sys_sleep` at rest, apart from the key
-  buffer because a long operation wipes that buffer. It also owns the idle checkpoint
+  reset, copy, a description of the display, save, and keypad label mode. Any
+  thread queues a request and the calculator thread runs it from `sys_sleep` at
+  rest, apart from the key buffer because a long operation wipes that buffer; a
+  save also runs in a program's pause and at a stopped host's poll
+  ([06](06-runtime-hot-paths.md#calculator-thread)). It also owns the idle checkpoint
 - `jni_upcalls.c` for the JVM handle, the `CalculatorEngine` class reference and
   method IDs, and every call from native into Kotlin
 - `jni_display.c` for packed LCD generations and pixels and keypad snapshot
@@ -392,10 +394,16 @@ on it, but neither looks for a race.
   hints. Plain `volatile` would leave that concurrent access a data race under the C
   memory model, which `build_bridge_tsan_harness.sh` flags, and
   `run_lock_free_signal_atomicity_contract.sh` holds the declarations.
-- What holds the thread rule: `CalculatorEngine` registers no native that runs core
-  code, by construction, and `build_bridge_tsan_harness.sh` fails on a race in the
-  paths it drives. No gate fails a new native that reads core state from another
-  thread when the harness does not drive it; a reviewer has to catch that one.
+- What holds the thread rule: `runCalculatorNative` is the one native that runs core
+  code, as the calculator thread's body. `jni_core_reach.py`, which
+  `build_calculator_thread_harness.sh` runs, fails on a route from any other JNI
+  entry to a core symbol, and a debug build aborts at a checked HAL call or request
+  off the thread (`R47_CALCULATOR_THREAD_ONLY`);
+  [06](06-runtime-hot-paths.md#calculator-thread) owns both. The reach check misses
+  a pointer stored at run time and called later, the Android-only branch of
+  `hal/io.c`, and the instrumentation bridge; the abort covers only the calls that
+  carry it, and only in a debug build. `build_bridge_tsan_harness.sh` fails on a race
+  only in the paths it drives.
 - `scripts/workload-regressions/run_workload_regressions.sh` is the repo-owned
   Linux host harness for long native runs. It compiles the staged core plus the
   Android bridge in `HOST_TOOL_BUILD` and `PC_BUILD`, then runs the canonical host
@@ -501,41 +509,52 @@ Native code reaches Kotlin through `g_jvm` and the class reference and method ID
 | write | `JNI_OnLoad` and `r47_upcalls_bind`, once, inside `System.loadLibrary` | the thread that first touches `CalculatorEngine`, before the calculator thread starts |
 | read | `r47_upcall_*`, from `requestAndroidFile`, `_Buzz`, `r47_report_file_write_failure`, `show_warning`, `guiSetClipboardText`, `runService`, and `r47_calculator_main` | calculator |
 | write `CalculatorHostSlot.current` | `attachHost`, `detachHost` | main |
-| read `CalculatorHostSlot.current` | the `@Keep` up-call methods | calculator |
+| read `CalculatorHostSlot.current` | the `@Keep` up-calls `onCalculatorOff`, `onClipboardText`, `setClipboardText`, and `onPasteResult` | calculator |
+| read `CalculatorHostSlot.current` | `onHostStopped`, `hasHost`, and what `onDisplayText`, `onWarning`, and `fileRequestGate`'s launch and `onLost` post | main |
+| write and read `CalculatorHostSlot.pickerOwner`, `pickerWaitsForRecreatedOwner` | `attachHost`, `detachHost`, `fileRequestGate`'s launch through `pickerLaunchedBy`, and `cancelFileRequestOf` through `ownsPicker` | main |
 
 No lock covers the bindings, and none is needed: they are written once before the
 only thread that reads them exists, and nothing clears them. Native holds no
 reference to an Activity. `current` is `@Volatile`, and a host method that arrives on the
 calculator thread posts its Android work to the main handler, so a call that races
 `detachHost` reaches an Activity that is going away and touches none of its views from
-that thread.
+that thread. The two picker fields are plain, since only the main thread touches
+them; the transfer worker posts `onLost` to it rather than read the host.
 
 ### Key and service state
 
 | state | owner | written by (thread) | read by (thread) | change signal |
 |---|---|---|---|---|
-| `keyBuffer`, `keyCount` | `hal/keys.c`, under `keyMutex` | `r47_key_push` and its kin (any); `keyPopForMainLoop`, `key_pop_all` (calculator) | `key_empty`, `key_tail`, `keyPopForMainLoop` (calculator) | `keyCond` |
-| `hostEvents` slots | `hal/keys.c` | `pushHostLocked`, under `keyMutex` (any), which a full FIFO stops before it writes a slot | `hostEventOf`, under `keyMutex` (calculator) | the slot's key code, popped under `keyMutex` |
+| `keyBuffer`, `keyCount` | `hal/keys.c`, under `keyMutex` | `r47_key_push` and its kin (any); `r47_key_push_key`, the head inserts of `translateHostEvent` and `cancelPressedKey`, `popKey`, through `key_pop` and `keyPopForMainLoop`, and `key_pop_all` (calculator) | `key_empty`, `key_tail`, `popKey`, `sys_sleep` (calculator) | `keyCond` |
+| `hostEvents` slots, `nextHostEvent` | `hal/keys.c` | `pushHostLocked`, under `keyMutex` (any), which a full FIFO stops before it writes a slot | `hostEventOf`, under `keyMutex` (calculator) | the slot's key code, popped under `keyMutex` |
 | `insertAt`, `insertThread` | `hal/keys.c`, under `keyMutex` | `translateHostEvent`, `cancelPressedKey` (calculator) | `pushLocked`, which puts a key at the head only for the thread that set them | none |
 | `CTRL_State`, `SHIFT_State`, `event_keyval`, `ctrlUsed`, `pcKeyBusy` | `pc_keyboard.c` | `r47_pc_key_handle` (calculator) | the same | none; one thread |
 | `pushedKeyDown` | `hal/keys.c`, under `keyMutex` | `r47_key_push`, `r47_key_cancel`, `r47_key_release_if_down`, and a PC key's release in `r47_key_push_pc` (any); `r47_key_push_key` and `keyDispatchHostEvent` (calculator) | `wait_for_key_release` (calculator) | `keyCond` |
-| `quitPending` | `hal/keys.c`, under `keyMutex` | `r47_key_push_quit` (any); `keyDispatchHostEvent` (calculator) | `sys_sleep`, `keyPopForMainLoop` (calculator) | `keyCond` |
+| `pcPressPushed` | `hal/keys.c`, under `keyMutex` | `r47_key_push`, `r47_key_cancel`, `r47_key_release_if_down`, `r47_key_push_pc` (any); `r47_key_push_key`, `keyDispatchHostEvent` (calculator) | `r47_key_push_pc` (any); `keyDispatchHostEvent` (calculator) | none; read with `pushedKeyDown` under the lock |
+| `keysFromHost` | `hal/keys.c`, under `keyMutex` | `r47_keys_from_host`, from `r47_calculator_main` (calculator) | `wait_for_key_release` (calculator) | none; set once before the main loop |
+| `quitPending` | `hal/keys.c`, under `keyMutex` | `r47_key_push_quit` (any); `keyDispatchHostEvent` (calculator) | `sys_sleep`, `popKey` (calculator) | `keyCond` |
+| `quitInRing` | `hal/keys.c`, under `keyMutex` | `keyPopForMainLoop`, `popKey`, `keyDispatchHostEvent` (calculator) | `key_empty` (calculator) | none; one thread |
 | `timerDeadlineUs` | `hal/keys.c`, under `keyMutex` | `sys_timer_start`, `sys_timer_disable`, `sys_sleep` (calculator) | `sys_sleep` (calculator) | none |
-| `hostStopped` | `hal/keys.c`, atomic | `r47_keys_on_host_stopped` (main) | `sys_sleep` (calculator) | `keyCond` |
+| `hostStopped` | `hal/keys.c`, atomic | `r47_keys_on_host_stopped` (main) | `sys_sleep`, and `key_empty` through `saveIfHostStopped` (calculator) | `keyCond` |
 | `calculatorIdle` | `hal/keys.c`, atomic | `sys_sleep`, around its wait at rest (calculator) | `r47_service_save_and_wait` (main) | polled through the grace period |
+| `calculatorThread`, `calculatorThreadKnown`, debug builds only | `hal/keys.c`; the flag atomic, release and acquire | `r47_keys_init` (calculator); a host tool's `r47_keys_claim_calculator_thread` | `r47_assert_calculator_thread` (any) | the flag's release store |
 | `queue`, `queueHead`, `queueCount` | `host_services.c`, under `serviceMutex` | `enqueue` (any); `r47_services_run` (calculator) | `r47_services_run`, `r47_services_pending` (calculator) | `r47_keys_wake` |
 | merged gesture | `host_services.c`, under `serviceMutex` | `r47_service_graph_gesture` (any); `r47_services_run` (calculator) | `r47_services_run` (calculator) | `r47_keys_wake` |
 | `savesRequested`, `savesDone` | `host_services.c`, under `serviceMutex` | `r47_service_save_and_wait` (main); `completeSaves` (calculator) | both | `r47_keys_wake`, `saveCond` |
+| `saveInProgress` | `host_services.c`, under `serviceMutex` | `saveMarked` (calculator) | `r47_service_save_and_wait` (main); `r47_services_save_pending` (calculator) | polled through the grace period |
 | `inputSinceSave`, `lastInputMs`, `lastSaveMs` | `host_services.c` | `r47_services_note_input`, `r47_services_note_saved` (calculator) | `r47_services_checkpoint_due_ms` (calculator) | none; `sys_sleep` waits for the deadline |
-| `autosaveEnabled` | `host_services.c`, atomic | `r47_service_set_autosave` (main) | the checkpoint and `r47_save_before_picker` (calculator) | none |
-| `g_r47_stop_requested`, `g_r47_stop_without_save` | `jni_lifecycle.c`, atomic | `r47_calculator_stop` (main) | `r47_calculator_main` (calculator) | the quit it pushes |
+| `restSaveOwed` | `host_services.c` | `r47_services_save_pending`, `r47_services_note_saved`, `r47_services_checkpoint` (calculator) | `r47_services_checkpoint_due_ms` (calculator) | none; one thread, and the checkpoint is then due at once |
+| `autosaveEnabled` | `host_services.c`, atomic | `r47_service_set_autosave` (main) | the checkpoint, `r47_save_before_picker`, and the save after OFF in `r47_calculator_main` (calculator) | none |
+| `g_r47_stop_requested`, `g_r47_stop_without_save` | `jni_lifecycle.c`, atomic | `r47_calculator_stop` (main) | `r47_calculator_main`, `r47_save_settled` (calculator) | the quit it pushes |
 
 A full FIFO drops the key, as DMCP does, and a full queue refuses the request and logs
 it. Kotlin sees that refusal only where a native returns it: `pasteNumberNative`,
 `copyRegistersNative`, and `describeDisplayNative` return it and `resetGraphNative`
 does not; `DisplayActionController` ignores the one from a copy, and the LCD's
 accessibility node asks again at the next settled frame.
-A keypad label mode the queue refuses is not asked for again until the mode changes.
+A keypad label mode the queue refuses is asked for again at the next copy,
+`r47_try_copy_app_keypad_snapshot`, and the harness case "a refused keypad mode is
+asked for again" holds that.
 
 ## Lifecycle Save And Explicit Refresh Contract
 
@@ -604,8 +623,10 @@ The SAF path works as follows:
    `fileNameSelected`, as GTK's `ioFileOpen` records a file's, and a state file's
    load passes them to STATE#.
 
-That save is the one that can run inside a computation, when a running program
-reaches a file request, which is why a restore clears a run state. While the
+That save runs inside a computation when a running program reaches a file request,
+as a stopped host's save does at a poll
+([06](06-runtime-hot-paths.md#calculator-thread)), which is why a restore clears a
+run state. While the
 thread is parked, keys pile up in the FIFO, service requests in their queue, and
 `onStop()`'s save, which the picker itself triggers, gives up after its grace period
 and stays pending.

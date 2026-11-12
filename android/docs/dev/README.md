@@ -156,7 +156,8 @@ Each term links the page that owns it.
   on a thread of its own for the life of the process
   ([06](06-runtime-hot-paths.md#calculator-thread)).
 - **at rest**: the calculator thread asleep in the main loop with no program running
-  or paused, the only time a service request runs
+  or paused, the only time a queued service request runs; a save also runs in a
+  program's pause and, once the host has stopped, at a poll
   ([06](06-runtime-hot-paths.md#calculator-thread)).
 - **service request**: host work that is not a key, such as a paste or a save, queued
   apart from the key buffer a long operation wipes

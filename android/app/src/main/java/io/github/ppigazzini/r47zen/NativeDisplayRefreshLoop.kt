@@ -46,8 +46,8 @@ internal class NativeDisplayRefreshLoop(
                 return
             }
 
-            // Monotonic: a wall-clock step backward would stall the 500 ms
-            // label cadence until the clock caught up again.
+            // Monotonic: a wall-clock step backward would stall the performance
+            // HUD's window until the clock caught up again.
             refreshFrame(SystemClock.uptimeMillis())
 
             if (isActive && isAppRunning()) {
