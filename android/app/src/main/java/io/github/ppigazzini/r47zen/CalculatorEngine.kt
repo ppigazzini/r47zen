@@ -89,26 +89,24 @@ internal object CalculatorEngine {
      * One request at a time reaches the one calculator thread, whichever Activity is in front when
      * it answers, so the gate lives as long as the thread does.
      */
-    val fileRequestGate = NativeFileRequestGate(
+    val fileRequestGate: NativeFileRequestGate = NativeFileRequestGate(
         post = { mainHandler.post(it) },
         findStart = { fileType, isSave -> appContext?.let { PickerStart.of(it).find(fileType, isSave) } },
         launch = { isSave, defaultName, start ->
             val current = host
             if (current == null) {
-                onFileCanceledNative()
+                fileRequestGate.deliverCanceled()
             } else {
                 hostSlot.pickerLaunchedBy(current)
                 current.launchFilePicker(isSave, defaultName, start)
             }
         },
-        selectNative = { fd, name ->
-            val taken = onFileSelectedNative(fd, name)
-            if (!taken) {
-                host?.onFileRequestLost()
-            }
-            taken
+        native = object : NativeFileAnswers {
+            override fun select(fd: Int, name: String?): Boolean = onFileSelectedNative(fd, name)
+
+            override fun cancel() = onFileCanceledNative()
         },
-        cancelNative = ::onFileCanceledNative,
+        onLost = { host?.onFileRequestLost() },
     )
 
     @Synchronized
@@ -126,14 +124,23 @@ internal object CalculatorEngine {
         hostSlot.attach(newHost)
     }
 
+    /**
+     * A launched picker whose result has not arrived is canceled when the Activity that
+     * opened it finishes: a recreated Activity still receives that result, but a finishing
+     * one never does, and the calculator thread would stay parked in requestAndroidFile.
+     * The cancel comes first, while the slot still names the picker's owner.
+     */
     fun detachHost(oldHost: CalculatorHost, recreating: Boolean) {
+        if (!recreating) {
+            cancelFileRequestOf(oldHost)
+        }
         hostSlot.detach(oldHost, recreating)
     }
 
     fun hasHost(): Boolean = host != null
 
     /** A finishing Activity never gets its picker's answer, so its own request ends with it. */
-    fun cancelFileRequestOf(finishing: CalculatorHost) {
+    private fun cancelFileRequestOf(finishing: CalculatorHost) {
         if (hostSlot.ownsPicker(finishing)) {
             fileRequestGate.cancelUnanswered()
         }

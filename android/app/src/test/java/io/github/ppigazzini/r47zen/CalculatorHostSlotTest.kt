@@ -67,6 +67,18 @@ class CalculatorHostSlotTest {
         assertFalse(slot.ownsPicker(second))
     }
 
+    // The slot outlives every Activity: a finished one it still named would stay
+    // reachable, its views with it.
+    @Test
+    fun aFinishingActivity_isNoLongerThePickerOwner() {
+        slot.attach(first)
+        slot.pickerLaunchedBy(first)
+
+        slot.detach(first, recreating = false)
+
+        assertFalse(slot.ownsPicker(first))
+    }
+
     @Test
     fun aNewPicker_replacesTheOwnerARecreationLeftBehind() {
         slot.attach(first)

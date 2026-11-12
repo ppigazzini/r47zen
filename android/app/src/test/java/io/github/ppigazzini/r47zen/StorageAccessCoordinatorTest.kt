@@ -106,7 +106,10 @@ class StorageAccessCoordinatorTest {
             activity = activity,
             onNativeFileSelected = { fd, _ -> selectedFd = fd },
             onNativeFileCanceled = { cancelCount += 1 },
-            onLoadTransferStarted = { transfersStarted += 1 },
+            onLoadTransferStarted = {
+                transfersStarted += 1
+                0L
+            },
             documentTransfer = DocumentTransfer(
                 provider = FakeDocumentProvider(input = { throw SecurityException("no grant") }),
                 tempDir = activity.cacheDir,
@@ -137,7 +140,10 @@ class StorageAccessCoordinatorTest {
             activity = activity,
             onNativeFileSelected = { _, _ -> },
             onNativeFileCanceled = { cancelCount += 1 },
-            onLoadTransferStarted = { transfersStarted += 1 },
+            onLoadTransferStarted = {
+                transfersStarted += 1
+                0L
+            },
             providedSaveIntentLauncher = {},
             providedLoadIntentLauncher = {},
         )

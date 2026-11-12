@@ -16,7 +16,12 @@ internal class StorageAccessCoordinator(
     private val activity: ComponentActivity,
     private val onNativeFileSelected: (fd: Int, name: String?) -> Unit,
     private val onNativeFileCanceled: () -> Unit,
-    private val onLoadTransferStarted: () -> Unit = {},
+    // A load's copy reaches native from the transfer worker, with the ticket its start
+    // gave, so a copy that outlives its request answers no other.
+    private val onLoadTransferStarted: () -> Long = { 0L },
+    private val onLoadTransferred: (ticket: Long, fd: Int, name: String?) -> Unit =
+        { _, fd, name -> onNativeFileSelected(fd, name) },
+    private val onLoadTransferFailed: (ticket: Long) -> Unit = { onNativeFileCanceled() },
     private val documentTransfer: DocumentTransfer = DocumentTransfer.shared(activity),
     providedSaveIntentLauncher: ((Intent) -> Unit)? = null,
     providedLoadIntentLauncher: ((Intent) -> Unit)? = null,
@@ -96,8 +101,12 @@ internal class StorageAccessCoordinator(
             return
         }
 
-        onLoadTransferStarted()
-        documentTransfer.load(uri, onNativeFileSelected, onNativeFileCanceled)
+        val ticket = onLoadTransferStarted()
+        documentTransfer.load(
+            uri,
+            { fd, name -> onLoadTransferred(ticket, fd, name) },
+            { onLoadTransferFailed(ticket) },
+        )
     }
 
     private fun buildSaveIntent(defaultName: String, initialUri: Uri?): Intent {

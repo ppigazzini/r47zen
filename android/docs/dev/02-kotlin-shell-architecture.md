@@ -137,8 +137,9 @@ Main flow:
    `onFileRequestLost` arrive on the main thread; the other host methods arrive on
    the calculator thread, and post their Android work to the main handler or hand
    it to `CalculatorAnswers`. What must outlive an Activity stays in
-   `CalculatorEngine`: the one `NativeFileRequestGate`, and the toasts for a lost
-   write and an upstream warning, from the application context.
+   `CalculatorEngine`: the one `NativeFileRequestGate`, and the toast for a lost
+   write, from the application context. An upstream warning is a dialog on the
+   host; with no host it is only logged.
 4. `NativeDisplayRefreshLoop` is the single UI-side poller for LCD and keypad
    scene state.
 5. `NativeDisplayRefreshLoop` watches packed-display and keypad-snapshot
@@ -227,7 +228,9 @@ up-calls.
 - `onDestroy()` cancels, when the activity is finishing, a launched picker that has
   not answered, since its result will never arrive. A recreated Activity leaves the
   picker alone, because the `NativeFileRequestGate` lives in `CalculatorEngine` and
-  the new Activity receives the answer. It stops the display loop and detaches as the
+  the new Activity receives the answer. A load's private copy carries the ticket
+  `beginTransfer()` gave, so a copy that outlives its canceled request closes and
+  answers no later one. It stops the display loop and detaches as the
   host. Finishing does not stop the calculator, whose thread lives as long as the
   process.
 - A factory reset is the one path that ends it.

@@ -200,7 +200,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             activity = this,
             onNativeFileSelected = CalculatorEngine.fileRequestGate::deliverSelected,
             onNativeFileCanceled = { CalculatorEngine.fileRequestGate.deliverCanceled() },
-            onLoadTransferStarted = { CalculatorEngine.fileRequestGate.beginTransfer() },
+            onLoadTransferStarted = CalculatorEngine.fileRequestGate::beginTransfer,
+            onLoadTransferred = CalculatorEngine.fileRequestGate::deliverTransferred,
+            onLoadTransferFailed = CalculatorEngine.fileRequestGate::deliverTransferFailed,
         ).also { coordinator ->
             coordinator.registerLaunchers()
         }
@@ -416,12 +418,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             ::factoryResetController.isInitialized && factoryResetController.isResetInProgress
         Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=$resetInProgress")
         val shouldStopApp = isFinishing || resetInProgress
-        // A launched picker whose result has not arrived is canceled when the Activity that
-        // opened it finishes: a recreated Activity still receives that result, but a finishing
-        // one never does, and the calculator thread would stay parked in requestAndroidFile.
-        if (shouldStopApp) {
-            CalculatorEngine.cancelFileRequestOf(this)
-        }
         if (::displayRefreshLoop.isInitialized) {
             displayRefreshLoop.stop()
         }
