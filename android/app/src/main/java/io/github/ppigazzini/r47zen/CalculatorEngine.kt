@@ -10,6 +10,9 @@ import androidx.annotation.Keep
 
 /** What the calculator asks of the screen in front of it. */
 internal interface CalculatorHost {
+    /** The id this Activity keeps across a recreation, which owns a picker it launched. */
+    val hostId: String
+
     /** Opens the picker for a file request, in [start] if found. Arrives on the main thread. */
     fun launchFilePicker(isSave: Boolean, defaultName: String, start: Uri?)
 
@@ -77,7 +80,7 @@ internal object CalculatorEngine {
         System.loadLibrary("r47zen")
     }
 
-    private val hostSlot = CalculatorHostSlot<CalculatorHost>()
+    private val hostSlot = CalculatorHostSlot<CalculatorHost> { it.hostId }
 
     private val host: CalculatorHost?
         get() = hostSlot.current
@@ -168,12 +171,13 @@ internal object CalculatorEngine {
     }
 
     /**
-     * The Activity is about to stop: the process may die from here on, so the state goes to disk.
-     * Unless another Activity already started, which then speaks for the calculator: it may have a
-     * key down, and it needs the clock.
+     * The Activity is about to stop. When it was the last window started, the process may die
+     * from here on, so the state goes to disk and the clock parks. Otherwise another window,
+     * coming back or still beside it, speaks for the calculator: it may have a key down, and it
+     * needs the clock.
      */
     fun onHostStopped(stopping: CalculatorHost, saveState: Boolean) {
-        if (!hostSlot.isCurrent(stopping)) {
+        if (!hostSlot.stop(stopping)) {
             return
         }
         releaseKeyIfDown()
