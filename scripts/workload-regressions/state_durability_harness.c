@@ -243,7 +243,8 @@ static void execSelfInChild(const char *mode) {
 }
 
 // Cut the file at fixed offsets and at steps through it; a cut at a line's end may
-// restore whole, any other must be kept aside.
+// restore whole, any other must be kept aside. A file that did not restore is gone
+// from its place, so exactly one copy of it must be kept, whatever the cut.
 static void sweepCuts(const char *path, const char *saved, size_t length, long steps) {
   long cuts[64];
   size_t count = 0;
@@ -262,7 +263,7 @@ static void sweepCuts(const char *path, const char *saved, size_t length, long s
     writeBytes(path, saved, (size_t)cuts[i]);
     execSelfInChild(atLineEnd ? "--relaunch-expect-either" : "--relaunch-expect-fresh");
     const int kept = takeKeptStateFiles();
-    CHECK(atLineEnd || kept == 1, "cut %ld: %d files kept", cuts[i], kept);
+    CHECK(kept == (fileExists(path) ? 0 : 1), "cut %ld: %d files kept", cuts[i], kept);
   }
 }
 
