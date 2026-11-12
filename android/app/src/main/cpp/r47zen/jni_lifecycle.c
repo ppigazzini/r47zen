@@ -40,9 +40,10 @@ void r47_native_preinit_path(const char *path) {
   mp_set_memory_functions(allocGmp, reallocGmp, freeGmp);
 }
 
-// A file from before this model can hold a run saved at a pump, and those flags
-// mean nothing once the run is gone: a running state leaves the keys dead, and a
-// solver flag turns EXIT into "Solver abort" and switches undo off.
+// A state file can hold a run, since a save before a picker, in a program's pause,
+// or at a stopped host's poll lands inside one, and those flags mean nothing once
+// the run is gone: a running state leaves the keys dead, and a solver flag turns
+// EXIT into "Solver abort" and switches undo off.
 static void clearInterruptedRun(void) {
   programRunStop = PGM_STOPPED;
   hourGlassIconEnabled = false;

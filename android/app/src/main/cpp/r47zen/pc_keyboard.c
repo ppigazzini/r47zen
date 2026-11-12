@@ -2,7 +2,9 @@
 // keyPressedNow, keyReleasedNow, shortCutCommand, shortCutFNCommand, and the text
 // entry behind them, in src/c47-gtk/gtkGui.c. hal/keys.c runs it on the calculator
 // thread when it pops the key's host event, as pcKeyHandle runs, so each choice
-// reads the mode the key lands in; while the calculator is busy it only pushes keys.
+// reads the mode the key lands in. While the calculator is busy it pushes keys, and
+// runs a Ctrl command, a copy or a capture, only in a program's pause; hal/keys.c
+// leaves a key in text entry waiting whole in the ring buffer instead.
 // The names follow gtkGui.c's, so the two read side by side.
 //
 // Kotlin sends the X11 keysym and modifier state GDK gives GTK: a character below
@@ -14,8 +16,12 @@
 // and dead key (deadKey, which the status bar marks) are the ones GTK uses. Not
 // ported, for want of an Android counterpart: Ctrl+P, GTK's printer window, and
 // Ctrl+H, Ctrl+M, and Ctrl+K, the screen, menu, and X register images
-// src/c47-gtk/hal/lcd.c copies. test_physical_keyboard_contract.py holds the
-// rows, tables, and Ctrl commands here to gtkGui.c.
+// src/c47-gtk/hal/lcd.c copies. Not ported either: GTK chooses its rows at run
+// time through shortcutProfile (src/c47/defines.h), so a calculator whose calcModel
+// is C47 gets GTK's C47 rows and any other model outside the R47 family, such as
+// DM42, none, where the port always runs the R47 rows.
+// test_physical_keyboard_contract.py holds the rows, tables, and Ctrl commands
+// here to gtkGui.c.
 #include "c47.h"
 #include "host_services.h"
 #include "jni_bridge.h"
@@ -1760,7 +1766,8 @@ continueWithOldDetections:
 }
 
 // The calculator thread, from hal/keys.c: pcKeyHandle. busy is true when a
-// computation popped the key, and then nothing here runs core code.
+// computation popped the key, and then nothing here runs core code but a Ctrl
+// command in a program's pause.
 void r47_pc_key_handle(uint32_t keyval, uint32_t state, bool press, bool busy) {
   R47_CALCULATOR_THREAD_ONLY();
   if (keyval & 0x01000000) { // a Unicode keysym: GTK's map holds the legacy one
