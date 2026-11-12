@@ -447,8 +447,9 @@ bool r47_services_run(void) {
 
   r47_offer_snap();
 
+  // The main loop runs refreshLcd once a period, and each call counts a shown
+  // function name down by a whole period, so a service only pushes what it drew.
   if (ran) {
-    refreshLcd();
     lcd_refresh();
     r47_keypad_mark_dirty();
   }
