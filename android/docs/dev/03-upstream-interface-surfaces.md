@@ -87,13 +87,18 @@ flowchart LR
   `saveStateNative(SAVE_FENCE_MILLIS)`. `r47_service_save_and_wait()` takes a ticket
   and waits up to `R47_SAVE_IDLE_GRACE_MS` for `r47_keys_calculator_idle()`. A
   calculator that does not get there cannot answer, so the call returns false and the
-  save stays pending; an idle one is waited for up to the fence. `r47_services_run()`
+  save stays pending; an idle one is waited for up to the fence. It also returns
+  false when the disk refused the file, which a toast reports. `r47_services_run()`
   runs a pending save last, so that it holds what the requests ahead of it changed.
 - `r47_save_settled()` wraps `saveCalc()`, upstream's shutdown routine, which resets
   the graph variable and dismisses a confirmation; the wrapper restores both for a
   calculator that keeps running. It must stay display-passive for a normal background
   save or Settings-entry transition, and it does nothing once a factory reset asked
-  for no save.
+  for no save. It returns whether the state file took the save: `hal/io.c` records
+  each refused write, through `r47_io_take_write_failure()`. A refused save leaves
+  the work unsaved, so the idle checkpoint writes it again a whole
+  `R47_CHECKPOINT_INTERVAL_MS` later, with no key in between and no write on every
+  rest while the disk stays full.
 - It runs at rest for the save service and the idle checkpoint; in
   a program's pause for a pending save, when the pause is a step boundary; in
   `r47_calculator_main()` after the main loop; before a picker in
