@@ -36,6 +36,10 @@ typedef struct {
 
 static pthread_mutex_t keyMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t keyCond; // signaled on every push and service request
+// Other threads broadcast keyCond from the first onStart or key, which can come
+// before the calculator thread runs r47_keys_init, so every use goes through
+// pthread_once: POSIX leaves an init that races a use undefined.
+static pthread_once_t keyCondOnce = PTHREAD_ONCE_INIT;
 static int keyBuffer[KEY_BUFFER_SIZE];
 static int keyCount = 0;
 static hostEvent_t hostEvents[HOST_EVENT_SLOTS];
@@ -90,6 +94,21 @@ void r47_keys_claim_calculator_thread(void) {
 }
 #endif // HOST_TOOL_BUILD
 
+static void initKeyCond(void) {
+  pthread_condattr_t attr;
+  pthread_condattr_init(&attr);
+  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+  pthread_cond_init(&keyCond, &attr);
+  pthread_condattr_destroy(&attr);
+}
+
+// Any thread, under keyMutex. The calculator thread's waits come after its
+// r47_keys_init, so only a broadcast can be the first use.
+static void broadcastKeysLocked(void) {
+  pthread_once(&keyCondOnce, initKeyCond);
+  pthread_cond_broadcast(&keyCond);
+}
+
 // The calculator thread, before it runs anything else.
 void r47_keys_init(void) {
 #if !defined(NDEBUG)
@@ -98,11 +117,7 @@ void r47_keys_init(void) {
 #endif // !NDEBUG
   processStartUs = monotonicUs();
 
-  pthread_condattr_t attr;
-  pthread_condattr_init(&attr);
-  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
-  pthread_cond_init(&keyCond, &attr);
-  pthread_condattr_destroy(&attr);
+  pthread_once(&keyCondOnce, initKeyCond);
 }
 
 void r47_keys_from_host(bool fromHost) {
@@ -124,7 +139,7 @@ static void pushLocked(int key) {
     keyBuffer[keyCount] = key;
   }
   keyCount++;
-  pthread_cond_broadcast(&keyCond);
+  broadcastKeysLocked();
 }
 
 // A full buffer drops the event before it takes a slot, so a slot the buffer still
@@ -520,14 +535,14 @@ static bool calculatorAtRest(void) {
 void r47_keys_on_host_stopped(bool stopped) {
   pthread_mutex_lock(&keyMutex);
   hostStopped = stopped;
-  pthread_cond_broadcast(&keyCond);
+  broadcastKeysLocked();
   pthread_mutex_unlock(&keyMutex);
 }
 
 // Any thread: wake the calculator thread for a queued service request.
 void r47_keys_wake(void) {
   pthread_mutex_lock(&keyMutex);
-  pthread_cond_broadcast(&keyCond);
+  broadcastKeysLocked();
   pthread_mutex_unlock(&keyMutex);
 }
 
