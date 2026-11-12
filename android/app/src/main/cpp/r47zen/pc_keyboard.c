@@ -13,8 +13,9 @@
 // The app builds the core with PC_BUILD, so upstream's clipboard copies, captures,
 // and dead key (deadKey, which the status bar marks) are the ones GTK uses. Not
 // ported, for want of an Android counterpart: Ctrl+P, GTK's printer window, and
-// Ctrl+H and Ctrl+M, the screen and menu images src/c47-gtk/hal/lcd.c copies.
-// test_physical_keyboard_contract.py holds the rows and tables here to gtkGui.c.
+// Ctrl+H, Ctrl+M, and Ctrl+K, the screen, menu, and X register images
+// src/c47-gtk/hal/lcd.c copies. test_physical_keyboard_contract.py holds the
+// rows, tables, and Ctrl commands here to gtkGui.c.
 #include "c47.h"
 #include "host_services.h"
 #include "jni_bridge.h"
@@ -1272,7 +1273,7 @@ static void addItemAndRefresh(int16_t item) {
   refreshScreen(3);
 }
 
-// The Ctrl commands, but the two GTK copies as images.
+// The Ctrl commands, but the three GTK copies as images.
 static void runCtrlCommand(void) {
   switch (event_keyval) {
   case 'S' + 65536:
@@ -1297,8 +1298,8 @@ static void runCtrlCommand(void) {
   case 'n' + 65536:
     fnSNAPMENU(NOPARAM);
     break;
-  case 'B' + 65536:
-  case 'b' + 65536:
+  case 'J' + 65536:
+  case 'j' + 65536:
     fnSNAPXBold(NOPARAM);
     break;
   default:

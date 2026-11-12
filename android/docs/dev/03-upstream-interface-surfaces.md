@@ -171,11 +171,12 @@ flowchart LR
   waits whole in the ring buffer for the main loop. Its row tables, keysym map, and
   dead-key table are copied from what the app's build compiles of `gtkGui.c`, the
   keysyms' values from X11's `keysymdef.h`, and `test_physical_keyboard_contract.py`
-  holds them to both. A softkey a PC key pressed while the calculator was busy is
-  released at rest only if the core still holds one, where upstream's release would
-  shift by a negative count, and it leaves no key down for the next wait. Left out, for want of an Android
-  counterpart: Ctrl+P, GTK's printer window, and Ctrl+H and Ctrl+M, the screen and
-  menu images `src/c47-gtk/hal/lcd.c` copies.
+  holds them, and the letters and calls of its Ctrl commands, to both. A softkey a
+  PC key pressed while the calculator was busy is released at rest only if the core
+  still holds one, where upstream's release would shift by a negative count, and it
+  leaves no key down for the next wait. Left out, for want of an Android
+  counterpart: Ctrl+P, GTK's printer window, and Ctrl+H, Ctrl+M, and Ctrl+K, the
+  screen, menu, and X register images `src/c47-gtk/hal/lcd.c` copies.
 - `pasteNumberNative(String)` queues the tokens `PasteNumber.kt` writes; a true
   return means queued, and the answer comes through `onPasteResult`. At rest
   `r47_paste_number` resolves each token to its `ITM_*` item, again never a number
