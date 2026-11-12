@@ -86,6 +86,7 @@ bool r47_services_autosave_enabled(void);
 // The calculator thread, away from rest: run a save that is waiting. hal/keys.c calls
 // it in a program's pause, a step boundary, and, for a stopped host only, at a poll
 // inside a computation or a running program, where the saved image holds the run.
+// The state the run ends in is then owed a save at the next rest.
 void r47_services_save_pending(void);
 
 // The calculator thread: how long until an idle checkpoint is due, or -1 for none.

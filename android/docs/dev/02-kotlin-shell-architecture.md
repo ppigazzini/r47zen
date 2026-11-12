@@ -203,8 +203,9 @@ up-calls.
   key still down, since `wait_for_key_release(0)` holds the calculator thread until
   a release arrives; it queues a save, when `auto_save_minimize` is on and no factory
   reset is in progress; and it tells native the host stopped, which parks the
-  calculator thread at rest. A running program is unaffected, because it does not
-  sleep at rest.
+  calculator thread at rest. A running program or computation goes on: its next
+  poll runs the queued save, and the state it ends in is saved again at the next
+  rest.
 - An idle calculator, or one already saving, finishes that save inside
   `SAVE_FENCE_MILLIS`, and the save is
   display-passive: `saveCalc` does not touch the LCD. A calculator in a computation,

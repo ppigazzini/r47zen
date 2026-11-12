@@ -2525,6 +2525,37 @@ static void casePcSoftkeyReleasedDuringAComputationEndsItsWait(void) {
   CHECK(atomic_load(&probeRan), "the calculator still waits for a PC softkey's release");
 }
 
+// A save at a poll holds the state mid-run. With the host still stopped, the state the
+// run ends in is saved too, once the calculator is at rest, or a kill restores the
+// state from before the end.
+static void caseStoppedHostSavesTheRunsEndAtRest(void) {
+  startCalculator();
+  startSlowFactors();
+  r47_service_save_and_wait(0);
+  r47_keys_on_host_stopped(true);
+  for (int i = 0; i < 200 && backupTime() == 0; i++) {
+    sleepMs(10);
+  }
+  CHECK(backupTime() != 0, "a stopped host's save waited for the computation");
+  // The file is in place before the poll save syncs its directory: wait for that sync.
+  int afterPollSave = atomic_load(&fsyncCount);
+  for (int i = 0; i < 50; i++) {
+    sleepMs(20);
+    const int now = atomic_load(&fsyncCount);
+    if (now == afterPollSave) {
+      break;
+    }
+    afterPollSave = now;
+  }
+  tap(KEY_EXIT);
+  for (int i = 0; i < 300 && atomic_load(&fsyncCount) == afterPollSave; i++) {
+    sleepMs(10);
+  }
+  CHECK(atomic_load(&fsyncCount) > afterPollSave,
+        "the run's end was not saved while the host stayed stopped");
+  r47_keys_on_host_stopped(false);
+}
+
 static const testCase_t cases[] = {
     {"a core call off its thread aborts", caseACoreCallOffItsThreadAborts},
     {"the stand-ins agree with GMP", caseTheStandInsAgreeWithGmp},
@@ -2577,6 +2608,7 @@ static const testCase_t cases[] = {
     {"a save waits for a busy calculator", caseSaveWaitsForACalculatorThatIsBusy},
     {"a stopped host saves inside a computation",
      caseStoppedHostSavesInsideAComputation},
+    {"a stopped host saves the run's end at rest", caseStoppedHostSavesTheRunsEndAtRest},
     {"a stopped host saves inside a running program",
      caseStoppedHostSavesInsideARunningProgram},
     {"a stopped host's save waits for an open file",

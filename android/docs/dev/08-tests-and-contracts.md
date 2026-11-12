@@ -922,7 +922,8 @@ Android compatibility layer.
   rest finishes inside the fence, a save during a computation runs at the next rest and
   not before, and the fence does not wait for a busy calculator; once the host has
   stopped, a pending save runs at the next poll of a computation and of a running
-  program, and not while the core has a file open; a paste survives a
+  program, and not while the core has a file open, and the state the run ends in
+  is saved again at rest while the host stays stopped; a paste survives a
   computation; an idle checkpoint keeps typed work, with none when autosave is off; a
   save runs inside a pause; a kill during saves never cuts the file; a failed save keeps
   the file and the process; a save keeps the running calculator's state; a state file

@@ -106,8 +106,10 @@ exception: it is the calculator thread.
     program, for a pending `onStop` save (`saveIfHostStopped`, from `key_empty`), so
     a run that outlasts the freezer's 10 s or a kill does not take the session with
     it. Not while the core has a file open, since the HAL holds one, and not before
-    the start's restore. The image holds the run, which a restore clears. With the
-    host in front a save still waits for rest.
+    the start's restore. The image holds the run, which a restore clears, so the
+    state the run ends in is saved too, at the next rest, host stopped or not: a
+    save that ran away from rest leaves `restSaveOwed`, and the checkpoint is then
+    due at once. With the host in front a save still waits for rest.
 - **Parking.** A sleep at rest with the host stopped waits with no deadline.
   Upstream's timers are deadlines against the clock, so the first wake fires every one
   that came due. A running or paused program never parks.
