@@ -1239,7 +1239,10 @@ Android compatibility layer.
   collector, trains on a different corpus from this harness on purpose
   (`--help` lists it), so the two are separate verification surfaces
 - `scripts/workload-regressions/host_workload_regression.c` is the harness that
-  probes the wait, pause, progress, and workload-run behavior behind that lane
+  probes the wait, pause, progress, and workload-run behavior behind that lane;
+  its poll reads core state only while it holds `screenMutex`, which the worker
+  lets go only inside the core's pump, and it sends the direct stop with no
+  lock, as `requestStopProgramNative()` does
 - `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
   is the normal pull-request owner of the host-side PGO collector and the
   Android release-native PGO consumer check in one lane; the same job then runs

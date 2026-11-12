@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -105,7 +106,7 @@ typedef struct {
   int16_t func_id;
   uint16_t param;
   bool uses_param;
-  volatile bool done;
+  atomic_bool done;
 } function_worker_t;
 
 typedef struct {
@@ -290,7 +291,7 @@ static void *run_function_worker(void *user_data) {
     runFunction(worker->func_id);
   }
   pthread_mutex_unlock(&screenMutex);
-  worker->done = true;
+  atomic_store(&worker->done, true);
   return NULL;
 }
 
@@ -300,7 +301,7 @@ static bool start_worker(function_worker_t *worker, int16_t func_id,
   worker->func_id = func_id;
   worker->param = param;
   worker->uses_param = uses_param;
-  worker->done = false;
+  atomic_store(&worker->done, false);
   if (pthread_create(thread_id, NULL, run_function_worker, worker) != 0) {
     fprintf(stderr, "ERROR: Failed to start worker thread\n");
     return false;
@@ -511,26 +512,35 @@ static workload_result_t run_program_fixture_workload(
   }
 
   deadline = monotonic_ms() + timeout_ms;
-  while (!worker.done) {
+  while (!atomic_load(&worker.done)) {
     uint64_t now = monotonic_ms();
 
     if (now >= deadline) {
       break;
     }
 
-    if (fail_last_error(scenario->program_name)) {
+    // The worker holds screenMutex while the core runs and lets it go only while the
+    // core pumps, so this thread reads core state in those windows alone; a poll
+    // that finds the mutex held reads nothing.
+    bool failed = false;
+    bool paused = false;
+    if (pthread_mutex_trylock(&screenMutex) == 0) {
+      failed = fail_last_error(scenario->program_name);
+      if (currentLocalStepNumber > max_step) {
+        max_step = currentLocalStepNumber;
+      }
+      saw_view = saw_view || temporaryInformation == TI_VIEW_REGISTER;
+      saw_waiting = saw_waiting || programRunStop == PGM_WAITING;
+      paused = programRunStop == PGM_PAUSED;
+      lcd_refresh_count = r47_get_host_lcd_refresh_count();
+      pthread_mutex_unlock(&screenMutex);
+    }
+    if (failed) {
       return WORKLOAD_RESULT_FAIL;
     }
-
-    if (currentLocalStepNumber > max_step) {
-      max_step = currentLocalStepNumber;
-    }
-    saw_view = saw_view || temporaryInformation == TI_VIEW_REGISTER;
-    saw_waiting = saw_waiting || programRunStop == PGM_WAITING;
-    lcd_refresh_count = r47_get_host_lcd_refresh_count();
     saw_lcd_refresh = saw_lcd_refresh || lcd_refresh_count > 0u;
 
-    if (programRunStop == PGM_PAUSED) {
+    if (paused) {
       saw_pause = true;
       if (scenario->resume_pause_with_zero_key && !sent_resume_key) {
         r47_send_sim_key("00", false, false);
@@ -546,6 +556,9 @@ static workload_result_t run_program_fixture_workload(
       activity_started_at = now;
     }
 
+    // The stop takes no lock and reads programRunStop as it stands, as the app's
+    // requestStopProgramNative() does: the worker can hold screenMutex for the
+    // whole run, so a stop that waited for it would miss its window.
     if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
         activity_started_at != 0u &&
         now - activity_started_at >= scenario->stop_after_activity_ms &&
@@ -560,7 +573,7 @@ static workload_result_t run_program_fixture_workload(
     usleep(5000);
   }
 
-  if (!worker.done) {
+  if (!atomic_load(&worker.done)) {
     if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
         activity_started_at != 0u) {
       fprintf(stderr,
