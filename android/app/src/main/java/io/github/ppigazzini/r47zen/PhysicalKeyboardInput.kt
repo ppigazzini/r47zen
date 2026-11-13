@@ -189,10 +189,16 @@ internal object PcKeys {
     private fun characterKeysym(event: KeyEvent, characterOf: (KeyEvent, Int) -> Int): Int? {
         // X11 keeps the keysym under Ctrl, Super, and the left Alt; the right Alt is AltGr.
         var meta = event.metaState and (KeyEvent.META_CTRL_MASK or KeyEvent.META_META_MASK).inv()
-        if (event.metaState and KeyEvent.META_ALT_RIGHT_ON == 0) {
+        val altGr = event.metaState and KeyEvent.META_ALT_RIGHT_ON != 0
+        if (!altGr) {
             meta = meta and KeyEvent.META_ALT_MASK.inv()
         }
-        val unicode = characterOf(event, meta)
+        var unicode = characterOf(event, meta)
+        // A layout with no character on the right Alt, such as US, has no AltGr: X11 then
+        // types the plain key, as it does under the left Alt.
+        if (unicode == 0 && altGr) {
+            unicode = characterOf(event, meta and KeyEvent.META_ALT_MASK.inv())
+        }
         return when {
             unicode == 0 -> null
             unicode and KeyCharacterMap.COMBINING_ACCENT != 0 ->
