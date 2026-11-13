@@ -308,7 +308,8 @@ flowchart LR
   in full, because upstream reports only a failed open. `onWarning(...)` is upstream's
   `show_warning(...)`: it posts to the host, which shows a dialog, because the core's
   messages run to five lines and a toast shows two from Android 12 on. With no host it
-  only logs.
+  logs, and holds the latest three for the next host to attach, since a program can
+  run on, and warn, with no Activity.
 - `onCalculatorOff()`, `onClipboardText(...)`, `setClipboardText(...)`,
   and `onPasteResult(...)` go to the `CalculatorHost` attached
   at that moment, and do nothing with none attached, so an answer that arrives
