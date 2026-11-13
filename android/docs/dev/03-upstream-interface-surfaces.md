@@ -326,7 +326,8 @@ flowchart LR
   `NativeFileRequestGate` for the process. Still on the calculator thread, it finds
   where the picker starts through `PickerStart`, provider calls that must not run on
   the main thread, then posts the launch onto a process-scoped main handler exactly
-  once, with no start folder if the lookup fails, and forwards the picker's answer. The posted launch reaches
+  once, with no start folder if the lookup fails, and forwards the answer of the
+  picker it launched, and only that one. The posted launch reaches
   the attached host, is canceled at once with none attached, and a finishing
   `onDestroy` cancels a launched picker that never answered, so the calculator thread
   parked in `requestAndroidFile` always gets a result or a cancel
