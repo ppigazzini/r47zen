@@ -562,7 +562,7 @@ source is missing from this page:
   dynamic full labels
 - `PcKeysTest.kt`: locks the Android key event to X11 translation: a letter and
   its shift, Ctrl's and the left Alt's bits with the keysym kept, the right Alt's
-  AltGr character, the special and
+  AltGr character, and the plain key on a layout with none, the special and
   function keys, the keypad with and without NumLock, Shift turning either way, a
   modifier's own bit on its release only, the Unicode and dead keysyms, keys left to
   Android, and that the controller sends each press and release. Robolectric's key

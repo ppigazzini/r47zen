@@ -36,6 +36,15 @@ class PcKeysTest {
         )
     }
 
+    // On a layout with no character on the right Alt, a US one, X11 types the plain key.
+    @Test
+    fun theRightAltOnALayoutWithNoAltGrCharacter_typesThePlainOne() {
+        assertEquals(
+            PcKey('a'.code, PcKeys.MOD5_MASK),
+            translate(KeyEvent.KEYCODE_A, KeyEvent.META_ALT_ON or KeyEvent.META_ALT_RIGHT_ON, generic),
+        )
+    }
+
     @Test
     fun theRightAltTypesTheLayoutsAltGrCharacter() {
         val german: (KeyEvent, Int) -> Int = { event, meta ->
