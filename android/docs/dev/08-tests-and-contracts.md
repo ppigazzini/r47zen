@@ -998,7 +998,7 @@ Android compatibility layer.
   calls functions and presses no key, so it holds none of `btnPressed`,
   `btnReleased`, TAM, AIM, or the shifts. An early return seeded into
   `btnReleased` fails this case and many others.
-- Thirteen cases follow it for the PC keyboard, each what upstream's GTK handler
+- Fifteen cases follow it for the PC keyboard, each what upstream's GTK handler
   gives but one: a PC key keeps its place between two touch keys (1, a shifted PC E
   for the constant e, and `-` give 1 - e); a period is the decimal point; a lone
   Shift is f and a lone Ctrl is g; a Shift or Ctrl up Android canceled, which GTK
@@ -1008,8 +1008,11 @@ Android compatibility layer.
   `t`; the `f` letter finds the shift on all four R47 layouts; letters in AIM type in
   the case the calculator shows; STO then a letter names the register; a character
   beyond Latin-1 and a dead key compose as GTK's map gives; a PC key during a
-  computation only pushes keys at the head of the buffer, so Escape stops it; and a
-  softkey pressed during a computation and released at rest leaves no key down.
+  computation only pushes keys at the head of the buffer, so Escape stops it; a
+  softkey pressed during a computation and released at rest leaves no key down; one
+  let go while the computation runs ends the computation's wait for it at once; and
+  that wait holds through another key let go meanwhile, a Shift, and ends at the
+  softkey's own release.
 - A case reads the keypad's faces in AIM: the key that shows N shows its `g` face,
   7, once NUM is on, as GTK draws it. Another holds the VOL softkeys to no value,
   `NOVAL`, as GTK's `getBeepVolume` answers.
