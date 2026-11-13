@@ -188,7 +188,8 @@ up-calls.
   controlled factory-reset request. `MainActivity` is exported, so that request
   carries a token this process made, and an intent from another app does not reset.
 - `onStart()` attaches this Activity as the host, starts the audio thread if it is not
-  running, tells native the host is visible, and starts the display loop. `MainActivity`
+  running, with an empty queue, since tones a program queued while no thread played
+  belong to a moment past, tells native the host is visible, and starts the display loop. `MainActivity`
   is exported, so a second instance can sit on the first, and on a large screen or in
   desktop windowing two can run side by side. Android starts the Activity coming back
   before it stops or destroys the one leaving, so the last one started speaks for the
