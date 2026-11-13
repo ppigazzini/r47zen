@@ -502,7 +502,7 @@ operation.
 - `scripts/workload-regressions/build_bridge_tsan_harness.sh` races the pushes and the
   display copies against the calculator thread, init included, under ThreadSanitizer.
 - `run_upstream_hal_contract.sh` holds the `sys_sleep` callers the
-  at-rest rule assumes.
+  at-rest rule assumes, direct or through a function of their own file.
 - `android/app/src/test/java/io/github/ppigazzini/r47zen/NativeDisplayRefreshLoopTest.kt`
   covers generation gating and retry-after-failed-copy behavior for the packed
   LCD observer loop.
