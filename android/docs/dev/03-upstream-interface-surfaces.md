@@ -195,7 +195,10 @@ flowchart LR
   either: GTK chooses its rows at run time through `shortcutProfile`
   (`src/c47/defines.h`), so a calculator whose `calcModel` is C47 gets GTK's C47
   rows and any other model outside the R47 family (`isR47FAM`), such as DM42,
-  none, where the port always runs the R47 rows.
+  none, where the port always runs the R47 rows. An R47 build's KEYS menu offers
+  only the R47 layouts (`menu_KEYS` in `src/c47/softmenus.c`), and the C47 and DM42
+  items are in no catalog, so only a program step that runs one reaches those rows,
+  and `saveCalc` saves no such layout, so a restart brings back the R47 one.
 - `cancelPcKeyNative(keysym)` pushes, into the same FIFO, a Shift or Ctrl up that
   Android canceled, as it does when focus leaves the window with the key down.
   `pc_keyboard.c` ends the key as its release does, so no modifier stays held and
