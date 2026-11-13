@@ -56,6 +56,7 @@ ASSIGN_TEST="io.github.ppigazzini.r47zen.ReplicaKeypadLayoutHapticsTest"
 MUT_FILES=(
     "$KEYS_FILE"
     "$KEYS_FILE"
+    "$KEYS_FILE"
     "$FLUSHER_FILE"
     "$DECODER_FILE"
     "$DECODER_FILE"
@@ -86,6 +87,7 @@ MUT_FILES=(
 MUT_OLD=(
     "state = if (event.action == KeyEvent.ACTION_DOWN) state and own.inv() else state or own"
     "if (keypadDigits) KP_0 + keypadDigit else keypadMoves[keypadDigit]"
+    "var meta = event.metaState and (KeyEvent.META_CTRL_MASK or KeyEvent.META_META_MASK).inv()"
     "if (sinceLast >= minFlushIntervalMs) {"
     "private fun keyMetaAt(offset: Int, index: Int): Int = meta[offset + index]"
     "return labels.getOrElse(index * LABELS_PER_KEY + slot) { \"\" }"
@@ -116,6 +118,7 @@ MUT_OLD=(
 MUT_NEW=(
     "state = if (event.action == KeyEvent.ACTION_DOWN) state or own else state and own.inv()"
     "keypadMoves[keypadDigit]"
+    "var meta = event.metaState and KeyEvent.META_META_MASK.inv()"
     "if (sinceLast >= 0L) {"
     "private fun keyMetaAt(offset: Int, index: Int): Int = meta[offset]"
     "return labels.getOrElse(index * LABELS_PER_KEY) { \"\" }"
@@ -144,6 +147,7 @@ MUT_NEW=(
     "isEnabled = enabled || isPressed"
 )
 MUT_TESTS=(
+    "$KEYS_TEST"
     "$KEYS_TEST"
     "$KEYS_TEST"
     "$FLUSHER_TEST"
@@ -176,6 +180,7 @@ MUT_TESTS=(
 MUT_DESC=(
     "PcKeys: a modifier's own bit goes with its press, not its release"
     "PcKeys: a keypad digit gives its move with NumLock on"
+    "PcKeys: Ctrl reaches the layout's character lookup"
     "GraphGestureFlusher: flush with no minimum interval"
     "KeypadSnapshot: drop the per-key index from the meta-lane read"
     "KeypadSnapshot: drop the label slot from the label-lane read"

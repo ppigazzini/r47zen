@@ -18,11 +18,37 @@ class PcKeysTest {
         assertEquals(PcKey('A'.code, PcKeys.SHIFT_MASK), translate(KeyEvent.KEYCODE_A, KeyEvent.META_SHIFT_ON))
     }
 
+    // Robolectric's key character map reads only Shift, so these go through a lookup shaped
+    // like AOSP's Generic.kcm, where a letter has no character under Ctrl, Alt, or Meta.
     @Test
     fun ctrlKeepsTheKeysymAndSetsTheControlBit() {
         assertEquals(
             PcKey('c'.code, PcKeys.CONTROL_MASK),
-            translate(KeyEvent.KEYCODE_C, KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON),
+            translate(KeyEvent.KEYCODE_C, KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON, generic),
+        )
+    }
+
+    @Test
+    fun theLeftAltKeepsTheKeysymAndSetsMod1() {
+        assertEquals(
+            PcKey('a'.code, PcKeys.MOD1_MASK),
+            translate(KeyEvent.KEYCODE_A, KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON, generic),
+        )
+    }
+
+    @Test
+    fun theRightAltTypesTheLayoutsAltGrCharacter() {
+        val german: (KeyEvent, Int) -> Int = { event, meta ->
+            if (event.keyCode == KeyEvent.KEYCODE_Q && meta and KeyEvent.META_ALT_RIGHT_ON != 0) {
+                '@'.code
+            } else {
+                generic(event, meta)
+            }
+        }
+
+        assertEquals(
+            PcKey('@'.code, PcKeys.MOD5_MASK),
+            translate(KeyEvent.KEYCODE_Q, KeyEvent.META_ALT_ON or KeyEvent.META_ALT_RIGHT_ON, german),
         )
     }
 
@@ -60,11 +86,11 @@ class PcKeysTest {
         assertEquals(PcKey(0xffe1, 0), translate(KeyEvent.KEYCODE_SHIFT_LEFT, shiftOn))
         assertEquals(
             PcKey(0xffe1, PcKeys.SHIFT_MASK),
-            translate(KeyEvent.KEYCODE_SHIFT_LEFT, 0, KeyEvent.ACTION_UP),
+            translate(KeyEvent.KEYCODE_SHIFT_LEFT, 0, action = KeyEvent.ACTION_UP),
         )
         assertEquals(
             PcKey(0xffe3, PcKeys.CONTROL_MASK),
-            translate(KeyEvent.KEYCODE_CTRL_LEFT, 0, KeyEvent.ACTION_UP),
+            translate(KeyEvent.KEYCODE_CTRL_LEFT, 0, action = KeyEvent.ACTION_UP),
         )
     }
 
@@ -102,7 +128,24 @@ class PcKeysTest {
         assertEquals(listOf(Triple('s'.code, 0, true), Triple('s'.code, 0, false)), sent)
     }
 
-    private fun translate(keyCode: Int, meta: Int = 0, action: Int = KeyEvent.ACTION_DOWN): PcKey? {
-        return PcKeys.translate(KeyEvent(0L, 0L, action, keyCode, 0, meta))
+    private fun translate(
+        keyCode: Int,
+        meta: Int = 0,
+        characterOf: (KeyEvent, Int) -> Int = KeyEvent::getUnicodeChar,
+        action: Int = KeyEvent.ACTION_DOWN,
+    ): PcKey? {
+        return PcKeys.translate(KeyEvent(0L, 0L, action, keyCode, 0, meta), characterOf)
+    }
+
+    // AOSP's Generic.kcm for the letters: base lower case, Shift or Caps Lock upper case, and
+    // "ctrl, alt, meta: none".
+    private val generic: (KeyEvent, Int) -> Int = { event, meta ->
+        val letter = event.keyCode - KeyEvent.KEYCODE_A
+        val none = KeyEvent.META_CTRL_MASK or KeyEvent.META_ALT_MASK or KeyEvent.META_META_MASK
+        when {
+            letter !in 0..25 || meta and none != 0 -> 0
+            meta and (KeyEvent.META_SHIFT_MASK or KeyEvent.META_CAPS_LOCK_ON) != 0 -> 'A'.code + letter
+            else -> 'a'.code + letter
+        }
     }
 }
