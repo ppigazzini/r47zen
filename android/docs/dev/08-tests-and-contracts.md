@@ -561,11 +561,14 @@ source is missing from this page:
   refresh normalization so selected softkey mode does not regress back to
   dynamic full labels
 - `PcKeysTest.kt`: locks the Android key event to X11 translation: a letter and
-  its shift, Ctrl's bit with the keysym kept, the special and function keys, the
-  keypad with and without NumLock, Shift turning either way, a modifier's own bit
-  on its release only, the
-  Unicode and dead keysyms, keys left to Android, and that the controller sends
-  each press and release
+  its shift, Ctrl's and the left Alt's bits with the keysym kept, the right Alt's
+  AltGr character, the special and
+  function keys, the keypad with and without NumLock, Shift turning either way, a
+  modifier's own bit on its release only, the Unicode and dead keysyms, keys left to
+  Android, and that the controller sends each press and release. Robolectric's key
+  character map reads only Shift, so the modifier cases pass `translate` a lookup
+  shaped like AOSP's `Generic.kcm`, where a letter has no character under Ctrl,
+  Alt, or Meta: with the platform's, deleting the Ctrl strip passes
 - `KeySpeechTest.kt`: every label of every exported keypad scene is spoken in
   printable ASCII words, the R47 glyphs by function (`x\u2162` is "x squared"),
   every rendered key a scene enables with labels has a name in words and the

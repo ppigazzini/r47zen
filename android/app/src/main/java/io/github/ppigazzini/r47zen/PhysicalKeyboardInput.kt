@@ -158,9 +158,13 @@ internal object PcKeys {
     /** The dead keysym of a combining accent, or null for one GDK has none for. */
     fun deadKeysymOf(accent: Int): Int? = deadKeysyms[accent]
 
-    /** The PC key an event gives, or null for a key that is no PC key, such as Back or a volume key. */
-    fun translate(event: KeyEvent): PcKey? {
-        val keysym = eventKeysym(event) ?: return null
+    /**
+     * The PC key an event gives, or null for a key that is no PC key, such as Back or a volume key.
+     * [characterOf] is the layout's character for the key under a meta state, 0 for none:
+     * the platform's key character map, which a test replaces.
+     */
+    fun translate(event: KeyEvent, characterOf: (KeyEvent, Int) -> Int = KeyEvent::getUnicodeChar): PcKey? {
+        val keysym = eventKeysym(event, characterOf) ?: return null
         var state = stateOf(event.metaState)
         modifierMasks[event.keyCode]?.let { own ->
             // X11 reports a modifier's own bit on its release, not on its press.
@@ -169,7 +173,7 @@ internal object PcKeys {
         return PcKey(keysym, state)
     }
 
-    private fun eventKeysym(event: KeyEvent): Int? {
+    private fun eventKeysym(event: KeyEvent, characterOf: (KeyEvent, Int) -> Int): Int? {
         val keypadDigit = event.keyCode - KeyEvent.KEYCODE_NUMPAD_0
         val keypadDigits = event.isNumLockOn != event.isShiftPressed
         return when {
@@ -178,17 +182,17 @@ internal object PcKeys {
                 if (keypadDigits) KP_0 + keypadDigit else keypadMoves[keypadDigit]
             event.keyCode == KeyEvent.KEYCODE_NUMPAD_DOT ->
                 if (keypadDigits) KP_DECIMAL else KP_DELETE
-            else -> characterKeysym(event)
+            else -> characterKeysym(event, characterOf)
         }
     }
 
-    private fun characterKeysym(event: KeyEvent): Int? {
+    private fun characterKeysym(event: KeyEvent, characterOf: (KeyEvent, Int) -> Int): Int? {
         // X11 keeps the keysym under Ctrl, Super, and the left Alt; the right Alt is AltGr.
         var meta = event.metaState and (KeyEvent.META_CTRL_MASK or KeyEvent.META_META_MASK).inv()
         if (event.metaState and KeyEvent.META_ALT_RIGHT_ON == 0) {
             meta = meta and KeyEvent.META_ALT_MASK.inv()
         }
-        val unicode = event.getUnicodeChar(meta)
+        val unicode = characterOf(event, meta)
         return when {
             unicode == 0 -> null
             unicode and KeyCharacterMap.COMBINING_ACCENT != 0 ->
