@@ -63,6 +63,11 @@ static int64_t lastMinute = 0;
 static bool hostStopped =
     false; // under keyMutex: a sleep decides its wait from it
 static _Atomic bool calculatorIdle = false;
+// When the calculator thread last answered the host, by a poll, a sleep, or the end of
+// a wait for it, and whether it waits for the host now: a sleep, a key's release.
+static _Atomic int64_t lastAnswerUs = 0;
+static _Atomic bool waitingForHost = false;
+static void answered(void);
 static int64_t processStartUs = 0;
 uint32_t calc_state = 0;
 
@@ -122,6 +127,7 @@ void r47_keys_init(void) {
   atomic_store_explicit(&calculatorThreadKnown, true, memory_order_release);
 #endif // R47_THREAD_CHECK
   processStartUs = monotonicUs();
+  answered();
 
   pthread_once(&keyCondOnce, initKeyCond);
 }
@@ -409,6 +415,7 @@ int key_empty(void) {
 #if defined(HOST_TOOL_BUILD)
   callPollHook();
 #endif // HOST_TOOL_BUILD
+  answered();
   saveIfHostStopped();
   pthread_mutex_lock(&keyMutex);
   // The ring's wipe can lose a quit a redraw moved there, so an operation's poll looks
@@ -499,6 +506,20 @@ void key_pop_all(void) {
 
 bool r47_keys_calculator_idle(void) { return atomic_load(&calculatorIdle); }
 
+static void answered(void) { atomic_store(&lastAnswerUs, monotonicUs()); }
+
+// A program's SOLVE or INT runs its function as a nested engine, which upstream never
+// lets poll, so no key stops it: this is how long the calculator has run with no poll.
+// A wait for the host, or for a picker, is no silence.
+int64_t r47_keys_unanswered_ms(void) {
+  const int64_t last = atomic_load(&lastAnswerUs);
+  if (last == 0 || atomic_load(&waitingForHost) ||
+      atomic_load_explicit(&isCoreBlockingForIo, memory_order_relaxed)) {
+    return 0;
+  }
+  return (monotonicUs() - last) / 1000;
+}
+
 // The calculator thread: keys are waiting, in the buffer or the ring.
 bool r47_keys_pending(void) { return !key_empty() || !emptyKeyBuffer(); }
 
@@ -521,6 +542,7 @@ void wait_for_key_release(int tout) {
   R47_CALCULATOR_THREAD_ONLY();
   pthread_mutex_lock(&keyMutex);
   const int64_t deadline = tout > 0 ? monotonicUs() + (int64_t)tout * 1000 : 0;
+  atomic_store(&waitingForHost, true);
   while (keysFromHost && pushedKeyDown) {
     if (deadline == 0) {
       pthread_cond_wait(&keyCond, &keyMutex);
@@ -532,6 +554,8 @@ void wait_for_key_release(int tout) {
       }
     }
   }
+  atomic_store(&waitingForHost, false);
+  answered();
   pthread_mutex_unlock(&keyMutex);
 }
 
@@ -597,6 +621,7 @@ void sys_sleep(void) {
 #if defined(HOST_TOOL_BUILD)
   callPollHook();
 #endif // HOST_TOOL_BUILD
+  answered();
   const bool atRest = calculatorAtRest();
   // A request can change what the main loop must do next, such as switch off, so
   // the loop looks again before anything sleeps.
@@ -645,6 +670,7 @@ void sys_sleep(void) {
       }
     }
     atomic_store(&calculatorIdle, atRest);
+    atomic_store(&waitingForHost, true);
     if (until == 0) {
       pthread_cond_wait(&keyCond, &keyMutex);
     } else if (until > now) {
@@ -652,6 +678,8 @@ void sys_sleep(void) {
                                   (long)(until % 1000000) * 1000};
       pthread_cond_timedwait(&keyCond, &keyMutex, &deadline);
     }
+    atomic_store(&waitingForHost, false);
+    answered();
     atomic_store(&calculatorIdle, false);
   }
 

@@ -157,6 +157,14 @@ Java_io_github_ppigazzini_r47zen_CalculatorEngine_isReadyNative(JNIEnv *env,
   return r47_runtime_ready() ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jlong JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_unansweredMsNative(
+    JNIEnv *env, jclass clazz) {
+  (void)env;
+  (void)clazz;
+  return (jlong)r47_keys_unanswered_ms();
+}
+
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_CalculatorEngine_onHostStoppedNative(
     JNIEnv *env, jclass clazz, jboolean stopped) {
