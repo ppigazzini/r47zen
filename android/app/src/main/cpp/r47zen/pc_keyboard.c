@@ -19,7 +19,10 @@
 // src/c47-gtk/hal/lcd.c copies. Not ported either: GTK chooses its rows at run
 // time through shortcutProfile (src/c47/defines.h), so a calculator whose calcModel
 // is C47 gets GTK's C47 rows and any other model outside the R47 family, such as
-// DM42, none, where the port always runs the R47 rows.
+// DM42, none, where the port always runs the R47 rows. An R47 build's KEYS menu
+// offers only the R47 layouts (menu_KEYS in softmenus.c), and the C47 and DM42
+// items are in no catalog, so only a program step that runs one reaches those rows;
+// saveCalc saves no such layout, so a restart brings back the R47 one.
 // test_physical_keyboard_contract.py holds the rows, tables, and Ctrl commands
 // here to gtkGui.c.
 #include "c47.h"
