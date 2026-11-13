@@ -45,6 +45,9 @@ object AudioEngine {
         if (audioThread?.isAlive == true) {
             return
         }
+        // What queued while no thread played, a program that ran on behind a stopped
+        // Activity, belongs to a moment past: a new thread starts with none of it.
+        audioQueue.clear()
 
         audioThread = Thread {
             Log.i(TAG, "Starting Audio Thread (Zero-GC)...")
