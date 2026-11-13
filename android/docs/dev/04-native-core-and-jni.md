@@ -722,9 +722,13 @@ thread, so a load picked right after a save reads the finished document.
   calculator thread when the app stops, but the worker stays blocked until the provider
   returns, and later transfers queue behind it.
 - **An answer with no request:** a process killed behind the picker comes back with
-  the answer and no calculator thread parked. `onFileSelectedNative` refuses it,
-  `NativeFileRequestGate` closes the descriptor, which ends a save's pipe with
-  nothing written, and `file_request_lost` tells the user.
+  the answer in a fresh `NativeFileRequestGate`, which never launched that picker, so
+  the gate never hands it to native: the new calculator thread may already wait in
+  `requestAndroidFile` for a request the gate has not seen yet, and would take the
+  wrong file. Only an answer to the picker the gate launched, or a copy with the
+  ticket of the transfer it began for it, reaches native, and `onFileSelectedNative`
+  refuses one with no request parked. Either way the gate closes the descriptor, which
+  ends a save's pipe with nothing written, and `file_request_lost` tells the user.
 
 `DocumentTransferTest.kt` and `NativeFileRequestGateTest.kt` hold the transfer, the
 name it hands on, and its one answer per request. `scripts/android/run_hal_io_contract.sh`
