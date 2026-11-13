@@ -6,6 +6,7 @@
 #include "hal/lcd.h"
 
 #include <math.h>
+#include <pthread.h>
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -480,37 +481,27 @@ Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_isSimFunctionRunningNativ
 // What a test watches while a program runs. The calculator thread copies it out at
 // every sleep, every poll of a running program, and after every test script, so a
 // read never waits for rest: a program paused for a key the test is about to send
-// never reaches rest.
-static _Atomic jint publishedState[R47_PROGRAM_LOAD_STATE_LENGTH];
+// never reaches rest. The copy is one, under its lock, so a read never mixes the run
+// state of one poll with the step of the next.
+static pthread_mutex_t publishedStateMutex = PTHREAD_MUTEX_INITIALIZER;
+static jint publishedState[R47_PROGRAM_LOAD_STATE_LENGTH];
 
 void r47_test_bridge_publish_state(void) {
   jint values[R47_PROGRAM_LOAD_STATE_LENGTH];
   r47_fill_program_load_state_values(values);
-  for (int i = 0; i < R47_PROGRAM_LOAD_STATE_LENGTH; i++) {
-    atomic_store(&publishedState[i], values[i]);
-  }
+  pthread_mutex_lock(&publishedStateMutex);
+  memcpy(publishedState, values, sizeof(publishedState));
+  pthread_mutex_unlock(&publishedStateMutex);
 }
 
 static void readPublishedState(jint values[R47_PROGRAM_LOAD_STATE_LENGTH]) {
-  for (int i = 0; i < R47_PROGRAM_LOAD_STATE_LENGTH; i++) {
-    values[i] = atomic_load(&publishedState[i]);
-  }
+  pthread_mutex_lock(&publishedStateMutex);
+  memcpy(values, publishedState, sizeof(publishedState));
+  pthread_mutex_unlock(&publishedStateMutex);
 }
 
 JNIEXPORT jintArray JNICALL
 Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_snapshotStateNative(
-    JNIEnv *env, jobject thiz) {
-  (void)thiz;
-
-  jint values[R47_PROGRAM_LOAD_STATE_LENGTH];
-  readPublishedState(values);
-  return r47_new_program_load_state_array(env, values);
-}
-
-// The same published copy. A test reads it during a run too, since a program that
-// pauses for the test's key only resumes once the test has seen the pause.
-JNIEXPORT jintArray JNICALL
-Java_io_github_ppigazzini_r47zen_ProgramLoadTestBridge_snapshotStateIfAvailableNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
 
