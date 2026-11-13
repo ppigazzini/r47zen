@@ -301,7 +301,8 @@ speaks a new one, and an error the screen shows is also the node's error
 (`AccessibilityNodeInfo.setError`). While an accessibility service runs, every
 LCD frame restarts a wait of `DISPLAY_DESCRIPTION_SETTLE_MS` (300 ms), so a typed
 number or a running program asks once, after it, through `describeDisplayNative`;
-the calculator answers when it is at rest, so a program is read once, at its stop
+the calculator answers when it is at rest, and requests that come while one waits are
+that one, so a program is read once, at its stop
 ([03](03-upstream-interface-surfaces.md)). With no service running, nothing is
 asked. A keypad rebuild keeps the node (`clearReplicaViews`).
 

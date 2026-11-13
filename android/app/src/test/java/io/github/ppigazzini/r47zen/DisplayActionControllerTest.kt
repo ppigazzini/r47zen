@@ -210,6 +210,27 @@ class DisplayActionControllerTest {
         )
     }
 
+    @Test
+    fun copy_tellsTheUserWhenTheRequestIsRefused() {
+        val controller = createController(copyRegisters = { false })
+
+        assertTrue(controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_X_REGISTER))
+
+        assertEquals(
+            context.getString(R.string.main_menu_copy_not_ready),
+            ShadowToast.getTextOfLatestToast(),
+        )
+    }
+
+    @Test
+    fun copy_saysNothingWhenTheRequestIsQueued() {
+        val controller = createController(copyRegisters = { true })
+
+        controller.handleCopyMenuSelection(DisplayActionController.MENU_COPY_STACK_REGISTERS)
+
+        assertNull(ShadowToast.getLatestToast())
+    }
+
     private companion object {
         const val UNKNOWN_ITEM = 99
     }

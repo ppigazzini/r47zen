@@ -417,6 +417,7 @@ source is missing from this page:
 
 - `DisplayActionControllerTest.kt`: the main and Copy menus carry upstream's copy
   items and the dark popup theme; each copy kind asks the calculator for its text;
+  a refused copy says so in a toast and a queued one says nothing;
   a menu item the controller does not know is left to Android; Settings and
   Picture in Picture route; Paste Number tolerates an empty clip, sends the whole
   number as one request, refuses a clip that is not one number without touching
@@ -963,7 +964,8 @@ Android compatibility layer.
   `refreshLcd` calls than the main loop's periods it lasts; a save syncs the file and its directory; a slow
   save still answers inside the fence; a checkpoint waits for a quiet moment; OFF leaves
   the file with autosave off; a canceled softkey does not assign; a keypad mode the full
-  queue refused is asked for again; `AUTXEQ` runs the program on a relaunch; a wrong program
+  queue refused is asked for again; 40 description requests during a computation leave
+  room for a copy and come out as one description, at rest; `AUTXEQ` runs the program on a relaunch; a wrong program
   file gives the whole warning; in AIM the key that shows N, whose `g` face is 7, shows 7
   with NUM on, as GTK draws it, and the VOL softkeys show no value, `NOVAL`, as GTK's
   `getBeepVolume` answers; what a screen reader hears of the display is X as Copy X

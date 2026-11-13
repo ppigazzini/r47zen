@@ -125,24 +125,17 @@ internal class DisplayActionController(
     }
 
     internal fun handleCopyMenuSelection(itemId: Int): Boolean {
-        return when (itemId) {
-            MENU_COPY_X_REGISTER -> {
-                copyRegisters(CalculatorEngine.COPY_X)
-                true
-            }
-
-            MENU_COPY_STACK_REGISTERS -> {
-                copyRegisters(CalculatorEngine.COPY_STACK)
-                true
-            }
-
-            MENU_COPY_ALL_REGISTERS -> {
-                copyRegisters(CalculatorEngine.COPY_ALL)
-                true
-            }
-
-            else -> false
+        val what = when (itemId) {
+            MENU_COPY_X_REGISTER -> CalculatorEngine.COPY_X
+            MENU_COPY_STACK_REGISTERS -> CalculatorEngine.COPY_STACK
+            MENU_COPY_ALL_REGISTERS -> CalculatorEngine.COPY_ALL
+            else -> return false
         }
+        // A full request queue refuses the copy, as it refuses a paste: say so.
+        if (!copyRegisters(what)) {
+            Toast.makeText(context, R.string.main_menu_copy_not_ready, Toast.LENGTH_SHORT).show()
+        }
+        return true
     }
 
     // The menu's Paste Number, and Ctrl+V on a keyboard.

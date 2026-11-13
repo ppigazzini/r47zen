@@ -297,7 +297,7 @@ The clipboard export is an Android-owned bridge seam around upstream's own text 
 Android menu policy out of the upstream core. A
 copy is a service request: `copyRegistersNative` queues it, and `r47_clipboard_text`
 builds it at rest and answers through `onClipboardText`, so a copy during a
-computation waits for rest, and one the full queue refuses shows nothing. The text is
+computation waits for rest, and one the full queue refuses says so in a toast. The text is
 upstream's own: its builders in `src/c47/screen.c`, `copyRegisterXToClipboard`,
 `copyStackRegistersToClipboard`, and `copyAllRegistersToClipboard`, compile into the
 app under `PC_BUILD`, size each copy from the registers it holds, and hand the text to
@@ -551,10 +551,12 @@ them; the transfer worker posts `onLost` to it rather than read the host.
 | `g_r47_stop_requested`, `g_r47_stop_without_save` | `jni_lifecycle.c`, atomic | `r47_calculator_stop` (main) | `r47_calculator_main`, `r47_save_settled` (calculator) | the quit it pushes |
 
 A full FIFO drops the key, as DMCP does, and a full queue refuses the request and logs
-it. Kotlin sees that refusal only where a native returns it: `pasteNumberNative`,
-`copyRegistersNative`, and `describeDisplayNative` return it and `resetGraphNative`
-does not; `DisplayActionController` ignores the one from a copy, and the LCD's
-accessibility node asks again at the next settled frame.
+it. Kotlin sees that refusal only where a native returns it: `pasteNumberNative` and
+`copyRegistersNative` return it, and `DisplayActionController` says so in a toast for
+each; `resetGraphNative` does not. A display description takes no slot: a screen
+reader asks after each settled frame, so `describeDisplayNative` only marks one
+pending, as a gesture merges into the pending one, and `r47_services_run` answers it
+once, after the queue and the gesture, so it tells what they left on screen.
 A keypad label mode the queue refuses is asked for again at the next copy,
 `r47_try_copy_app_keypad_snapshot`, and the harness case "a refused keypad mode is
 asked for again" holds that.

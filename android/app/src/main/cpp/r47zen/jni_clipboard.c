@@ -84,10 +84,10 @@ char *r47_display_text(bool *isError) {
   return text;
 }
 
-JNIEXPORT jboolean JNICALL
+JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_CalculatorEngine_describeDisplayNative(
     JNIEnv *env, jclass clazz) {
   (void)env;
   (void)clazz;
-  return r47_service_describe_display() ? JNI_TRUE : JNI_FALSE;
+  r47_service_describe_display();
 }

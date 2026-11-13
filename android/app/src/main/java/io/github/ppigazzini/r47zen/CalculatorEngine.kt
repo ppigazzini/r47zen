@@ -215,9 +215,9 @@ internal object CalculatorEngine {
     @JvmStatic private external fun saveStateNative(timeoutMs: Int): Boolean
     @JvmStatic external fun copyRegistersNative(what: Int): Boolean
 
-    // Queues a read of the display's text, which arrives through onDisplayText once the
-    // calculator is at rest; false when the request queue is full.
-    @JvmStatic external fun describeDisplayNative(): Boolean
+    // Asks for a read of the display's text, which arrives through onDisplayText once the
+    // calculator is at rest. Requests made while one waits are that one.
+    @JvmStatic external fun describeDisplayNative()
     @JvmStatic external fun getPackedDisplayGeneration(): Int
     @JvmStatic external fun getPackedDisplayBuffer(buffer: ByteArray): Boolean
     @JvmStatic external fun getKeypadSnapshotGeneration(): Int

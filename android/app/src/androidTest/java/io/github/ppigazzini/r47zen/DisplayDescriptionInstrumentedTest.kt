@@ -61,7 +61,7 @@ class DisplayDescriptionInstrumentedTest {
         var said = ""
         var invalid = !isError
         // The read runs at rest, behind the keys pushed before it.
-        assertTrue("the request queue refused the read", CalculatorEngine.describeDisplayNative())
+        CalculatorEngine.describeDisplayNative()
         val heard = waitUntil(TIMEOUT_MS) {
             scenario.onActivity { activity ->
                 val node = activity.findViewById<ReplicaOverlay>(R.id.replica_overlay).lcdAccessibilityNode

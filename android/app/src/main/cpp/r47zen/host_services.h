@@ -62,8 +62,10 @@ void r47_keys_claim_calculator_thread(void);
 bool r47_service_paste(const char *tokens);
 bool r47_service_graph_reset(void);
 bool r47_service_copy(int what);
-bool r47_service_describe_display(void);
 bool r47_service_keypad_mode(int mode);
+// Any thread. A screen reader asks after each settled frame, so requests that come
+// while one waits are that one: it takes no queue slot, and is never refused.
+void r47_service_describe_display(void);
 
 // Any thread. Gestures that arrive while the calculator is busy merge into one, so
 // a slow graph re-solve never falls behind a drag.

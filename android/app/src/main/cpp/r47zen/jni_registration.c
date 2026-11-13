@@ -70,7 +70,7 @@ int register_calculator_engine_natives(JNIEnv *env) {
       {"copyRegistersNative", "(I)Z",
        (void *)
            Java_io_github_ppigazzini_r47zen_CalculatorEngine_copyRegistersNative},
-      {"describeDisplayNative", "()Z",
+      {"describeDisplayNative", "()V",
        (void *)
            Java_io_github_ppigazzini_r47zen_CalculatorEngine_describeDisplayNative},
       {"getPackedDisplayGeneration", "()I",

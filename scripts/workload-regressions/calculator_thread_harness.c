@@ -109,6 +109,12 @@ void __wrap_r47_tones_at_rest(void) {
     r47_keys_on_host_stopped(false);
   }
 }
+static atomic_int displayTextCount = 0;
+void __wrap_r47_upcall_display_text(bool isError, const char *text) {
+  (void)isError;
+  (void)text;
+  atomic_fetch_add(&displayTextCount, 1);
+}
 // Upstream's refreshLcd, which the main loop calls once a SCREEN_REFRESH_PERIOD and
 // which counts a shown function name down by a whole period on each call.
 static atomic_int refreshLcdCount = 0;
@@ -2086,6 +2092,28 @@ static void caseCancelOfASoftkeyDoesNotAssign(void) {
   CHECK(s.calcMode == CM_ASSIGN, "calcMode=%d", s.calcMode);
 }
 
+// A screen reader asks for a description after each settled frame, and a long program
+// keeps redrawing: the requests are one pending description, as gestures are one
+// gesture, so they leave the queue to what the user asks for, and the description
+// comes once, at rest.
+static void caseDescriptionsLeaveTheQueueToACopy(void) {
+  startCalculator();
+  startSlowFactors();
+  atomic_store(&displayTextCount, 0);
+  for (int i = 0; i < 40; i++) {
+    r47_service_describe_display();
+  }
+  CHECK(r47_service_copy(R47_COPY_X), "40 description requests left no room for a copy");
+  tap(KEY_EXIT);
+  readState();
+  for (int i = 0; i < 200 && atomic_load(&displayTextCount) == 0; i++) {
+    sleepMs(5);
+  }
+  sleepMs(50);
+  CHECK(atomic_load(&displayTextCount) == 1, "%d descriptions for 40 requests",
+        atomic_load(&displayTextCount));
+}
+
 static void caseRefusedKeypadModeIsAskedForAgain(void) {
   startCalculator();
   startSlowFactors();
@@ -2752,6 +2780,7 @@ static const testCase_t cases[] = {
     {"an idle checkpoint keeps typed work", caseIdleCheckpointKeepsTypedWork},
     {"the checkpoint retries a save the disk refused", caseCheckpointRetriesAFailedSave},
     {"services add no LCD refresh", caseServicesAddNoLcdRefresh},
+    {"descriptions leave the queue to a copy", caseDescriptionsLeaveTheQueueToACopy},
     {"no checkpoint with autosave off", caseNoCheckpointWithAutosaveOff},
     {"a save runs inside a pause", caseSaveRunsInsideAPause},
     {"a kill during saves never cuts the file", caseKillDuringSavesNeverCutsTheFile},
