@@ -187,8 +187,9 @@ flowchart LR
   leaves no key down for the next wait. The release of a PC key ends the wait for
   such a press at once, even while the calculator is still busy: the release's host
   event waits behind that very wait, and upstream's `keyPushPcEvent` leaves the key
-  down. Any PC key's release ends it, since the buffer records no keysym for the
-  press. Left out, for want of an Android
+  down. Only that key's release ends it, not another let go meanwhile: the press
+  keeps the keysym of the PC event `pc_keyboard.c` was handling when it pushed it.
+  Left out, for want of an Android
   counterpart: Ctrl+P, GTK's printer window, and Ctrl+H, Ctrl+M, and Ctrl+K, the
   screen, menu, and X register images `src/c47-gtk/hal/lcd.c` copies. Not ported
   either: GTK chooses its rows at run time through `shortcutProfile`

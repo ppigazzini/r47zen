@@ -2669,6 +2669,28 @@ static void casePcSoftkeyReleasedDuringAComputationEndsItsWait(void) {
   CHECK(atomic_load(&probeRan), "the calculator still waits for a PC softkey's release");
 }
 
+// The wait for that release is the softkey's own: another PC key let go meanwhile, a
+// Shift, does not end it, and Escape, queued behind it, stops the computation only
+// once F1 comes up.
+static void casePcSoftkeyWaitHoldsThroughAnotherKeysRelease(void) {
+  startCalculator();
+  startSlowFactors();
+  r47_key_push_pc(PC_F1, 0, true);
+  sleepMs(300);
+  r47_key_push_pc(PC_SHIFT_L, 0, true);
+  r47_key_push_pc(PC_SHIFT_L, PC_SHIFT_MASK, false);
+  pcTap(PC_ESCAPE);
+  atomic_store(&probeRan, false);
+  r47_run_at_rest_async(markProbeRan, NULL);
+  sleepMs(500);
+  CHECK(!atomic_load(&probeRan), "another PC key's release ended the softkey's wait");
+  r47_key_push_pc(PC_F1, 0, false);
+  for (int i = 0; i < 300 && !atomic_load(&probeRan); i++) {
+    sleepMs(10);
+  }
+  CHECK(atomic_load(&probeRan), "the softkey's own release did not end its wait");
+}
+
 // A save at a poll holds the state mid-run. With the host still stopped, the state the
 // run ends in is saved too, once the calculator is at rest, or a kill restores the
 // state from before the end.
@@ -2746,6 +2768,8 @@ static const testCase_t cases[] = {
      casePcSoftkeyReleasedAtRestLeavesNoKeyDown},
     {"a PC softkey released during a computation ends its wait",
      casePcSoftkeyReleasedDuringAComputationEndsItsWait},
+    {"a PC softkey's wait holds through another key's release",
+     casePcSoftkeyWaitHoldsThroughAnotherKeysRelease},
     {"AIM faces follow NUM", caseAimFacesFollowNumLock},
     {"the VOL softkeys show no value", caseVolumeSoftkeysShowNoValue},
     {"the display text is what the screen shows", caseDisplayTextIsWhatTheScreenShows},

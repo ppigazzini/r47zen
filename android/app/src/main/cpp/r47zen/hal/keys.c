@@ -46,7 +46,10 @@ static hostEvent_t hostEvents[HOST_EVENT_SLOTS];
 static int nextHostEvent = 0;
 static bool pushedKeyDown = false; // a press was pushed and its release not yet
 static bool pcPressPushed = false; // that press came from a PC key while busy
-static bool keysFromHost = false;  // false: a script pushes, then dispatches
+static uint32_t pcPressKeysym = 0; // and that key's keysym
+// The calculator thread only: the keysym of the PC event pc_keyboard.c is handling.
+static uint32_t handledPcKeysym = 0;
+static bool keysFromHost = false; // false: a script pushes, then dispatches
 static bool quitPending = false;
 static bool quitInRing =
     false;                // the main loop's pop, or a redraw's, took the quit
@@ -197,9 +200,9 @@ static void pushPcLocked(hostEventKind_t kind, uint32_t keyval,
   pushHostLocked(kind, keyval, state);
   // A press a busy calculator took from a PC key is waited for in
   // wait_for_key_release, which this release's host event, queued behind the wait,
-  // cannot end, so its arrival does. Any PC key's release ends it: the press keeps no
-  // keysym. Upstream's keyPushPcEvent leaves the flag set.
-  if (kind != hostPcKeyPress && pcPressPushed) {
+  // cannot end, so its arrival does: that key's own, not another one let go meanwhile.
+  // Upstream's keyPushPcEvent leaves the flag set.
+  if (kind != hostPcKeyPress && pcPressPushed && keyval == pcPressKeysym) {
     pushedKeyDown = false;
     pcPressPushed = false;
   }
@@ -240,6 +243,7 @@ void r47_key_push_key(const char *data, bool press, int button) {
   pushLocked(press ? keyCodeOf(data) : 0);
   pushedKeyDown = press;
   pcPressPushed = press;
+  pcPressKeysym = press ? handledPcKeysym : 0;
   pthread_mutex_unlock(&keyMutex);
 }
 
@@ -285,6 +289,7 @@ static bool isPcEvent(hostEvent_t event) {
 }
 
 static void handlePcEvent(hostEvent_t event, bool busy) {
+  handledPcKeysym = event.keyval;
   if (event.kind == hostPcKeyCancel) {
     r47_pc_key_cancel(event.keyval, busy);
   } else {
@@ -364,7 +369,7 @@ void keyDispatchHostEvent(int key) {
     shiftG = true;
     break;
   case hostPcKeyPress:
-    r47_pc_key_handle(event.keyval, event.state, true, false);
+    handlePcEvent(event, false);
     break;
   case hostPcKeyRelease:
   case hostPcKeyCancel:
@@ -372,7 +377,7 @@ void keyDispatchHostEvent(int key) {
     // A PC key's press pushed while busy is over once its release comes at rest,
     // where the release runs and pushes nothing, so no wait for a release may hold.
     pthread_mutex_lock(&keyMutex);
-    if (pcPressPushed) {
+    if (pcPressPushed && event.keyval == pcPressKeysym) {
       pushedKeyDown = false;
       pcPressPushed = false;
     }
