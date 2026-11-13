@@ -26,6 +26,9 @@
 #include "r47_backup_version.h"
 
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <ftw.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -240,6 +243,37 @@ static void execSelfInChild(const char *mode) {
   self[length < 0 ? 0 : length] = '\0';
   execl(self, self, workDir, programDir, mode, (char *)NULL);
   _exit(99);
+}
+
+// gzip takes both paths as they are: no shell reads them, so a quote or a space in
+// one is part of the name.
+static bool unpackTo(const char *from, const char *to) {
+  fflush(NULL);
+  const pid_t child = fork();
+  if (child == 0) {
+    const int out = open(to, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (out < 0 || dup2(out, STDOUT_FILENO) < 0) {
+      _exit(126);
+    }
+    execlp("gzip", "gzip", "-dc", "--", from, (char *)NULL);
+    _exit(127);
+  }
+  int status = 0;
+  return child > 0 && waitpid(child, &status, 0) == child && WIFEXITED(status) &&
+         WEXITSTATUS(status) == 0;
+}
+
+static int removeEntry(const char *path, const struct stat *info, int type,
+                       struct FTW *at) {
+  (void)info;
+  (void)at;
+  return type == FTW_DP ? rmdir(path) : unlink(path);
+}
+
+// As rm -rf does, a directory already gone is removed. unlink and rmdir, not remove:
+// the harness links remove to the app's wrap.
+static bool removeTree(const char *dir) {
+  return nftw(dir, removeEntry, 16, FTW_DEPTH | FTW_PHYS) == 0 || errno == ENOENT;
 }
 
 // Cut the file at fixed offsets and at steps through it; a cut at a line's end may
@@ -498,10 +532,9 @@ static void caseReleasedStateFilesRestore(void) {
   char path[1100];
   statePath(path, sizeof(path));
   for (size_t i = 0; i < sizeof(releasedStateFiles) / sizeof(releasedStateFiles[0]); i++) {
-    char command[3000];
-    snprintf(command, sizeof(command), "gzip -dc '%s/%s' > '%s'", fixtures,
-             releasedStateFiles[i], path);
-    CHECK(system(command) == 0, "cannot unpack %s", releasedStateFiles[i]);
+    char fixture[1100];
+    snprintf(fixture, sizeof(fixture), "%s/%s", fixtures, releasedStateFiles[i]);
+    CHECK(unpackTo(fixture, path), "cannot unpack %s", releasedStateFiles[i]);
     size_t length = 0;
     char *released = readWhole(path, &length);
     if (released == NULL) {
@@ -654,9 +687,7 @@ int main(int argc, char **argv) {
     const bool passed = WIFEXITED(status) && WEXITSTATUS(status) == CASE_PASSED;
     printf("%s: %s\n", passed ? "OK" : "FAIL", cases[i].name);
     failed += !passed;
-    char command[128];
-    snprintf(command, sizeof(command), "rm -rf '%s'", dir);
-    if (system(command) != 0) {
+    if (!removeTree(dir)) {
       fprintf(stderr, "cannot remove %s\n", dir);
     }
   }

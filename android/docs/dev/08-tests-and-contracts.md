@@ -1029,7 +1029,9 @@ Android compatibility layer.
   files of released cores, `scripts/workload-regressions/fixtures/`, which
   `make_state_fixture.sh` saves with a host build of each release, not a phone,
   restore, every cut of them is restored or kept, and the file this core saves
-  from them restores too. A save leaves a running stopwatch's fields as they were
+  from them restores too. They reach the harness through a directory whose name
+  holds a quote and a space, and gzip unpacks them with no shell between, so a
+  path read as a command fails the case. A save leaves a running stopwatch's fields as they were
   and saves its time; a cold start keeps `LX` to `UY` as stored and a matrix in X
   that fills memory; user keys from upstream's `xfnToR47user.s47` survive a save;
   and an `exit` in the core aborts. With the structure check, the stopwatch fold,

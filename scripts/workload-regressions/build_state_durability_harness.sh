@@ -77,9 +77,16 @@ mapfile -t ANDROID_BRIDGE_SOURCES < <(r47_glue_sources "$TRACKED_CPP_DIR")
     -lm \
     -o "$BUILD_DIR/state-durability-harness"
 
+# The fixtures reach the harness through a directory whose name holds a quote and a
+# space, so a path the harness put into a shell command would break the run.
+FIXTURES_DIR="$BUILD_DIR/fixtures with a ' quote"
+rm -rf "$FIXTURES_DIR"
+mkdir -p "$FIXTURES_DIR"
+cp "$SCRIPT_DIR"/fixtures/*.cfg.gz "$FIXTURES_DIR/"
+
 echo "Built: $BUILD_DIR/state-durability-harness"
 echo "Running under ASan/UBSan..."
 ASAN_OPTIONS="abort_on_error=1:halt_on_error=1:detect_leaks=0" \
     UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=0" \
-    R47_STATE_FIXTURES="$SCRIPT_DIR/fixtures" \
+    R47_STATE_FIXTURES="$FIXTURES_DIR" \
     "$BUILD_DIR/state-durability-harness" "$PROJECT_ROOT/res/PROGRAMS"

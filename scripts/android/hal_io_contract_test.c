@@ -16,6 +16,7 @@
 #include "c47.h"
 #include "r47_format.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -114,10 +115,34 @@ static int expect_text(const char *dir, const char *name, const char *expected) 
   return 0;
 }
 
+// As rm -rf does, a path already gone is removed. unlink and rmdir, not remove: the
+// test links remove to the app's wrap.
+static int remove_path(const char *path) {
+  if (unlink(path) == 0 || errno == ENOENT) {
+    return 0;
+  }
+  if (errno != EISDIR && errno != EPERM) {
+    return -1;
+  }
+  DIR *dir = opendir(path);
+  if (dir == NULL) {
+    return -1;
+  }
+  int result = 0;
+  struct dirent *entry;
+  while ((entry = readdir(dir)) != NULL) {
+    if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+      char child[PATH_MAX];
+      snprintf(child, sizeof(child), "%s/%s", path, entry->d_name);
+      result |= remove_path(child);
+    }
+  }
+  closedir(dir);
+  return result == 0 ? rmdir(path) : -1;
+}
+
 static void remove_tree(const char *dir) {
-  char command[PATH_MAX + 16];
-  snprintf(command, sizeof(command), "rm -rf '%s'", dir);
-  if (system(command) != 0) {
+  if (remove_path(dir) != 0) {
     fprintf(stderr, "FATAL: cannot remove %s\n", dir);
     exit(2);
   }
