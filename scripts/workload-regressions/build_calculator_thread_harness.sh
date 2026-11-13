@@ -69,6 +69,41 @@ STAGED_DEC_SOURCES=(
 mapfile -t ANDROID_BRIDGE_SOURCES < <(r47_glue_sources "$TRACKED_CPP_DIR")
 [ "${#ANDROID_BRIDGE_SOURCES[@]}" -gt 0 ] || exit 1
 
+# The device lanes run a release build, NDEBUG, with the program-load test bridge: the
+# calculator thread check must stay in that build and leave only the one users get.
+thread_check_kept() {
+    local expanded
+    expanded="$(printf '#include "host_services.h"\nR47_CALCULATOR_THREAD_ONLY();\n' |
+        "$CC_BIN" -E -P "$@" -I"$TRACKED_CPP_DIR/r47zen" -x c -)"
+    grep -q r47_assert_calculator_thread <<<"$expanded"
+}
+thread_check_kept -DNDEBUG -DR47_TEST_BRIDGE || {
+    echo "ERROR: the release build the device lanes run compiles the calculator thread check out." >&2
+    exit 1
+}
+if thread_check_kept -DNDEBUG; then
+    echo "ERROR: the release build users get keeps the calculator thread check." >&2
+    exit 1
+fi
+
+# Every entry that checks its thread is called off it by the harness case that proves the
+# check, but the static ones, which a checked entry reaches.
+checked_entries="$(grep -rn -B3 'R47_CALCULATOR_THREAD_ONLY();' "$TRACKED_CPP_DIR/r47zen" --include='*.c' |
+    sed -nE 's/^[^ ]+-[0-9]+-([a-z_]+[ *]+)+([A-Za-z_0-9]+)\(.*\) \{$/\2/p' | LC_ALL=C sort -u)"
+checked_static="$(grep -rn -B3 'R47_CALCULATOR_THREAD_ONLY();' "$TRACKED_CPP_DIR/r47zen" --include='*.c' |
+    sed -nE 's/^[^ ]+-[0-9]+-static ([a-z_]+[ *]+)+([A-Za-z_0-9]+)\(.*\) \{$/\2/p' | LC_ALL=C sort -u)"
+[ -n "$checked_entries" ] || {
+    echo "ERROR: found no entry that checks its thread." >&2
+    exit 1
+}
+for entry in $checked_entries; do
+    grep -qx "$entry" <<<"$checked_static" && continue
+    grep -q "{\"$entry\", " "$SCRIPT_DIR/calculator_thread_harness.c" || {
+        echo "ERROR: $entry checks its thread, and no harness case calls it off that thread." >&2
+        exit 1
+    }
+done
+
 COMPILE_FLAGS=(
     -std=gnu17 -O1 -g -pthread -fsigned-char -fno-strict-aliasing
     "-fsanitize=address,undefined" -fno-sanitize=alignment -fno-sanitize-recover=undefined
