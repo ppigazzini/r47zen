@@ -259,7 +259,7 @@ Java_io_github_ppigazzini_r47zen_CalculatorEngine_saveStateNative(
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_CalculatorEngine_copyRegistersNative(
     JNIEnv *env, jclass clazz, jint what);
-JNIEXPORT jboolean JNICALL
+JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_CalculatorEngine_describeDisplayNative(
     JNIEnv *env, jclass clazz);
 JNIEXPORT jint JNICALL

@@ -25,7 +25,6 @@ typedef enum {
   servicePaste,
   serviceGraphReset,
   serviceCopy,
-  serviceDescribeDisplay,
   serviceKeypadMode,
   serviceHostScript
 } serviceKind_t;
@@ -43,6 +42,7 @@ static service_t queue[SERVICE_QUEUE_SIZE];
 static int queueHead = 0;
 static int queueCount = 0;
 static bool gesturePending = false;
+static bool describePending = false;
 static float gestureDx = 0.0f;
 static float gestureDy = 0.0f;
 static float gestureScale = 1.0f;
@@ -116,8 +116,11 @@ bool r47_service_graph_reset(void) {
 
 bool r47_service_copy(int what) { return enqueue(serviceCopy, what, NULL); }
 
-bool r47_service_describe_display(void) {
-  return enqueue(serviceDescribeDisplay, 0, NULL);
+void r47_service_describe_display(void) {
+  pthread_mutex_lock(&serviceMutex);
+  describePending = true;
+  pthread_mutex_unlock(&serviceMutex);
+  r47_keys_wake();
 }
 
 bool r47_service_keypad_mode(int mode) {
@@ -292,8 +295,8 @@ bool r47_services_save_waiting(void) {
 
 bool r47_services_pending(void) {
   pthread_mutex_lock(&serviceMutex);
-  const bool pending =
-      queueCount > 0 || gesturePending || savesDone < savesRequested;
+  const bool pending = queueCount > 0 || gesturePending || describePending ||
+                       savesDone < savesRequested;
   pthread_mutex_unlock(&serviceMutex);
   return pending;
 }
@@ -363,13 +366,6 @@ static void runService(const service_t *service) {
     free(text);
     break;
   }
-  case serviceDescribeDisplay: {
-    bool isError = false;
-    char *text = r47_display_text(&isError);
-    r47_upcall_display_text(isError, text != NULL ? text : "");
-    free(text);
-    break;
-  }
   case serviceKeypadMode:
     r47_keypad_set_mode(service->value);
     break;
@@ -428,12 +424,23 @@ bool r47_services_run(void) {
   gestureDx = 0.0f;
   gestureDy = 0.0f;
   gestureScale = 1.0f;
+  const bool describe = describePending;
+  describePending = false;
   const unsigned long saveTicket = savesRequested;
   const bool save = savesDone < saveTicket;
   pthread_mutex_unlock(&serviceMutex);
 
   if (gesture) {
     r47_apply_graph_gesture(dx, dy, scale);
+    ran = true;
+  }
+
+  // After the requests and the gesture, so that it tells what they left on screen.
+  if (describe) {
+    bool isError = false;
+    char *text = r47_display_text(&isError);
+    r47_upcall_display_text(isError, text != NULL ? text : "");
+    free(text);
     ran = true;
   }
 

@@ -208,6 +208,7 @@ fi
     -Wl,--wrap=r47_upcall_quit \
     -Wl,--wrap=r47_upcall_paste_result \
     -Wl,--wrap=r47_upcall_warning \
+    -Wl,--wrap=r47_upcall_display_text \
     -Wl,--wrap=fsync \
     -Wl,--wrap=fwrite \
     -Wl,--wrap=pthread_cond_timedwait \
