@@ -58,10 +58,15 @@ what the computation's poll makes of it, so a key can never re-enter one
 program's pause, before a picker, and, once the host has stopped, at a poll
 (**Saves** below).
 
-Two checks hold the rule. In a debug build, `R47_CALCULATOR_THREAD_ONLY()` in
-`host_services.h` aborts when a key, sleep, or timer function of `hal/keys.c` that the
-core calls, or a service, a save, the keypad publish, or a file request, runs on another
-thread; `r47_keys_init()` records the thread, and a release build compiles the check out.
+Two checks hold the rule. In a debug build, and in the release build the device lanes
+run, which has the program-load test bridge (`R47_TEST_BRIDGE`),
+`R47_CALCULATOR_THREAD_ONLY()` in `host_services.h` aborts when a key, sleep, or timer
+function of `hal/keys.c` that the core calls, or a service, a save, the keypad publish,
+or a file request, runs on another thread; `r47_keys_init()` records the thread, and
+the release build users get compiles the check out.
+`build_calculator_thread_harness.sh` fails when either build gets that wrong, and when
+an entry that checks its thread is missing from the harness case that calls each one
+off it.
 The rest of the HAL, such as `hal/lcd.c` and `hal/io.c`, carries no check.
 `jni_core_reach.py`, which `build_calculator_thread_harness.sh` runs, follows what each
 glue definition's relocations name, from every JNI entry: a call, a function pointer

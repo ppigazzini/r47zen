@@ -932,7 +932,8 @@ Android compatibility layer.
   rule too. Before it links, the script compiles the glue again with a section per
   definition and runs `jni_core_reach.py` over it, which fails on any route from a
   JNI entry to a core symbol and first proves itself on a seeded entry. The cases are its
-  `cases[]` table: a core call off the calculator thread aborts in a debug build; the GMP stand-ins and `execinfo.h` give what GMP and glibc give, on boundary values; keys
+  `cases[]` table: each of the 26 entries that check their thread aborts when called
+  off the calculator thread; the GMP stand-ins and `execinfo.h` give what GMP and glibc give, on boundary values; keys
   keep their order; `FACTORS` gives
   the right factors, and a digit during it does nothing; `EXIT` and `R/S` stop a computation, and `R/S` runs nothing
   afterward; both stop a program loop; a stop key survives the buffer wipe; a tone

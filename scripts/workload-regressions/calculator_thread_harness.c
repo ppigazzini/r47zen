@@ -2137,24 +2137,87 @@ typedef struct {
   void (*run)(void);
 } testCase_t;
 
-// The rule a debug build checks: a core path on any other thread aborts at its first
-// call into the HAL. This thread is not the calculator's, so these must not return.
+// Each entry that checks its thread, so a path off the calculator thread aborts at its
+// first call; build_calculator_thread_harness.sh fails when one is missing here. The
+// static runService is reached through r47_services_run.
+extern const char *r47_picked_file_name(void);
+static void offCheckpoint(void) { r47_services_checkpoint(false); }
+static void offSavePending(void) { r47_services_save_pending(); }
+static void offSaveBeforePicker(void) { r47_save_before_picker(); }
+static void offServicesRun(void) { r47_services_run(); }
+static void offDisplayText(void) {
+  bool isError = false;
+  free(r47_display_text(&isError));
+}
+static void offPickedFileName(void) { (void)r47_picked_file_name(); }
+static void offRequestAndroidFile(void) { (void)requestAndroidFile(0, "x.p47", 1); }
+static void offPcKeyHandle(void) { r47_pc_key_handle('a', 0, true, false); }
+static void offPcKeyCancel(void) { r47_pc_key_cancel(PC_SHIFT_L, false); }
+static void offKeypadPublishAtRest(void) { r47_keypad_publish_at_rest(); }
+static void offSaveSettled(void) { (void)r47_save_settled(); }
+static void offForceRefresh(void) { r47_force_refresh(); }
+static void offKeyPushKey(void) { r47_key_push_key("01", true, 1); }
+static void offKeyPushClick(void) { r47_key_push_click("01", 1); }
+static void offKeyDispatchHostEvent(void) { keyDispatchHostEvent(0); }
+static void offKeyEmpty(void) { (void)key_empty(); }
+static void offKeyTail(void) { (void)key_tail(); }
+static void offKeyPopForMainLoop(void) { (void)keyPopForMainLoop(); }
+static void offKeyPop(void) { (void)key_pop(); }
+static void offKeyPopAll(void) { key_pop_all(); }
+static void offWaitForKeyRelease(void) { wait_for_key_release(0); }
+static void offSysSleep(void) { sys_sleep(); }
+static void offSysDelay(void) { sys_delay(1); }
+static void offSysTimerStart(void) { sys_timer_start(0, 10); }
+static void offSysTimerDisable(void) { sys_timer_disable(0); }
+static void offCaptureClipboard(void) { free(r47_capture_clipboard(NULL)); }
+
+// The rule the check holds: a core path on any other thread aborts at its first call.
+// This thread is not the calculator's, so none of these may return.
 static void caseACoreCallOffItsThreadAborts(void) {
   startCalculator();
-  void (*const coreCalls[])(void) = {sys_sleep, key_pop_all, r47_force_refresh};
-  for (size_t i = 0; i < sizeof(coreCalls) / sizeof(coreCalls[0]); i++) {
+  static const struct {
+    const char *name;
+    void (*call)(void);
+  } entries[] = {
+      {"r47_services_checkpoint", offCheckpoint},
+      {"r47_services_save_pending", offSavePending},
+      {"r47_save_before_picker", offSaveBeforePicker},
+      {"r47_services_run", offServicesRun},
+      {"r47_display_text", offDisplayText},
+      {"r47_picked_file_name", offPickedFileName},
+      {"requestAndroidFile", offRequestAndroidFile},
+      {"r47_pc_key_handle", offPcKeyHandle},
+      {"r47_pc_key_cancel", offPcKeyCancel},
+      {"r47_keypad_publish_at_rest", offKeypadPublishAtRest},
+      {"r47_save_settled", offSaveSettled},
+      {"r47_force_refresh", offForceRefresh},
+      {"r47_key_push_key", offKeyPushKey},
+      {"r47_key_push_click", offKeyPushClick},
+      {"keyDispatchHostEvent", offKeyDispatchHostEvent},
+      {"key_empty", offKeyEmpty},
+      {"key_tail", offKeyTail},
+      {"keyPopForMainLoop", offKeyPopForMainLoop},
+      {"key_pop", offKeyPop},
+      {"key_pop_all", offKeyPopAll},
+      {"wait_for_key_release", offWaitForKeyRelease},
+      {"sys_sleep", offSysSleep},
+      {"sys_delay", offSysDelay},
+      {"sys_timer_start", offSysTimerStart},
+      {"sys_timer_disable", offSysTimerDisable},
+      {"r47_capture_clipboard", offCaptureClipboard},
+  };
+  for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++) {
     fflush(NULL);
     const pid_t child = fork();
     if (child == 0) {
-      alarm(5); // with no check to abort it, sys_sleep would wait for good
-      coreCalls[i]();
+      alarm(5); // with no check to abort it, a wait would last for good
+      entries[i].call();
       _exit(CASE_PASSED);
     }
     int status = 0;
     waitpid(child, &status, 0);
-    if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGABRT) {
-      CHECK(false, "a core call off the calculator thread returned");
-    }
+    CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT,
+          "%s returned off the calculator thread (status %x)", entries[i].name, status);
   }
 }
 
