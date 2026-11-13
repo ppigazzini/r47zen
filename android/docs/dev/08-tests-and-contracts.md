@@ -1113,6 +1113,14 @@ Android compatibility layer.
   ASan, so it is bounded by the outer timeout and degraded to coverage while the
   other four fixtures must complete. It runs in the `host-workload-regressions`
   lane beside the plain run.
+- `scripts/workload-regressions/run_workload_regressions_tsan.sh` reruns the same
+  corpus under ThreadSanitizer with `halt_on_error=1`, the way the app's threads
+  meet: the worker runs each program as the calculator thread, and the main thread
+  watches it and stops it with keys. The watcher reads only the state the worker
+  copies, under a mutex, through `r47_keys_set_poll_hook`, which `hal/keys.c` calls
+  at every sleep and every poll of a running program in a host build, so a race the
+  lane finds is in the glue. Seeded with one read of `programRunStop` off the worker,
+  it fails. `SPIRALk` alone may end on the outer timeout as degraded coverage.
 - `scripts/workload-regressions/build_graph_crash_harness.sh` builds
   `graph_crash_harness.c` with the same tree under AddressSanitizer and UndefinedBehaviorSanitizer and hammers the
   graph re-solve path the way a fast pan/zoom does. It exits 1 when the

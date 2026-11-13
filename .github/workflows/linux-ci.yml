@@ -491,6 +491,20 @@ jobs:
           bash ./scripts/workload-regressions/build_bridge_tsan_harness.sh 2>&1 \
             | tee ci-artifacts/logs/bridge-tsan-harness.log
 
+      - name: Run host workload regressions under ThreadSanitizer
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The imported .p47 corpus under ThreadSanitizer: the worker runs each
+          # program as the calculator thread while the main thread watches it and
+          # stops it with keys, so a data race between them fails the lane.
+          # SPIRALk alone may end on the outer timeout as degraded coverage. No
+          # emulator. Reuses the staged native inputs the workload step produced.
+          mkdir -p ci-artifacts/logs
+          bash ./scripts/workload-regressions/run_workload_regressions_tsan.sh 2>&1 \
+            | tee ci-artifacts/logs/host-workload-regressions-tsan.log
+
       - name: Run graph-crash reproduction harness
         shell: bash
         env:

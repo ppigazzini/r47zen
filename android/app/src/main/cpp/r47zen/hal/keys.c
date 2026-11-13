@@ -49,6 +49,9 @@ static bool pcPressPushed = false; // that press came from a PC key while busy
 static uint32_t pcPressKeysym = 0; // and that key's keysym
 // The calculator thread only: the keysym of the PC event pc_keyboard.c is handling.
 static uint32_t handledPcKeysym = 0;
+#if defined(HOST_TOOL_BUILD)
+static void callPollHook(void);
+#endif                            // HOST_TOOL_BUILD
 static bool keysFromHost = false; // false: a script pushes, then dispatches
 static bool quitPending = false;
 static bool quitInRing =
@@ -403,6 +406,9 @@ int key_empty(void) {
 #if defined(R47_TEST_BRIDGE)
   r47_test_bridge_publish_state(); // every poll of a running program asks this
 #endif                             // R47_TEST_BRIDGE
+#if defined(HOST_TOOL_BUILD)
+  callPollHook();
+#endif // HOST_TOOL_BUILD
   saveIfHostStopped();
   pthread_mutex_lock(&keyMutex);
   // The ring's wipe can lose a quit a redraw moved there, so an operation's poll looks
@@ -588,6 +594,9 @@ void sys_sleep(void) {
 #if defined(R47_TEST_BRIDGE)
   r47_test_bridge_publish_state();
 #endif // R47_TEST_BRIDGE
+#if defined(HOST_TOOL_BUILD)
+  callPollHook();
+#endif // HOST_TOOL_BUILD
   const bool atRest = calculatorAtRest();
   // A request can change what the main loop must do next, such as switch off, so
   // the loop looks again before anything sleeps.
@@ -684,6 +693,19 @@ uint32_t sys_current_ms(void) {
 #if defined(HOST_TOOL_BUILD)
 void r47_keys_set_clock_ms(uint32_t nowMs) {
   processStartUs = monotonicUs() - (int64_t)nowMs * 1000;
+}
+
+static void (*_Atomic pollHook)(void) = NULL;
+
+void r47_keys_set_poll_hook(void (*hook)(void)) {
+  atomic_store(&pollHook, hook);
+}
+
+static void callPollHook(void) {
+  void (*const hook)(void) = atomic_load(&pollHook);
+  if (hook != NULL) {
+    hook();
+  }
 }
 #endif // HOST_TOOL_BUILD
 

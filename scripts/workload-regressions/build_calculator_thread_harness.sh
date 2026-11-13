@@ -186,11 +186,12 @@ echo 'void aDefinitionNothingCalls(void) {}' >"$SEED_DIR/seed.c"
 }
 
 # Each of these has its caller in a build this harness does not link: the program-load
-# test bridge for the display buffer and its lock, and the workload harness for the counter
-# and for handing the core to its worker thread.
+# test bridge for the display buffer and its lock, and the workload harness for the counter,
+# for handing the core to its worker thread, and for the copy of the run it watches.
 USED_OUTSIDE_THIS_HARNESS='packedDisplayBuffer
 packedDisplayMutex
 r47_keys_claim_calculator_thread
+r47_keys_set_poll_hook
 r47_reset_host_lcd_refresh_count'
 unreferenced="$(unreferenced_hal_definitions "$OBJECT_DIR"/*_r47zen_hal_*.o -- "$OBJECT_DIR"/*.o)"
 unexpected="$(comm -23 <(printf '%s\n' "$unreferenced") <(printf '%s\n' "$USED_OUTSIDE_THIS_HARNESS" | LC_ALL=C sort -u))"

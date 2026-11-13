@@ -61,6 +61,10 @@ void r47_keys_claim_calculator_thread(void);
 // The calculator thread: sys_current_ms() reads nowMs from here on, so a host tool can
 // run the clock across its wrap without waiting 49.7 days.
 void r47_keys_set_clock_ms(uint32_t nowMs);
+// Any thread: the calculator thread calls hook where the test bridge publishes, at
+// every sleep and every poll of a running program, so a host tool reads core state
+// the calculator thread copied, not the core's own. NULL removes it.
+void r47_keys_set_poll_hook(void (*hook)(void));
 #endif
 
 // Any thread. A false return means the queue is full and the request was refused.
