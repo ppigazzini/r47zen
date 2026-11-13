@@ -75,7 +75,7 @@ static int64_t realUs(void) {
   return (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
 }
 
-#if !defined(NDEBUG)
+#if defined(R47_THREAD_CHECK)
 static pthread_t calculatorThread;
 static _Atomic bool calculatorThreadKnown = false;
 
@@ -86,14 +86,14 @@ void r47_assert_calculator_thread(const char *caller) {
     abort();
   }
 }
-#endif // !NDEBUG
+#endif // R47_THREAD_CHECK
 
 #if defined(HOST_TOOL_BUILD)
 void r47_keys_claim_calculator_thread(void) {
-#if !defined(NDEBUG)
+#if defined(R47_THREAD_CHECK)
   calculatorThread = pthread_self();
   atomic_store_explicit(&calculatorThreadKnown, true, memory_order_release);
-#endif // !NDEBUG
+#endif // R47_THREAD_CHECK
 }
 #endif // HOST_TOOL_BUILD
 
@@ -114,10 +114,10 @@ static void broadcastKeysLocked(void) {
 
 // The calculator thread, before it runs anything else.
 void r47_keys_init(void) {
-#if !defined(NDEBUG)
+#if defined(R47_THREAD_CHECK)
   calculatorThread = pthread_self();
   atomic_store_explicit(&calculatorThreadKnown, true, memory_order_release);
-#endif // !NDEBUG
+#endif // R47_THREAD_CHECK
   processStartUs = monotonicUs();
 
   pthread_once(&keyCondOnce, initKeyCond);

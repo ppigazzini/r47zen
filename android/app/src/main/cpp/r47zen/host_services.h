@@ -44,13 +44,15 @@ enum {
 
 // The app's one threading rule is that only the calculator thread runs core code. A debug
 // build checks it where the core calls the HAL and where a request starts, so a path that
-// breaks the rule aborts at its first call, not as a race much later. A release build
-// compiles this out. jni_core_reach.py holds the JNI entries to the same rule.
-#if defined(NDEBUG)
-#define R47_CALCULATOR_THREAD_ONLY() ((void)0)
-#else
+// breaks the rule aborts at its first call, not as a race much later. So does the release
+// build the device lanes run, which has the program-load test bridge; the one users get
+// compiles the check out. jni_core_reach.py holds the JNI entries to the same rule.
+#if !defined(NDEBUG) || defined(R47_TEST_BRIDGE)
+#define R47_THREAD_CHECK 1
 void r47_assert_calculator_thread(const char *caller);
 #define R47_CALCULATOR_THREAD_ONLY() r47_assert_calculator_thread(__func__)
+#else
+#define R47_CALCULATOR_THREAD_ONLY() ((void)0)
 #endif
 #if defined(HOST_TOOL_BUILD)
 // A host tool that hands the core to another thread, across a thread start or a join,
