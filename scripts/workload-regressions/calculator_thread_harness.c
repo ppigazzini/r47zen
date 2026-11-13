@@ -2066,6 +2066,43 @@ static void caseACheckpointRunsAcrossTheClocksWrap(void) {
   CHECK(backupInode() != saved, "no checkpoint across the clock's wrap");
 }
 
+static void busyWithNoPollAtRest(void *arg) {
+  (void)arg;
+  sleepMs(400); // a nested SOLVE's function, as upstream runs it, polls no key
+}
+
+// The watchdog's signal: how long the calculator has run with no poll. A program's SOLVE
+// or INT runs its function as a nested engine that never polls, so nothing stops it.
+// A computation that polls, a rest, and a wait for a key's release are no silence.
+static void caseTheCalculatorReportsHowLongItWentUnanswered(void) {
+  startCalculator();
+  readState();
+  CHECK(r47_keys_unanswered_ms() == 0, "at rest: %lld ms unanswered",
+        (long long)r47_keys_unanswered_ms());
+  r47_run_at_rest_async(busyWithNoPollAtRest, NULL);
+  sleepMs(300);
+  const int64_t silent = r47_keys_unanswered_ms();
+  CHECK(silent >= 200, "300 ms into a run with no poll: %lld ms unanswered", (long long)silent);
+  readState();
+  startSlowFactors();
+  sleepMs(300);
+  const int64_t polling = r47_keys_unanswered_ms();
+  CHECK(polling < 200, "FACTORS polls, but %lld ms went unanswered", (long long)polling);
+  tap(KEY_EXIT);
+  readState();
+  // A running program R/S stopped waits for the key's release (lblGtoXeq.c), which is a
+  // wait for the host.
+  enterLoopProgram(0);
+  startRunningAndProveIt();
+  press(KEY_RS);
+  sleepMs(600);
+  const int64_t held = r47_keys_unanswered_ms();
+  CHECK(held < 300, "a program waiting for a key's release: %lld ms unanswered",
+        (long long)held);
+  release();
+  CHECK(restWithin(2000), "the release did not end the hold");
+}
+
 static void caseSaveReachesTheDisk(void) {
   startCalculator();
   readState();
@@ -2916,6 +2953,8 @@ static const testCase_t cases[] = {
     {"the checkpoint retries a save the disk refused", caseCheckpointRetriesAFailedSave},
     {"the clock starts with the calculator", caseTheClockStartsWithTheCalculator},
     {"a checkpoint runs across the clock's wrap", caseACheckpointRunsAcrossTheClocksWrap},
+    {"the calculator reports how long it went unanswered",
+     caseTheCalculatorReportsHowLongItWentUnanswered},
     {"services add no LCD refresh", caseServicesAddNoLcdRefresh},
     {"descriptions leave the queue to a copy", caseDescriptionsLeaveTheQueueToACopy},
     {"no checkpoint with autosave off", caseNoCheckpointWithAutosaveOff},

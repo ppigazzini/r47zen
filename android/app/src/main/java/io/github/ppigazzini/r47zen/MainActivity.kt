@@ -22,6 +22,8 @@ import android.content.SharedPreferences
 import android.content.res.Configuration
 import com.google.android.material.color.MaterialColors
 import java.util.UUID
+import android.os.Process
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener, CalculatorHost {
 
@@ -113,6 +115,36 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun showWarning(text: String) {
         showCalculatorWarning(this, text)
+    }
+
+    private val calculatorWatchdog = CalculatorWatchdog(
+        unansweredMs = CalculatorEngine::unansweredMsNative,
+        offerRestart = ::offerCalculatorRestart,
+    )
+    private val watchCalculator = object : Runnable {
+        override fun run() {
+            calculatorWatchdog.check()
+            mainHandler.postDelayed(this, CalculatorWatchdog.CHECK_INTERVAL_MS)
+        }
+    }
+
+    private fun offerCalculatorRestart() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.calculator_not_responding_title)
+            .setMessage(R.string.calculator_not_responding_message)
+            .setNegativeButton(R.string.calculator_not_responding_wait, null)
+            .setPositiveButton(R.string.calculator_not_responding_restart) { _, _ -> restartCalculator() }
+            .show()
+    }
+
+    // No key reaches the calculator thread, so the process ends, and this Activity starts
+    // again in a new one from the last save; nothing new is saved from the stuck run.
+    private fun restartCalculator() {
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+        )
+        Process.killProcess(Process.myPid())
     }
 
     // A process killed behind the picker comes back with the answer and no request.
@@ -458,6 +490,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         AudioEngine.start(CalculatorEngine::isThreadRunning)
         CalculatorEngine.onHostStarted()
         displayRefreshLoop.start()
+        mainHandler.postDelayed(watchCalculator, CalculatorWatchdog.CHECK_INTERVAL_MS)
     }
 
     override fun onResume() {
@@ -487,6 +520,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onStop() {
         displayRefreshLoop.stop()
+        mainHandler.removeCallbacks(watchCalculator)
         // The user leaves the app to reach a print: the files go to the work directory now.
         DataFolderMirror.shared(this).mirror()
         // The first point at which the system may kill this process, and PiP's close

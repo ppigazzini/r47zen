@@ -39,6 +39,9 @@ int register_calculator_engine_natives(JNIEnv *env) {
            Java_io_github_ppigazzini_r47zen_CalculatorEngine_setAutoSaveNative},
       {"isReadyNative", "()Z",
        (void *)Java_io_github_ppigazzini_r47zen_CalculatorEngine_isReadyNative},
+      {"unansweredMsNative", "()J",
+       (void *)
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_unansweredMsNative},
       {"onHostStoppedNative", "(Z)V",
        (void *)
            Java_io_github_ppigazzini_r47zen_CalculatorEngine_onHostStoppedNative},

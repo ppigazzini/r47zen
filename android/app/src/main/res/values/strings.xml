@@ -14,6 +14,10 @@
     <string name="main_menu_copy_all_registers_copied" translatable="false">Copied All Registers</string>
     <string name="main_menu_copy_failed" translatable="false">Not copied: too large for the clipboard</string>
     <string name="main_menu_copy_not_ready" translatable="false">The calculator cannot copy now</string>
+    <string name="calculator_not_responding_title" translatable="false">The calculator is not responding</string>
+    <string name="calculator_not_responding_message" translatable="false">A program\'s SOLVE or INT that does not converge cannot be stopped by any key. Restart the app? What changed since the last save is lost.</string>
+    <string name="calculator_not_responding_wait" translatable="false">Wait</string>
+    <string name="calculator_not_responding_restart" translatable="false">Restart</string>
     <string name="main_menu_paste_number" translatable="false">Paste Number</string>
     <string name="main_menu_paste_not_a_number" translatable="false">The clipboard does not hold one number</string>
     <string name="main_menu_paste_not_ready" translatable="false">The calculator cannot take this number now</string>

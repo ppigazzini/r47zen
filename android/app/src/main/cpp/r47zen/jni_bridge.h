@@ -225,6 +225,9 @@ Java_io_github_ppigazzini_r47zen_CalculatorEngine_setAutoSaveNative(
 JNIEXPORT jboolean JNICALL
 Java_io_github_ppigazzini_r47zen_CalculatorEngine_isReadyNative(JNIEnv *env,
                                                                 jclass clazz);
+JNIEXPORT jlong JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_unansweredMsNative(
+    JNIEnv *env, jclass clazz);
 JNIEXPORT void JNICALL
 Java_io_github_ppigazzini_r47zen_CalculatorEngine_onHostStoppedNative(
     JNIEnv *env, jclass clazz, jboolean stopped);

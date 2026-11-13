@@ -150,6 +150,7 @@ void r47_key_cancel_pc(uint32_t keyval);
 void r47_key_release_if_down(void);
 void r47_key_push_quit(void);
 bool r47_keys_calculator_idle(void);
+int64_t r47_keys_unanswered_ms(void);
 bool r47_keys_pending(void);
 
 // hal/keys.c, the calculator thread: upstream's keyPushKey and keyPushClick, the keys

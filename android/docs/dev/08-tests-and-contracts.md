@@ -706,6 +706,9 @@ source is missing from this page:
   its cap, and that a disabled beeper queues nothing; `AudioEngineStartTest.kt`, under
   Robolectric for its `AudioTrack`, that a new audio thread plays no tone queued before
   it.
+- `CalculatorWatchdogTest.kt`: locks that a calculator that answers is left alone,
+  one silent past the threshold is offered a restart once, and one that answers
+  again is watched afresh
 - `HeldWarningsTest.kt`: locks that a warning that came with no host waits for the
   next one, is shown once, and that only the latest few wait
 - `CalculatorAnswersTest.kt`: locks that a core warning shows every line in a dialog, and
@@ -972,7 +975,9 @@ Android compatibility layer.
   comes, and none in a pause inside a solver; a save keeps a question
   on screen; a short write keeps the file and answers not saved; the checkpoint retries a
   save the disk refused, with no key pressed; the clock starts with the calculator, and
-  a checkpoint whose quiet period crosses the clock's 32-bit wrap still runs; a burst of services makes no more
+  a checkpoint whose quiet period crosses the clock's 32-bit wrap still runs; a run
+  with no poll reads as unanswered, while rest, a polling `FACTORS`, and a program
+  waiting for a key's release do not; a burst of services makes no more
   `refreshLcd` calls than the main loop's periods it lasts; a save syncs the file and its directory; a slow
   save still answers inside the fence; a checkpoint waits for a quiet moment; OFF leaves
   the file with autosave off; a canceled softkey does not assign; a keypad mode the full

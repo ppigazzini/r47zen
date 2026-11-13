@@ -208,6 +208,9 @@ internal object CalculatorEngine {
     @JvmStatic private external fun stopCalculatorNative(save: Boolean)
     @JvmStatic external fun setAutoSaveNative(enabled: Boolean)
     @JvmStatic private external fun isReadyNative(): Boolean
+
+    /** How long the calculator has run with no poll; 0 while it waits for the host. */
+    @JvmStatic external fun unansweredMsNative(): Long
     @JvmStatic private external fun onHostStoppedNative(stopped: Boolean)
     @JvmStatic external fun sendKey(keyCode: Int)
     @JvmStatic external fun cancelKey()

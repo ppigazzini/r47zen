@@ -39,7 +39,8 @@ grouped by role; the directory itself is the authority when a file is added:
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
   `WindowModeController.kt`, `SystemBarInsets.kt`, `FactoryResetController.kt`,
   `HapticFeedbackController.kt`, `AudioEngine.kt`, `CalculatorAnswers.kt`,
-  `CalculatorHostSlot.kt`, `HeldWarnings.kt`, `MainMenuButtonDescription.kt`,
+  `CalculatorHostSlot.kt`, `CalculatorWatchdog.kt`, `HeldWarnings.kt`,
+  `MainMenuButtonDescription.kt`,
   `PasteNumber.kt`,
   `GraphGestureAccumulator.kt`, and `GraphGestureFlusher.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `PackedLcdRaster.kt`,
@@ -191,7 +192,14 @@ up-calls.
   carries a token this process made, and an intent from another app does not reset.
 - `onStart()` attaches this Activity as the host, starts the audio thread if it is not
   running, with an empty queue, since tones a program queued while no thread played
-  belong to a moment past, tells native the host is visible, and starts the display loop. `MainActivity`
+  belong to a moment past, tells native the host is visible, starts the display loop,
+  and starts `CalculatorWatchdog`, which `onStop()` ends. Once a second it reads
+  `unansweredMsNative()`, how long the calculator has run with no poll, 0 while it
+  waits for a key, a sleep, or a picker. A program's SOLVE or INT runs its function
+  as a nested engine that upstream never lets poll, so no key stops one that does
+  not converge. After 10 s the watchdog offers a restart, once per such silence. The
+  restart starts the Activity again in a new process from the last save and saves
+  nothing from the stuck run. `MainActivity`
   is exported, so a second instance can sit on the first, and on a large screen or in
   desktop windowing two can run side by side. Android starts the Activity coming back
   before it stops or destroys the one leaving, so the last one started speaks for the
