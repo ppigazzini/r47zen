@@ -80,11 +80,6 @@ object ProgramLoadTestBridge {
 
     fun injectDeterministicDisplayBuffer(): Long = injectDeterministicDisplayBufferForTestNative()
 
-    fun trySnapshotState(): ProgramLoadState? {
-        val raw = snapshotStateIfAvailableNative() ?: return null
-        return decodeState(raw)
-    }
-
     fun setNextLoadProgramFd(fd: Int) {
         setNextLoadProgramFdNative(fd)
     }
@@ -136,6 +131,5 @@ object ProgramLoadTestBridge {
     private external fun clearLoadProgramFdOverrideNative()
     private external fun isSimFunctionRunningNative(): Boolean
     private external fun snapshotStateNative(): IntArray
-    private external fun snapshotStateIfAvailableNative(): IntArray?
     private external fun getXRegisterTypeNative(): Int
 }

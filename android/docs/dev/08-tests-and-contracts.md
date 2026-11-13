@@ -827,7 +827,7 @@ Each instrumentation source and what it covers:
   `ProgramLoadTestBridge.pressRunStopKey()`, the same key on the same FIFO as the
   live keypad. The Android fixture resets every staged run to the upstream
   `doFnReset(CONFIRMED, false)` baseline before load and reads state through
-  `trySnapshotState()`, the state the calculator thread published, during the run
+  `snapshotState()`, the state the calculator thread published, during the run
   too. The hosted wrapper fails the lane if `MANSLV2` times out rather
   than downgrading it to degraded coverage. The grouped PROGRAMS harness performs
   cleanup before the activity closes: it presses `R/S` while a `PGM_RUNNING` or
