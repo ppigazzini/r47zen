@@ -545,6 +545,12 @@ normal-pull-request host-core optimization sequence:
   inversion in the Android-owned bridge fails the lane; upstream-core races are
   deferred to the empty, upstream-scoped `bridge_tsan_suppressions.txt`. No
   emulator
+- the same `host-workload-regressions` lane then reruns the corpus through
+  `scripts/workload-regressions/run_workload_regressions_tsan.sh`, under
+  ThreadSanitizer, with `halt_on_error=1`: the harness's worker runs each program as
+  the calculator thread while the main thread watches it and stops it with keys, so
+  a data race between them fails the lane. `SPIRALk` alone may end on the outer
+  timeout as degraded coverage. No emulator
 - the collector still resolves `clang` and `llvm-profdata` from that same
   pinned NDK, while the Linux lane installs the matching host
   `libclang_rt.profile` runtime for the derived LLVM major through the explicit

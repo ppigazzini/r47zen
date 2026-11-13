@@ -313,14 +313,47 @@ static bool finish_worker(pthread_t thread_id) {
   return pthread_join(thread_id, NULL) == 0;
 }
 
-static bool fail_last_error(const char *scenario_name) {
-  if (lastErrorCode == ERROR_NONE) {
+static bool fail_error(const char *scenario_name, unsigned int error) {
+  if (error == ERROR_NONE) {
     return false;
   }
 
-  fprintf(stderr, "ERROR: %s hit calculator error code %u\n", scenario_name,
-          (unsigned int)lastErrorCode);
+  fprintf(stderr, "ERROR: %s hit calculator error code %u\n", scenario_name, error);
   return true;
+}
+
+static bool fail_last_error(const char *scenario_name) {
+  return fail_error(scenario_name, (unsigned int)lastErrorCode);
+}
+
+// What the poll below watches while the worker runs the program. The worker copies it
+// at every sleep and every poll of the running program (r47_keys_set_poll_hook), and
+// this thread reads only that copy: the core's own state is the worker's alone.
+typedef struct {
+  unsigned int lastError;
+  uint16_t step;
+  uint8_t runStop;
+  uint8_t tempInfo;
+  uint64_t lcdRefreshes;
+} watched_t;
+
+static pthread_mutex_t watchedMutex = PTHREAD_MUTEX_INITIALIZER;
+static watched_t watched;
+
+static void publish_watched(void) {
+  const watched_t now = {(unsigned int)lastErrorCode, currentLocalStepNumber,
+                         (uint8_t)programRunStop, (uint8_t)temporaryInformation,
+                         r47_get_host_lcd_refresh_count()};
+  pthread_mutex_lock(&watchedMutex);
+  watched = now;
+  pthread_mutex_unlock(&watchedMutex);
+}
+
+static watched_t read_watched(void) {
+  pthread_mutex_lock(&watchedMutex);
+  const watched_t copy = watched;
+  pthread_mutex_unlock(&watchedMutex);
+  return copy;
 }
 
 static bool seed_spiralk_runtime_registers(void) {
@@ -470,6 +503,8 @@ static workload_result_t run_program_fixture_workload(
   // runProgram pushes the screen once as a run starts, so only a refresh after that one
   // shows the program did something.
   r47_reset_host_lcd_refresh_count();
+  publish_watched(); // the state at the load, before the worker owns the core
+  r47_keys_set_poll_hook(publish_watched);
   if (!start_worker(&worker, run_function_id, run_parameter, uses_param,
                     &worker_thread)) {
     return WORKLOAD_RESULT_FAIL;
@@ -483,22 +518,23 @@ static workload_result_t run_program_fixture_workload(
       break;
     }
 
+    const watched_t seen = read_watched();
     // A stop this loop sent can land inside the solver, which then reports
     // "Solver abort": the answer to that stop, not a fault of the workload.
-    if (!(requested_direct_stop && lastErrorCode == ERROR_SOLVER_ABORT) &&
-        fail_last_error(scenario->program_name)) {
+    if (!(requested_direct_stop && seen.lastError == ERROR_SOLVER_ABORT) &&
+        fail_error(scenario->program_name, seen.lastError)) {
       return WORKLOAD_RESULT_FAIL;
     }
 
-    if (currentLocalStepNumber > max_step) {
-      max_step = currentLocalStepNumber;
+    if (seen.step > max_step) {
+      max_step = seen.step;
     }
-    saw_view = saw_view || temporaryInformation == TI_VIEW_REGISTER;
-    saw_waiting = saw_waiting || programRunStop == PGM_WAITING;
-    lcd_refresh_count = r47_get_host_lcd_refresh_count();
+    saw_view = saw_view || seen.tempInfo == TI_VIEW_REGISTER;
+    saw_waiting = saw_waiting || seen.runStop == PGM_WAITING;
+    lcd_refresh_count = seen.lcdRefreshes;
     saw_lcd_refresh = saw_lcd_refresh || lcd_refresh_count > 1u;
 
-    if (programRunStop == PGM_PAUSED) {
+    if (seen.runStop == PGM_PAUSED) {
       saw_pause = true;
       if (scenario->resume_pause_with_zero_key && !sent_resume_key) {
         r47_key_push(1);
@@ -518,7 +554,7 @@ static workload_result_t run_program_fixture_workload(
         activity_started_at != 0u &&
         now - activity_started_at >= scenario->stop_after_activity_ms &&
         now - last_direct_stop_request_at >= 250u &&
-        (programRunStop == PGM_RUNNING || programRunStop == PGM_PAUSED)) {
+        (seen.runStop == PGM_RUNNING || seen.runStop == PGM_PAUSED)) {
       // R/S, as the keypad sends it: the running program polls for it.
       r47_key_push(36);
       r47_key_push(0);
@@ -555,6 +591,7 @@ static workload_result_t run_program_fixture_workload(
             scenario->program_name);
     return WORKLOAD_RESULT_FAIL;
   }
+  r47_keys_set_poll_hook(NULL);
   r47_keys_claim_calculator_thread();
   // The loop above polls every 5 ms while the worker runs, so an error that ends
   // the program between two polls is seen only here. The R/S this harness sends
