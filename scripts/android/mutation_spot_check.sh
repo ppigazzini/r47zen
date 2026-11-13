@@ -102,10 +102,10 @@ MUT_OLD=(
     "this.palette = palette"
     $'            append(canonicalMantissa(mantissa.replace(\',\', \'.\')))\n            if (number.startsWith(\'-\')) {\n                append(TOKEN_NEGATE)\n            }'
     "if (COMMA_GROUPING.matches(mantissa)) {"
-    $'        state = IDLE\n        return was != ABANDONED'
-    "TRANSFERRING -> true.also { state = ABANDONED }"
+    "private fun endLaunched(): Boolean = (state == LAUNCHED).also { if (it) state = IDLE }"
+    "answer(if (synchronized(lock) { endLaunched() }) ANSWER else LOST, fd, name)"
     "val start = runCatching { findStart(fileType, isSave) }.getOrNull()"
-    "answer(synchronized(lock) { transfer == ticket && end() }, fd, name)"
+    "transfer != ticket -> if (transfer == NO_TICKET) LOST else LATE"
     "if (temp.length() > 0) {"
     "if (total > MAX_LOAD_BYTES) {"
     ".onSuccess { fd -> onLoaded(fd, nameOf(uri)) }"
@@ -132,10 +132,10 @@ MUT_NEW=(
     "this.palette = palette; hasNativeFrame = true"
     $'            if (number.startsWith(\'-\')) {\n                append(TOKEN_NEGATE)\n            }\n            append(canonicalMantissa(mantissa.replace(\',\', \'.\')))'
     "if (COMMA_GROUPING.matches(mantissa) && false) {"
-    $'        return was != ABANDONED'
-    "TRANSFERRING -> true.also { state = IDLE }"
+    "private fun endLaunched(): Boolean = state == LAUNCHED"
+    "answer(ANSWER, fd, name)"
     "val start = findStart(fileType, isSave)"
-    "answer(synchronized(lock) { end() }, fd, name)"
+    "transfer == NO_TICKET -> LOST"
     "if (temp.length() >= 0) {"
     "if (total >= MAX_LOAD_BYTES) {"
     ".onSuccess { fd -> onLoaded(fd, null) }"
@@ -193,7 +193,7 @@ MUT_DESC=(
     "PasteNumber: CHS before the digits it negates"
     "PasteNumber: take a comma-grouped mantissa as a decimal"
     "NativeFileRequestGate: an answer leaves the request state as it was"
-    "NativeFileRequestGate: a transfer the app stops is never marked abandoned"
+    "NativeFileRequestGate: an answer this gate never launched reaches native"
     "NativeFileRequestGate: a start lookup that throws loses the request"
     "NativeFileRequestGate: a late copy answers whatever request waits"
     "DocumentTransfer: write the provider when native wrote nothing"

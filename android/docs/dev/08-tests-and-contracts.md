@@ -634,11 +634,13 @@ source is missing from this page:
   exactly one result or cancel: the start folder is found before the launch is
   posted, a lookup that throws still launches with none, a
   launched picker with no answer is canceled once when the app stops, an
-  answered one is not, a transferred document reaches native with its name, an
-  answer to a picker this process never launched still reaches native, an answer
-  no calculator thread takes closes its descriptor and tells the user only through
-  the main-thread post, and the late copy of an abandoned request, or its late
-  failure, answers not the request after it
+  answered one is not, a picker the user cancels and a transfer that fails each
+  cancel native once, a transferred document reaches native with its name, an
+  answer to a picker this gate never launched, or one that comes while a request is
+  only posted, never reaches native, an answer no calculator thread takes closes its
+  descriptor and tells the user only through the main-thread post, and the late copy
+  of an abandoned request, or its late failure, answers not the request after it,
+  nor that request's own copy in flight
 - `SettingsLinkTest.kt`: locks that the external links in Settings show a
   toast instead of crashing when no app can open them
 - `SavedManualTest.kt`: locks the saved manual against a fake provider: a read-only

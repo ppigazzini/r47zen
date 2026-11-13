@@ -29,9 +29,14 @@ internal interface NativeFileAnswers {
  * transfer's answer carries back. If the app stops first, [cancelUnanswered] cancels
  * the request, and the late descriptor is closed: an answer whose ticket is not the
  * waiting request's never reaches native, so it cannot answer a newer request with the
- * wrong file. A process killed behind the picker has no request either: [native]
- * refuses the answer, its descriptor closes the same way, and [onLost] tells the user,
- * posted to the main thread whichever thread the answer came on.
+ * wrong file.
+ *
+ * Only an answer to the picker this gate launched reaches native. A process killed
+ * behind the picker gets the answer in a fresh gate, and its new calculator thread may
+ * already wait in native for a request [request] has not seen yet, so such an answer,
+ * or one that comes while a request is only posted, never reaches native: its
+ * descriptor closes and [onLost] tells the user, posted to the main thread whichever
+ * thread the answer came on. So does an answer native refuses.
  */
 internal class NativeFileRequestGate(
     private val post: (Runnable) -> Unit,
@@ -46,7 +51,9 @@ internal class NativeFileRequestGate(
         const val POSTED = 1
         const val LAUNCHED = 2
         const val TRANSFERRING = 3
-        const val ABANDONED = 4
+
+        // The ticket of a transfer this gate never launched a picker for: no request has it.
+        const val NO_TICKET = -1L
     }
 
     // The calculator thread, the main thread, and the transfer worker all change these,
@@ -74,62 +81,70 @@ internal class NativeFileRequestGate(
         )
     }
 
-    // Forward the picker's answer whatever this gate's state but abandoned: the
-    // calculator thread is what waits for it.
     fun deliverSelected(fd: Int, name: String?) {
-        answer(synchronized(lock) { end() }, fd, name)
+        answer(if (synchronized(lock) { endLaunched() }) ANSWER else LOST, fd, name)
     }
 
     fun deliverCanceled() {
-        if (synchronized(lock) { end() }) {
+        if (synchronized(lock) { endLaunched() }) {
             native.cancel()
         }
     }
 
     /** The load's private copy is on its way; its answer carries the returned ticket. */
     fun beginTransfer(): Long = synchronized(lock) {
-        state = TRANSFERRING
-        ticket
+        if (state == LAUNCHED) {
+            state = TRANSFERRING
+            ticket
+        } else {
+            NO_TICKET
+        }
     }
 
     fun deliverTransferred(transfer: Long, fd: Int, name: String?) {
-        answer(synchronized(lock) { transfer == ticket && end() }, fd, name)
+        answer(synchronized(lock) { endTransfer(transfer) }, fd, name)
     }
 
     fun deliverTransferFailed(transfer: Long) {
-        if (synchronized(lock) { transfer == ticket && end() }) {
+        if (synchronized(lock) { endTransfer(transfer) } == ANSWER) {
             native.cancel()
         }
     }
 
     fun cancelUnanswered() {
         val cancel = synchronized(lock) {
-            when (state) {
-                LAUNCHED -> true.also { state = IDLE }
-                TRANSFERRING -> true.also { state = ABANDONED }
-                else -> false
-            }
+            (state == LAUNCHED || state == TRANSFERRING).also { if (it) state = IDLE }
         }
         if (cancel) {
             native.cancel()
         }
     }
 
-    // Under the lock: the request ends. False when it was abandoned, since its cancel
-    // already answered the calculator thread.
-    private fun end(): Boolean {
-        val was = state
-        state = IDLE
-        return was != ABANDONED
+    // Under the lock: whether the answer is the launched picker's, which ends the request.
+    private fun endLaunched(): Boolean = (state == LAUNCHED).also { if (it) state = IDLE }
+
+    // Under the lock: what a transfer's answer is. Its own request's, still in flight,
+    // ends that request; one the app stopped was answered by its cancel, as was an older
+    // request's; one this gate never launched is lost.
+    private fun endTransfer(transfer: Long): Int = when {
+        transfer != ticket -> if (transfer == NO_TICKET) LOST else LATE
+        state == TRANSFERRING -> ANSWER.also { state = IDLE }
+        else -> LATE
     }
 
-    private fun answer(current: Boolean, fd: Int, name: String?) {
-        if (current && native.select(fd, name)) {
+    private fun answer(verdict: Int, fd: Int, name: String?) {
+        if (verdict == ANSWER && native.select(fd, name)) {
             return
         }
         closeLateFd(fd)
-        if (current) {
+        if (verdict != LATE) {
             post(Runnable(onLost))
         }
     }
 }
+
+// What becomes of a picker's answer: it goes to native, it is lost and the user hears
+// so, or it is late for a request a cancel already answered.
+private const val ANSWER = 0
+private const val LOST = 1
+private const val LATE = 2

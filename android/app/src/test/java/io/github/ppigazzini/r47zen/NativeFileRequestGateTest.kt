@@ -89,6 +89,30 @@ class NativeFileRequestGateTest {
     }
 
     @Test
+    fun aPickerTheUserCancels_cancelsNativeOnce() {
+        gate.request(isSave = true, defaultName = "state.s47", fileType = 0)
+        posted.removeFirst().run()
+
+        gate.deliverCanceled()
+        gate.deliverCanceled()
+
+        assertEquals(1, cancels)
+    }
+
+    @Test
+    fun aTransferThatFails_cancelsNativeOnce() {
+        gate.request(isSave = false, defaultName = "", fileType = 1)
+        posted.removeFirst().run()
+        val transfer = gate.beginTransfer()
+
+        gate.deliverTransferFailed(transfer)
+        gate.deliverTransferFailed(transfer)
+
+        assertEquals(1, cancels)
+        assertTrue(selections.isEmpty())
+    }
+
+    @Test
     fun stoppingDuringATransfer_cancelsNativeOnce_andClosesTheLateDescriptor() {
         gate.request(isSave = false, defaultName = "", fileType = 1)
         posted.removeFirst().run()
@@ -136,14 +160,63 @@ class NativeFileRequestGateTest {
         assertEquals(0, cancels)
     }
 
+    // The next request's own copy may be in flight when the abandoned one's lands.
     @Test
-    fun answerToAPickerThisProcessNeverLaunched_stillReachesNative() {
-        // The calculator thread decides whether a request waits: the gate forwards the
-        // answer whatever it saw.
+    fun aLateCopy_answersNotTheNextRequestsTransfer() {
+        gate.request(isSave = false, defaultName = "", fileType = 1)
+        posted.removeFirst().run()
+        val abandoned = gate.beginTransfer()
+        gate.cancelUnanswered()
+        gate.request(isSave = false, defaultName = "", fileType = 1)
+        posted.removeFirst().run()
+        val next = gate.beginTransfer()
+
+        gate.deliverTransferred(abandoned, 7, null)
+        gate.deliverTransferred(next, 9, null)
+
+        assertEquals(listOf(9), selections)
+        assertEquals(listOf(7), closedFds)
+    }
+
+    // A process killed behind the picker gets the answer in a fresh gate, and a request
+    // the new calculator thread made may already wait in native before request() runs:
+    // an answer this process never asked for must not reach it.
+    @Test
+    fun answerToAPickerThisProcessNeverLaunched_neverReachesNative() {
         gate.deliverSelected(7, null)
 
-        assertEquals(listOf(7), selections)
-        assertTrue(closedFds.isEmpty())
+        assertTrue(selections.isEmpty())
+        assertEquals(listOf(7), closedFds)
+        posted.removeFirst().run()
+        assertEquals(1, lost)
+    }
+
+    @Test
+    fun aCopyFromBeforeAProcessDeath_answersNotARequestWaitingInNative() {
+        val transfer = gate.beginTransfer()
+
+        gate.deliverTransferred(transfer, 7, null)
+
+        assertTrue(selections.isEmpty())
+        assertEquals(listOf(7), closedFds)
+        posted.removeFirst().run()
+        assertEquals(1, lost)
+    }
+
+    @Test
+    fun aStaleAnswer_whileARequestIsPosted_answersNotIt() {
+        gate.request(isSave = false, defaultName = "", fileType = 1)
+
+        gate.deliverSelected(7, null)
+        gate.deliverCanceled()
+
+        assertTrue(selections.isEmpty())
+        assertEquals(0, cancels)
+        assertEquals(listOf(7), closedFds)
+        posted.removeFirst().run()
+        posted.removeFirst().run()
+        gate.deliverSelected(9, null)
+        assertEquals(listOf(9), selections)
     }
 
     @Test
