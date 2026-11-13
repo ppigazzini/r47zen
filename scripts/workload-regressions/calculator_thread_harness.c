@@ -83,8 +83,11 @@ void __wrap_r47_upcall_tones_clear(void) { atomic_fetch_add(&tonesClearCount, 1)
 
 // A disk the case controls: slow to sync, or short of room.
 extern int __real_fsync(int fd);
+// The run state at the last sync, which a save makes: a pause case reads where it ran.
+static atomic_int fsyncRunStop = -1;
 int __wrap_fsync(int fd) {
   atomic_fetch_add(&fsyncCount, 1);
+  atomic_store(&fsyncRunStop, (int)programRunStop);
   const int delayMs = atomic_load(&fsyncDelayMs);
   if (delayMs > 0) {
     const struct timespec delay = {delayMs / 1000, (long)(delayMs % 1000) * 1000000};
@@ -1156,11 +1159,14 @@ static void caseSaveRunsInsideAPause(void) {
   startCalculator();
   r47_run_at_rest_async(pauseForeverAtRest, NULL);
   sleepMs(300);
+  atomic_store(&fsyncRunStop, -1);
   r47_service_save_and_wait(100);
   for (int i = 0; i < 300 && backupTime() == 0; i++) {
     sleepMs(10);
   }
   CHECK(backupTime() != 0, "the pending save did not run in the pause");
+  CHECK(atomic_load(&fsyncRunStop) == PGM_PAUSED, "the save ran in run state %d, not the pause",
+        atomic_load(&fsyncRunStop));
   tap(KEY_EXIT);
   readState();
 }
@@ -1178,6 +1184,9 @@ static void caseKillDuringSavesNeverCutsTheFile(void) {
   const long whole = backupSize();
   CHECK(whole > 100000, "the first save is %ld bytes", whole);
   fflush(NULL);
+  char temp[1024];
+  snprintf(temp, sizeof(temp), "%s/backupR47.cfg.tmp", workDir);
+  int cutMidWrite = 0;
   for (int round = 0; round < 12; round++) {
     const pid_t child = fork();
     if (child == 0) {
@@ -1192,10 +1201,15 @@ static void caseKillDuringSavesNeverCutsTheFile(void) {
     kill(child, SIGKILL);
     int status = 0;
     waitpid(child, &status, 0);
+    // A kill inside a save leaves its temporary file, which the next start drops.
+    cutMidWrite += access(temp, F_OK) == 0;
     const long size = backupSize();
     CHECK(size > whole - 2000 && size < whole + 2000,
           "a kill left %ld bytes of about %ld", size, whole);
   }
+  // Else no kill landed inside a save, and the file was never at risk.
+  CHECK(cutMidWrite > 0, "none of 12 kills landed inside a save");
+  fprintf(stderr, "     %d of 12 kills landed inside a save\n", cutMidWrite);
 }
 
 static void saveForever(void) {
@@ -1886,16 +1900,21 @@ static void timedPauseAtRest(void *arg) {
   programRunStop = PGM_STOPPED;
 }
 
+// Where the save ran is read at its sync, not from how soon the file came: the pause
+// would run the save at its end anyway, at rest.
 static void caseSaveRunsInsideATimedPause(void) {
   startCalculator();
   r47_run_at_rest_async(timedPauseAtRest, NULL);
   sleepMs(300);
+  atomic_store(&fsyncRunStop, -1);
   r47_service_save_and_wait(100);
-  // Well inside the pause, which would run the save at its end anyway.
-  for (int i = 0; i < 50 && backupTime() == 0; i++) {
+  for (int i = 0; i < 300 && backupTime() == 0; i++) {
     sleepMs(10);
   }
-  CHECK(backupTime() != 0, "the timed pause did not take the save");
+  CHECK(backupTime() != 0, "no save after a timed pause");
+  CHECK(atomic_load(&fsyncRunStop) == PGM_PAUSED,
+        "the timed pause did not take the save: it ran in run state %d",
+        atomic_load(&fsyncRunStop));
   readState();
 }
 

@@ -945,7 +945,9 @@ Android compatibility layer.
   program, and not while the core has a file open, and the state the run ends in
   is saved again at rest while the host stays stopped; a paste survives a
   computation; an idle checkpoint keeps typed work, with none when autosave is off; a
-  save runs inside a pause; a kill during saves never cuts the file; a failed save keeps
+  save runs inside a pause, read from the run state at its sync, `PGM_PAUSED`; a kill
+  during saves never cuts the file, and at least one of its 12 kills must land inside
+  a save, which leaves the temporary file; a failed save keeps
   the file and the process; a save keeps the running calculator's state; a state file
   holding a run state restores to rest; the keypad publishes only what changed; a
   stopped host parks the thread; a stop ends the thread during a computation; the
@@ -966,7 +968,8 @@ Android compatibility layer.
   behind a `VIEW`; a quit survives a redraw and the ring's wipe; a held key holds a program
   until its release, a cancel, or a stopping host; parking stops a running timer, and a
   host started inside a sleep still gets its timers; a save
-  runs inside a timed pause, and none in a pause inside a solver; a save keeps a question
+  runs inside a timed pause, again read at its sync and not from how soon the file
+  comes, and none in a pause inside a solver; a save keeps a question
   on screen; a short write keeps the file and answers not saved; the checkpoint retries a
   save the disk refused, with no key pressed; the clock starts with the calculator, and
   a checkpoint whose quiet period crosses the clock's 32-bit wrap still runs; a burst of services makes no more
