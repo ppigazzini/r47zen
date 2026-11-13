@@ -681,6 +681,12 @@ uint32_t sys_current_ms(void) {
   return (uint32_t)((monotonicUs() - processStartUs) / 1000);
 }
 
+#if defined(HOST_TOOL_BUILD)
+void r47_keys_set_clock_ms(uint32_t nowMs) {
+  processStartUs = monotonicUs() - (int64_t)nowMs * 1000;
+}
+#endif // HOST_TOOL_BUILD
+
 void sys_timer_start(int timer_ix, uint32_t ms_value) {
   R47_CALCULATOR_THREAD_ONLY();
   if (timer_ix < 0 || timer_ix >= SYS_TIMERS) {

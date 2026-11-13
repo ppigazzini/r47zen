@@ -2018,6 +2018,35 @@ static void caseServicesAddNoLcdRefresh(void) {
         periods);
 }
 
+// The clock counts from the calculator's start, not the phone's: upstream compares its
+// deadlines with a plain <=, which then holds for 49.7 days of a process.
+static void caseTheClockStartsWithTheCalculator(void) {
+  const int64_t before = nowMs();
+  startCalculator();
+  const uint32_t clock = sys_current_ms();
+  const uint32_t elapsed = (uint32_t)(nowMs() - before);
+  CHECK(clock <= elapsed + 10u, "the clock read %u ms, %u ms after the start", clock, elapsed);
+}
+
+static void setClockAtRest(void *arg) { r47_keys_set_clock_ms((uint32_t)(uintptr_t)arg); }
+
+// The glue's own intervals take unsigned differences, so they hold across the clock's
+// wrap: a key just before it, and the checkpoint that waits for the quiet after it,
+// just past it, still runs.
+static void caseACheckpointRunsAcrossTheClocksWrap(void) {
+  startCalculator();
+  r47_services_set_checkpoint_timing(60000, 60000);
+  saveOnceIdle(); // nothing left to save, so only the key below makes a checkpoint due
+  const ino_t saved = backupInode();
+  r47_run_at_rest(setClockAtRest, (void *)(uintptr_t)(UINT32_MAX - 50u));
+  r47_services_set_checkpoint_timing(300, 100);
+  tap(KEY_ONE);
+  for (int i = 0; i < 200 && backupInode() == saved; i++) {
+    sleepMs(10);
+  }
+  CHECK(backupInode() != saved, "no checkpoint across the clock's wrap");
+}
+
 static void caseSaveReachesTheDisk(void) {
   startCalculator();
   readState();
@@ -2866,6 +2895,8 @@ static const testCase_t cases[] = {
      caseFenceDoesNotWaitForABusyCalculator},
     {"an idle checkpoint keeps typed work", caseIdleCheckpointKeepsTypedWork},
     {"the checkpoint retries a save the disk refused", caseCheckpointRetriesAFailedSave},
+    {"the clock starts with the calculator", caseTheClockStartsWithTheCalculator},
+    {"a checkpoint runs across the clock's wrap", caseACheckpointRunsAcrossTheClocksWrap},
     {"services add no LCD refresh", caseServicesAddNoLcdRefresh},
     {"descriptions leave the queue to a copy", caseDescriptionsLeaveTheQueueToACopy},
     {"no checkpoint with autosave off", caseNoCheckpointWithAutosaveOff},

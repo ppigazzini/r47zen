@@ -968,7 +968,8 @@ Android compatibility layer.
   host started inside a sleep still gets its timers; a save
   runs inside a timed pause, and none in a pause inside a solver; a save keeps a question
   on screen; a short write keeps the file and answers not saved; the checkpoint retries a
-  save the disk refused, with no key pressed; a burst of services makes no more
+  save the disk refused, with no key pressed; the clock starts with the calculator, and
+  a checkpoint whose quiet period crosses the clock's 32-bit wrap still runs; a burst of services makes no more
   `refreshLcd` calls than the main loop's periods it lasts; a save syncs the file and its directory; a slow
   save still answers inside the fence; a checkpoint waits for a quiet moment; OFF leaves
   the file with autosave off; a canceled softkey does not assign; a keypad mode the full

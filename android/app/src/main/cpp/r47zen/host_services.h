@@ -58,6 +58,9 @@ void r47_assert_calculator_thread(const char *caller);
 // A host tool that hands the core to another thread, across a thread start or a join,
 // names the thread that owns it from here on.
 void r47_keys_claim_calculator_thread(void);
+// The calculator thread: sys_current_ms() reads nowMs from here on, so a host tool can
+// run the clock across its wrap without waiting 49.7 days.
+void r47_keys_set_clock_ms(uint32_t nowMs);
 #endif
 
 // Any thread. A false return means the queue is full and the request was refused.
