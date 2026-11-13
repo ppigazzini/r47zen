@@ -703,6 +703,8 @@ source is missing from this page:
   its cap, and that a disabled beeper queues nothing; `AudioEngineStartTest.kt`, under
   Robolectric for its `AudioTrack`, that a new audio thread plays no tone queued before
   it.
+- `HeldWarningsTest.kt`: locks that a warning that came with no host waits for the
+  next one, is shown once, and that only the latest few wait
 - `CalculatorAnswersTest.kt`: locks that a core warning shows every line in a dialog, and
   that the text of a copy reaches the clipboard with
   its confirmation before Android 13 and none from 13, where the system confirms it,

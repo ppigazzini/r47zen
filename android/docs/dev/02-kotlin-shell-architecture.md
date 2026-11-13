@@ -39,7 +39,8 @@ grouped by role; the directory itself is the authority when a file is added:
   `MainActivityPreferenceController.kt`, `DisplayActionController.kt`,
   `WindowModeController.kt`, `SystemBarInsets.kt`, `FactoryResetController.kt`,
   `HapticFeedbackController.kt`, `AudioEngine.kt`, `CalculatorAnswers.kt`,
-  `CalculatorHostSlot.kt`, `MainMenuButtonDescription.kt`, `PasteNumber.kt`,
+  `CalculatorHostSlot.kt`, `HeldWarnings.kt`, `MainMenuButtonDescription.kt`,
+  `PasteNumber.kt`,
   `GraphGestureAccumulator.kt`, and `GraphGestureFlusher.kt`
 - rendering and geometry: `ReplicaOverlay.kt`, `PackedLcdRaster.kt`,
   `ReplicaKeypadLayout.kt`,
@@ -139,7 +140,8 @@ Main flow:
    it to `CalculatorAnswers`. What must outlive an Activity stays in
    `CalculatorEngine`: the one `NativeFileRequestGate`, and the toast for a lost
    write, from the application context. An upstream warning is a dialog on the
-   host; with no host it is only logged.
+   host; with no host it is logged, and the latest three wait in `HeldWarnings` for
+   the next Activity to attach.
 4. `NativeDisplayRefreshLoop` is the single UI-side poller for LCD and keypad
    scene state.
 5. `NativeDisplayRefreshLoop` watches packed-display and keypad-snapshot

@@ -53,6 +53,7 @@ internal interface CalculatorHost {
 internal object CalculatorEngine {
     private const val TAG = "R47Calculator"
     private const val THREAD_NAME = "R47Calculator"
+    private const val HELD_WARNINGS = 3
 
     // The Linux simulator's calculator thread, from GLib's g_thread_new, gets glibc's default
     // stack, which glibc sizes from the stack limit: 8 MiB under the usual ulimit -s of 8192.
@@ -81,6 +82,9 @@ internal object CalculatorEngine {
     }
 
     private val hostSlot = CalculatorHostSlot<CalculatorHost> { it.hostId }
+
+    // What the core warned while no Activity was there to show it.
+    private val heldWarnings = HeldWarnings(capacity = HELD_WARNINGS)
 
     private val host: CalculatorHost?
         get() = hostSlot.current
@@ -129,6 +133,7 @@ internal object CalculatorEngine {
 
     fun attachHost(newHost: CalculatorHost) {
         hostSlot.attach(newHost)
+        heldWarnings.showTo(newHost::showWarning)
     }
 
     /**
@@ -293,6 +298,7 @@ internal object CalculatorEngine {
             val current = host
             if (current == null) {
                 Log.w(TAG, text)
+                heldWarnings.hold(text.trim())
             } else {
                 current.showWarning(text.trim())
             }
