@@ -154,11 +154,7 @@ class ProgramFixtureInstrumentedTest {
                         state.temporaryInformation == TI_PROGRAM_LOADED
                 }
                 val workerStillRunning = ProgramLoadTestBridge.isSimFunctionRunning()
-                loadState = if (workerStillRunning) {
-                    ProgramLoadTestBridge.trySnapshotState() ?: resetState
-                } else {
-                    ProgramLoadTestBridge.snapshotState()
-                }
+                loadState = ProgramLoadTestBridge.snapshotState()
                 val currentLoadState = loadState
                 val programLoaded = currentLoadState.temporaryInformation == TI_PROGRAM_LOADED
                 if (workerStillRunning) {
@@ -259,9 +255,7 @@ class ProgramFixtureInstrumentedTest {
         var resumeAttempts = 0
         var lastDirectStopAttemptAtMs = 0L
         var lastResumeAttemptAtMs = 0L
-        var snapshotMisses = 0
         val runStartedAtMs = SystemClock.elapsedRealtime()
-        var lastObservedState = loadState
         var sawAcceptedDirectStop = false
 
         // An R/S that lands inside the solver raises Solver abort: that is how the
@@ -269,7 +263,7 @@ class ProgramFixtureInstrumentedTest {
         fun answersTheStop(errorCode: Int): Boolean =
             requestedDirectStop && errorCode == ERROR_SOLVER_ABORT
 
-        fun maybeRequestDirectStop(now: Long, observedRunStop: Int?) {
+        fun maybeRequestDirectStop(now: Long, observedRunStop: Int) {
             if (fixture.scenario.stopPolicy != StopPolicy.DIRECT_STOP_AFTER_ACTIVITY) {
                 return
             }
@@ -285,12 +279,8 @@ class ProgramFixtureInstrumentedTest {
                 return
             }
 
-            // Stop it the way a user does. An unobserved state means the program is
-            // too busy to read, which is what the key is for.
-            if (observedRunStop == null ||
-                observedRunStop == PGM_RUNNING ||
-                observedRunStop == PGM_PAUSED
-            ) {
+            // Stop it the way a user does.
+            if (observedRunStop == PGM_RUNNING || observedRunStop == PGM_PAUSED) {
                 ProgramLoadTestBridge.pressRunStopKey()
                 requestedDirectStop = true
                 sawAcceptedDirectStop = true
@@ -304,16 +294,7 @@ class ProgramFixtureInstrumentedTest {
 
         val completed = waitUntil(fixture.scenario.timeoutMs) {
             val now = SystemClock.elapsedRealtime()
-            val state = ProgramLoadTestBridge.trySnapshotState()
-            if (state == null) {
-                snapshotMisses += 1
-
-                maybeRequestDirectStop(now, observedRunStop = null)
-
-                return@waitUntil !ProgramLoadTestBridge.isSimFunctionRunning()
-            }
-
-            lastObservedState = state
+            val state = ProgramLoadTestBridge.snapshotState()
             if (state.currentLocalStepNumber > maxStep) {
                 maxStep = state.currentLocalStepNumber
             }
@@ -351,11 +332,7 @@ class ProgramFixtureInstrumentedTest {
         }
 
         val workerStillRunning = ProgramLoadTestBridge.isSimFunctionRunning()
-        val finalState = if (workerStillRunning) {
-            ProgramLoadTestBridge.trySnapshotState() ?: lastObservedState
-        } else {
-            ProgramLoadTestBridge.snapshotState()
-        }
+        val finalState = ProgramLoadTestBridge.snapshotState()
         sawPause = sawPause || finalState.programRunStop == PGM_PAUSED
         sawWaiting = sawWaiting || finalState.programRunStop == PGM_WAITING
         sawView = sawView || finalState.temporaryInformation == TI_VIEW_REGISTER
@@ -366,7 +343,11 @@ class ProgramFixtureInstrumentedTest {
                 fixture = fixture,
                 phase = "run",
                 state = finalState,
-                details = "RUN did not return within ${fixture.scenario.timeoutMs} ms (load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, view=$sawView, lcdRefresh=$sawLcdRefresh, directStopAccepted=$sawAcceptedDirectStop, resumeAttempts=$resumeAttempts, snapshotMisses=$snapshotMisses, finalRunStop=${finalState.programRunStop}, finalStep=${finalState.currentLocalStepNumber})",
+                details = "RUN did not return within ${fixture.scenario.timeoutMs} ms " +
+                    "(load_step=$loadStep, max_step=$maxStep, pause=$sawPause, waiting=$sawWaiting, " +
+                    "view=$sawView, lcdRefresh=$sawLcdRefresh, directStopAccepted=$sawAcceptedDirectStop, " +
+                    "resumeAttempts=$resumeAttempts, finalRunStop=${finalState.programRunStop}, " +
+                    "finalStep=${finalState.currentLocalStepNumber})",
             )
         }
         if (finalState.lastErrorCode != ERROR_NONE && !answersTheStop(finalState.lastErrorCode)) {
@@ -411,7 +392,10 @@ class ProgramFixtureInstrumentedTest {
         checkXIntegers(fixture, finalState)?.let { return it }
 
         reportStatus(
-            "${fixture.displayName} ran (load_step=$loadStep, max_step=$maxStep, pause=${yesNo(sawPause)}, waiting=${yesNo(sawWaiting)}, view=${yesNo(sawView)}, lcdRefresh=${yesNo(sawLcdRefresh)}, directStop=${yesNo(requestedDirectStop)}, directStopAccepted=${yesNo(sawAcceptedDirectStop)}, directStopRequests=$directStopRequests, snapshotMisses=$snapshotMisses)\n",
+            "${fixture.displayName} ran (load_step=$loadStep, max_step=$maxStep, " +
+                "pause=${yesNo(sawPause)}, waiting=${yesNo(sawWaiting)}, view=${yesNo(sawView)}, " +
+                "lcdRefresh=${yesNo(sawLcdRefresh)}, directStop=${yesNo(requestedDirectStop)}, " +
+                "directStopAccepted=${yesNo(sawAcceptedDirectStop)}, directStopRequests=$directStopRequests)\n",
         )
         return null
     }
@@ -426,9 +410,8 @@ class ProgramFixtureInstrumentedTest {
                 return@waitUntil true
             }
 
-            val state = ProgramLoadTestBridge.trySnapshotState()
-            val busy = state != null &&
-                (state.programRunStop == PGM_RUNNING || state.programRunStop == PGM_PAUSED)
+            val state = ProgramLoadTestBridge.snapshotState()
+            val busy = state.programRunStop == PGM_RUNNING || state.programRunStop == PGM_PAUSED
             if (busy) {
                 ProgramLoadTestBridge.pressRunStopKey()
             }
@@ -441,12 +424,9 @@ class ProgramFixtureInstrumentedTest {
             return
         }
 
-        val state = ProgramLoadTestBridge.trySnapshotState()
-        val details = if (state == null) {
-            "state=unavailable"
-        } else {
+        val state = ProgramLoadTestBridge.snapshotState()
+        val details =
             "runStop=${state.programRunStop}, localStep=${state.currentLocalStepNumber}, tempInfo=${state.temporaryInformation}, error=${state.lastErrorCode}"
-        }
         reportStatus("Cleanup warning for ${fixture.displayName}: $details\n")
     }
 

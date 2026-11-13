@@ -285,9 +285,9 @@ flowchart LR
   The state a test watches is the exception: the calculator thread publishes it at
   every sleep, every poll of a running program, and after every probe, and
   `snapshotState()` reads that copy without waiting, since a program paused for a key
-  the test is about to send never reaches rest. `trySnapshotState()` reads the same
-  copy; whether a function or key sequence the bridge started has returned is
-  `isSimFunctionRunning()`.
+  the test is about to send never reaches rest. The copy is taken and read under one
+  lock, so its fields are of one moment; whether a function or key sequence the
+  bridge started has returned is `isSimFunctionRunning()`.
 - `beginSimFunction(...)` and `beginMainActivityKeySequence(...)` start the work and
   return at once, `snapshotState()` reads the published state, `pressRunStopKey()` pushes
   `R/S` as the keypad does, and the file-descriptor override helpers drive the same
