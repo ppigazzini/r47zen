@@ -643,7 +643,8 @@ temporary copy and reports through `r47_report_file_write_failure()`, and a save
 cannot start returns `FILE_CANCEL`, because `saveCalc` ends the process on an error.
 Either one is recorded for `r47_save_settled()`, which then counts the save as
 refused: its ticket answers false and the checkpoint tries again.
-`calculator_thread_harness.c` kills a process during saves and fails on a cut file,
+`calculator_thread_harness.c` kills a process during saves and fails on a cut file, or
+when none of its kills landed inside a save,
 and fails when a refused save or a short write changes the file or ends the process,
 when a refused save answers saved, or when no checkpoint writes the state it lost.
 
