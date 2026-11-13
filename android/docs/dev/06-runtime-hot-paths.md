@@ -208,6 +208,11 @@ thread is doing:
 - `sys_current_ms()` counts from this process's start on `CLOCK_MONOTONIC`, because
   the main loop compares its deadlines with a plain `<=`. A boot-based count would wrap
   into a stalled display 49.7 days into an uptime; this one needs a process that old.
+  The glue's own intervals, the checkpoint's and the keypad publish's, take unsigned
+  differences, so they hold across the wrap. The harness holds both: the clock reads
+  no more than the time since the calculator started, and, set by
+  `r47_keys_set_clock_ms` just below the wrap, a checkpoint whose quiet period crosses
+  it still runs. The keypad publish across the wrap is read, not run.
 - `sys_delay()` runs a pending save when it is a program's pause, then does a
   `nanosleep`. `_Buzz` uses it for each note's length, and the audio thread plays exactly
   that length, so a program's notes keep program time, a `TONE` loop cannot outrun the
