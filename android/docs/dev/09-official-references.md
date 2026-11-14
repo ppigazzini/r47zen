@@ -682,6 +682,36 @@ Current repository icon surfaces:
   [EdgeToEdge reference](https://developer.android.com/reference/androidx/activity/EdgeToEdge)
   deprecates from `androidx.activity` 1.14.0-alpha03 in favor of that call plus
   `WindowInsetsControllerCompat` for icon appearance.
+- [Android 15 behavior changes: edge-to-edge](https://developer.android.com/about/versions/15/behavior-changes-15#edge-to-edge):
+  what targeting API 35 or higher changes for the system bars and the display
+  cutout: `Window.setStatusBarColor` has no effect,
+  `Window.setNavigationBarColor` still colors 3-button navigation but not
+  gesture navigation, and a non-floating window's `SHORT_EDGES` cutout mode is
+  read as `ALWAYS`. Play Console recommends migrating off those three calls,
+  and warns separately that edge-to-edge "may not display for all users"; the
+  second asks for `enableEdgeToEdge()` and inset handling, which every activity
+  has (`SystemBarInsetsTest.kt`, `SystemBarInsetsInstrumentedTest.kt`). Every
+  call site Play names is in the `EdgeToEdgeApi*` classes of `androidx.activity`
+  behind `SystemBarInsets.drawEdgeToEdge`, not in app code, and
+  `WindowCompat.enableEdgeToEdge(window)`, the replacement the entry above
+  names, makes the same three calls. The calls stay because each still does
+  work: below API 35 the color calls clear the bars, and the theme attributes
+  that could replace them are deprecated with them; from API 35 the
+  navigation-bar color still sets the 3-button bar; on API 28 and 29
+  `SHORT_EDGES` spares fullscreen mode, the default, the cutout letterbox that
+  the
+  [default cutout mode](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT)
+  applies while the bars hide, a claim read from that reference and not run on
+  an API 28 or 29 device. Play also names `EdgeToEdgeApi23`, which runs only
+  below API 26, so its scan appears to ignore the API level that reaches a call
+  (inferred), and any build with transparent bars down to `minSdk` keeps the
+  recommendation. No gate watches this. Re-check it when the catalog moves
+  `androidx.activity` or `androidx.core`, or when Play rewords the
+  recommendation: map Play's obfuscated names through the `mapping.txt` in the
+  release's APK packaging-evidence asset
+  ([where it is](07-ci-and-release-workflow.md#symbolizing-a-crash)), and grep
+  `dexdump -d` of the released APK's `classes.dex` for `setStatusBarColor`,
+  `setNavigationBarColor`, and `layoutInDisplayCutoutMode`.
 - [Core app quality guidelines](https://developer.android.com/docs/quality-guidelines/core-app-quality):
   current Android quality baseline for standard components, adaptive parity,
   touch-target sizing, content descriptions, and readable visuals across form
