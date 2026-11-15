@@ -31,7 +31,9 @@
 #    selection that runs nothing fails even after earlier ones ran tests; a
 #    stale result file never counts; each selection's results survive for the
 #    artifact upload; a selection the outer timeout stops, with 124 or 137, fails
-#    the run, and it ran under its bound and a kill-after.
+#    the run, it ran under its bound and a kill-after, and the runner kept the
+#    device log and a bug report, each under a bound, before any force-stop,
+#    and named both in its error.
 # 5. The connected runner's class list is the androidTest classes on disk:
 #    every androidTest file whose live code declares a @Test is a selection,
 #    and every selection is such a file. Both directions first prove they fail
@@ -269,9 +271,16 @@ connected_results="$connected_sandbox/android/app/build/outputs/androidTest-resu
 mkdir -p "$connected_sandbox/android" "$connected_sandbox/bin"
 cp "$PROJECT_ROOT/android/r47-defaults.properties" "$connected_sandbox/android/"
 # FAKE_API_LEVEL is the device's API level, which adb otherwise does not say.
+# FAKE_ADB_LOG, when set, records every call in order; a device log and a bug
+# report get a marker line each.
 cat >"$connected_sandbox/bin/adb" <<'SH'
 #!/bin/bash
-[ "$*" = "shell getprop ro.build.version.sdk" ] && printf '%s\r\n' "${FAKE_API_LEVEL:-}"
+[ -n "${FAKE_ADB_LOG:-}" ] && printf '%s\n' "$*" >>"$FAKE_ADB_LOG"
+case "$*" in
+    "shell getprop ro.build.version.sdk") printf '%s\r\n' "${FAKE_API_LEVEL:-}" ;;
+    "logcat -d "*) echo "fake device log" ;;
+    "bugreport "*) echo "fake bug report" >"$2" ;;
+esac
 exit 0
 SH
 # A class given an SDK floor here, as a device test declares one with @SdkSuppress.
@@ -304,13 +313,15 @@ cat >"$results/TEST-test(AVD) - 16.xml" <<XML
 XML
 SH
 # Stands in for GNU timeout: records its arguments, and for the selection
-# FAKE_HANG_SELECTION names exits as timeout does when it had to stop the command.
+# FAKE_HANG_SELECTION names exits as timeout does when it had to stop the command,
+# marking the moment in FAKE_ADB_LOG.
 cat >"$connected_sandbox/bin/fake-timeout" <<'SH'
 #!/bin/bash
 printf '%s\n' "$*" >>"$FAKE_TIMEOUT_LOG"
 while [[ "${1:-}" == --* ]]; do shift; done
 shift
 if [[ -n "${FAKE_HANG_SELECTION:-}" && "$*" == *"$FAKE_HANG_SELECTION"* ]]; then
+    [ -n "${FAKE_ADB_LOG:-}" ] && echo "timeout stopped the selection" >>"$FAKE_ADB_LOG"
     exit "$FAKE_TIMEOUT_STATUS"
 fi
 exec "$@"
@@ -327,7 +338,7 @@ run_connected() {
         export R47_CONNECTED_ANDROID_DIR="$connected_sandbox/android"
         export R47_CONNECTED_ANDROID_LOG_DIR="$tmp/connected-logs"
         unset GITHUB_ACTIONS GITHUB_STEP_SUMMARY FAKE_EMPTY_SELECTION FAKE_WRONG_SELECTION FAKE_API_LEVEL \
-            FAKE_HANG_SELECTION FAKE_TIMEOUT_STATUS FAKE_TIMEOUT_LOG R47_CONNECTED_ANDROID_TIMEOUT_BIN
+            FAKE_HANG_SELECTION FAKE_TIMEOUT_STATUS FAKE_TIMEOUT_LOG FAKE_ADB_LOG R47_CONNECTED_ANDROID_TIMEOUT_BIN
         local setting name
         for setting in "$@"; do
             export "${setting?}"
@@ -377,13 +388,37 @@ expect_connected_failure "a selection whose results report another class" \
 
 # A device test that hangs, on a picker or a lock, must fail its own selection at
 # the per-selection bound, whichever way timeout ends it, and the bound must be passed.
+# Its Gradle log shows nothing of the device, so the runner must keep the device
+# log and a bug report, each under a bound, take both before any force-stop ends
+# the hung test, and name both in its error.
+hung_logs="$tmp/connected-logs/android-connected-graphredrawinstrumentedtest"
 for timeout_status in 124 137; do
     : >"$tmp/fake-timeout.log"
+    : >"$tmp/fake-adb.log"
+    rm -f "$hung_logs-logcat.log" "$hung_logs-bugreport.zip"
     expect_connected_failure "a selection the outer timeout stopped ($timeout_status)" \
         "GraphRedrawInstrumentedTest did not finish within the Android connected-test budget" \
         R47_CONNECTED_ANDROID_TIMEOUT_BIN="$connected_sandbox/bin/fake-timeout" \
         FAKE_TIMEOUT_LOG="$tmp/fake-timeout.log" FAKE_HANG_SELECTION=GraphRedrawInstrumentedTest \
-        FAKE_TIMEOUT_STATUS="$timeout_status"
+        FAKE_TIMEOUT_STATUS="$timeout_status" FAKE_ADB_LOG="$tmp/fake-adb.log"
+    grep -qx "fake device log" "$hung_logs-logcat.log" 2>/dev/null ||
+        fail "the runner kept no device log of a selection the outer timeout stopped ($timeout_status)."
+    grep -qx "fake bug report" "$hung_logs-bugreport.zip" 2>/dev/null ||
+        fail "the runner kept no bug report of a selection the outer timeout stopped ($timeout_status)."
+    for capture in "adb logcat -d " "adb bugreport $hung_logs-bugreport.zip"; do
+        grep -qF -- "--kill-after=30s 5m $capture" "$tmp/fake-timeout.log" ||
+            fail "the runner did not bound the capture \"$capture\" by 5m and a kill-after ($timeout_status)."
+    done
+    awk '/^timeout stopped the selection$/ { hung = NR }
+        hung && NR > hung && /^logcat -d / && !logcat_line { logcat_line = NR }
+        hung && NR > hung && /^bugreport / && !report_line { report_line = NR }
+        hung && NR > hung && /am force-stop/ && !stop_line { stop_line = NR }
+        END { exit !(logcat_line && report_line && stop_line > logcat_line && stop_line > report_line) }' \
+        "$tmp/fake-adb.log" ||
+        fail "the runner did not keep the device log and the bug report after the hang and before a force-stop ($timeout_status)."
+    grep -qF "the device log $hung_logs-logcat.log, and the bug report $hung_logs-bugreport.zip" \
+        "$tmp/connected-case.log" ||
+        fail "the runner's timeout error does not name the device log and the bug report ($timeout_status)."
 done
 grep -q -- "--kill-after=30s 10m .*class=io.github.ppigazzini.r47zen.GraphRedrawInstrumentedTest" \
     "$tmp/fake-timeout.log" ||

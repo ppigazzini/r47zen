@@ -763,7 +763,24 @@ Each instrumentation source and what it covers:
   its own, each bounded by `R47_CONNECTED_ANDROID_SELECTION_TIMEOUT` (10 minutes),
   and the complete `ProgramFixtureInstrumentedTest` class under its own bounded
   outer timeout, failing the lane if a selection hangs, runs no test, or reports
-  a class other than the one it asked for
+  a class other than the one it asked for. A selection's Gradle log never names
+  the test that runs. AGP's Unified Test Platform (UTP), which runs the
+  connected tests, opens a test's logcat file (`logcat-<class>-<method>.txt` in
+  the selection's results) at the test's `TestRunner: started` line, so a hang
+  before the first test, in an install or the instrumentation's start, leaves
+  no device log, and no logcat holds a thread's stack. So when the outer
+  timeout stops a selection, the wrapper keeps, before it force-stops the app,
+  the device log (`adb logcat -d`, as far back as the device's buffers reach,
+  which can include earlier selections) as
+  `android-connected-<selection>-logcat.log` and an `adb bugreport`, whose VM
+  traces hold the Java stacks of the app processes' threads, as
+  `android-connected-<selection>-bugreport.zip`, beside the Gradle log in
+  `ci-artifacts/logs`. Each capture runs under
+  `R47_CONNECTED_ANDROID_CAPTURE_TIMEOUT`, and its failure does not stop the
+  run: a device that does not answer in time leaves an empty or cut file, or
+  none, though the error still names both. If Gradle's cancellation has
+  already ended the instrumentation, the report holds the log and the system's
+  state, not the hung threads
 - `GraphTouchStressInstrumentedTest.kt`: launches `MainActivity`, waits for
   runtime readiness, runs extreme native graph-touch stress iterations through
   `ProgramLoadTestBridge.runExtremeGraphTouchStress(...)` to prove
@@ -1235,7 +1252,9 @@ Android compatibility layer.
   stale result file must never count, each selection's results must
   survive for the artifact upload, and a selection a stub `timeout` stops, with
   124 or 137, must fail the run, having been given its 10 minute bound and a
-  kill-after. Last, it holds the runner's class list to
+  kill-after, and must keep a stub `adb`'s device log and bug report, each
+  under its 5 minute bound, take both before any force-stop, and name both in
+  its error. Last, it holds the runner's class list to
   the androidTest tree: every file whose live code declares a `@Test` must be
   a selection, and every selection must be such a file, so a new
   instrumented class cannot sit on disk and never run.
@@ -1470,7 +1489,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_mini_gmp_accounting_contract.sh` | the shipped mini-gmp hands the GMP accounting hooks the size of every block it frees or reallocates, so the count returns to zero (`scripts/android/mini_gmp_accounting_contract_test.c`) | yes, compiles and runs a C test under AddressSanitizer and UBSan, after it fails on a copy whose free passes size 0 |
 | `run_core_label_copy_contract.sh` | a core-encoded keypad label copied into a fixed buffer is cut between glyphs, never after a lead byte (`scripts/android/core_label_copy_contract_test.c` against `core_label.h`), and `keypad_scene.c` copies core labels only through `r47_copy_core_label` | yes, compiles and runs a C test; seeded line |
 | `run_program_load_bridge_default_contract.sh` | the program-load test bridge defaults off and the release workflow never turns it on; the test host activity (`r47.includeInstrumentationHost`) defaults off and `build-production-release-bundle` never turns it on; live code only | text |
-| `run_test_integrity_contract.sh` | the workload fixture-exit policy, the mutation spot-check, the connected lane's zero-test count and per-selection timeout, which skips a class whose `@SdkSuppress` floor the device is below and still fails one at its floor or with none that runs nothing, and that its selections are exactly the androidTest classes on disk (see above) | yes, runs them; the selection check on a seeded tree first |
+| `run_test_integrity_contract.sh` | the workload fixture-exit policy, the mutation spot-check, the connected lane's zero-test count, which skips a class whose `@SdkSuppress` floor the device is below and still fails one at its floor or with none that runs nothing, its per-selection timeout and the device log and bug report a timed-out selection keeps, and that its selections are exactly the androidTest classes on disk (see above) | yes, runs them; the selection check on a seeded tree first |
 | `run_privacy_policy_single_source_contract.sh` | the privacy policy is one tracked file, `android/app/src/main/assets/privacy-policy.html`: it keeps its "Privacy Policy" title and heading and its Last updated date, `SettingsActivity` opens it, and `privacy-policy-pages.yml` copies it into the Pages site and names it in its push filter; and while the policy says no data is sent, the manifest opts the license and notice WebView out of its provider's metrics upload (`android.webkit.WebView.MetricsOptOut`) | text |
 | `run_manual_site_contract.sh` | `scripts/docs/prepare_manual_site.sh` builds on a first run, a change to any input, or a new TeX image, stops on a scheduled run with current inputs, republishes the live PDF on any other event, fails on a failed build, an empty, cut-short, or non-PDF file, or a moved input, deploys nothing from a failed scheduled run and republishes from any other, publishes only the PDF and `VERSION`, and runs with no network or token; a stub that honors the mounts and overwrites the running script in place changes nothing the host runs, since only `docs/` (read-write) and `res/` (read-only) are mounted; `check_manual_artifact.sh` refuses an extra file, a symbolic link, a non-PDF, and a malformed `VERSION`; the workflow keeps no checkout credentials, holds no write to the repository, keeps its nightly run, deploys the policy after a failed manual job, and deploys only from `main`; the app opens the URL the workflow publishes | yes, a seeded tree, a stub `docker`, and a directory as the live site |
 | `run_commit_message_contract.sh` | `scripts/docs/check_commit_message.sh` accepts and rejects seeded messages on both sides of each commit rule it holds, for a message file and for `--range` | yes, seeded messages and a scratch repository |

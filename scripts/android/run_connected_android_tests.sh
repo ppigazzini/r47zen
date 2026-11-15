@@ -20,6 +20,9 @@ R47_CONNECTED_ANDROID_FIXTURE_TIMEOUT_SIGNAL="${R47_CONNECTED_ANDROID_FIXTURE_TI
 # A device test that hangs, on a picker or a lock, fails its own selection at
 # this bound, with its log, instead of the job's.
 R47_CONNECTED_ANDROID_SELECTION_TIMEOUT="${R47_CONNECTED_ANDROID_SELECTION_TIMEOUT:-10m}"
+# Each capture a timed-out selection keeps gets a bound of its own: a device
+# wedged enough to hang a test can stall adb and dumpstate too.
+R47_CONNECTED_ANDROID_CAPTURE_TIMEOUT="${R47_CONNECTED_ANDROID_CAPTURE_TIMEOUT:-5m}"
 # Each class runs as a selection of its own. A comma-joined -e class list ran
 # only its first class under connectedReleaseAndroidTest, so one filter names
 # one class, and each selection must report results for exactly that class.
@@ -146,7 +149,9 @@ emit_required_fixture_timeout_error() {
     local selection="$1"
     local reason="$2"
     local log_file="$3"
-    local message="$selection did not finish within the Android connected-test budget (${reason}); this required connected-test selection now fails the Android lane. See $log_file."
+    local device_log="$4"
+    local bug_report="$5"
+    local message="$selection did not finish within the Android connected-test budget (${reason}); this required connected-test selection now fails the Android lane. See $log_file, the device log $device_log, and the bug report $bug_report."
 
     echo "ERROR: $message" >&2
 
@@ -166,6 +171,22 @@ cleanup_connected_test_processes() {
 
     adb shell am force-stop "$R47_CONNECTED_ANDROID_TEST_APPLICATION_ID" >/dev/null 2>&1 || true
     adb shell am force-stop "$R47_CONNECTED_ANDROID_APPLICATION_ID" >/dev/null 2>&1 || true
+}
+
+# Keep the device log and a bug report of a selection the outer timeout stopped,
+# before the force-stop ends a hung test that still runs: the selection's own
+# results can hold no device log and never a thread's stack
+# (android/docs/dev/08-tests-and-contracts.md says what UTP keeps).
+capture_hung_selection_state() {
+    local selection_name="$1"
+    local device_log="$2"
+    local bug_report="$3"
+
+    echo "INFO: keeping the device log and a bug report of the hung selection $selection_name" >&2
+    "$TIMEOUT_BIN" --kill-after="$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER" "$R47_CONNECTED_ANDROID_CAPTURE_TIMEOUT" \
+        adb logcat -d -v threadtime >"$device_log" 2>&1 || true
+    "$TIMEOUT_BIN" --kill-after="$R47_CONNECTED_ANDROID_FIXTURE_KILL_AFTER" "$R47_CONNECTED_ANDROID_CAPTURE_TIMEOUT" \
+        adb bugreport "$bug_report" >&2 || true
 }
 
 run_connected_selection() {
@@ -354,9 +375,13 @@ for selection_spec in "${TEST_SELECTION_SPECS[@]}"; do
 
     case "$status" in
         124 | 137)
+            device_log="${log_file%.log}-logcat.log"
+            bug_report="${log_file%.log}-bugreport.zip"
+            capture_hung_selection_state "$selection_name" "$device_log" "$bug_report"
             cleanup_connected_test_processes
             if selection_requires_timeout_failure "$selection_name"; then
-                emit_required_fixture_timeout_error "$selection_name" "the outer timeout had to stop the hung connected-test selection" "$log_file"
+                emit_required_fixture_timeout_error "$selection_name" "the outer timeout had to stop the hung connected-test selection" \
+                    "$log_file" "$device_log" "$bug_report"
                 exit 1
             fi
             emit_fixture_timeout_warning "$selection_name" "the outer timeout had to stop the hung connected-test selection"

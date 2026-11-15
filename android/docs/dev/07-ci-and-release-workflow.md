@@ -684,7 +684,10 @@ It:
   `ClipboardRoundTripInstrumentedTest` (29)
 - uploads logs plus JVM, instrumentation, and Kover coverage
   (`android/app/build/reports/kover`) reports in the Android test artifact
-  bundle `r47zen-tests-<upstream short>-<android short>`
+  bundle `r47zen-tests-<upstream short>-<android short>`; when the outer
+  timeout stops a selection, the logs include the device log and an
+  `adb bugreport` taken then
+  ([08-tests-and-contracts.md](08-tests-and-contracts.md) says what they hold)
 
 The hosted instrumentation lane relies on:
 
