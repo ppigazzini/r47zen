@@ -50,7 +50,8 @@ jobs:
 
       - name: Check external links
         shell: bash
-        # Fails on a 404, a 410, or a host that does not resolve; any other
-        # non-success is printed as unjudged and passes, so someone else's
-        # outage does not turn the job red.
+        # Fails on a 404, a 410, or a host that does not resolve, on two tries
+        # at least a minute apart; any other non-success is printed as
+        # unjudged and passes, so someone else's outage does not turn the job
+        # red.
         run: bash ./scripts/docs/check_external_links.sh

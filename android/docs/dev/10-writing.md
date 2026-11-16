@@ -392,9 +392,13 @@ runs in seconds on every pull request and on every push to `main` or
 External links are not in it: a page outside this repo moves with no commit
 here, so `scripts/docs/check_external_links.sh` checks every one weekly in the
 `Docs Lint` workflow. It fails only on a 404, a 410, or a host that does not
-resolve; any other non-success prints as unjudged and passes, so another
-site's outage does not turn it red. It cannot tell whether the page still says
-what the doc cites it for.
+resolve, on a first try and again a minute after the pass; any other
+non-success, a link dead on the first try only included, prints as unjudged
+and passes, so another site's outage does not turn it red. A URI a doc quotes
+as a value a tool reads, such as an attestation predicate type, serves no
+page: add it to the script's `NOT_A_PAGE` list. The check skips each entry,
+and fails on one that no tracked markdown quotes any more. It cannot tell
+whether the page still says what the doc cites it for.
 
 **No gate can tell you a sentence is false.** A fluent, technical, invented
 rationale parses, links, and pins nothing, and survives review precisely because
