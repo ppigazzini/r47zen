@@ -30,7 +30,7 @@
 # setup-signing-tools composite, the two Play upload actions, the release
 # publish and attestation actions, and the Pages deploy action, which
 # privacy-policy-pages.yml runs with id-token write on an artifact its
-# credential-free jobs staged, from one tracked file and from a manual built with
+# credential-free jobs staged, from tracked files and from a manual built with
 # no network. Anything else,
 # the SDK composite or actions/cache among them, fails, and so does a `cache:`
 # input. The setup-signing-tools composite itself may use setup-android only.

@@ -1268,7 +1268,7 @@ The rest, and what each one gates:
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
 | `merge-request-watch.yml` | daily schedule, dispatch | `scripts/upstream-sync/watch_merge_request.sh` dispatches the `android-ci.yml`, `linux-ci.yml`, and `windows-ci.yml` of branch `port-mr-2033` on the merge ref of upstream MR !2033, once for each pair of branch commit and merge commit, and fails once the MR is merged or closed | nothing requires it; a dispatched lane reports in its own run |
 | `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
-| `privacy-policy-pages.yml` | daily schedule, push to `main` that touches the policy asset, the workflow, or `scripts/docs/prepare_manual_site.sh`, dispatch | publishes the Pages site as one artifact: `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html`, the URL in Play Console's privacy-policy field; and upstream's cropped manual to `https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf`, the URL Settings opens; `run_privacy_policy_single_source_contract.sh` and `run_manual_site_contract.sh` hold the workflow to both | -- |
+| `privacy-policy-pages.yml` | daily schedule, push to `main` that touches the policy asset, the home page, the icon's drawing source, the workflow, `scripts/docs/prepare_manual_site.sh`, or `scripts/docs/stage_pages_home.sh`, dispatch | publishes the Pages site as one artifact: the home page, `android/site/index.html`, to `https://ppigazzini.github.io/r47zen/`, with the launcher icon's drawing source, `android/app/icon-source/r47zen.svg`, as its logo and favicon; `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html`, the URL in Play Console's privacy-policy field; and upstream's cropped manual to `https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf`, the URL Settings opens; `run_pages_home_contract.sh`, `run_privacy_policy_single_source_contract.sh`, and `run_manual_site_contract.sh` hold the workflow to the three | -- |
 
 The manual is built here, not fetched from upstream's releases: GitLab offers no
 fixed URL for the latest PDF, and its job artifacts are closed to anonymous readers
@@ -1298,6 +1298,19 @@ in that script, and a bump is by hand. Whether upstream's build works in that im
 shows only in a run of the lane: `run_manual_site_contract.sh` stubs `docker`. A
 dispatch on `github_ci` builds only if an input differs, such as after a digest bump,
 and stops before the deploy, whose environment admits only `main`.
+
+The `build` job stages the home page last, with `scripts/docs/stage_pages_home.sh`,
+so the site already holds the policy and the manual the page links to. The script
+refuses a page whose link into the site names a file the site does not hold, so a
+moved manual or policy fails the deploy instead of publishing a dead link. The site's
+origin serves the URL in Play Console's privacy-policy field, so the page loads
+nothing from another origin and runs no script: it carries a Content-Security-Policy
+that makes the browser refuse both, and the script refuses a page that drops it,
+holds a script or an event handler, loads a resource from another origin, or links
+with any scheme but https. The icon is refused if it holds a script, which a browser
+runs when the SVG is opened on its own, outside the page's policy. Nothing checks
+that the page's links to other sites still serve a page: `check_external_links.sh`
+reads tracked markdown only.
 
 MR !2033 removes what the glue calls, so this repo stops building the day it merges,
 and `port-mr-2033` holds the port. A push to that branch runs no lane, and a push to
@@ -1453,7 +1466,7 @@ wrong, because a setting changes with no commit.
 | Actions `sha_pinning_required` on | a tag-pinned action fails the run, beyond what the pin contract checks in the tree | `gh api repos/ppigazzini/r47zen/actions/permissions` |
 | no branch protection on `main` | direct pushes; `ci-required` reports and blocks nothing | `gh api repos/ppigazzini/r47zen/branches/main/protection` answers 404 |
 | environments `production-release` and `play-upload`, each with a custom deployment branch policy naming only `main` | the release key and the Play identity reach only [`sign-production-release`](#sign-production-release) and [`upload-to-play`](#upload-to-play) | `gh api repos/ppigazzini/r47zen/environments/<name>/deployment-branch-policies` |
-| Pages source "GitHub Actions" (`build_type` `workflow`) | `privacy-policy-pages.yml` deploys the privacy policy and the manual; under any other source its deploy job fails and the Play Console URL keeps the last page | `gh api repos/ppigazzini/r47zen/pages` |
+| Pages source "GitHub Actions" (`build_type` `workflow`) | `privacy-policy-pages.yml` deploys the home page, the privacy policy, and the manual; under any other source its deploy job fails and the Play Console URL keeps the last page | `gh api repos/ppigazzini/r47zen/pages` |
 | environment `github-pages` with a custom deployment branch policy naming only `main` | the privacy-policy page publishes only what `main` holds | `gh api repos/ppigazzini/r47zen/environments/github-pages/deployment-branch-policies` |
 | no repository-scoped `R47_RELEASE_*` secret | the production key is readable only inside its environment ([Signing isolation](#signing-isolation)) | `gh api repos/ppigazzini/r47zen/actions/secrets` |
 | private vulnerability reporting on | `.github/SECURITY.md` sends reporters to it | `gh api repos/ppigazzini/r47zen/private-vulnerability-reporting` |

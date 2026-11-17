@@ -176,6 +176,9 @@ from the entry's.
 
 ## Documentation
 
+- [Website](https://ppigazzini.github.io/r47zen/): the app's home page, with
+  the links a user needs: the release, the manual, the privacy policy, and
+  support.
 - [Owner's manual](https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf):
   the cropped PDF of the upstream manual, which Settings also opens.
 - [`AGENTS.md`](AGENTS.md): the one-page short form for contributors and

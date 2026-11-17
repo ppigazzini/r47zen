@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="R47 Zen runs the C47 calculator core as an Android app for the R47 calculator variant.">
+  <title>R47 Zen</title>
+  <link rel="icon" href="r47zen.svg" type="image/svg+xml">
+  <style>
+    body {
+      font-family: sans-serif;
+      line-height: 1.5;
+      margin: 0;
+      padding: 24px;
+      color: #202124;
+      background: #f7f5ef;
+    }
+
+    main {
+      max-width: 54rem;
+      margin: 0 auto;
+      background: #fffdf7;
+      border: 1px solid #d7d0bf;
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    header img {
+      flex: none;
+      width: 96px;
+      height: 96px;
+      border-radius: 22px;
+    }
+
+    header h1 {
+      margin: 0;
+    }
+
+    header p {
+      margin: 4px 0 0;
+    }
+
+    h1, h2 {
+      line-height: 1.25;
+    }
+
+    a {
+      color: #0b57d0;
+    }
+
+    ul {
+      padding-left: 1.25rem;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+      }
+
+      main {
+        padding: 16px;
+      }
+
+      header img {
+        width: 64px;
+        height: 64px;
+        border-radius: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="r47zen.svg" alt="">
+      <div>
+        <h1>R47 Zen</h1>
+        <p>The R47 calculator on Android, running the C47 core.</p>
+      </div>
+    </header>
+
+    <p>
+      R47 Zen packages the upstream C47 calculator core as an Android app for
+      the R47 calculator variant. It is independently maintained and is not an
+      official release of the C47 project.
+    </p>
+
+    <h2>Get the app</h2>
+    <ul>
+      <li>
+        Download the APK from the
+        <a href="https://github.com/ppigazzini/r47zen/releases/latest">latest release</a>
+        and install it.
+      </li>
+      <li>
+        <a href="https://github.com/ppigazzini/r47zen#verify-a-downloaded-apk">Verify a downloaded APK</a>
+        against the release certificate.
+      </li>
+      <li>
+        <a href="https://github.com/ppigazzini/r47zen#update-with-obtainium">Update with Obtainium</a>
+        to keep it current.
+      </li>
+    </ul>
+
+    <h2>Owner's manual</h2>
+    <p>
+      The <a href="manual/C47_R47_calc_Crop.pdf">owner's manual</a> (PDF) is
+      the cropped manual of the upstream C47 project, built from its latest
+      sources. The app's Settings opens the same file.
+    </p>
+
+    <h2>Privacy</h2>
+    <p>
+      R47 Zen collects no personal data and does not request the Android
+      Internet permission. The <a href="privacy-policy.html">privacy policy</a>
+      says what it stores on your device.
+    </p>
+
+    <h2>Support</h2>
+    <ul>
+      <li>
+        A bug or a question about the Android app:
+        <a href="https://github.com/ppigazzini/r47zen/issues">open an issue</a>.
+      </li>
+      <li>
+        A calculator behavior that the desktop C47 simulator shows too belongs
+        to the core: report it to the
+        <a href="https://gitlab.com/rpncalculators/c43">upstream C47 project</a>.
+      </li>
+      <li>
+        A security problem: follow the
+        <a href="https://github.com/ppigazzini/r47zen/security/policy">security policy</a>,
+        never a public issue.
+      </li>
+    </ul>
+
+    <h2>Source and license</h2>
+    <p>
+      R47 Zen is free software under the GNU General Public License, version 3.
+      Its <a href="https://github.com/ppigazzini/r47zen">source</a> is on
+      GitHub, and every release there attaches the source of the calculator
+      core its APK is built from.
+    </p>
+  </main>
+</body>
+</html>
