@@ -672,6 +672,10 @@ Current repository icon surfaces:
   official DayNight, dark-theme, and Force Dark guidance for view-based apps;
   use this when deciding whether a settings surface should follow the system,
   opt into a dedicated dark theme, or expose an in-app override.
+- [Darken web content in WebView](https://developer.android.com/develop/ui/views/layout/webapps/dark-theme):
+  for an app that targets API 33 or later, WebView sets `prefers-color-scheme`
+  from the activity theme's `isLightTheme`, dark when it is false; the reason
+  the privacy policy renders dark on the settings stack.
 - [AppCompatDelegate](https://developer.android.com/reference/androidx/appcompat/app/AppCompatDelegate):
   official AppCompat night-mode override API reference, including
   `setLocalNightMode()` and its `uiMode` recreation behavior.

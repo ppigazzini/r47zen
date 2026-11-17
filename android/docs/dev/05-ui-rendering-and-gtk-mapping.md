@@ -479,6 +479,17 @@ accent pair through `colorPrimary = RGB(255, 195, 111)` and
 light. It also keeps the role split between `colorPrimary` and the blue
 container or activated roles so the slider does not collapse to one color.
 
+The privacy policy, `android/app/src/main/assets/privacy-policy.html`, which
+`NoticeAssetActivity` shows in a WebView, carries its own colors: a light set,
+and under `prefers-color-scheme: dark` a dark set drawn from
+`Theme.R47.Settings`'s surface, text, and accent colors. A WebView sets that
+query from the theme's `isLightTheme`, false for a dark Material 3 theme, so on
+the settings stack the policy renders dark
+([Darken web content in WebView](09-official-references.md#view-based-ui-and-rendering)).
+The Pages site serves the same file, where the browser's setting picks the set,
+and the home page, `android/site/index.html`, carries the same two. No test
+renders a WebView, so only a device shows the policy dark in the app.
+
 The calculator shell keeps the same dark presentation on the main activity even
 when the device theme is light. With fullscreen off the bars are transparent
 over the black main-screen root, which `WindowModeController` pads by the bar

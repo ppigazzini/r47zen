@@ -3,32 +3,58 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>R47 Zen Privacy Policy</title>
   <style>
+    :root {
+      color-scheme: light dark;
+      --page: #f7f5ef;
+      --card: #fffdf7;
+      --line: #d7d0bf;
+      --text: #202124;
+      --heading: #202124;
+      --link: #0b57d0;
+    }
+
+    /* Dark follows the system setting, in the colors of the app's Settings
+       screens. In the app, a WebView reports dark when its screen's theme is
+       dark, as the Settings theme is. */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #12151a;
+        --card: #1a1e24;
+        --line: #2e333b;
+        --text: #f7f3ea;
+        --heading: #ffc36f;
+        --link: #8edafe;
+      }
+    }
+
     body {
       font-family: sans-serif;
       line-height: 1.5;
       margin: 0;
       padding: 24px;
-      color: #202124;
-      background: #f7f5ef;
+      color: var(--text);
+      background: var(--page);
     }
 
     main {
       max-width: 54rem;
       margin: 0 auto;
-      background: #fffdf7;
-      border: 1px solid #d7d0bf;
+      background: var(--card);
+      border: 1px solid var(--line);
       border-radius: 12px;
       padding: 24px;
     }
 
     h1, h2 {
       line-height: 1.25;
+      color: var(--heading);
     }
 
     a {
-      color: #0b57d0;
+      color: var(--link);
     }
 
     ul {
