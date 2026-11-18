@@ -94,6 +94,7 @@ cc -pthread "$BUILD_DIR"/objects/*.o -lm -o "$BUILD_DIR/r47-site-screens"
 
 # The core prints debug lines to stdout as it draws; keep them out of the log.
 for scene in "${SCENES[@]}"; do
-    timeout 60s "$BUILD_DIR/r47-site-screens" "$scene" "$output_dir/$scene.svg" >/dev/null
+    R47_SITE_SCREENS_PROGRAMS="$PROJECT_ROOT/res/PROGRAMS" \
+        timeout 60s "$BUILD_DIR/r47-site-screens" "$scene" "$output_dir/$scene.svg" >/dev/null
     echo "Rendered $scene.svg ($(wc -c <"$output_dir/$scene.svg") bytes)." >&2
 done

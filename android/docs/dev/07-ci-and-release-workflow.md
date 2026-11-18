@@ -1322,11 +1322,12 @@ an artifact holding anything but those files in that shape
 (`scripts/site-screens/check_screens_artifact.sh`). The job runs only when the site
 deploys, so the screens follow upstream as often as the site deploys, not nightly, and
 their status bar shows the date of that build. A render that fails, as one will when
-upstream renames a function a scene calls, republishes the live screens
-(`scripts/site-screens/fetch_live_screens.sh`) and leaves the run red, so it does not
-hold back the policy; before the first deploy that carries them there are none to
-republish, and nothing deploys. Whether a scene still draws what the page's caption
-says shows only in a render: `run_site_screens_contract.sh` builds no core.
+upstream renames a function a scene calls or drops the program one loads, republishes
+the live screens (`scripts/site-screens/fetch_live_screens.sh`) and leaves the run
+red, so it does not hold back the policy; before the first deploy that carries them
+there are none to republish, and nothing deploys. Whether a scene still draws what the
+page's caption says shows only in a render: `run_site_screens_contract.sh` builds no
+core.
 
 MR !2033 removes what the glue calls, so this repo stops building the day it merges,
 and `port-mr-2033` holds the port. A push to that branch runs no lane, and a push to

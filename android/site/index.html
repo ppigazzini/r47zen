@@ -17,6 +17,7 @@
       --text: #202124;
       --heading: #202124;
       --link: #0b57d0;
+      --bezel: #2b2e33;
     }
 
     /* Dark follows the system setting, in the colors of the app's Settings
@@ -30,6 +31,13 @@
         --text: #f7f3ea;
         --heading: #ffc36f;
         --link: #8edafe;
+        --bezel: #0b0d10;
+      }
+
+      /* Light pixels on dark glass, as the app's negative LCD draws them, so a
+         screen does not glare on the dark page. */
+      .screens img {
+        filter: invert(0.9);
       }
     }
 
@@ -86,8 +94,8 @@
     }
 
     /* The screens are pixel art, sharp at whole scales: in the 848 px the card
-       leaves, the first spans it at 2x and the other two share it at 1x, each
-       with its 8 px bezel. */
+       leaves, two columns of 416 px hold each 400 px screen at 1x in its 8 px
+       bezel. */
     .screens {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(min(100%, 336px), 1fr));
@@ -99,23 +107,19 @@
       margin: 0;
     }
 
-    .screens figure:first-child {
-      grid-column: 1 / -1;
+    .screens .lcd {
+      box-sizing: border-box;
+      max-width: 416px;
+      margin: 0 auto;
+      padding: 8px;
+      border-radius: 10px;
+      background: var(--bezel);
     }
 
     .screens img {
       display: block;
-      box-sizing: content-box;
-      width: calc(100% - 16px);
-      max-width: 400px;
+      width: 100%;
       height: auto;
-      margin: 0 auto;
-      border: 8px solid #2b2e33;
-      border-radius: 10px;
-    }
-
-    .screens figure:first-child img {
-      max-width: 800px;
     }
 
     .screens figcaption {
@@ -159,16 +163,20 @@
 
     <section class="screens" aria-label="Calculator screens">
       <figure>
-        <img src="screens/plot.svg" width="400" height="240" alt="The equation grapher drawing x times sine of x from minus 10 to 10, beside its axis settings and zoom menu.">
+        <div class="lcd"><img src="screens/plot.svg" width="400" height="240" alt="The equation grapher drawing x times sine of x from minus 10 to 10, beside its axis settings and zoom menu."></div>
         <figcaption>The equation grapher drawing x sin(x).</figcaption>
       </figure>
       <figure>
-        <img src="screens/stack.svg" width="400" height="240" alt="The RPN stack holding pi and the square root of 2 to 20 digits, the complex number 3 + 4i, and 20 factorial as an exact integer.">
+        <div class="lcd"><img src="screens/stack.svg" width="400" height="240" alt="The RPN stack holding pi and the square root of 2 to 20 digits, the complex number 3 + 4i, and 20 factorial as an exact integer."></div>
         <figcaption>Reals to 20 digits, a complex number, and 20! exact.</figcaption>
       </figure>
       <figure>
-        <img src="screens/matrix.svg" width="400" height="240" alt="The matrix editor showing a 3 by 3 matrix, its first cell selected, above the editing menu.">
+        <div class="lcd"><img src="screens/matrix.svg" width="400" height="240" alt="The matrix editor showing a 3 by 3 matrix, its first cell selected, above the editing menu."></div>
         <figcaption>The matrix editor.</figcaption>
+      </figure>
+      <figure>
+        <div class="lcd"><img src="screens/program.svg" width="400" height="240" alt="Program mode listing the first steps of FactRec, a recursive factorial, above the programming menu."></div>
+        <figcaption>A keystroke program: upstream's recursive factorial.</figcaption>
       </figure>
     </section>
     <p>

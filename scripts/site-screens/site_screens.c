@@ -48,6 +48,11 @@ static bool type_number(const char *tokens) {
 
 static void press(int16_t item) { r47_send_sim_function(item); }
 
+// The runtime folder the core boots in, and upstream's program folder; main sets
+// both, absolute, before the core moves its working directory.
+static char g_runtime_dir[PATH_MAX];
+static char g_program_root[PATH_MAX];
+
 // The RPN stack holding four kinds of number: pi, a square root, a complex
 // number, and 20! as an exact long integer.
 static bool scene_stack(void) {
@@ -126,6 +131,60 @@ static bool scene_plot(void) {
   return true;
 }
 
+// Upstream's recursive factorial, FactRec.p47 from res/PROGRAMS, in program
+// mode. The core loads a program from PROGRAMS/program.p47 in its runtime
+// folder, as host_workload_regression.c stages it.
+static bool scene_program(void) {
+  char source[PATH_MAX];
+  char target[PATH_MAX];
+  int source_len =
+      snprintf(source, sizeof(source), "%s/FactRec.p47", g_program_root);
+  int target_len = snprintf(target, sizeof(target), "%s/PROGRAMS/program.p47",
+                            g_runtime_dir);
+  if (source_len < 0 || (size_t)source_len >= sizeof(source) ||
+      target_len < 0 || (size_t)target_len >= sizeof(target)) {
+    fprintf(stderr, "ERROR: the program paths are too long\n");
+    return false;
+  }
+  FILE *in = fopen(source, "rb");
+  if (in == NULL) {
+    fprintf(stderr, "ERROR: cannot read %s\n", source);
+    return false;
+  }
+  FILE *out = fopen(target, "wb");
+  if (out == NULL) {
+    fprintf(stderr, "ERROR: cannot write %s\n", target);
+    fclose(in);
+    return false;
+  }
+  char buffer[4096];
+  size_t length;
+  bool copied = true;
+  while ((length = fread(buffer, 1, sizeof(buffer), in)) > 0) {
+    copied = copied && fwrite(buffer, 1, length, out) == length;
+  }
+  copied = copied && !ferror(in);
+  fclose(in);
+  copied = (fclose(out) == 0) && copied;
+  if (!copied) {
+    fprintf(stderr, "ERROR: cannot copy %s\n", source);
+    return false;
+  }
+
+  pthread_mutex_lock(&screenMutex);
+  // As the workload harness notes, every real dispatch path clears
+  // dynamicMenuItem before it touches programs; fnLoadProgram reads it.
+  dynamicMenuItem = -1;
+  fnLoadProgram(NOPARAM);
+  pthread_mutex_unlock(&screenMutex);
+  if (numberOfPrograms == 0u) {
+    fprintf(stderr, "ERROR: the core loaded no program from %s\n", source);
+    return false;
+  }
+  press(ITM_PR);
+  return true;
+}
+
 typedef struct {
   const char *name;
   bool (*drive)(void);
@@ -135,6 +194,7 @@ static const site_scene_t kScenes[] = {
     {"stack", scene_stack},
     {"matrix", scene_matrix},
     {"plot", scene_plot},
+    {"program", scene_program},
 };
 
 static bool lcd_pixel_on(uint32_t x, uint32_t y) {
@@ -174,12 +234,21 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  // R47_SITE_SCREENS_PROGRAMS names upstream's program folder;
+  // render_site_screens.sh passes res/PROGRAMS.
+  const char *program_root = getenv("R47_SITE_SCREENS_PROGRAMS");
+  if (program_root != NULL && realpath(program_root, g_program_root) == NULL) {
+    fprintf(stderr, "ERROR: %s names no folder\n", program_root);
+    return 1;
+  }
+
   char runtime_dir[] = "/tmp/r47-site-screens-XXXXXX";
   if (mkdtemp(runtime_dir) == NULL) {
     fprintf(stderr, "ERROR: cannot create a runtime directory\n");
     return 1;
   }
   r47_initialize_native_bridge_state();
+  snprintf(g_runtime_dir, sizeof(g_runtime_dir), "%s", runtime_dir);
   r47_native_preinit_path(runtime_dir);
   r47_init_runtime();
 

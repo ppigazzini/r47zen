@@ -550,8 +550,9 @@ Internal helpers:
   the staged core the same way, one object per source in parallel, then runs each
   scene `scripts/site-screens/scenes.txt` lists into an SVG for the Pages site.
   The scenes call upstream functions such as `fnEqNew`, `setEquation`, and
-  `fnEditMatrix` directly, so an upstream rename breaks this build first; the
-  Pages lane then republishes the live screens
+  `fnEditMatrix` directly, and one loads `res/PROGRAMS/FactRec.p47`, so an
+  upstream rename or a dropped program breaks this render first; the Pages lane
+  then republishes the live screens
   ([07-ci-and-release-workflow.md](07-ci-and-release-workflow.md#other-workflows)).
 - `scripts/keypad-fixtures/export_upstream_keypad_fixtures.sh` owns the grouped
   keypad-fixture exporter implementation; it compiles

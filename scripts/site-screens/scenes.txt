@@ -1,6 +1,7 @@
 # The calculator screens the Pages site publishes, one per line, each as
 # screens/<scene>.svg. site_screens.c implements each, android/site/index.html
-# shows each, and run_site_screens_contract.sh holds the three to this list.
+# shows each, and run_site_screens_contract.sh holds both to this list.
+plot
 stack
 matrix
-plot
+program
