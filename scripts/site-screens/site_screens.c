@@ -18,11 +18,13 @@
 #include "screen.h"
 #include "site_screen_svg.h"
 
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 // Take every core declaration from the headers, as the workload harness does: a
 // private copy of an upstream prototype stops this file compiling when upstream
@@ -155,6 +157,23 @@ int main(int argc, char **argv) {
     return 2;
   }
 
+  // The core works in its runtime's DATA folder once it boots (workInDataDir in
+  // hal/io.c), so a relative output path is resolved before then.
+  char output_path[PATH_MAX];
+  char cwd[PATH_MAX];
+  if (argv[2][0] == '/') {
+    cwd[0] = '\0';
+  } else if (getcwd(cwd, sizeof(cwd)) == NULL) {
+    fprintf(stderr, "ERROR: cannot read the working directory\n");
+    return 1;
+  }
+  int written = snprintf(output_path, sizeof(output_path), "%s%s%s", cwd,
+                         cwd[0] == '\0' ? "" : "/", argv[2]);
+  if (written < 0 || (size_t)written >= sizeof(output_path)) {
+    fprintf(stderr, "ERROR: the output path %s is too long\n", argv[2]);
+    return 1;
+  }
+
   char runtime_dir[] = "/tmp/r47-site-screens-XXXXXX";
   if (mkdtemp(runtime_dir) == NULL) {
     fprintf(stderr, "ERROR: cannot create a runtime directory\n");
@@ -173,7 +192,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   r47_force_refresh();
-  return site_screen_write_svg(argv[2], SCREEN_WIDTH, SCREEN_HEIGHT,
+  return site_screen_write_svg(output_path, SCREEN_WIDTH, SCREEN_HEIGHT,
                                lcd_pixel_on)
              ? 0
              : 1;
