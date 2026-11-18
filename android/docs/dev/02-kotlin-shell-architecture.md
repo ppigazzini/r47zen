@@ -46,7 +46,8 @@ grouped by role; the directory itself is the authority when a file is added:
   `ReplicaChromeLayout.kt`, `CalculatorKeyView.kt`,
   `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt`, `KeyRenderPainter.kt`,
   `C47TextRenderer.kt`, `C47TypefacePolicy.kt`, `MainKeyLabelMirrors.kt`,
-  `SoftkeyOverlayPainter.kt`, `SettingsMenuGlyph.kt`, `R47Geometry.kt`,
+  `SoftkeyOverlayPainter.kt`, `SettingsMenuGlyph.kt`, `MainMenuGlyphView.kt`,
+  `R47Geometry.kt`,
   `R47KeypadPolicy.kt`, `TopLabelLaneLayout.kt`, and `LcdThemePolicy.kt`
 - storage: `StorageAccessCoordinator.kt`, `DocumentTransfer.kt`,
   `DataFolderMirror.kt`, `ProviderLookup.kt`, `WorkDirectory.kt`, `SavedManual.kt`,

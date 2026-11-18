@@ -2,8 +2,6 @@ package io.github.ppigazzini.r47zen
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Canvas
-import android.graphics.Paint
 import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
@@ -20,7 +18,6 @@ import androidx.core.content.edit
 import io.github.ppigazzini.r47zen.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
-import com.google.android.material.color.MaterialColors
 import kotlin.math.abs
 
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
@@ -317,44 +314,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun installMainMenuButton() {
-        val button = object : View(this) {
-            private val menuGlyphGeometry = SettingsMenuGlyph.MAIN_MENU_GEOMETRY
-            private val orangeColor = MaterialColors.getColor(
-                this,
-                androidx.appcompat.R.attr.colorPrimary,
-            )
-            private val blueColor = MaterialColors.getColor(
-                this,
-                com.google.android.material.R.attr.colorSecondary,
-            )
-            private val orangePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = orangeColor
-                style = Paint.Style.FILL
-            }
-            private val bluePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = blueColor
-                style = Paint.Style.FILL
-            }
-
-            override fun onDraw(canvas: Canvas) {
-                super.onDraw(canvas)
-
-                val density = resources.displayMetrics.density
-                val tabHeight = menuGlyphGeometry.tabHeightPx(density)
-                val gap = menuGlyphGeometry.gapPx(density)
-                val top = height - tabHeight - (SettingsMenuGlyph.MAIN_MENU_BOTTOM_INSET_DP * density)
-
-                SettingsMenuGlyph.drawRightAligned(
-                    canvas = canvas,
-                    right = width.toFloat(),
-                    top = top,
-                    tabHeight = tabHeight,
-                    gap = gap,
-                    orangePaint = orangePaint,
-                    bluePaint = bluePaint,
-                )
-            }
-        }.apply {
+        val button = MainMenuGlyphView(this).apply {
             contentDescription = MainMenuButtonDescription.of(context, hintShowing = false)
             TooltipCompat.setTooltipText(this, contentDescription)
             isClickable = true
