@@ -2,21 +2,30 @@
 #
 # Contract: the Pages site publishes the calculator screens
 # scripts/site-screens/scenes.txt lists, in the shape site_screen_svg.c writes, and
-# nothing an upstream commit could slip in beside them.
+# the Android calculator, device.svg, in the shape SiteDeviceSvgTest and
+# compose_device_svg.sh write, and nothing an upstream commit could slip in beside
+# them.
 #
 # It fails when:
 #
 # - scenes.txt, the scenes site_screens.c implements, and the screens
-#   android/site/index.html shows are not one set;
+#   android/site/index.html shows are not one set, or the page does not show the
+#   device;
 # - site_screen_svg.c, compiled alone, loses or adds a pixel of a seeded bitmap (an
 #   empty screen, a full one, a hashed fill, a checkerboard, and blocks that repeat
 #   down the rows), as awk here decodes its path, or writes a file
 #   check_screens_artifact.sh refuses;
 # - check_screens_artifact.sh passes a missing or an extra file, a symbolic link, a
 #   directory, a file of two lines or over its size cap, a script, an event
-#   handler, another element, or a path command but M, h, v, and z;
-# - fetch_live_screens.sh passes when the live site lacks a scene, or fetches
-#   anything but the live files;
+#   handler, another element, or a path command but M, h, v, and z; or, in the
+#   device, a script, an image, an event handler, a second style, the style moved
+#   off the root, or a screen in its window that is not one;
+# - compose_device_svg.sh fills a device with no LCD window, two of them, or a
+#   screen that is not in the writer's shape;
+# - fetch_live_screens.sh passes when the live site lacks a scene or the device,
+#   or fetches anything but the live files;
+# - render_site_screens.sh stops drawing the device through SiteDeviceSvgTest and
+#   compose_device_svg.sh;
 # - the screens job can write the repository or reads a secret, renders with
 #   anything but render_site_screens.sh, falls back to the live screens other than
 #   on a render that did not succeed, or uploads or reports ready without one of
@@ -38,13 +47,14 @@ SCREENS_DIR="$PROJECT_ROOT/scripts/site-screens"
 SCENES="$SCREENS_DIR/scenes.txt"
 TOOL="$SCREENS_DIR/site_screens.c"
 WRITER="$SCREENS_DIR/site_screen_svg.c"
+COMPOSE="$SCREENS_DIR/compose_device_svg.sh"
 CHECK="$SCREENS_DIR/check_screens_artifact.sh"
 FETCH="$SCREENS_DIR/fetch_live_screens.sh"
 RENDER="$SCREENS_DIR/render_site_screens.sh"
 PAGE="$PROJECT_ROOT/android/site/index.html"
 PAGES="$WORKFLOW_DIR/privacy-policy-pages.yml"
 
-for file in "$SCENES" "$TOOL" "$WRITER" "$CHECK" "$FETCH" "$RENDER" "$PAGE" "$PAGES"; do
+for file in "$SCENES" "$TOOL" "$WRITER" "$COMPOSE" "$CHECK" "$FETCH" "$RENDER" "$PAGE" "$PAGES"; do
     [ -f "$file" ] || contract_fail "missing required file: ${file#"$PROJECT_ROOT/"}"
 done
 
@@ -60,11 +70,17 @@ shown="$(perl -0pe 's/<!--.*?-->//gs' "$PAGE" |
 [ "$implemented" = "$listed" ] ||
     contract_fail "site_screens.c implements a different set of scenes than scenes.txt lists." \
         "scenes.txt: $(tr '\n' ' ' <<<"$listed")" "site_screens.c: $(tr '\n' ' ' <<<"$implemented")"
+grep -qx device <<<"$shown" ||
+    contract_fail "index.html does not show screens/device.svg."
+shown="$(grep -vx device <<<"$shown")"
 [ "$shown" = "$listed" ] ||
     contract_fail "index.html shows a different set of screens than scenes.txt lists." \
         "scenes.txt: $(tr '\n' ' ' <<<"$listed")" "index.html: $(tr '\n' ' ' <<<"$shown")"
-grep -q 'scenes\.txt' <<<"$(strip_hash_comments <"$RENDER")" ||
+render="$(strip_hash_comments <"$RENDER")"
+grep -q 'scenes\.txt' <<<"$render" ||
     contract_fail "render_site_screens.sh does not render the scenes scenes.txt lists."
+grep -q "SiteDeviceSvgTest" <<<"$render" && grep -q 'compose_device_svg\.sh' <<<"$render" ||
+    contract_fail "render_site_screens.sh does not draw the device through SiteDeviceSvgTest and compose_device_svg.sh."
 
 # Compile the writer alone with a driver that writes each seeded bitmap and prints
 # it, one row of 0 and 1 per line, for the decoder below to match.
@@ -147,7 +163,13 @@ for mode in 0 1 2 3 4; do
         contract_fail "site_screen_svg.c lost or added pixels of seeded bitmap $mode."
 done
 
-# Seed an artifact of the listed scenes from one written bitmap.
+# A device as SiteDeviceSvgTest writes one: filled paths of each command it emits,
+# an empty LCD window between them, and one translucent path.
+DEVICE_TEMPLATE='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200" width="100" height="200"><path fill="#000000" d="M0 0L100 0L100 200L0 200Z"/><svg class="lcd" x="5.0" y="10.5" width="90.0" height="54.0" viewBox="0 0 400 240"/><path fill="#404040" fill-opacity="0.5" d="M10 100C10 90 20 90 20 100Q15 110 -1.5 100Z"/></svg>'
+printf '%s\n' "$DEVICE_TEMPLATE" >"$work/device-template.svg"
+
+# Seed an artifact of the listed scenes from one written bitmap, and the device
+# composed with it.
 seed_artifact() {
     local dir="$1" source="$2" scene
     rm -rf "$dir"
@@ -155,6 +177,8 @@ seed_artifact() {
     while read -r scene; do
         cp "$source" "$dir/$scene.svg"
     done <<<"$listed"
+    bash "$COMPOSE" "$work/device-template.svg" "$source" "$dir/device.svg" ||
+        contract_fail "compose_device_svg.sh could not fill the seeded device."
 }
 first_scene="$(head -n 1 <<<"$listed")"
 
@@ -203,12 +227,45 @@ perl -e 'print "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 240\
     >"$work/artifact/$first_scene.svg"
 refuse "a file over its size cap"
 
+# Each refused device: the composed one, with one change.
+mutate_device() {
+    seed_artifact "$work/artifact" "$work/mode2.svg"
+    perl -pi -e "$1" "$work/artifact/device.svg"
+}
+mutate_device 's#<path fill="\#404040"#<script>alert(1)</script><path fill="\#404040"#'
+refuse "a script in the device"
+mutate_device 's#<path fill="\#404040"#<image href="https://example.com/a.png"/><path fill="\#404040"#'
+refuse "an image in the device"
+mutate_device 's#<path fill="\#000000"#<path onload="alert(1)" fill="\#000000"#'
+refuse "an event handler in the device"
+mutate_device 's#(<style>.*?</style>)#$1$1#'
+refuse "a second style in the device"
+mutate_device 's#(<style>.*?</style>)(.*)</svg>$#$2$1</svg>#'
+refuse "the style moved off the device's root"
+mutate_device 's#<rect width="400" height="240" fill="\#[0-9a-f]{6}"/>##'
+refuse "a device whose LCD window holds no screen background"
+
+# compose_device_svg.sh fills exactly one window with a screen in the writer's shape.
+printf '%s\n' "${DEVICE_TEMPLATE/<svg class=\"lcd\" x=\"5.0\" y=\"10.5\" width=\"90.0\" height=\"54.0\" viewBox=\"0 0 400 240\"\/>/}" >"$work/no-window.svg"
+if bash "$COMPOSE" "$work/no-window.svg" "$work/mode2.svg" "$work/out.svg" 2>/dev/null; then
+    contract_fail "compose_device_svg.sh filled a device with no LCD window."
+fi
+perl -pe 's#(<svg class="lcd"[^>]*/>)#$1$1#' "$work/device-template.svg" >"$work/two-windows.svg"
+if bash "$COMPOSE" "$work/two-windows.svg" "$work/mode2.svg" "$work/out.svg" 2>/dev/null; then
+    contract_fail "compose_device_svg.sh filled a device with two LCD windows."
+fi
+perl -pe 's#"/></svg>#"/><script>alert(1)</script></svg>#' "$work/mode2.svg" >"$work/bad-screen.svg"
+if bash "$COMPOSE" "$work/device-template.svg" "$work/bad-screen.svg" "$work/out.svg" 2>/dev/null; then
+    contract_fail "compose_device_svg.sh laid a screen with a script into the device."
+fi
+
 # The fallback fetches every listed scene from a directory standing in for the
 # live site, and fails when one is missing there.
 mkdir -p "$work/live/screens"
 while read -r scene; do
     printf '%s\n' "$scene" >"$work/live/screens/$scene.svg"
 done <<<"$listed"
+printf 'device\n' >"$work/live/screens/device.svg"
 R47_SCREENS_SITE_URL="file://$work/live" bash "$FETCH" "$work/fetched" 2>"$work/stderr" ||
     contract_fail "fetch_live_screens.sh failed with every scene live." "$(cat "$work/stderr")"
 diff -r "$work/live/screens" "$work/fetched" >/dev/null ||

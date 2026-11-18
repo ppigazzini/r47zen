@@ -46,8 +46,10 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346'
         - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
+        - 'actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9'
+        - 'android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd'
     '.github/workflows/prune-dev-releases.yml': []
     '.github/workflows/resolve-upstream-core.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'

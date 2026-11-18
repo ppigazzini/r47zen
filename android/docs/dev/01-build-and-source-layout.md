@@ -554,6 +554,9 @@ Internal helpers:
   upstream rename or a dropped program breaks this render first; the Pages lane
   then republishes the live screens
   ([07-ci-and-release-workflow.md](07-ci-and-release-workflow.md#other-workflows)).
+  It then runs `:app:testDebugUnitTest --rerun` on `SiteDeviceSvgTest`, so it
+  needs a JDK and the Android SDK, and lays the stack screen into the device the
+  test draws with `scripts/site-screens/compose_device_svg.sh`.
 - `scripts/keypad-fixtures/export_upstream_keypad_fixtures.sh` owns the grouped
   keypad-fixture exporter implementation; it compiles
   `scripts/keypad-fixtures/keypad_fixture_exporter.c` with the glue and the

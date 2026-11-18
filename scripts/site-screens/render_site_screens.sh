@@ -3,7 +3,10 @@
 # Render the calculator screens the Pages site shows, one SVG per scene, from the
 # upstream core hydrated at the repo root: stage the native inputs, build
 # site_screens.c against the staged core and the Android glue on the host, and run
-# each scene scenes.txt lists.
+# each scene scenes.txt lists. Then draw the Android calculator, device.svg:
+# SiteDeviceSvgTest records the app's replica through its own drawing code, and
+# compose_device_svg.sh lays the stack screen in its LCD window. That half needs a
+# JDK and the Android SDK, as the app's JVM tests do.
 #
 # Usage: render_site_screens.sh <output-dir>
 
@@ -98,3 +101,15 @@ for scene in "${SCENES[@]}"; do
         timeout 60s "$BUILD_DIR/r47-site-screens" "$scene" "$output_dir/$scene.svg" >/dev/null
     echo "Rendered $scene.svg ($(wc -c <"$output_dir/$scene.svg") bytes)." >&2
 done
+
+device_svg="$PROJECT_ROOT/android/app/build/site/device.svg"
+rm -f "$device_svg"
+(cd "$PROJECT_ROOT/android" &&
+    ./gradlew --console=plain :app:testDebugUnitTest --rerun \
+        --tests 'io.github.ppigazzini.r47zen.SiteDeviceSvgTest') >&2
+[ -f "$device_svg" ] || {
+    echo "ERROR: SiteDeviceSvgTest wrote no $device_svg" >&2
+    exit 1
+}
+bash "$SCRIPT_DIR/compose_device_svg.sh" "$device_svg" "$output_dir/stack.svg" "$output_dir/device.svg"
+echo "Rendered device.svg ($(wc -c <"$output_dir/device.svg") bytes)." >&2

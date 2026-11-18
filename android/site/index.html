@@ -93,6 +93,39 @@
       padding-left: 1.25rem;
     }
 
+    /* The device beside its feature list; at 418 px wide its LCD shows the
+       400 x 240 screen at 1x. */
+    .showcase {
+      display: grid;
+      grid-template-columns: 418px 1fr;
+      gap: 32px;
+      align-items: start;
+      margin: 24px 0;
+    }
+
+    .showcase h2 {
+      margin-top: 0;
+    }
+
+    .device img {
+      display: block;
+      width: 100%;
+      max-width: 418px;
+      height: auto;
+      margin: 0 auto;
+      border-radius: 28px;
+    }
+
+    .features li {
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 760px) {
+      .showcase {
+        grid-template-columns: 1fr;
+      }
+    }
+
     /* The screens are pixel art, sharp at whole scales: in the 848 px the card
        leaves, two columns of 416 px hold each 400 px screen at 1x in its 8 px
        bezel. */
@@ -161,6 +194,52 @@
       official release of the C47 project.
     </p>
 
+    <section class="showcase">
+      <div class="device">
+        <img src="screens/device.svg" width="418" height="800" alt="R47 Zen on a phone: the display showing the RPN stack above the full keypad, each key with its f and g functions and its alpha letter, and the orange and blue menu marker at the top right.">
+      </div>
+      <div>
+        <h2>The Android app</h2>
+        <ul class="features">
+          <li>
+            <strong>Keys that follow the calculator.</strong> Each key shows
+            the labels the core gives it in its current state: the f and g
+            shifts, alpha letters, and USER mode, and the softkeys show the
+            menu on the display. Settings chooses how much follows: Dynamic
+            Full UI, Dynamic Alpha, Dynamic USER f/g, Fixed, or Zen.
+          </li>
+          <li>
+            <strong>Graphs you can touch.</strong> Drag and pinch a graph on
+            the display to pan and zoom it.
+          </li>
+          <li>
+            <strong>Your display.</strong> Four LCD themes, Gray Matrix, Green
+            Vintage, Amber Quartz, and Blue Liquid, a negative LCD, full-screen
+            mode, and picture in picture.
+          </li>
+          <li>
+            <strong>Copy and paste.</strong> Copy the X register, the stack, or
+            every register, and paste a number from the clipboard.
+          </li>
+          <li>
+            <strong>Your files.</strong> Choose a work folder for portable
+            STATE, PROGRAMS, SAVFILES, DATA, and SCREENS files; your last
+            session comes back when the app restarts.
+          </li>
+          <li>
+            <strong>Feel and sound.</strong> Haptic feedback at the system or
+            your own duration, and a simulated beeper.
+          </li>
+          <li>
+            <strong>The menu marker.</strong> The orange and blue marker at the
+            top right opens Settings, Copy, Paste Number, and Picture in
+            Picture.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <h2>On the display</h2>
     <section class="screens" aria-label="Calculator screens">
       <figure>
         <div class="lcd"><img src="screens/plot.svg" width="400" height="240" alt="The equation grapher drawing x times sine of x from minus 10 to 10, beside its axis settings and zoom menu."></div>
@@ -179,10 +258,6 @@
         <figcaption>A keystroke program: upstream's recursive factorial.</figcaption>
       </figure>
     </section>
-    <p>
-      Each screen is the calculator's own display, drawn by the latest upstream
-      C47 core when this site was last built.
-    </p>
 
     <h2>Get the app</h2>
     <ul>

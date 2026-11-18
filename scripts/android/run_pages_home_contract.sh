@@ -5,7 +5,7 @@
 # names a file the site publishes, and it loads nothing from another origin and runs
 # no script. Runs scripts/docs/stage_pages_home.sh on a site seeded with the
 # privacy policy, a stand-in manual, and a stand-in for each screen
-# scripts/site-screens/scenes.txt lists, then on seeded pages.
+# scripts/site-screens/scenes.txt lists and for the device, then on seeded pages.
 #
 # It fails when:
 #
@@ -56,6 +56,7 @@ seed_site() {
     local scene
     grep -Ev '^[[:space:]]*(#|$)' "$PROJECT_ROOT/scripts/site-screens/scenes.txt" |
         while read -r scene; do printf '<svg/>\n' >"$1/screens/$scene.svg"; done
+    printf '<svg/>\n' >"$1/screens/device.svg"
 }
 
 seed_site "$work/real"

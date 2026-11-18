@@ -1316,9 +1316,14 @@ The `screens` job draws the screens the home page shows, one per scene
 `scripts/site-screens/scenes.txt` lists. `scripts/site-screens/render_site_screens.sh`
 stages the core the run resolved, builds `site_screens.c` against it and the glue on
 the host, and runs each scene; `site_screen_svg.c` writes each LCD as one background
-rect and one path of the lit pixels. The job builds and runs upstream code, so it
-holds no write permission and no secret, and the `build` job, which runs none, refuses
-an artifact holding anything but those files in that shape
+rect and one path of the lit pixels. It then draws the Android calculator,
+`device.svg`: the app's JVM test `SiteDeviceSvgTest` records the replica through its
+own drawing code, and `compose_device_svg.sh` lays the stack screen in its LCD window
+with the one style that turns that LCD negative under a dark color scheme. That half
+sets up the JDK and the SDK as `android-ci.yml` does and restores, but never saves,
+its Gradle cache. The job builds and runs upstream code, so it holds no write
+permission and no secret, and the `build` job, which runs none, refuses an artifact
+holding anything but those files in those shapes
 (`scripts/site-screens/check_screens_artifact.sh`). The job runs only when the site
 deploys, so the screens follow upstream as often as the site deploys, not nightly, and
 their status bar shows the date of that build. A render that fails, as one will when
@@ -1403,10 +1408,11 @@ request. Three choices are this repository's:
   composite runs is recorded through a never-run step in each workflow that calls
   it, `if: github.event_name == 'never'`, since actionlint also refuses a constant
   `if: false`: `android-actions/setup-android` in `android-ci.yml` and
-  `android-release.yml`, and `actions/cache/restore` in `privacy-policy-pages.yml`,
-  which calls `setup-xlsxio-toolchain` and runs no cache action of its own. The
-  other workflows' composite cache actions are already recorded, since those
-  workflows use the same `actions/cache` commit.
+  `android-release.yml`, and both `actions/cache/restore` and
+  `android-actions/setup-android` in `privacy-policy-pages.yml`, which calls
+  `setup-xlsxio-toolchain` and `setup-android-sdk`. The other workflows' composite
+  cache actions are already recorded, since those workflows use the same
+  `actions/cache` commit.
 - The `Require lockfile` policy, which blocks a run that is not onboarded, is not
   active; it is the maintainer's to turn on. GitHub's how-to says a job fails at a
   step whose action has no entry.

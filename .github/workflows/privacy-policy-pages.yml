@@ -145,19 +145,32 @@ jobs:
           echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "jobs=$(nproc)" >> "$GITHUB_OUTPUT"
+          echo "build_jdk_version=$R47_DEFAULT_ANDROID_BUILD_JDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk_minor=$R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR" >> "$GITHUB_OUTPUT"
+          echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Install Linux build dependencies
         shell: bash
         run: bash ./scripts/android/install_linux_build_deps.sh
 
-      # gh actions-lock does not follow a ./ action, so this never-run step records
-      # the cache action setup-xlsxio-toolchain runs; actionlint refuses if: false.
+      # gh actions-lock does not follow a ./ action, so these never-run steps record
+      # the actions setup-xlsxio-toolchain and setup-android-sdk run; actionlint
+      # refuses if: false.
       - name: Lock the action the xlsxio composite runs
         if: github.event_name == 'never'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: never
           key: never
+
+      - name: Lock the action the SDK composite runs
+        if: github.event_name == 'never'
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: platform-tools
 
       - name: Set up xlsxio toolchain
         uses: ./.github/actions/setup-xlsxio-toolchain
@@ -177,6 +190,33 @@ jobs:
           bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
             --url "$UPSTREAM_URL" --commit "$UPSTREAM_COMMIT"
           bash ./scripts/upstream-sync/hydrate_submodules.sh "$UPSTREAM_COMMIT" "$UPSTREAM_URL"
+
+      # The device half of the render runs the app's JVM test SiteDeviceSvgTest,
+      # so it needs the JDK and the SDK android-ci builds with.
+      - name: Set up JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: ${{ steps.defaults.outputs.build_jdk_version }}
+
+      # Read android-ci's Gradle cache, keyed as it keys it; this job runs the
+      # upstream core, so it saves no cache another job would restore.
+      - name: Restore Gradle cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-${{ runner.arch }}-gradle-${{ hashFiles('android/**/*.gradle', 'android/gradle.properties', 'android/gradle/*.versions.toml', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Set up Android SDK
+        uses: ./.github/actions/setup-android-sdk
+        with:
+          compile-sdk: ${{ steps.defaults.outputs.compile_sdk }}
+          compile-sdk-minor: ${{ steps.defaults.outputs.compile_sdk_minor }}
+          build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
+          cmake-version: ${{ steps.defaults.outputs.cmake_version }}
+          ndk-version: ${{ steps.defaults.outputs.ndk_version }}
 
       - name: Render the screens
         id: render
