@@ -65,6 +65,7 @@ CONTRACTS=(
     run_privacy_policy_single_source_contract.sh
     run_manual_site_contract.sh
     run_pages_home_contract.sh
+    run_site_screens_contract.sh
     run_commit_message_contract.sh
     run_quiet_grep_pipeline_contract.sh
     run_jni_surface_check_contract.sh

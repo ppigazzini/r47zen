@@ -43,7 +43,7 @@
     }
 
     main {
-      max-width: 54rem;
+      max-width: 56rem;
       margin: 0 auto;
       background: var(--card);
       border: 1px solid var(--line);
@@ -85,6 +85,45 @@
       padding-left: 1.25rem;
     }
 
+    /* The screens are pixel art, sharp at whole scales: in the 848 px the card
+       leaves, the first spans it at 2x and the other two share it at 1x, each
+       with its 8 px bezel. */
+    .screens {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 336px), 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .screens figure {
+      margin: 0;
+    }
+
+    .screens figure:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .screens img {
+      display: block;
+      box-sizing: content-box;
+      width: calc(100% - 16px);
+      max-width: 400px;
+      height: auto;
+      margin: 0 auto;
+      border: 8px solid #2b2e33;
+      border-radius: 10px;
+    }
+
+    .screens figure:first-child img {
+      max-width: 800px;
+    }
+
+    .screens figcaption {
+      margin-top: 8px;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
     @media (max-width: 480px) {
       body {
         padding: 12px;
@@ -116,6 +155,25 @@
       R47 Zen packages the upstream C47 calculator core as an Android app for
       the R47 calculator variant. It is independently maintained and is not an
       official release of the C47 project.
+    </p>
+
+    <section class="screens" aria-label="Calculator screens">
+      <figure>
+        <img src="screens/plot.svg" width="400" height="240" alt="The equation grapher drawing x times sine of x from minus 10 to 10, beside its axis settings and zoom menu.">
+        <figcaption>The equation grapher drawing x sin(x).</figcaption>
+      </figure>
+      <figure>
+        <img src="screens/stack.svg" width="400" height="240" alt="The RPN stack holding pi and the square root of 2 to 20 digits, the complex number 3 + 4i, and 20 factorial as an exact integer.">
+        <figcaption>Reals to 20 digits, a complex number, and 20! exact.</figcaption>
+      </figure>
+      <figure>
+        <img src="screens/matrix.svg" width="400" height="240" alt="The matrix editor showing a 3 by 3 matrix, its first cell selected, above the editing menu.">
+        <figcaption>The matrix editor.</figcaption>
+      </figure>
+    </section>
+    <p>
+      Each screen is the calculator's own display, drawn by the latest upstream
+      C47 core when this site was last built.
     </p>
 
     <h2>Get the app</h2>

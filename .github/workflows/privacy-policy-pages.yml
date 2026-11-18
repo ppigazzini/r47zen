@@ -10,6 +10,15 @@ name: Pages
 # staged file, or that loads anything from another origin or runs a script;
 # run_pages_home_contract.sh holds the script and this workflow to that.
 #
+# The calculator screens the home page shows, as screens/<scene>.svg, one per
+# scene scripts/site-screens/scenes.txt lists, drawn by the upstream core the run
+# resolves whenever the site deploys. The screens job builds and runs that core,
+# so it holds no write permission and no secret, and the build job refuses any
+# file but the SVGs in the shape site_screens.c writes (check_screens_artifact.sh).
+# When the render fails, the live screens go out again and the run stays red, so
+# a broken render does not hold back the policy; run_site_screens_contract.sh
+# holds the scripts and this workflow to that.
+#
 # The privacy policy the app ships,
 # android/app/src/main/assets/privacy-policy.html, unchanged, as
 # https://ppigazzini.github.io/r47zen/privacy-policy.html, the URL in Play
@@ -43,6 +52,7 @@ on:
       - .github/workflows/privacy-policy-pages.yml
       - scripts/docs/prepare_manual_site.sh
       - scripts/docs/stage_pages_home.sh
+      - scripts/site-screens/**
   schedule:
     - cron: '54 3 * * *'
   workflow_dispatch:
@@ -105,10 +115,97 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # Builds and runs the upstream core on the host, so it holds no write
+  # permission and no secret. It renders only for a run that deploys: a nightly
+  # run that finds the manual current deploys nothing, so the screens follow
+  # upstream only as often as the site deploys.
+  screens:
+    name: Render the calculator screens
+    needs:
+      - resolve-upstream-core
+      - manual
+    if: ${{ always() && needs.manual.outputs.deploy == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    outputs:
+      ready: ${{ steps.render.outcome == 'success' || steps.fallback.outcome == 'success' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Load shared Android defaults
+        id: defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          . ./android/r47-defaults.properties
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "jobs=$(nproc)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: bash ./scripts/android/install_linux_build_deps.sh
+
+      # gh actions-lock does not follow a ./ action, so this never-run step records
+      # the cache action setup-xlsxio-toolchain runs; actionlint refuses if: false.
+      - name: Lock the action the xlsxio composite runs
+        if: github.event_name == 'never'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: never
+          key: never
+
+      - name: Set up xlsxio toolchain
+        uses: ./.github/actions/setup-xlsxio-toolchain
+        with:
+          url: ${{ steps.defaults.outputs.xlsxio_url }}
+          commit: ${{ steps.defaults.outputs.xlsxio_commit }}
+          prefix: ${{ steps.defaults.outputs.xlsxio_prefix }}
+          jobs: ${{ steps.defaults.outputs.jobs }}
+
+      - name: Hydrate upstream
+        shell: bash
+        env:
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
+            --url "$UPSTREAM_URL" --commit "$UPSTREAM_COMMIT"
+          bash ./scripts/upstream-sync/hydrate_submodules.sh "$UPSTREAM_COMMIT" "$UPSTREAM_URL"
+
+      - name: Render the screens
+        id: render
+        shell: bash
+        run: bash ./scripts/site-screens/render_site_screens.sh _screens
+
+      # A Pages deploy replaces the whole site, so a run that cannot render
+      # republishes the live screens rather than hold back the policy.
+      - name: Fetch the live screens
+        id: fallback
+        if: ${{ always() && steps.render.outcome != 'success' }}
+        shell: bash
+        run: bash ./scripts/site-screens/fetch_live_screens.sh _screens
+
+      - name: Upload the screens
+        if: ${{ always() && (steps.render.outcome == 'success' || steps.fallback.outcome == 'success') }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screens
+          path: _screens
+          if-no-files-found: error
+          retention-days: 1
+
   build:
     name: Stage the site
-    needs: manual
-    if: ${{ always() && needs.manual.outputs.deploy == 'true' }}
+    needs:
+      - manual
+      - screens
+    if: ${{ always() && needs.manual.outputs.deploy == 'true' && needs.screens.outputs.ready == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
@@ -128,6 +225,19 @@ jobs:
       - name: Refuse anything but the PDF and its VERSION
         shell: bash
         run: bash ./scripts/docs/check_manual_artifact.sh _site/manual
+
+      - name: Download the screens
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: screens
+          path: _site/screens
+
+      # The screens job ran the upstream core, so its artifact is steered by an
+      # upstream commit; publish the scenes' SVGs in the shape site_screens.c
+      # writes, nothing else.
+      - name: Refuse anything but the screens' SVGs
+        shell: bash
+        run: bash ./scripts/site-screens/check_screens_artifact.sh _site/screens
 
       - name: Stage the privacy policy
         shell: bash

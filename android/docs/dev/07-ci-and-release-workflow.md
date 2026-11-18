@@ -1268,7 +1268,7 @@ The rest, and what each one gates:
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
 | `merge-request-watch.yml` | daily schedule, dispatch | `scripts/upstream-sync/watch_merge_request.sh` dispatches the `android-ci.yml`, `linux-ci.yml`, and `windows-ci.yml` of branch `port-mr-2033` on the merge ref of upstream MR !2033, once for each pair of branch commit and merge commit, and fails once the MR is merged or closed | nothing requires it; a dispatched lane reports in its own run |
 | `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
-| `privacy-policy-pages.yml` | daily schedule, push to `main` that touches the policy asset, the home page, the icon's drawing source, the workflow, `scripts/docs/prepare_manual_site.sh`, or `scripts/docs/stage_pages_home.sh`, dispatch | publishes the Pages site as one artifact: the home page, `android/site/index.html`, to `https://ppigazzini.github.io/r47zen/`, with the launcher icon's drawing source, `android/app/icon-source/r47zen.svg`, as its logo and favicon; `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html`, the URL in Play Console's privacy-policy field; and upstream's cropped manual to `https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf`, the URL Settings opens; `run_pages_home_contract.sh`, `run_privacy_policy_single_source_contract.sh`, and `run_manual_site_contract.sh` hold the workflow to the three | -- |
+| `privacy-policy-pages.yml` | daily schedule, push to `main` that touches the policy asset, the home page, the icon's drawing source, the workflow, `scripts/docs/prepare_manual_site.sh`, `scripts/docs/stage_pages_home.sh`, or anything under `scripts/site-screens/`, dispatch | publishes the Pages site as one artifact: the home page, `android/site/index.html`, to `https://ppigazzini.github.io/r47zen/`, with the launcher icon's drawing source, `android/app/icon-source/r47zen.svg`, as its logo and favicon, and the calculator screens it shows, rendered from upstream's core as `screens/<scene>.svg`; `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html`, the URL in Play Console's privacy-policy field; and upstream's cropped manual to `https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf`, the URL Settings opens; `run_pages_home_contract.sh`, `run_site_screens_contract.sh`, `run_privacy_policy_single_source_contract.sh`, and `run_manual_site_contract.sh` hold the workflow to the four | -- |
 
 The manual is built here, not fetched from upstream's releases: GitLab offers no
 fixed URL for the latest PDF, and its job artifacts are closed to anonymous readers
@@ -1311,6 +1311,22 @@ with any scheme but https. The icon is refused if it holds a script, which a bro
 runs when the SVG is opened on its own, outside the page's policy. Nothing checks
 that the page's links to other sites still serve a page: `check_external_links.sh`
 reads tracked markdown only.
+
+The `screens` job draws the screens the home page shows, one per scene
+`scripts/site-screens/scenes.txt` lists. `scripts/site-screens/render_site_screens.sh`
+stages the core the run resolved, builds `site_screens.c` against it and the glue on
+the host, and runs each scene; `site_screen_svg.c` writes each LCD as one background
+rect and one path of the lit pixels. The job builds and runs upstream code, so it
+holds no write permission and no secret, and the `build` job, which runs none, refuses
+an artifact holding anything but those files in that shape
+(`scripts/site-screens/check_screens_artifact.sh`). The job runs only when the site
+deploys, so the screens follow upstream as often as the site deploys, not nightly, and
+their status bar shows the date of that build. A render that fails, as one will when
+upstream renames a function a scene calls, republishes the live screens
+(`scripts/site-screens/fetch_live_screens.sh`) and leaves the run red, so it does not
+hold back the policy; before the first deploy that carries them there are none to
+republish, and nothing deploys. Whether a scene still draws what the page's caption
+says shows only in a render: `run_site_screens_contract.sh` builds no core.
 
 MR !2033 removes what the glue calls, so this repo stops building the day it merges,
 and `port-mr-2033` holds the port. A push to that branch runs no lane, and a push to
@@ -1386,8 +1402,10 @@ request. Three choices are this repository's:
   composite runs is recorded through a never-run step in each workflow that calls
   it, `if: github.event_name == 'never'`, since actionlint also refuses a constant
   `if: false`: `android-actions/setup-android` in `android-ci.yml` and
-  `android-release.yml`. The composites' cache actions are already recorded, since
-  those workflows use the same `actions/cache` commit.
+  `android-release.yml`, and `actions/cache/restore` in `privacy-policy-pages.yml`,
+  which calls `setup-xlsxio-toolchain` and runs no cache action of its own. The
+  other workflows' composite cache actions are already recorded, since those
+  workflows use the same `actions/cache` commit.
 - The `Require lockfile` policy, which blocks a run that is not onboarded, is not
   active; it is the maintainer's to turn on. GitHub's how-to says a job fails at a
   step whose action has no entry.

@@ -4,12 +4,13 @@
 # launcher icon's drawing source as its logo, every link it holds into the site
 # names a file the site publishes, and it loads nothing from another origin and runs
 # no script. Runs scripts/docs/stage_pages_home.sh on a site seeded with the
-# privacy policy and a stand-in manual, then on seeded pages.
+# privacy policy, a stand-in manual, and a stand-in for each screen
+# scripts/site-screens/scenes.txt lists, then on seeded pages.
 #
 # It fails when:
 #
-# - the real page does not stage beside the policy and the manual, or the staged
-#   page or icon differs from its source;
+# - the real page does not stage beside the policy, the manual, and the screens,
+#   or the staged page or icon differs from its source;
 # - the stage passes a page with a link into the site that names no staged file, a
 #   tag split across lines included, or one that climbs out of the site or starts
 #   at the host's root;
@@ -17,8 +18,9 @@
 #   javascript link, an unquoted link, a script, an event handler, or a page that
 #   lost its Content-Security-Policy, or an icon that holds a script;
 # - it refuses a dead link inside an HTML comment;
-# - the build job stages the home page before the manual or the policy is in the
-#   site, or the push filter misses the page, the icon, or the stage script;
+# - the build job stages the home page before the manual, the screens, or the
+#   policy is in the site and checked, or the push filter misses the page, the
+#   icon, or the stage script;
 # - the page says the app collects no personal data, or requests no Internet
 #   permission, and the privacy policy stops saying it.
 #
@@ -47,15 +49,18 @@ trap 'rm -rf "$work"' EXIT
 
 # Make a site holding what the build job stages before the home page.
 seed_site() {
-    mkdir -p "$1/manual"
+    mkdir -p "$1/manual" "$1/screens"
     cp "$PROJECT_ROOT/$POLICY_REL" "$1/privacy-policy.html"
     printf '%%PDF-1.7\n' >"$1/manual/C47_R47_calc_Crop.pdf"
     printf '%064d\n' 0 >"$1/manual/VERSION"
+    local scene
+    grep -Ev '^[[:space:]]*(#|$)' "$PROJECT_ROOT/scripts/site-screens/scenes.txt" |
+        while read -r scene; do printf '<svg/>\n' >"$1/screens/$scene.svg"; done
 }
 
 seed_site "$work/real"
 bash "$STAGE" "$work/real" >/dev/null 2>"$work/stderr" ||
-    contract_fail "the real home page did not stage beside the policy and the manual." "$(cat "$work/stderr")"
+    contract_fail "the real home page did not stage beside the policy, the manual, and the screens." "$(cat "$work/stderr")"
 cmp -s "$work/real/index.html" "$PROJECT_ROOT/$PAGE_REL" ||
     contract_fail "the staged index.html is not $PAGE_REL."
 cmp -s "$work/real/r47zen.svg" "$PROJECT_ROOT/$ICON_REL" ||
@@ -121,11 +126,13 @@ line_of() { grep -nF -- "$1" <<<"$build_job" | head -n 1 | cut -d: -f1 || true; 
 stage_line="$(line_of 'bash ./scripts/docs/stage_pages_home.sh _site')"
 manual_line="$(line_of 'check_manual_artifact.sh _site/manual')"
 policy_line="$(line_of "cp $POLICY_REL _site/privacy-policy.html")"
+screens_line="$(line_of 'check_screens_artifact.sh _site/screens')"
 [ -n "$stage_line" ] ||
     contract_fail "the build job does not run stage_pages_home.sh on _site."
-[ -n "$manual_line" ] && [ -n "$policy_line" ] &&
-    [ "$stage_line" -gt "$manual_line" ] && [ "$stage_line" -gt "$policy_line" ] ||
-    contract_fail "the build job stages the home page before the manual and the policy are in the site."
+[ -n "$manual_line" ] && [ -n "$policy_line" ] && [ -n "$screens_line" ] &&
+    [ "$stage_line" -gt "$manual_line" ] && [ "$stage_line" -gt "$policy_line" ] &&
+    [ "$stage_line" -gt "$screens_line" ] ||
+    contract_fail "the build job stages the home page before the manual, the policy, and the checked screens are in the site."
 
 push_paths="$(awk '
     /^[[:space:]]+paths:[[:space:]]*$/ { inpaths = 1; next }

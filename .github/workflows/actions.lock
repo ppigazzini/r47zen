@@ -42,6 +42,7 @@ workflows:
     '.github/workflows/merge-request-watch.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
     '.github/workflows/privacy-policy-pages.yml':
+        - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346'
         - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'

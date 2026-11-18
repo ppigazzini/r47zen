@@ -262,7 +262,12 @@ grep -Eq "cron: '[^']+'" <<<"$pages" ||
     contract_fail "privacy-policy-pages.yml has no nightly run."
 grep -q 'EVENT_NAME: \${{ github.event_name }}' <<<"$manual_job" ||
     contract_fail "the manual job does not pass the real event."
-grep -Fq "if: \${{ always() && needs.manual.outputs.deploy == 'true' }}" <<<"$pages" ||
+build_job="$(awk '
+    /^  build:[[:space:]]*$/ { inside = 1; next }
+    inside && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ { inside = 0 }
+    inside { print }
+' <<<"$pages")"
+grep -Fq "if: \${{ always() && needs.manual.outputs.deploy == 'true'" <<<"$build_job" ||
     contract_fail "a failed manual job stops the policy deploying, or the build runs with nothing to stage."
 grep -Fq "if: \${{ always() && steps.prepare.outputs.deploy == 'true' }}" <<<"$manual_job" ||
     contract_fail "a failed manual build does not upload the PDF it republishes."

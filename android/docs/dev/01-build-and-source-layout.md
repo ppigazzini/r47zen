@@ -545,6 +545,14 @@ Internal helpers:
   `stageProgramFixtureAssets` task in `android/app/build.gradle` runs it into
   the androidTest assets. The host PGO collector and the workload harness read
   the hydrated `res/PROGRAMS` instead.
+- `scripts/site-screens/render_site_screens.sh` builds
+  `scripts/site-screens/site_screens.c` and `site_screen_svg.c` with the glue and
+  the staged core the same way, one object per source in parallel, then runs each
+  scene `scripts/site-screens/scenes.txt` lists into an SVG for the Pages site.
+  The scenes call upstream functions such as `fnEqNew`, `setEquation`, and
+  `fnEditMatrix` directly, so an upstream rename breaks this build first; the
+  Pages lane then republishes the live screens
+  ([07-ci-and-release-workflow.md](07-ci-and-release-workflow.md#other-workflows)).
 - `scripts/keypad-fixtures/export_upstream_keypad_fixtures.sh` owns the grouped
   keypad-fixture exporter implementation; it compiles
   `scripts/keypad-fixtures/keypad_fixture_exporter.c` with the glue and the
