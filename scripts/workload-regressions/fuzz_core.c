@@ -14,6 +14,7 @@
 // the files an input may start from, FUZZ_TMP the folders each process keeps its files
 // in. build_fuzz_core.sh builds it and runs it.
 #include "jni_bridge.h"
+#include "host_services.h"
 #include "keypad_fixture_bridge.h"
 
 #include <dirent.h>
@@ -41,8 +42,10 @@ static char dir[512];
 // A byte presses one of the 37 keys, "00" to "36", or one of the six softkeys, "1" to
 // "6", as r47_send_sim_key names them.
 #define KEY_COUNT 43
-// EXIT, R47 or C47 layout alike.
+// EXIT, and the code r47_send_sim_key gives it: a running program and a computation stop
+// on that code, R47 or C47 layout alike.
 #define EXIT_KEY "32"
+#define EXIT_CODE 33
 
 // The first byte of an input picks one of these, or none, so a byte bounds their number.
 #define MAX_START_FILES 255
@@ -55,12 +58,10 @@ typedef struct {
 static startFile_t startFiles[MAX_START_FILES];
 static int startFileCount;
 
-// A key that starts a program returns when it ends, and a user ends one that runs on
-// with EXIT, which the app sends out of band, through requestStopProgramNative, to a
-// running or paused program. So does pressExitWhenBusy, EXIT_AFTER_US into a press and
-// each EXIT_AFTER_US after. The stop reaches no computation outside a program, which runs
-// to its end; one that does not end runs into the -timeout build_fuzz_core.sh sets, which
-// libFuzzer reports as a finding.
+// A key that starts a program or a computation returns when it ends, and a user ends one
+// that runs on with EXIT. So does pressExitWhenBusy, EXIT_AFTER_US into a press and each
+// EXIT_AFTER_US after, through the queue the app's presses take. One that takes no EXIT
+// runs into the -timeout build_fuzz_core.sh sets, which libFuzzer reports as a finding.
 #define EXIT_AFTER_US 500000
 
 static pthread_mutex_t pressMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -84,7 +85,8 @@ static void *pressExitWhenBusy(void *unused) {
     usleep(50000);
     pthread_mutex_lock(&pressMutex);
     if (pressExitAtUs != 0 && monotonicUs() >= pressExitAtUs) {
-      Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(NULL, NULL);
+      r47_key_push(EXIT_CODE);
+      r47_key_push(0);
       pressExitAtUs = monotonicUs() + EXIT_AFTER_US;
     }
     pthread_mutex_unlock(&pressMutex);
@@ -92,11 +94,17 @@ static void *pressExitWhenBusy(void *unused) {
   return NULL;
 }
 
-static void pressKey(const char *id, bool isSoftkey) {
+static void pressKey(const char *id) {
   setPressExitAt(monotonicUs() + EXIT_AFTER_US);
-  r47_send_sim_key(id, isSoftkey, false);
-  r47_send_sim_key(id, isSoftkey, true);
+  r47_send_sim_key(id, false, false);
+  r47_send_sim_key(id, false, true);
   setPressExitAt(0);
+  // An EXIT pressed once the work it was for had ended is a key the input did not press,
+  // and it goes, so an input replays the same keys.
+  while (!key_empty()) {
+    key_pop();
+  }
+  clearKeyBuffer();
 }
 
 static void pressByte(uint8_t byte) {
@@ -108,7 +116,7 @@ static void pressByte(uint8_t byte) {
   } else {
     id[0] = (char)('1' + key - 37);
   }
-  pressKey(id, key >= 37);
+  pressKey(id);
 }
 
 // Every file an earlier input left goes, a file a key saved among them, so each input
@@ -144,9 +152,7 @@ static void readFile(void) {
     break;
   case targetBackup:
     restoreCalc();
-    pthread_mutex_lock(&screenMutex);
-    r47_sanitize_graph_bounds_locked();
-    pthread_mutex_unlock(&screenMutex);
+    r47_sanitize_graph_bounds();
     fnRefreshState();
     r47_force_refresh();
     break;
@@ -176,7 +182,7 @@ static bool writeFile(void) {
     saveCalc();
   } else {
     for (int i = 0; i < 3 && !atRest(); i++) {
-      pressKey(EXIT_KEY, false);
+      pressKey(EXIT_KEY);
     }
     if (!atRest()) {
       return false;
@@ -264,9 +270,6 @@ int LLVMFuzzerInitialize(int *argc, char ***argv) {
   const char *tmp = getenv("FUZZ_TMP");
   snprintf(dir, sizeof(dir), "%s/fuzz-%d", tmp != NULL ? tmp : "/tmp", (int)getpid());
   mkdir(dir, 0700);
-  // screenMutex is recursive, as the app makes it: the runtime takes it again inside
-  // its own first refresh.
-  r47_initialize_native_bridge_state();
   r47_native_preinit_path(dir);
   r47_init_runtime();
 

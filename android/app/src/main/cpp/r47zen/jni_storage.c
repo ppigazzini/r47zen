@@ -1,4 +1,5 @@
 #include "jni_bridge.h"
+#include "host_services.h"
 
 #include <stdatomic.h>
 #include <string.h>
@@ -49,32 +50,25 @@ void r47_clear_file_request_override(void) {
 
 // The name of the document the picker gave, which hal/io.c records for a read as
 // GTK records a file's name. The answer writes it under fileMutex, and only while
-// the core thread waits in requestAndroidFile, so that thread reads it unlocked
-// once it resumes.
+// the calculator thread waits, so that thread reads it unlocked once it resumes.
 static char pickedFileName[256];
 
-const char *r47_picked_file_name(void) { return pickedFileName; }
-
-static int restoreScreenMutexAndReturn(int lockCount, int fd) {
-  LOGI("requestAndroidFile: Re-acquiring screenMutex (%d times)", lockCount);
-  for (int index = 0; index < lockCount; index++) {
-    pthread_mutex_lock(&screenMutex);
-  }
-
-  return fd;
+const char *r47_picked_file_name(void) {
+  return pickedFileName;
 }
 
-static int failAndroidFileRequest(int lockCount) {
+static void failAndroidFileRequest(void) {
   pthread_mutex_lock(&fileMutex);
   atomic_store_explicit(&isCoreBlockingForIo, false, memory_order_relaxed);
   fileReady = false;
   fileCanceled = true;
   fileDescriptor = -1;
   pthread_mutex_unlock(&fileMutex);
-
-  return restoreScreenMutexAndReturn(lockCount, -1);
 }
 
+// Ask the host for a file and park the calculator thread until it answers. The
+// process can die behind a picker, and no save can run while this thread waits, so
+// the state goes to disk first.
 int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   LOGI("requestAndroidFile(isSave=%d, fileType=%d)", isSave, fileType);
 
@@ -85,23 +79,7 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
     return override_fd;
   }
 
-  if (!g_requestFileId || !g_mainActivityObj) {
-    LOGE("requestAndroidFile: requestFile bridge is not ready");
-    return -1;
-  }
-
-  jni_env_scope_t scope;
-  if (!jni_acquire_env(&scope, "requestAndroidFile")) {
-    return -1;
-  }
-  JNIEnv *env = scope.env;
-
-  int lockCount = 0;
-  while (pthread_mutex_unlock(&screenMutex) == 0) {
-    lockCount++;
-  }
-  LOGI("requestAndroidFile: Fully released screenMutex (lockCount=%d)",
-       lockCount);
+  r47_save_before_picker();
 
   pthread_mutex_lock(&fileMutex);
   atomic_store_explicit(&isCoreBlockingForIo, true, memory_order_relaxed);
@@ -110,25 +88,10 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   fileDescriptor = -1;
   pthread_mutex_unlock(&fileMutex);
 
-  jstring nameObj = jni_new_string_utf(env, defaultName ? defaultName : "", "",
-                                       "requestAndroidFile NewStringUTF");
-  if (nameObj == NULL) {
-    jni_release_env(&scope, "requestAndroidFile");
-    return failAndroidFileRequest(lockCount);
+  if (!r47_upcall_request_file(isSave != 0, defaultName, fileType)) {
+    failAndroidFileRequest();
+    return -1;
   }
-
-  (*env)->CallVoidMethod(env, g_mainActivityObj, g_requestFileId,
-                         (jboolean)isSave, nameObj, (jint)fileType);
-  if (nameObj) {
-    (*env)->DeleteLocalRef(env, nameObj);
-  }
-
-  if (jni_check_and_clear_exception(env, "requestAndroidFile CallVoidMethod")) {
-    jni_release_env(&scope, "requestAndroidFile");
-    return failAndroidFileRequest(lockCount);
-  }
-
-  jni_release_env(&scope, "requestAndroidFile");
 
   pthread_mutex_lock(&fileMutex);
   LOGI("requestAndroidFile: Waiting for file result...");
@@ -140,7 +103,7 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   LOGI("requestAndroidFile: Resumed, fd=%d, canceled=%d", fd, fileCanceled);
   pthread_mutex_unlock(&fileMutex);
 
-  return restoreScreenMutexAndReturn(lockCount, fd);
+  return fd;
 }
 
 // hal/io.c records at most a name's last 19 bytes, so a longer name keeps its end.
@@ -152,14 +115,14 @@ static void keepNameEnd(const char *name) {
   pickedFileName[kept] = '\0';
 }
 
-// Report whether a core thread took the descriptor. A process killed behind the
+// Report whether the calculator thread took the descriptor. A process killed behind the
 // picker comes back with the answer and no request, and the next request would drop
 // a descriptor left here without closing it. A save's worker reads until that
 // descriptor closes, so it would wait for the life of the process.
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(
-    JNIEnv *env, jobject thiz, jint fd, jstring name) {
-  (void)thiz;
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_onFileSelectedNative(
+    JNIEnv *env, jclass clazz, jint fd, jstring name) {
+  (void)clazz;
   LOGI("onFileSelectedNative(fd=%d)", fd);
   const char *chars =
       name != NULL ? (*env)->GetStringUTFChars(env, name, NULL) : NULL;
@@ -180,10 +143,10 @@ Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_onFileCanceledNative(
-    JNIEnv *env, jobject thiz) {
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_onFileCanceledNative(
+    JNIEnv *env, jclass clazz) {
   (void)env;
-  (void)thiz;
+  (void)clazz;
   LOGI("onFileCanceledNative()");
   pthread_mutex_lock(&fileMutex);
   fileCanceled = true;

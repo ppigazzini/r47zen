@@ -15,10 +15,10 @@ import org.junit.runner.RunWith
 
 // The display for a screen reader, from the core to the LCD's node: the number
 // being typed, which X does not hold yet, then X, then the error the screen shows,
-// each through the overlay's ask, describeDisplayNative as a core task,
-// onDisplayText, and the node MainActivity hands it to. The error is the factorial of
-// a negative long integer, which factLonI refuses whatever the flags; 1/x of 0 is
-// not one, since the R47 profile sets special results and answers Infinity.
+// each through describeDisplayNative, the calculator thread, onDisplayText, and the
+// node MainActivity hands it to. The error is the factorial of a negative long
+// integer, which factLonI refuses whatever the flags; 1/x of 0 is not one, since the
+// R47 profile sets special results and answers Infinity (android-ci 42624857429).
 @RunWith(AndroidJUnit4::class)
 class DisplayDescriptionInstrumentedTest {
     @Test
@@ -60,10 +60,8 @@ class DisplayDescriptionInstrumentedTest {
     ) {
         var said = ""
         var invalid = !isError
-        // The ask is a core task, run behind the touched keys queued before it.
-        scenario.onActivity { activity ->
-            activity.findViewById<ReplicaOverlay>(R.id.replica_overlay).onDisplayDescriptionWanted?.invoke()
-        }
+        // The read runs at rest, behind the keys pushed before it.
+        assertTrue("the request queue refused the read", CalculatorEngine.describeDisplayNative())
         val heard = waitUntil(TIMEOUT_MS) {
             scenario.onActivity { activity ->
                 val node = activity.findViewById<ReplicaOverlay>(R.id.replica_overlay).lcdAccessibilityNode

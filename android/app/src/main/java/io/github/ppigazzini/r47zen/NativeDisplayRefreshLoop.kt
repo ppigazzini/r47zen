@@ -31,7 +31,6 @@ internal class NativeDisplayRefreshLoop(
 
     private val packedLcdBuffer = ByteArray(R47LcdContract.PACKED_BUFFER_SIZE)
     private var lastDisplayGeneration = Int.MIN_VALUE
-    private var lastLabelRefresh = 0L
     private var lastKeypadGeneration = Int.MIN_VALUE
     private var performanceWindowStartMillis = 0L
     private var performanceFrameCount = 0
@@ -106,14 +105,11 @@ internal class NativeDisplayRefreshLoop(
         }
 
         val currentKeypadGeneration = getKeypadSnapshotGeneration()
-        val shouldRefreshLabels = nowMillis - lastLabelRefresh > 500
-        val keypadStateChanged = currentKeypadGeneration != lastKeypadGeneration
-        if (shouldRefreshLabels || keypadStateChanged) {
+        if (currentKeypadGeneration != lastKeypadGeneration) {
             val refreshResult = refreshKeypadSnapshot(getMainKeyDynamicModeCode())
             val snapshot = refreshResult.snapshot
             if (snapshot != null) {
                 onDynamicRefresh(snapshot)
-                lastLabelRefresh = nowMillis
             }
             if (refreshResult.isUpToDate) {
                 lastKeypadGeneration = refreshResult.observedGeneration
@@ -186,7 +182,6 @@ internal class NativeDisplayRefreshLoop(
 
         isActive = true
         lastDisplayGeneration = Int.MIN_VALUE
-        lastLabelRefresh = 0L
         lastKeypadGeneration = Int.MIN_VALUE
         lastPerformanceWindowMillis = getPerformanceWindowMillis().coerceAtLeast(1L)
         resetPerformanceWindow()

@@ -5,13 +5,11 @@ import org.junit.Test
 
 class GraphGestureFlusherTest {
 
-    /** A single-threaded stand-in for the main looper and the core queue. */
+    /** A single-threaded stand-in for the main looper. */
     private class Harness(minFlushIntervalMs: Long = 16L) {
         var now = 1_000L
-        val coreTasks = ArrayDeque<Runnable>()
-        val mainTasks = mutableListOf<Pair<Long, Runnable>>()
+        val delayedTasks = mutableListOf<Pair<Long, Runnable>>()
         val applied = mutableListOf<GraphGestureBatch>()
-        var onApply: () -> Unit = {}
 
         val flusher = GraphGestureFlusher(
             accumulator = GraphGestureAccumulator(
@@ -24,66 +22,57 @@ class GraphGestureFlusherTest {
             ),
             minFlushIntervalMs = minFlushIntervalMs,
             uptimeMillis = { now },
-            post = { mainTasks += now to it },
-            postDelayed = { task, delayMs -> mainTasks += (now + delayMs) to task },
-            offerCoreTask = { coreTasks.addLast(it) },
-            applyBatch = { batch ->
-                applied += batch
-                onApply()
-            },
+            postDelayed = { task, delayMs -> delayedTasks += (now + delayMs) to task },
+            applyBatch = { batch -> applied += batch },
         )
 
-        fun runCoreTask() = coreTasks.removeFirst().run()
-
-        /** Advance the clock to the next main-thread task and run it. */
-        fun runNextMainTask() {
-            val next = mainTasks.minByOrNull { it.first }!!
-            mainTasks.remove(next)
+        /** Advance the clock to the next delayed task and run it. */
+        fun runNextDelayedTask() {
+            val next = delayedTasks.minByOrNull { it.first }!!
+            delayedTasks.remove(next)
             now = maxOf(now, next.first)
             next.second.run()
         }
     }
 
     @Test
-    fun deltasWhileAFlushIsQueued_coalesceIntoOneTask() {
+    fun panPastTheApplyLimit_arrivesWithNoFurtherTouch() {
         val h = Harness()
+
+        h.flusher.addPan(1.5f, 0f)
+        while (h.delayedTasks.isNotEmpty()) {
+            h.runNextDelayedTask()
+        }
+
+        assertEquals(1.5f, h.applied.sumOf { it.panDxNorm.toDouble() }.toFloat(), 0.001f)
+    }
+
+    @Test
+    fun aFirstDelta_flushesAtOnce() {
+        val h = Harness()
+
+        h.flusher.addPan(0.1f, 0f)
+
+        assertEquals(1, h.applied.size)
+        assertEquals(0.1f, h.applied.single().panDxNorm, 1e-6f)
+    }
+
+    @Test
+    fun deltasInsideTheInterval_coalesceIntoOneBatch() {
+        val h = Harness()
+        h.flusher.addPan(0.01f, 0f)
+        h.now += 5
 
         h.flusher.addPan(0.1f, 0f)
         h.flusher.addPan(0.2f, 0f)
         h.flusher.addScale(1.5f)
 
-        assertEquals(1, h.coreTasks.size)
-        h.runCoreTask()
-        assertEquals(1, h.applied.size)
-        assertEquals(0.3f, h.applied.single().panDxNorm, 1e-6f)
-        assertEquals(1.5f, h.applied.single().scaleFactor, 1e-6f)
-    }
-
-    @Test
-    fun deltasDuringAReSolve_waitForTheNextFlushInsteadOfLooping() {
-        val h = Harness()
-        var injected = false
-        // A drag keeps moving while the core thread re-solves.
-        h.onApply = {
-            if (!injected) {
-                injected = true
-                h.flusher.addPan(0.05f, 0f)
-            }
-        }
-
-        h.flusher.addPan(0.1f, 0f)
-        h.runCoreTask()
-
-        assertEquals("one flush task applies one batch", 1, h.applied.size)
-        assertEquals("the remainder goes back through the main-thread scheduler", 1, h.mainTasks.size)
-        assertEquals(0, h.coreTasks.size)
-
-        h.runNextMainTask()
-        h.runNextMainTask()
-        assertEquals(1, h.coreTasks.size)
-        h.runCoreTask()
+        assertEquals("one flush so far", 1, h.applied.size)
+        assertEquals("one flush waiting", 1, h.delayedTasks.size)
+        h.runNextDelayedTask()
         assertEquals(2, h.applied.size)
-        assertEquals(0.05f, h.applied[1].panDxNorm, 1e-6f)
+        assertEquals(0.3f, h.applied[1].panDxNorm, 1e-6f)
+        assertEquals(1.5f, h.applied[1].scaleFactor, 1e-6f)
     }
 
     @Test
@@ -91,15 +80,12 @@ class GraphGestureFlusherTest {
         val h = Harness(minFlushIntervalMs = 16L)
 
         h.flusher.addPan(0.1f, 0f)
-        val firstOfferAt = h.now
-        h.runCoreTask()
+        val firstFlushAt = h.now
         h.now += 5
         h.flusher.addPan(0.1f, 0f)
 
-        assertEquals("no core task before the interval elapses", 0, h.coreTasks.size)
-        assertEquals(firstOfferAt + 16L, h.mainTasks.single().first)
-        h.runNextMainTask()
-        assertEquals(1, h.coreTasks.size)
+        assertEquals("no second flush before the interval elapses", 1, h.applied.size)
+        assertEquals(firstFlushAt + 16L, h.delayedTasks.single().first)
     }
 
     @Test
@@ -110,15 +96,12 @@ class GraphGestureFlusherTest {
             h.flusher.addPan(0.01f * (step + 1), 0f)
             total += 0.01f * (step + 1)
             h.now += 3
-            while (h.mainTasks.isNotEmpty() && h.mainTasks.minOf { it.first } <= h.now) {
-                h.runNextMainTask()
-            }
-            while (h.coreTasks.isNotEmpty()) {
-                h.runCoreTask()
+            while (h.delayedTasks.isNotEmpty() && h.delayedTasks.minOf { it.first } <= h.now) {
+                h.runNextDelayedTask()
             }
         }
-        while (h.mainTasks.isNotEmpty() || h.coreTasks.isNotEmpty()) {
-            if (h.coreTasks.isNotEmpty()) h.runCoreTask() else h.runNextMainTask()
+        while (h.delayedTasks.isNotEmpty()) {
+            h.runNextDelayedTask()
         }
 
         assertEquals(total, h.applied.sumOf { it.panDxNorm.toDouble() }.toFloat(), 1e-5f)

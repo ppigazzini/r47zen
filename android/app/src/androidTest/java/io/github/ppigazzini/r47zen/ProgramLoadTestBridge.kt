@@ -69,12 +69,10 @@ object ProgramLoadTestBridge {
 
     fun beginMainActivityKeySequence(keyCode: Int): Boolean = beginMainActivityKeySequenceNative(keyCode)
 
-    fun requestStopProgram(): Boolean = requestStopProgramNative()
-
-    fun directStopAllowedForRunState(runState: Int): Boolean = directStopAllowedForRunStateNative(runState)
-
-    fun setProgramRunStop(runState: Int) {
-        setProgramRunStopForTestNative(runState)
+    /** R/S, as the keypad sends it: a program sees it at its next poll. */
+    fun pressRunStopKey() {
+        sendSimKey("35", isFn = false, isRelease = false)
+        sendSimKey("35", isFn = false, isRelease = true)
     }
 
     fun backgroundSaveKeepsInjectedDisplayBuffer(): Boolean =
@@ -132,9 +130,6 @@ object ProgramLoadTestBridge {
     private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)
     private external fun beginSimFunctionNative(funcId: Int): Boolean
     private external fun beginMainActivityKeySequenceNative(keyCode: Int): Boolean
-    private external fun requestStopProgramNative(): Boolean
-    private external fun directStopAllowedForRunStateNative(runState: Int): Boolean
-    private external fun setProgramRunStopForTestNative(runState: Int)
     private external fun backgroundSaveKeepsInjectedDisplayBufferForTestNative(): Boolean
     private external fun injectDeterministicDisplayBufferForTestNative(): Long
     private external fun setNextLoadProgramFdNative(fd: Int)

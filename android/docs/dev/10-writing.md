@@ -159,7 +159,7 @@ better than the person who broke it.
 | [03-upstream-interface-surfaces.md](03-upstream-interface-surfaces.md) | the interface from the Android shell into upstream-owned runtime behavior | hot - tracks upstream |
 | [04-native-core-and-jni.md](04-native-core-and-jni.md) | CMake, JNI registration, HAL seams, SAF bridge, native packaging | hot - tracks this repo |
 | [05-ui-rendering-and-gtk-mapping.md](05-ui-rendering-and-gtk-mapping.md) | logical canvas, LCD projection, keypad geometry, renderer rules | hot - tracks upstream |
-| [06-runtime-hot-paths.md](06-runtime-hot-paths.md) | the main hot loops, redraw paths, lock boundaries | hot - tracks this repo |
+| [06-runtime-hot-paths.md](06-runtime-hot-paths.md) | the calculator thread and its rule, the main hot loops, redraw paths | hot - tracks this repo |
 | [07-ci-and-release-workflow.md](07-ci-and-release-workflow.md) | every workflow and composite action, the lane split, release gating, artifacts, `dependabot.yml`, local reproduction | hot - tracks this repo |
 | [08-tests-and-contracts.md](08-tests-and-contracts.md) | verification surfaces, contract owners, focused suites, rerun lanes | hot - tracks this repo |
 | [09-official-references.md](09-official-references.md) | external links | hot - tracks pages outside this repo, which move with no commit here |

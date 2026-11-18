@@ -40,8 +40,8 @@ if [[ -z "$DEFAULT_MIN_TOTAL_LINE_PERCENT" ]]; then
 fi
 MIN_TOTAL_LINE_PERCENT="${R47_COVERAGE_MIN_TOTAL_LINE_PERCENT:-$DEFAULT_MIN_TOTAL_LINE_PERCENT}"
 SEAM_CLASSES=(
-    "io/github/ppigazzini/r47zen/LiveKeyRouter"
-    "io/github/ppigazzini/r47zen/LiveProgramStopKeyPolicy"
+    "io/github/ppigazzini/r47zen/GraphGestureFlusher"
+    "io/github/ppigazzini/r47zen/NativeFileRequestGate"
 )
 
 fail() {

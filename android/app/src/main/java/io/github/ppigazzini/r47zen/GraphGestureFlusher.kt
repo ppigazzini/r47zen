@@ -1,26 +1,20 @@
 package io.github.ppigazzini.r47zen
 
 /**
- * Coalesces LCD graph pan and pinch deltas into rate-limited re-solves on the
- * core thread.
+ * Coalesces LCD graph pan and pinch deltas into rate-limited requests to the calculator.
  *
- * Each flush re-solves the graph (fnEqSolvGraph), a heavy upstream call. While a
- * flush is queued, further deltas coalesce in the accumulator instead of queuing
- * more tasks, so the net motion is never lost; flushes are spaced at least
- * [minFlushIntervalMs] apart; and each flush applies one batch, so a continuous
- * drag interleaves with the other queued core tasks instead of re-solving back
- * to back ahead of them.
+ * Each request re-solves the graph (fnEqSolvGraph), a heavy upstream call. Between flushes,
+ * further deltas coalesce in the accumulator, so the net motion is never lost, and flushes
+ * are spaced at least [minFlushIntervalMs] apart.
  *
- * [addPan] and [addScale] run on the main thread, as do [post] and [postDelayed];
- * [applyBatch] runs on the core thread, inside the task [offerCoreTask] queues.
+ * [addPan] and [addScale] run on the main thread, as does [postDelayed];
+ * [applyBatch] pushes to the calculator, which merges batches while it is busy.
  */
 internal class GraphGestureFlusher(
     private val accumulator: GraphGestureAccumulator,
     private val minFlushIntervalMs: Long,
     private val uptimeMillis: () -> Long,
-    private val post: (Runnable) -> Unit,
     private val postDelayed: (Runnable, Long) -> Unit,
-    private val offerCoreTask: (Runnable) -> Unit,
     private val applyBatch: (GraphGestureBatch) -> Unit,
 ) {
     private val lock = Any()
@@ -62,22 +56,17 @@ internal class GraphGestureFlusher(
 
     private fun offerFlush() {
         lastFlushUptimeMs = uptimeMillis()
-        offerCoreTask(Runnable(::flushOnCoreThread))
-    }
-
-    private fun flushOnCoreThread() {
-        val batch = synchronized(lock) { accumulator.drainBatch() }
+        var morePending = false
+        val batch = synchronized(lock) {
+            flushQueued = false
+            accumulator.drainBatch().also { morePending = accumulator.hasPending() }
+        }
         if (batch != null) {
             applyBatch(batch)
         }
-        // Deltas that arrived during the re-solve wait for the next
-        // rate-limited flush rather than re-solving here at once.
-        val hasPending = synchronized(lock) {
-            flushQueued = false
-            accumulator.hasPending()
-        }
-        if (hasPending) {
-            post(Runnable(::scheduleFlush))
+        // A flush applies at most one LCD width of pan, and no later touch may come for the rest.
+        if (morePending) {
+            scheduleFlush()
         }
     }
 }

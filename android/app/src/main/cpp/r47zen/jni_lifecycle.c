@@ -1,5 +1,5 @@
 #include "jni_bridge.h"
-#include "r47_time.h"
+#include "host_services.h"
 
 #include "saveRestoreCalcState.h"
 
@@ -12,128 +12,18 @@ extern void execFnTimeout(uint16_t timerType);
 extern void shiftCutoff(uint16_t timerType);
 extern void fnTimerDummy1(uint16_t timerType);
 extern void execTimerApp(uint16_t timerType);
+extern void mainLoop(void);
+extern uint32_t nextScreenRefresh;
+extern void restoreCalc(void);
 
-void r47_save_background_state_locked(void);
-
-// Set once, at the end of r47_init_runtime, and never cleared. The UI thread is
-// live before the core finishes init (MainActivity posts a keypad refresh after
-// first layout), so every UI-thread entry point that touches
-// core state gates on r47_runtime_ready() first. The release store publishes
-// ram, the softmenu stack, lcd_buffer, and packedDisplayBuffer; the acquire load
-// in the readers is what makes those pointers safe to follow.
+// Set once, at the end of r47_init_runtime, and never cleared. The display reads
+// published copies and needs no gate, so this only tells Kotlin the core is up.
 static _Atomic bool g_r47_runtime_ready = false;
+static _Atomic bool g_r47_stop_requested = false;
+static _Atomic bool g_r47_stop_without_save = false;
 
 bool r47_runtime_ready(void) {
   return atomic_load_explicit(&g_r47_runtime_ready, memory_order_acquire);
-}
-
-void releaseNativeActivityReferences(JNIEnv *env) {
-  if (g_mainActivityObj != NULL) {
-    (*env)->DeleteGlobalRef(env, g_mainActivityObj);
-    g_mainActivityObj = NULL;
-  }
-
-  g_requestFileId = NULL;
-  g_playToneId = NULL;
-  g_processCoreTasksId = NULL;
-  g_fileWriteFailedId = NULL;
-  g_warningId = NULL;
-  g_displayTextId = NULL;
-}
-
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(
-    JNIEnv *env, jobject thiz) {
-  LOGI("updateNativeActivityRef called");
-
-  releaseNativeActivityReferences(env);
-  g_mainActivityObj = (*env)->NewGlobalRef(env, thiz);
-  if (!jni_result_ok(env, g_mainActivityObj, "NewGlobalRef(MainActivity)")) {
-    releaseNativeActivityReferences(env);
-    return;
-  }
-
-  jclass clazz = (*env)->GetObjectClass(env, thiz);
-  if (!jni_result_ok(env, clazz, "GetObjectClass(MainActivity)")) {
-    releaseNativeActivityReferences(env);
-    return;
-  }
-
-  g_requestFileId =
-      (*env)->GetMethodID(env, clazz, "requestFile", "(ZLjava/lang/String;I)V");
-  if (!jni_result_ok(env, (const void *)g_requestFileId,
-                     "GetMethodID(requestFile)")) {
-    (*env)->DeleteLocalRef(env, clazz);
-    releaseNativeActivityReferences(env);
-    return;
-  }
-
-  g_playToneId = (*env)->GetMethodID(env, clazz, "playTone", "(II)V");
-  if (!jni_result_ok(env, (const void *)g_playToneId,
-                     "GetMethodID(playTone)")) {
-    (*env)->DeleteLocalRef(env, clazz);
-    releaseNativeActivityReferences(env);
-    return;
-  }
-
-  g_processCoreTasksId =
-      (*env)->GetMethodID(env, clazz, "processCoreTasks", "()V");
-  if (!jni_result_ok(env, (const void *)g_processCoreTasksId,
-                     "GetMethodID(processCoreTasks)")) {
-    (*env)->DeleteLocalRef(env, clazz);
-    releaseNativeActivityReferences(env);
-    return;
-  }
-
-  g_fileWriteFailedId =
-      (*env)->GetMethodID(env, clazz, "onFileWriteFailed", "()V");
-  if (!jni_result_ok(env, (const void *)g_fileWriteFailedId,
-                     "GetMethodID(onFileWriteFailed)")) {
-    (*env)->DeleteLocalRef(env, clazz);
-    releaseNativeActivityReferences(env);
-    return;
-  }
-
-  g_warningId =
-      (*env)->GetMethodID(env, clazz, "onCoreWarning", "(Ljava/lang/String;)V");
-  if (!jni_result_ok(env, (const void *)g_warningId,
-                     "GetMethodID(onCoreWarning)")) {
-    (*env)->DeleteLocalRef(env, clazz);
-    releaseNativeActivityReferences(env);
-    return;
-  }
-
-  g_displayTextId = (*env)->GetMethodID(env, clazz, "onDisplayText",
-                                        "(ZLjava/lang/String;)V");
-  if (!jni_result_ok(env, (const void *)g_displayTextId,
-                     "GetMethodID(onDisplayText)")) {
-    (*env)->DeleteLocalRef(env, clazz);
-    releaseNativeActivityReferences(env);
-    return;
-  }
-  (*env)->DeleteLocalRef(env, clazz);
-}
-
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime(
-    JNIEnv *env, jobject thiz) {
-  (void)thiz;
-  LOGI("releaseNativeRuntime called");
-  releaseNativeActivityReferences(env);
-}
-
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(JNIEnv *env,
-                                                            jobject thiz,
-                                                            jstring path_obj) {
-  (void)thiz;
-  const char *path = (*env)->GetStringUTFChars(env, path_obj, NULL);
-  if (!jni_result_ok(env, (const void *)path,
-                     "GetStringUTFChars(nativePreInit path)")) {
-    return;
-  }
-  r47_native_preinit_path(path);
-  (*env)->ReleaseStringUTFChars(env, path_obj, path);
 }
 
 void r47_native_preinit_path(const char *path) {
@@ -150,22 +40,28 @@ void r47_native_preinit_path(const char *path) {
   mp_set_memory_functions(allocGmp, reallocGmp, freeGmp);
 }
 
-void r47_init_runtime(void) {
-  // Hold screenMutex across the whole init, so a UI-thread trylock reader that
-  // passes the ready gate can never interleave with doFnReset or restoreCalc.
-  // The mutex is recursive, so the r47_force_refresh below re-enters it.
-  pthread_mutex_lock(&screenMutex);
+// A file from before this model can hold a run saved at a pump, and those flags
+// mean nothing once the run is gone: a running state leaves the keys dead, and a
+// solver flag turns EXIT into "Solver abort" and switches undo off.
+static void clearInterruptedRun(void) {
+  programRunStop = PGM_STOPPED;
+  hourGlassIconEnabled = false;
+  clearSystemFlag(FLAG_SOLVING);
+  clearSystemFlag(FLAG_INTING);
+}
 
+void r47_init_runtime(void) {
+  r47_keys_init();
   setupUI();
   init_lcd_buffers();
   lcd_clear_buf();
   calcModel = USER_R47f_g;
   void doFnReset(uint16_t confirmation, bool_t autoSav);
   doFnReset(CONFIRMED, false);
-  extern void restoreCalc(void);
   r47_restore_guard_begin();
   restoreCalc();
-  if (r47_sanitize_graph_bounds_locked()) {
+  clearInterruptedRun();
+  if (r47_sanitize_graph_bounds()) {
     LOGI("r47_init_runtime: sanitized restored graph bounds");
   }
   fnRefreshState();
@@ -185,73 +81,113 @@ void r47_init_runtime(void) {
   r47_arm_snap();
   r47_force_refresh();
   r47_restore_guard_end();
+  r47_keypad_publish_at_rest();
   atomic_store_explicit(&g_r47_runtime_ready, true, memory_order_release);
-  pthread_mutex_unlock(&screenMutex);
 }
 
-JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
-    JNIEnv *env, jobject thiz) {
-  Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(env,
-                                                                        thiz);
+// The calculator thread's whole life, as upstream's calcThreadMain: start, the
+// main loop, and a save when the calculator switches off. OFF leaves the app in
+// the background with its process alive, so the thread goes back into the loop
+// and the next launch finds a running calculator.
+void r47_calculator_main(void) {
   r47_init_runtime();
+  r47_keys_from_host(true);
+
+  if (getSystemFlag(FLAG_AUTXEQ)) {
+    clearSystemFlag(FLAG_AUTXEQ);
+    if (programRunStop != PGM_RUNNING) {
+      screenUpdatingMode = SCRUPD_AUTO;
+      runFunction(ITM_RS);
+    }
+    refreshScreen(191);
+  }
+
+  for (;;) {
+    mainLoop();
+    const bool stopping = atomic_load(&g_r47_stop_requested);
+    // OFF minimizes the app by default, so "Auto-Save on Minimize" governs its save too.
+    if (stopping || r47_services_autosave_enabled()) {
+      r47_save_settled();
+    }
+    if (stopping) {
+      return;
+    }
+    r47_upcall_quit();
+    CLR_ST(STAT_PGM_END | STAT_SUSPENDED | STAT_OFF);
+  }
 }
 
-static jint r47_next_tick_delay_ms(uint32_t now) {
-  uint32_t next_due = nextTimerRefresh;
-
-  if (next_due == 0 ||
-      (nextScreenRefresh != 0 && r47_ms_before(nextScreenRefresh, next_due))) {
-    next_due = nextScreenRefresh;
-  }
-
-  return (jint)r47_ms_until_deadline(now, next_due);
-}
-
-JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_tick(JNIEnv *env, jobject thiz) {
-  (void)env;
-  (void)thiz;
-  uint32_t now = sys_current_ms();
-  if (pthread_mutex_trylock(&screenMutex) != 0) {
-    return 1;
-  }
-
-  if (r47_ms_deadline_reached(now, nextTimerRefresh)) {
-    refreshTimer(NULL);
-    nextTimerRefresh = now + 5;
-  }
-  // A pending stop refresh redraws in full and replaces the scheduled one.
-  if (!r47_apply_pending_stop_refresh_locked() &&
-      r47_ms_deadline_reached(now, nextScreenRefresh)) {
-    refreshLcd(NULL);
-    lcd_refresh();
-    nextScreenRefresh = now + 100;
-  }
-  r47_offer_snap();
-
-  pthread_mutex_unlock(&screenMutex);
-
-  return r47_next_tick_delay_ms(sys_current_ms());
+// Any thread: end the calculator thread for good. An operation in progress sees
+// an EXIT first, and a factory reset asks for no save, since it deletes the file.
+void r47_calculator_stop(bool save) {
+  atomic_store(&g_r47_stop_without_save, !save);
+  atomic_store(&g_r47_stop_requested, true);
+  r47_key_release_if_down();
+  r47_key_push_quit();
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative(JNIEnv *env,
-                                                              jobject thiz) {
-  (void)env;
-  (void)thiz;
-  LOGI("saveStateNative triggered");
-  if (!ram) {
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_runCalculatorNative(
+    JNIEnv *env, jclass clazz, jstring path_obj) {
+  (void)clazz;
+  const char *path = (*env)->GetStringUTFChars(env, path_obj, NULL);
+  if (!jni_result_ok(env, (const void *)path,
+                     "GetStringUTFChars(runCalculatorNative path)")) {
     return;
   }
-
-  pthread_mutex_lock(&screenMutex);
-  r47_save_background_state_locked();
-
-  pthread_mutex_unlock(&screenMutex);
-  LOGI("saveStateNative: Save complete.");
+  r47_native_preinit_path(path);
+  (*env)->ReleaseStringUTFChars(env, path_obj, path);
+  r47_calculator_main();
 }
 
-void r47_save_background_state_locked(void) {
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_stopCalculatorNative(
+    JNIEnv *env, jclass clazz, jboolean save) {
+  (void)env;
+  (void)clazz;
+  r47_calculator_stop(save == JNI_TRUE);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_isReadyNative(JNIEnv *env,
+                                                                jclass clazz) {
+  (void)env;
+  (void)clazz;
+  return r47_runtime_ready() ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_onHostStoppedNative(
+    JNIEnv *env, jclass clazz, jboolean stopped) {
+  (void)env;
+  (void)clazz;
+  r47_keys_on_host_stopped(stopped == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_setAutoSaveNative(
+    JNIEnv *env, jclass clazz, jboolean enabled) {
+  (void)env;
+  (void)clazz;
+  r47_service_set_autosave(enabled == JNI_TRUE);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_saveStateNative(
+    JNIEnv *env, jclass clazz, jint timeoutMs) {
+  (void)env;
+  (void)clazz;
+  return r47_service_save_and_wait((int)timeoutMs) ? JNI_TRUE : JNI_FALSE;
+}
+
+// saveCalc is written for a calculator that is shutting down: it resets the graph
+// variable and dismisses a confirmation. This one keeps running, so both come back.
+void r47_save_settled(void) {
+  if (atomic_load(&g_r47_stop_without_save)) {
+    return; // a factory reset is deleting the file
+  }
+  const __typeof__(graphVariabl1) savedGraphVariable = graphVariabl1;
+  const uint8_t savedCalcMode = calcMode;
   // Upstream's own saves stop a running stopwatch first, which folds its elapsed time
   // into timerValue; timerStartTime is not saved, so a file saved running would restore
   // as running with nothing behind it and the time lost. The copy is saved stopped, and
@@ -275,6 +211,12 @@ void r47_save_background_state_locked(void) {
     setSystemFlag(FLAG_RUNTIM);
     fnTimerStart(TO_TIMER_APP, TO_TIMER_APP, TIMER_APP_PERIOD);
   }
+  graphVariabl1 = savedGraphVariable;
+  if (savedCalcMode == CM_CONFIRMATION) {
+    calcMode = savedCalcMode;
+    refreshScreen(90);
+  }
+  r47_services_note_saved();
 }
 
 void r47_force_refresh(void) {
@@ -282,10 +224,8 @@ void r47_force_refresh(void) {
     return;
   }
 
-  pthread_mutex_lock(&screenMutex);
   reDraw = true;
   refreshScreen(190);
-  refreshLcd(NULL);
+  refreshLcd();
   lcd_refresh();
-  pthread_mutex_unlock(&screenMutex);
 }

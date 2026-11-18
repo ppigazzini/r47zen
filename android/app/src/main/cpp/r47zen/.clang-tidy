@@ -33,7 +33,7 @@ Checks: >
 # - multi-level-implicit-pointer-conversion (8): the JNI AttachCurrentThread
 #   and GetEnv void ** handoff.
 # cert-err33-c is on: every return it names is handled, mostly through
-# r47_format in r47_format.h, which fails the operation on a cut. The rest of
-# cert-* is not enabled.
+# r47_format in jni_bridge.h, which fails the operation on a cut. The rest of cert-*
+# is not enabled.
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*/cpp/r47zen/.*'

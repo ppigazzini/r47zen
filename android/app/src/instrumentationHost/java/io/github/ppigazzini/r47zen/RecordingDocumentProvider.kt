@@ -3,16 +3,18 @@ package io.github.ppigazzini.r47zen
 import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
+import android.database.MatrixCursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import android.provider.OpenableColumns
 import java.io.File
 import java.io.FileNotFoundException
 
 // A document provider for the storage instrumented tests, in the app's own process. It
-// keeps each document as a private file named by the URI's last segment and records
-// the mode of every open. It truncates only when the mode holds "t", as a provider
-// that reads "w" literally does, so a save that asks for "w" leaves the old tail. A
-// document named "fail" refuses every open.
+// keeps each document as a private file named by the URI's last segment, shows that
+// segment as the document's name, and records the mode of every open. It truncates
+// only when the mode holds "t", as a provider that reads "w" literally does, so a save
+// that asks for "w" leaves the old tail. A document named "fail" refuses every open.
 class RecordingDocumentProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
 
@@ -41,7 +43,9 @@ class RecordingDocumentProvider : ContentProvider() {
         selection: String?,
         selectionArgs: Array<out String>?,
         sortOrder: String?,
-    ): Cursor? = null
+    ): Cursor = MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME)).apply {
+        addRow(arrayOf(uri.lastPathSegment))
+    }
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? = null
 

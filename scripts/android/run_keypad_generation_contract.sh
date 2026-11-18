@@ -2,7 +2,7 @@
 
 # Build and run the host keypad-snapshot generation contract test on Linux.
 # No emulator or device is required: it links hal/lcd.c on the host and asserts
-# that a screen refresh (LCD_write_line) bumps keypadSnapshotGeneration, which
+# that a screen refresh (LCD_write_line) marks the keypad dirty, which
 # the Android display loop relies on to re-read dynamic softkeys such as the EQN
 # editor. See scripts/android/keypad_generation_contract_test.c.
 

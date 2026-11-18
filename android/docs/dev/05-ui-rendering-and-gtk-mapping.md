@@ -263,7 +263,7 @@ Render split:
   `HapticFeedbackConstants.VIRTUAL_KEY`, and sends the key code; `ACTION_UP`
   clears the pressed state and sends key `0` with no release haptic;
   `ACTION_CANCEL` also clears the pressed state but sends
-  `LiveKeyRouter.KEY_CANCEL`, so the press's release action does not run
+  `CalculatorEngine.KEY_CANCEL`, so the press's release action does not run
 - `HapticFeedbackController` owns the strength policy behind that touch
   cadence: `haptic_use_android_default = true` keeps the Android-default
   `VIRTUAL_KEY` view path alone, and nothing vibrates when the view declines,
