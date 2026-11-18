@@ -415,7 +415,11 @@ while matching the desktop simulator's stop-key parity during an active run.
   From targetSdk 36 the platform ignores that lock on large screens (smallest
   width 600 dp and up), so there the activity takes whatever window it gets and
   `ReplicaOverlay` letterboxes the replica into it; the lock still holds on
-  phones
+  phones. The lock alone would make Google Play require a portrait screen and
+  hide the app from devices that report none, and Play Console refuses to send
+  such a release for review; the manifest therefore declares
+  `android.hardware.screen.portrait` with `android:required="false"`, which
+  changes what Play filters and nothing on a device
 - the application is explicitly resizable, which decides multi-window support
   on screens below smallest width 600 dp. On larger screens the platform
   ignores `resizeableActivity` and the portrait lock, the activity fills

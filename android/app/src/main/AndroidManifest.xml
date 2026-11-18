@@ -4,6 +4,15 @@
 
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- MainActivity's portrait lock implies a required portrait screen, and
+         Google Play hides the app from every device that does not report one.
+         The app does not need it: the replica letterboxes into any window, and
+         large screens ignore the lock. Marking the feature not required ends
+         the filter; Android itself never reads it, so the lock still holds. -->
+    <uses-feature
+        android:name="android.hardware.screen.portrait"
+        android:required="false" />
+
     <!-- PictureInPictureIssue: PiP is entered explicitly from the display menu,
          never auto-entered, and a full-screen replica gains nothing from a
          source-rect hint. -->

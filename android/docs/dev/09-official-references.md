@@ -594,6 +594,20 @@ Current repository icon surfaces:
   `android/r47-defaults.properties` names API level 37 or higher. The exceptions
   are games, a user's choice in the device's aspect ratio settings, and smaller
   screens.
+- [<uses-feature>](https://developer.android.com/guide/topics/manifest/uses-feature-element):
+  why the manifest declares `android.hardware.screen.portrait` not required.
+  An activity's `screenOrientation="portrait"` implies that the app requires
+  the portrait screen feature, and Google Play filters on it; the element is
+  "informational only", so Android never checks it on a device.
+  `aapt2 dump badging` on a built APK prints what Play filters on: a
+  `uses-feature-not-required` line for the feature, where a required one
+  prints `uses-implied-feature` with the orientation as its reason.
+- [Increase app availability across device types](https://developer.android.com/develop/adaptive-apps/guides/increase-app-availability):
+  the Device Catalog in Play Console, which lists the devices a manifest
+  excludes and why. Play Console's own check, "Required hardware feature
+  declarations are restricting your app's availability", keeps a release
+  that requires the portrait screen from being sent for review, so it cannot
+  reach closed testing; the internal track took such a release.
 
 ## View-based UI and rendering
 
