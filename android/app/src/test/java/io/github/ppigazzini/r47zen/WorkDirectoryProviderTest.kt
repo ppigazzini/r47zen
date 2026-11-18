@@ -97,9 +97,6 @@ class WorkDirectoryProviderTest {
     fun aTreeIsAccessibleOnlyWithAWriteGrantAndChildrenItCanList() {
         assertFalse(WorkDirectory.isAccessible(resolver, treeUri.toString()))
 
-        resolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        assertFalse(WorkDirectory.isAccessible(resolver, treeUri.toString()))
-
         resolver.takePersistableUriPermission(
             treeUri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,

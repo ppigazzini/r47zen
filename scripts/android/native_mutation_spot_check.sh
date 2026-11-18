@@ -23,20 +23,20 @@ MUT_OLD=(
     "    openedFileWriteFailed = true;"
     'r47_format(defaultName, sizeof(defaultName), "%s", "state.s47");'
     "if (fsync(fileno(openedFile)) != 0 && errno != EINVAL) {"
-    $'  atomic_fetch_add_explicit(&keypadSnapshotGeneration, 1u,\n                            memory_order_relaxed);\n  pthread_mutex_unlock(&packedDisplayMutex);\n}'
+    $'  r47_keypad_mark_dirty();\n}\n\nvoid lcd_clear_buf() {'
 )
 MUT_NEW=(
     "    openedFileWriteFailed = false;"
     'r47_format(defaultName, sizeof(defaultName), "%s", "data.d47");'
     "if (fsync(fileno(openedFile)) != 0) {"
-    $'  pthread_mutex_unlock(&packedDisplayMutex);\n}'
+    $'}\n\nvoid lcd_clear_buf() {'
 )
 MUT_CONTRACTS=("$IO_CONTRACT" "$IO_CONTRACT" "$IO_CONTRACT" "$LCD_CONTRACT")
 MUT_DESC=(
     "hal/io.c: a short write is never reported"
     "hal/io.c: a state save offers the data file's name"
     "hal/io.c: a pipe's fsync EINVAL counts as a failed save"
-    "hal/lcd.c: a screen write leaves the keypad generation as it was"
+    "hal/lcd.c: a screen write leaves the keypad clean"
 )
 
 fail() {

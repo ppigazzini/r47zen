@@ -1,38 +1,32 @@
 #include "c47.h"
 #include "jni_bridge.h"
 
-void beep(uint16_t freq, uint16_t duration) {}
-void beep_tone(uint16_t freq, uint16_t duration) {}
-void stop_beep(void) {}
-
-// The app keeps no beep volume of its own, so the VOL softkeys show no value:
-// NOVAL, as GTK's getBeepVolume answers, where a number would read as a volume
-// on a 0 to 11 scale.
+// The app keeps no beep volume of its own, so the VOL softkeys show no value: NOVAL,
+// as GTK's getBeepVolume answers, where a number would read as a volume on a 0 to 11
+// scale.
 uint16_t getBeepVolume(void) { return (uint16_t)NOVAL; }
 
+static bool tonesSinceRest = false; // calculator thread only
+
+// A note takes its time, as on the hardware: a program's notes are spaced in
+// program time, and a TONE loop cannot outrun the audio queue.
 void _Buzz(uint32_t frequency, uint32_t ms_delay) {
-  if (!g_mainActivityObj || !g_jvm || !g_playToneId) {
-    return;
-  }
-
   if (frequency > 0) {
-    jni_env_scope_t scope;
-    if (!jni_acquire_env(&scope, "_Buzz")) {
-      return;
-    }
-
-    (*scope.env)
-        ->CallVoidMethod(scope.env, g_mainActivityObj, g_playToneId,
-                         (jint)frequency, (jint)ms_delay);
-    jni_check_and_clear_exception(scope.env, "_Buzz CallVoidMethod(playTone)");
-    jni_release_env(&scope, "_Buzz");
+    tonesSinceRest = true;
+    r47_upcall_play_tone((int)frequency, (int)ms_delay);
   }
-
-  // Playback is asynchronous on the Kotlin AudioEngine queue; the core thread
-  // must not block for the tone duration.
+  sys_delay(ms_delay);
 }
 
-void audioTone(uint32_t frequency) { _Buzz(frequency, 200); }
+// The calculator is at rest, so a note still queued belongs to a run that is over.
+void r47_tones_at_rest(void) {
+  if (tonesSinceRest) {
+    tonesSinceRest = false;
+    r47_upcall_tones_clear();
+  }
+}
+
+void audioTone(uint32_t frequency) { _Buzz(frequency, 250); }
 
 void fnSetVolume(uint16_t volume) { (void)volume; }
 void fnGetVolume(uint16_t volume) { (void)volume; }
@@ -46,4 +40,3 @@ void fnBuzz(uint16_t unusedButMandatoryParameter) {
   (void)unusedButMandatoryParameter;
 }
 void fnPlay(uint16_t regist) { (void)regist; }
-void squeak(void) { _Buzz(1000, 10); }

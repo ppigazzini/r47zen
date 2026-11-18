@@ -5,21 +5,17 @@ import android.os.ParcelFileDescriptor
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Hand a core-thread file request to the main thread, and its answer back,
+ * Hand a calculator-thread file request to the main thread, and its answer back,
  * exactly once.
  *
- * Native `requestAndroidFile` parks the core thread until a file result or a
- * cancel arrives, so every request must end in exactly one of the two. The
- * request comes on the core thread, which waits for the answer anyway, so the
- * provider calls that find where the picker starts run there, and the main
- * thread only launches it. The launch reaches the main thread as a posted
- * callback, and `MainActivity.onDestroy` drops every pending callback:
- * [cancelPending] cancels a request whose launch never ran. A launched picker is
- * answered through
- * [deliverSelected] or [deliverCanceled]; when the app stops before it answers,
- * the result never arrives, and [cancelUnanswered] cancels instead. A request
- * posted after `onDestroy` needs no help: its launcher is already unregistered,
- * the launch throws, and [StorageAccessCoordinator.requestNativeFile] cancels.
+ * Native `requestAndroidFile` parks the calculator thread until a file result or a
+ * cancel arrives, so every request must end in exactly one of the two. The request
+ * comes on that thread, which waits for the answer anyway, so the provider calls that
+ * find where the picker starts run there, and the main thread only launches it. It lives as long as
+ * the thread, in [CalculatorEngine], so a posted launch always runs: with no Activity to
+ * open a picker it cancels. A launched picker is answered through [deliverSelected] or
+ * [deliverCanceled]; when the app stops before it answers, the result never arrives, and
+ * [cancelUnanswered] cancels instead.
  *
  * A picked document to load reaches native later, from the transfer worker, so
  * [beginTransfer] marks it in flight. If the app stops first, [cancelUnanswered]
@@ -59,9 +55,8 @@ internal class NativeFileRequestGate(
         )
     }
 
-    // Forward the picker's answer whatever this gate's state: after a
-    // recreation the answer reaches the new Activity's gate, which never
-    // launched, while the core thread still waits for it.
+    // Forward the picker's answer whatever this gate's state: the calculator
+    // thread is what waits for it.
     fun deliverSelected(fd: Int, name: String?) {
         if (state.getAndSet(IDLE) == ABANDONED || !selectNative(fd, name)) {
             closeLateFd(fd)
@@ -76,12 +71,6 @@ internal class NativeFileRequestGate(
 
     fun beginTransfer() {
         state.set(TRANSFERRING)
-    }
-
-    fun cancelPending() {
-        if (state.compareAndSet(POSTED, IDLE)) {
-            cancelNative()
-        }
     }
 
     fun cancelUnanswered() {

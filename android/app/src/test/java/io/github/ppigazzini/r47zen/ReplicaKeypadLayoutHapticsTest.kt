@@ -73,7 +73,7 @@ class ReplicaKeypadLayoutHapticsTest {
 
         assertFalse(keyView.isPressed)
         assertEquals(listOf(1), pressedCodes)
-        assertEquals(listOf(1, LiveKeyRouter.KEY_CANCEL), keyEvents)
+        assertEquals(listOf(1, CalculatorEngine.KEY_CANCEL), keyEvents)
     }
 
     @Test

@@ -1,18 +1,17 @@
 """Lock the JNI native method registration to the Kotlin external declarations.
 
-`jni_registration.c` binds a fixed table of native methods into MainActivity
-through RegisterNatives, and MainActivity declares the matching `external fun`s.
+`jni_registration.c` binds a fixed table of native methods into CalculatorEngine
+through RegisterNatives, and CalculatorEngine declares the matching `external fun`s.
 If the two sets drift -- a method registered with no Kotlin declaration, or an
 `external fun` with no registered binding -- RegisterNatives fails and the app
 crashes at startup. This parses both sides and proves the name sets are equal.
 
-The calls the other way, native into MainActivity, are a third agreement: every
-`GetMethodID` the glue performs must name a `@Keep` MainActivity method with the
-same JNI signature. `updateNativeActivityRef` drops every cached callback when a
-single lookup fails, so one renamed callback silently cuts off file requests,
-tones, and the yield into queued Android work.
+The calls the other way, native into CalculatorEngine, are a third agreement: every
+`bindMethod` the glue performs must name a `@Keep` CalculatorEngine method with the
+same JNI signature. `r47_upcalls_bind` fails the library load when a single lookup
+fails, so one renamed callback stops the app at its start.
 
-The shell codes Kotlin passes to sendSimMenuNative are the remaining JNI-level
+The shell codes Kotlin passes to showShellMenuNative are the remaining JNI-level
 agreement: `jni_bridge.h` defines them, `NativeShellCodes.kt`
 mirrors them, and `jni_input.c` resolves each to an upstream item symbol, never
 a number, since items.h renumbers between upstream revisions.
@@ -27,15 +26,15 @@ from typing import Final
 from r47_contracts._repo_paths import ANDROID_CPP_ROOT, KOTLIN_R47ZEN_ROOT
 
 _JNI_REGISTRATION: Final = ANDROID_CPP_ROOT / "jni_registration.c"
-_MAIN_ACTIVITY: Final = KOTLIN_R47ZEN_ROOT / "MainActivity.kt"
+_CALCULATOR_ENGINE: Final = KOTLIN_R47ZEN_ROOT / "CalculatorEngine.kt"
 _NATIVE_METHOD: Final = re.compile(r'\{"(\w+)",\s*"\(')
 _NATIVE_BINDING: Final = re.compile(
     r'\{"(?P<name>\w+)",\s*"[^"]+",\s*\(void \*\)\s*'
-    r"Java_io_github_ppigazzini_r47zen_MainActivity_(?P<impl>\w+)\}",
+    r"Java_io_github_ppigazzini_r47zen_CalculatorEngine_(?P<impl>\w+)\}",
 )
 _KOTLIN_EXTERNAL_FUN: Final = re.compile(r"external fun (\w+)")
 _NATIVE_METHOD_LOOKUP: Final = re.compile(
-    r'GetMethodID\(\s*env,\s*clazz,\s*"(?P<name>\w+)",\s*"(?P<sig>[^"]+)"\)',
+    r'bindMethod\(\s*env,\s*engineClass,\s*"(?P<name>\w+)",\s*"(?P<sig>[^"]+)"\)',
 )
 _KOTLIN_KEEP_FUN: Final = re.compile(
     r"@Keep\s+fun\s+(?P<name>\w+)\((?P<params>[^)]*)\)(?:\s*:\s*(?P<ret>\w+))?",
@@ -57,9 +56,6 @@ _KOTLIN_SHELL_CODE: Final = re.compile(r"const val (\w+) = (\d+)")
 _C_SHELL_CASE: Final = re.compile(
     r"case R47_SHELL_(\w+):\s*return (-?)([A-Za-z_]\w*|\d+);",
 )
-_LIVE_KEY_ROUTER: Final = KOTLIN_R47ZEN_ROOT / "LiveKeyRouter.kt"
-_C_KEY_CANCEL: Final = re.compile(r"^#define R47_KEY_CANCEL \((-?\d+)\)$", re.MULTILINE)
-_KOTLIN_KEY_CANCEL: Final = re.compile(r"const val KEY_CANCEL = (-?\d+)")
 
 
 def _native_registered_methods() -> set[str]:
@@ -69,8 +65,8 @@ def _native_registered_methods() -> set[str]:
 
 
 def _kotlin_external_functions() -> set[str]:
-    """Return the `external fun` names declared in MainActivity."""
-    text = _MAIN_ACTIVITY.read_text(encoding="utf-8")
+    """Return the `external fun` names declared in CalculatorEngine."""
+    text = _CALCULATOR_ENGINE.read_text(encoding="utf-8")
     return set(_KOTLIN_EXTERNAL_FUN.findall(text))
 
 
@@ -84,7 +80,7 @@ def _native_bindings() -> list[tuple[str, str]]:
 
 
 def _native_method_lookups() -> dict[str, str]:
-    """Return {method name: JNI signature} for every GetMethodID in the glue."""
+    """Return {method name: JNI signature} for every bindMethod in the glue."""
     lookups: dict[str, str] = {}
     for source in sorted(ANDROID_CPP_ROOT.glob("*.c")):
         text = source.read_text(encoding="utf-8")
@@ -112,7 +108,7 @@ def kotlin_keep_signatures(text: str) -> dict[str, str]:
 def callback_mismatches(lookups: dict[str, str], kotlin: dict[str, str]) -> list[str]:
     """Return one line per native lookup with no matching Kotlin method."""
     return [
-        f"{name}{signature}: MainActivity has "
+        f"{name}{signature}: CalculatorEngine has "
         + (f"{name}{kotlin[name]}" if name in kotlin else "no @Keep fun of that name")
         for name, signature in sorted(lookups.items())
         if kotlin.get(name) != signature
@@ -152,7 +148,7 @@ class JniRegistrationContractTest(unittest.TestCase):
         kotlin = _kotlin_external_functions()
         if native != kotlin:
             message = (
-                "JNI method drift between jni_registration.c and MainActivity: "
+                "JNI method drift between jni_registration.c and CalculatorEngine: "
                 f"registered-only={sorted(native - kotlin)} "
                 f"external-only={sorted(kotlin - native)}"
             )
@@ -175,7 +171,7 @@ class JniRegistrationContractTest(unittest.TestCase):
 
 
 class NativeCallbackContractTest(unittest.TestCase):
-    """Verify every method native looks up exists in MainActivity as declared."""
+    """Verify every method native looks up exists in CalculatorEngine as declared."""
 
     def test_native_callbacks_match_keep_methods(self) -> None:
         """Each GetMethodID must name a @Keep fun with the same JNI signature."""
@@ -185,7 +181,7 @@ class NativeCallbackContractTest(unittest.TestCase):
             raise AssertionError(message)
         mismatches = callback_mismatches(
             lookups,
-            kotlin_keep_signatures(_MAIN_ACTIVITY.read_text(encoding="utf-8")),
+            kotlin_keep_signatures(_CALCULATOR_ENGINE.read_text(encoding="utf-8")),
         )
         if mismatches:
             raise AssertionError("\n".join(mismatches))
@@ -204,7 +200,7 @@ class NativeCallbackContractTest(unittest.TestCase):
 
 
 class NativeShellCodeContractTest(unittest.TestCase):
-    """Verify the shell and key cancel codes agree across C and Kotlin."""
+    """Verify the shell codes agree across C and Kotlin and resolve to symbols."""
 
     def test_shell_codes_parse(self) -> None:
         """The parsers must find codes on both sides, guarding against regex rot."""
@@ -240,18 +236,6 @@ class NativeShellCodeContractTest(unittest.TestCase):
             message = (
                 "shell codes resolved to raw item numbers, not items.h symbols: "
                 f"{numeric}"
-            )
-            raise AssertionError(message)
-
-    def test_c_and_kotlin_key_cancel_match(self) -> None:
-        """A canceled touch's code must be one value in jni_bridge.h and Kotlin."""
-        native = _C_KEY_CANCEL.findall(_JNI_BRIDGE.read_text(encoding="utf-8"))
-        kotlin = _KOTLIN_KEY_CANCEL.findall(
-            _LIVE_KEY_ROUTER.read_text(encoding="utf-8"),
-        )
-        if len(native) != 1 or native != kotlin:
-            message = (
-                f"key cancel drift: jni_bridge.h={native} LiveKeyRouter.kt={kotlin}"
             )
             raise AssertionError(message)
 

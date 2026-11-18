@@ -14,15 +14,15 @@
     },
     {
       "path": "src/c47-gtk/hal/io.c",
-      "sha256": "cee47f489207e0e59f5f887ca05ae36b90243d435eb4e040042d01d648067cab"
+      "sha256": "54ae24dcb625d04b235bc98a730e7928000b6f8d81b964ad64bc679bd4f73d56"
     },
     {
       "path": "src/c47-gtk/hal/lcd.c",
-      "sha256": "4e9e4ed92f81ebf486a11a3d1e57ae0f8eced514d802fe617c652f3d8e34c1fc"
+      "sha256": "3d68099cc0842b9d567e86b3d859dd8bf5435a6ae683fd3a0f864b5e527e1178"
     },
     {
       "path": "src/c47/assign.c",
-      "sha256": "f721344fdfe3115777c55085319bfaaead711f3a7394fea3fdd5394efd597611"
+      "sha256": "c0fef0f9bc814fab75de2182d410601cd71b39db42742cf676e55cedaf385ee0"
     },
     {
       "path": "src/c47/hal/audio.h",
@@ -30,15 +30,19 @@
     },
     {
       "path": "src/c47/hal/gui.h",
-      "sha256": "c666a8b452b7c40a523a77e5dbc0df04b610c6f6cb5f04328c404eb2f12a7530"
+      "sha256": "a859ed6f5659c5eedd7fcab5f8f3510f73ee5c1b71f2f86b8ba17a622d5f545b"
     },
     {
       "path": "src/c47/hal/io.h",
       "sha256": "45ca3a0ea3e8107dd3c1a70cb03e83cc3dfa0a985790531456046c5ed82a728f"
     },
     {
+      "path": "src/c47/hal/keys.h",
+      "sha256": "423fb923078dd152ee8829247e91e8f2e92509b7ae2d71c4e1eadef69f4a1d60"
+    },
+    {
       "path": "src/c47/hal/lcd.h",
-      "sha256": "a3e09de9e2a1f4f2fd070019f812eea08aa64dff46fc19b20ba149698a1cd6b9"
+      "sha256": "0bef4b1fe4a527bd61743dfe22d394bcf7c15ed4b6576ea5ac35ea8750d36921"
     },
     {
       "path": "src/c47/hal/print_ir.h",
@@ -46,11 +50,7 @@
     },
     {
       "path": "src/c47/items.c",
-      "sha256": "6169c528a66391a632f9ebaf93365fb258ef4a7088b2d0e9a896a06279c51b6c"
-    },
-    {
-      "path": "src/c47/programming/input.c",
-      "sha256": "f68afe2718cd7c0e3e2cce015423d21b31bddb18d9c55f1a88c746fb21987f6e"
+      "sha256": "4934d0a1f2db1d6dfaa7a64e2dff78d03e23edb7d3b8742922320d8dbceb396e"
     },
     {
       "path": "src/testSuite/hal/io.c",
@@ -58,12 +58,12 @@
     },
     {
       "path": "src/testSuite/hal/lcd.c",
-      "sha256": "1c52c8fc8e0d48805768e5ae259f6082a5758a57edd29199d07d286bb84ef981"
+      "sha256": "5f43fbaa1fc8fc56975d5e2215fd0678e6c8c95f43f82d5fa89233144347d23d"
     }
   ],
   "recorded": {
     "recorded_on": "2026-11-09",
-    "upstream_commit": "74bc496153f79c70e83044bd740018ee15228b6b",
+    "upstream_commit": "feb4a28130ac0142635e7341fb9e81ce38389bb0",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 2

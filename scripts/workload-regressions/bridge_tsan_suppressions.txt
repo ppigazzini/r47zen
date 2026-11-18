@@ -7,9 +7,9 @@
 # the Android-owned bridge (android/app/src/main/cpp/r47zen): those are the hard
 # gate and are fixed at the source.
 #
-# This file is intentionally empty of active entries. The harness drives the
-# core only under the bridge's screenMutex and packedDisplayMutex, which fully
-# serialize core state against the UI reader, so no upstream-core race surfaces
+# This file is intentionally empty of active entries. Only the calculator thread
+# runs core code, and the other threads touch the key buffer, the service queue, and
+# the published copies under their own mutexes, so no upstream-core race surfaces
 # today. Add a `race:<staged-core-path-or-symbol>` line here ONLY if a future
 # upstream sync introduces a genuine core race that cannot be fixed in src/;
 # record why in the phase annex when you do.

@@ -62,7 +62,9 @@ not only on the diff, and run them before reading for smells.
 | seam | inventory |
 |---|---|
 | the LCD frame from the core to the screen, and its palette | [06-runtime-hot-paths.md](06-runtime-hot-paths.md#lcd-frame-state-inventory) |
-| the activity reference and cached method IDs across the core and main threads | [04-native-core-and-jni.md](04-native-core-and-jni.md#activity-reference-writers-and-readers) |
+| the keypad scene from the core to the views | [06-runtime-hot-paths.md](06-runtime-hot-paths.md#keypad-snapshot-state-inventory) |
+| the up-call bindings and the host reference across the calculator and main threads | [04-native-core-and-jni.md](04-native-core-and-jni.md#up-call-bindings) |
+| keys and service requests from any thread to the calculator thread | [04-native-core-and-jni.md](04-native-core-and-jni.md#key-and-service-state) |
 | a document between a provider and native file I/O | [04-native-core-and-jni.md](04-native-core-and-jni.md#document-transfer-state) |
 
 A seam with no inventory yet gets one in its owner page before the review, not

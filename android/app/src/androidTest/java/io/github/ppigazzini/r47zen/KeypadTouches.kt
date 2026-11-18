@@ -10,7 +10,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 // Touches on the real MainActivity's key views, injected as a finger's would be, so
 // each reaches whatever view the window puts at the key's center: the key's touch
 // listener, which hands its code to ReplicaOverlayController.dispatchKey and on to
-// MainActivity, which queues it for the core thread as a core task.
+// CalculatorEngine.dispatchKey, as MainActivity wires them.
 internal object KeypadTouches {
     // KeypadTopology's codes: ENTER is 13; 1, 2, and 3 are 29 to 31; + is 37.
     const val KEY_ENTER = 13
@@ -51,20 +51,15 @@ internal object KeypadTouches {
     }
 
     private fun centerOf(key: View?): FloatArray? {
-        return key?.takeIf { it.width > 0 && it.height > 0 }?.let { laidOut ->
-            val location = IntArray(2)
-            laidOut.getLocationOnScreen(location)
-            floatArrayOf(location[0] + laidOut.width / 2f, location[1] + laidOut.height / 2f)
-        }
+        val laidOut = key?.takeIf { it.width > 0 && it.height > 0 } ?: return null
+        val location = IntArray(2)
+        laidOut.getLocationOnScreen(location)
+        return floatArrayOf(location[0] + laidOut.width / 2f, location[1] + laidOut.height / 2f)
     }
 
-    private fun findKey(view: View, code: Int): CalculatorKeyView? {
-        return when {
-            view is CalculatorKeyView && view.keyCode == code && view.isShown -> view
-            view is ViewGroup -> (0 until view.childCount).asSequence()
-                .mapNotNull { findKey(view.getChildAt(it), code) }
-                .firstOrNull()
-            else -> null
-        }
+    private fun findKey(view: View, code: Int): CalculatorKeyView? = when {
+        view is CalculatorKeyView && view.keyCode == code && view.isShown -> view
+        view is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { findKey(view.getChildAt(it), code) }
+        else -> null
     }
 }

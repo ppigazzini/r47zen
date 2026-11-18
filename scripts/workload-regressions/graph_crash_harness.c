@@ -53,7 +53,6 @@ int main(void) {
   const char *runtime_dir = "/tmp/r47-graph-crash-harness";
   mkdir(runtime_dir, 0700);
 
-  r47_initialize_native_bridge_state();
   r47_native_preinit_path(runtime_dir);
   r47_init_runtime();
 

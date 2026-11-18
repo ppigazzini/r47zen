@@ -42,12 +42,12 @@ class DisplayLifecycleInstrumentedTest {
 
     @Test
     fun backgroundSavePreservesInjectedDisplaySnapshot() {
-        // r47_save_background_state_locked merely calls saveCalc(), which
+        // r47_save_settled merely calls saveCalc(), which
         // serializes calculator state and never touches packedDisplayBuffer
         // (jni_lifecycle.c), so the contract holds for ANY framebuffer. The bridge
         // injects a deterministic non-trivial pattern, hashes the framebuffer,
-        // runs the background save, and re-hashes -- all under screenMutex so no
-        // async redraw can interleave -- with no program run and no timeout. The
+        // runs the background save, and re-hashes -- all at rest on the calculator
+        // thread so no redraw can interleave -- with no program run and no timeout. The
         // pause/resume and recreation snapshot tests keep SPIRALk because they
         // re-render from calculator state, which an injected buffer cannot stand
         // in for.
@@ -70,9 +70,9 @@ class DisplayLifecycleInstrumentedTest {
         // Pause and resume touch no native state: onResume only asks the overlay to
         // lay out again. Drive this from SPIRALk state: pause/resume must preserve
         // the calculator state, so a force-refresh render of that state is
-        // byte-identical before and after. forceRefresh on
-        // both sides routes both captures through the same synchronous,
-        // screenMutex-guarded render so the comparison cannot race an async redraw.
+        // byte-identical before and after. forceRefresh on both sides routes both
+        // captures through the same render on the calculator thread at rest, so the
+        // comparison cannot race an async redraw.
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val targetProgramFile = File(targetContext.filesDir, "PROGRAMS/program.p47")
         val spiralkFixture = testAssets().open(SPIRALK_ASSET_PATH).use { input -> input.readBytes() }
@@ -147,92 +147,6 @@ class DisplayLifecycleInstrumentedTest {
                 beforeHash,
                 afterHash,
             )
-        }
-    }
-
-    @Test
-    fun directStopGateDeclinesInteractiveWaitStates() {
-        // The out-of-band direct stop must fire ONLY for the genuinely-busy run
-        // states PGM_RUNNING (executing) and PGM_PAUSED (inside a timed PSE
-        // loop) -- the states that cannot drain the queued sendKey in time. The
-        // interactive parked states PGM_WAITING and PGM_RESUMING (a graphing
-        // program holding its plot, a program between PSE/VIEW steps, an open
-        // f/g/I/O menu) must DECLINE it, so MainActivity.dispatchLiveKey forwards
-        // R/S(36)/EXIT(33) to the core instead of swallowing them: the second
-        // R/S replots and EXIT leaves the menu.
-        //
-        // This asserts the gate decision deterministically across every run state
-        // -- it does not depend on a real program reaching a specific
-        // (timing-dependent) state -- so the regression cannot return through a
-        // green CI run.
-        ActivityScenario.launch(MainActivity::class.java).use {
-            assertTrue(
-                "Native runtime did not become ready for direct-stop gate coverage",
-                waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
-            )
-
-            assertTrue(
-                "PGM_RUNNING is busy and must accept the out-of-band direct stop",
-                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_RUNNING),
-            )
-            assertTrue(
-                "PGM_PAUSED (timed PSE loop) must accept the out-of-band direct stop",
-                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_PAUSED),
-            )
-            assertEquals(
-                "PGM_WAITING is an interactive wait and must DECLINE the out-of-band direct stop",
-                false,
-                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_WAITING),
-            )
-            assertEquals(
-                "PGM_RESUMING is an interactive wait and must DECLINE the out-of-band direct stop",
-                false,
-                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_RESUMING),
-            )
-            assertEquals(
-                "PGM_STOPPED has no running program and must DECLINE the out-of-band direct stop",
-                false,
-                ProgramLoadTestBridge.directStopAllowedForRunState(PGM_STOPPED),
-            )
-        }
-    }
-
-    @Test
-    fun requestStopProgramHonorsRunStateGateEndToEnd() {
-        // Deterministic run-state injection exercises the live gate end to end
-        // (onUIActivity + r47_direct_stop_allowed + fnStopProgram) for EVERY run
-        // state, with no program run and no timeout. Injection is side-effect-safe
-        // because fnStopProgram only sets programRunStop = PGM_WAITING. The pure
-        // predicate is still covered by directStopGateDeclinesInteractiveWaitStates;
-        // this proves the full JNI function, not just the predicate.
-        ActivityScenario.launch(MainActivity::class.java).use {
-            assertTrue(
-                "Native runtime did not become ready for run-state gate coverage",
-                waitUntil(RUNTIME_READY_TIMEOUT_MS) { ProgramLoadTestBridge.isRuntimeReady() },
-            )
-            ProgramLoadTestBridge.resetRuntime()
-
-            // Genuinely-busy states accept the out-of-band stop end to end.
-            for (busyState in listOf(PGM_RUNNING, PGM_PAUSED)) {
-                ProgramLoadTestBridge.setProgramRunStop(busyState)
-                assertTrue(
-                    "requestStopProgram must accept the live direct stop for busy run state $busyState",
-                    ProgramLoadTestBridge.requestStopProgram(),
-                )
-            }
-
-            // Interactive waits and the idle state decline, so dispatchLiveKey
-            // forwards R/S/EXIT to the core instead of swallowing them.
-            for (nonBusyState in listOf(PGM_WAITING, PGM_RESUMING, PGM_STOPPED)) {
-                ProgramLoadTestBridge.setProgramRunStop(nonBusyState)
-                assertEquals(
-                    "requestStopProgram must decline the live direct stop for run state $nonBusyState",
-                    false,
-                    ProgramLoadTestBridge.requestStopProgram(),
-                )
-            }
-
-            ProgramLoadTestBridge.resetRuntime()
         }
     }
 
@@ -354,11 +268,8 @@ class DisplayLifecycleInstrumentedTest {
         private const val ERROR_NONE = 0
         private const val TI_VIEW_REGISTER = 15
         private const val TI_PROGRAM_LOADED = 86
-        private const val PGM_STOPPED = 0
-        private const val PGM_RUNNING = 1
         private const val PGM_WAITING = 2
         private const val PGM_PAUSED = 3
-        private const val PGM_RESUMING = 5
         private const val RUNTIME_READY_TIMEOUT_MS = 15_000L
         private const val LOAD_TIMEOUT_MS = 10_000L
         private const val RUN_TIMEOUT_MS = 90_000L

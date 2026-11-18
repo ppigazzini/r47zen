@@ -1,22 +1,7 @@
 #include "jni_bridge.h"
+#include "host_services.h"
 
 #include <string.h>
-
-void r47_initialize_native_bridge_state(void) {
-  pthread_mutexattr_t attr;
-  pthread_mutexattr_init(&attr);
-  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-  pthread_mutex_init(&screenMutex, &attr);
-  pthread_mutexattr_destroy(&attr);
-
-  memset(&pressEvent, 0, sizeof(GdkEvent));
-  pressEvent.type = GDK_BUTTON_PRESS;
-  pressEvent.button.button = 1;
-
-  memset(&releaseEvent, 0, sizeof(GdkEvent));
-  releaseEvent.type = GDK_BUTTON_RELEASE;
-  releaseEvent.button.button = 1;
-}
 
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
   (void)reserved;
@@ -27,106 +12,99 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     return JNI_ERR;
   }
 
-  r47_initialize_native_bridge_state();
-
-  if (register_main_activity_natives(env) != JNI_OK) {
+  if (register_calculator_engine_natives(env) != JNI_OK) {
     return JNI_ERR;
   }
 
   return JNI_VERSION_1_6;
 }
 
-int register_main_activity_natives(JNIEnv *env) {
+int register_calculator_engine_natives(JNIEnv *env) {
   /*
-   * Register every MainActivity external here, so a name or signature that
+   * Register every CalculatorEngine external here, so a name or signature that
    * drifts from its Kotlin declaration fails JNI_OnLoad instead of the first
    * call. The implementations carry the JNI names of
-   * io.github.ppigazzini.r47zen.MainActivity, so each one is also found from
+   * io.github.ppigazzini.r47zen.CalculatorEngine, so each one is also found from
    * its Kotlin method by name.
    */
   static const JNINativeMethod methods[] = {
-      {"updateNativeActivityRef", "()V",
+      {"runCalculatorNative", "(Ljava/lang/String;)V",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef},
-      {"releaseNativeRuntime", "()V",
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_runCalculatorNative},
+      {"stopCalculatorNative", "(Z)V",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime},
-      {"nativePreInit", "(Ljava/lang/String;)V",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit},
-      {"initNative", "()V",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_initNative},
-      {"tick", "()I",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_tick},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_stopCalculatorNative},
+      {"setAutoSaveNative", "(Z)V",
+       (void *)
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_setAutoSaveNative},
+      {"isReadyNative", "()Z",
+       (void *)Java_io_github_ppigazzini_r47zen_CalculatorEngine_isReadyNative},
+      {"onHostStoppedNative", "(Z)V",
+       (void *)
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_onHostStoppedNative},
       {"sendKey", "(I)V",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendKey},
-      {"requestStopProgramNative", "()Z",
+       (void *)Java_io_github_ppigazzini_r47zen_CalculatorEngine_sendKey},
+      {"cancelKey", "()V",
+       (void *)Java_io_github_ppigazzini_r47zen_CalculatorEngine_cancelKey},
+      {"releaseKeyIfDown", "()V",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative},
-      {"sendSimKeyNative", "(Ljava/lang/String;ZZ)V",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative},
-      {"sendSimMenuNative", "(I)V",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_sendSimMenuNative},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_releaseKeyIfDown},
+      {"showShellMenuNative", "(I)V",
+       (void *)
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_showShellMenuNative},
+      {"graphGestureNative", "(FFF)V",
+       (void *)
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_graphGestureNative},
+      {"resetGraphNative", "()V",
+       (void *)
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_resetGraphNative},
       {"pasteNumberNative", "(Ljava/lang/String;)Z",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_pasteNumberNative},
-      {"applyGraphPanNative", "(FF)Z",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative},
-      {"applyGraphPinchZoomNative", "(F)Z",
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_pasteNumberNative},
+      {"saveStateNative", "(I)Z",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative},
-      {"applyGraphPanZoomNative", "(FFF)Z",
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_saveStateNative},
+      {"copyRegistersNative", "(I)Z",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative},
-      {"resetGraphNative", "()Z",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative},
-      {"saveStateNative", "()V",
-       (void *)Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative},
-      {"getClipboardXRegisterNative", "()Ljava/lang/String;",
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_copyRegistersNative},
+      {"describeDisplayNative", "()Z",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative},
-      {"getClipboardStackRegistersNative", "()Ljava/lang/String;",
-       (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative},
-      {"getClipboardAllRegistersNative", "()Ljava/lang/String;",
-       (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative},
-      {"describeDisplayNative", "()V",
-       (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_describeDisplayNative},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_describeDisplayNative},
       {"getPackedDisplayGeneration", "()I",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_getPackedDisplayGeneration},
       {"getPackedDisplayBuffer", "([B)Z",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_getPackedDisplayBuffer},
       {"getKeypadSnapshotGeneration", "()I",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_getKeypadSnapshotGeneration},
       {"copyKeypadSnapshotNative", "(I[I[Ljava/lang/String;)Z",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_copyKeypadSnapshotNative},
       {"onFileSelectedNative", "(ILjava/lang/String;)Z",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_onFileSelectedNative},
       {"onFileCanceledNative", "()V",
        (void *)
-           Java_io_github_ppigazzini_r47zen_MainActivity_onFileCanceledNative},
+           Java_io_github_ppigazzini_r47zen_CalculatorEngine_onFileCanceledNative},
   };
 
-  jclass clazz = (*env)->FindClass(env, MAIN_ACTIVITY_CLASS);
-  if (!jni_result_ok(env, clazz, "FindClass(MainActivity)")) {
-    LOGE("Failed to find %s for RegisterNatives", MAIN_ACTIVITY_CLASS);
+  jclass clazz = (*env)->FindClass(env, CALCULATOR_ENGINE_CLASS);
+  if (!jni_result_ok(env, clazz, "FindClass(CalculatorEngine)")) {
+    LOGE("Failed to find %s for RegisterNatives", CALCULATOR_ENGINE_CLASS);
     return JNI_ERR;
   }
 
   if ((*env)->RegisterNatives(env, clazz, methods,
                               sizeof(methods) / sizeof(methods[0])) != 0 ||
-      jni_check_and_clear_exception(env, "RegisterNatives(MainActivity)")) {
-    LOGE("RegisterNatives failed for %s", MAIN_ACTIVITY_CLASS);
+      jni_check_and_clear_exception(env, "RegisterNatives(CalculatorEngine)")) {
+    LOGE("RegisterNatives failed for %s", CALCULATOR_ENGINE_CLASS);
     (*env)->DeleteLocalRef(env, clazz);
     return JNI_ERR;
   }
 
+  bool bound = r47_upcalls_bind(env, clazz);
   (*env)->DeleteLocalRef(env, clazz);
-  return JNI_OK;
+  return bound ? JNI_OK : JNI_ERR;
 }

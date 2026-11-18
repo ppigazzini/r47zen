@@ -63,23 +63,12 @@
 
 // GTK/GDK/Cairo Mocks
 typedef void GtkWidget;
+// hal/keys.h declares keyPushPcEvent for every non-DMCP build.
 typedef struct {
-  int type;
-  struct {
-    int button;
-    double x;
-    double y;
-  } button;
-} GdkEvent;
-typedef void cairo_t;
-typedef void cairo_surface_t;
-typedef void GtkClipboard;
-typedef void *gpointer;
-typedef int gboolean;
-typedef unsigned int guint;
+  unsigned int keyval;
+  unsigned int state;
+} GdkEventKey;
 typedef long long gint64;
-typedef gboolean (*GSourceFunc)(gpointer);
-typedef void *GMainContext;
 
 #ifndef TRUE
 #define TRUE 1
@@ -88,64 +77,11 @@ typedef void *GMainContext;
 #define FALSE 0
 #endif
 
-// GDK Enums
-#define GDK_BUTTON_PRESS 4
-#define GDK_2BUTTON_PRESS 5
-#define GDK_3BUTTON_PRESS 6
-#define GDK_BUTTON_RELEASE 7
-#define GDK_DOUBLE_BUTTON_PRESS GDK_2BUTTON_PRESS
-#define GDK_TRIPLE_BUTTON_PRESS GDK_3BUTTON_PRESS
-#define GDK_SELECTION_CLIPBOARD 0
-#define CAIRO_FORMAT_RGB24 0
-
-// GTK/GDK/Cairo Function Mocks
-extern void triggerQuit(void);
-#define gtk_main_quit() triggerQuit()
-#define gtk_widget_queue_draw(...) (void)0
-gboolean gtk_events_pending(void);
-gboolean gtk_main_iteration(void);
-#define gtk_clipboard_get(...) NULL
-// Upstream's clipboard copies in screen.c hand their text here, and hal/gui.c
-// gives it to the Copy menu's capture.
-void r47_take_clipboard_text(const char *text);
-#define gtk_clipboard_set_text(clipboard, text, length)                        \
-  r47_take_clipboard_text(text)
-#define gtk_clipboard_clear(...) (void)0
-#define gtk_clipboard_set_image(...) (void)0
-#define gdk_pixbuf_get_from_surface(...) NULL
-#define cairo_image_surface_create_for_data(...) NULL
-#define cairo_set_source_surface(...) (void)0
-#define cairo_surface_mark_dirty(...) (void)0
-#define cairo_paint(...) (void)0
-#define cairo_surface_destroy(...) (void)0
-#define cairo_scale(...) (void)0
-#define cairo_pattern_set_filter(...) (void)0
-#define cairo_get_source(...) NULL
-
-#define GTK_TOGGLE_BUTTON(...) NULL
-#define GTK_LABEL(...) NULL
-#define gtk_label_set_label(...) (void)0
-#define gtk_toggle_button_set_active(...) (void)0
-#define gtk_toggle_button_get_active(...) 0
-#define gtk_widget_show(...) (void)0
-#define gtk_widget_hide(...) (void)0
-guint gdk_threads_add_timeout(guint interval, GSourceFunc function,
-                              gpointer data);
-
-guint g_timeout_add(guint interval, GSourceFunc function, gpointer data);
-gboolean g_source_remove(guint tag);
-gboolean g_main_context_iteration(GMainContext *context, gboolean may_block);
-#define g_main_context_default(...) NULL
-
-extern void processCoreTasksNative(void);
-extern void yieldToAndroid(void);
-extern void yieldToAndroidWithMs(int ms);
 extern uint32_t sys_current_ms(void);
 extern gint64 g_get_monotonic_time(void);
 extern gint64 g_get_real_time(void);
 extern int requestAndroidFile(int isSave, const char *defaultName,
                               int fileType);
-extern pthread_mutex_t screenMutex;
 
 // Globals needed by core - MATCHING TYPES IN c47.h
 extern int16_t debugWindow;
@@ -153,7 +89,6 @@ extern int16_t screenStride;
 extern bool debugMemAllocation;
 extern bool forceTamAlpha;
 extern uint32_t deadKey;
-extern uint32_t *screenData;
 
 #endif // ANDROID_BUILD || HOST_TOOL_BUILD
 

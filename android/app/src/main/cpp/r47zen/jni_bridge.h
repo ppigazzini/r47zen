@@ -3,7 +3,6 @@
 
 #include "c47.h"
 #include "keypad_fixture_bridge.h"
-#include "r47_format.h"
 #include <jni.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -15,9 +14,9 @@
 // gets through -include before any header, the app build and each host harness
 // alike.
 
-#define MAIN_ACTIVITY_CLASS "io/github/ppigazzini/r47zen/MainActivity"
+#define CALCULATOR_ENGINE_CLASS "io/github/ppigazzini/r47zen/CalculatorEngine"
 
-// Shell codes Kotlin passes to sendSimMenuNative in place of upstream item numbers,
+// Shell codes Kotlin passes to showShellMenuNative in place of upstream item numbers,
 // which items.h renumbers between upstream revisions. jni_input.c resolves each
 // code against the staged items.h, so an upstream rename fails the build instead
 // of opening the wrong menu. NativeShellCodes.kt mirrors these values, and
@@ -25,19 +24,7 @@
 #define R47_SHELL_MENU_HOME 1
 #define R47_SHELL_MENU_MY_MENU 2
 
-// The code Kotlin passes to sendKey for a touch the platform canceled; 0 is a
-// release, and 1 to 43 a press. LiveKeyRouter.KEY_CANCEL mirrors it, and
-// test_jni_registration_contract.py holds the two equal.
-#define R47_KEY_CANCEL (-1)
-
 extern JavaVM *g_jvm;
-extern jobject g_mainActivityObj;
-extern jmethodID g_requestFileId;
-extern jmethodID g_playToneId;
-extern jmethodID g_processCoreTasksId;
-extern jmethodID g_fileWriteFailedId;
-extern jmethodID g_warningId;
-extern jmethodID g_displayTextId;
 
 typedef struct {
   JNIEnv *env;
@@ -157,17 +144,10 @@ static inline jstring jni_new_string_utf(JNIEnv *env, const char *value,
 
 extern pthread_mutex_t fileMutex;
 extern pthread_cond_t fileCond;
-extern pthread_mutex_t screenMutex;
 extern int fileDescriptor;
 extern bool fileReady;
 extern bool fileCanceled;
 extern _Atomic bool isCoreBlockingForIo;
-
-extern uint32_t nextTimerRefresh;
-extern uint32_t nextScreenRefresh;
-
-extern GdkEvent pressEvent;
-extern GdkEvent releaseEvent;
 
 extern void set_android_base_path(const char *path);
 extern void init_lcd_buffers(void);
@@ -179,125 +159,125 @@ extern void refreshScreen(uint16_t reason);
 gint64 g_get_monotonic_time(void);
 gint64 g_get_real_time(void);
 uint32_t sys_current_ms(void);
-void processCoreTasksNative(void);
-void r47_request_stop_refresh(void);
-// True only for the genuinely-busy run states that justify the out-of-band
-// direct stop (PGM_RUNNING, PGM_PAUSED). Pure decision function with no side
-// effects, shared by the live-key gate and the instrumentation bridge so the
-// run-state contract can be asserted deterministically. Keep aligned with
-// src/c47/programming/input.c (R/S/EXIT are a stop request only while RUNNING).
-bool r47_direct_stop_allowed(uint16_t runState);
-bool r47_apply_pending_stop_refresh_locked(void);
-bool r47_graph_touch_no_nan_stress_locked(int iterations);
-bool r47_sanitize_graph_bounds_locked(void);
-void r47_sync_graph_bounds_reserved_vars_locked(void);
+bool r47_graph_touch_no_nan_stress(int iterations);
+bool r47_sanitize_graph_bounds(void);
+void r47_sync_graph_bounds_reserved_vars(void);
 // The graph window bounds (x_min/x_max/y_min/y_max) are real_t *const decNumber
 // pointers. These helpers bridge the float-based touch and test math to the
 // real API: read a bound into a float, and write a float (including NaN/Inf)
 // back into a bound.
 float r47_graph_bound_to_float(const real_t *value);
 void r47_graph_bound_from_float(float value, real_t *dst);
-void yieldToAndroidWithMs(int ms);
-void yieldToAndroid(void);
 int requestAndroidFile(int isSave, const char *defaultName, int fileType);
 void r47_arm_snap(void);
 void r47_offer_snap(void);
 void r47_set_file_request_override(int fd, int isSave, int fileType);
 void r47_clear_file_request_override(void);
-void triggerQuit(void);
-int register_main_activity_natives(JNIEnv *env);
-void releaseNativeActivityReferences(JNIEnv *env);
-void r47_restore_guard_begin(void);
-void r47_restore_guard_end(void);
-// One of upstream's clipboard copies in screen.c, such as copyRegisterXToClipboard,
-// as text the caller frees, or NULL when the copy could not allocate.
-char *r47_capture_clipboard_locked(void (*copy)(void));
+int register_calculator_engine_natives(JNIEnv *env);
+
+// The calculator thread's work behind the service queue.
+void r47_apply_graph_gesture(float dxNorm, float dyNorm, float scale);
+bool r47_reset_graph(void);
+void r47_show_shell_menu(int shellMenu);
+
+// The calculator thread: a Copy menu text, which the caller frees, or NULL.
+char *r47_clipboard_text(int what);
+char *r47_capture_clipboard(void (*copy)(void));
 // What the display shows, as UTF-8 for a screen reader: the error the screen
 // shows, the TAM prompt's entry, the number or alpha text being typed, else X as
-// Copy X gives it; cut on a whole character to R47_DISPLAY_TEXT_MAX bytes. NULL
-// before the core has its memory or when it cannot allocate; the caller frees it.
+// Copy X gives it; cut on a whole character to R47_DISPLAY_TEXT_MAX bytes. The
+// calculator thread, at rest. NULL before the core has its memory; the caller frees it.
 // *isError says the text is the error the screen shows.
 #define R47_DISPLAY_TEXT_MAX 400
-char *r47_display_text_locked(bool *isError);
-void r47_show_display_text(bool isError, const char *text);
+char *r47_display_text(bool *isError);
+void r47_restore_guard_begin(void);
+void r47_restore_guard_end(void);
+void r47_calculator_main(void);
+void r47_calculator_stop(bool save);
+uint32_t r47_keypad_published_generation(void);
+void r47_keypad_mark_input(void);
+
+// Calls into CalculatorEngine, from the calculator thread. Each does nothing when
+// no JVM is bound, as in a host harness.
+bool r47_upcalls_bind(JNIEnv *env, jclass engineClass);
+bool r47_upcall_request_file(bool isSave, const char *defaultName,
+                             int fileType);
+void r47_upcall_play_tone(int milliHz, int durationMs);
+void r47_upcall_tones_clear(void);
+void r47_tones_at_rest(void);
+void r47_upcall_file_write_failed(void);
+void r47_upcall_quit(void);
+void r47_upcall_clipboard_text(int what, const char *text);
+void r47_upcall_display_text(bool isError, const char *text);
+void r47_upcall_set_clipboard(const char *text);
+void r47_upcall_paste_result(bool pasted);
+void r47_upcall_warning(const char *text);
+void r47_report_file_write_failure(void);
 
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_updateNativeActivityRef(
-    JNIEnv *env, jobject thiz);
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_runCalculatorNative(
+    JNIEnv *env, jclass clazz, jstring path_obj);
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_releaseNativeRuntime(
-    JNIEnv *env, jobject thiz);
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_stopCalculatorNative(
+    JNIEnv *env, jclass clazz, jboolean save);
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_nativePreInit(JNIEnv *env,
-                                                            jobject thiz,
-                                                            jstring path_obj);
-JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_initNative(
-    JNIEnv *env, jobject thiz);
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_setAutoSaveNative(
+    JNIEnv *env, jclass clazz, jboolean enabled);
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_isReadyNative(JNIEnv *env,
+                                                                jclass clazz);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_onHostStoppedNative(
+    JNIEnv *env, jclass clazz, jboolean stopped);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_sendKey(JNIEnv *env,
+                                                          jclass clazz,
+                                                          jint keyCode);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_cancelKey(JNIEnv *env,
+                                                            jclass clazz);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_releaseKeyIfDown(
+    JNIEnv *env, jclass clazz);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_showShellMenuNative(
+    JNIEnv *env, jclass clazz, jint shellMenu);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_graphGestureNative(
+    JNIEnv *env, jclass clazz, jfloat dxNorm, jfloat dyNorm, jfloat scale);
+JNIEXPORT void JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_resetGraphNative(
+    JNIEnv *env, jclass clazz);
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_pasteNumberNative(
+    JNIEnv *env, jclass clazz, jstring tokens);
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_saveStateNative(
+    JNIEnv *env, jclass clazz, jint timeoutMs);
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_copyRegistersNative(
+    JNIEnv *env, jclass clazz, jint what);
+JNIEXPORT jboolean JNICALL
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_describeDisplayNative(
+    JNIEnv *env, jclass clazz);
 JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_tick(JNIEnv *env, jobject thiz);
-JNIEXPORT void JNICALL Java_io_github_ppigazzini_r47zen_MainActivity_sendKey(
-    JNIEnv *env, jobject thiz, jint keyCode);
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_getPackedDisplayGeneration(
+    JNIEnv *env, jclass clazz);
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanNative(
-    JNIEnv *env, jobject thiz, jfloat dxNorm, jfloat dyNorm);
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPinchZoomNative(
-    JNIEnv *env, jobject thiz, jfloat scaleFactor);
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_applyGraphPanZoomNative(
-    JNIEnv *env, jobject thiz, jfloat dxNorm, jfloat dyNorm,
-    jfloat scaleFactor);
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_resetGraphNative(JNIEnv *env,
-                                                               jobject thiz);
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_requestStopProgramNative(
-    JNIEnv *env, jobject thiz);
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_sendSimKeyNative(
-    JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
-    jboolean isRelease);
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_sendSimMenuNative(JNIEnv *env,
-                                                                jobject thiz,
-                                                                jint menuId);
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_pasteNumberNative(JNIEnv *env,
-                                                                jobject thiz,
-                                                                jstring tokens);
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_saveStateNative(JNIEnv *env,
-                                                              jobject thiz);
-JNIEXPORT jstring JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardXRegisterNative(
-    JNIEnv *env, jobject thiz);
-JNIEXPORT jstring JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardStackRegistersNative(
-    JNIEnv *env, jobject thiz);
-JNIEXPORT jstring JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getClipboardAllRegistersNative(
-    JNIEnv *env, jobject thiz);
-JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_describeDisplayNative(
-    JNIEnv *env, jobject thiz);
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_getPackedDisplayBuffer(
+    JNIEnv *env, jclass clazz, jbyteArray buffer);
 JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayGeneration(
-    JNIEnv *env, jobject thiz);
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_getKeypadSnapshotGeneration(
+    JNIEnv *env, jclass clazz);
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getPackedDisplayBuffer(
-    JNIEnv *env, jobject thiz, jbyteArray buffer);
-JNIEXPORT jint JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_getKeypadSnapshotGeneration(
-    JNIEnv *env, jobject thiz);
-JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_copyKeypadSnapshotNative(
-    JNIEnv *env, jobject thiz, jint mainKeyDynamicMode, jintArray metaBuffer,
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_copyKeypadSnapshotNative(
+    JNIEnv *env, jclass clazz, jint mainKeyDynamicMode, jintArray metaBuffer,
     jobjectArray labelsBuffer);
 JNIEXPORT jboolean JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_onFileSelectedNative(
-    JNIEnv *env, jobject thiz, jint fd, jstring name);
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_onFileSelectedNative(
+    JNIEnv *env, jclass clazz, jint fd, jstring name);
 JNIEXPORT void JNICALL
-Java_io_github_ppigazzini_r47zen_MainActivity_onFileCanceledNative(
-    JNIEnv *env, jobject thiz);
+Java_io_github_ppigazzini_r47zen_CalculatorEngine_onFileCanceledNative(
+    JNIEnv *env, jclass clazz);
 
 #endif

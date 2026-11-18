@@ -1,11 +1,7 @@
 package io.github.ppigazzini.r47zen
 
-import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.os.Build
-import android.os.Handler
-import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.Menu
@@ -15,20 +11,11 @@ import androidx.appcompat.widget.PopupMenu
 
 internal class DisplayActionController(
     private val context: Context,
-    private val mainHandler: Handler,
-    private val offerCoreTask: (Runnable) -> Unit,
-    private val getClipboardXRegisterNative: () -> String?,
-    private val getClipboardStackRegistersNative: () -> String?,
-    private val getClipboardAllRegistersNative: () -> String?,
+    private val copyRegisters: (Int) -> Boolean,
     private val pasteNumberNative: (String) -> Boolean,
     private val enterPiP: () -> Unit,
-    private val putClip: (ClipData) -> Unit = { clip ->
-        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
-    },
-    private val sdkInt: Int = Build.VERSION.SDK_INT,
 ) {
     companion object {
-        private const val TAG = "R47DisplayActions"
         const val MENU_SETTINGS = 1
         const val MENU_COPY = 2
         const val MENU_COPY_X_REGISTER = 3
@@ -105,7 +92,7 @@ internal class DisplayActionController(
     }
 
     private fun showCopyMenu(anchor: View) {
-        mainHandler.post {
+        anchor.post {
             createPopupMenu(anchor).apply {
                 populateCopyMenu(menu)
                 setOnMenuItemClickListener { item -> handleCopyMenuSelection(item.itemId) }
@@ -140,75 +127,21 @@ internal class DisplayActionController(
     internal fun handleCopyMenuSelection(itemId: Int): Boolean {
         return when (itemId) {
             MENU_COPY_X_REGISTER -> {
-                copyTextToClipboard(
-                    clipLabel = "R47 X Register",
-                    textProvider = getClipboardXRegisterNative,
-                    confirmation = context.getString(R.string.main_menu_copy_x_register_copied),
-                )
+                copyRegisters(CalculatorEngine.COPY_X)
                 true
             }
 
             MENU_COPY_STACK_REGISTERS -> {
-                copyTextToClipboard(
-                    clipLabel = "R47 Stack Registers",
-                    textProvider = getClipboardStackRegistersNative,
-                    confirmation = context.getString(R.string.main_menu_copy_stack_registers_copied),
-                )
+                copyRegisters(CalculatorEngine.COPY_STACK)
                 true
             }
 
             MENU_COPY_ALL_REGISTERS -> {
-                copyTextToClipboard(
-                    clipLabel = "R47 All Registers",
-                    textProvider = getClipboardAllRegistersNative,
-                    confirmation = context.getString(R.string.main_menu_copy_all_registers_copied),
-                )
+                copyRegisters(CalculatorEngine.COPY_ALL)
                 true
             }
 
             else -> false
-        }
-    }
-
-    private fun copyTextToClipboard(
-        clipLabel: String,
-        textProvider: () -> String?,
-        confirmation: String,
-    ) {
-        offerCoreTask(
-            Runnable {
-                try {
-                    // Null is the calculator's answer to a copy it could not build.
-                    val clipboardText = textProvider()
-                    mainHandler.post {
-                        val copied = clipboardText != null && putOnClipboard(clipLabel, clipboardText)
-                        // From Android 13 the system confirms every copy itself, so a toast of
-                        // the app's would say it twice; a failure it does not report still gets one.
-                        if (!copied) {
-                            Toast.makeText(context, R.string.main_menu_copy_failed, Toast.LENGTH_SHORT).show()
-                        } else if (sdkInt < Build.VERSION_CODES.TIRAMISU) {
-                            Toast.makeText(context, confirmation, Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                } catch (error: Exception) {
-                    Log.e(TAG, "Copy error", error)
-                }
-            }
-        )
-    }
-
-    // A copy as large as all registers holding big matrices can exceed what one
-    // binder call carries, and setPrimaryClip then throws. Read from AOSP: the
-    // system rethrows the binder's failure as a plain RuntimeException, so there is
-    // no narrower type to catch.
-    @Suppress("TooGenericExceptionCaught")
-    private fun putOnClipboard(clipLabel: String, text: String): Boolean {
-        return try {
-            putClip(ClipData.newPlainText(clipLabel, text))
-            true
-        } catch (refused: RuntimeException) {
-            Log.w(TAG, "the clipboard refused a copy of ${text.length} characters", refused)
-            false
         }
     }
 
@@ -226,18 +159,11 @@ internal class DisplayActionController(
             ?.toString()
             ?: return
         val tokens = PasteNumber.tokens(text)
-        if (tokens == null) {
-            Toast.makeText(context, R.string.main_menu_paste_not_a_number, Toast.LENGTH_SHORT).show()
-        } else {
-            offerCoreTask(
-                Runnable {
-                    if (!pasteNumberNative(tokens)) {
-                        mainHandler.post {
-                            Toast.makeText(context, R.string.main_menu_paste_not_ready, Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            )
+        val failure = when {
+            tokens == null -> R.string.main_menu_paste_not_a_number
+            !pasteNumberNative(tokens) -> R.string.main_menu_paste_not_ready
+            else -> null
         }
+        failure?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
 }

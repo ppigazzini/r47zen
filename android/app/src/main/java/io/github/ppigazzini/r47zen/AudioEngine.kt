@@ -13,8 +13,13 @@ object AudioEngine {
     // of Short's range, so the square wave never clips.
     private const val MAX_BEEPER_VOLUME = MainActivityPreferenceController.MAX_BEEPER_VOLUME
     private const val FULL_VOLUME_AMPLITUDE = 16384
+    private const val MILLIS_PER_SECOND = 1000
 
-    private val audioQueue = LinkedBlockingQueue<Long>()
+    // A note holds the calculator thread for its length, so the queue stays near empty and the cap
+    // is only a bound on what a stalled audio device can hold back.
+    internal const val MAX_QUEUED_TONES = 64
+
+    private val audioQueue = LinkedBlockingQueue<Long>(MAX_QUEUED_TONES)
 
     @Volatile
     private var audioThread: Thread? = null
@@ -92,30 +97,25 @@ object AudioEngine {
                     val durationMs = (packed and 0xFFFFFFFF).toInt()
                     val amplitude: Short =
                         (beeperVolume * FULL_VOLUME_AMPLITUDE / MAX_BEEPER_VOLUME).toShort()
-                    val totalSamples = (durationMs + 20) * sampleRate / 1000
-                    val noteSamples = durationMs * sampleRate / 1000
-                    val actualSamples = minOf(totalSamples, bufferSize)
+                    val noteSamples = noteSampleCount(durationMs, sampleRate)
+                    val actualSamples = minOf(noteSamples, bufferSize)
                     val period = if (frequency > 0) sampleRate / frequency else 0
 
                     if (period > 0) {
                         for (index in 0 until actualSamples) {
-                            if (index >= noteSamples) {
-                                buffer[index] = 0
+                            var sample = if ((index % period) < (period / 2)) {
+                                amplitude
                             } else {
-                                var sample = if ((index % period) < (period / 2)) {
-                                    amplitude
-                                } else {
-                                    (-amplitude).toShort()
-                                }
-
-                                val rampSamples = 88
-                                if (index < rampSamples) {
-                                    sample = (sample * index / rampSamples).toShort()
-                                } else if (index > noteSamples - rampSamples) {
-                                    sample = (sample * (noteSamples - index) / rampSamples).toShort()
-                                }
-                                buffer[index] = sample
+                                (-amplitude).toShort()
                             }
+
+                            val rampSamples = 88
+                            if (index < rampSamples) {
+                                sample = (sample * index / rampSamples).toShort()
+                            } else if (index > noteSamples - rampSamples) {
+                                sample = (sample * (noteSamples - index) / rampSamples).toShort()
+                            }
+                            buffer[index] = sample
                         }
                     } else {
                         for (index in 0 until actualSamples) {
@@ -164,6 +164,16 @@ object AudioEngine {
         audioThread?.interrupt()
         audioThread = null
     }
+
+    /** A run ended: what it queued and has not started playing would outlast it. */
+    fun clearQueuedTones() {
+        audioQueue.clear()
+    }
+
+    internal fun queuedToneCount(): Int = audioQueue.size
+
+    internal fun noteSampleCount(durationMs: Int, sampleRate: Int): Int =
+        durationMs * sampleRate / MILLIS_PER_SECOND
 
     fun playTone(milliHz: Int, durationMs: Int) {
         if (!isBeeperEnabled || milliHz <= 0) {

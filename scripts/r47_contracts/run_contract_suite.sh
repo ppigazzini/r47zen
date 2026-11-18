@@ -12,7 +12,6 @@ DERIVE_MODULES=(
     r47_contracts.derive_key_visual_policy
     r47_contracts.derive_key_font_policy
     r47_contracts.derive_keyboard_layout_contract
-    r47_contracts.derive_live_stop_key_policy
 )
 
 TEST_MODULES=(
@@ -22,7 +21,6 @@ TEST_MODULES=(
     r47_contracts.test_key_font_policy_contract
     r47_contracts.test_keyboard_layout_contract
     r47_contracts.test_alpha_case_export_contract
-    r47_contracts.test_live_stop_key_policy_contract
     r47_contracts.test_lcd_packed_row_contract
     r47_contracts.test_lcd_palette_owner_contract
     r47_contracts.test_settings_default_reads_contract

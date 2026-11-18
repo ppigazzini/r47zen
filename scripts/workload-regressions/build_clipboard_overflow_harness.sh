@@ -75,6 +75,7 @@ mapfile -t ANDROID_BRIDGE_SOURCES < <(r47_glue_sources "$TRACKED_CPP_DIR")
     "${STAGED_GMP_SOURCES[@]}" \
     "${STAGED_DEC_SOURCES[@]}" \
     "${ANDROID_BRIDGE_SOURCES[@]}" \
+    -Wl,--wrap=r47_upcall_set_clipboard \
     -lm \
     -o "$BUILD_DIR/clipboard-overflow-harness"
 

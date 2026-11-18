@@ -24,6 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/ci_contract.sh"
 CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp/r47zen"
 LCD_C="$CPP_DIR/hal/lcd.c"
+KEYPAD_C="$CPP_DIR/keypad_scene.c"
 RUNTIME_C="$CPP_DIR/android_runtime.c"
 
 fail() {
@@ -34,8 +35,8 @@ fail() {
 # The lock-free signals, and the file that defines each.
 declare -A SIGNAL_HOME=(
     [packedDisplayGeneration]="$LCD_C"
-    [keypadSnapshotGeneration]="$LCD_C"
-    [g_r47_stop_refresh_pending]="$RUNTIME_C"
+    [publishedKeypadGeneration]="$KEYPAD_C"
+    [requestedKeypadMode]="$KEYPAD_C"
     [isCoreBlockingForIo]="$RUNTIME_C"
 )
 
