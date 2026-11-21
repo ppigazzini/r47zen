@@ -14,7 +14,7 @@
     },
     {
       "path": "src/c47-gtk/gtkGui.c",
-      "sha256": "59264fab259d409b42c40551a5b790600b11bee2491f0cb9d5b4c8e4b4c5f154"
+      "sha256": "a35423c599867b021c3e2f571686a17aa55145e68831a6e00268d069f39bbeed"
     },
     {
       "path": "src/c47-gtk/hal/io.c",
@@ -54,7 +54,7 @@
     },
     {
       "path": "src/c47/items.c",
-      "sha256": "4934d0a1f2db1d6dfaa7a64e2dff78d03e23edb7d3b8742922320d8dbceb396e"
+      "sha256": "186b5a3bba88fc0d4e5b7bc65402e499200ac8c711acdd3c9d5753df0a7fd77c"
     },
     {
       "path": "src/testSuite/hal/io.c",
@@ -66,8 +66,8 @@
     }
   ],
   "recorded": {
-    "recorded_on": "2026-11-12",
-    "upstream_commit": "243a24836b33230ee97807f688c7538840dbf84d",
+    "recorded_on": "2026-11-21",
+    "upstream_commit": "96708a5608e37da08098baf798dca3f3c90f75dd",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 2
