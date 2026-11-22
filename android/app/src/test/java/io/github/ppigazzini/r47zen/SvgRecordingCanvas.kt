@@ -18,9 +18,11 @@ import java.util.Locale
 //
 // It covers the calls the replica makes: rects, rounded rects, lines, circles,
 // paths, and drawText, the last as the glyph outlines Paint.getTextPath gives,
-// with underline and strike-through as rects. A drawBitmap records where the
-// bitmap lands in lcdWindows and draws nothing in the SVG; the page lays the LCD
-// screen there. Shadows, shaders, and clips are not recorded.
+// with underline and strike-through as the rects drawText draws;
+// SvgRecordingCanvasTest holds those rects to the platform's pixels. A
+// drawBitmap records where the bitmap lands in lcdWindows and draws nothing in
+// the SVG; the page lays the LCD screen there. Shadows, shaders, and clips are
+// not recorded.
 internal class SvgRecordingCanvas(private val bitmap: Bitmap) : Canvas(bitmap) {
     private val runs = mutableListOf<Pair<Int, StringBuilder>>()
     val lcdWindows = mutableListOf<RectF>()
@@ -95,16 +97,25 @@ internal class SvgRecordingCanvas(private val bitmap: Bitmap) : Canvas(bitmap) {
         val fill = Paint(paint).apply { style = Paint.Style.FILL }
         fill.getTextPath(text, 0, text.length, x, y, glyphs)
         if (paint.isUnderlineText || paint.isStrikeThruText) {
+            // Draw each decoration where Canvas.drawText draws it: across the
+            // text's advance from the start its alignment gives, the same start
+            // getTextPath gives the glyphs, at the paint's own position and
+            // thickness, and never thinner than one pixel. Anchored at x
+            // instead, a centered or right-aligned label's line lands beside
+            // its glyphs.
             val width = paint.measureText(text)
-            val metrics = paint.fontMetrics
-            val thickness = maxOf(1f, paint.textSize / UNDERLINE_THICKNESS_DIVISOR)
+            val left = when (paint.textAlign) {
+                Paint.Align.LEFT -> x
+                Paint.Align.CENTER -> x - width / 2f
+                Paint.Align.RIGHT -> x - width
+            }
             if (paint.isUnderlineText) {
-                val top = y + metrics.descent / 2f
-                glyphs.addRect(x, top, x + width, top + thickness, Path.Direction.CW)
+                val top = y + paint.underlinePosition
+                glyphs.addRect(left, top, left + width, top + maxOf(1f, paint.underlineThickness), Path.Direction.CW)
             }
             if (paint.isStrikeThruText) {
-                val top = y + (metrics.ascent + metrics.descent) / 2f
-                glyphs.addRect(x, top, x + width, top + thickness, Path.Direction.CW)
+                val top = y + paint.strikeThruPosition
+                glyphs.addRect(left, top, left + width, top + maxOf(1f, paint.strikeThruThickness), Path.Direction.CW)
             }
         }
         record(glyphs, fill)
@@ -157,7 +168,6 @@ internal class SvgRecordingCanvas(private val bitmap: Bitmap) : Canvas(bitmap) {
 
     private companion object {
         const val OPAQUE = 255
-        const val UNDERLINE_THICKNESS_DIVISOR = 18f
 
         fun hex(color: Int): String = String.format(Locale.ROOT, "#%06x", color and 0xFFFFFF)
 

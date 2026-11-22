@@ -464,9 +464,16 @@ source is missing from this page:
   Android calculator the Pages site shows; it holds the LCD window it records to
   the place `ReplicaChromeLayout` projects it, at scale 1. `SvgRecordingCanvas.kt`
   writes each rect, rounded rect, line, circle, path, and glyph the canvas draws
-  as a filled SVG path in the canvas's matrix, and records where a bitmap lands;
-  it records no shadow, shader, or clip, so the SVG shows only what those calls
-  draw
+  as a filled SVG path in the canvas's matrix, a text underline or
+  strike-through as the rect `Canvas.drawText` draws, and records where a bitmap
+  lands; it records no shadow, shader, or clip, so the SVG shows only what those
+  calls draw
+- `SvgRecordingCanvasTest.kt`: holds the underline and the strike-through
+  `SvgRecordingCanvas.kt` records, at each text alignment, in the default
+  typeface and in the C47 standard font the keypad labels use, to the pixels the
+  platform's `Canvas.drawText` changes on the same bitmap, within the one pixel
+  antialiasing blurs an edge into; it covers the decorations only, not the
+  glyph outlines or the other shapes
 - `KeyboardLayoutContractRenderTest.kt`: loads the shared
   `r47_keyboard_layout_contract.json` classpath resource, keeps representative
   exported keypad scenes aligned with that shared payload, and proves
