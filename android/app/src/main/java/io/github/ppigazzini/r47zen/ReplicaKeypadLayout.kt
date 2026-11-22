@@ -2,7 +2,6 @@ package io.github.ppigazzini.r47zen
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.View
 
@@ -58,6 +57,16 @@ internal object ReplicaKeypadLayout {
         )
     }
 
+    // Give every key the font set, in place: the smooth standard font keeps the
+    // pixel font's cmap, advance widths, and vertical metrics, so a swap moves
+    // no label and needs no rebuild, only the scene replay the caller runs.
+    fun applyFonts(context: Context, overlay: ReplicaOverlay, smoothKeyLabels: Boolean) {
+        val fonts = KeypadFonts.load(context, smoothKeyLabels)
+        for (index in 0 until overlay.childCount) {
+            (overlay.getChildAt(index) as? CalculatorKeyView)?.setFontSet(fonts)
+        }
+    }
+
     fun updateDynamicKeys(
         overlay: ReplicaOverlay,
         snapshot: KeypadSnapshot,
@@ -82,11 +91,7 @@ internal object ReplicaKeypadLayout {
         dispatchKey: (Int) -> Unit,
         initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
-        val fonts = KeypadFontSet(
-            standard = loadTypeface(context, "fonts/C47__StandardFont.ttf"),
-            numeric = loadTypeface(context, "fonts/C47__NumericFont.ttf"),
-            tiny = loadTypeface(context, "fonts/C47__TinyFont.ttf"),
-        )
+        val fonts = KeypadFonts.load(context, smoothKeyLabels = false)
         val initialSnapshot = initialSnapshotProvider().takeIf {
             it.sceneContractVersion > 0
         }
@@ -260,14 +265,6 @@ internal object ReplicaKeypadLayout {
             touchZoneSpec.height,
             showTouchZone = true,
         )
-    }
-
-    private fun loadTypeface(context: Context, assetPath: String): Typeface? {
-        return try {
-            Typeface.createFromAsset(context.assets, assetPath)
-        } catch (_: Exception) {
-            null
-        }
     }
 
     @SuppressLint("ClickableViewAccessibility")

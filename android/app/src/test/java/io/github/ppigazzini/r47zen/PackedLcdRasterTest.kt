@@ -6,7 +6,9 @@ import io.github.ppigazzini.r47zen.LcdTestFrames.frameWith
 import io.github.ppigazzini.r47zen.LcdTestFrames.palettes
 import io.github.ppigazzini.r47zen.LcdTestFrames.pixelsOf
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -80,7 +82,98 @@ class PackedLcdRasterTest {
         assertArrayEquals(expectedPixels(PALETTE, setOf(3 to 3)), pixelsOf(raster))
     }
 
+    @Test
+    fun smoothingOff_drawsTheOneToOneBitmap() {
+        val raster = PackedLcdRaster(PALETTE)
+
+        assertSame(raster.bitmap, raster.displayBitmap)
+    }
+
+    @Test
+    fun smoothingOn_drawsAFourTimesLayer_thatKeepsASinglePixelSquare() {
+        val raster = PackedLcdRaster(PALETTE)
+        raster.setSmoothing(true)
+        raster.applyFrame(frameWith(setOf(100 to 50), flaggedRows = emptySet()))
+
+        val layer = raster.displayBitmap
+        assertEquals(R47LcdContract.PIXEL_WIDTH * SMOOTH_SCALE, layer.width)
+        assertEquals(R47LcdContract.PIXEL_HEIGHT * SMOOTH_SCALE, layer.height)
+        // An isolated pixel has no diagonal to rebuild: it is the 4x4 block of
+        // text and nothing around it.
+        for (y in 196 until 204) {
+            for (x in 396 until 404) {
+                val lit = x in 400 until 404 && y in 200 until 204
+                assertEquals("($x, $y)", if (lit) PALETTE.text else PALETTE.background, layer.getPixel(x, y))
+            }
+        }
+    }
+
+    @Test
+    fun smoothingOn_aDiagonalGainsInBetweenPixels_thatTheOneToOneBitmapScaledUpLacks() {
+        val raster = PackedLcdRaster(PALETTE)
+        raster.setSmoothing(true)
+        val diagonal = (0 until 8).map { 40 + it to 20 + it }.toSet()
+        raster.applyFrame(frameWith(diagonal, flaggedRows = emptySet()))
+
+        // Between (43, 23) and (44, 24) a plain 4x scale leaves the corner
+        // pixels at 4x (175, 96) and (172, 99) paper; MMPX fills them.
+        val layer = raster.displayBitmap
+        assertEquals(PALETTE.text, layer.getPixel(176, 95))
+        assertEquals(PALETTE.text, layer.getPixel(175, 96))
+    }
+
+    @Test
+    fun smoothLayer_afterARowUpdate_equalsTheWholeFrameMagnifiedAfresh() {
+        val before = (0 until 30).map { 60 + it to 100 + it }.toSet() + EDGE_PIXELS
+        val after = (0 until 30).map { 90 - it to 100 + it }.toSet() + EDGE_PIXELS
+        val updated = PackedLcdRaster(PALETTE).apply {
+            setSmoothing(true)
+            applyFrame(frameWith(before, flaggedRows = emptySet()))
+            applyFrame(frameWith(after, flaggedRows = (100 until 130).toSet()))
+        }
+        val fresh = PackedLcdRaster(PALETTE).apply {
+            setSmoothing(true)
+            applyFrame(frameWith(after, flaggedRows = emptySet()))
+        }
+
+        assertArrayEquals(layerPixels(fresh), layerPixels(updated))
+    }
+
+    @Test
+    fun smoothingTurnedOnLate_magnifiesTheHeldFrame() {
+        val late = PackedLcdRaster(PALETTE).apply {
+            applyFrame(frameWith(EDGE_PIXELS, flaggedRows = emptySet()))
+            setSmoothing(true)
+        }
+        val early = PackedLcdRaster(PALETTE).apply {
+            setSmoothing(true)
+            applyFrame(frameWith(EDGE_PIXELS, flaggedRows = emptySet()))
+        }
+
+        assertArrayEquals(layerPixels(early), layerPixels(late))
+    }
+
+    @Test
+    fun setPalette_repaintsTheSmoothLayer() {
+        val raster = PackedLcdRaster(PALETTE)
+        raster.setSmoothing(true)
+        raster.applyFrame(frameWith(setOf(100 to 50), flaggedRows = emptySet()))
+
+        raster.setPalette(RECOLOR)
+
+        assertEquals(RECOLOR.text, raster.displayBitmap.getPixel(401, 201))
+        assertEquals(RECOLOR.background, raster.displayBitmap.getPixel(0, 0))
+    }
+
+    private fun layerPixels(raster: PackedLcdRaster): IntArray {
+        val layer = raster.displayBitmap
+        val pixels = IntArray(layer.width * layer.height)
+        layer.getPixels(pixels, 0, layer.width, 0, 0, layer.width, layer.height)
+        return pixels
+    }
+
     private companion object {
+        const val SMOOTH_SCALE = 4
         val PALETTE = LcdPalette(text = 0xFF20313D.toInt(), background = 0xFFDCECD0.toInt())
         val RECOLOR = LcdPalette(text = 0xFF112A4A.toInt(), background = 0xFFF1E6C5.toInt())
         const val STRAY = 0xFFFF00FF.toInt()

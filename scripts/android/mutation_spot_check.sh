@@ -98,7 +98,7 @@ MUT_OLD=(
     "updatedScale.coerceIn(scaleFactorMin, scaleFactorMax)"
     "return keyStates[code - 1]"
     "val wholeFrame = !hasNativeFrame"
-    "linePixels[destX + bit] = if ((packedByte and (1 shl (7 - bit))) != 0) {"
+    "val isText = (packedByte and (1 shl (7 - bit))) != 0"
     "val wholeFrame = !hasNativeFrame"
     "this.palette = palette"
     $'            append(canonicalMantissa(mantissa.replace(\',\', \'.\')))\n            if (number.startsWith(\'-\')) {\n                append(TOKEN_NEGATE)\n            }'
@@ -128,7 +128,7 @@ MUT_NEW=(
     "scaleFactorMax"
     "return KeypadKeySnapshot.EMPTY"
     "val wholeFrame = false"
-    "linePixels[destX + bit] = if ((packedByte and (1 shl bit)) != 0) {"
+    "val isText = (packedByte and (1 shl bit)) != 0"
     "val wholeFrame = !hasNativeFrame && (0 until R47LcdContract.PIXEL_HEIGHT).none { (buffer[it * R47LcdContract.PACKED_ROW_SIZE_BYTES].toInt() and 0xFF) != 0 }"
     "this.palette = palette; hasNativeFrame = true"
     $'            if (number.startsWith(\'-\')) {\n                append(TOKEN_NEGATE)\n            }\n            append(canonicalMantissa(mantissa.replace(\',\', \'.\')))'

@@ -385,6 +385,14 @@ class CalculatorKeyView @JvmOverloads constructor(
         return mainKeyRect.width()
     }
 
+    // Swap the fonts of a key already set. The labels take the new typefaces on
+    // the next updateLabels, which reapplies every label's role.
+    internal fun setFontSet(fonts: KeypadFontSet) {
+        fontSet = fonts
+        mainKeyLabelMirrors.applyFonts(fonts)
+        invalidate()
+    }
+
     internal fun setKey(slot: KeypadSlotSpec, fonts: KeypadFontSet) {
         this.keyCode = slot.code
         this.isFnKey = slot.isFunctionKey

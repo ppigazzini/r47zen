@@ -17,7 +17,7 @@ contract-to-regression map that proves these loops.
 | direct-stop refresh finalization | after live `R/S` or `EXIT` publishes stop during RUN or PAUSE, native code marks a pending stop-refresh request and the next `tick()` or `yieldToAndroidWithMs()` consumes it under `screenMutex` | `jni_input.c`, `jni_lifecycle.c`, `android_runtime.c` | this is the display-plane path that makes the first stop look finished instead of waiting for a second key press or explicit refresh | if `SCRUPD_AUTO` or `reDraw` is not rearmed here, graph pixels and post-stop text can mix on the first stop |
 | native tick and timer path | `tick()` acquires `screenMutex` with `trylock`; timers every 5 ms, LCD refresh every 100 ms, one byte test for a finished `SNAP`, then returns the next wake delay | `jni_lifecycle.c` | this is the steady-state native heartbeat | turning the lock into a blocking wait or adding heavy work lengthens every cycle; a finished `SNAP`, even one from a long-held `EXIT`, parks this tick on the save picker, as any file request parks the core, and the pause-side save waits behind it |
 | frame refresh loop | one `Choreographer` callback per UI frame while active; LCD polling first checks a packed-display generation and keypad snapshots refresh every 500 ms or on generation change | `NativeDisplayRefreshLoop.kt`, `NativeKeypadSnapshotStore.kt`, `jni_display.c`, `ReplicaOverlay.kt` | this is the continuous UI-side polling loop | breaking generation or busy-copy handling can regress to stale or blocking keypad refreshes |
-| packed LCD row decode | each accepted LCD update copies every packed row, decodes the flagged ones to the bitmap, and requests one redraw of the overlay | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
+| packed LCD row decode | each accepted LCD update copies every packed row, decodes the flagged ones to the bitmap and, with Smooth LCD on, runs two MMPX passes over them and the rows within reach to the 4x layer, and requests one redraw of the overlay | `ReplicaOverlay.kt`, `jni_display.c`, `hal/lcd.c` | this runs on the UI thread and touches the LCD bitmap path directly | forced full-snapshot redraws on passive lifecycle edges or transport-metadata coupling create visible regressions |
 | keypad scene apply | scene changes update all live key views, invalidate per-key specs, and may request layout | `ReplicaOverlayController.kt`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `KeyRenderSpec.kt` | keypad labels, render specs, and layout are the largest recurring view updates outside the LCD | bypassing the refresh gate or forcing layout or invalidation on unchanged scenes creates churn |
 | lifecycle save and explicit refresh | background save waits on the core thread; explicit redraw remains opt-in for real state changes | `NativeCoreRuntime.kt`, `MainActivity.kt`, `jni_lifecycle.c` | lifecycle callbacks are easy places to hide destructive redraw work | synthetic redraws during passive save or resume mutate the LCD without a real calculator transition |
 | yield and SAF I/O boundary | long native waits release `screenMutex`, service Android work, and reacquire the recursive lock | `android_runtime.c`, `jni_storage.c`, `hal/io.c` | this is the most sensitive re-entrancy boundary in the bridge | deadlock, input races, or missed wakeups stall the app |
@@ -204,11 +204,11 @@ if it were visible LCD state.
 
 ## LCD Frame State Inventory
 
-One LCD frame lives in five copies between the core and the screen. This table
-is the state inventory that the first check in
-[11-reviewing-a-change.md](11-reviewing-a-change.md#the-four-checks) starts
-from: a change to any copy is reviewed against all five, and a change that adds
-a copy adds a row here in the same commit.
+One LCD frame lives in five copies between the core and the screen, and in two
+more, the smooth layer's, while Smooth LCD is on. This table is the state inventory that the first
+check in [11-reviewing-a-change.md](11-reviewing-a-change.md#the-four-checks)
+starts from: a change to any copy is reviewed against all of them, and a change
+that adds a copy adds a row here in the same commit.
 
 | copy | owner | written by (thread) | read by (thread) | change signal |
 |---|---|---|---|---|
@@ -217,6 +217,8 @@ a copy adds a row here in the same commit.
 | `packedLcdBuffer` | `NativeDisplayRefreshLoop` | `getPackedDisplayBuffer`, every byte of every row (main) | `ReplicaOverlay.updatePackedLcd` (main) | row byte 0 as copied |
 | the frame in `PackedLcdRaster` | `PackedLcdRaster`, held by `ReplicaOverlay` | `applyFrame`, the flagged rows or every row of the first frame (main) | `decodeRow` (main) | none |
 | `PackedLcdRaster.bitmap` | `PackedLcdRaster` | `decodeRow`, from the constructor, `applyFrame`, and `setPalette` (main) | `ReplicaOverlay.dispatchDraw` (main) | the overlay's `requestLcdRedraw`, after `applyFrame` reports a changed row and after every `setPalette` |
+| the smooth layer's ink (Smooth LCD on) | `PackedLcdRaster`, in its file-private `SmoothLcdLayer` | `decodeRow`, one byte per pixel beside the bitmap, and every row when `setSmoothing` turns the layer on (main) | the layer's `update` (main) | none |
+| the smooth layer's bitmap (Smooth LCD on) | `PackedLcdRaster`, in its file-private `SmoothLcdLayer` | `update` after `applyFrame` changes a row, over the changed rows widened by `LcdMmpx.REACH` at each of its two passes; `repaint` on `setPalette`; a whole update when `setSmoothing` turns it on (main) | `ReplicaOverlay.dispatchDraw`, as `displayBitmap` (main) | the same `requestLcdRedraw`, and one after `ReplicaOverlay.setSmoothLcd` |
 
 The palette, held by `PackedLcdRaster`, is decoded into every bitmap row, so it
 is part of the same state.

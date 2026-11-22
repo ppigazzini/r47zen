@@ -20,6 +20,22 @@ class CalculatorKeyViewFontSelectionTest {
     )
 
     @Test
+    fun setFontSet_givesEveryLabelTheNewStandardTypeface_onTheNextUpdate() {
+        val view = createMainKeyView(19)
+        val smooth = fontSet.copy(standard = Typeface.DEFAULT_BOLD)
+        val state = numericMatrixKeyState(primaryLabel = "7", fLabel = "LASTx", gLabel = "STK", letterLabel = "A")
+        view.updateLabels(snapshotFor(19, state))
+
+        view.setFontSet(smooth)
+        view.updateLabels(snapshotFor(19, state))
+
+        assertSame(smooth.standard, view.primaryLabel.typeface)
+        assertSame(smooth.standard, view.fLabel.typeface)
+        assertSame(smooth.standard, view.gLabel.typeface)
+        assertSame(smooth.standard, view.letterLabel.typeface)
+    }
+
+    @Test
     fun numericStyleUsesStandardTypefaceWhenLabelIsCovered() {
         val view = createMainKeyView(19)
 

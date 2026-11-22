@@ -16,6 +16,8 @@ internal class MainActivityPreferenceController(
     private val applyShowTouchZones: (Boolean) -> Unit,
     private val applyShowDeveloperPerformanceHud: (Boolean) -> Unit,
     private val applyKeypadLabelModes: (MainKeyDynamicMode, SoftkeyDynamicMode) -> Unit,
+    private val applySmoothKeyLabels: (Boolean) -> Unit,
+    private val applySmoothLcd: (Boolean) -> Unit,
 ) {
     companion object {
         const val DEFAULT_BEEPER_VOLUME = 20
@@ -26,6 +28,8 @@ internal class MainActivityPreferenceController(
         const val DEFAULT_FORCE_CLOSE_ON_EXIT = false
         const val DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD = false
         const val DEFAULT_SHOW_TOUCH_ZONES = false
+        const val DEFAULT_SMOOTH_KEY_LABELS = true
+        const val DEFAULT_SMOOTH_LCD = true
         const val MIN_BEEPER_VOLUME = 0
         const val MAX_BEEPER_VOLUME = 100
         const val DEFAULT_LCD_NEGATIVE = LcdThemePolicy.DEFAULT_NEGATIVE
@@ -54,6 +58,8 @@ internal class MainActivityPreferenceController(
         internal const val KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = "developer_performance_hud_window_millis"
         internal const val KEY_SHOW_DEVELOPER_PERFORMANCE_HUD = "show_developer_performance_hud"
         internal const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
+        internal const val KEY_SMOOTH_KEY_LABELS = "smooth_key_labels"
+        internal const val KEY_SMOOTH_LCD = "smooth_lcd"
         internal const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
         private const val LEGACY_KEY_LCD_MODE = "lcd_mode"
     }
@@ -91,6 +97,12 @@ internal class MainActivityPreferenceController(
     var softkeyDynamicMode = DEFAULT_SOFTKEY_DYNAMIC_MODE
         private set
 
+    var smoothKeyLabels = DEFAULT_SMOOTH_KEY_LABELS
+        private set
+
+    var smoothLcd = DEFAULT_SMOOTH_LCD
+        private set
+
     fun applyInitialPreferences() {
         hapticFeedbackController.syncFromPreferences(preferences)
 
@@ -106,15 +118,19 @@ internal class MainActivityPreferenceController(
             preferences.getBoolean(KEY_SHOW_DEVELOPER_PERFORMANCE_HUD, DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD)
         showTouchZones = preferences.getBoolean(KEY_SHOW_TOUCH_ZONES, DEFAULT_SHOW_TOUCH_ZONES)
         softkeyDynamicMode = readNormalizedSoftkeyDynamicMode()
+        smoothKeyLabels = preferences.getBoolean(KEY_SMOOTH_KEY_LABELS, DEFAULT_SMOOTH_KEY_LABELS)
+        smoothLcd = preferences.getBoolean(KEY_SMOOTH_LCD, DEFAULT_SMOOTH_LCD)
 
         applyKeepScreenOn(preferences.getBoolean(KEY_KEEP_SCREEN_ON, DEFAULT_KEEP_SCREEN_ON))
         windowModeController.applyFullscreenMode(preferences.getBoolean(KEY_FULLSCREEN_MODE, DEFAULT_FULLSCREEN_MODE))
         syncAudioSettings(isBeeperEnabled, beeperVolume)
         applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
+        applySmoothKeyLabels(smoothKeyLabels)
         // Here, not in the deferred overlay pass: MainActivity runs this before
         // the overlay's first draw, so no frame shows the default palette under
         // another stored theme.
         applyLcdTheme(lcdTheme, lcdLuminance, isLcdNegative)
+        applySmoothLcd(smoothLcd)
     }
 
     fun applyDeferredOverlayPreferences() {
@@ -124,7 +140,7 @@ internal class MainActivityPreferenceController(
     }
 
     fun onPreferenceChanged(key: String): Boolean {
-        if (hapticFeedbackController.onPreferenceChanged(preferences, key)) {
+        if (hapticFeedbackController.onPreferenceChanged(preferences, key) || onSmoothingPreferenceChanged(key)) {
             return true
         }
 
@@ -183,6 +199,21 @@ internal class MainActivityPreferenceController(
             else -> return false
         }
 
+        return true
+    }
+
+    private fun onSmoothingPreferenceChanged(key: String): Boolean {
+        when (key) {
+            KEY_SMOOTH_KEY_LABELS -> {
+                smoothKeyLabels = preferences.getBoolean(key, DEFAULT_SMOOTH_KEY_LABELS)
+                applySmoothKeyLabels(smoothKeyLabels)
+            }
+            KEY_SMOOTH_LCD -> {
+                smoothLcd = preferences.getBoolean(key, DEFAULT_SMOOTH_LCD)
+                applySmoothLcd(smoothLcd)
+            }
+            else -> return false
+        }
         return true
     }
 

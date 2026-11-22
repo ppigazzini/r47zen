@@ -129,7 +129,6 @@ class ReplicaOverlay @JvmOverloads constructor(
     // Starts in the policy's default palette; MainActivity sets the stored
     // theme in onCreate, before the first draw.
     private val lcd = PackedLcdRaster(LcdThemePolicy.DEFAULT_PALETTE)
-    private val lcdRect = Rect(0, 0, R47LcdContract.PIXEL_WIDTH, R47LcdContract.PIXEL_HEIGHT)
     private val lcdDestRect = RectF()
 
     // The redraw request for a changed LCD. It names no rectangle: from API 21 the
@@ -482,6 +481,11 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     internal fun setLcdPalette(palette: LcdPalette) {
         lcd.setPalette(palette)
+        requestLcdRedraw()
+    }
+
+    fun setSmoothLcd(enabled: Boolean) {
+        lcd.setSmoothing(enabled)
         requestLcdRedraw()
     }
 
@@ -956,7 +960,7 @@ class ReplicaOverlay @JvmOverloads constructor(
 
         if (isPiPMode) {
             lcdDestRect.set(0f, 0f, w, h)
-            canvas.drawBitmap(lcd.bitmap, lcdRect, lcdDestRect, paint)
+            canvas.drawBitmap(lcd.displayBitmap, null, lcdDestRect, paint)
             return
         }
 
@@ -978,7 +982,7 @@ class ReplicaOverlay @JvmOverloads constructor(
             projection.offsetX + (layoutSpec.lcdWindowLeft + layoutSpec.lcdWindowWidth) * projection.scale,
             projection.offsetY + (layoutSpec.lcdWindowTop + layoutSpec.lcdWindowHeight) * projection.scale
         )
-        canvas.drawBitmap(lcd.bitmap, lcdRect, lcdDestRect, paint)
+        canvas.drawBitmap(lcd.displayBitmap, null, lcdDestRect, paint)
 
         if (showTouchZones) {
             canvas.drawRect(lcdDestRect, zonePaint)

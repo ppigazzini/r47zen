@@ -114,6 +114,16 @@ keypad all look correct locally but are globally misplaced together.
   first frame it receives, into the backing `Bitmap`, and the overlay requests
   one redraw, with no rectangle, which the platform would ignore. It is the only
   way a frame reaches the bitmap; the tests drive it with packed frames too
+- the overlay draws `PackedLcdRaster.displayBitmap` into the LCD rectangle with
+  bilinear filtering. With the Developer Tools setting Smooth LCD on, that is
+  the raster's smooth layer: the frame's text pixels magnified 4x by two passes
+  of MMPX (`LcdMmpx.kt`), which rebuilds diagonals and curves and keeps corners
+  and single pixels, then painted in the palette, with mipmaps for a window
+  that draws it smaller than its size. With it off, it is the 1:1 bitmap.
+  MMPX takes the text as foreground whatever color the palette gives it, so a
+  negative theme smooths the same pixels. `PackedLcdRasterTest` holds the layer
+  to a whole-frame magnification after a row update, and `LcdMmpxTest` holds
+  the filter to the blocks `scripts/r47_contracts/_mmpx.py` produces
 - the animated settings-discovery hint stays Android-owned in `ReplicaOverlay`,
   but its banner geometry and `StaticLayout` are cached and rebuilt only on a
   real size or layout change, so `dispatchDraw()` updates the pulse stroke and
@@ -558,7 +568,17 @@ hardcoding one text style for all keys. In practice that means:
   internal resolved-metrics helper, so a fitted label reaches its final geometry
   without a second label-spec builder
 - main-key and softkey labels use the staged standard calculator font as the
-  primary keypad typeface across all shipped lanes
+  primary keypad typeface across all shipped lanes. With the Developer Tools
+  setting Smooth Key Labels on, that slot holds
+  `android/app/src/main/assets/fonts/C47__StandardFontSmooth.ttf` instead: the
+  standard font's pixel glyphs magnified by MMPX and traced into curves. It
+  keeps the standard font's cmap, advance widths, and vertical metrics, so the
+  label-fit math and the coverage contract measure the same font, and
+  `ReplicaOverlayController.applySmoothKeyLabels` swaps it into the existing key
+  views with no keypad rebuild. `scripts/r47_contracts/derive_smooth_font.py`
+  derives it from the hydrated `res/fonts`, so it follows the last sync, and
+  `scripts/r47_contracts/test_smooth_font_contract.py` is its oracle; a smooth
+  asset that fails to load falls back to the pixel font
 - all shipped keypad-label lanes fall back to the staged tiny calculator font
   only when the standard font is unavailable
 - numeric and softkey roles can diverge without changing geometry ownership

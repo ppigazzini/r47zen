@@ -25,6 +25,7 @@ flowchart TD
   J[Upstream project surfaces]
   K[Launcher icon]
   L[Google Play setup and policy]
+  M[Pixel-font smoothing]
 
   A --> B
   A --> C
@@ -37,6 +38,7 @@ flowchart TD
   A --> J
   A --> K
   A --> L
+  A --> M
 ```
 
 ## Upstream project surfaces
@@ -862,6 +864,35 @@ Current repository icon surfaces:
 - [Make custom views more accessible (Views)](https://developer.android.com/guide/topics/ui/accessibility/views/custom-views):
   directional-controller, click-action, accessibility-event, and
   accessibility-node guidance for custom interactive views.
+
+## Pixel-font smoothing
+
+These back the Developer Tools settings Smooth Key Labels and Smooth LCD:
+`scripts/r47_contracts/derive_smooth_font.py`, `scripts/r47_contracts/_mmpx.py`,
+and `LcdMmpx.kt`.
+
+- [MMPX Style-Preserving Pixel Art Magnification](https://casual-effects.com/research/McGuire2021PixelArt/McGuire2021PixelArt.pdf):
+  McGuire and Gagiu, Journal of Computer Graphics Techniques 10(2), 2021. The
+  filter magnifies pixel art by two in each dimension; it "reconstructs curves,
+  diagonal lines, and sharp corners while preserving the exact palette,
+  transparency, and single-pixel features", and can run twice for 4x. Where a
+  small window leaves foreground ambiguous it takes the dark pixel as
+  foreground, and the authors invert a font sheet whose ink is the light color.
+  Listing 4 is the rule set both ports follow, in its order. The paper names
+  EPX and XBR as better for content with only rounded corners, and HQX for
+  large palettes and gradients.
+- [potrace(1)](https://man.archlinux.org/man/potrace.1.en): Peter Selinger's
+  bitmap tracer. `-a`/`--alphamax` is the corner threshold, default 1: at 0 the
+  output is a polygon, and above 4/3 every corner is smoothed away.
+  `-t`/`--turdsize` suppresses speckles up to that many pixels.
+- [potracer](https://github.com/tatarize/potrace): a pure-Python port of
+  potrace 1.16, under GPL version 2 or later; it takes a numpy bitmap and
+  traces its False pixels. It is a build-time dependency of the smooth font
+  only; no part of it ships in the APK.
+- [Bitmap.setHasMipMap](https://developer.android.com/reference/android/graphics/Bitmap#setHasMipMap(boolean)):
+  a hint that the renderer should use mipmaps when the bitmap is drawn scaled
+  down. The smooth LCD layer sets it for windows that draw the 4x layer smaller
+  than its size; that is this repo's decision, not the page's.
 
 ## Agent instructions
 

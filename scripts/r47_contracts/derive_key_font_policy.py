@@ -51,7 +51,7 @@ _META_KEY_ENABLED_OFFSET = 13
 _META_SCALARS_BEFORE_STYLE_ROLE = 9
 _STYLE_NUMERIC = 5
 
-_REPLICA_LAYOUT_PATH = KOTLIN_R47ZEN_ROOT / "ReplicaKeypadLayout.kt"
+_FONT_LOADER_PATH = KOTLIN_R47ZEN_ROOT / "KeypadFonts.kt"
 _TEXT_RENDERER_PATH = KOTLIN_R47ZEN_ROOT / "C47TextRenderer.kt"
 _TYPEFACE_POLICY_PATH = KOTLIN_R47ZEN_ROOT / "C47TypefacePolicy.kt"
 _MAIN_KEY_VIEW_PATH = KOTLIN_R47ZEN_ROOT / "CalculatorKeyView.kt"
@@ -322,7 +322,7 @@ def _require_source_snippets(path: Path, snippets: tuple[str, ...]) -> None:
 
 def _validate_owner_contracts() -> None:
     _require_source_snippets(
-        _REPLICA_LAYOUT_PATH,
+        _FONT_LOADER_PATH,
         tuple(
             f'loadTypeface(context, "fonts/{font_name}")'
             for font_name in _FONT_ASSETS.values()

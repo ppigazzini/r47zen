@@ -225,6 +225,8 @@ class SettingsPreferenceSummaryTest {
             main.KEY_SHOW_DEVELOPER_PERFORMANCE_HUD to main.DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD,
             main.KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS to main.DEFAULT_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS,
             main.KEY_SHOW_TOUCH_ZONES to main.DEFAULT_SHOW_TOUCH_ZONES,
+            main.KEY_SMOOTH_KEY_LABELS to main.DEFAULT_SMOOTH_KEY_LABELS,
+            main.KEY_SMOOTH_LCD to main.DEFAULT_SMOOTH_LCD,
         )
 
         val shown = valuedPreferences(launchSettings().preferenceScreen).associate { it.key to shownValue(it) }

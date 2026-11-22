@@ -346,6 +346,39 @@ class MainActivityPreferenceControllerTest {
         assertEquals(listOf(false), controllerState.lcdGraphTouchEnabledCalls)
     }
 
+    @Test
+    fun applyInitialPreferences_appliesBothSmoothingSettings_defaultingOn() {
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+
+        assertEquals(listOf(true), controllerState.smoothKeyLabelCalls)
+        assertEquals(listOf(true), controllerState.smoothLcdCalls)
+    }
+
+    @Test
+    fun smoothingPreferenceChanges_reachTheirOwners() {
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
+        val controllerState = buildController(preferences)
+        controllerState.controller.applyInitialPreferences()
+        controllerState.smoothKeyLabelCalls.clear()
+        controllerState.smoothLcdCalls.clear()
+
+        preferences.edit()
+            .putBoolean(MainActivityPreferenceController.KEY_SMOOTH_KEY_LABELS, false)
+            .putBoolean(MainActivityPreferenceController.KEY_SMOOTH_LCD, false)
+            .commit()
+
+        val controller = controllerState.controller
+        assertTrue(controller.onPreferenceChanged(MainActivityPreferenceController.KEY_SMOOTH_KEY_LABELS))
+        assertTrue(controller.onPreferenceChanged(MainActivityPreferenceController.KEY_SMOOTH_LCD))
+        assertEquals(listOf(false), controllerState.smoothKeyLabelCalls)
+        assertEquals(listOf(false), controllerState.smoothLcdCalls)
+        assertEquals(false, controllerState.controller.smoothKeyLabels)
+        assertEquals(false, controllerState.controller.smoothLcd)
+    }
+
     private fun buildController(preferences: android.content.SharedPreferences): ControllerState {
         val activity = Robolectric.buildActivity(PreferenceControllerActivity::class.java)
             .setup()
@@ -354,6 +387,8 @@ class MainActivityPreferenceControllerTest {
         val developerPerformanceHudCalls = mutableListOf<Boolean>()
         val lcdGraphTouchEnabledCalls = mutableListOf<Boolean>()
         val lcdThemeCalls = mutableListOf<LcdThemeCall>()
+        val smoothKeyLabelCalls = mutableListOf<Boolean>()
+        val smoothLcdCalls = mutableListOf<Boolean>()
 
         val controller = MainActivityPreferenceController(
             preferences = preferences,
@@ -376,6 +411,8 @@ class MainActivityPreferenceControllerTest {
                 developerPerformanceHudCalls += enabled
             },
             applyKeypadLabelModes = { _, _ -> },
+            applySmoothKeyLabels = { enabled -> smoothKeyLabelCalls += enabled },
+            applySmoothLcd = { enabled -> smoothLcdCalls += enabled },
         )
 
         return ControllerState(
@@ -384,6 +421,8 @@ class MainActivityPreferenceControllerTest {
             developerPerformanceHudCalls = developerPerformanceHudCalls,
             lcdGraphTouchEnabledCalls = lcdGraphTouchEnabledCalls,
             lcdThemeCalls = lcdThemeCalls,
+            smoothKeyLabelCalls = smoothKeyLabelCalls,
+            smoothLcdCalls = smoothLcdCalls,
         )
     }
 
@@ -393,6 +432,8 @@ class MainActivityPreferenceControllerTest {
         val developerPerformanceHudCalls: MutableList<Boolean>,
         val lcdGraphTouchEnabledCalls: MutableList<Boolean>,
         val lcdThemeCalls: MutableList<LcdThemeCall>,
+        val smoothKeyLabelCalls: MutableList<Boolean>,
+        val smoothLcdCalls: MutableList<Boolean>,
     )
 
     private data class LcdThemeCall(

@@ -38,7 +38,8 @@ flowchart TD
 | --- | --- | --- | --- |
 | shell geometry, top-right menu bounds, and LCD frame | `scripts/r47_contracts/derive_shell_geometry.py`, `R47Geometry.kt` | `scripts/r47_contracts/test_shell_geometry_contract.py`, `ReplicaOverlayGoldenTest.kt`, `MainShellThemeTest.kt` | grouped `scripts/r47_contracts` validation lane, then `:app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.ReplicaOverlayGoldenTest --tests io.github.ppigazzini.r47zen.MainShellThemeTest` |
 | key-label and visual policy constants | `scripts/r47_contracts/derive_key_label_geometry.py`, `scripts/r47_contracts/derive_key_visual_policy.py`, `scripts/r47_contracts/data/r47zen_ui_contract.json`, `KeyRenderSpec.kt`, `KeyRenderPainter.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt` | `scripts/r47_contracts/test_key_label_geometry_contract.py`, `scripts/r47_contracts/test_key_visual_policy_contract.py`, `CalculatorKeyViewRenderSpecTest.kt`, `CalculatorSoftkeyPainterCanvasTest.kt` | grouped `scripts/r47_contracts` validation lane, then focused JVM render-spec tests when the Kotlin builder or shared painter stage moved |
-| keypad font policy and C47 font coverage | `scripts/r47_contracts/data/r47_key_font_policy_contract.json`, `scripts/r47_contracts/derive_key_font_policy.py`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `C47TypefacePolicy.kt` | `scripts/r47_contracts/test_key_font_policy_contract.py`, `CalculatorKeyViewFontSelectionTest.kt` | grouped `scripts/r47_contracts` validation lane, then `:app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.CalculatorKeyViewFontSelectionTest` |
+| keypad font policy and C47 font coverage | `scripts/r47_contracts/data/r47_key_font_policy_contract.json`, `scripts/r47_contracts/derive_key_font_policy.py`, `KeypadFonts.kt`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt`, `CalculatorSoftkeyPainter.kt`, `C47TypefacePolicy.kt` | `scripts/r47_contracts/test_key_font_policy_contract.py`, `CalculatorKeyViewFontSelectionTest.kt` | grouped `scripts/r47_contracts` validation lane, then `:app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.CalculatorKeyViewFontSelectionTest` |
+| smooth key-label font and smooth LCD layer (the Developer Tools settings Smooth Key Labels and Smooth LCD) | `scripts/r47_contracts/derive_smooth_font.py`, `scripts/r47_contracts/_mmpx.py`, `scripts/r47_contracts/data/r47_smooth_font_provenance.json`, `android/app/src/main/assets/fonts/C47__StandardFontSmooth.ttf`, `LcdMmpx.kt`, `PackedLcdRaster.kt`, `KeypadFonts.kt`, `ReplicaKeypadLayout.kt`, `ReplicaOverlayController.kt`, `MainActivityPreferenceController.kt`, `android/app/src/main/res/xml/root_preferences.xml` | `scripts/r47_contracts/test_smooth_font_contract.py`, `LcdMmpxTest.kt`, `PackedLcdRasterTest.kt`, `CalculatorKeyViewFontSelectionTest.kt`, `MainActivityPreferenceControllerTest.kt`, `SettingsPreferenceSummaryTest.kt` | grouped `scripts/r47_contracts` validation lane, then `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.LcdMmpxTest --tests io.github.ppigazzini.r47zen.PackedLcdRasterTest --tests io.github.ppigazzini.r47zen.CalculatorKeyViewFontSelectionTest` |
 | top-label lane solve and alpha-case label export | `TopLabelLaneLayout.kt`, staged `assign.c` and `items.c`, `keypad_scene.c`, `ReplicaKeypadLayout.kt`, `CalculatorKeyView.kt` | `TopLabelLaneLayoutTest.kt`, `KeypadTopLabelLayoutTest.kt`, `scripts/r47_contracts/test_alpha_case_export_contract.py` | `cd android && ./gradlew :app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.TopLabelLaneLayoutTest --tests io.github.ppigazzini.r47zen.KeypadTopLabelLayoutTest`, then the grouped contract scripts for the alpha-case export |
 | `assign.c` layout tables, `items.c` display vocabulary, shared keyboard-layout JSON, and Android local override boundary | `scripts/r47_contracts/derive_keyboard_layout_contract.py`, `scripts/r47_contracts/data/r47_keyboard_layout_contract.json`, root `src/c47/assign.c`, root `src/c47/items.c`, and `keypad_scene.c` | `scripts/r47_contracts/test_keyboard_layout_contract.py`, `KeyboardLayoutContractRenderTest.kt` | grouped `scripts/r47_contracts` validation lane, then `:app:testDebugUnitTest --tests io.github.ppigazzini.r47zen.KeyboardLayoutContractRenderTest` when Android-local label export, render parity, or the shared contract payload moved |
 | overlay geometry replay for unchanged keypad scenes | `MainActivity.kt`, `ReplicaOverlayController.kt`, `ReplicaOverlay.kt`, `ReplicaKeypadLayout.kt` | `MainKeySnapshotRenderTest.kt` | `cd android && ./gradlew :app:testDebugUnitTest` |
@@ -467,7 +468,8 @@ source is missing from this page:
   the standard calculator font and only fall back to the tiny font when the
   standard face is unavailable; the Python font-policy contract keeps the
   shipped font data, lane fallback chains, and keypad corpus in sync with that
-  JVM proof surface
+  JVM proof surface. It also holds a font-set swap on a key already set: the
+  next label update gives every label the new standard typeface
 - `C47TextRendererTest.kt`: locks the shared text-paint flags, fitted-text
   minimum scale, and the equivalence between the fitted-label path and a direct
   label-spec build at the resolved final size
@@ -519,7 +521,16 @@ source is missing from this page:
   row decoder: a new raster paints every pixel the background for each theme and
   polarity at the minimum, default, and maximum luminance; a host's first frame
   decodes every row, flagged or not; a later frame decodes only its flagged
-  rows; and a palette change, even to the same palette, repaints the held frame
+  rows; and a palette change, even to the same palette, repaints the held frame.
+  With smoothing on, the display bitmap is the 4x layer: a lone pixel stays a
+  square block, a diagonal gains the in-between pixels, the layer after a row
+  update equals the whole frame magnified afresh, smoothing turned on late
+  magnifies the held frame, and a palette change repaints the layer
+- `LcdMmpxTest.kt`: the LCD's MMPX filter on the plain JVM: a uniform bitmap
+  and a lone pixel magnify to plain blocks, and a 1:1 diagonal, a 2:1 slope,
+  and the standard font's 7 magnify to the blocks
+  `scripts/r47_contracts/_mmpx.py` produces, so the LCD and the smooth font use
+  one filter; a row range writes only those rows
 - `ReplicaOverlayLcdOrderTest.kt`: the same oracle through the overlay, with the
   frames and expected pixels of `LcdTestFrames.kt`, for each theme and polarity
   at the minimum, default, and maximum luminance, in each order the app reaches

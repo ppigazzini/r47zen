@@ -34,6 +34,7 @@ internal class ReplicaOverlayController(
     private var pendingGeometrySceneReplay = false
     private var geometrySceneReplayPosted = false
     private var lastResolvedSnapshot = KeypadSnapshot.EMPTY
+    private var smoothKeyLabels = false
 
     fun bindOverlay() {
         overlay.onGeometryLaidOut = {
@@ -49,6 +50,25 @@ internal class ReplicaOverlayController(
         if (!isInPictureInPictureMode) {
             markGeometryChange()
         }
+    }
+
+    // Swap the key-label fonts in place and replay the scene, so every label
+    // takes the new typeface without a keypad rebuild. Before the runtime is
+    // ready there is no scene to replay: the first one applies the new fonts,
+    // since updateLabels reapplies every label's role.
+    fun applySmoothKeyLabels(enabled: Boolean) {
+        if (enabled == smoothKeyLabels) {
+            return
+        }
+        smoothKeyLabels = enabled
+        ReplicaKeypadLayout.applyFonts(context, overlay, enabled)
+        refreshGate.reset()
+
+        if (!isRuntimeReady() || overlay.isEmpty()) {
+            return
+        }
+
+        refreshDynamicKeys(forceApply = true)
     }
 
     fun currentMainKeyDynamicModeCode(): Int {
@@ -130,6 +150,10 @@ internal class ReplicaOverlayController(
             dispatchKey = ::dispatchKey,
             initialSnapshotProvider = { currentKeypadSnapshot() },
         )
+        // A rebuild sets every key's pixel fonts; the smooth ones go on after.
+        if (smoothKeyLabels) {
+            ReplicaKeypadLayout.applyFonts(context, overlay, smoothKeyLabels = true)
+        }
     }
 
     private fun snapshotForMode(mode: MainKeyDynamicMode): KeypadSnapshot {

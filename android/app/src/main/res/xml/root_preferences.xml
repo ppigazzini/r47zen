@@ -131,6 +131,16 @@
             app:key="show_touch_zones"
             app:title="@string/settings_show_touch_zones_title"
             app:defaultValue="false" />
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
+            app:key="smooth_key_labels"
+            app:title="@string/settings_smooth_key_labels_title"
+            app:summary="@string/settings_smooth_key_labels_summary"
+            app:defaultValue="true" />
+        <io.github.ppigazzini.r47zen.SettingsSwitchPreference
+            app:key="smooth_lcd"
+            app:title="@string/settings_smooth_lcd_title"
+            app:summary="@string/settings_smooth_lcd_summary"
+            app:defaultValue="true" />
         <Preference
             app:key="factory_reset"
             app:title="@string/settings_factory_reset_title"

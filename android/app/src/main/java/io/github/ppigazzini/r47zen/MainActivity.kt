@@ -374,6 +374,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
             applyShowDeveloperPerformanceHud = replicaOverlay::setShowDeveloperPerformanceHud,
             applyKeypadLabelModes = replicaOverlayController::applyKeypadLabelModes,
+            applySmoothKeyLabels = replicaOverlayController::applySmoothKeyLabels,
+            applySmoothLcd = replicaOverlay::setSmoothLcd,
         )
     }
 

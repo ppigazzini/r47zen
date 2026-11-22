@@ -68,6 +68,10 @@ Use Android Default Folder to forget the saved Work Directory and return future 
     <string name="settings_show_performance_stats_summary" formatted="false" translatable="false">UI Hz, LCD Hz, Dirty-Row %, and LCD update ms.</string>
     <string name="settings_show_performance_window_title" translatable="false">HUD Sample Window (ms)</string>
     <string name="settings_show_touch_zones_title" translatable="false">Show Touch Zones</string>
+    <string name="settings_smooth_key_labels_title" translatable="false">Smooth Key Labels</string>
+    <string name="settings_smooth_key_labels_summary" translatable="false">Draw key labels with the calculator font traced into curves.</string>
+    <string name="settings_smooth_lcd_title" translatable="false">Smooth LCD</string>
+    <string name="settings_smooth_lcd_summary" translatable="false">Rebuild the LCD\'s diagonals and curves at 4x before scaling it.</string>
     <string name="settings_cancel_action" translatable="false">Cancel</string>
     <string name="settings_factory_reset_title" translatable="false">Reset to Factory Defaults</string>
     <string name="settings_factory_reset_summary" translatable="false">Wipe internal app data and relaunch R47 Zen</string>
