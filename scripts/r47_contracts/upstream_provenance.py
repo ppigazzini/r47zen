@@ -171,11 +171,14 @@ _INPUT_SURFACES: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {
         (
             "scripts/r47_contracts/derive_key_font_policy.py",
             "scripts/r47_contracts/derive_key_visual_policy.py",
+            "scripts/r47_contracts/derive_smooth_font.py",
         ),
         (
             "scripts/r47_contracts/data/r47_key_font_policy_contract.json",
+            "scripts/r47_contracts/data/r47_smooth_font_provenance.json",
             "scripts/r47_contracts/test_key_font_policy_contract.py",
             "scripts/r47_contracts/test_key_visual_policy_contract.py",
+            "scripts/r47_contracts/test_smooth_font_contract.py",
         ),
     ),
     "res/fonts/C47__NumericFont.ttf": _FONT_POLICY_SURFACES,
@@ -192,6 +195,10 @@ _GOLDEN_DERIVERS: Final = {
     "scripts/r47_contracts/data/r47_key_font_policy_contract.json": (
         "r47_contracts.derive_key_font_policy",
         "build_key_font_policy_payload",
+    ),
+    "scripts/r47_contracts/data/r47_smooth_font_provenance.json": (
+        "r47_contracts.derive_smooth_font",
+        "build_smooth_font_provenance_payload",
     ),
 }
 _TEST_MODULE_SUFFIX: Final = ".py"

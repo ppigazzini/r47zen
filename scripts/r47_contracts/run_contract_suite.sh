@@ -13,6 +13,7 @@ DERIVE_MODULES=(
     r47_contracts.derive_key_font_policy
     r47_contracts.derive_keyboard_layout_contract
     r47_contracts.derive_live_stop_key_policy
+    r47_contracts.derive_smooth_font
 )
 
 TEST_MODULES=(
@@ -34,6 +35,7 @@ TEST_MODULES=(
     r47_contracts.test_keypad_snapshot_wire_contract
     r47_contracts.test_jni_registration_contract
     r47_contracts.test_upstream_provenance_contract
+    r47_contracts.test_smooth_font_contract
 )
 
 cd "$PROJECT_ROOT"

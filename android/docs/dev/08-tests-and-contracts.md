@@ -195,6 +195,24 @@ runs. What each one locks:
   passes until the JSON is re-derived. The ledger's drift report names the JSON:
   re-derive it, and record with `--record` in that commit; both record commands
   refuse a golden that is not what its deriver makes of the tree
+- `derive_smooth_font.py`: the smooth key-label font,
+  `android/app/src/main/assets/fonts/C47__StandardFontSmooth.ttf`, from the
+  pixel outlines of the hydrated standard font: each glyph rasterized on its
+  design grid, magnified 4x by two MMPX passes (`_mmpx.py`), traced by potrace,
+  and written back on the same em with the source's cmap, advance widths, and
+  vertical metrics. It records the source and output SHA-256 in
+  `scripts/r47_contracts/data/r47_smooth_font_provenance.json`, and the same
+  source always derives the same bytes
+- `test_smooth_font_contract.py`: the oracle for that font, on a rasterizer of
+  its own. The cmap, advance widths, and vertical metrics equal the source's.
+  Sampled at the centers of the source's grid cells, a glyph changes only cells
+  on the source's own edge, keeps the source's count of strokes and counters,
+  and at four samples per cell side keeps at least half of every stroke inked
+  and every counter open; the glyphs whose stroke or counter count does change
+  are a named list that only shrinks. The provenance names the live source and
+  the committed font, so a source a sync moved fails until re-derived. It cannot
+  see a boundary that moves less than a quarter cell, and it does not judge how
+  a glyph looks
 - `test_alpha_case_export_contract.py`: staged core alpha-label export rules in
   `assign.c`, `items.c`, and `keypad_scene.c`, plus the Kotlin alpha-layout
   handling in `CalculatorKeyView.kt` and `ReplicaKeypadLayout.kt`

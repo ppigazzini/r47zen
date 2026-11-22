@@ -1,0 +1,19 @@
+{
+  "source_font": "C47__StandardFont.ttf",
+  "source_sha256": "d9dba05319edd0eb300c4e6486da8edc3e8844973de6fb2b917699a9d7d7faa6",
+  "smooth_font": "android/app/src/main/assets/fonts/C47__StandardFontSmooth.ttf",
+  "smooth_sha256": "c14111278d178d9b71385387f74163c27740208154ba2a6d39c2047d1fe8dca8",
+  "parameters": {
+    "magnifier": "MMPX 2x",
+    "magnifier_passes": 2,
+    "pad_pixels": 3,
+    "potrace_alphamax": 1.0,
+    "potrace_turdsize": 0,
+    "quadratic_max_error_units": 1.0
+  },
+  "tools": {
+    "fonttools": "4.68.0",
+    "numpy": "2.5.5",
+    "potracer": "0.0.4"
+  }
+}
