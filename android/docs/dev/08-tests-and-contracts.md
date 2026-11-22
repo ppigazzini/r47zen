@@ -999,7 +999,7 @@ Android compatibility layer.
   `make_state_fixture.sh` saves with a host build of each release's own overlay and
   core, not a phone, restore, and so does the file this core saves from them; they reach the
   harness through a directory whose name holds a quote and a space, and gzip unpacks them
-  with no shell between, so a path read as a command fails the case; user keys from upstream's `xfnToR47user.s47` survive a save; one press of `R/S` or `EXIT` ends a `KEY?` or `VIEW` loop, and a `PSE`
+  with no shell between, so a path read as a command fails the case; user keys from upstream's R47 XFN keyset, which `XFNKEYS` loads, survive a save; one press of `R/S` or `EXIT` ends a `KEY?` or `VIEW` loop, and a `PSE`
   loop when it lands inside a pause; a stop or a pending save still gets through a `VIEW` loop; a double tap of
   `R/S` leaves the program stoppable; `KEY?` sees a key
   behind a `VIEW`; a quit survives a redraw and the ring's wipe; a held key holds a program

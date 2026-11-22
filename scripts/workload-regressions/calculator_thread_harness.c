@@ -2610,9 +2610,11 @@ static void relaunchSavingAndStopping(void) {
 
 static void readUserKeysAtRest(void *arg) { memcpy(arg, kbd_usr, sizeof(kbd_usr)); }
 
-static void loadStateFileAtRest(void *arg) {
+// XFNKEYS: upstream's R47 XFN keyset, the built-in successor of the user key profile
+// res/STATE/xfnToR47user.s47 that upstream removed, copied into the user keys.
+static void loadXfnKeysetAtRest(void *arg) {
   (void)arg;
-  fnLoad(LM_STATE_LOAD);
+  fnKeysManagement(USER_XFN_R47);
 }
 
 static void relaunchExpectingTheUserKeys(void) {
@@ -2631,21 +2633,17 @@ static void relaunchExpectingTheUserKeys(void) {
   CHECK(memcmp(expected, restored, sizeof(expected)) == 0, "the user keys changed");
 }
 
-// Upstream's xfnToR47user.s47 assigns user keys through LOADST. They survive a save
+// Upstream's R47 XFN keyset, loaded with XFNKEYS, assigns user keys. They survive a save
 // and a relaunch whole.
 static void caseUserKeysSurviveASave(void) {
   startCalculator();
   static char before[sizeof(kbd_usr)];
   static char loaded[sizeof(kbd_usr)];
   r47_run_at_rest(readUserKeysAtRest, before);
-  char from[1100];
-  char to[1100];
-  snprintf(from, sizeof(from), "%s/../STATE/xfnToR47user.s47", programDir);
-  snprintf(to, sizeof(to), "%s/default.dat", workDir);
-  copyFile(from, to);
-  r47_run_at_rest(loadStateFileAtRest, NULL);
+  r47_run_at_rest(loadXfnKeysetAtRest, NULL);
   r47_run_at_rest(readUserKeysAtRest, loaded);
-  CHECK(memcmp(before, loaded, sizeof(before)) != 0, "LOADST changed no user key");
+  CHECK(memcmp(before, loaded, sizeof(before)) != 0, "XFNKEYS changed no user key");
+  char to[1100];
   snprintf(to, sizeof(to), "%s/userKeys.bin", workDir);
   writeBytes(to, loaded, sizeof(loaded));
   saveOnceIdle();
