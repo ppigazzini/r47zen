@@ -174,16 +174,18 @@ class KeypadTopLabelLayoutTest {
 
     @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun everyExportedKeypadLaysOutCenteredAndUnscaledOnPhoneScreens() {
-        // With the shipped C47 fonts, the labels of every exported keypad scene
-        // fit their keys at common phone resolutions: no top label is shifted
-        // or scaled. The overlay is laid out without a window, so no window
-        // traversal can lay it out again at another size.
+    fun everyPrintedKeypadLaysOutCenteredAndUnscaledOnPhoneScreens() {
+        // With the shipped C47 fonts, the printed labels of every exported
+        // keypad scene fit their keys at common phone resolutions: no top label
+        // is shifted or scaled. A USER keyboard shows names the user chose, so
+        // its scenes are held to the lane rules instead, below. The overlay is
+        // laid out without a window, so no window traversal can lay it out again
+        // at another size.
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         Typeface.createFromAsset(activity.assets, "fonts/C47__StandardFont.ttf")
 
         var solvedKeys = 0
-        for (fixture in KeypadFixtureResources.loadAll()) {
+        for (fixture in KeypadFixtureResources.loadAll().filterNot { it.snapshot().userModeEnabled }) {
             for ((width, height) in PHONE_SCREENS) {
                 val overlay = ReplicaOverlay(activity)
                 overlay.onGeometryLaidOut = { ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout(overlay) }
@@ -209,6 +211,62 @@ class KeypadTopLabelLayoutTest {
             }
         }
         assertTrue("no exported keypad put a top label through the lane solver", solvedKeys > 0)
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun userMenuNamesReachTheSolverAndKeepTheLaneRulesOnPhoneScreens() {
+        // The USER scene puts 7-glyph user menu names on whole rows, more than
+        // the keys hold: the solver must shift and scale them, and the lane rules
+        // page 05 lists must still hold for every lane it solves.
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        Typeface.createFromAsset(activity.assets, "fonts/C47__StandardFont.ttf")
+        val fixture = KeypadFixtureResources.load("user-menus-scene")
+
+        for ((width, height) in PHONE_SCREENS) {
+            val overlay = ReplicaOverlay(activity)
+            overlay.onGeometryLaidOut = { ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout(overlay) }
+            ReplicaKeypadLayout.rebuild(activity, overlay, {}, {}, fixture::snapshot)
+            overlay.measure(exactly(width), exactly(height))
+            overlay.layout(0, 0, width, height)
+            val keysByCode = (0 until overlay.childCount).map(overlay::getChildAt)
+                .filterIsInstance<CalculatorKeyView>()
+                .associateBy { it.keyCode }
+
+            var scaledLabels = 0
+            for (lane in KeypadLane.entries.filter { it != KeypadLane.SOFTKEY_ROW }) {
+                val slots = KeypadTopology.slotsForLane(lane)
+                val solved = slots.mapIndexedNotNull { index, slot ->
+                    val key = keysByCode[slot.code] ?: return@mapIndexedNotNull null
+                    val input = key.buildTopLabelLaneInput(
+                        minLeftEdge = if (index == 0) 0f else Float.NEGATIVE_INFINITY,
+                        maxRightEdge = if (index == slots.lastIndex) width.toFloat() else Float.POSITIVE_INFINITY,
+                    ) ?: return@mapIndexedNotNull null
+                    input to key.currentTopLabelPlacementForTest()
+                }
+                val where = "$lane at ${width}x$height"
+                solved.forEach { (input, placement) ->
+                    assertScreenBoundsRespected(input, placement)
+                    assertTrue(
+                        "$where: key ${input.code} f and g scales differ by more than one step",
+                        kotlin.math.abs(placement.fScale - placement.gScale) <=
+                            R47TopLabelSolverPolicy.TOP_F_G_LABEL_SCALE_STEP + SCALE_TOLERANCE,
+                    )
+                    if (placement.fScale < 1f) scaledLabels++
+                    if (input.hasGLabel && placement.gScale < 1f) scaledLabels++
+                }
+                solved.zipWithNext { (left, leftPlacement), (right, rightPlacement) ->
+                    val gap = solvedGroupBounds(right, rightPlacement).first -
+                        solvedGroupBounds(left, leftPlacement).second
+                    val required = maxOf(left.gapWidth, right.gapWidth) * 2f
+                    assertTrue(
+                        "$where: keys ${left.code} and ${right.code} are $gap apart, under $required",
+                        gap + POSITION_TOLERANCE >= required,
+                    )
+                }
+            }
+            assertTrue("no USER label was scaled at ${width}x$height", scaledLabels > 0)
+        }
     }
 
     private fun createAttachedMainKeyView(activity: Activity, code: Int): CalculatorKeyView {
@@ -258,5 +316,9 @@ class KeypadTopLabelLayoutTest {
     private companion object {
         // FHD+, HD+, and QHD+ portrait phones.
         val PHONE_SCREENS = listOf(1080 to 2400, 720 to 1600, 1440 to 3120)
+
+        // Float slack on positions and scales the solver computes.
+        const val POSITION_TOLERANCE = 0.01f
+        const val SCALE_TOLERANCE = 0.0001f
     }
 }

@@ -269,6 +269,113 @@ static bool apply_tam_scene(void) {
   return refresh_after_state_change();
 }
 
+typedef struct {
+  int key_code;
+  const char *f_menu;
+  const char *g_menu;
+} user_menu_assignment_t;
+
+// User menus on the USER keyboard: 7-glyph names, the longest a name can be
+// (validateName), on every key of the ENTER row and of the second matrix row,
+// and 4-glyph names on the bottom row. Every f and g label of those rows opens
+// a menu, so no plain label is left to compare a marker against.
+static const char *const USER_MENU_NAMES[] = {"SURVEYS", "GEOMTRY", "SURV",
+                                              "GEOM"};
+static const user_menu_assignment_t USER_MENU_ASSIGNMENTS[] = {
+    {13, "SURVEYS", "GEOMTRY"}, {14, "SURVEYS", "GEOMTRY"},
+    {15, "SURVEYS", "GEOMTRY"}, {16, "SURVEYS", "GEOMTRY"},
+    {17, "SURVEYS", "GEOMTRY"}, {23, "SURVEYS", "GEOMTRY"},
+    {24, "SURVEYS", "GEOMTRY"}, {25, "SURVEYS", "GEOMTRY"},
+    {26, "SURVEYS", "GEOMTRY"}, {27, "SURVEYS", "GEOMTRY"},
+    {33, "SURV", "GEOM"},       {34, "SURV", "GEOM"},
+    {35, "SURV", "GEOM"},       {36, "SURV", "GEOM"},
+    {37, "SURV", "GEOM"},
+};
+
+static int find_user_menu(const char *name) {
+  for (int index = 0; index < (int)numberOfUserMenus; index++) {
+    if (strcmp(userMenus[index].menuName, name) == 0) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+// Assign a user menu as ASSIGN does: assignToKey reads the item from
+// itemToBeAssigned and the shift layer from shiftF and shiftG.
+static bool assign_user_menu(int key_code, bool on_g, const char *name) {
+  char key_index[3];
+  int menu = find_user_menu(name);
+
+  if (menu < 0) {
+    fprintf(stderr, "ERROR: user menu %s does not exist\n", name);
+    return false;
+  }
+  previousCalcMode = CM_NORMAL;
+  shiftF = !on_g;
+  shiftG = on_g;
+  itemToBeAssigned = (int16_t)(ASSIGN_USER_MENU - menu);
+  snprintf(key_index, sizeof(key_index), "%02d", key_code - 1);
+  assignToKey(key_index);
+  return true;
+}
+
+static bool apply_user_menus_scene(void) {
+  int32_t meta[R47_KEYPAD_META_LENGTH];
+  static char labels[R47_KEYPAD_KEY_COUNT * R47_KEYPAD_LABELS_PER_KEY]
+                    [R47_KEYPAD_LABEL_CAPACITY];
+  const size_t name_count = sizeof(USER_MENU_NAMES) / sizeof(USER_MENU_NAMES[0]);
+  const size_t assignment_count =
+      sizeof(USER_MENU_ASSIGNMENTS) / sizeof(USER_MENU_ASSIGNMENTS[0]);
+
+  for (size_t index = 0; index < name_count; index++) {
+    createMenu(USER_MENU_NAMES[index]);
+    if (find_user_menu(USER_MENU_NAMES[index]) < 0) {
+      fprintf(stderr, "ERROR: the core refused the user menu %s\n",
+              USER_MENU_NAMES[index]);
+      return false;
+    }
+  }
+  for (size_t index = 0; index < assignment_count; index++) {
+    const user_menu_assignment_t *assignment = &USER_MENU_ASSIGNMENTS[index];
+    if (!assign_user_menu(assignment->key_code, false, assignment->f_menu) ||
+        !assign_user_menu(assignment->key_code, true, assignment->g_menu)) {
+      return false;
+    }
+  }
+
+  shiftF = false;
+  shiftG = false;
+  catalog = CATALOG_NONE;
+  tam.mode = 0;
+  tam.alpha = false;
+  previousCalcMode = CM_NORMAL;
+  calcMode = CM_NORMAL;
+  setSystemFlag(FLAG_USER);
+  r47_force_refresh();
+
+  // Refuse a scene in which the core did not show what was assigned.
+  r47_get_keypad_meta(meta, true);
+  r47_get_keypad_labels(labels, true);
+  if (meta[R47_KEYPAD_META_USER_MODE] == 0) {
+    fprintf(stderr, "ERROR: the USER keyboard is not on\n");
+    return false;
+  }
+  for (size_t index = 0; index < assignment_count; index++) {
+    const user_menu_assignment_t *assignment = &USER_MENU_ASSIGNMENTS[index];
+    int base = (assignment->key_code - 1) * R47_KEYPAD_LABELS_PER_KEY;
+    if (strcmp(labels[base + R47_KEYPAD_LABEL_F], assignment->f_menu) != 0 ||
+        strcmp(labels[base + R47_KEYPAD_LABEL_G], assignment->g_menu) != 0) {
+      fprintf(stderr, "ERROR: key %d shows f '%s' and g '%s', not %s and %s\n",
+              assignment->key_code, labels[base + R47_KEYPAD_LABEL_F],
+              labels[base + R47_KEYPAD_LABEL_G], assignment->f_menu,
+              assignment->g_menu);
+      return false;
+    }
+  }
+  return true;
+}
+
 static bool capture_scenario(const scenario_definition_t *scenario,
                              scenario_capture_t *capture) {
   r47_init_runtime();
@@ -319,6 +426,8 @@ int main(int argc, char **argv) {
       {"static-single-scene", "Static-single top-label layout scene", true,
        apply_static_single_scene},
       {"tam-scene", "TAM layout-class scene", true, apply_tam_scene},
+      {"user-menus-scene", "USER keyboard with user menus on f and g", true,
+       apply_user_menus_scene},
   };
 
   for (int index = 1; index < argc; index++) {

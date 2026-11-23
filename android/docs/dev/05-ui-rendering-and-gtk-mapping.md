@@ -358,9 +358,12 @@ Regression surfaces:
 
 - `TopLabelLaneLayoutTest.kt`: every rule above against the solver the app
   runs, with two Kotest sweeps over dense standard and ENTER rows
-- `KeypadTopLabelLayoutTest.kt`: the layout applies what the solver returns,
-  and with the shipped fonts every exported keypad scene lays out centered and
-  unscaled at FHD+, HD+, and QHD+ phone sizes
+- `KeypadTopLabelLayoutTest.kt`: the layout applies what the solver returns;
+  with the shipped fonts every exported scene of printed legends lays out
+  centered and unscaled at FHD+, HD+, and QHD+ phone sizes, and the exported
+  USER scene, whose 7-glyph user menu names fill whole rows, is shifted and
+  scaled at those sizes with the spacing, screen-edge, and one-step scale rules
+  above holding in every lane
 - `08-tests-and-contracts.md` for the full contract-to-lane map
 
 Any future faceplate-offset change must stay on those fixed formulas and layout

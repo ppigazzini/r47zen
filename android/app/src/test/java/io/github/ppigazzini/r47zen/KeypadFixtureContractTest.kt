@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class KeypadFixtureContractTest {
     @Test
@@ -14,8 +15,23 @@ class KeypadFixtureContractTest {
         assertEquals(KeypadSnapshot.META_LENGTH, manifest.metaLength)
         assertEquals(KeypadSnapshot.KEY_COUNT, manifest.keyCount)
         assertEquals(KeypadSnapshot.LABELS_PER_KEY, manifest.labelsPerKey)
-        assertEquals(10, manifest.scenarios.size)
         assertTrue(manifest.upstreamCommit.matches(Regex("[0-9a-f]{40}")))
+    }
+
+    @Test
+    fun manifestListsExactlyTheExportedSceneFiles() {
+        // The exporter writes one file a scene and a manifest naming them, so a
+        // scene file the manifest leaves out is a scene no test reads.
+        val root = File(requireNotNull(javaClass.classLoader?.getResource("keypad-fixtures/manifest.json")).toURI())
+            .parentFile
+        val sceneFiles = root.listFiles { file -> file.extension == "json" && file.name != "manifest.json" }
+            .orEmpty()
+            .map { it.name }
+            .sorted()
+        val listed = KeypadFixtureResources.manifest().scenarios.map { it.fileName }
+
+        assertEquals(sceneFiles, listed.sorted())
+        assertEquals(listed.size, listed.toSet().size)
     }
 
     @Test
@@ -72,5 +88,40 @@ class KeypadFixtureContractTest {
                 tam.keyStateFor(code).layoutClass == KeypadSceneContract.LAYOUT_CLASS_TAM
             },
         )
+    }
+
+    @Test
+    fun userMenusSceneMarksEveryAssignedLabelAsAMenu() {
+        // The exporter assigns user menus to the f and g labels of three rows on
+        // the USER keyboard; each of those labels opens a menu, so the scene
+        // carries the menu roles the marker is drawn from.
+        val scene = KeypadFixtureResources.load("user-menus-scene").snapshot()
+
+        assertTrue(scene.userModeEnabled)
+        for (code in USER_MENU_KEYS) {
+            val key = scene.keyStateFor(code)
+            assertEquals(
+                "key $code f",
+                KeypadSceneContract.TEXT_ROLE_F_UNDERLINE,
+                key.labelRole(KeypadSceneContract.LABEL_F),
+            )
+            assertEquals(
+                "key $code g",
+                KeypadSceneContract.TEXT_ROLE_G_UNDERLINE,
+                key.labelRole(KeypadSceneContract.LABEL_G),
+            )
+        }
+        val longest = USER_MENU_KEYS.maxOf { code ->
+            maxOf(scene.keyStateFor(code).fLabel.length, scene.keyStateFor(code).gLabel.length)
+        }
+        assertEquals("the longest name a user menu can have", MAX_USER_MENU_NAME_GLYPHS, longest)
+    }
+
+    private companion object {
+        // The rows keypad_fixture_exporter.c fills with user menus.
+        val USER_MENU_KEYS = (13..17) + (23..27) + (33..37)
+
+        // validateName in the core accepts at most 7 glyphs.
+        const val MAX_USER_MENU_NAME_GLYPHS = 7
     }
 }

@@ -1,5 +1,5 @@
 {
-  "upstreamCommit": "25e6feb77766bdcd8050df78fa1b5a692be65776",
+  "upstreamCommit": "64040c8d9ea5fe716fc3aecf06f4fccf45c74836",
   "sceneContractVersion": 5,
   "metaLength": 323,
   "keyCount": 43,
@@ -14,6 +14,7 @@
     {"name": "catalog-state", "file": "catalog-state.json", "description": "Catalog-driven alpha scene"},
     {"name": "dotted-row-state", "file": "dotted-row-state.json", "description": "Softmenu scene with dotted-row indicator"},
     {"name": "static-single-scene", "file": "static-single-scene.json", "description": "Static-single top-label layout scene"},
-    {"name": "tam-scene", "file": "tam-scene.json", "description": "TAM layout-class scene"}
+    {"name": "tam-scene", "file": "tam-scene.json", "description": "TAM layout-class scene"},
+    {"name": "user-menus-scene", "file": "user-menus-scene.json", "description": "USER keyboard with user menus on f and g"}
   ]
 }

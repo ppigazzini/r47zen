@@ -7,7 +7,7 @@
       37
     ],
     "manifest_path": "android/app/src/test/resources/keypad-fixtures/manifest.json",
-    "scenario_count": 10,
+    "scenario_count": 11,
     "scene_contract_version": 5,
     "style_numeric_role": {
       "name": "STYLE_NUMERIC",
@@ -1493,8 +1493,8 @@
   },
   "lane_expectations": {
     "f": {
-      "distinct_codepoint_count": 69,
-      "distinct_label_count": 69,
+      "distinct_codepoint_count": 70,
+      "distinct_label_count": 71,
       "distinct_labels": [
         "%",
         "10\u02e3",
@@ -1524,6 +1524,8 @@
         "SHOW",
         "SIN",
         "STAT",
+        "SURV",
+        "SURVEYS",
         "TAN",
         "USER",
         "VIEW",
@@ -1573,28 +1575,28 @@
             "\u21cc\u2b63",
             "\u238c"
           ],
-          "supported_codepoint_count": 67,
-          "supported_label_count": 66
+          "supported_codepoint_count": 68,
+          "supported_label_count": 68
         },
         "standard": {
           "missing_labels": [],
-          "supported_codepoint_count": 69,
-          "supported_label_count": 69
+          "supported_codepoint_count": 70,
+          "supported_label_count": 71
         },
         "tiny": {
           "missing_labels": [
             "10\u02e3",
             "\u2147\u02e3"
           ],
-          "supported_codepoint_count": 67,
-          "supported_label_count": 67
+          "supported_codepoint_count": 68,
+          "supported_label_count": 69
         }
       },
       "label_slot": 1
     },
     "g": {
-      "distinct_codepoint_count": 63,
-      "distinct_label_count": 69,
+      "distinct_codepoint_count": 64,
+      "distinct_label_count": 71,
       "distinct_labels": [
         "!",
         "#",
@@ -1628,6 +1630,8 @@
         "EXP",
         "FIN",
         "FLGS",
+        "GEOM",
+        "GEOMTRY",
         "GTO",
         "I/O",
         "INFO",
@@ -1671,21 +1675,21 @@
           "missing_labels": [
             "\u21b5"
           ],
-          "supported_codepoint_count": 62,
-          "supported_label_count": 68
+          "supported_codepoint_count": 63,
+          "supported_label_count": 70
         },
         "standard": {
           "missing_labels": [],
-          "supported_codepoint_count": 63,
-          "supported_label_count": 69
+          "supported_codepoint_count": 64,
+          "supported_label_count": 71
         },
         "tiny": {
           "missing_labels": [
             "\u2147",
             "\u21b5"
           ],
-          "supported_codepoint_count": 61,
-          "supported_label_count": 67
+          "supported_codepoint_count": 62,
+          "supported_label_count": 69
         }
       },
       "label_slot": 2

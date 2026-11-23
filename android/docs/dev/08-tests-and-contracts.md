@@ -429,7 +429,10 @@ source is missing from this page:
   limit
 - `KeypadFixtureContractTest.kt`: asserts that the exported keypad-fixture
   manifest still matches `KeypadSnapshot` contract values such as scene version,
-  metadata length, key count, and labels-per-key
+  metadata length, key count, and labels-per-key, that it lists exactly the
+  scene files beside it, so a scene no test reads cannot hide there, and that
+  the USER scene's assigned labels carry the f and g menu roles and reach the
+  7-glyph name the core's `validateName` allows
 - `KeypadSnapshotDecoderTest.kt`: asserts the fixed metadata-lane decode and
   label fallback behavior of `KeypadSnapshot.fromNative(...)`
 - `KeypadSnapshotDecoderPropertyTest.kt`: a Kotest `checkAll` property test
@@ -448,7 +451,10 @@ source is missing from this page:
 - `KeypadTopLabelLayoutTest.kt`: the keypad applies the placements the lane
   solver returns, keeps outer labels inside the overlay and a scaled label's
   glyph bottom on its siblings', and, with the shipped fonts, lays out every
-  exported keypad scene centered and unscaled at three phone sizes
+  exported scene of printed legends centered and unscaled at three phone
+  sizes; the exported USER scene, `user-menus-scene`, must reach the solver's
+  scaling there with the inter-group gap, the screen edges, and the one-step
+  f and g scale rule holding in every lane
 - `TopLabelLaneLayoutTest.kt`: the top-label lane solver's spacing,
   corridor, screen-edge, and scale rules, on the plain JVM, including which
   escalation step resolves a row and two Kotest sweeps over dense rows
