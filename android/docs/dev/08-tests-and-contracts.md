@@ -624,7 +624,8 @@ source is missing from this page:
 - `KeySpeechTest.kt`: every label of every exported keypad scene is spoken in
   printable ASCII words, the R47 glyphs by function (`x\u2162` is "x squared"),
   every rendered key a scene enables with labels has a name in words and the
-  Button class, and Zen keeps every main key's name
+  Button class, Zen keeps every main key's name, and a rendered f or g label is
+  named a menu ("f DISP menu") exactly when its scene role says it opens one
 - `LcdAccessibilityNodeTest.kt`: the LCD's node lies over the LCD as a polite
   live region; the text replaces its label and an error is the node's error; a
   burst of frames asks once after `DISPLAY_DESCRIPTION_SETTLE_MS` and nothing

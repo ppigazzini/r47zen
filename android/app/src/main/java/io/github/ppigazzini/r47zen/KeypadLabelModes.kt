@@ -90,7 +90,7 @@ private fun KeypadSnapshot.applyVirtuosoBlankKeycaps(): KeypadSnapshot {
 
 private fun KeypadKeySnapshot.withVirtuosoMainKeyMode(): KeypadKeySnapshot {
     return copy(
-        spokenLabel = spokenLabel ?: KeySpeech.mainKey(primaryLabel, fLabel, gLabel),
+        spokenLabel = spokenLabel ?: KeySpeech.mainKey(this),
         primaryLabel = "",
         fLabel = "",
         gLabel = "",

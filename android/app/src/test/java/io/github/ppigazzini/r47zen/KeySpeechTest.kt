@@ -77,12 +77,48 @@ class KeySpeechTest {
                 assertEquals("", after.primaryLabel)
                 assertEquals(
                     "${fixture.name} key $code",
-                    KeySpeech.mainKey(before.primaryLabel, before.fLabel, before.gLabel),
+                    KeySpeech.mainKey(before),
                     after.spokenLabel,
                 )
             }
         }
     }
+
+    @Test
+    fun aLabelThatOpensAMenuIsNamedAMenu_whateverItsMarker() {
+        // The marker says it on screen; the name says it to a screen reader, from
+        // the scene's roles, so every marker style speaks alike.
+        for (fixture in KeypadFixtureResources.loadAll()) {
+            val snapshot = fixture.snapshot()
+            for (key in keysOf(snapshot)) {
+                val spec = key.currentMainKeyRenderSpecForTest() ?: continue
+                val state = snapshot.keyStateFor(key.keyCode)
+                val description = key.contentDescription?.toString().orEmpty()
+                for (shifted in shiftedLabels) {
+                    val label = spec.label(shifted.renderSlot)?.text ?: continue
+                    assertEquals(
+                        "${fixture.name} key ${key.keyCode}: '$description'",
+                        state.labelRole(shifted.sceneSlot) == shifted.menuRole,
+                        description.contains("${shifted.name} ${KeySpeech.spoken(label)} menu"),
+                    )
+                }
+            }
+        }
+    }
+
+    // A shifted label: its spoken name, its render slot, its scene slot, and the
+    // role that marks it as opening a menu.
+    private class ShiftedLabel(
+        val name: String,
+        val renderSlot: MainKeyLabelSlot,
+        val sceneSlot: Int,
+        val menuRole: Int,
+    )
+
+    private val shiftedLabels = listOf(
+        ShiftedLabel("f", MainKeyLabelSlot.F, KeypadSceneContract.LABEL_F, KeypadSceneContract.TEXT_ROLE_F_UNDERLINE),
+        ShiftedLabel("g", MainKeyLabelSlot.G, KeypadSceneContract.LABEL_G, KeypadSceneContract.TEXT_ROLE_G_UNDERLINE),
+    )
 
     private fun keysOf(snapshot: KeypadSnapshot): List<CalculatorKeyView> {
         val overlay = ReplicaOverlay(context)

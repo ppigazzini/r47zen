@@ -639,7 +639,7 @@ class CalculatorKeyView @JvmOverloads constructor(
             invalidate()
             contentDescription = keyState.spokenLabel
                 ?: mainKeyRenderSpec?.accessibility?.contentDescription
-                ?: KeySpeech.mainKey(keyState.primaryLabel, keyState.fLabel, keyState.gLabel)
+                ?: KeySpeech.mainKey(keyState)
         }
     }
 
@@ -1052,7 +1052,15 @@ class CalculatorKeyView @JvmOverloads constructor(
         fSpec: LabelSpec?,
         gSpec: LabelSpec?,
     ): AccessibilitySpec {
-        return AccessibilitySpec(KeySpeech.mainKey(primarySpec?.text.orEmpty(), fSpec?.text, gSpec?.text))
+        return AccessibilitySpec(
+            KeySpeech.mainKey(
+                primary = primarySpec?.text.orEmpty(),
+                f = fSpec?.text,
+                g = gSpec?.text,
+                fOpensMenu = mainKeyState.opensMenu(MainKeyLabelSlot.F),
+                gOpensMenu = mainKeyState.opensMenu(MainKeyLabelSlot.G),
+            ),
+        )
     }
 
     private fun syncLabelMirrorGeometry(renderSpec: KeyRenderSpec?) {

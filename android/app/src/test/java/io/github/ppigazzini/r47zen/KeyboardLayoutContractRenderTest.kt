@@ -39,7 +39,10 @@ class KeyboardLayoutContractRenderTest {
                 assertEquals(expected.fLabel, view.fLabel.text.toString())
                 assertEquals(expected.gLabel, view.gLabel.text.toString())
                 assertEquals(expected.letterLabel, view.letterLabel.text.toString())
-                assertEquals(expectedContentDescription(expected), view.contentDescription.toString())
+                assertEquals(
+                    expectedContentDescription(expected, snapshot.keyStateFor(keyCode)),
+                    view.contentDescription.toString(),
+                )
             }
         }
     }
@@ -67,16 +70,25 @@ class KeyboardLayoutContractRenderTest {
         assertEquals(expected.auxLabel, actual.auxLabel)
     }
 
-    private fun expectedContentDescription(expected: KeyboardLayoutKeyExpectation): String {
+    // A label the scene marks as opening a menu is named a menu, read from the
+    // roles here rather than through the code under test.
+    private fun expectedContentDescription(
+        expected: KeyboardLayoutKeyExpectation,
+        keyState: KeypadKeySnapshot,
+    ): String {
+        val fMenu = keyState.labelRole(KeypadSceneContract.LABEL_F) == KeypadSceneContract.TEXT_ROLE_F_UNDERLINE
+        val gMenu = keyState.labelRole(KeypadSceneContract.LABEL_G) == KeypadSceneContract.TEXT_ROLE_G_UNDERLINE
         return buildString {
             append(expected.primaryLabel)
             if (expected.fLabel.isNotBlank()) {
                 append(", f ")
                 append(expected.fLabel)
+                if (fMenu) append(" menu")
             }
             if (expected.fLabel.isNotBlank() && expected.gLabel.isNotBlank()) {
                 append(", g ")
                 append(expected.gLabel)
+                if (gMenu) append(" menu")
             }
         }
     }

@@ -74,12 +74,32 @@ internal object KeySpeech {
         }.replace(spaces, " ").trim()
     }
 
-    /** A main key: its primary label, then the f and g labels it carries. */
-    fun mainKey(primary: String, f: String?, g: String?): String = buildString {
+    /**
+     * A main key: its primary label, then the f and g labels it carries, each
+     * named a menu when it opens one, as a marker shows it on screen.
+     */
+    fun mainKey(
+        primary: String,
+        f: String?,
+        g: String?,
+        fOpensMenu: Boolean = false,
+        gOpensMenu: Boolean = false,
+    ): String = buildString {
         append(spoken(primary))
-        if (!f.isNullOrBlank()) append(", f ").append(spoken(f))
-        if (!g.isNullOrBlank()) append(", g ").append(spoken(g))
+        if (!f.isNullOrBlank()) append(", f ").append(spoken(f)).append(if (fOpensMenu) MENU else "")
+        if (!g.isNullOrBlank()) append(", g ").append(spoken(g)).append(if (gOpensMenu) MENU else "")
     }
+
+    /** A main key as its scene state names it. */
+    fun mainKey(keyState: KeypadKeySnapshot): String = mainKey(
+        primary = keyState.primaryLabel,
+        f = keyState.fLabel,
+        g = keyState.gLabel,
+        fOpensMenu = keyState.opensMenu(MainKeyLabelSlot.F),
+        gOpensMenu = keyState.opensMenu(MainKeyLabelSlot.G),
+    )
+
+    private const val MENU = " menu"
 
     /** A softkey: its label and the text it shows beside it. */
     fun softkey(primary: String, aux: String?): String = buildString {

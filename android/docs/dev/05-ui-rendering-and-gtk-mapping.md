@@ -612,6 +612,9 @@ hardcoding one text style for all keys. In practice that means:
     baseline: `MenuLabelMarkerTest.kt` holds both constants to
     `Paint.getUnderlinePosition()` and `getUnderlineThickness()`, the API 29
     getters the app does not call, so that API 24 to 28 mark labels alike.
+  A screen reader hears the same thing whatever the shape: `KeySpeech.mainKey`
+  names a label that opens a menu "f DISP menu", from the roles
+  (`KeypadKeySnapshot.opensMenu`), never from the style.
   A box widens its label: the pad rides in the label's width at each scale
   and the stroke in `fFixedWidth`/`gFixedWidth`, the intragap runs between the
   boxes, and the lane solver places them (lane contract below), so on a
