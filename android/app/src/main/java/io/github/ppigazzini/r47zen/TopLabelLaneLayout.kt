@@ -18,7 +18,18 @@ internal data class TopLabelLaneGroupInput(
     val maxShift: Float,
     val minLeftEdge: Float = Float.NEGATIVE_INFINITY,
     val maxRightEdge: Float = Float.POSITIVE_INFINITY,
+    // The width each label draws at a scale. A label's glyph advances round to
+    // whole pixels at each size, so at scale s it is not s times its unscaled
+    // width; the solver places the width the key will draw. Null means linear,
+    // the text width times the scale: a default lambda would keep the text
+    // width it was built with through copy().
+    val fWidthAt: ((Float) -> Float)? = null,
+    val gWidthAt: ((Float) -> Float)? = null,
 ) {
+    fun fWidth(scale: Float): Float = fWidthAt?.invoke(scale) ?: (fTextWidth * scale)
+
+    fun gWidth(scale: Float): Float = gWidthAt?.invoke(scale) ?: (gTextWidth * scale)
+
     val hasGLabel: Boolean
         get() = gTextWidth > 0f && gapWidth > 0f
 
@@ -55,10 +66,10 @@ private data class TopLabelLaneGroupState(
         get() = scaledFTextWidth + group.gapWidth + scaledGTextWidth
 
     val scaledFTextWidth: Float
-        get() = group.fTextWidth * fScale
+        get() = group.fWidth(fScale)
 
     val scaledGTextWidth: Float
-        get() = group.gTextWidth * gScale
+        get() = if (group.hasGLabel) group.gWidth(gScale) else 0f
 
     val left: Float
         get() = centerX - totalWidth / 2f

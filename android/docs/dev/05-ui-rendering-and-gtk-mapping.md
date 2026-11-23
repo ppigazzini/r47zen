@@ -344,6 +344,12 @@ Non-negotiable invariants:
   stagger model
 - allow the two labels inside one group to differ by at most one fixed scale
   step
+- place each label at the width it draws: `TopLabelLaneGroupInput.fWidthAt`
+  and `gWidthAt` give a label's width at a scale, and `CalculatorKeyView`
+  measures it at the size `updateFontSize` gives that scale. The standard
+  font's glyph advances round to whole pixels at each size, so a label scaled
+  by s is not s times as wide: `SURVEYS` is 140 at 40 px and 84, not 81.2, at
+  23.2 px. Without a function the solver scales the text width linearly
 
 Solve order:
 
@@ -363,7 +369,7 @@ Regression surfaces:
   centered and unscaled at FHD+, HD+, and QHD+ phone sizes, and the exported
   USER scene, whose 7-glyph user menu names fill whole rows, is shifted and
   scaled at those sizes with the spacing, screen-edge, and one-step scale rules
-  above holding in every lane
+  above holding in every lane, on the labels as the keys draw them
 - `08-tests-and-contracts.md` for the full contract-to-lane map
 
 Any future faceplate-offset change must stay on those fixed formulas and layout

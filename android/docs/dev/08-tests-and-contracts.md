@@ -454,10 +454,13 @@ source is missing from this page:
   exported scene of printed legends centered and unscaled at three phone
   sizes; the exported USER scene, `user-menus-scene`, must reach the solver's
   scaling there with the inter-group gap, the screen edges, and the one-step
-  f and g scale rule holding in every lane
+  f and g scale rule holding in every lane, measured on the label bounds the
+  keys draw rather than on the solver's model of their widths
 - `TopLabelLaneLayoutTest.kt`: the top-label lane solver's spacing,
   corridor, screen-edge, and scale rules, on the plain JVM, including which
-  escalation step resolves a row and two Kotest sweeps over dense rows
+  escalation step resolves a row and two Kotest sweeps over dense rows; a
+  sweep of labels whose glyph advances round to whole units at each scale, as
+  hinted text does, keeps every rule on the widths the labels draw
 - `CalculatorKeyViewFontSelectionTest.kt`: locks the Android-local
   standard-first policy so primary, top-label, and fourth-label text stay on
   the standard calculator font and only fall back to the tiny font when the

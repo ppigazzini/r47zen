@@ -2,6 +2,7 @@ package io.github.ppigazzini.r47zen
 
 import io.kotest.property.Arb
 import io.kotest.property.PropTestConfig
+import io.kotest.property.arbitrary.int
 import io.kotest.property.arbitrary.numericFloat
 import io.kotest.property.arbitrary.list
 import io.kotest.property.checkAll
@@ -10,6 +11,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 // The top-label lane solver the app runs, TopLabelLaneLayout.solve, tested on
 // the plain JVM: it is pure Kotlin. These are its only tests of placement
@@ -421,6 +423,32 @@ class TopLabelLaneLayoutTest {
         }
     }
 
+    @Test
+    fun anyDenseRowOfHintedLabelsResolvesOnTheWidthsTheyDraw() {
+        // A hinted label's glyph advances round to whole pixels at each size, so
+        // a label scaled by s is not s times as wide. The rules are checked on
+        // the widths the labels draw, which the solver asks for.
+        runBlocking {
+            checkAll(
+                SWEEP_CONFIG,
+                Arb.list(Arb.int(5..7), 6..6),
+                Arb.numericFloat(17f, 21f),
+            ) { glyphCounts, advance ->
+                val groups = glyphCounts.mapIndexed { index, glyphs ->
+                    standardGroup(index, fTextWidth = glyphs * advance, gTextWidth = glyphs * advance).copy(
+                        fWidthAt = { scale -> glyphs * (advance * scale).roundToInt().toFloat() },
+                        gWidthAt = { scale -> glyphs * (advance * scale).roundToInt().toFloat() },
+                    )
+                }
+
+                val placements = TopLabelLaneLayout.solve(groups)
+
+                assertLaneResolved(groups, placements)
+                assertGroupScaleDifferenceAtMostOneStep(groups, placements)
+            }
+        }
+    }
+
     // A standard-row group at slot INDEX: the reference body width and pitch,
     // and either one total width split evenly around the gap or two widths.
     private fun standardGroup(
@@ -471,9 +499,9 @@ class TopLabelLaneLayoutTest {
     ): Pair<Float, Float> {
         val centerX = input.centerX + placement.centerShift
         val totalWidth =
-            input.fTextWidth * placement.fScale +
+            input.fWidth(placement.fScale) +
                 input.gapWidth +
-                input.gTextWidth * placement.gScale
+                input.gWidth(placement.gScale)
         return (centerX - totalWidth / 2f) to (centerX + totalWidth / 2f)
     }
 

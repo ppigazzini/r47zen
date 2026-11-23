@@ -681,15 +681,9 @@ class CalculatorKeyView @JvmOverloads constructor(
         updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
 
         val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
-        val fTextWidth = measureTextWidth(
-            fLabel,
-            normalizedTextSizePx(fLabel, baseTopLabelTextSize),
-        )
+        val fTextWidth = measureTextWidth(fLabel, normalizedTextSizePx(fLabel, baseTopLabelTextSize))
         val gTextWidth = if (hasGLabel) {
-            measureTextWidth(
-                gLabel,
-                normalizedTextSizePx(gLabel, baseTopLabelTextSize),
-            )
+            measureTextWidth(gLabel, normalizedTextSizePx(gLabel, baseTopLabelTextSize))
         } else {
             0f
         }
@@ -708,7 +702,19 @@ class CalculatorKeyView @JvmOverloads constructor(
             maxShift = mainKeyRect.width() * R47TopLabelSolverPolicy.TOP_F_G_LABEL_MAX_SHIFT_FRACTION,
             minLeftEdge = minLeftEdge,
             maxRightEdge = maxRightEdge,
+            fWidthAt = drawnWidthAt(fLabel, baseTopLabelTextSize),
+            gWidthAt = drawnWidthAt(gLabel, baseTopLabelTextSize),
         )
+    }
+
+    // The width a top label draws at a solver scale: measured at the size
+    // updateFontSize gives it for that scale, as buildMainKeyRenderSpec measures
+    // it, once a scale, since the solver tries the same few scales many times.
+    private fun drawnWidthAt(labelView: TextView, baseSize: Float): (Float) -> Float {
+        val widths = HashMap<Float, Float>()
+        return { scale ->
+            widths.getOrPut(scale) { measureTextWidth(labelView, normalizedTextSizePx(labelView, baseSize * scale)) }
+        }
     }
 
     internal fun currentMainKeyBodyHorizontalBounds(): Pair<Float, Float>? {

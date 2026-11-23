@@ -218,7 +218,8 @@ class KeypadTopLabelLayoutTest {
     fun userMenuNamesReachTheSolverAndKeepTheLaneRulesOnPhoneScreens() {
         // The USER scene puts 7-glyph user menu names on whole rows, more than
         // the keys hold: the solver must shift and scale them, and the lane rules
-        // page 05 lists must still hold for every lane it solves.
+        // page 05 lists must still hold for every lane it solves, on the labels
+        // as the keys draw them, not on the solver's own model of their widths.
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         Typeface.createFromAsset(activity.assets, "fonts/C47__StandardFont.ttf")
         val fixture = KeypadFixtureResources.load("user-menus-scene")
@@ -236,17 +237,19 @@ class KeypadTopLabelLayoutTest {
             var scaledLabels = 0
             for (lane in KeypadLane.entries.filter { it != KeypadLane.SOFTKEY_ROW }) {
                 val slots = KeypadTopology.slotsForLane(lane)
-                val solved = slots.mapIndexedNotNull { index, slot ->
-                    val key = keysByCode[slot.code] ?: return@mapIndexedNotNull null
-                    val input = key.buildTopLabelLaneInput(
-                        minLeftEdge = if (index == 0) 0f else Float.NEGATIVE_INFINITY,
-                        maxRightEdge = if (index == slots.lastIndex) width.toFloat() else Float.POSITIVE_INFINITY,
-                    ) ?: return@mapIndexedNotNull null
-                    input to key.currentTopLabelPlacementForTest()
+                val solved = slots.mapNotNull { slot ->
+                    val key = keysByCode[slot.code] ?: return@mapNotNull null
+                    val input = key.buildTopLabelLaneInput() ?: return@mapNotNull null
+                    Triple(input, key.currentTopLabelPlacementForTest(), drawnGroupBounds(key))
                 }
                 val where = "$lane at ${width}x$height"
-                solved.forEach { (input, placement) ->
-                    assertScreenBoundsRespected(input, placement)
+                solved.firstOrNull()?.let { (_, _, drawn) ->
+                    assertTrue("$where: past the left edge", drawn.first >= -POSITION_TOLERANCE)
+                }
+                solved.lastOrNull()?.let { (_, _, drawn) ->
+                    assertTrue("$where: past the right edge", drawn.second <= width + POSITION_TOLERANCE)
+                }
+                solved.forEach { (input, placement, _) ->
                     assertTrue(
                         "$where: key ${input.code} f and g scales differ by more than one step",
                         kotlin.math.abs(placement.fScale - placement.gScale) <=
@@ -255,9 +258,8 @@ class KeypadTopLabelLayoutTest {
                     if (placement.fScale < 1f) scaledLabels++
                     if (input.hasGLabel && placement.gScale < 1f) scaledLabels++
                 }
-                solved.zipWithNext { (left, leftPlacement), (right, rightPlacement) ->
-                    val gap = solvedGroupBounds(right, rightPlacement).first -
-                        solvedGroupBounds(left, leftPlacement).second
+                solved.zipWithNext { (left, _, leftDrawn), (right, _, rightDrawn) ->
+                    val gap = rightDrawn.first - leftDrawn.second
                     val required = maxOf(left.gapWidth, right.gapWidth) * 2f
                     assertTrue(
                         "$where: keys ${left.code} and ${right.code} are $gap apart, under $required",
@@ -267,6 +269,15 @@ class KeypadTopLabelLayoutTest {
             }
             assertTrue("no USER label was scaled at ${width}x$height", scaledLabels > 0)
         }
+    }
+
+    // The left of a key's f label and the right of its g label, or of its f
+    // label alone, as the key draws them, in the overlay's coordinates.
+    private fun drawnGroupBounds(key: CalculatorKeyView): Pair<Float, Float> {
+        val spec = requireNotNull(key.currentMainKeyRenderSpecForTest())
+        val f = requireNotNull(spec.label(MainKeyLabelSlot.F)?.bounds)
+        val right = spec.label(MainKeyLabelSlot.G)?.bounds?.right ?: f.right
+        return (key.left + f.left) to (key.left + right)
     }
 
     private fun createAttachedMainKeyView(activity: Activity, code: Int): CalculatorKeyView {
@@ -288,9 +299,9 @@ class KeypadTopLabelLayoutTest {
     ): Pair<Float, Float> {
         val centerX = input.centerX + placement.centerShift
         val totalWidth =
-            input.fTextWidth * placement.fScale +
+            input.fWidth(placement.fScale) +
                 input.gapWidth +
-                input.gTextWidth * placement.gScale
+                input.gWidth(placement.gScale)
         return (centerX - totalWidth / 2f) to (centerX + totalWidth / 2f)
     }
 
