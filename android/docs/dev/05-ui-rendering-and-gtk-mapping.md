@@ -604,6 +604,10 @@ hardcoding one text style for all keys. In practice that means:
   - Reverse Video: the same box filled in the label's color, drawn before the
     label, which turns `REVERSE_TEXT_COLOR`, black, as the LCD inverts a
     submenu softkey.
+  - Tab: the underline's line and weight, centered under the label's advance
+    and `TAB_WIDTH_EM` long at the unscaled top-label size, so a tab is one
+    length under every label however far the solver shrank it, and no
+    exported menu label is shorter.
   - Underline: a bar under the label's advance, drawn after the label,
     `BAR_THICKNESS_EM` thick at the unscaled top-label size and a fixed
     distance under the line-box bottom, which every label of a lane shares, so
@@ -619,8 +623,8 @@ hardcoding one text style for all keys. In practice that means:
   and the stroke in `fFixedWidth`/`gFixedWidth`, the intragap runs between the
   boxes, and the lane solver places them (lane contract below), so on a
   printed keypad it may shift a label to make room but never scales one. The
-  underline takes no width and moves no label. A change to or from a box
-  re-runs the solver: `ReplicaKeypadLayout.applyMenuLabelMarkerStyle`
+  tab and the underline take no width and move no label. A change to or from
+  a box re-runs the solver: `ReplicaKeypadLayout.applyMenuLabelMarkerStyle`
   requests layout, and `ReplicaOverlay.onLayout` calls `onGeometryLaidOut`; a
   change between two shapes of one width is an in-place restyle. The style
   lives in the preference, `MainActivityPreferenceController`,
@@ -682,10 +686,10 @@ For the faceplate legends specifically, Android keeps the upstream GTK rule
 and not its shape: a marked F or G label opens a menu, an unmarked one is a
 direct function. GTK marks the label with a darker background, not an
 underline: its CSS gives `#fShiftedUnderline` and `#gShiftedUnderline` the
-`$menubackground` color (`res/c47_pre.css`, hydrated from upstream). An
-underline sits under the label's line box and moves no label; a box widens
-its label, and the lane solver makes room for it under the same spacing,
-centering, and size rules.
+`$menubackground` color (`res/c47_pre.css`, hydrated from upstream). A tab
+or an underline sits under the label's line box and moves no label; a box
+widens its label, and the lane solver makes room for it under the same
+spacing, centering, and size rules.
 
 ## PiP interaction model
 

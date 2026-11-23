@@ -408,7 +408,7 @@ class SettingsPreferenceSummaryTest {
 
         assertEquals("Menu Labels", preference.title?.toString())
         val names = preference.entries.map { it.toString() }
-        assertEquals(listOf("Rounded Box", "Reverse Video", "Underline"), names)
+        assertEquals(listOf("Rounded Box", "Reverse Video", "Tab", "Underline"), names)
         assertEquals(
             MenuLabelMarkerStyle.entries.map { it.storageValue },
             preference.entryValues.map { it.toString() },

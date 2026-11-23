@@ -45,6 +45,7 @@ internal enum class MenuLabelMarkerStyle(
 ) {
     ROUNDRECT(storageValue = "roundrect", boxed = true),
     REVERSE(storageValue = "reverse", boxed = true),
+    TAB(storageValue = "tab", boxed = false),
     UNDERLINE(storageValue = "underline", boxed = false);
 
     companion object {

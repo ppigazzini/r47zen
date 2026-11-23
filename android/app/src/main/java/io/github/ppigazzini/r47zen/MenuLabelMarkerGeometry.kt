@@ -27,6 +27,11 @@ internal object MenuLabelMarkerGeometry {
     // solver shrinks keeps a full-weight outline.
     const val BOX_STROKE_EM = 0.06f
 
+    // The tab's length, centered, at the unscaled top-label size, so every tab
+    // is one length however far the solver shrank its label. MenuLabelMarkerTest
+    // holds every exported menu label at least that long.
+    const val TAB_WIDTH_EM = 0.8f
+
     // The label's color inside a reverse-video box: the box takes the label's
     // color, the text the shell's black, as the LCD inverts a submenu softkey.
     const val REVERSE_TEXT_COLOR = Color.BLACK
@@ -53,22 +58,32 @@ internal object MenuLabelMarkerGeometry {
         marked: MarkedLabel,
     ): MenuLabelMarkerSpec? {
         val bounds = marked.label.bounds ?: return null
-        return if (style.boxed) box(style, id, marked, bounds) else bar(id, marked, bounds)
+        return if (style.boxed) box(style, id, marked, bounds) else underLabel(style, id, marked, bounds)
     }
 
-    // Lay the bar under the label's advance at the unscaled top-label size, a
-    // fixed distance under the line-box bottom, which every label of a lane
-    // shares: one weight on one line, however far the solver shrank a label.
+    // Lay a zero-width shape on the bar's line: at the unscaled top-label size,
+    // a fixed distance under the line-box bottom, which every label of a lane
+    // shares, so one lane shows one weight on one line however far the solver
+    // shrank a label, and under the label's advance, so it moves no label.
     // Unscaled, the bar is the font's underline, BAR_TOP_EM under the baseline.
-    private fun bar(id: String, marked: MarkedLabel, bounds: RectSpec): MenuLabelMarkerSpec {
+    private fun underLabel(
+        style: MenuLabelMarkerStyle,
+        id: String,
+        marked: MarkedLabel,
+        bounds: RectSpec,
+    ): MenuLabelMarkerSpec {
         val unscaled = marked.unscaledLabelSize
         val unscaledDescent = (bounds.bottom - marked.baselineY) * unscaled / marked.label.textSize
         val top = bounds.bottom + BAR_TOP_EM * unscaled - unscaledDescent
-        return MenuLabelMarkerSpec(
-            id = id,
-            bounds = RectSpec(bounds.left, top, bounds.right, top + BAR_THICKNESS_EM * unscaled),
-            color = marked.color,
-        )
+        val bar = RectSpec(bounds.left, top, bounds.right, top + BAR_THICKNESS_EM * unscaled)
+        return when (style) {
+            MenuLabelMarkerStyle.TAB -> {
+                val half = TAB_WIDTH_EM * unscaled / 2f
+                val tab = bar.copy(left = bounds.centerX - half, right = bounds.centerX + half)
+                MenuLabelMarkerSpec(id, tab, marked.color)
+            }
+            else -> MenuLabelMarkerSpec(id, bar, marked.color)
+        }
     }
 
     private fun box(

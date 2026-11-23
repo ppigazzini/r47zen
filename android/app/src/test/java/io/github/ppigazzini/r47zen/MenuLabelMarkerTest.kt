@@ -12,6 +12,7 @@ import android.graphics.Typeface
 import android.view.View
 import io.kotest.property.Arb
 import io.kotest.property.PropTestConfig
+import io.kotest.property.ShrinkingMode
 import io.kotest.property.arbitrary.numericFloat
 import io.kotest.property.checkAll
 import kotlinx.coroutines.runBlocking
@@ -87,12 +88,12 @@ class MenuLabelMarkerTest {
         // standard font's descent). The bar keeps u's weight and distance.
         runBlocking {
             checkAll(
-                PropTestConfig(seed = 20261123L, iterations = 256),
+                sweep(seed = 20261123L),
                 Arb.numericFloat(0.3f, 1f),
                 Arb.numericFloat(20f, 80f),
             ) { scale, unscaled ->
                 val size = unscaled * scale
-                val bottom = 100f
+                val bottom = BOTTOM
                 val label = barLabel(size, bottom)
                 val marked = MarkedLabel(label, bottom - FONT_DESCENT_EM * size, Color.WHITE, unscaled)
                 val bar = requireNotNull(MenuLabelMarkerGeometry.marker(UNDERLINE, "bar", marked)).bounds
@@ -105,6 +106,87 @@ class MenuLabelMarkerTest {
                 assertEquals(MenuLabelMarkerGeometry.BAR_THICKNESS_EM * unscaled, bar.height, GEOMETRY_TOLERANCE)
                 assertEquals(requireNotNull(label.bounds).left, bar.left, 0f)
                 assertEquals(requireNotNull(label.bounds).right, bar.right, 0f)
+            }
+        }
+    }
+
+    @Test
+    fun theTabSitsOnTheBarsLineCenteredAtOneLength() {
+        runBlocking {
+            checkAll(
+                sweep(seed = 20261124L),
+                Arb.numericFloat(0.3f, 1f),
+                Arb.numericFloat(20f, 80f),
+                Arb.numericFloat(1.5f, 8f),
+            ) { scale, unscaled, widthEm ->
+                val size = unscaled * scale
+                val short = barLabel(size, BOTTOM)
+                val label = short.copy(bounds = requireNotNull(short.bounds).copy(right = 10f + widthEm * size))
+                val marked = MarkedLabel(label, BOTTOM - FONT_DESCENT_EM * size, Color.WHITE, unscaled)
+                val bar = requireNotNull(MenuLabelMarkerGeometry.marker(UNDERLINE, "bar", marked)).bounds
+                val tab = requireNotNull(MenuLabelMarkerGeometry.marker(TAB, "tab", marked)).bounds
+                // The tab is one length at the unscaled size, which a label of the
+                // sweep can be too short to hold; everyTabIsOneLengthAndFitsItsLabel
+                // holds it inside every exported label.
+                val length = MenuLabelMarkerGeometry.TAB_WIDTH_EM * unscaled
+                assertEquals("line", bar.centerY, tab.centerY, GEOMETRY_TOLERANCE)
+                assertEquals("center", requireNotNull(label.bounds).centerX, tab.centerX, GEOMETRY_TOLERANCE)
+                assertEquals("length", length, tab.width, GEOMETRY_TOLERANCE)
+            }
+        }
+    }
+
+    @Test
+    fun everyTabIsOneLengthAndFitsItsLabel() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        var underAShrunkLabel = false
+        for (fixture in KeypadFixtureResources.loadAll()) {
+            for (screen in PHONE_SCREENS) {
+                val where = "${fixture.name} at ${screen.first}x${screen.second}"
+                val tabs = keysOf(laidOut(activity, fixture, TAB, screen)).flatMap { key ->
+                    val placement = key.currentTopLabelPlacementForTest()
+                    markedLabels(key).map { (slot, label, marker) ->
+                        val scale = if (slot == MainKeyLabelSlot.F) placement.fScale else placement.gScale
+                        underAShrunkLabel = underAShrunkLabel || scale < 1f
+                        val labelBounds = requireNotNull(label.bounds)
+                        val tab = marker.bounds
+                        val at = "$where key ${key.keyCode} ${slot.name} '${label.text}'"
+                        assertTrue("$at: tab ${tab.left} left of ${labelBounds.left}", tab.left >= labelBounds.left)
+                        assertTrue("$at: tab ${tab.right} past ${labelBounds.right}", tab.right <= labelBounds.right)
+                        assertEquals("$at: centered", labelBounds.centerX, tab.centerX, GEOMETRY_TOLERANCE)
+                        tab.width to key.width
+                    }
+                }
+                // Each key sizes its labels from its own whole-pixel width, so two
+                // tabs may differ by what one pixel of key width carries.
+                val onePixel = (tabs.maxOfOrNull { it.first } ?: 0f) / (tabs.minOfOrNull { it.second } ?: 1)
+                tabs.forEach { assertEquals("$where: one tab length", tabs.first().first, it.first, onePixel) }
+            }
+        }
+        assertTrue("no tab sat under a label the solver shrank", underAShrunkLabel)
+    }
+
+    @Test
+    fun theTabMovesNoLabelAndAsksForNoLayout() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val scene = KeypadFixtureResources.load("user-menus-scene")
+        val underlined = placements(laidOut(activity, scene, UNDERLINE))
+        val overlay = laidOut(activity, scene, UNDERLINE)
+        ReplicaKeypadLayout.applyMenuLabelMarkerStyle(overlay, TAB, UNDERLINE)
+        assertTrue("TAB asked for a layout", !overlay.isLayoutRequested)
+        layOut(overlay)
+        assertEquals(underlined, placements(overlay))
+    }
+
+    @Test
+    fun everyMarkerReachesTheNonTextBarOnTheShell() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        for (style in MenuLabelMarkerStyle.entries) {
+            for (key in keysOf(laidOut(activity, KeypadFixtureResources.load("default-keypad"), style))) {
+                markedLabels(key).forEach { (slot, _, marker) ->
+                    val ratio = WcagContrast.ratio(marker.color, Color.BLACK)
+                    assertTrue("$style key ${key.keyCode} $slot: $ratio", ratio >= WcagContrast.NON_TEXT_MINIMUM)
+                }
             }
         }
     }
@@ -400,6 +482,13 @@ class MenuLabelMarkerTest {
         }
     }
 
+    // Kotest's float shrinker leaves an Arb's range: it shrank a scale drawn
+    // from 0.3 to 1 down to 0 and reported that in place of the case that
+    // failed. Without shrinking, a failure reports the in-range case that failed.
+    private fun sweep(seed: Long): PropTestConfig {
+        return PropTestConfig(seed = seed, iterations = SWEEP_ITERATIONS, shrinkingMode = ShrinkingMode.Off)
+    }
+
     // A label laid out as the keypad lays an f label: left-aligned, its line
     // box ending at bottom.
     private fun barLabel(size: Float, bottom: Float): LabelSpec {
@@ -448,6 +537,10 @@ class MenuLabelMarkerTest {
     private fun layOut(overlay: ReplicaOverlay, screen: Pair<Int, Int> = SCREEN_WIDTH to SCREEN_HEIGHT) {
         overlay.measure(exactly(screen.first), exactly(screen.second))
         overlay.layout(0, 0, screen.first, screen.second)
+    }
+
+    private fun placements(overlay: ReplicaOverlay): Map<Int, TopLabelLanePlacement> {
+        return keysOf(overlay).associate { it.keyCode to it.currentTopLabelPlacementForTest() }
     }
 
     private fun keysOf(overlay: ReplicaOverlay): List<CalculatorKeyView> {
@@ -575,8 +668,13 @@ class MenuLabelMarkerTest {
         // The standard font's descent, 200 of 1000 units.
         const val FONT_DESCENT_EM = 0.2f
 
+        // A line-box bottom for the geometry sweeps, anywhere on the canvas.
+        const val BOTTOM = 100f
+        const val SWEEP_ITERATIONS = 256
+
         val BOXED_STYLES = MenuLabelMarkerStyle.entries.filter { it.boxed }
         val UNDERLINE = MenuLabelMarkerStyle.UNDERLINE
+        val TAB = MenuLabelMarkerStyle.TAB
         val BOX = MenuLabelMarkerStyle.ROUNDRECT
 
         // FHD+, HD+, and QHD+ portrait phones, as KeypadTopLabelLayoutTest lays out.

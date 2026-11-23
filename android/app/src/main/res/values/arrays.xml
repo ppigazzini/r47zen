@@ -41,11 +41,13 @@
     <string-array name="menu_label_marker_entries" translatable="false">
         <item>Rounded Box</item>
         <item>Reverse Video</item>
+        <item>Tab</item>
         <item>Underline</item>
     </string-array>
     <string-array name="menu_label_marker_values" translatable="false">
         <item>roundrect</item>
         <item>reverse</item>
+        <item>tab</item>
         <item>underline</item>
     </string-array>
 </resources>

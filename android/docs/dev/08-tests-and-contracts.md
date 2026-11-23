@@ -496,7 +496,15 @@ source is missing from this page:
   outline and the filled box reach 3:1 on the shell's black and reverse
   video's black text 4.5:1 on its box, by `WcagContrast`; reverse video draws
   its box before its label; and a change to a box lays the keypad out again,
-  moving labels, while a change back restores every placement
+  moving labels, while a change back restores every placement. For the tab:
+  a Kotest sweep over scales, sizes, and label widths, shrinking off so a
+  failure reports the in-range case, keeps it on the bar's center line,
+  centered under the label, and `TAB_WIDTH_EM` of the unscaled size; on
+  every exported scene at FHD+, HD+, and QHD+ every tab fits inside its label
+  and all tabs share one length, within what one pixel of key width carries,
+  solver-shrunk USER labels included; it moves no label and asks for no
+  layout on the USER scene; and every style's marker reaches 3:1 on the
+  shell's black
 - `KeyRenderSpecSlotTest.kt`: locks the typed Kotlin label-slot and adornment-
   slot accessors while preserving the stable serialized `id` strings consumed
   by the Python and JSON-backed contract surfaces
