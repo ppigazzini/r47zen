@@ -144,7 +144,7 @@ for name in sorted(called):
 PY
 }
 
-# What the copy follows, from the merge ref of upstream MR !2033.
+# What the copy follows, as upstream holds it.
 HASHED='c47-gtk/hal/keys.c * fed19e46b9e2b4c4
 c47/hal/keys.h * afef46e29b621316
 c47/c47.c mainLoop de01f6fe02f66488

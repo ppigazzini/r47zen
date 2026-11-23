@@ -613,8 +613,7 @@ jobs:
 
   fuzz-core:
     name: Fuzz the readers of files a user opens
-    # Weekly, and on a dispatch, which is how merge-request-watch.yml runs the port
-    # branch's lanes; a push does not wait an hour for it.
+    # Weekly, and on a dispatch; a push does not wait an hour for it.
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '44 4 * * 0'
     needs:
       - resolve-upstream-core

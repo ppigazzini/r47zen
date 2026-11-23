@@ -1285,7 +1285,6 @@ The rest, and what each one gates:
 | `actions-lock.yml` | push to `main` or `github_ci` and pull request on `main` that touch `.github/`, weekly schedule, dispatch | `gh actions-lock --verify --ignore-local-actions` with the extension pinned to v0.4.1: the lockfile covers every workflow and each pin verifies upstream ([Actions lockfile](#actions-lockfile)) | nothing requires it; it reports |
 | `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL with `build-mode: none`, one job per language: `c-cpp` over repo-owned C, `python` over the contract suite, the repository's only Python, `actions` over the workflows and composites, beside zizmor; ignoring `src`, `dep`, `tools`, and the staged tree; findings go to the Security tab. On the weekly schedule alone, `analyze-core` hydrates the core at the resolved upstream commit and runs `security-extended` over `src` and `dep/decNumberICU`, most of the C the app ships; its own category keeps it apart. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
-| `merge-request-watch.yml` | daily schedule, dispatch | `scripts/upstream-sync/watch_merge_request.sh` dispatches the `android-ci.yml`, `linux-ci.yml`, and `windows-ci.yml` of branch `port-mr-2033` on the merge ref of upstream MR !2033, once for each pair of branch commit and merge commit, and fails once the MR is merged or closed | nothing requires it; a dispatched lane reports in its own run |
 | `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
 | `privacy-policy-pages.yml` | daily schedule, push to `main` that touches the policy asset, the home page, the icon's drawing source, the workflow, `scripts/docs/prepare_manual_site.sh`, `scripts/docs/stage_pages_home.sh`, or anything under `scripts/site-screens/`, dispatch | publishes the Pages site as one artifact: the home page, `android/site/index.html`, to `https://ppigazzini.github.io/r47zen/`, with the launcher icon's drawing source, `android/app/icon-source/r47zen.svg`, as its logo and favicon, and the calculator screens it shows, rendered from upstream's core as `screens/<scene>.svg`; `android/app/src/main/assets/privacy-policy.html`, the page the app shows, unchanged to `https://ppigazzini.github.io/r47zen/privacy-policy.html`, the URL in Play Console's privacy-policy field; and upstream's cropped manual to `https://ppigazzini.github.io/r47zen/manual/C47_R47_calc_Crop.pdf`, the URL Settings opens; `run_pages_home_contract.sh`, `run_site_screens_contract.sh`, `run_privacy_policy_single_source_contract.sh`, and `run_manual_site_contract.sh` hold the workflow to the four | -- |
 
@@ -1352,15 +1351,6 @@ red, so it does not hold back the policy; before the first deploy that carries t
 there are none to republish, and nothing deploys. Whether a scene still draws what the
 page's caption says shows only in a render: `run_site_screens_contract.sh` builds no
 core.
-
-MR !2033 removes what the glue calls, so this repo stops building the day it merges,
-and `port-mr-2033` holds the port. A push to that branch runs no lane, and a push to
-`github_ci` hydrates upstream HEAD, where it cannot build, so the watch runs the
-branch's own lanes on `refs/merge-requests/2033/merge`. That ref does not follow upstream
-HEAD on its own (measured 2026-11-07: it did not carry HEAD's newest commit), so the
-lanes prove the branch against the merge ref, not against today's upstream.
-`publish-main-snapshot` needs `refs/heads/main`, so a watched run publishes nothing, and
-the APK `sign-dev-prerelease` signs stays a run artifact.
 
 `ci-required` in `android-ci.yml` is the one aggregate verdict, and even it is
 not a required status check: `main` takes direct pushes, so every row above
