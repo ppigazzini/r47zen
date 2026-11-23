@@ -116,8 +116,8 @@ class SvgRecordingCanvasTest {
     private data class RecordedRect(val left: Float, val top: Float, val right: Float, val bottom: Float)
 
     private companion object {
-        // A g label the keypad draws underlined, at a size whose decoration
-        // spans several pixels.
+        // A three-letter g label in the keypad's font, at a size whose
+        // decoration spans several pixels.
         const val TEXT = "TRG"
         const val TEXT_SIZE = 48f
         const val STANDARD_FONT = "fonts/C47__StandardFont.ttf"

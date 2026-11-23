@@ -34,16 +34,12 @@ internal object C47TextRenderer {
         color: Int,
         alpha: Float = 1f,
         textScaleX: Float = 1f,
-        underline: Boolean = false,
-        strikeThrough: Boolean = false,
     ) {
         paint.typeface = typeface
         paint.textSize = textSize
         paint.textAlign = align
         paint.color = applyAlpha(color, alpha)
         paint.textScaleX = textScaleX
-        paint.isUnderlineText = underline
-        paint.isStrikeThruText = strikeThrough
     }
 
     fun fittedTextSize(
@@ -79,8 +75,6 @@ internal object C47TextRenderer {
         verticalAnchor: Int = TEXT_ANCHOR_CENTER,
         alpha: Float = 1f,
         textScaleX: Float = 1f,
-        underline: Boolean = false,
-        strikeThrough: Boolean = false,
         visible: Boolean = true,
     ): LabelSpec? {
         val resolvedMetrics = resolveTextMetrics(
@@ -111,8 +105,6 @@ internal object C47TextRenderer {
             verticalAnchor = verticalAnchor,
             alpha = alpha,
             textScaleX = textScaleX,
-            underline = underline,
-            strikeThrough = strikeThrough,
         )
     }
 
@@ -131,8 +123,6 @@ internal object C47TextRenderer {
         verticalAnchor: Int = TEXT_ANCHOR_CENTER,
         alpha: Float = 1f,
         textScaleX: Float = 1f,
-        underline: Boolean = false,
-        strikeThrough: Boolean = false,
         visible: Boolean = true,
     ): LabelSpec? {
         val resolvedMetrics = resolveTextMetrics(
@@ -165,8 +155,6 @@ internal object C47TextRenderer {
             verticalAnchor = verticalAnchor,
             alpha = alpha,
             textScaleX = textScaleX,
-            underline = underline,
-            strikeThrough = strikeThrough,
         )
     }
 
@@ -205,8 +193,6 @@ internal object C47TextRenderer {
         verticalAnchor: Int = TEXT_ANCHOR_CENTER,
         alpha: Float = 1f,
         textScaleX: Float = 1f,
-        underline: Boolean = false,
-        strikeThrough: Boolean = false,
     ) {
         if (text.isBlank() || textSize <= 0f) {
             return
@@ -220,16 +206,31 @@ internal object C47TextRenderer {
             color = color,
             alpha = alpha,
             textScaleX = textScaleX,
-            underline = underline,
-            strikeThrough = strikeThrough,
         )
-        val metrics = paint.fontMetrics
-        val baseline = when (verticalAnchor) {
+        canvas.drawText(text, x, baselineY(paint.fontMetrics, anchorY, verticalAnchor), paint)
+    }
+
+    // Find the baseline drawText puts a label on: its anchor is the top, the
+    // bottom, or the center of the font's line box.
+    fun baselineY(
+        metrics: Paint.FontMetrics,
+        anchorY: Float,
+        verticalAnchor: Int,
+    ): Float {
+        return when (verticalAnchor) {
             TEXT_ANCHOR_TOP -> anchorY - metrics.ascent
             TEXT_ANCHOR_BOTTOM -> anchorY - metrics.descent
             else -> anchorY - ((metrics.ascent + metrics.descent) / 2f)
         }
-        canvas.drawText(text, x, baseline, paint)
+    }
+
+    fun baselineY(
+        label: LabelSpec,
+        paint: Paint,
+    ): Float {
+        paint.typeface = label.typeface
+        paint.textSize = label.textSize
+        return baselineY(paint.fontMetrics, label.anchor.y, label.verticalAnchor)
     }
 
     fun colorWithAlpha(color: Int, alpha: Float): Int {

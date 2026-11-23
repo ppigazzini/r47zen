@@ -134,6 +134,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
     private val mainKeyLabelPaint = C47TextRenderer.newTextPaint()
+    private val mainKeyMarkerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val mainKeyMeasurementPaint = C47TextRenderer.newTextPaint()
     private val mainKeyPressedHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -521,14 +522,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         defaultColor: Int,
         forcedColor: Int? = null,
     ) {
-        var paintFlags = labelView.paintFlags and Paint.UNDERLINE_TEXT_FLAG.inv()
-        if (
-            role == KeypadSceneContract.TEXT_ROLE_F_UNDERLINE ||
-                role == KeypadSceneContract.TEXT_ROLE_G_UNDERLINE
-        ) {
-            paintFlags = paintFlags or Paint.UNDERLINE_TEXT_FLAG
-        }
-        labelView.paintFlags = paintFlags
         labelView.typeface = when (labelView) {
             primaryLabel -> primaryTypefaceFor()
             fLabel, gLabel, letterLabel -> C47TypefacePolicy.standardFirst(
@@ -839,8 +832,6 @@ class CalculatorKeyView @JvmOverloads constructor(
             color = primaryLabel.currentTextColor,
             alpha = primaryLabel.alpha,
             textScaleX = primaryLabel.textScaleX,
-            underline = primaryLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
-            strikeThrough = primaryLabel.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
             visible = primaryLabel.isVisible,
         )
         primarySpec?.let(labels::add)
@@ -879,8 +870,6 @@ class CalculatorKeyView @JvmOverloads constructor(
                 verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
                 alpha = fLabel.alpha,
                 textScaleX = fLabel.textScaleX,
-                underline = fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
-                strikeThrough = fLabel.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
                 visible = true,
             )
         } else {
@@ -900,8 +889,6 @@ class CalculatorKeyView @JvmOverloads constructor(
                 verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
                 alpha = gLabel.alpha,
                 textScaleX = gLabel.textScaleX,
-                underline = gLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
-                strikeThrough = gLabel.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
                 visible = true,
             )
         } else {
@@ -909,6 +896,10 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
         fSpec?.let(labels::add)
         gSpec?.let(labels::add)
+        val menuLabelMarkers = listOfNotNull(
+            fSpec?.let { menuLabelMarker(MainKeyLabelSlot.F, MainKeyAdornmentSlot.F_MENU_MARKER, it) },
+            gSpec?.let { menuLabelMarker(MainKeyLabelSlot.G, MainKeyAdornmentSlot.G_MENU_MARKER, it) },
+        )
 
         val topLabelGroup = when {
             fSpec?.bounds != null && gSpec?.bounds != null -> {
@@ -977,8 +968,6 @@ class CalculatorKeyView @JvmOverloads constructor(
                 verticalAnchor = C47TextRenderer.TEXT_ANCHOR_TOP,
                 alpha = letterLabel.alpha,
                 textScaleX = letterLabel.textScaleX,
-                underline = letterLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0,
-                strikeThrough = letterLabel.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG != 0,
                 visible = true,
             )
         }
@@ -987,7 +976,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         return KeyRenderSpec(
             chrome = chrome,
             labels = labels,
-            adornments = emptyList(),
+            adornments = menuLabelMarkers,
             accessibility = buildMainKeyAccessibilitySpec(primarySpec, fSpec, gSpec),
             geometry = MainKeyGeometrySpec(
                 bodyBounds = bodyBounds,
@@ -996,6 +985,17 @@ class CalculatorKeyView @JvmOverloads constructor(
                 fourthLabelAnchor = fourthLabelAnchor,
             ),
         )
+    }
+
+    private fun menuLabelMarker(
+        label: MainKeyLabelSlot,
+        slot: MainKeyAdornmentSlot,
+        spec: LabelSpec,
+    ): MenuLabelMarkerSpec? {
+        if (!mainKeyState.opensMenu(label)) {
+            return null
+        }
+        return MenuLabelMarkerGeometry.bar(slot.id, spec, C47TextRenderer.baselineY(spec, mainKeyMeasurementPaint))
     }
 
     private fun buildMainKeyAccessibilitySpec(
@@ -1075,6 +1075,13 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
         renderSpec.label(MainKeyLabelSlot.LETTER)?.let { label ->
             KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
+        }
+        // An index loop: an iterator would allocate on every draw.
+        for (index in renderSpec.adornments.indices) {
+            val adornment = renderSpec.adornments[index]
+            if (adornment is MenuLabelMarkerSpec) {
+                KeyRenderPainter.drawMenuLabelMarker(canvas, adornment, mainKeyMarkerPaint)
+            }
         }
     }
 

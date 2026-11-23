@@ -470,6 +470,15 @@ source is missing from this page:
 - `C47TextRendererTest.kt`: locks the shared text-paint flags, fitted-text
   minimum scale, and the equivalence between the fitted-label path and a direct
   label-spec build at the resolved final size
+- `MenuLabelMarkerTest.kt`: holds the menu-label marker to the platform's own
+  underline. `BAR_TOP_EM` and `BAR_THICKNESS_EM` equal the standard font's
+  underline metrics as `Paint` reads them at the target SDK; every marked
+  label of every exported scene, the solver-scaled USER labels included, laid
+  out at FHD+, draws pixel for pixel what one `drawText` with the paint's
+  underline draws; a marker exists exactly where the scene's f or g role says
+  the label opens a menu, read from the roles and not through the code under
+  test; and a key draws its marker as a rect at the spec's bounds and draws no
+  bitmap
 - `KeyRenderSpecSlotTest.kt`: locks the typed Kotlin label-slot and adornment-
   slot accessors while preserving the stable serialized `id` strings consumed
   by the Python and JSON-backed contract surfaces

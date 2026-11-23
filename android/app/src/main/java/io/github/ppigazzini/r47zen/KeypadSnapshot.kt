@@ -104,6 +104,17 @@ internal fun KeypadKeySnapshot.labelRole(slot: Int): Int {
     return KeypadSceneContract.labelRole(labelRoles, slot)
 }
 
+// Whether a main key's f or g label opens a menu: the scene's f and g
+// underline roles, named after the GTK widgets fShiftedUnderline and
+// gShiftedUnderline, mean that, whatever shape marks it.
+internal fun KeypadKeySnapshot.opensMenu(slot: MainKeyLabelSlot): Boolean {
+    return when (slot) {
+        MainKeyLabelSlot.F -> labelRole(KeypadSceneContract.LABEL_F) == KeypadSceneContract.TEXT_ROLE_F_UNDERLINE
+        MainKeyLabelSlot.G -> labelRole(KeypadSceneContract.LABEL_G) == KeypadSceneContract.TEXT_ROLE_G_UNDERLINE
+        MainKeyLabelSlot.PRIMARY, MainKeyLabelSlot.LETTER -> false
+    }
+}
+
 internal fun KeypadKeySnapshot.hasSceneFlag(flag: Int): Boolean {
     return (sceneFlags and flag) != 0
 }

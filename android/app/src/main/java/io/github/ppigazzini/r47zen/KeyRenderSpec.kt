@@ -57,8 +57,6 @@ internal data class LabelSpec(
     val verticalAnchor: Int,
     val alpha: Float = 1f,
     val textScaleX: Float = 1f,
-    val underline: Boolean = false,
-    val strikeThrough: Boolean = false,
 )
 
 internal sealed interface KeyRenderLabelSlot {
@@ -92,6 +90,8 @@ internal sealed interface KeyRenderAdornmentSlot {
 internal enum class MainKeyAdornmentSlot(override val id: String) : KeyRenderAdornmentSlot {
     PRESSED_HIGHLIGHT("main-pressed-highlight"),
     PRESSED_SHADOW("main-pressed-shadow"),
+    F_MENU_MARKER("main-f-menu-marker"),
+    G_MENU_MARKER("main-g-menu-marker"),
 }
 
 internal enum class SoftkeyAdornmentSlot(override val id: String) : KeyRenderAdornmentSlot {
@@ -110,6 +110,15 @@ internal data class LineAdornmentSpec(
     val color: Int,
     val strokeWidth: Float,
     val strokeCap: Paint.Cap = Paint.Cap.ROUND,
+) : AdornmentSpec
+
+// The mark that says an f or g label opens a menu: a shape filled in the
+// label's color, drawn after the label as a vector, never as part of its text.
+// MenuLabelMarkerGeometry builds it.
+internal data class MenuLabelMarkerSpec(
+    val id: String,
+    val bounds: RectSpec,
+    val color: Int,
 ) : AdornmentSpec
 
 internal enum class SoftkeyOverlayKind {
@@ -182,6 +191,7 @@ internal fun KeyRenderSpec.adornment(id: String): AdornmentSpec? {
         when (adornment) {
             is LineAdornmentSpec -> adornment.id == id
             is SoftkeyOverlayAdornmentSpec -> adornment.id == id
+            is MenuLabelMarkerSpec -> adornment.id == id
         }
     }
 }

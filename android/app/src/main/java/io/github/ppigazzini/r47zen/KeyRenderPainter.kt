@@ -45,8 +45,23 @@ internal object KeyRenderPainter {
             verticalAnchor = label.verticalAnchor,
             alpha = label.alpha,
             textScaleX = label.textScaleX,
-            underline = label.underline,
-            strikeThrough = label.strikeThrough,
+        )
+    }
+
+    // Draw with the rect overload, so the draw pass allocates nothing.
+    fun drawMenuLabelMarker(
+        canvas: Canvas,
+        marker: MenuLabelMarkerSpec,
+        paint: Paint,
+    ) {
+        paint.style = Paint.Style.FILL
+        paint.color = marker.color
+        canvas.drawRect(
+            marker.bounds.left,
+            marker.bounds.top,
+            marker.bounds.right,
+            marker.bounds.bottom,
+            paint,
         )
     }
 

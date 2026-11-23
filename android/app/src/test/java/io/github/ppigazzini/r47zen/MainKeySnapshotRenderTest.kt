@@ -1,12 +1,12 @@
 package io.github.ppigazzini.r47zen
 
 import android.app.Activity
-import android.graphics.Paint
 import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -303,10 +303,9 @@ class MainKeySnapshotRenderTest {
 
         val expectedText = snapshot.keyStateFor(keyCode).fLabel
         assertEquals(expectedText, keyView.fLabel.text.toString())
-        assertTrue(keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0)
+        assertNotNull(keyView.currentMainKeyRenderSpecForTest()?.adornment(MainKeyAdornmentSlot.F_MENU_MARKER))
 
         keyView.fLabel.text = expectedText.take(2)
-        keyView.fLabel.paintFlags = keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG.inv()
 
         controller.handlePictureInPictureModeChanged(true)
         overlay.measure(exactly(486), exactly(267))
@@ -324,7 +323,9 @@ class MainKeySnapshotRenderTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(expectedText, keyView.fLabel.text.toString())
-        assertTrue(keyView.fLabel.paintFlags and Paint.UNDERLINE_TEXT_FLAG != 0)
+        val marker = keyView.currentMainKeyRenderSpecForTest()?.adornment(MainKeyAdornmentSlot.F_MENU_MARKER)
+        val label = keyView.currentMainKeyRenderSpecForTest()?.label(MainKeyLabelSlot.F)
+        assertTrue(marker is MenuLabelMarkerSpec && marker.bounds.width == label?.bounds?.width)
     }
 
     @Test

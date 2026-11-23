@@ -386,7 +386,7 @@ Renderer process rules for live maintenance:
 - PiP exit is one of those geometry changes; keep it on the controller-owned
   replay path instead of repairing labels with direct view tweaks or a native
   redraw
-- if a change affects drawing only, call `invalidate()` so underline, color,
+- if a change affects drawing only, call `invalidate()` so marker, color,
   and text-shaping updates do not wait for the next key event
 
 Main keys and softkeys share one view class, and the seam is one shared spec
@@ -571,9 +571,20 @@ hardcoding one text style for all keys. In practice that means:
 - all shipped keypad-label lanes fall back to the staged tiny calculator font
   only when the standard font is unavailable
 - numeric and softkey roles can diverge without changing geometry ownership
-- faceplate labels that open menus are underlined because the native snapshot
-  marks them as dedicated underline roles, not because Android inspects label
-  text or moves the labels
+- a faceplate f or g label that opens a menu carries a menu-label marker
+  because the native snapshot gives it the f or g underline role, not because
+  Android inspects label text. The roles keep the names of the GTK widgets
+  that style such a label, `fShiftedUnderline` and `gShiftedUnderline`, and
+  mean "opens a menu", whatever shape marks it. `MenuLabelMarkerGeometry`
+  turns a marked label into a `MenuLabelMarkerSpec` adornment of the key's
+  render spec, and `KeyRenderPainter.drawMenuLabelMarker` draws it after the
+  labels as a vector rect, never as a text decoration, so no text path or
+  label raster carries it. Today it is a bar under the label's advance, at
+  the label's own size, `BAR_TOP_EM` under the baseline and
+  `BAR_THICKNESS_EM` thick: the standard font's underline, which
+  `MenuLabelMarkerTest.kt` holds to `Paint.getUnderlinePosition()` and
+  `getUnderlineThickness()`, the API 29 getters the app does not call so that
+  API 24 to 28 mark labels alike
 - label-role changes should come from native scene metadata, not from ad hoc
   Android string inspection
 
@@ -625,11 +636,13 @@ The verification surface for this text-rendering split is:
 - `.github/workflows/android-ci.yml` and `.github/workflows/android-release.yml`,
   which run the JVM suite as `:app:testReleaseUnitTest`
 
-For the faceplate legends specifically, Android follows the upstream GTK rule:
-an underlined F or G label means that legend opens a menu, while a non-
-underlined F or G label is a direct function. The underline lives in the
-styling path only, so Android does not own a separate underline vertical-gap
-constant. Faceplate spacing, centering, and size rules stay shared.
+For the faceplate legends specifically, Android keeps the upstream GTK rule
+and not its shape: a marked F or G label opens a menu, an unmarked one is a
+direct function. GTK marks the label with a darker background, not an
+underline: its CSS gives `#fShiftedUnderline` and `#gShiftedUnderline` the
+`$menubackground` color (`res/c47_pre.css`, hydrated from upstream). The
+marker sits under the label's line box, so it moves no label: faceplate
+spacing, centering, and size rules stay shared.
 
 ## PiP interaction model
 
