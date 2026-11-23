@@ -144,6 +144,25 @@ internal object ReplicaKeypadLayout {
         }
     }
 
+    // Restyle every key's menu-label markers. A box changes its label's width,
+    // so a change to or from one lays the overlay out again, which re-runs the
+    // lane solver through onGeometryLaidOut.
+    internal fun applyMenuLabelMarkerStyle(
+        overlay: ReplicaOverlay,
+        style: MenuLabelMarkerStyle,
+        previous: MenuLabelMarkerStyle,
+    ) {
+        for (index in 0 until overlay.childCount) {
+            val child = overlay.getChildAt(index)
+            if (child is CalculatorKeyView) {
+                child.setMenuLabelMarkerStyle(style)
+            }
+        }
+        if (style.boxed || previous.boxed) {
+            overlay.requestLayout()
+        }
+    }
+
     internal fun applyTopLabelPlacementsAfterLayout(overlay: ReplicaOverlay) {
         val keyViewsByCode = mutableMapOf<Int, CalculatorKeyView>()
         for (index in 0 until overlay.childCount) {

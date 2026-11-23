@@ -48,21 +48,33 @@ internal object KeyRenderPainter {
         )
     }
 
-    // Draw with the rect overload, so the draw pass allocates nothing.
+    // Draw with the float overloads, so the draw pass allocates nothing.
     fun drawMenuLabelMarker(
         canvas: Canvas,
         marker: MenuLabelMarkerSpec,
         paint: Paint,
     ) {
-        paint.style = Paint.Style.FILL
+        val bounds = marker.bounds
         paint.color = marker.color
-        canvas.drawRect(
-            marker.bounds.left,
-            marker.bounds.top,
-            marker.bounds.right,
-            marker.bounds.bottom,
-            paint,
-        )
+        when (marker.shape) {
+            MenuLabelMarkerShape.BAR -> {
+                paint.style = Paint.Style.FILL
+                canvas.drawRect(bounds.left, bounds.top, bounds.right, bounds.bottom, paint)
+            }
+            MenuLabelMarkerShape.OUTLINE, MenuLabelMarkerShape.FILL -> {
+                paint.style = if (marker.shape == MenuLabelMarkerShape.OUTLINE) Paint.Style.STROKE else Paint.Style.FILL
+                paint.strokeWidth = marker.strokeWidth
+                canvas.drawRoundRect(
+                    bounds.left,
+                    bounds.top,
+                    bounds.right,
+                    bounds.bottom,
+                    marker.cornerRadius,
+                    marker.cornerRadius,
+                    paint,
+                )
+            }
+        }
     }
 
     fun drawLine(

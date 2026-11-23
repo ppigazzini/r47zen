@@ -346,6 +346,34 @@ class MainActivityPreferenceControllerTest {
         assertEquals(listOf(false), controllerState.lcdGraphTouchEnabledCalls)
     }
 
+    @Test
+    fun applyInitialPreferences_normalizesAnUnknownMenuLabelMarkerAndDispatchesTheDefault() {
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
+        preferences.edit().clear().putString("menu_label_marker", "dotted").commit()
+        val controllerState = buildController(preferences)
+
+        controllerState.controller.applyInitialPreferences()
+
+        assertEquals(MenuLabelMarkerStyle.DEFAULT, controllerState.controller.menuLabelMarkerStyle)
+        assertEquals(MenuLabelMarkerStyle.DEFAULT.storageValue, preferences.getString("menu_label_marker", null))
+        assertEquals(listOf(MenuLabelMarkerStyle.DEFAULT), controllerState.menuLabelMarkerStyleCalls)
+    }
+
+    @Test
+    fun onPreferenceChanged_dispatchesTheMenuLabelMarker() {
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+        val controllerState = buildController(preferences)
+        controllerState.controller.applyInitialPreferences()
+        controllerState.menuLabelMarkerStyleCalls.clear()
+
+        preferences.edit().putString("menu_label_marker", "reverse").commit()
+
+        assertTrue(controllerState.controller.onPreferenceChanged("menu_label_marker"))
+        assertEquals(MenuLabelMarkerStyle.REVERSE, controllerState.controller.menuLabelMarkerStyle)
+        assertEquals(listOf(MenuLabelMarkerStyle.REVERSE), controllerState.menuLabelMarkerStyleCalls)
+    }
+
     private fun buildController(preferences: android.content.SharedPreferences): ControllerState {
         val activity = Robolectric.buildActivity(PreferenceControllerActivity::class.java)
             .setup()
@@ -354,6 +382,7 @@ class MainActivityPreferenceControllerTest {
         val developerPerformanceHudCalls = mutableListOf<Boolean>()
         val lcdGraphTouchEnabledCalls = mutableListOf<Boolean>()
         val lcdThemeCalls = mutableListOf<LcdThemeCall>()
+        val menuLabelMarkerStyleCalls = mutableListOf<MenuLabelMarkerStyle>()
 
         val controller = MainActivityPreferenceController(
             preferences = preferences,
@@ -376,6 +405,7 @@ class MainActivityPreferenceControllerTest {
                 developerPerformanceHudCalls += enabled
             },
             applyKeypadLabelModes = { _, _ -> },
+            applyMenuLabelMarkerStyle = { style -> menuLabelMarkerStyleCalls += style },
         )
 
         return ControllerState(
@@ -384,6 +414,7 @@ class MainActivityPreferenceControllerTest {
             developerPerformanceHudCalls = developerPerformanceHudCalls,
             lcdGraphTouchEnabledCalls = lcdGraphTouchEnabledCalls,
             lcdThemeCalls = lcdThemeCalls,
+            menuLabelMarkerStyleCalls = menuLabelMarkerStyleCalls,
         )
     }
 
@@ -393,6 +424,7 @@ class MainActivityPreferenceControllerTest {
         val developerPerformanceHudCalls: MutableList<Boolean>,
         val lcdGraphTouchEnabledCalls: MutableList<Boolean>,
         val lcdThemeCalls: MutableList<LcdThemeCall>,
+        val menuLabelMarkerStyleCalls: MutableList<MenuLabelMarkerStyle>,
     )
 
     private data class LcdThemeCall(

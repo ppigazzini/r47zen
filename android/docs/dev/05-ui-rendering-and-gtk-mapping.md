@@ -371,10 +371,12 @@ Regression surfaces:
   runs, with two Kotest sweeps over dense standard and ENTER rows
 - `KeypadTopLabelLayoutTest.kt`: the layout applies what the solver returns;
   with the shipped fonts every exported scene of printed legends lays out
-  centered and unscaled at FHD+, HD+, and QHD+ phone sizes, and the exported
-  USER scene, whose 7-glyph user menu names fill whole rows, is shifted and
-  scaled at those sizes with the spacing, screen-edge, and one-step scale rules
-  above holding in every lane, on the labels as the keys draw them
+  unscaled at FHD+, HD+, and QHD+ phone sizes under every menu marker, and
+  centered under every marker that takes no width, a box being free to shift
+  a label to make room; the exported USER scene, whose 7-glyph user menu
+  names fill whole rows, is shifted and scaled at those sizes with the
+  spacing, screen-edge, and one-step scale rules above holding in every lane,
+  on the labels as the keys draw them
 - `08-tests-and-contracts.md` for the full contract-to-lane map
 
 Any future faceplate-offset change must stay on those fixed formulas and layout
@@ -582,14 +584,44 @@ hardcoding one text style for all keys. In practice that means:
   that style such a label, `fShiftedUnderline` and `gShiftedUnderline`, and
   mean "opens a menu", whatever shape marks it. `MenuLabelMarkerGeometry`
   turns a marked label into a `MenuLabelMarkerSpec` adornment of the key's
-  render spec, and `KeyRenderPainter.drawMenuLabelMarker` draws it after the
-  labels as a vector rect, never as a text decoration, so no text path or
-  label raster carries it. Today it is a bar under the label's advance, at
-  the label's own size, `BAR_TOP_EM` under the baseline and
-  `BAR_THICKNESS_EM` thick: the standard font's underline, which
-  `MenuLabelMarkerTest.kt` holds to `Paint.getUnderlinePosition()` and
-  `getUnderlineThickness()`, the API 29 getters the app does not call so that
-  API 24 to 28 mark labels alike
+  render spec, and `KeyRenderPainter.drawMenuLabelMarker` draws it as a vector
+  shape with the float overloads of `drawRect` and `drawRoundRect`, never as
+  a text decoration, so no text path or label raster carries it. The Keypad
+  Layout setting Menu Labels (`menu_label_marker`, `MenuLabelMarkerStyle`)
+  picks the shape, listed as below, the default first and the rest by name,
+  and the label's color never shifts to mark a menu: a tone is a relative
+  cue, unreadable when every label opens a menu.
+  - Rounded Box, the default: a rounded rectangle outlined in the label's
+    color, `BOX_PAD_EM` outside the label's advance and outside the band of
+    its caps (`CAP_HEIGHT_EM`) and descent, that band centered on the caps,
+    so a menu name, capitals almost always, sits midway between the top and
+    bottom edges; a descender reaches past the bottom by half the descent
+    less the pad. Its `BOX_CORNER_RADIUS_EM` corners follow the label's size
+    and its `BOX_STROKE_EM` stroke the unscaled top-label size, so a label
+    the lane solver shrinks keeps a full-weight outline. A shrunk USER label
+    keeps its bottom where its lane's labels end, so its box centers on its
+    own smaller caps. Drawn after the label.
+  - Reverse Video: the same box filled in the label's color, drawn before the
+    label, which turns `REVERSE_TEXT_COLOR`, black, as the LCD inverts a
+    submenu softkey.
+  - Underline: a bar under the label's advance, at the label's own size,
+    `BAR_TOP_EM` under the baseline and `BAR_THICKNESS_EM` thick, the
+    standard font's underline, drawn after the label.
+    `MenuLabelMarkerTest.kt` holds both to `Paint.getUnderlinePosition()` and
+    `getUnderlineThickness()`, the API 29 getters the app does not call, so
+    that API 24 to 28 mark labels alike.
+  A box widens its label: the pad rides in the label's width at each scale
+  and the stroke in `fFixedWidth`/`gFixedWidth`, the intragap runs between the
+  boxes, and the lane solver places them (lane contract below), so on a
+  printed keypad it may shift a label to make room but never scales one. The
+  underline takes no width and moves no label. A change to or from a box
+  re-runs the solver: `ReplicaKeypadLayout.applyMenuLabelMarkerStyle`
+  requests layout, and `ReplicaOverlay.onLayout` calls `onGeometryLaidOut`; a
+  change between two shapes of one width is an in-place restyle. The style
+  lives in the preference, `MainActivityPreferenceController`,
+  `ReplicaOverlayController`, and each `CalculatorKeyView`, all on the main
+  thread; `onSharedPreferenceChanged` moves it, and a keypad rebuild applies
+  the controller's style to the new keys
 - label-role changes should come from native scene metadata, not from ad hoc
   Android string inspection
 
@@ -645,9 +677,10 @@ For the faceplate legends specifically, Android keeps the upstream GTK rule
 and not its shape: a marked F or G label opens a menu, an unmarked one is a
 direct function. GTK marks the label with a darker background, not an
 underline: its CSS gives `#fShiftedUnderline` and `#gShiftedUnderline` the
-`$menubackground` color (`res/c47_pre.css`, hydrated from upstream). The
-marker sits under the label's line box, so it moves no label: faceplate
-spacing, centering, and size rules stay shared.
+`$menubackground` color (`res/c47_pre.css`, hydrated from upstream). An
+underline sits under the label's line box and moves no label; a box widens
+its label, and the lane solver makes room for it under the same spacing,
+centering, and size rules.
 
 ## PiP interaction model
 

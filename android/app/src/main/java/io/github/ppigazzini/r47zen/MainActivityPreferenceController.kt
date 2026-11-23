@@ -16,6 +16,7 @@ internal class MainActivityPreferenceController(
     private val applyShowTouchZones: (Boolean) -> Unit,
     private val applyShowDeveloperPerformanceHud: (Boolean) -> Unit,
     private val applyKeypadLabelModes: (MainKeyDynamicMode, SoftkeyDynamicMode) -> Unit,
+    private val applyMenuLabelMarkerStyle: (MenuLabelMarkerStyle) -> Unit,
 ) {
     companion object {
         const val DEFAULT_BEEPER_VOLUME = 20
@@ -39,6 +40,7 @@ internal class MainActivityPreferenceController(
         const val MAX_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS = 1000
         const val MAX_LCD_LUMINANCE = LcdThemePolicy.MAX_LUMINANCE_PERCENT
         val DEFAULT_SOFTKEY_DYNAMIC_MODE = SoftkeyDynamicMode.DEFAULT
+        val DEFAULT_MENU_LABEL_MARKER_STYLE = MenuLabelMarkerStyle.DEFAULT
 
         internal const val KEY_AUTO_SAVE_MINIMIZE = "auto_save_minimize"
         internal const val KEY_FORCE_CLOSE_ON_EXIT = "force_close_on_exit"
@@ -55,6 +57,7 @@ internal class MainActivityPreferenceController(
         internal const val KEY_SHOW_DEVELOPER_PERFORMANCE_HUD = "show_developer_performance_hud"
         internal const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
         internal const val KEY_SOFTKEY_DYNAMIC_MODE = "softkey_dynamic_mode"
+        internal const val KEY_MENU_LABEL_MARKER = "menu_label_marker"
         private const val LEGACY_KEY_LCD_MODE = "lcd_mode"
     }
 
@@ -91,6 +94,28 @@ internal class MainActivityPreferenceController(
     var softkeyDynamicMode = DEFAULT_SOFTKEY_DYNAMIC_MODE
         private set
 
+    var menuLabelMarkerStyle = DEFAULT_MENU_LABEL_MARKER_STYLE
+        private set
+
+    private val mainKeyDynamicModeChoice = StoredChoice(
+        KEY_MAIN_KEY_DYNAMIC_MODE,
+        DEFAULT_MAIN_KEY_DYNAMIC_MODE,
+        MainKeyDynamicMode::fromStorageValue,
+        MainKeyDynamicMode::storageValue,
+    )
+    private val softkeyDynamicModeChoice = StoredChoice(
+        KEY_SOFTKEY_DYNAMIC_MODE,
+        DEFAULT_SOFTKEY_DYNAMIC_MODE,
+        SoftkeyDynamicMode::fromStorageValue,
+        SoftkeyDynamicMode::storageValue,
+    )
+    private val menuLabelMarkerChoice = StoredChoice(
+        KEY_MENU_LABEL_MARKER,
+        DEFAULT_MENU_LABEL_MARKER_STYLE,
+        MenuLabelMarkerStyle::fromStorageValue,
+        MenuLabelMarkerStyle::storageValue,
+    )
+
     fun applyInitialPreferences() {
         hapticFeedbackController.syncFromPreferences(preferences)
 
@@ -101,16 +126,18 @@ internal class MainActivityPreferenceController(
         isLcdNegative = preferences.getBoolean(KEY_LCD_NEGATIVE, DEFAULT_LCD_NEGATIVE)
         isLcdGraphTouchEnabled = preferences.getBoolean(KEY_LCD_GRAPH_TOUCH_ENABLED, DEFAULT_LCD_GRAPH_TOUCH_ENABLED)
         developerPerformanceHudWindowMillis = readNormalizedDeveloperPerformanceHudWindowMillis()
-        mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
+        mainKeyDynamicMode = mainKeyDynamicModeChoice.read(preferences)
         showDeveloperPerformanceHud =
             preferences.getBoolean(KEY_SHOW_DEVELOPER_PERFORMANCE_HUD, DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD)
         showTouchZones = preferences.getBoolean(KEY_SHOW_TOUCH_ZONES, DEFAULT_SHOW_TOUCH_ZONES)
-        softkeyDynamicMode = readNormalizedSoftkeyDynamicMode()
+        softkeyDynamicMode = softkeyDynamicModeChoice.read(preferences)
+        menuLabelMarkerStyle = menuLabelMarkerChoice.read(preferences)
 
         applyKeepScreenOn(preferences.getBoolean(KEY_KEEP_SCREEN_ON, DEFAULT_KEEP_SCREEN_ON))
         windowModeController.applyFullscreenMode(preferences.getBoolean(KEY_FULLSCREEN_MODE, DEFAULT_FULLSCREEN_MODE))
         syncAudioSettings(isBeeperEnabled, beeperVolume)
         applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
+        applyMenuLabelMarkerStyle(menuLabelMarkerStyle)
         // Here, not in the deferred overlay pass: MainActivity runs this before
         // the overlay's first draw, so no frame shows the default palette under
         // another stored theme.
@@ -124,7 +151,7 @@ internal class MainActivityPreferenceController(
     }
 
     fun onPreferenceChanged(key: String): Boolean {
-        if (hapticFeedbackController.onPreferenceChanged(preferences, key)) {
+        if (hapticFeedbackController.onPreferenceChanged(preferences, key) || onKeypadLayoutPreferenceChanged(key)) {
             return true
         }
 
@@ -161,10 +188,6 @@ internal class MainActivityPreferenceController(
             KEY_DEVELOPER_PERFORMANCE_HUD_WINDOW_MILLIS -> {
                 developerPerformanceHudWindowMillis = readNormalizedDeveloperPerformanceHudWindowMillis()
             }
-            KEY_MAIN_KEY_DYNAMIC_MODE -> {
-                mainKeyDynamicMode = readNormalizedMainKeyDynamicMode()
-                applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
-            }
             KEY_SHOW_DEVELOPER_PERFORMANCE_HUD -> {
                 showDeveloperPerformanceHud = preferences.getBoolean(key, DEFAULT_SHOW_DEVELOPER_PERFORMANCE_HUD)
                 applyShowDeveloperPerformanceHud(showDeveloperPerformanceHud)
@@ -173,16 +196,32 @@ internal class MainActivityPreferenceController(
                 showTouchZones = preferences.getBoolean(key, DEFAULT_SHOW_TOUCH_ZONES)
                 applyShowTouchZones(showTouchZones)
             }
-            KEY_SOFTKEY_DYNAMIC_MODE -> {
-                softkeyDynamicMode = readNormalizedSoftkeyDynamicMode()
-                applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
-            }
             KEY_FULLSCREEN_MODE -> {
                 windowModeController.applyFullscreenMode(preferences.getBoolean(key, DEFAULT_FULLSCREEN_MODE))
             }
             else -> return false
         }
 
+        return true
+    }
+
+    // The Keypad Layout settings: the label modes and the menu-label marker.
+    private fun onKeypadLayoutPreferenceChanged(key: String): Boolean {
+        when (key) {
+            KEY_MAIN_KEY_DYNAMIC_MODE -> {
+                mainKeyDynamicMode = mainKeyDynamicModeChoice.read(preferences)
+                applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
+            }
+            KEY_SOFTKEY_DYNAMIC_MODE -> {
+                softkeyDynamicMode = softkeyDynamicModeChoice.read(preferences)
+                applyKeypadLabelModes(mainKeyDynamicMode, softkeyDynamicMode)
+            }
+            KEY_MENU_LABEL_MARKER -> {
+                menuLabelMarkerStyle = menuLabelMarkerChoice.read(preferences)
+                applyMenuLabelMarkerStyle(menuLabelMarkerStyle)
+            }
+            else -> return false
+        }
         return true
     }
 
@@ -246,28 +285,22 @@ internal class MainActivityPreferenceController(
         }
         return normalizedTheme
     }
+}
 
-    private fun readNormalizedMainKeyDynamicMode(): MainKeyDynamicMode {
-        val storedMode = preferences.getString(
-            KEY_MAIN_KEY_DYNAMIC_MODE,
-            DEFAULT_MAIN_KEY_DYNAMIC_MODE.storageValue,
-        )
-        val normalizedMode = MainKeyDynamicMode.fromStorageValue(storedMode)
-        if (storedMode != normalizedMode.storageValue) {
-            preferences.edit { putString(KEY_MAIN_KEY_DYNAMIC_MODE, normalizedMode.storageValue) }
+// A stored choice among an enum's values. Reading a value no choice has stores
+// back the one it falls back to, so Settings shows the choice the shell applies.
+private class StoredChoice<T>(
+    val key: String,
+    val default: T,
+    val parse: (String?) -> T,
+    val storageValue: (T) -> String,
+) {
+    fun read(preferences: SharedPreferences): T {
+        val stored = preferences.getString(key, storageValue(default))
+        val normalized = parse(stored)
+        if (stored != storageValue(normalized)) {
+            preferences.edit { putString(key, storageValue(normalized)) }
         }
-        return normalizedMode
-    }
-
-    private fun readNormalizedSoftkeyDynamicMode(): SoftkeyDynamicMode {
-        val storedMode = preferences.getString(
-            KEY_SOFTKEY_DYNAMIC_MODE,
-            DEFAULT_SOFTKEY_DYNAMIC_MODE.storageValue,
-        )
-        val normalizedMode = SoftkeyDynamicMode.fromStorageValue(storedMode)
-        if (storedMode != normalizedMode.storageValue) {
-            preferences.edit { putString(KEY_SOFTKEY_DYNAMIC_MODE, normalizedMode.storageValue) }
-        }
-        return normalizedMode
+        return normalized
     }
 }

@@ -451,8 +451,9 @@ source is missing from this page:
 - `KeypadTopLabelLayoutTest.kt`: the keypad applies the placements the lane
   solver returns, keeps outer labels inside the overlay and a scaled label's
   glyph bottom on its siblings', and, with the shipped fonts, lays out every
-  exported scene of printed legends centered and unscaled at three phone
-  sizes; the exported USER scene, `user-menus-scene`, must reach the solver's
+  exported scene of printed legends unscaled at three phone sizes under every
+  menu marker, and centered under every marker that takes no width; the
+  exported USER scene, `user-menus-scene`, must reach the solver's
   scaling there with the inter-group gap, the screen edges, and the one-step
   f and g scale rule holding in every lane, measured on the label bounds the
   keys draw rather than on the solver's model of their widths
@@ -481,7 +482,17 @@ source is missing from this page:
   underline draws; a marker exists exactly where the scene's f or g role says
   the label opens a menu, read from the roles and not through the code under
   test; and a key draws its marker as a rect at the spec's bounds and draws no
-  bitmap
+  bitmap. For the two boxes: `CAP_HEIGHT_EM` equals the ink height of "H" as
+  `Paint.getTextBounds` measures it; on the default and USER scenes every box
+  holds its label's ink above the baseline and its advance, centers on the
+  caps as the ink of "H" at the label's size places them, stays above its key
+  body, and carries the same stroke at every label scale; at FHD+, HD+, and
+  QHD+ the boxes keep the intragap between f and g and twice it between keys,
+  measured on the drawn boxes; the
+  outline and the filled box reach 3:1 on the shell's black and reverse
+  video's black text 4.5:1 on its box, by `WcagContrast`; reverse video draws
+  its box before its label; and a change to a box lays the keypad out again,
+  moving labels, while a change back restores every placement
 - `KeyRenderSpecSlotTest.kt`: locks the typed Kotlin label-slot and adornment-
   slot accessors while preserving the stable serialized `id` strings consumed
   by the Python and JSON-backed contract surfaces
@@ -521,7 +532,7 @@ source is missing from this page:
   spec-layer value-field and overlay geometry seam
 - `SoftkeyTextContrastTest.kt`: locks each softkey text color, the primary and
   the value, to 4.5:1 on every fill it is drawn on, normal, pressed, and reverse,
-  by WCAG 2's contrast ratio
+  by WCAG 2's contrast ratio, through `WcagContrast`
 - `SoftkeyOverlayPainterTest.kt`: locks the extracted overlay-painter stage for
   the menu-badge label and underline path without routing through the larger
   softkey renderer owner
@@ -707,7 +718,10 @@ source is missing from this page:
   preference that holds a value and holds the value Settings shows with nothing
   stored to the `DEFAULT_` constant the shell reads, failing on one it does not
   pair (`everySetting_showsTheDefaultTheShellReads`); the read contract above
-  holds the reads to those constants
+  holds the reads to those constants. Menu Labels offers every
+  `MenuLabelMarkerStyle` by its storage value, the default first and the rest
+  by name, starts on the default, and is disabled under Zen, which blanks the
+  labels it would mark
 - `HapticFeedbackControllerTest.kt` and `ReplicaKeypadLayoutHapticsTest.kt`:
   lock the `haptic_enabled` gate, the `haptic_use_android_default` toggle, the
   `haptic_keypress_duration_ms` `0..100` clamp, the Android-default versus
@@ -724,8 +738,9 @@ source is missing from this page:
   normalization against the XML-declared `0..100` range, plus `lcd_theme`
   fallback to the supported display-theme set, legacy `lcd_mode` migration,
   `lcd_luminance` clamp to `MIN_LCD_LUMINANCE..MAX_LCD_LUMINANCE`,
-  `lcd_negative` dispatch, `show_developer_performance_hud` dispatch, and
-  deferred overlay apply and preference-change dispatch
+  `lcd_negative` dispatch, `show_developer_performance_hud` dispatch,
+  `menu_label_marker` normalization of an unknown value to the default and its
+  dispatch, and deferred overlay apply and preference-change dispatch
 - `GraphGestureAccumulatorTest.kt`: locks the Android-owned graph-touch queue
   accumulator so non-finite pan input is dropped, queued pinch scale stays
   clamped to `0.4f..2.5f`, and oversized queued pan is split into bounded
@@ -785,11 +800,13 @@ source is missing from this page:
   outside Maven, every copyright that inventory states in a notice, and the
   Apache 2.0 terms with an Apache component
 - `KeyboardLayoutContractResources.kt`, `KeypadFixtureResources.kt`,
-  `TestJsonResources.kt`, `KeypadTestSnapshots.kt`, and `FakeDocumentProvider.kt`
-  are helpers, not tests: the first three load the keyboard-layout contract, the
-  exported keypad fixtures, and the JSON test resources, the fourth builds a keypad
-  snapshot from a few key states, and the last answers a document transfer's
-  provider calls as a test tells it to
+  `TestJsonResources.kt`, `KeypadTestSnapshots.kt`, `FakeDocumentProvider.kt`,
+  and `WcagContrast.kt` are helpers, not tests: the first three load the
+  keyboard-layout contract, the exported keypad fixtures, and the JSON test
+  resources, the fourth builds a keypad snapshot from a few key states, the
+  fifth answers a document transfer's provider calls as a test tells it to,
+  and the last computes WCAG 2's contrast ratio and holds its 4.5:1 and 3:1
+  bars
 
 `CalculatorEngine` itself has no JVM test, because its `init` loads the native
 library. Its behavior is on the host harnesses below and in the instrumentation

@@ -174,43 +174,56 @@ class KeypadTopLabelLayoutTest {
 
     @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun everyPrintedKeypadLaysOutCenteredAndUnscaledOnPhoneScreens() {
+    fun everyPrintedKeypadLaysOutUnscaled_andCenteredUnlessBoxed() {
         // With the shipped C47 fonts, the printed labels of every exported
-        // keypad scene fit their keys at common phone resolutions: no top label
-        // is shifted or scaled. A USER keyboard shows names the user chose, so
-        // its scenes are held to the lane rules instead, below. The overlay is
-        // laid out without a window, so no window traversal can lay it out again
-        // at another size.
+        // keypad scene fit their keys at common phone resolutions under every
+        // menu marker: no top label is scaled, and under a marker that takes no
+        // width none is shifted. A box widens its label, so the solver may shift
+        // one to make room. A USER keyboard shows names the user chose, so its
+        // scenes are held to the lane rules instead, below. The overlay is laid
+        // out without a window, so no window traversal can lay it out again at
+        // another size.
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         Typeface.createFromAsset(activity.assets, "fonts/C47__StandardFont.ttf")
 
         var solvedKeys = 0
-        for (fixture in KeypadFixtureResources.loadAll().filterNot { it.snapshot().userModeEnabled }) {
-            for ((width, height) in PHONE_SCREENS) {
-                val overlay = ReplicaOverlay(activity)
-                overlay.onGeometryLaidOut = { ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout(overlay) }
-                ReplicaKeypadLayout.rebuild(activity, overlay, {}, {}, fixture::snapshot)
-                overlay.measure(exactly(width), exactly(height))
-                overlay.layout(0, 0, width, height)
-
-                val keys = (0 until overlay.childCount).map(overlay::getChildAt).filterIsInstance<CalculatorKeyView>()
-                val labeled = keys.filter { it.fLabel.isVisible && it.fLabel.text.isNotBlank() }
-                assertEquals(
-                    "${fixture.name} at ${width}x$height: keys with a top label that never reached the lane solver",
-                    emptyList<Int>(),
-                    labeled.filter { it.buildTopLabelLaneInput() == null }.map { it.keyCode },
-                )
-                solvedKeys += labeled.size
-                keys.forEach { key ->
-                    assertEquals(
-                        "${fixture.name} at ${width}x$height: key ${key.keyCode} '${key.fLabel.text}'",
-                        TopLabelLanePlacement.DEFAULT,
-                        key.currentTopLabelPlacementForTest(),
-                    )
-                }
+        val printed = KeypadFixtureResources.loadAll().filterNot { it.snapshot().userModeEnabled }
+        val cases = MenuLabelMarkerStyle.entries.flatMap { style ->
+            printed.flatMap { fixture -> PHONE_SCREENS.map { screen -> Triple(style, fixture, screen) } }
+        }
+        for ((style, fixture, screen) in cases) {
+            val where = "$style ${fixture.name} at ${screen.first}x${screen.second}"
+            val keys = laidOutKeys(activity, fixture, style, screen)
+            val labeled = keys.filter { it.fLabel.isVisible && it.fLabel.text.isNotBlank() }
+            assertEquals(
+                "$where: keys with a top label that never reached the lane solver",
+                emptyList<Int>(),
+                labeled.filter { it.buildTopLabelLaneInput() == null }.map { it.keyCode },
+            )
+            solvedKeys += labeled.size
+            keys.forEach { key ->
+                val placement = key.currentTopLabelPlacementForTest()
+                val unscaled = placement.copy(fScale = 1f, gScale = 1f)
+                val expected = if (style.boxed) unscaled else TopLabelLanePlacement.DEFAULT
+                assertEquals("$where: key ${key.keyCode} '${key.fLabel.text}'", expected, placement)
             }
         }
         assertTrue("no exported keypad put a top label through the lane solver", solvedKeys > 0)
+    }
+
+    private fun laidOutKeys(
+        activity: Activity,
+        fixture: ExportedKeypadFixture,
+        style: MenuLabelMarkerStyle,
+        screen: Pair<Int, Int>,
+    ): List<CalculatorKeyView> {
+        val overlay = ReplicaOverlay(activity)
+        overlay.onGeometryLaidOut = { ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout(overlay) }
+        ReplicaKeypadLayout.rebuild(activity, overlay, {}, {}, fixture::snapshot)
+        ReplicaKeypadLayout.applyMenuLabelMarkerStyle(overlay, style, MenuLabelMarkerStyle.DEFAULT)
+        overlay.measure(exactly(screen.first), exactly(screen.second))
+        overlay.layout(0, 0, screen.first, screen.second)
+        return (0 until overlay.childCount).map(overlay::getChildAt).filterIsInstance<CalculatorKeyView>()
     }
 
     @Test

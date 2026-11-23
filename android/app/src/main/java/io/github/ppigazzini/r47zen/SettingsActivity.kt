@@ -271,12 +271,16 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     private fun updateKeypadDesignPreferences() {
         val sharedPreferences = preferenceManager.sharedPreferences ?: return
-        val softkeyPreference = findPreference<ListPreference>(MainActivityPreferenceController.KEY_SOFTKEY_DYNAMIC_MODE) ?: return
         val mainMode = sharedPreferences.getString(
             MainActivityPreferenceController.KEY_MAIN_KEY_DYNAMIC_MODE,
             MainKeyDynamicMode.DEFAULT.storageValue,
         )
-        softkeyPreference.isEnabled = mainMode != MainKeyDynamicMode.VIRTUOSO.storageValue
+        // Zen blanks every key label, so neither setting has anything to style.
+        val showsKeyLabels = mainMode != MainKeyDynamicMode.VIRTUOSO.storageValue
+        findPreference<ListPreference>(MainActivityPreferenceController.KEY_SOFTKEY_DYNAMIC_MODE)
+            ?.isEnabled = showsKeyLabels
+        findPreference<ListPreference>(MainActivityPreferenceController.KEY_MENU_LABEL_MARKER)
+            ?.isEnabled = showsKeyLabels
     }
 
     private fun configureHapticPreferences() {

@@ -214,6 +214,7 @@ class SettingsPreferenceSummaryTest {
             main.KEY_LCD_LUMINANCE to main.DEFAULT_LCD_LUMINANCE,
             main.KEY_MAIN_KEY_DYNAMIC_MODE to main.DEFAULT_MAIN_KEY_DYNAMIC_MODE.storageValue,
             main.KEY_SOFTKEY_DYNAMIC_MODE to main.DEFAULT_SOFTKEY_DYNAMIC_MODE.storageValue,
+            main.KEY_MENU_LABEL_MARKER to main.DEFAULT_MENU_LABEL_MARKER_STYLE.storageValue,
             haptic.KEY_HAPTIC_ENABLED to haptic.DEFAULT_HAPTIC_ENABLED,
             haptic.KEY_HAPTIC_USE_ANDROID_DEFAULT to haptic.DEFAULT_HAPTIC_USE_ANDROID_DEFAULT,
             haptic.KEY_HAPTIC_KEYPRESS_DURATION_MS to haptic.DEFAULT_HAPTIC_KEYPRESS_DURATION_MS,
@@ -397,6 +398,36 @@ class SettingsPreferenceSummaryTest {
             ),
             preference.entries.map { it.toString() },
         )
+    }
+
+    @Test
+    fun menuLabelMarkerPreferenceOffersEveryStyleAndStartsOnTheDefault() {
+        context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE).edit().clear().commit()
+
+        val preference = launchSettingsAndFindList("menu_label_marker")
+
+        assertEquals("Menu Labels", preference.title?.toString())
+        val names = preference.entries.map { it.toString() }
+        assertEquals(listOf("Rounded Box", "Reverse Video", "Underline"), names)
+        assertEquals(
+            MenuLabelMarkerStyle.entries.map { it.storageValue },
+            preference.entryValues.map { it.toString() },
+        )
+        // The default leads the list; the rest follow by name.
+        val default = MainActivityPreferenceController.DEFAULT_MENU_LABEL_MARKER_STYLE.storageValue
+        assertEquals(default, preference.entryValues.first().toString())
+        assertEquals(names.drop(1).sorted(), names.drop(1))
+        assertEquals(default, preference.value)
+    }
+
+    @Test
+    fun zenModeDisablesTheMenuLabelMarkerAndOtherModesKeepIt() {
+        val preferences = context.getSharedPreferences(AppPreferences.NAME, Context.MODE_PRIVATE)
+        preferences.edit().putString("main_key_dynamic_mode", "virtuoso").commit()
+        assertFalse(launchSettingsAndFindList("menu_label_marker").isEnabled)
+
+        preferences.edit().putString("main_key_dynamic_mode", "user").commit()
+        assertTrue(launchSettingsAndFindList("menu_label_marker").isEnabled)
     }
 
     @Test

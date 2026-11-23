@@ -76,7 +76,6 @@
     <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$developerPerformanceTextPaint.textSize</ID>
     <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$return (((sin((nowMillis % periodMillis) / periodMillis.toDouble() * SettingsDiscoveryHintVisualPolicy.FULL_PULSE_RADIANS) + 1.0) * 0.5)).toFloat()</ID>
     <ID>MaxLineLength:ReplicaOverlay.kt:ReplicaOverlay$val</ID>
-    <ID>MaxLineLength:SettingsActivity.kt:SettingsFragment$val softkeyPreference = findPreference&lt;ListPreference&gt;(MainActivityPreferenceController.KEY_SOFTKEY_DYNAMIC_MODE) ?: return</ID>
     <ID>MaxLineLength:TopLabelLaneLayout.kt:TopLabelLaneLayout$compareBy&lt;Pair&lt;TopLabelLaneShiftTarget, Int&gt;&gt;({ it.first.overrun }, { it.second }, { it.first.offenderIndex })</ID>
     <ID>MaxLineLength:TopLabelLaneLayout.kt:TopLabelLaneLayout$if</ID>
     <ID>ReturnCount:C47TextRenderer.kt:C47TextRenderer$fun fittedTextSize: Float</ID>

@@ -112,14 +112,24 @@ internal data class LineAdornmentSpec(
     val strokeCap: Paint.Cap = Paint.Cap.ROUND,
 ) : AdornmentSpec
 
-// The mark that says an f or g label opens a menu: a shape filled in the
-// label's color, drawn after the label as a vector, never as part of its text.
-// MenuLabelMarkerGeometry builds it.
+// The mark that says an f or g label opens a menu: a vector shape in the
+// label's color, never part of its text. MenuLabelMarkerGeometry builds it.
 internal data class MenuLabelMarkerSpec(
     val id: String,
     val bounds: RectSpec,
     val color: Int,
+    val shape: MenuLabelMarkerShape = MenuLabelMarkerShape.BAR,
+    val cornerRadius: Float = 0f,
+    val strokeWidth: Float = 0f,
 ) : AdornmentSpec
+
+// BAR and OUTLINE are drawn after the label; FILL before it, so the label sits
+// inside it.
+internal enum class MenuLabelMarkerShape {
+    BAR,
+    OUTLINE,
+    FILL,
+}
 
 internal enum class SoftkeyOverlayKind {
     RADIO_FALSE,

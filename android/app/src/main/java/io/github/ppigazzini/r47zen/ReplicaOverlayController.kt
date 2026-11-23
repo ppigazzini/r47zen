@@ -31,6 +31,7 @@ internal class ReplicaOverlayController(
 ) {
     private var mainKeyDynamicMode = MainKeyDynamicMode.DEFAULT
     private var softkeyDynamicMode = SoftkeyDynamicMode.DEFAULT
+    private var menuLabelMarkerStyle = MenuLabelMarkerStyle.DEFAULT
     private var pendingGeometrySceneReplay = false
     private var geometrySceneReplayPosted = false
     private var lastResolvedSnapshot = KeypadSnapshot.EMPTY
@@ -53,6 +54,15 @@ internal class ReplicaOverlayController(
 
     fun currentMainKeyDynamicModeCode(): Int {
         return mainKeyDynamicMode.nativeCode
+    }
+
+    fun applyMenuLabelMarkerStyle(style: MenuLabelMarkerStyle) {
+        if (menuLabelMarkerStyle == style) {
+            return
+        }
+        val previous = menuLabelMarkerStyle
+        menuLabelMarkerStyle = style
+        ReplicaKeypadLayout.applyMenuLabelMarkerStyle(overlay, style, previous)
     }
 
     fun applyKeypadLabelModes(
@@ -130,6 +140,8 @@ internal class ReplicaOverlayController(
             dispatchKey = ::dispatchKey,
             initialSnapshotProvider = { currentKeypadSnapshot() },
         )
+        // A rebuild makes new keys, which start at the default style.
+        ReplicaKeypadLayout.applyMenuLabelMarkerStyle(overlay, menuLabelMarkerStyle, MenuLabelMarkerStyle.DEFAULT)
     }
 
     private fun snapshotForMode(mode: MainKeyDynamicMode): KeypadSnapshot {

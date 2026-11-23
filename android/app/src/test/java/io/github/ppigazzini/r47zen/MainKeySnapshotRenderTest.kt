@@ -323,9 +323,15 @@ class MainKeySnapshotRenderTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(expectedText, keyView.fLabel.text.toString())
-        val marker = keyView.currentMainKeyRenderSpecForTest()?.adornment(MainKeyAdornmentSlot.F_MENU_MARKER)
-        val label = keyView.currentMainKeyRenderSpecForTest()?.label(MainKeyLabelSlot.F)
-        assertTrue(marker is MenuLabelMarkerSpec && marker.bounds.width == label?.bounds?.width)
+        // The marker was rebuilt for the restored label, whatever its style: it
+        // spans the label's advance, centered on it.
+        val spec = requireNotNull(keyView.currentMainKeyRenderSpecForTest())
+        val marker = spec.adornment(MainKeyAdornmentSlot.F_MENU_MARKER) as? MenuLabelMarkerSpec
+        val markerBounds = requireNotNull(marker).bounds
+        val label = requireNotNull(spec.label(MainKeyLabelSlot.F)?.bounds)
+        assertTrue("marker ${markerBounds.left} to ${markerBounds.right}", markerBounds.left <= label.left)
+        assertTrue("marker ${markerBounds.left} to ${markerBounds.right}", markerBounds.right >= label.right)
+        assertEquals(label.centerX, markerBounds.centerX, 0.001f)
     }
 
     @Test

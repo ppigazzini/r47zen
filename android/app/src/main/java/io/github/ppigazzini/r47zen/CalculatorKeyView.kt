@@ -127,6 +127,7 @@ class CalculatorKeyView @JvmOverloads constructor(
     private var currentShiftFOn = false
     private var currentShiftGOn = false
     private var topLabelPlacement = TopLabelLanePlacement.DEFAULT
+    private var menuLabelMarkerStyle = MenuLabelMarkerStyle.DEFAULT
     private var designCellWidth = R47ReferenceGeometry.STANDARD_PITCH
     private var designButtonWidth = R47ReferenceGeometry.STANDARD_KEY_WIDTH
     private val mainKeyRect = RectF()
@@ -674,9 +675,11 @@ class CalculatorKeyView @JvmOverloads constructor(
         updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
 
         val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
-        val fTextWidth = measureTextWidth(fLabel, normalizedTextSizePx(fLabel, baseTopLabelTextSize))
+        // A boxed marker's pad scales with its label, so it rides in the text
+        // width; the outline's stroke does not, so it is the fixed width.
+        val fTextWidth = drawnWidthAt(fLabel, MainKeyLabelSlot.F, baseTopLabelTextSize)(1f)
         val gTextWidth = if (hasGLabel) {
-            measureTextWidth(gLabel, normalizedTextSizePx(gLabel, baseTopLabelTextSize))
+            drawnWidthAt(gLabel, MainKeyLabelSlot.G, baseTopLabelTextSize)(1f)
         } else {
             0f
         }
@@ -695,18 +698,24 @@ class CalculatorKeyView @JvmOverloads constructor(
             maxShift = mainKeyRect.width() * R47TopLabelSolverPolicy.TOP_F_G_LABEL_MAX_SHIFT_FRACTION,
             minLeftEdge = minLeftEdge,
             maxRightEdge = maxRightEdge,
-            fWidthAt = drawnWidthAt(fLabel, baseTopLabelTextSize),
-            gWidthAt = drawnWidthAt(gLabel, baseTopLabelTextSize),
+            fFixedWidth = markerStroke(MainKeyLabelSlot.F, baseTopLabelTextSize),
+            gFixedWidth = if (hasGLabel) markerStroke(MainKeyLabelSlot.G, baseTopLabelTextSize) else 0f,
+            fWidthAt = drawnWidthAt(fLabel, MainKeyLabelSlot.F, baseTopLabelTextSize),
+            gWidthAt = drawnWidthAt(gLabel, MainKeyLabelSlot.G, baseTopLabelTextSize),
         )
     }
 
-    // The width a top label draws at a solver scale: measured at the size
-    // updateFontSize gives it for that scale, as buildMainKeyRenderSpec measures
-    // it, once a scale, since the solver tries the same few scales many times.
-    private fun drawnWidthAt(labelView: TextView, baseSize: Float): (Float) -> Float {
+    // The width a top label draws at a solver scale, a boxed marker's pads
+    // included: measured at the size updateFontSize gives it for that scale, as
+    // buildMainKeyRenderSpec measures it, once a scale, since the solver tries
+    // the same few scales many times.
+    private fun drawnWidthAt(labelView: TextView, slot: MainKeyLabelSlot, baseSize: Float): (Float) -> Float {
         val widths = HashMap<Float, Float>()
         return { scale ->
-            widths.getOrPut(scale) { measureTextWidth(labelView, normalizedTextSizePx(labelView, baseSize * scale)) }
+            widths.getOrPut(scale) {
+                val size = normalizedTextSizePx(labelView, baseSize * scale)
+                measureTextWidth(labelView, size) + 2f * markerSidePad(slot, size)
+            }
         }
     }
 
@@ -839,8 +848,16 @@ class CalculatorKeyView @JvmOverloads constructor(
         val topFgLabelHorizontalGap = R47LabelLayoutPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
         val hasFLabel = fLabel.isVisible && fLabel.text.isNotBlank()
         val hasGLabel = hasFLabel && gLabel.isVisible && gLabel.text.isNotBlank()
-        val fWidth = if (hasFLabel) measureTextWidth(fLabel) else 0f
-        val gWidth = if (hasGLabel) measureTextWidth(gLabel) else 0f
+        val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
+        // Each label's share of the group: its advance and, inside a boxed
+        // marker, the pad and the outline's stroke on both sides, so the
+        // intragap runs between the boxes. The solver sees the same widths.
+        val fInset = markerSidePad(MainKeyLabelSlot.F, fLabel.textSize) +
+            markerStroke(MainKeyLabelSlot.F, baseTopLabelTextSize) / 2f
+        val gInset = markerSidePad(MainKeyLabelSlot.G, gLabel.textSize) +
+            markerStroke(MainKeyLabelSlot.G, baseTopLabelTextSize) / 2f
+        val fWidth = if (hasFLabel) measureTextWidth(fLabel) + 2f * fInset else 0f
+        val gWidth = if (hasGLabel) measureTextWidth(gLabel) + 2f * gInset else 0f
         val groupWidth = when {
             hasGLabel -> fWidth + topFgLabelHorizontalGap + gWidth
             hasFLabel -> fWidth
@@ -849,7 +866,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         val groupLeft = bodyBounds.centerX - groupWidth / 2f + topLabelPlacement.centerShift
         val topFgLabelVerticalLift = R47LabelLayoutPolicy.TOP_F_G_LABEL_VERTICAL_LIFT * referenceCellToViewWidthScale
         val topLabelTranslationY = -topFgLabelVerticalLift
-        val baseTopLabelTextSize = R47LabelLayoutPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale
         val targetTextBottomY = topLabelTranslationY + textBottomOffset(
             fLabel,
             baseTopLabelTextSize,
@@ -863,9 +879,9 @@ class CalculatorKeyView @JvmOverloads constructor(
                 paint = mainKeyMeasurementPaint,
                 typeface = fLabel.typeface,
                 textSize = fLabel.textSize,
-                x = groupLeft,
+                x = groupLeft + fInset,
                 anchorY = targetTextBottomY,
-                color = fLabel.currentTextColor,
+                color = labelColor(MainKeyLabelSlot.F, fLabel.currentTextColor),
                 align = Paint.Align.LEFT,
                 verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
                 alpha = fLabel.alpha,
@@ -882,9 +898,9 @@ class CalculatorKeyView @JvmOverloads constructor(
                 paint = mainKeyMeasurementPaint,
                 typeface = gLabel.typeface,
                 textSize = gLabel.textSize,
-                x = groupLeft + fWidth + topFgLabelHorizontalGap + gWidth,
+                x = groupLeft + fWidth + topFgLabelHorizontalGap + gWidth - gInset,
                 anchorY = targetTextBottomY,
-                color = gLabel.currentTextColor,
+                color = labelColor(MainKeyLabelSlot.G, gLabel.currentTextColor),
                 align = Paint.Align.RIGHT,
                 verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
                 alpha = gLabel.alpha,
@@ -897,8 +913,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         fSpec?.let(labels::add)
         gSpec?.let(labels::add)
         val menuLabelMarkers = listOfNotNull(
-            fSpec?.let { menuLabelMarker(MainKeyLabelSlot.F, MainKeyAdornmentSlot.F_MENU_MARKER, it) },
-            gSpec?.let { menuLabelMarker(MainKeyLabelSlot.G, MainKeyAdornmentSlot.G_MENU_MARKER, it) },
+            fSpec?.let { menuLabelMarker(MainKeyLabelSlot.F, it, fLabel.currentTextColor, baseTopLabelTextSize) },
+            gSpec?.let { menuLabelMarker(MainKeyLabelSlot.G, it, gLabel.currentTextColor, baseTopLabelTextSize) },
         )
 
         val topLabelGroup = when {
@@ -918,7 +934,7 @@ class CalculatorKeyView @JvmOverloads constructor(
                     corridorRight = bodyBounds.right,
                     gapWidth = topFgLabelHorizontalGap,
                     fLeft = groupLeft,
-                    gRight = gBounds.right,
+                    gRight = groupLeft + groupWidth,
                     baselineY = targetTextBottomY,
                     fScale = topLabelPlacement.fScale,
                     gScale = topLabelPlacement.gScale,
@@ -989,13 +1005,46 @@ class CalculatorKeyView @JvmOverloads constructor(
 
     private fun menuLabelMarker(
         label: MainKeyLabelSlot,
-        slot: MainKeyAdornmentSlot,
         spec: LabelSpec,
+        labelColor: Int,
+        unscaledLabelSize: Float,
     ): MenuLabelMarkerSpec? {
         if (!mainKeyState.opensMenu(label)) {
             return null
         }
-        return MenuLabelMarkerGeometry.bar(slot.id, spec, C47TextRenderer.baselineY(spec, mainKeyMeasurementPaint))
+        val slot = if (label == MainKeyLabelSlot.F) {
+            MainKeyAdornmentSlot.F_MENU_MARKER
+        } else {
+            MainKeyAdornmentSlot.G_MENU_MARKER
+        }
+        val marked = MarkedLabel(
+            label = spec,
+            baselineY = C47TextRenderer.baselineY(spec, mainKeyMeasurementPaint),
+            color = C47TextRenderer.colorWithAlpha(labelColor, spec.alpha),
+            unscaledLabelSize = unscaledLabelSize,
+        )
+        return MenuLabelMarkerGeometry.marker(menuLabelMarkerStyle, slot.id, marked)
+    }
+
+    private fun markerSidePad(label: MainKeyLabelSlot, labelSize: Float): Float {
+        if (!mainKeyState.opensMenu(label)) {
+            return 0f
+        }
+        return MenuLabelMarkerGeometry.sidePad(menuLabelMarkerStyle, labelSize)
+    }
+
+    private fun markerStroke(label: MainKeyLabelSlot, unscaledLabelSize: Float): Float {
+        if (!mainKeyState.opensMenu(label)) {
+            return 0f
+        }
+        return MenuLabelMarkerGeometry.stroke(menuLabelMarkerStyle, unscaledLabelSize)
+    }
+
+    private fun labelColor(label: MainKeyLabelSlot, color: Int): Int {
+        if (!mainKeyState.opensMenu(label)) {
+            return color
+        }
+        return MenuLabelMarkerGeometry.textColor(menuLabelMarkerStyle, color)
     }
 
     private fun buildMainKeyAccessibilitySpec(
@@ -1064,6 +1113,8 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun drawMainKeyLabels(canvas: Canvas, renderSpec: KeyRenderSpec) {
+        // A filled marker goes under its label; a bar or an outline over it.
+        drawMenuLabelMarkers(canvas, renderSpec, underLabels = true)
         renderSpec.label(MainKeyLabelSlot.PRIMARY)?.let { label ->
             KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
         }
@@ -1076,13 +1127,28 @@ class CalculatorKeyView @JvmOverloads constructor(
         renderSpec.label(MainKeyLabelSlot.LETTER)?.let { label ->
             KeyRenderPainter.drawLabel(canvas, label, mainKeyLabelPaint)
         }
+        drawMenuLabelMarkers(canvas, renderSpec, underLabels = false)
+    }
+
+    private fun drawMenuLabelMarkers(canvas: Canvas, renderSpec: KeyRenderSpec, underLabels: Boolean) {
         // An index loop: an iterator would allocate on every draw.
         for (index in renderSpec.adornments.indices) {
             val adornment = renderSpec.adornments[index]
-            if (adornment is MenuLabelMarkerSpec) {
+            if (adornment is MenuLabelMarkerSpec && (adornment.shape == MenuLabelMarkerShape.FILL) == underLabels) {
                 KeyRenderPainter.drawMenuLabelMarker(canvas, adornment, mainKeyMarkerPaint)
             }
         }
+    }
+
+    internal fun setMenuLabelMarkerStyle(style: MenuLabelMarkerStyle) {
+        if (menuLabelMarkerStyle == style) {
+            return
+        }
+        menuLabelMarkerStyle = style
+        if (!isFnKey) {
+            refreshMainKeyRenderSpec()
+        }
+        invalidate()
     }
 
     private fun buildMainPressedAccentSpecs(

@@ -35,6 +35,27 @@ internal enum class SoftkeyDynamicMode(
     }
 }
 
+// How a main-key f or g label that opens a menu is marked. The native scene
+// says which labels open a menu; the style only picks the shape. A boxed style
+// widens its label, so a change to or from one lays the keypad out again.
+// Settings lists the styles in this order: the default, then the rest by name.
+internal enum class MenuLabelMarkerStyle(
+    val storageValue: String,
+    val boxed: Boolean,
+) {
+    ROUNDRECT(storageValue = "roundrect", boxed = true),
+    REVERSE(storageValue = "reverse", boxed = true),
+    UNDERLINE(storageValue = "underline", boxed = false);
+
+    companion object {
+        val DEFAULT = ROUNDRECT
+
+        fun fromStorageValue(value: String?): MenuLabelMarkerStyle {
+            return entries.firstOrNull { it.storageValue == value } ?: DEFAULT
+        }
+    }
+}
+
 internal fun KeypadSnapshot.applyMainKeyDynamicMode(mode: MainKeyDynamicMode): KeypadSnapshot {
     return when (mode) {
         MainKeyDynamicMode.USER -> this

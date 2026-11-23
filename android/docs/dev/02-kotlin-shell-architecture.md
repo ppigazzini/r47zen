@@ -99,7 +99,9 @@ flowchart LR
   Android-local presentation policy: the main-key mode selects the app-facing
   native snapshot mode, which native composes, `user` included, and Kotlin
   composes only `virtuoso` after decode, while the softkey mode masks decoded
-  softkey scene bits before rendering
+  softkey scene bits before rendering; `menu_label_marker` picks the shape of
+  the mark on f and g labels that open a menu, a presentation the native scene
+  never sees ([shapes](05-ui-rendering-and-gtk-mapping.md#typography-and-label-roles))
 - `KeypadTopology`, work-directory preferences, and shell
   preferences are Android-local models
 - geometry constants, render-spec builders, label placement formulas, painter

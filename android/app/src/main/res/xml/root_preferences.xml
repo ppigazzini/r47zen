@@ -58,6 +58,13 @@
             app:entryValues="@array/softkey_dynamic_mode_values"
             app:defaultValue="on"
             app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:key="menu_label_marker"
+            app:title="@string/settings_menu_label_marker_title"
+            app:entries="@array/menu_label_marker_entries"
+            app:entryValues="@array/menu_label_marker_values"
+            app:defaultValue="roundrect"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_interaction_category_title">

@@ -119,6 +119,230 @@ class MenuLabelMarkerTest {
         )
     }
 
+    @Test
+    fun capHeightEmIsTheStandardFontsCapitalHeight() {
+        // The ink of "H" runs from the baseline to the capital height.
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val paint = Paint().apply { typeface = Typeface.createFromAsset(activity.assets, STANDARD_FONT) }
+        val ink = Rect()
+
+        for (size in listOf(20f, 50f, 100f)) {
+            paint.textSize = size
+            paint.getTextBounds("H", 0, 1, ink)
+            assertEquals(
+                "cap at $size",
+                MenuLabelMarkerGeometry.CAP_HEIGHT_EM * size,
+                -ink.top.toFloat(),
+                INK_TOLERANCE,
+            )
+        }
+    }
+
+    @Test
+    fun everyBoxHoldsItsLabelsInkAndStaysAboveItsKey() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val ink = LabelInk()
+        for (layout in boxedLayouts(activity, listOf(SCREEN_WIDTH to SCREEN_HEIGHT))) {
+            for (key in layout.keys) {
+                markedLabels(key).forEach { marked -> assertBoxHoldsItsInk(layout, key, marked, ink) }
+            }
+        }
+    }
+
+    @Test
+    fun boxesKeepTheIntragapAndTheLaneGap() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        for (layout in boxedLayouts(activity, PHONE_SCREENS)) {
+            val keysByCode = layout.keys.associateBy { it.keyCode }
+            KeypadLane.entries.filter { it != KeypadLane.SOFTKEY_ROW }.forEach { lane ->
+                assertLaneKeepsItsGaps(layout, KeypadTopology.slotsForLane(lane).mapNotNull { keysByCode[it.code] })
+            }
+        }
+    }
+
+    @Test
+    fun boxedMarkersMeetTheContrastBars() {
+        // The keypad's background is the shell's black; a box carries meaning,
+        // so it needs 3:1 to it, and reverse video's text 4.5:1 to its box.
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        for (style in BOXED_STYLES) {
+            var checked = 0
+            for (key in keysOf(laidOut(activity, KeypadFixtureResources.load("default-keypad"), style))) {
+                for ((slot, label, marker) in markedLabels(key)) {
+                    val where = "$style key ${key.keyCode} ${slot.name}"
+                    assertTrue(where, WcagContrast.ratio(marker.color, Color.BLACK) >= WcagContrast.NON_TEXT_MINIMUM)
+                    if (style == MenuLabelMarkerStyle.REVERSE) {
+                        assertEquals(where, MenuLabelMarkerGeometry.REVERSE_TEXT_COLOR, label.color)
+                        val textRatio = WcagContrast.ratio(label.color, marker.color)
+                        assertTrue(where, textRatio >= WcagContrast.SMALL_TEXT_MINIMUM)
+                    }
+                    checked++
+                }
+            }
+            assertTrue("$style checked no marker", checked > 0)
+        }
+    }
+
+    @Test
+    fun reverseVideoDrawsItsBoxBeforeItsLabel() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val scene = KeypadFixtureResources.load("default-keypad")
+        val keys = keysOf(laidOut(activity, scene, MenuLabelMarkerStyle.REVERSE))
+        val key = keys.first { markedLabels(it).any { (slot, _, _) -> slot == MainKeyLabelSlot.G } }
+        val (_, label, marker) = markedLabels(key).first { (slot, _, _) -> slot == MainKeyLabelSlot.G }
+        val canvas = RecordingCanvas(Bitmap.createBitmap(key.width, key.height, Bitmap.Config.ARGB_8888))
+
+        key.draw(canvas)
+
+        val box = canvas.events.indexOf("roundRect ${marker.bounds}")
+        val text = canvas.events.indexOf("text ${label.text}")
+        assertTrue("key ${key.keyCode} drew no box", box >= 0)
+        assertTrue("key ${key.keyCode} drew its box at $box, after its label at $text", box in 0 until text)
+    }
+
+    @Test
+    fun aBoxedStyleLaysTheKeypadOutAgainAndUnderlineRestoresIt() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val overlay = laidOut(activity, KeypadFixtureResources.load("user-menus-scene"), MenuLabelMarkerStyle.UNDERLINE)
+        val underlined = keysOf(overlay).associate { it.keyCode to it.currentTopLabelPlacementForTest() }
+
+        ReplicaKeypadLayout.applyMenuLabelMarkerStyle(overlay, BOX, UNDERLINE)
+        assertTrue(overlay.isLayoutRequested)
+        layOut(overlay)
+        val boxed = keysOf(overlay).associate { it.keyCode to it.currentTopLabelPlacementForTest() }
+        ReplicaKeypadLayout.applyMenuLabelMarkerStyle(overlay, UNDERLINE, BOX)
+        layOut(overlay)
+
+        assertTrue("the boxes moved no label", boxed != underlined)
+        assertEquals(underlined, keysOf(overlay).associate { it.keyCode to it.currentTopLabelPlacementForTest() })
+    }
+
+    // One keypad laid out with a boxed style, and where, for messages.
+    private class BoxedLayout(
+        val where: String,
+        val style: MenuLabelMarkerStyle,
+        val keys: List<CalculatorKeyView>,
+    )
+
+    private fun boxedLayouts(activity: Activity, screens: List<Pair<Int, Int>>): List<BoxedLayout> {
+        return BOXED_STYLES.flatMap { style ->
+            BOX_SCENES.flatMap { scene ->
+                screens.map { screen ->
+                    val overlay = laidOut(activity, KeypadFixtureResources.load(scene), style, screen)
+                    BoxedLayout("$style $scene at ${screen.first}x${screen.second}", style, keysOf(overlay))
+                }
+            }
+        }
+    }
+
+    // The ink of a label as the platform measures it, around its baseline.
+    private class LabelInk {
+        val paint: Paint = C47TextRenderer.newTextPaint()
+        val bounds = Rect()
+
+        fun measure(label: LabelSpec): Rect {
+            C47TextRenderer.configureTextPaint(
+                paint,
+                label.typeface,
+                label.textSize,
+                label.align,
+                label.color,
+                label.alpha,
+                label.textScaleX,
+            )
+            paint.getTextBounds(label.text, 0, label.text.length, bounds)
+            return bounds
+        }
+    }
+
+    private fun assertBoxHoldsItsInk(
+        layout: BoxedLayout,
+        key: CalculatorKeyView,
+        marked: Triple<MainKeyLabelSlot, LabelSpec, MenuLabelMarkerSpec>,
+        ink: LabelInk,
+    ) {
+        val (slot, label, marker) = marked
+        val where = "${layout.where} key ${key.keyCode} ${slot.name} '${label.text}'"
+        val glyphs = Rect(ink.measure(label))
+        val capTop = ink.measure(label.copy(text = "H")).top
+        val left = requireNotNull(label.bounds).left
+        val baseline = C47TextRenderer.baselineY(label, ink.paint)
+        val box = marker.bounds
+        val body = (key.currentMainKeyRenderSpecForTest()?.geometry as MainKeyGeometrySpec).bodyBounds
+        assertTrue("$where: ink left", box.left <= left + glyphs.left)
+        assertTrue("$where: ink right", box.right >= left + glyphs.right)
+        assertTrue("$where: ink top", box.top <= baseline + glyphs.top)
+        // The caps stand on the baseline inside the box, centered between its
+        // edges: the platform's ink of "H" gives the caps' center.
+        assertTrue("$where: baseline", box.bottom > baseline)
+        assertEquals("$where: centered on the caps", baseline + capTop / 2f, box.centerY, INK_TOLERANCE)
+        assertTrue("$where: over the key body", box.bottom + marker.strokeWidth / 2f < body.top)
+        val placement = key.currentTopLabelPlacementForTest()
+        val unscaled = label.textSize / if (slot == MainKeyLabelSlot.F) placement.fScale else placement.gScale
+        val expectedStroke = if (layout.style == MenuLabelMarkerStyle.ROUNDRECT) {
+            MenuLabelMarkerGeometry.BOX_STROKE_EM * unscaled
+        } else {
+            0f
+        }
+        assertEquals("$where: stroke", expectedStroke, marker.strokeWidth, STROKE_TOLERANCE)
+    }
+
+    // Within each key, the boxes keep the intragap; between keys, twice it.
+    private fun assertLaneKeepsItsGaps(layout: BoxedLayout, laneKeys: List<CalculatorKeyView>) {
+        val groups = laneKeys.mapNotNull { key -> groupExtent(key)?.let { key to it } }
+        for ((key, extent) in groups) {
+            val gap = requireNotNull(key.buildTopLabelLaneInput()).gapWidth
+            extent.intragap?.let { intragap ->
+                assertTrue("${layout.where} key ${key.keyCode}: intragap $intragap", intragap >= gap - GAP_TOLERANCE)
+            }
+        }
+        groups.zipWithNext { (left, leftExtent), (right, rightExtent) ->
+            val gap = maxOf(
+                requireNotNull(left.buildTopLabelLaneInput()).gapWidth,
+                requireNotNull(right.buildTopLabelLaneInput()).gapWidth,
+            )
+            val between = rightExtent.left - leftExtent.right
+            assertTrue(
+                "${layout.where} keys ${left.keyCode}-${right.keyCode}: $between apart",
+                between >= 2f * gap - GAP_TOLERANCE,
+            )
+        }
+    }
+
+    // The outer left and right of a key's f and g group, boxes and their
+    // stroke included, in the overlay's coordinates, and the space between
+    // its f and g.
+    private data class GroupExtent(val left: Float, val right: Float, val intragap: Float?)
+
+    private fun groupExtent(key: CalculatorKeyView): GroupExtent? {
+        val spec = key.currentMainKeyRenderSpecForTest()
+        val f = spec?.let { outerExtent(it, MainKeyLabelSlot.F, MainKeyAdornmentSlot.F_MENU_MARKER) } ?: return null
+        val g = outerExtent(spec, MainKeyLabelSlot.G, MainKeyAdornmentSlot.G_MENU_MARKER)
+        return GroupExtent(
+            left = key.left + f.first,
+            right = key.left + (g ?: f).second,
+            intragap = g?.let { it.first - f.second },
+        )
+    }
+
+    // A label's left and right, or its marker's with the stroke, if it has one.
+    private fun outerExtent(
+        spec: KeyRenderSpec,
+        labelSlot: MainKeyLabelSlot,
+        markerSlot: MainKeyAdornmentSlot,
+    ): Pair<Float, Float>? {
+        val label = spec.label(labelSlot)?.bounds
+        val marker = spec.adornment(markerSlot) as? MenuLabelMarkerSpec
+        return when {
+            marker != null -> {
+                val halfStroke = marker.strokeWidth / 2f
+                (marker.bounds.left - halfStroke) to (marker.bounds.right + halfStroke)
+            }
+            label != null -> label.left to label.right
+            else -> null
+        }
+    }
+
     // The key's labels that carry a marker, with the marker.
     private fun markedLabels(key: CalculatorKeyView): List<Triple<MainKeyLabelSlot, LabelSpec, MenuLabelMarkerSpec>> {
         val spec = key.currentMainKeyRenderSpecForTest() ?: return emptyList()
@@ -130,11 +354,29 @@ class MenuLabelMarkerTest {
     }
 
     private fun laidOutKeys(activity: Activity, fixture: ExportedKeypadFixture): List<CalculatorKeyView> {
+        return keysOf(laidOut(activity, fixture, MenuLabelMarkerStyle.UNDERLINE))
+    }
+
+    private fun laidOut(
+        activity: Activity,
+        fixture: ExportedKeypadFixture,
+        style: MenuLabelMarkerStyle,
+        screen: Pair<Int, Int> = SCREEN_WIDTH to SCREEN_HEIGHT,
+    ): ReplicaOverlay {
         val overlay = ReplicaOverlay(activity)
         overlay.onGeometryLaidOut = { ReplicaKeypadLayout.applyTopLabelPlacementsAfterLayout(overlay) }
         ReplicaKeypadLayout.rebuild(activity, overlay, {}, {}, fixture::snapshot)
-        overlay.measure(exactly(SCREEN_WIDTH), exactly(SCREEN_HEIGHT))
-        overlay.layout(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        ReplicaKeypadLayout.applyMenuLabelMarkerStyle(overlay, style, MenuLabelMarkerStyle.DEFAULT)
+        layOut(overlay, screen)
+        return overlay
+    }
+
+    private fun layOut(overlay: ReplicaOverlay, screen: Pair<Int, Int> = SCREEN_WIDTH to SCREEN_HEIGHT) {
+        overlay.measure(exactly(screen.first), exactly(screen.second))
+        overlay.layout(0, 0, screen.first, screen.second)
+    }
+
+    private fun keysOf(overlay: ReplicaOverlay): List<CalculatorKeyView> {
         return (0 until overlay.childCount).map(overlay::getChildAt).filterIsInstance<CalculatorKeyView>()
     }
 
@@ -191,7 +433,26 @@ class MenuLabelMarkerTest {
     // Record the shapes a key draws, and count any bitmap it draws.
     private class RecordingCanvas(bitmap: Bitmap) : Canvas(bitmap) {
         val rects = mutableListOf<Pair<RectSpec, Int>>()
+        val events = mutableListOf<String>()
         var bitmaps = 0
+
+        override fun drawRoundRect(
+            left: Float,
+            top: Float,
+            right: Float,
+            bottom: Float,
+            rx: Float,
+            ry: Float,
+            paint: Paint,
+        ) {
+            events += "roundRect ${RectSpec(left, top, right, bottom)}"
+            super.drawRoundRect(left, top, right, bottom, rx, ry, paint)
+        }
+
+        override fun drawText(text: String, x: Float, y: Float, paint: Paint) {
+            events += "text $text"
+            super.drawText(text, x, y, paint)
+        }
 
         override fun drawRect(left: Float, top: Float, right: Float, bottom: Float, paint: Paint) {
             rects += RectSpec(left, top, right, bottom) to paint.color
@@ -224,6 +485,21 @@ class MenuLabelMarkerTest {
 
         // Font units are thousandths of an em.
         const val EM_TOLERANCE = 0.001f
+
+        // getTextBounds rounds the ink out to whole pixels.
+        const val INK_TOLERANCE = 0.5f
+        const val STROKE_TOLERANCE = 0.001f
+
+        // Float slack on positions the solver and the spec compute.
+        const val GAP_TOLERANCE = 0.01f
+
+        val BOXED_STYLES = MenuLabelMarkerStyle.entries.filter { it.boxed }
+        val UNDERLINE = MenuLabelMarkerStyle.UNDERLINE
+        val BOX = MenuLabelMarkerStyle.ROUNDRECT
+
+        // FHD+, HD+, and QHD+ portrait phones, as KeypadTopLabelLayoutTest lays out.
+        val PHONE_SCREENS = listOf(1080 to 2400, 720 to 1600, 1440 to 3120)
+        val BOX_SCENES = listOf("default-keypad", "user-menus-scene")
 
         // An FHD+ portrait phone, where the USER scene's names are scaled.
         const val SCREEN_WIDTH = 1080

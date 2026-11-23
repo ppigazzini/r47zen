@@ -351,6 +351,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
             applyShowDeveloperPerformanceHud = replicaOverlay::setShowDeveloperPerformanceHud,
             applyKeypadLabelModes = replicaOverlayController::applyKeypadLabelModes,
+            applyMenuLabelMarkerStyle = replicaOverlayController::applyMenuLabelMarkerStyle,
         )
     }
 
