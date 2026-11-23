@@ -604,12 +604,14 @@ hardcoding one text style for all keys. In practice that means:
   - Reverse Video: the same box filled in the label's color, drawn before the
     label, which turns `REVERSE_TEXT_COLOR`, black, as the LCD inverts a
     submenu softkey.
-  - Underline: a bar under the label's advance, at the label's own size,
-    `BAR_TOP_EM` under the baseline and `BAR_THICKNESS_EM` thick, the
-    standard font's underline, drawn after the label.
-    `MenuLabelMarkerTest.kt` holds both to `Paint.getUnderlinePosition()` and
-    `getUnderlineThickness()`, the API 29 getters the app does not call, so
-    that API 24 to 28 mark labels alike.
+  - Underline: a bar under the label's advance, drawn after the label,
+    `BAR_THICKNESS_EM` thick at the unscaled top-label size and a fixed
+    distance under the line-box bottom, which every label of a lane shares, so
+    a lane shows one weight on one line however far the solver shrank a label.
+    Unscaled it is the standard font's underline, `BAR_TOP_EM` under the
+    baseline: `MenuLabelMarkerTest.kt` holds both constants to
+    `Paint.getUnderlinePosition()` and `getUnderlineThickness()`, the API 29
+    getters the app does not call, so that API 24 to 28 mark labels alike.
   A box widens its label: the pad rides in the label's width at each scale
   and the stroke in `fFixedWidth`/`gFixedWidth`, the intragap runs between the
   boxes, and the lane solver places them (lane contract below), so on a

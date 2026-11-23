@@ -56,12 +56,17 @@ internal object MenuLabelMarkerGeometry {
         return if (style.boxed) box(style, id, marked, bounds) else bar(id, marked, bounds)
     }
 
+    // Lay the bar under the label's advance at the unscaled top-label size, a
+    // fixed distance under the line-box bottom, which every label of a lane
+    // shares: one weight on one line, however far the solver shrank a label.
+    // Unscaled, the bar is the font's underline, BAR_TOP_EM under the baseline.
     private fun bar(id: String, marked: MarkedLabel, bounds: RectSpec): MenuLabelMarkerSpec {
-        val size = marked.label.textSize
-        val top = marked.baselineY + BAR_TOP_EM * size
+        val unscaled = marked.unscaledLabelSize
+        val unscaledDescent = (bounds.bottom - marked.baselineY) * unscaled / marked.label.textSize
+        val top = bounds.bottom + BAR_TOP_EM * unscaled - unscaledDescent
         return MenuLabelMarkerSpec(
             id = id,
-            bounds = RectSpec(bounds.left, top, bounds.right, top + BAR_THICKNESS_EM * size),
+            bounds = RectSpec(bounds.left, top, bounds.right, top + BAR_THICKNESS_EM * unscaled),
             color = marked.color,
         )
     }

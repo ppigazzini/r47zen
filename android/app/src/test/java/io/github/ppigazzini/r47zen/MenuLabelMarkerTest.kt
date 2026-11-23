@@ -10,6 +10,11 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.view.View
+import io.kotest.property.Arb
+import io.kotest.property.PropTestConfig
+import io.kotest.property.arbitrary.numericFloat
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -54,25 +59,77 @@ class MenuLabelMarkerTest {
     }
 
     @Test
-    fun everyMarkedLabelDrawsWhatThePlatformUnderlineDraws() {
+    fun everyUnscaledMarkedLabelDrawsWhatThePlatformUnderlineDraws() {
+        // A label the solver shrank keeps a full-weight bar, which is no longer
+        // its own underline; barKeepsTheUnscaledWeightUnderTheLineBox holds those.
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         var compared = 0
-        var comparedScaled = 0
         for (fixture in KeypadFixtureResources.loadAll()) {
-            val keys = laidOutKeys(activity, fixture)
-            for (key in keys) {
+            for (key in laidOutKeys(activity, fixture)) {
                 val placement = key.currentTopLabelPlacementForTest()
-                for ((labelSlot, label, marker) in markedLabels(key)) {
+                val unscaled = markedLabels(key).filter { (slot, _, _) ->
+                    (if (slot == MainKeyLabelSlot.F) placement.fScale else placement.gScale) == 1f
+                }
+                for ((labelSlot, label, marker) in unscaled) {
                     val where = "${fixture.name} key ${key.keyCode} ${labelSlot.name} '${label.text}'"
                     assertEquals(where, platformUnderlined(label).pixels(), labelWithMarker(label, marker).pixels())
                     compared++
-                    val scale = if (labelSlot == MainKeyLabelSlot.F) placement.fScale else placement.gScale
-                    if (scale < 1f) comparedScaled++
                 }
             }
         }
         assertTrue("no marked label was compared", compared > 0)
-        assertTrue("no solver-scaled marked label was compared", comparedScaled > 0)
+    }
+
+    @Test
+    fun barKeepsTheUnscaledWeightUnderTheLineBox() {
+        // A label at scale s and unscaled size u has its line-box bottom where
+        // the lane puts every label's, and its baseline 0.2 s u above it (the
+        // standard font's descent). The bar keeps u's weight and distance.
+        runBlocking {
+            checkAll(
+                PropTestConfig(seed = 20261123L, iterations = 256),
+                Arb.numericFloat(0.3f, 1f),
+                Arb.numericFloat(20f, 80f),
+            ) { scale, unscaled ->
+                val size = unscaled * scale
+                val bottom = 100f
+                val label = barLabel(size, bottom)
+                val marked = MarkedLabel(label, bottom - FONT_DESCENT_EM * size, Color.WHITE, unscaled)
+                val bar = requireNotNull(MenuLabelMarkerGeometry.marker(UNDERLINE, "bar", marked)).bounds
+
+                assertEquals(
+                    (MenuLabelMarkerGeometry.BAR_TOP_EM - FONT_DESCENT_EM) * unscaled,
+                    bar.top - bottom,
+                    GEOMETRY_TOLERANCE,
+                )
+                assertEquals(MenuLabelMarkerGeometry.BAR_THICKNESS_EM * unscaled, bar.height, GEOMETRY_TOLERANCE)
+                assertEquals(requireNotNull(label.bounds).left, bar.left, 0f)
+                assertEquals(requireNotNull(label.bounds).right, bar.right, 0f)
+            }
+        }
+    }
+
+    @Test
+    fun everyBarOfALaneSitsOnOneLineAtOneWeight() {
+        // The USER scene's lanes mix unscaled and solver-scaled labels.
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val scene = KeypadFixtureResources.load("user-menus-scene")
+        for (screen in PHONE_SCREENS) {
+            val keysByCode = keysOf(laidOut(activity, scene, UNDERLINE, screen)).associateBy { it.keyCode }
+            KeypadLane.entries.filter { it != KeypadLane.SOFTKEY_ROW }.forEach { lane ->
+                // Each bar's top in the overlay's coordinates, and its weight.
+                val bars = KeypadTopology.slotsForLane(lane).mapNotNull { keysByCode[it.code] }.flatMap { key ->
+                    markedLabels(key).map { (_, _, marker) ->
+                        Triple(key.keyCode, key.top + marker.bounds.top, marker.bounds.height)
+                    }
+                }
+                val where = "$lane at ${screen.first}x${screen.second}"
+                bars.forEach { (code, top, weight) ->
+                    assertEquals("$where key $code top", bars.first().second, top, VIEW_ROUNDING_TOLERANCE)
+                    assertEquals("$where key $code weight", bars.first().third, weight, VIEW_ROUNDING_TOLERANCE)
+                }
+            }
+        }
     }
 
     @Test
@@ -343,6 +400,23 @@ class MenuLabelMarkerTest {
         }
     }
 
+    // A label laid out as the keypad lays an f label: left-aligned, its line
+    // box ending at bottom.
+    private fun barLabel(size: Float, bottom: Float): LabelSpec {
+        return LabelSpec(
+            id = MainKeyLabelSlot.F.id,
+            text = "MENU",
+            visible = true,
+            anchor = PointSpec(10f, bottom),
+            bounds = RectSpec(10f, bottom - size, 10f + 2f * size, bottom),
+            typeface = null,
+            textSize = size,
+            color = Color.WHITE,
+            align = Paint.Align.LEFT,
+            verticalAnchor = C47TextRenderer.TEXT_ANCHOR_BOTTOM,
+        )
+    }
+
     // The key's labels that carry a marker, with the marker.
     private fun markedLabels(key: CalculatorKeyView): List<Triple<MainKeyLabelSlot, LabelSpec, MenuLabelMarkerSpec>> {
         val spec = key.currentMainKeyRenderSpecForTest() ?: return emptyList()
@@ -492,6 +566,14 @@ class MenuLabelMarkerTest {
 
         // Float slack on positions the solver and the spec compute.
         const val GAP_TOLERANCE = 0.01f
+        const val GEOMETRY_TOLERANCE = 0.001f
+
+        // Key views are sized in whole pixels, so the ENTER key's scale to its
+        // design width and a standard key's differ in the third decimal.
+        const val VIEW_ROUNDING_TOLERANCE = 0.05f
+
+        // The standard font's descent, 200 of 1000 units.
+        const val FONT_DESCENT_EM = 0.2f
 
         val BOXED_STYLES = MenuLabelMarkerStyle.entries.filter { it.boxed }
         val UNDERLINE = MenuLabelMarkerStyle.UNDERLINE

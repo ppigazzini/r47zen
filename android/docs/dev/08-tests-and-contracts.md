@@ -476,10 +476,14 @@ source is missing from this page:
   label-spec build at the resolved final size
 - `MenuLabelMarkerTest.kt`: holds the menu-label marker to the platform's own
   underline. `BAR_TOP_EM` and `BAR_THICKNESS_EM` equal the standard font's
-  underline metrics as `Paint` reads them at the target SDK; every marked
-  label of every exported scene, the solver-scaled USER labels included, laid
-  out at FHD+, draws pixel for pixel what one `drawText` with the paint's
-  underline draws; a marker exists exactly where the scene's f or g role says
+  underline metrics as `Paint` reads them at the target SDK; every unscaled
+  marked label of every exported scene, laid out at FHD+, draws pixel for pixel
+  what one `drawText` with the paint's underline draws; a Kotest sweep over
+  label scales 0.3 to 1.0 holds the bar to the unscaled weight and distance
+  under the line-box bottom, and on the USER scene at three phone sizes every
+  bar of a lane has one top and one weight, within the third-decimal rounding
+  of whole-pixel key views; a marker exists exactly where the scene's f or g
+  role says
   the label opens a menu, read from the roles and not through the code under
   test; and a key draws its marker as a rect at the spec's bounds and draws no
   bitmap. For the two boxes: `CAP_HEIGHT_EM` equals the ink height of "H" as
