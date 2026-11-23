@@ -18,6 +18,10 @@ internal data class TopLabelLaneGroupInput(
     val maxShift: Float,
     val minLeftEdge: Float = Float.NEGATIVE_INFINITY,
     val maxRightEdge: Float = Float.POSITIVE_INFINITY,
+    // Width a label's menu marker adds that does not scale with the label: a
+    // box outline's stroke. fTextWidth and gTextWidth scale; these never do.
+    val fFixedWidth: Float = 0f,
+    val gFixedWidth: Float = 0f,
     // The width each label draws at a scale. A label's glyph advances round to
     // whole pixels at each size, so at scale s it is not s times its unscaled
     // width; the solver places the width the key will draw. Null means linear,
@@ -34,7 +38,7 @@ internal data class TopLabelLaneGroupInput(
         get() = gTextWidth > 0f && gapWidth > 0f
 
     val totalWidth: Float
-        get() = fTextWidth + gapWidth + gTextWidth
+        get() = fTextWidth + fFixedWidth + gapWidth + gTextWidth + gFixedWidth
 
     val longestLabel: TopLabelLaneLabel
         get() = if (!hasGLabel || fTextWidth > gTextWidth) TopLabelLaneLabel.F else TopLabelLaneLabel.G
@@ -66,10 +70,10 @@ private data class TopLabelLaneGroupState(
         get() = scaledFTextWidth + group.gapWidth + scaledGTextWidth
 
     val scaledFTextWidth: Float
-        get() = group.fWidth(fScale)
+        get() = group.fWidth(fScale) + group.fFixedWidth
 
     val scaledGTextWidth: Float
-        get() = if (group.hasGLabel) group.gWidth(gScale) else 0f
+        get() = if (group.hasGLabel) group.gWidth(gScale) + group.gFixedWidth else 0f
 
     val left: Float
         get() = centerX - totalWidth / 2f

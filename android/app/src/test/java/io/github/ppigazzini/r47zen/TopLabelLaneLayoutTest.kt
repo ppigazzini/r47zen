@@ -424,6 +424,65 @@ class TopLabelLaneLayoutTest {
     }
 
     @Test
+    fun fixedWidthCountsLikeTextWidthWhileNothingScales() {
+        // A menu marker's stroke is width the solver may move but never scale.
+        // In a row it resolves by shifting alone, that width places a group
+        // exactly as the same width of text does.
+        runBlocking {
+            checkAll(
+                SWEEP_CONFIG,
+                Arb.list(Arb.numericFloat(120f, 300f), 6..6),
+                Arb.numericFloat(0f, MAX_FIXED_WIDTH),
+            ) { widths, fixed ->
+                val asText = widths.mapIndexed { index, width ->
+                    standardGroup(index, totalWidth = width + 2f * fixed)
+                }
+                val withFixed = asText.map { group ->
+                    group.copy(
+                        fTextWidth = group.fTextWidth - fixed,
+                        gTextWidth = group.gTextWidth - fixed,
+                        fFixedWidth = fixed,
+                        gFixedWidth = fixed,
+                    )
+                }
+
+                val textPlacements = TopLabelLaneLayout.solve(asText)
+                if (textPlacements.values.all { it.fScale == 1f && it.gScale == 1f }) {
+                    val fixedPlacements = TopLabelLaneLayout.solve(withFixed)
+                    for ((code, placement) in textPlacements) {
+                        val fixedPlacement = fixedPlacements.getValue(code)
+                        assertEquals(placement.centerShift, fixedPlacement.centerShift, PLACEMENT_TOLERANCE)
+                        assertEquals(1f, fixedPlacement.fScale, 0f)
+                        assertEquals(1f, fixedPlacement.gScale, 0f)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun anyDenseRowWithFixedWidthsResolvesWithoutScalingThem() {
+        // The lane rules are checked on bounds that keep each fixed width whole,
+        // so a solver that scaled the fixed part would leave groups too close.
+        runBlocking {
+            checkAll(
+                SWEEP_CONFIG,
+                Arb.list(Arb.numericFloat(220f, 430f), 6..6),
+                Arb.numericFloat(0f, MAX_FIXED_WIDTH),
+            ) { widths, fixed ->
+                val groups = widths.mapIndexed { index, width ->
+                    standardGroup(index, totalWidth = width).copy(fFixedWidth = fixed, gFixedWidth = fixed)
+                }
+
+                val placements = TopLabelLaneLayout.solve(groups)
+
+                assertLaneResolved(groups, placements)
+                assertGroupScaleDifferenceAtMostOneStep(groups, placements)
+            }
+        }
+    }
+
+    @Test
     fun anyDenseRowOfHintedLabelsResolvesOnTheWidthsTheyDraw() {
         // A hinted label's glyph advances round to whole pixels at each size, so
         // a label scaled by s is not s times as wide. The rules are checked on
@@ -499,9 +558,9 @@ class TopLabelLaneLayoutTest {
     ): Pair<Float, Float> {
         val centerX = input.centerX + placement.centerShift
         val totalWidth =
-            input.fWidth(placement.fScale) +
+            input.fWidth(placement.fScale) + input.fFixedWidth +
                 input.gapWidth +
-                input.gWidth(placement.gScale)
+                input.gWidth(placement.gScale) + input.gFixedWidth
         return (centerX - totalWidth / 2f) to (centerX + totalWidth / 2f)
     }
 
@@ -514,7 +573,7 @@ class TopLabelLaneLayoutTest {
         val solvedRight = solvedGroupBounds(right, placements.getValue(right.code))
         val requiredGap = maxOf(left.gapWidth, right.gapWidth) * 2f
 
-        assertTrue(solvedRight.first - solvedLeft.second >= requiredGap - 0.001f)
+        assertTrue(solvedRight.first - solvedLeft.second >= requiredGap - POSITION_TOLERANCE)
     }
 
     private fun assertNeighborBorderGapRespected(
@@ -528,8 +587,8 @@ class TopLabelLaneLayoutTest {
         val rightNeighborLeftBorder = right.centerX - right.bodyWidth / 2f + corridorExtension
         val leftNeighborRightBorder = left.centerX + left.bodyWidth / 2f - corridorExtension
 
-        assertTrue(solvedLeft.second <= rightNeighborLeftBorder + 0.001f)
-        assertTrue(solvedRight.first + 0.001f >= leftNeighborRightBorder)
+        assertTrue(solvedLeft.second <= rightNeighborLeftBorder + POSITION_TOLERANCE)
+        assertTrue(solvedRight.first + POSITION_TOLERANCE >= leftNeighborRightBorder)
     }
 
     private fun assertLaneResolved(
@@ -585,5 +644,15 @@ class TopLabelLaneLayoutTest {
             R47ReferenceGeometry.STANDARD_LEFT + STANDARD_BODY / 2f + OPTICAL_CENTER_OFFSET
 
         val SWEEP_CONFIG = PropTestConfig(seed = 20260509L, iterations = 256)
+
+        // Wider than any marker stroke: 0.06 em of the 64-unit top label is 3.84.
+        const val MAX_FIXED_WIDTH = 12f
+
+        // Float rounding between text + fixed and the same width as text alone.
+        const val PLACEMENT_TOLERANCE = 0.001f
+
+        // The solver stops within its own 0.001; a fixed width summed in another
+        // order adds float rounding at frame coordinates up to about 1800.
+        const val POSITION_TOLERANCE = 0.01f
     }
 }

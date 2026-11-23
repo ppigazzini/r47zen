@@ -299,9 +299,9 @@ class KeypadTopLabelLayoutTest {
     ): Pair<Float, Float> {
         val centerX = input.centerX + placement.centerShift
         val totalWidth =
-            input.fWidth(placement.fScale) +
+            input.fWidth(placement.fScale) + input.fFixedWidth +
                 input.gapWidth +
-                input.gWidth(placement.gScale)
+                input.gWidth(placement.gScale) + input.gFixedWidth
         return (centerX - totalWidth / 2f) to (centerX + totalWidth / 2f)
     }
 

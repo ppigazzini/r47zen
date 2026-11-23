@@ -350,6 +350,11 @@ Non-negotiable invariants:
   font's glyph advances round to whole pixels at each size, so a label scaled
   by s is not s times as wide: `SURVEYS` is 140 at 40 px and 84, not 81.2, at
   23.2 px. Without a function the solver scales the text width linearly
+- scale only text: a label's `fFixedWidth` or `gFixedWidth` in
+  `TopLabelLaneGroupInput`, the width a menu-label marker adds that does not
+  follow the label's size, such as a box outline's stroke, moves with its
+  group and never shrinks, and every rule above holds on bounds that include
+  it
 
 Solve order:
 
