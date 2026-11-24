@@ -429,8 +429,9 @@ on it, but neither looks for a race.
   imported `.p47` overlay through the same host path, so the profile also covers
   graph, pause, wait, and LCD workloads. Its `--help` names the training corpus and
   the `libclang_rt.profile` shim.
-  `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
-  runs it and checks that the release native build consumes the profile
+  `./scripts/android/build_android.sh --collect-host-pgo` runs it before Gradle,
+  builds the app with the profile, and fails unless the release library's
+  compile database records it
 - `jni_program_load_test.c` exposes the instrumentation-only bridge used by
   `ProgramFixtureInstrumentedTest`, `FactorsInstrumentedTest`,
   `ClipboardRoundTripInstrumentedTest`, `DisplayDescriptionInstrumentedTest`,

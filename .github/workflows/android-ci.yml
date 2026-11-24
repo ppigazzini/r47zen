@@ -452,6 +452,7 @@ jobs:
     outputs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
       unsigned_artifact_name: ${{ steps.meta.outputs.unsigned_artifact_name }}
+      pgo_profile_artifact_id: ${{ steps.upload-pgo-profile.outputs.artifact-id }}
       dev_apk_name: ${{ steps.meta.outputs.dev_apk_name }}
       release_tag: ${{ steps.meta.outputs.release_tag }}
       release_title: ${{ steps.meta.outputs.release_title }}
@@ -688,7 +689,6 @@ jobs:
 
           ./scripts/android/build_android.sh \
             --collect-host-pgo \
-            --validate-release-pgo \
             2>&1 | tee ci-artifacts/logs/build-android.log
 
       # The host tools that generated shipped code, for the signing job's evidence.
@@ -834,8 +834,24 @@ jobs:
             exit 1
           fi
 
-          mkdir -p ci-artifacts/dev-unsigned
+          # The bundle Play would take, built in the same Gradle run as the APK.
+          # Capture the listing before matching it: unzip piped into grep -q
+          # dies of SIGPIPE once grep stops at an early signature entry, and
+          # pipefail then reads the match as a miss.
+          bundle_path='android/app/build/outputs/bundle/release/app-release.aab'
+          if [[ ! -f "$bundle_path" ]]; then
+            echo "Missing the dev bundle ${bundle_path}." >&2
+            exit 1
+          fi
+          bundle_entries="$(unzip -Z1 "$bundle_path")"
+          if grep -Eq '^META-INF/[^/]+\.(SF|RSA|DSA|EC)$' <<<"$bundle_entries"; then
+            echo "Expected an unsigned dev bundle, but ${bundle_path} carries a JAR signature." >&2
+            exit 1
+          fi
+
+          mkdir -p ci-artifacts/dev-unsigned ci-artifacts/dev-bundle
           cp "$apk_dir/$apk_file" ci-artifacts/dev-unsigned/app-release-unsigned.apk
+          cp "$bundle_path" ci-artifacts/dev-bundle/app-release-unsigned.aab
 
           # What reads a crash from the published APK back: R8's mapping for a
           # Java stack, and the native library's symbols for a tombstone. The
@@ -858,6 +874,25 @@ jobs:
         with:
           name: ${{ steps.meta.outputs.unsigned_artifact_name }}
           path: ci-artifacts/dev-unsigned/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload the unsigned dev bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-bundle
+          path: ci-artifacts/dev-bundle/
+          if-no-files-found: error
+          retention-days: 7
+
+      # The profile alone, which the APK's library was built with: android-tests
+      # downloads it by id, so its device tests run the same PGO-compiled code.
+      - name: Upload the dev PGO profile
+        id: upload-pgo-profile
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-pgo-profile
+          path: ci-artifacts/pgo/r47-host-core.profdata
           if-no-files-found: error
           retention-days: 7
 
@@ -1208,12 +1243,18 @@ jobs:
   android-tests:
     name: Run Android JVM and instrumentation tests
     if: needs.upstream-release-gate.outputs.should_run == 'true'
+    # The build job's PGO profile, which the dev APK's library was built with, is
+    # this job's for every Gradle build, so the device tests and the shipped-shape
+    # launch run the code a release ships, as verify-production-release does.
     needs:
       - resolve-upstream-core
       - upstream-release-gate
       - python-contracts
+      - android-build-test-package
     runs-on: ubuntu-26.04
     timeout-minutes: 120
+    env:
+      R47_PGO_PROFILE_PATH: ${{ github.workspace }}/ci-artifacts/dev-pgo/r47-host-core.profdata
     steps:
       - name: Configure Git init defaults
         shell: bash
@@ -1344,6 +1385,12 @@ jobs:
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
 
+      - name: Download the dev PGO profile
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.android-build-test-package.outputs.pgo_profile_artifact_id }}
+          path: ci-artifacts/dev-pgo
+
       - name: Set Android test metadata
         id: meta
         shell: bash
@@ -1366,6 +1413,61 @@ jobs:
             --android-commit "$android_commit")"
 
           echo "artifact_name=$R47_ANDROID_TEST_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
+
+      # The app as it ships, R8, resource shrinking, PGO, no test bridge, built for
+      # the emulator's x86_64 and signed with the throwaway key; the emulator step
+      # launches it after the device tests. Before the build below, which writes
+      # the same release outputs with R8 off.
+      - name: Build the shipped-shape release for the launch smoke
+        id: smoke-build
+        shell: bash
+        env:
+          R47_PRERELEASE_STORE_FILE: ${{ github.workspace }}/ci-signing/prerelease.keystore
+          R47_PRERELEASE_STORE_PASSWORD: r47-throwaway
+          R47_PRERELEASE_KEY_ALIAS: r47-throwaway
+          R47_PRERELEASE_KEY_PASSWORD: r47-throwaway
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts/logs ci-artifacts/smoke
+          sha256sum "$R47_PGO_PROFILE_PATH"
+
+          core_version="${{ steps.upstream.outputs.upstream_commit }}"
+          core_version="${core_version:0:8}"
+
+          (
+            cd android
+            ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+              :app:assembleRelease \
+              ${{ env.R47_CI_GRADLE_ARGS }} \
+              -Pr47.abiFilters=x86_64 \
+              -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+              -Pr47.includeProgramLoadTestBridge=false \
+              -Pr47.coreVersion="$core_version" \
+              -Pr47.releaseChannel=dev \
+              -Pr47.releaseChannelBuildToken=${{ needs.upstream-release-gate.outputs.dev_build_token }} \
+              -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
+              -Pr47.sourceCommit=${{ github.sha }} \
+              -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
+              -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
+              -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
+              -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
+              2>&1 | tee ../ci-artifacts/logs/android-dev-smoke-build.log
+          )
+          apk_dir='android/app/build/outputs/apk/release'
+          apk_file="$(sed -n 's/.*"outputFile": *"\([^"]*\)".*/\1/p' "$apk_dir/output-metadata.json" | head -n 1)"
+          [[ -n "$apk_file" && "$apk_file" != *-unsigned.apk ]] || {
+            echo "Expected a signed smoke APK, but AGP reports '${apk_file}'." >&2
+            exit 1
+          }
+          # The package the build gave the APK, the .dev one android/app/build.gradle
+          # adds, read from AGP's record of it.
+          package="$(sed -n 's/.*"applicationId": *"\([^"]*\)".*/\1/p' "$apk_dir/output-metadata.json" | head -n 1)"
+          [[ -n "$package" ]] || {
+            echo "${apk_dir}/output-metadata.json names no applicationId." >&2
+            exit 1
+          }
+          cp "$apk_dir/$apk_file" ci-artifacts/smoke/r47zen-shipped-x86_64.apk
+          echo "package=$package" >> "$GITHUB_OUTPUT"
 
       - name: Build Android dev-release artifacts and run JVM tests
         shell: bash
@@ -1510,6 +1612,7 @@ jobs:
           R47_CONNECTED_ANDROID_TEST_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_REPOSITORY_URL: ${{ steps.defaults.outputs.xlsxio_url }}
           R47_CONNECTED_ANDROID_TEST_XLSXIO_SOURCE_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+          R47_SMOKE_PACKAGE: ${{ steps.smoke-build.outputs.package }}
         with:
           api-level: ${{ steps.defaults.outputs.android_test_api_level }}
           target: default
@@ -1520,8 +1623,9 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           working-directory: ./android
-          script: >-
+          script: |
             bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh
+            bash --noprofile --norc ../scripts/android/run_shipped_build_smoke.sh --apk ../ci-artifacts/smoke/r47zen-shipped-x86_64.apk --package "$R47_SMOKE_PACKAGE"
 
       - name: Run the 16 KB page-size smoke on emulator
         # The nightly, and a dispatch that asks for it: the smoke checks the device
@@ -1760,9 +1864,12 @@ jobs:
           This prerelease contains the signed dev-channel APK ${dev_apk_name}
           built from the release variant by ./scripts/android/build_android.sh
           in dev lane mode from Android repository
-          commit ${android_commit}. Its native library is compiled without the
-          profile-guided optimization a production release uses, so its machine
-          code is not a release's.
+          commit ${android_commit}. Its native library is compiled as a
+          production release's is, with the profile-guided optimization profile
+          this run collected; a release collects its own, so the two need not
+          be byte-identical. The device tests ran on that profile, and a build
+          in the shipped shape, R8 and the profile with no test bridge,
+          launched on the emulator.
 
           The calculator core was synchronized from ${upstream_url} at commit
           ${upstream_commit} before the simulator and Android build steps ran.

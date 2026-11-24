@@ -483,14 +483,21 @@ jobs:
           echo "release_bundle_name=$R47_ANDROID_RELEASE_AAB_NAME" >> "$GITHUB_OUTPUT"
           echo "release_apk_name=$R47_ANDROID_RELEASE_APK_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare staged native inputs and simulator parity
+      # The same build path as android-ci's dev build: the wrapper collects the
+      # profile, then builds the APK and the bundle with it in one Gradle run, and
+      # fails unless the release library's compile database records the profile.
+      # R47_RELEASE_CHANNEL=prod builds them unsigned with the release's numbers.
+      - name: Build unsigned release APK and bundle
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
-          R47_GRADLE_ARGS: '--daemon --stacktrace --console=plain'
+          R47_GRADLE_ARGS: '--daemon --stacktrace --console=plain --warning-mode all'
           R47_PGO_OUTPUT_DIR: ${{ github.workspace }}/ci-artifacts/pgo
+          R47_RELEASE_CHANNEL: prod
+          R47_VERSION_CODE: ${{ needs.resolve-release-inputs.outputs.version_code }}
+          R47_VERSION_NAME: ${{ needs.resolve-release-inputs.outputs.version_name }}
           R47_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_SOURCE_COMMIT: ${{ github.sha }}
           R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
@@ -504,7 +511,6 @@ jobs:
           ./scripts/android/build_android.sh \
             --run-sim-tests \
             --collect-host-pgo \
-            --validate-release-pgo \
             2>&1 | tee ci-artifacts/logs/build-android-release.log
 
       # The host tools that generated shipped code, for the signing job's evidence.
@@ -516,39 +522,6 @@ jobs:
           host_tools="$(bash ./scripts/android/describe_host_tools.sh)"
           echo "Host tools: ${host_tools}"
           echo "host_tools=${host_tools}" >> "$GITHUB_OUTPUT"
-
-      - name: Build unsigned release APK and bundle
-        shell: bash
-        env:
-          R47_RELEASE_HOST_PGO_PROFILE: ${{ github.workspace }}/ci-artifacts/pgo/r47-host-core.profdata
-          R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
-          R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
-          R47_UPSTREAM_VERSION: ${{ steps.upstream.outputs.upstream_version }}
-          GRADLE_OPTS: -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
-        run: |
-          set -euo pipefail
-          mkdir -p ci-artifacts/logs
-
-          sha256sum "$R47_RELEASE_HOST_PGO_PROFILE"
-          cd android
-          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
-            :app:assembleRelease \
-            :app:bundleRelease \
-            --daemon --stacktrace --console=plain --warning-mode all \
-            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
-            -Pr47.includeProgramLoadTestBridge=false \
-            -Pr47.pgoProfilePath="$R47_RELEASE_HOST_PGO_PROFILE" \
-            -Pr47.versionCode="$R47_VERSION_CODE_INPUT" \
-            -Pr47.versionName="$R47_VERSION_NAME_INPUT" \
-            -Pr47.coreVersion=${{ steps.upstream.outputs.upstream_commit }} \
-            -Pr47.upstreamVersion="$R47_UPSTREAM_VERSION" \
-            -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
-            -Pr47.sourceCommit=${{ github.sha }} \
-            -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
-            -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
-            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
-            -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
-            2>&1 | tee ../ci-artifacts/logs/android-release-bundle.log
 
       - name: Stage unsigned release assets for signing
         shell: bash

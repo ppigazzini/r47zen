@@ -36,6 +36,7 @@ flowchart TD
   F --> S
   F --> U
   E --> G
+  F -->|PGO profile| G
   D --> H
   S --> H
   G --> H
@@ -54,11 +55,11 @@ flowchart TD
 - run the maintained Python contract suite as its own lane that gates the
   Android build and test lanes
 - keep upstream simulator correctness separate from Android packaging and tests
-- keep the Android build lane as the normal-CI owner of the collector-driven
-  host-core PGO artifact and release-native consumer check without making that
-  lane depend on emulator profiling
-- make the protected release workflow rerun the same wrapper-owned host-core
-  optimization flow before it signs the store bundle
+- build the dev APK and bundle and the release ones through one path,
+  `build_android.sh --collect-host-pgo`, which collects the host-core PGO
+  profile and builds with it, with no emulator profiling
+- run each lane's device tests on that profile and launch a shipped-shape
+  build on the emulator, so neither lane tests code it does not ship
 - run Android lint explicitly instead of assuming Gradle builds cover it
 - keep external `uses:` pins on full-length commit SHAs and keep the reviewed
   tag comment on the same line so the workflow stays auditable and
@@ -457,7 +458,10 @@ It:
 - runs `scripts/android/check_native_format.sh` before the build, since it
   needs only the pinned NDK's `clang-format`: it checks the Android-owned glue
   against `android/app/src/main/cpp/r47zen/.clang-format`
-- runs `./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`;
+- runs `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo`,
+  the release lane's build path: it collects the host-core PGO profile, builds
+  the APK and the bundle with it in one Gradle run, and fails unless the
+  release library's compile database records the profile.
   `upstream-simulator-sanity` runs upstream's stock suite, so this job does not
   run it again
 - runs `scripts/security/check_native_hardening.sh` on every packaged arm64
@@ -477,9 +481,15 @@ It:
   finding and on a baseline entry the code no longer matches
 - verifies that retired app-module native snapshot paths stay absent and that
   staging remains build-only under `android/.staged-native/cpp`
-- builds the dev-prerelease APK unsigned: the job holds no prerelease signing
-  input, so AGP writes `app-release-unsigned.apk`, and the job fails if it
-  reports anything else
+- builds the dev-prerelease APK and bundle unsigned: the job holds no
+  prerelease signing input, so AGP writes `app-release-unsigned.apk` and an
+  unsigned `app-release.aab`, and the job fails if the APK is reported signed
+  or the bundle carries a JAR signature. The bundle, which no dev prerelease
+  publishes, is kept as the `r47zen-<upstream short>-<android short>-bundle`
+  artifact, so every run builds the format Play takes
+- uploads the profile alone as `r47zen-<upstream short>-<android short>-pgo-profile`
+  and outputs its artifact id, `pgo_profile_artifact_id`, for
+  [`android-tests`](#android-tests)
 - after the APK and PGO uploads, runs
   `scripts/workload-regressions/run_upstream_suite_android_config.sh`:
   upstream's suite as the app builds the core, with mini-gmp, R47, and the
@@ -562,9 +572,10 @@ normal-pull-request host-core optimization sequence:
   CI package step
 - the Android emulator lane remains narrower and still owns only the five
   staged `.p47` `PROGRAMS` fixtures
-- the Android release-native PGO consumer check runs inside that same
-  wrapper-owned build step, so the build log records the full collector-to-
-  consumer sequence in one place
+- the APK and bundle that profile builds come out of that same wrapper-owned
+  build step, with the wrapper's check that the release library's compile
+  database records the profile, so the build log records the collector, the
+  build that consumes its profile, and the check in one place
 
 This lane is the canonical reference for the full Android dev-prerelease build
 contract.
@@ -652,11 +663,24 @@ It holds no secret. `ci-required` waits on it, so a failure here turns
 
 ### `android-tests`
 
-This job covers the Android-owned JVM and instrumentation suites.
+This job covers the Android-owned JVM and instrumentation suites, on the code
+the dev APK ships, as [`verify-production-release`](#verify-production-release)
+does for a release.
 
 It:
 
+- needs [`android-build-test-package`](#android-build-test-package) and
+  downloads the PGO profile that job built the dev APK's library with, by the
+  artifact id it outputs; `R47_PGO_PROFILE_PATH` points at it for the whole
+  job, so every Gradle build here, the instrumented one, the connected tests',
+  and the shipped-shape one, compiles the release library with it. The cost
+  is wall time: this job starts when the build job ends, not beside it
 - provisions the same toolchains and upstream sync inputs as the build lane
+- builds the shipped-shape release for the launch smoke first: `assembleRelease`
+  for `x86_64` with R8, resource shrinking, the profile, and no test bridge,
+  signed with the throwaway key below, kept apart because the next build
+  writes the same outputs with R8 off. It reads the APK's package, the `.dev`
+  one `android/app/build.gradle` adds, from AGP's `output-metadata.json`
 - runs one focused Gradle invocation for `:app:assembleRelease`,
   `:app:assembleReleaseAndroidTest`, `:app:testReleaseUnitTest`, and the Kover
   coverage reports (`:app:koverXmlReportRelease`, `:app:koverHtmlReportRelease`,
@@ -689,7 +713,10 @@ It:
   `connectedReleaseAndroidTest` once per non-fixture Android instrumentation
   class and once for the full `ProgramFixtureInstrumentedTest` class with the
   temporary ABI override from `r47.abiFilters`, that throwaway key, and
-  configuration cache enabled
+  configuration cache enabled, then, on the same emulator,
+  `scripts/android/run_shipped_build_smoke.sh` on the shipped-shape APK:
+  install, start, wait for the first frame, type 2 ENTER 3 +, and fail on a
+  died or restarted process or a crash buffer naming the package
 - on a nightly that builds, and on a dispatch with `sixteen_kb_smoke`, boots a
   `google_apis_ps16k` image at `R47_DEFAULT_ANDROID_16KB_TEST_API_LEVEL` and runs
   `scripts/android/run_16kb_runtime_smoke.sh`, which needs 16 KB pages and runs one
@@ -892,10 +919,13 @@ This workflow:
 - derives the Linux host LLVM major from the pinned NDK `clang`, then installs
   the matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
   `libclang-rt-<major>-dev` packages before collecting host profiles
-- reruns `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`
-  so the protected release lane uses the same wrapper-owned host-core
-  optimization flow as the Android CI release-path lane and writes
-  `ci-artifacts/pgo/r47-host-core.profdata`; `--run-sim-tests` runs upstream's
+- runs `R47_RELEASE_CHANNEL=prod ./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo`
+  with the release's version code and name, the build path
+  [`android-build-test-package`](#android-build-test-package) runs for a dev
+  build: it writes `ci-artifacts/pgo/r47-host-core.profdata`, builds
+  `:app:assembleRelease :app:bundleRelease` with it in one Gradle run, unsigned
+  and without the test bridge, and fails unless the release library's compile
+  database records the profile; `--run-sim-tests` runs upstream's
   stock suite, since this workflow has no sanity job; it does not run upstream's
   suite on the app's configuration, which would be a new gate on a release
   ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration))
@@ -933,13 +963,10 @@ This workflow:
   version
 - names the run `Android Release <version> (<code>) -> <play_track>`, or
   `-> dry run`
-- builds `:app:assembleRelease :app:bundleRelease
-  -Pr47.pgoProfilePath=...` unsigned, so the release APK and AAB consume the
-  same collected host-core profile that the wrapper already validated, and
-  fails if AGP reports a signed APK or the bundle carries a JAR signature
-- reads the upstream release the core is with
+- fails if AGP reports a signed APK or the bundle carries a JAR signature
+- has the wrapper read the upstream release the core is with
   `scripts/android/read_upstream_version.sh`, empty unless the core commit is
-  that release's tag, and passes it to Gradle as `r47.upstreamVersion` for the
+  that release's tag, and pass it to Gradle as `r47.upstreamVersion` for the
   About line's core line
   ([01](01-build-and-source-layout.md#checked-in-defaults))
 - uploads the release build logs, the host-core PGO artifact bundle, and the
@@ -1552,9 +1579,11 @@ The Android workflows publish these artifact classes:
 - signed dev-prerelease APK packaging evidence and compliance outputs
 - Android JVM and instrumentation test reports and logs
 - host-core PGO profiles from the Linux packaging lane and the protected
-  release workflow; each lane's build log records the wrapper-owned collector
-  and release-native validation output, and the protected release workflow also
-  records the final signed-bundle consumer path
+  release workflow, and each lane's profile alone as `-pgo-profile` for its
+  test job; each lane's build log records the wrapper-owned collector, the
+  build that consumes the profile, and the wrapper's check that the release
+  library's compile database records it
+- the dev lane's unsigned bundle, `-bundle`, which no dev prerelease publishes
 - protected-release workflow artifact bundles for the signed AAB and the signed
   APK, plus the versioned GitHub release assets published from those bundles
 - the unsigned `*-unsigned` hand-off bundles each build job uploads for its
@@ -1590,9 +1619,9 @@ Use the smallest local lane that matches the failure surface:
   `scripts/workload-regressions/run_workload_regressions.sh`
 - full Android dev-prerelease build and staged-input refresh:
   `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --run-sim-tests`
-- CI-matching Android build plus host-core PGO collection and release-native
-  validation:
-  `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`
+- CI-matching Android build, the APK and bundle built with the host-core PGO
+  profile the same run collects:
+  `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo`
 - upstream's suite on the app's configuration, after that release build:
   `bash scripts/workload-regressions/run_upstream_suite_android_config.sh`;
   for the arm64 target, `R47_SUITE_TARGET=app` before it builds the tar, and on
@@ -1612,15 +1641,16 @@ Use the smallest local lane that matches the failure surface:
   the hosted lane, then run
   `cd android && bash --noprofile --norc ../scripts/android/run_connected_android_tests.sh`
 - protected-release parity with a collected host profile:
-  `./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo --validate-release-pgo`, then
+  `R47_RELEASE_CHANNEL=prod R47_PGO_OUTPUT_DIR=<abs dir> ./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo`,
+  then, with `R47_PGO_PROFILE_PATH=<abs dir>/r47-host-core.profdata` exported,
   `cd android && ./gradlew lint :app:assembleRelease :app:assembleReleaseAndroidTest :app:testReleaseUnitTest -Pr47.testBuildType=release -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false -Pr47.releaseShrinkResources=false`, then
   rerun `scripts/android/run_connected_android_tests.sh` with the same
   `R47_CONNECTED_ANDROID_TEST_*` environment and a throwaway `R47_RELEASE_*`
   keystore, as `verify-production-release` does, then build and sign as in the
   next item
-- CI-matching signed production APK and bundle with current staged inputs:
-  `cd android && ./gradlew :app:assembleRelease :app:bundleRelease -Pr47.pgoProfilePath=/abs/path/to/r47-host-core.profdata`
-  with explicit `r47.versionCode` and `r47.versionName` inputs and no
+- CI-matching signed production APK and bundle:
+  `R47_RELEASE_CHANNEL=prod ./scripts/android/build_android.sh --collect-host-pgo`
+  with explicit `R47_VERSION_CODE` and `R47_VERSION_NAME` and no
   `R47_RELEASE_*` in the environment, then sign
   `app/build/outputs/apk/release/app-release-unsigned.apk` and
   `app/build/outputs/bundle/release/app-release.aab` with
@@ -1691,10 +1721,12 @@ are.
 - Keep full Android fixture coverage in `ProgramFixtureInstrumentedTest`; if
   runtime regresses, inspect bounded READP timeout handling and reduce repeated
   Gradle startup or release-lane overhead before cutting fixture coverage.
-- Keep the protected release workflow on the same wrapper-owned host-core
-  optimization flow as `android-build-test-package`, and keep the signed bundle
-  on the collected `r47-host-core.profdata` path instead of silently falling
-  back to a non-PGO release-native build.
+- Keep both lanes on the one wrapper-owned build path,
+  `build_android.sh --collect-host-pgo`, so neither ships nor tests a non-PGO
+  release library: the wrapper fails a release build whose compile database
+  does not record the collected profile, and
+  `run_shipped_build_smoke_contract.sh` fails a build job that names a profile
+  of its own or a test job that does not run on the build job's.
 - Keep the protected release workflow on the same full Android test envelope as
   the release-path dev-prerelease lane: lint, JVM tests, Android test
   packaging, and connected instrumentation must all pass before publication.

@@ -1,6 +1,7 @@
 #!/bin/bash
-# Contract: the release lane runs its device tests on PGO-compiled native code,
-# and launches a build in the shipped shape.
+# Contract: the release lane and android-ci's dev lane each build the library
+# they ship with the PGO profile they collect, run their device tests on that
+# PGO-compiled native code, and launch a build in the shipped shape.
 #
 # run_shipped_build_smoke.sh is run against a fake adb that answers as an
 # emulator does: a launch that stays up passes, and so does a crash buffer
@@ -8,12 +9,16 @@
 # the package, a process that died or restarted, a refused install, and a
 # launch that does not report Status: ok each fail.
 #
-# Then android-release.yml: verify-production-release needs the build job,
-# downloads the release's PGO profile by artifact id, and points
-# R47_PGO_PROFILE_PATH at it for the whole job, so the instrumented build and
-# the connected tests compile with it; it builds the smoke APK with no R8 or
-# test-bridge override, and its emulator step runs the smoke. Each wiring check
-# also fails a seeded copy. Pure host test.
+# Then each lane's wiring, build-production-release-bundle and
+# verify-production-release in android-release.yml, android-build-test-package
+# and android-tests in android-ci.yml: the build job builds through
+# build_android.sh --collect-host-pgo, which builds with the profile it
+# collected, and no step of it names a profile of its own; it outputs the
+# profile's artifact id; the test job needs the build job, downloads that
+# profile by id, and points R47_PGO_PROFILE_PATH at it for the whole job, so the
+# instrumented build and the connected tests compile with it; it builds the
+# smoke APK with no R8 or test-bridge override, and its emulator step runs the
+# smoke. Each wiring check also fails a seeded copy of each lane. Pure host test.
 
 set -Eeuo pipefail
 
@@ -89,52 +94,59 @@ for mode in java-crash native-crash died restarted install-refused launch-error;
     fi
 done
 
-# The release lane's wiring, live lines only.
+# Each lane's wiring, live lines only.
 release_live="$(strip_hash_comments <"$WORKFLOW_DIR/android-release.yml")"
-verify_block() { workflow_job_block /dev/stdin verify-production-release <<<"$1"; }
-build_block() { workflow_job_block /dev/stdin build-production-release-bundle <<<"$1"; }
-
+dev_live="$(strip_hash_comments <"$WORKFLOW_DIR/android-ci.yml")"
 # shellcheck disable=SC2016 # the workflow's own ${{ }} expressions, matched unexpanded
 wiring_problems() {
-    local live="$1" verify build
-    verify="$(verify_block "$live")"
-    build="$(build_block "$live")"
+    local live="$1" build_job="$2" test_job="$3" test build
+    test="$(workflow_job_block /dev/stdin "$test_job" <<<"$live")"
+    build="$(workflow_job_block /dev/stdin "$build_job" <<<"$live")"
+    grep -q -- '--collect-host-pgo' <<<"$build" ||
+        echo "$build_job does not build through build_android.sh --collect-host-pgo"
+    grep -Eq 'pgoProfilePath|R47_PGO_PROFILE_PATH|validate-release-pgo' <<<"$build" &&
+        echo "$build_job names a PGO profile beside the one build_android.sh collects and builds with"
     grep -q 'pgo_profile_artifact_id: \${{ steps.upload-pgo-profile.outputs.artifact-id }}' <<<"$build" ||
-        echo "the build job does not output its PGO profile's artifact id"
-    grep -Eq '^      - build-production-release-bundle$' <<<"$verify" ||
-        echo "verify-production-release does not need the build job"
-    grep -q 'artifact-ids: \${{ needs.build-production-release-bundle.outputs.pgo_profile_artifact_id }}' <<<"$verify" ||
-        echo "verify-production-release does not download the build job's PGO profile by id"
-    grep -Eq '^      R47_PGO_PROFILE_PATH: ' <<<"$verify" ||
-        echo "verify-production-release does not set R47_PGO_PROFILE_PATH for the whole job"
-    if grep -Eq 'pgoProfilePath|R47_PGO_PROFILE_PATH: *$|releaseMinify=true' <<<"$(grep -v '^      R47_PGO_PROFILE_PATH: ' <<<"$verify")"; then
-        echo "verify-production-release overrides the job's PGO profile in a step"
+        echo "$build_job does not output its PGO profile's artifact id"
+    grep -Eq "^      - $build_job\$" <<<"$test" ||
+        echo "$test_job does not need the build job"
+    grep -q "artifact-ids: \${{ needs.$build_job.outputs.pgo_profile_artifact_id }}" <<<"$test" ||
+        echo "$test_job does not download the build job's PGO profile by id"
+    grep -Eq '^      R47_PGO_PROFILE_PATH: ' <<<"$test" ||
+        echo "$test_job does not set R47_PGO_PROFILE_PATH for the whole job"
+    if grep -Eq 'pgoProfilePath|R47_PGO_PROFILE_PATH: *$|releaseMinify=true' <<<"$(grep -v '^      R47_PGO_PROFILE_PATH: ' <<<"$test")"; then
+        echo "$test_job overrides the job's PGO profile in a step"
     fi
-    grep -q 'run_shipped_build_smoke.sh --apk' <<<"$verify" ||
-        echo "verify-production-release's emulator step does not run the shipped-shape smoke"
+    grep -q 'run_shipped_build_smoke.sh --apk' <<<"$test" ||
+        echo "$test_job's emulator step does not run the shipped-shape smoke"
     local smoke_build
     smoke_build="$(awk '/^      - name: Build the shipped-shape release for the launch smoke$/ { on = 1; print; next }
-        on && /^      - name:/ { exit } on { print }' <<<"$verify")"
-    [[ -n "$smoke_build" ]] || echo "verify-production-release does not build the smoke APK"
+        on && /^      - name:/ { exit } on { print }' <<<"$test")"
+    [[ -n "$smoke_build" ]] || echo "$test_job does not build the smoke APK"
     grep -q ':app:assembleRelease' <<<"$smoke_build" || echo "the smoke build does not assemble the release"
     grep -Eq 'releaseMinify|releaseShrinkResources|includeProgramLoadTestBridge=true|includeInstrumentationHost' <<<"$smoke_build" &&
         echo "the smoke build changes what ships: R8, shrinking, the test bridge, or the instrumentation host"
     return 0
 }
-
-problems="$(wiring_problems "$release_live")"
-[[ -z "$problems" ]] || contract_fail "the release lane does not run what it ships:" "$problems"
-
-seed() {
-    local name="$1" from="$2" to="$3" seeded
-    seeded="$(sed "s|$from|$to|" <<<"$release_live")"
-    [[ "$seeded" != "$release_live" ]] || contract_fail "seed '$name' changed nothing; the contract is stale"
-    [[ -n "$(wiring_problems "$seeded")" ]] || contract_fail "the wiring check passed seed '$name'"
+check_lane() {
+    local name="$1" live="$2" build_job="$3" test_job="$4" problems
+    problems="$(wiring_problems "$live" "$build_job" "$test_job")"
+    [[ -z "$problems" ]] || contract_fail "the $name lane does not run what it ships:" "$problems"
+    seed() {
+        local seed_name="$1" from="$2" to="$3" seeded
+        seeded="$(sed "s|$from|$to|" <<<"$live")"
+        [[ "$seeded" != "$live" ]] || contract_fail "$name seed '$seed_name' changed nothing; the contract is stale"
+        [[ -n "$(wiring_problems "$seeded" "$build_job" "$test_job")" ]] ||
+            contract_fail "the wiring check passed $name seed '$seed_name'"
+    }
+    seed 'no collection' '--collect-host-pgo' '--run-sim-tests'
+    seed 'second profile' '--collect-host-pgo' '--collect-host-pgo -Pr47.pgoProfilePath=x'
+    seed 'no needs' "^      - $build_job\$" '      - resolve-upstream-core'
+    seed 'no profile' '^      R47_PGO_PROFILE_PATH: ' '      R47_UNUSED_PROFILE_PATH: '
+    seed 'step override' '-Pr47.includeInstrumentationHost=true' '-Pr47.includeInstrumentationHost=true -Pr47.pgoProfilePath='
+    seed 'no smoke' 'run_shipped_build_smoke.sh --apk' 'true --apk'
+    seed 'minified off' ':app:assembleRelease \\$' ":app:assembleRelease -Pr47.releaseMinify=false \\\\"
 }
-seed 'no needs' '^      - build-production-release-bundle$' '      - resolve-release-inputs'
-seed 'no profile' '^      R47_PGO_PROFILE_PATH: ' '      R47_UNUSED_PROFILE_PATH: '
-seed 'step override' '-Pr47.includeInstrumentationHost=true' '-Pr47.includeInstrumentationHost=true -Pr47.pgoProfilePath='
-seed 'no smoke' 'run_shipped_build_smoke.sh --apk' 'true --apk'
-seed 'minified off' ':app:assembleRelease \\$' ":app:assembleRelease -Pr47.releaseMinify=false \\\\"
-
-contract_pass "the release lane runs its device tests on the release's PGO profile and launches a shipped-shape build."
+check_lane release "$release_live" build-production-release-bundle verify-production-release
+check_lane dev "$dev_live" android-build-test-package android-tests
+contract_pass "the release and dev lanes build with the PGO profile they collect, run their device tests on it, and launch a shipped-shape build."

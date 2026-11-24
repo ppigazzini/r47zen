@@ -388,10 +388,16 @@ Public maintainer entry points:
   configuration is `run_upstream_suite_android_config.sh`), and `--android-only`,
   which skips the script's own native steps and refuses stale staged native
   inputs.
-  `--collect-host-pgo` and `--validate-release-pgo` are full-build-only flags
-  that let the wrapper own the host-side PGO collector and the Android
-  release-native consumer check in one pass, while `--host-pgo-output-dir`
-  chooses the emitted `.profdata` location.
+  `--collect-host-pgo` is a full-build-only flag: the wrapper runs the host-side
+  PGO collector after staging and the clean and before Gradle, builds with the
+  profile it collected, and, for a release build, fails unless the newest
+  release `compile_commands.json` of every packaged ABI records
+  `-fprofile-use=<that profile>`; `--host-pgo-output-dir` chooses the emitted
+  `.profdata` location. `R47_RELEASE_CHANNEL=dev` builds the dev release APK
+  and bundle, as android-ci does, and `R47_RELEASE_CHANNEL=prod` the production
+  ones, as `android-release.yml` does; both leave the program-load test bridge
+  out, and both are unsigned unless signing inputs are set. With no channel the
+  wrapper builds the debug APK.
   It also forwards optional extra Gradle arguments from `R47_GRADLE_ARGS`, split
   on blanks; CI passes its daemon and console flags there. Hosted CI's
   emulator ABI override is `R47_CONNECTED_ANDROID_TEST_ABI_FILTERS`, which
@@ -412,11 +418,11 @@ Public maintainer entry points:
   suite from the full build path, as the release lane does. It stages
   `res/testPgms/testPgms.bin` before the suite runs, and is intentionally
   incompatible with `--android-only`.
-- `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo --validate-release-pgo`,
+- `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo`,
   then `bash scripts/workload-regressions/run_upstream_suite_android_config.sh`,
-  is the CI-matching Android build lane: the wrapper owns the host-core PGO
-  collector and the release-native consumer check in one pass, and the script
-  runs upstream's suite as the app builds the core
+  is the CI-matching Android build lane: the wrapper collects the host-core
+  profile and builds the APK and bundle with it, and the script runs upstream's
+  suite as the app builds the core, with that profile
   ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration)).
 - `cd android && ./gradlew assembleDebug` refreshes a stale staged tree itself:
   `prepareStagedNativeInputs` runs before the native build. Its prerequisites

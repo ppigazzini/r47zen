@@ -20,11 +20,15 @@
 #   * --doctor reports the host toolchain and the staged tree, and exits
 #     before any build step.
 #
-# NOT done here: Android lint, and the production release APK and bundle,
-# which android-release.yml builds with Gradle directly; R47_RELEASE_CHANNEL=dev
-# makes this script build the dev release APK, as android-ci does, and
-# --validate-release-pgo builds only the release native library, to check it
-# consumes the profile.
+#   * R47_RELEASE_CHANNEL=dev builds the dev release APK and bundle, as
+#     android-ci does, and R47_RELEASE_CHANNEL=prod the production ones, as
+#     android-release.yml does, both unsigned unless signing inputs are set.
+#   * --collect-host-pgo collects the host-core profile before Gradle runs and
+#     builds with it, so the release library this script packages is the
+#     profile-guided one a release ships, and the script fails unless the
+#     release compile database records that profile.
+#
+# NOT done here: Android lint.
 # android/docs/dev/01-build-and-source-layout.md owns each flag; --help lists
 # them.
 
@@ -62,22 +66,20 @@ RUN_SIM_TESTS=false
 VERIFY_PACKAGING=false
 VERIFY_PACKAGING_DIR=""
 COLLECT_HOST_PGO=false
-VALIDATE_RELEASE_PGO=false
 HOST_PGO_OUTPUT_DIR="${R47_PGO_OUTPUT_DIR-}"
 DEFAULT_HOST_PGO_OUTPUT_DIR="$ANDROID_PROJECT_DIR/build/host-pgo"
 COLLECTED_HOST_PGO_PROFILE_PATH=""
 
 usage() {
     cat <<'EOF'
-Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--run-sim-tests] [--collect-host-pgo] [--validate-release-pgo] [--host-pgo-output-dir <dir>] [--verify-packaging] [--verify-packaging-dir <dir>]
+Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--run-sim-tests] [--collect-host-pgo] [--host-pgo-output-dir <dir>] [--verify-packaging] [--verify-packaging-dir <dir>]
 
 Modes:
     --android-only         Skip this script's native steps; refuse stale staged inputs, then run Gradle.
     --doctor               Report the JDK, SDK, NDK, CMake, host tools and libraries, xlsxio,
                            upstream lock, and staged inputs; exit 1 on what the build cannot provide.
     --run-sim-tests        Run the simulator/native Meson test suite from the Android full-build path.
-    --collect-host-pgo     Collect a host-core PGO profile through the Android build wrapper.
-    --validate-release-pgo Validate :app:externalNativeBuildRelease against a collected or provided .profdata file.
+    --collect-host-pgo     Collect a host-core PGO profile, then build the app with it.
 
 Options:
     --host-pgo-output-dir <dir>   Write the collected profile to <dir>; implies --collect-host-pgo.
@@ -309,10 +311,6 @@ while [ "$#" -gt 0 ]; do
             COLLECT_HOST_PGO=true
             shift
             ;;
-        --validate-release-pgo)
-            VALIDATE_RELEASE_PGO=true
-            shift
-            ;;
         --host-pgo-output-dir)
             COLLECT_HOST_PGO=true
             [ "$#" -ge 2 ] || fail "Missing value for --host-pgo-output-dir"
@@ -437,6 +435,12 @@ run_host_pgo_collector() {
 
     echo "--- Collecting host-core PGO profile ---"
 
+    # Gradle resolves a relative profile path against android/, the collector
+    # against the repository root; one absolute path means the same file to both.
+    case "$HOST_PGO_OUTPUT_DIR" in
+        "" | /*) ;;
+        *) HOST_PGO_OUTPUT_DIR="$PROJECT_ROOT/$HOST_PGO_OUTPUT_DIR" ;;
+    esac
     if [ -n "$HOST_PGO_OUTPUT_DIR" ]; then
         collector_args+=(--output-dir "$HOST_PGO_OUTPUT_DIR")
         COLLECTED_HOST_PGO_PROFILE_PATH="$HOST_PGO_OUTPUT_DIR/r47-host-core.profdata"
@@ -453,19 +457,26 @@ run_host_pgo_collector() {
         fail "Host-core PGO collection did not produce $COLLECTED_HOST_PGO_PROFILE_PATH"
 }
 
-run_release_native_pgo_validation() {
-    local profile_path="$1"
+# Fail unless the release library of every packaged ABI was compiled with the
+# profile: CMake applies -fprofile-use only to its Release and RelWithDebInfo
+# configs (android/app/src/main/cpp/CMakeLists.txt), and the compile database it
+# writes for each ABI is the record of the flags the compiler got. The newest
+# database per ABI is this build's: a reconfigure rewrites it, and a build with
+# unchanged inputs keeps the one the same flags wrote.
+ensure_release_native_used_profile() {
+    local profile_path="$1" abi db
+    local abis
+    abis=$(resolve_packaging_expected_abis)
+    profile_path=$(cd "$(dirname "$profile_path")" && pwd -P)/$(basename "$profile_path")
 
-    [ -n "$profile_path" ] || fail "Release-native PGO validation requires a .profdata path."
-    [ -f "$profile_path" ] || fail "Release-native PGO profile $profile_path does not exist."
-
-    echo "--- Validating Android release-native PGO build with $profile_path ---"
-
-    # The profile's -P comes last, so it wins over an R47_PGO_PROFILE_PATH one.
-    run_gradle --max-workers "$R47_BUILD_JOBS" \
-        :app:externalNativeBuildRelease \
-        -x prepareStagedNativeInputs \
-        "${GRADLE_EXTRA_ARGS[@]}" "${GRADLE_PROPS[@]}" "-Pr47.pgoProfilePath=$profile_path"
+    for abi in ${abis//,/ }; do
+        # shellcheck disable=SC2012 # the paths are Gradle's hash folders, no blanks
+        db=$(ls -t "$ANDROID_PROJECT_DIR"/app/.cxx/RelWithDebInfo/*/"$abi"/compile_commands.json 2>/dev/null | head -n 1 || true)
+        [ -n "$db" ] || fail "No release compile database for $abi under $ANDROID_PROJECT_DIR/app/.cxx/RelWithDebInfo."
+        grep -qF -- "-fprofile-use=$profile_path" "$db" ||
+            fail "The $abi release library was not compiled with -fprofile-use=$profile_path ($db)."
+        echo "--- The $abi release library was compiled with the PGO profile ---"
+    done
 }
 
 R47_BUILD_JOBS_INPUT=${R47_BUILD_JOBS-}
@@ -947,8 +958,8 @@ if [ "$ANDROID_ONLY" = true ] && [ "$RUN_SIM_TESTS" = true ]; then
     fail "--run-sim-tests requires the full Android build path. Run without --android-only."
 fi
 
-if [ "$ANDROID_ONLY" = true ] && { [ "$COLLECT_HOST_PGO" = true ] || [ "$VALIDATE_RELEASE_PGO" = true ]; }; then
-    fail "--collect-host-pgo and --validate-release-pgo require the full Android build path. Run without --android-only."
+if [ "$ANDROID_ONLY" = true ] && [ "$COLLECT_HOST_PGO" = true ]; then
+    fail "--collect-host-pgo requires the full Android build path. Run without --android-only."
 fi
 
 [ -n "$R47_CMAKE_BIN" ] || fail "No usable cmake executable found. Install cmake or Android SDK CMake $R47_CMAKE_VERSION."
@@ -971,8 +982,7 @@ echo "NDK: $ANDROID_NDK_ROOT"
 echo "Jobs: $R47_BUILD_JOBS"
 echo "Simulator tests: $([ "$RUN_SIM_TESTS" = true ] && printf 'enabled' || printf 'disabled')"
 echo "Host-core PGO collection: $([ "$COLLECT_HOST_PGO" = true ] && printf 'enabled' || printf 'disabled')"
-echo "Release-native PGO validation: $([ "$VALIDATE_RELEASE_PGO" = true ] && printf 'enabled' || printf 'disabled')"
-if [ "$COLLECT_HOST_PGO" = true ] || [ "$VALIDATE_RELEASE_PGO" = true ]; then
+if [ "$COLLECT_HOST_PGO" = true ]; then
     echo "Host-core PGO output dir: ${HOST_PGO_OUTPUT_DIR:-$DEFAULT_HOST_PGO_OUTPUT_DIR}"
 fi
 echo "======================================================="
@@ -1040,9 +1050,10 @@ UPSTREAM_SOURCE_COMMIT_OVERRIDE=${R47_UPSTREAM_SOURCE_COMMIT-}
 XLSXIO_SOURCE_REPOSITORY_URL_VALUE=${R47_XLSXIO_URL-}
 XLSXIO_SOURCE_COMMIT_VALUE=${R47_XLSXIO_COMMIT-}
 
-if [ "$VALIDATE_RELEASE_PGO" = true ] && [ "$COLLECT_HOST_PGO" = false ] && [ -z "$PGO_PROFILE_PATH_OVERRIDE" ]; then
-    fail "--validate-release-pgo requires --collect-host-pgo or R47_PGO_PROFILE_PATH."
-fi
+case "$RELEASE_CHANNEL_OVERRIDE" in
+    "" | dev | prod) ;;
+    *) fail "R47_RELEASE_CHANNEL must be dev or prod, not $RELEASE_CHANNEL_OVERRIDE." ;;
+esac
 
 if [ -z "$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE" ]; then
     UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE="$RESOLVED_UPSTREAM_URL"
@@ -1058,7 +1069,8 @@ if [ -n "$RELEASE_CHANNEL_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.releaseChannel
 if [ -n "$RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.releaseChannelBuildToken=$RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE"); fi
 if [ -n "$SOURCE_REPOSITORY_URL_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.sourceRepositoryUrl=$SOURCE_REPOSITORY_URL_OVERRIDE"); fi
 if [ -n "$SOURCE_COMMIT_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.sourceCommit=$SOURCE_COMMIT_OVERRIDE"); fi
-if [ -n "$PGO_PROFILE_PATH_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.pgoProfilePath=$PGO_PROFILE_PATH_OVERRIDE"); fi
+# A collected profile replaces R47_PGO_PROFILE_PATH; the build adds it below.
+if [ -n "$PGO_PROFILE_PATH_OVERRIDE" ] && [ "$COLLECT_HOST_PGO" = false ]; then GRADLE_PROPS+=("-Pr47.pgoProfilePath=$PGO_PROFILE_PATH_OVERRIDE"); fi
 if [ -n "$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.upstreamSourceRepositoryUrl=$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE"); fi
 if [ -n "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" ]; then GRADLE_PROPS+=("-Pr47.upstreamSourceCommit=$UPSTREAM_SOURCE_COMMIT_OVERRIDE"); fi
 if [ -n "$XLSXIO_SOURCE_REPOSITORY_URL_VALUE" ]; then GRADLE_PROPS+=("-Pr47.xlsxioSourceRepositoryUrl=$XLSXIO_SOURCE_REPOSITORY_URL_VALUE"); fi
@@ -1082,25 +1094,32 @@ if [ "$RELEASE_CHANNEL_OVERRIDE" = "dev" ]; then
     # core commit when none is given, normalized as android/app/build.gradle does.
     DEV_VERSION_TOKEN=$(printf '%s' "${RELEASE_CHANNEL_BUILD_TOKEN_OVERRIDE:-${COMMIT_HASH:-unknown}}" | sed 's/[^0-9A-Za-z.-]/-/g')
     artifact_metadata_args+=(--version "${VERSION_NAME_OVERRIDE:-$R47_DEFAULT_ANDROID_VERSION_NAME}-${DEV_VERSION_TOKEN}")
+elif [ "$RELEASE_CHANNEL_OVERRIDE" = "prod" ]; then
+    artifact_metadata_args+=(--version "${VERSION_NAME_OVERRIDE:-$R47_DEFAULT_ANDROID_VERSION_NAME}")
 fi
 eval "$(bash "$ANDROID_SCRIPTS_DIR/resolve_android_artifact_metadata.sh" "${artifact_metadata_args[@]}")"
 COMPILE_SDK_VALUE=${COMPILE_SDK_OVERRIDE:-$R47_DEFAULT_ANDROID_COMPILE_SDK}
-ASSEMBLE_TASK="assembleDebug"
+BUILD_TASKS=(assembleDebug)
 APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+BUNDLE_PATH=""
 PACKAGED_APK_NAME="$R47_ANDROID_DEBUG_APK_NAME"
 PACKAGING_VARIANT="debug"
 PACKAGING_SIGNING_MODE="debug"
 
-if [ "$RELEASE_CHANNEL_OVERRIDE" = "dev" ]; then
-    ASSEMBLE_TASK="assembleRelease"
+if [ -n "$RELEASE_CHANNEL_OVERRIDE" ]; then
+    # Both channels build the APK and the bundle Play takes from one Gradle run,
+    # so a dev build exercises the bundle a release uploads.
+    BUILD_TASKS=(assembleRelease bundleRelease)
     # Resolved after the build from output-metadata.json: AGP writes
-    # app-release.apk when the prerelease signing inputs are complete and
+    # app-release.apk when the signing inputs are complete and
     # app-release-unsigned.apk when they are absent, which is how CI builds it.
     APK_PATH=""
+    BUNDLE_PATH="app/build/outputs/bundle/release/app-release.aab"
     PACKAGED_APK_NAME="$R47_ANDROID_DEV_APK_NAME"
+    if [ "$RELEASE_CHANNEL_OVERRIDE" = "prod" ]; then PACKAGED_APK_NAME="$R47_ANDROID_RELEASE_APK_NAME"; fi
     PACKAGING_VARIANT="release"
-    # The published dev-prerelease APK is not an instrumentation target, so keep
-    # the androidTest program-load bridge out of the shipped library.
+    # A shipped APK is not an instrumentation target, so keep the androidTest
+    # program-load bridge out of its library.
     GRADLE_PROPS+=("-Pr47.includeProgramLoadTestBridge=false")
 fi
 
@@ -1120,10 +1139,29 @@ if [ "$ANDROID_ONLY" = false ]; then
         run_gradle clean "${GRADLE_EXTRA_ARGS[@]}"
     fi
 fi
-run_gradle --max-workers "$R47_BUILD_JOBS" "$ASSEMBLE_TASK" "${GRADLE_EXTRA_ARGS[@]}" "${GRADLE_PROPS[@]}"
+# Collect after the clean, which removes android/build and with it the default
+# output folder, and before Gradle, so the library this run packages is the
+# profile-guided one, not a second build beside it.
+PGO_PROFILE_FOR_BUILD=""
+if [ "$COLLECT_HOST_PGO" = true ]; then
+    run_host_pgo_collector
+    if [ -n "$PGO_PROFILE_PATH_OVERRIDE" ]; then
+        echo "--- Ignoring R47_PGO_PROFILE_PATH: this build uses the profile it collected ---"
+    fi
+    PGO_PROFILE_FOR_BUILD="$COLLECTED_HOST_PGO_PROFILE_PATH"
+    GRADLE_PROPS+=("-Pr47.pgoProfilePath=$PGO_PROFILE_FOR_BUILD")
+elif [ -n "$PGO_PROFILE_PATH_OVERRIDE" ]; then
+    PGO_PROFILE_FOR_BUILD="$PGO_PROFILE_PATH_OVERRIDE"
+fi
+if [ -n "$PGO_PROFILE_FOR_BUILD" ]; then
+    echo "--- Building with PGO profile $PGO_PROFILE_FOR_BUILD ---"
+    sha256sum "$PGO_PROFILE_FOR_BUILD"
+fi
+
+run_gradle --max-workers "$R47_BUILD_JOBS" "${BUILD_TASKS[@]}" "${GRADLE_EXTRA_ARGS[@]}" "${GRADLE_PROPS[@]}"
 ensure_retired_legacy_cpp_paths_absent
 
-if [ "$ASSEMBLE_TASK" = "assembleRelease" ]; then
+if [ -n "$RELEASE_CHANNEL_OVERRIDE" ]; then
     # Read the file this build wrote rather than guessing its name: a stale
     # app-release.apk from an earlier signed build can sit beside a fresh
     # app-release-unsigned.apk.
@@ -1134,8 +1172,13 @@ if [ "$ASSEMBLE_TASK" = "assembleRelease" ]; then
     APK_PATH="app/build/outputs/apk/release/$RELEASE_APK_FILE"
     case "$RELEASE_APK_FILE" in
         *-unsigned.apk) PACKAGING_SIGNING_MODE="unsigned" ;;
-        *) PACKAGING_SIGNING_MODE="prerelease" ;;
+        *) PACKAGING_SIGNING_MODE="$([ "$RELEASE_CHANNEL_OVERRIDE" = prod ] && printf release || printf prerelease)" ;;
     esac
+    [ -f "$BUNDLE_PATH" ] || fail "Missing $ANDROID_PROJECT_DIR/$BUNDLE_PATH after bundleRelease."
+    echo "SUCCESS: bundle created at: $ANDROID_PROJECT_DIR/$BUNDLE_PATH"
+    if [ -n "$PGO_PROFILE_FOR_BUILD" ]; then
+        ensure_release_native_used_profile "$PGO_PROFILE_FOR_BUILD"
+    fi
 fi
 
 if [ -f "$APK_PATH" ]; then
@@ -1166,19 +1209,4 @@ if [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; then
         --xlsxio-source-commit "$XLSXIO_SOURCE_COMMIT_VALUE" \
         --host-tools "$(bash "$ANDROID_SCRIPTS_DIR/describe_host_tools.sh")" \
         --signing-mode "$PACKAGING_SIGNING_MODE"
-fi
-
-if [ "$COLLECT_HOST_PGO" = true ]; then
-    run_host_pgo_collector
-fi
-
-if [ "$VALIDATE_RELEASE_PGO" = true ]; then
-    if [ "$COLLECT_HOST_PGO" = true ]; then
-        if [ -n "$PGO_PROFILE_PATH_OVERRIDE" ]; then
-            echo "--- Ignoring R47_PGO_PROFILE_PATH because --collect-host-pgo produced the validation profile ---"
-        fi
-        run_release_native_pgo_validation "$COLLECTED_HOST_PGO_PROFILE_PATH"
-    else
-        run_release_native_pgo_validation "$PGO_PROFILE_PATH_OVERRIDE"
-    fi
 fi
