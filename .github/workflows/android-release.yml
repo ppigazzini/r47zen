@@ -379,7 +379,7 @@ jobs:
         run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
@@ -684,7 +684,7 @@ jobs:
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
@@ -839,7 +839,7 @@ jobs:
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
@@ -999,7 +999,7 @@ jobs:
         run: bash ./scripts/android/install_linux_build_deps.sh
 
       - name: Set up the pinned build JDK
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: ${{ steps.defaults.outputs.build_jdk_version }}
@@ -1714,7 +1714,7 @@ jobs:
           EOF
 
       - name: Create and publish production release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ needs.resolve-release-inputs.outputs.release_tag }}
           name: ${{ needs.resolve-release-inputs.outputs.release_title }}

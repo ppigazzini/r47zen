@@ -120,12 +120,12 @@ flowchart TD
   work, so a pin there rests only on this repo's own proof, which
   [the dependency cadence](01-build-and-source-layout.md#dependency-update-cadence)
   lists.
-- [Gradle 9.9.0 release notes](https://docs.gradle.org/9.9.0/release-notes.html):
+- [Gradle 9.9.2 release notes](https://docs.gradle.org/9.9.2/release-notes.html):
   official Gradle release notes for the wrapper version
   `gradle-wrapper.properties` pins; `run_toolchain_pin_coherence_contract.sh`
   fails when this link names another, and when the properties set a key the
   tracked `gradle-wrapper.jar` does not read. A Gradle bump runs the `wrapper`
-  task twice, as [the Gradle Wrapper](https://docs.gradle.org/9.9.0/userguide/gradle_wrapper.html)
+  task twice, as [the Gradle Wrapper](https://docs.gradle.org/9.9.2/userguide/gradle_wrapper.html)
   says, so the jar is the new version's; the second run is the one that replaces
   the jar. Keep the repo's own `android/gradlew` launcher, which the task
   overwrites with Gradle's script.

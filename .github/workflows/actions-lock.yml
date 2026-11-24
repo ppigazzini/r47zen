@@ -38,5 +38,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh extension install github/gh-actions-lock --pin v0.4.1
+          gh extension install github/gh-actions-lock --pin v0.5.1
           gh actions-lock --verify --ignore-local-actions --no-interactive

@@ -6,8 +6,8 @@ requires-python = ">=3.15"
 [dependency-groups]
 dev = [
     "pre-commit>=4.7.0",
-    "ruff>=0.17.3",
-    "ty>=0.0.95",
+    "ruff>=0.17.6",
+    "ty>=0.0.109",
     "fontTools>=4.68.0",
     # The contract-data schemas: valgebra validates each JSON input against its
     # declared shape at load. valgebra has no runtime dependency and reads the
@@ -15,7 +15,7 @@ dev = [
     # its refinements as `at.Gt` and `at.MinLen`, depends on annotated-types
     # itself. The PEP 728 `closed=True` TypedDict the schemas declare is stdlib
     # `typing` from 3.15.
-    "valgebra>=0.0.22",
+    "valgebra>=0.0.34",
     "annotated-types>=0.8.0",
 ]
 

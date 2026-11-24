@@ -1287,7 +1287,7 @@ The rest, and what each one gates:
 | `windows-ci.yml` | push to `main` and `github_ci`, nightly schedule, dispatch, which may pin `upstream_commit` | `windows-simulator` builds `make dist_windows` under MSYS2 UCRT64 and bundles the stripped runtime with `scripts/windows/bundle_stripped_runtime.sh`, adding the `c47.cmd` and `r47.cmd` launchers from `.github/project/windows-launchers/`; same nightly marker as Linux | nothing requires it; it reports |
 | `shell-lint.yml` | push to `main` and `github_ci`, pull request | `shellcheck` at info severity (SC2016 and SC2015 excluded, as idioms; the pre-commit hook runs the same) and `shfmt -i 4 -ci -d` over `scripts/**/*.sh`, then `actionlint` and `zizmor --no-online-audits --min-severity=medium` over the workflows, the composite actions, and `.github/dependabot.yml`; both jobs download the one `shellcheck` release the workflow-level `SHELLCHECK_VERSION` pins, never the runner image's copy | nothing requires it; it reports |
 | `docs-lint.yml` | push to `main` and `github_ci`, pull request, weekly schedule | `scripts/docs/run_docs_lint.sh` (see [10-writing.md](10-writing.md#the-gates)); on the schedule and on dispatch, `external-links` runs `scripts/docs/check_external_links.sh` | nothing requires it; it reports |
-| `actions-lock.yml` | push to `main` or `github_ci` and pull request on `main` that touch `.github/`, weekly schedule, dispatch | `gh actions-lock --verify --ignore-local-actions` with the extension pinned to v0.4.1: the lockfile covers every workflow and each pin verifies upstream ([Actions lockfile](#actions-lockfile)) | nothing requires it; it reports |
+| `actions-lock.yml` | push to `main` or `github_ci` and pull request on `main` that touch `.github/`, weekly schedule, dispatch | `gh actions-lock --verify --ignore-local-actions` with the extension pinned to v0.5.1: the lockfile covers every workflow and each pin verifies upstream ([Actions lockfile](#actions-lockfile)) | nothing requires it; it reports |
 | `codeql.yml` | push and pull request on `main`, weekly schedule | CodeQL with `build-mode: none`, one job per language: `c-cpp` over repo-owned C, `python` over the contract suite, the repository's only Python, `actions` over the workflows and composites, beside zizmor; ignoring `src`, `dep`, `tools`, and the staged tree; findings go to the Security tab. On the weekly schedule alone, `analyze-core` hydrates the core at the resolved upstream commit and runs `security-extended` over `src` and `dep/decNumberICU`, most of the C the app ships; its own category keeps it apart. Kotlin is not scanned: CodeQL needs a real Kotlin compile, which this lane does not run | advisory |
 | `toolchain-smoke.yml` | push and pull request that touch the host toolchain installers or `smoke_host_toolchain.sh` | runs `scripts/android/smoke_host_toolchain.sh` against a clean runner | nothing requires it; it reports |
 | `prune-dev-releases.yml` | daily schedule, dispatch | see [Dev pre-release retention](#dev-pre-release-retention) | -- |
@@ -1402,10 +1402,10 @@ at the commit it runs, and for each action the actions it runs in turn, as
 GitHub's [workflow dependency lockfiles](https://docs.github.com/en/actions/concepts/security/workflow-dependency-lockfiles)
 define them. The SHA pins in the workflows already fix what this repository
 names; the lockfile adds what those actions name in turn. `gh actions-lock` (the `github/gh-actions-lock`
-extension, v0.4.1) writes it:
+extension, v0.5.1) writes it:
 
 ```bash
-gh extension install github/gh-actions-lock --pin v0.4.1
+gh extension install github/gh-actions-lock --pin v0.5.1
 gh actions-lock --ignore-local-actions --no-narrow
 ```
 
