@@ -15,6 +15,13 @@
 # is started empty, so versions a bump retired drop out. Review the diff: Gradle
 # records whatever the repositories serve at this moment.
 #
+# generateThirdPartySpdx, which every build's preBuild runs, reads this file for
+# each runtime module's SHA-256, and Gradle writes the file only when a build
+# ends; the release unit tests read the inventory that task packages. A seed run
+# therefore builds the release APK without that task, which resolves every
+# runtime module, and the two runs after it start from the file it wrote, run
+# the task, and add what they resolve to that file.
+#
 # It runs in an empty Gradle user home, as a fresh runner starts: a warm local
 # cache made Gradle resolve a platform's .pom where a clean one fetches its
 # .module, and the release lane, which restores no cache, failed on the file a
@@ -39,14 +46,31 @@ skip_native=(
 
 GRADLE_USER_HOME="$(mktemp -d)"
 export GRADLE_USER_HOME
-trap 'rm -rf "$GRADLE_USER_HOME"' EXIT
+# The daemon a run starts outlives it and keeps writing its registry and cache
+# files into this home, so stop it before the home is removed: otherwise rm
+# races it, fails, and a clean regeneration exits 1.
+remove_gradle_home() {
+    if [ -d "$GRADLE_USER_HOME/daemon" ]; then
+        "$ANDROID_DIR/gradlew" -p "$ANDROID_DIR" --stop >/dev/null
+    fi
+    rm -rf "$GRADLE_USER_HOME"
+}
+trap remove_gradle_home EXIT
+
+release_properties=(
+    -Pr47.testBuildType=release -Pr47.includeProgramLoadTestBridge=true
+    -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false
+    -Pr47.releaseShrinkResources=false
+)
 
 cd "$ANDROID_DIR"
 rm -f "$METADATA"
 ./gradlew --console=plain --write-verification-metadata sha256 \
-    -Pr47.testBuildType=release -Pr47.includeProgramLoadTestBridge=true \
-    -Pr47.includeInstrumentationHost=true -Pr47.releaseMinify=false \
-    -Pr47.releaseShrinkResources=false \
+    "${release_properties[@]}" \
+    :app:assembleRelease -x :app:generateThirdPartySpdx \
+    "${skip_native[@]}"
+./gradlew --console=plain --write-verification-metadata sha256 \
+    "${release_properties[@]}" \
     lint :app:assembleRelease :app:bundleRelease :app:assembleReleaseAndroidTest \
     :app:testReleaseUnitTest :app:koverXmlReportRelease :app:assembleDebug \
     "${skip_native[@]}"

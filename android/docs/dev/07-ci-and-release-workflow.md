@@ -337,7 +337,12 @@ tools) only while their tasks run. It skips the native build, which resolves
 nothing from a repository, and runs in an empty Gradle user home, as a fresh
 runner starts: a warm cache made Gradle take a platform's `.pom` where a clean
 one fetches its `.module`, and the release lane, which restores no cache, refused
-the file a warm run had written. Commit its diff with the bump, after reading it:
+the file a warm run had written. `generateThirdPartySpdx`, which every build's
+`preBuild` runs, reads the file for each runtime module's SHA-256
+([SPDX inventory](#spdx-inventory)), and Gradle writes it only when a build
+ends, so a seed run first builds the release APK without that task; the runs
+after it start from the seeded file, run the task, and add what they resolve.
+Commit its diff with the bump, after reading it:
 Gradle records whatever the repositories serve at that moment. Dependabot's
 Gradle pull requests do not write the file, so each needs that run pushed on
 top. aapt2 is resolved per host OS and the file holds the Linux one; a build on
