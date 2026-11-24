@@ -435,7 +435,8 @@ on it, but neither looks for a race.
   and a profile that changes with the runner's speed compiles a different
   library. What still follows the clock is LCD redraws and timers, so two
   collections of one commit differ in a few functions and some build a
-  different library. A fixture that fails or hits its limit prints a
+  different library; that is why each lane collects once and its build and test
+  jobs use that one file. A fixture that fails or hits its limit prints a
   `WARN:` line in the build log. Its `--help` names the training corpus and the `libclang_rt.profile` shim.
   `./scripts/android/build_android.sh --collect-host-pgo` runs it before Gradle,
   builds the app with the profile, and fails unless the release library's

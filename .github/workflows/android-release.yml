@@ -306,6 +306,173 @@ jobs:
           if [[ "$R47_DRY_RUN" == "true" ]]; then args+=(--warn-only); fi
           bash ./scripts/android/require_green_ci_pair.sh "${args[@]}"
 
+  collect-release-pgo-profile:
+    name: Collect the release's host-core PGO profile
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
+    # The profile the release's library is built with and its device tests run
+    # on: build-production-release-bundle and verify-production-release both
+    # download this file, so the two start together and use the same bytes,
+    # which a second collection would not give. It runs the upstream core, so,
+    # like the build job, it holds no signing input.
+    needs:
+      - resolve-release-inputs
+      - resolve-upstream-core
+      - require-green-ci
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    outputs:
+      pgo_profile_artifact_id: ${{ steps.upload-pgo-profile.outputs.artifact-id }}
+      upstream_version: ${{ steps.upstream.outputs.upstream_version }}
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Load shared Android defaults
+        id: defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          . ./android/r47-defaults.properties
+
+          echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk_minor=$R47_DEFAULT_ANDROID_COMPILE_SDK_MINOR" >> "$GITHUB_OUTPUT"
+          echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Detect runner build concurrency
+        id: jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          jobs=$(nproc)
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: bash ./scripts/android/install_linux_build_deps.sh
+
+      - name: Set up Android SDK
+        id: android-sdk
+        uses: ./.github/actions/setup-android-sdk
+        with:
+          compile-sdk: ${{ steps.defaults.outputs.compile_sdk }}
+          compile-sdk-minor: ${{ steps.defaults.outputs.compile_sdk_minor }}
+          build-tools-version: ${{ steps.defaults.outputs.build_tools_version }}
+          cmake-version: ${{ steps.defaults.outputs.cmake_version }}
+          ndk-version: ${{ steps.defaults.outputs.ndk_version }}
+
+      - name: Install matching host LLVM profiling runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ndk_root="${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}"
+          clang_bin="$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+          llvm_major="$($clang_bin --version | sed -nE '1s/.*clang version ([0-9]+).*/\1/p')"
+
+          if [[ -z "$llvm_major" ]]; then
+            echo "Failed to determine LLVM major version from $clang_bin" >&2
+            exit 1
+          fi
+
+          bash ./scripts/android/install_host_llvm_toolchain.sh "$llvm_major"
+
+      - name: Set up xlsxio toolchain
+        uses: ./.github/actions/setup-xlsxio-toolchain
+        with:
+          url: ${{ steps.defaults.outputs.xlsxio_url }}
+          commit: ${{ steps.defaults.outputs.xlsxio_commit }}
+          prefix: ${{ steps.defaults.outputs.xlsxio_prefix }}
+          jobs: ${{ steps.jobs.outputs.jobs }}
+          cache: 'false'
+
+      - name: Sync authoritative upstream core
+        id: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          bash ./scripts/upstream-sync/upstream.sh sync --auto --write-lock \
+            --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          bash ./scripts/upstream-sync/hydrate_submodules.sh \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}"
+          echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
+          echo "upstream_version=$(bash ./scripts/android/read_upstream_version.sh src/c47/defines.h \
+            "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            "${{ needs.resolve-upstream-core.outputs.upstream_commit }}")" >> "$GITHUB_OUTPUT"
+
+      - name: Set profile metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          eval "$(bash ./scripts/android/resolve_android_artifact_metadata.sh \
+            --upstream-commit "${{ steps.upstream.outputs.upstream_commit }}" \
+            --android-commit "${{ github.sha }}" \
+            --version "${{ needs.resolve-release-inputs.outputs.version_name }}")"
+
+          echo "artifact_name=$R47_ANDROID_RELEASE_ARTIFACT_STEM" >> "$GITHUB_OUTPUT"
+
+      - name: Collect the host-core PGO profile
+        shell: bash
+        env:
+          R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
+          R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
+          CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
+          R47_PGO_OUTPUT_DIR: ${{ github.workspace }}/ci-artifacts/pgo
+          R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
+          R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
+          R47_XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          R47_XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts/logs
+          ./scripts/android/build_android.sh \
+            --pgo-profile-only \
+            2>&1 | tee ci-artifacts/logs/collect-pgo-profile.log
+
+      - name: Upload host-core PGO artifact
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-host-core-pgo
+          path: |
+            ci-artifacts/pgo/
+            ci-artifacts/logs/collect-pgo-profile.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      # The profile alone, 828 KB in the 0.3.0 dry run, where the artifact above
+      # unpacks to 294 MB: the build job and verify-production-release download
+      # it by id.
+      - name: Upload the release PGO profile
+        id: upload-pgo-profile
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-pgo-profile
+          path: ci-artifacts/pgo/r47-host-core.profdata
+          if-no-files-found: error
+          retention-days: 7
+
   build-production-release-bundle:
     name: Build unsigned production release assets
     if: github.ref == 'refs/heads/main' || inputs.dry_run
@@ -318,13 +485,18 @@ jobs:
       - resolve-release-inputs
       - resolve-upstream-core
       - require-green-ci
+      - collect-release-pgo-profile
     runs-on: ubuntu-26.04
     timeout-minutes: 120
+    # The profile collect-release-pgo-profile uploaded, for every Gradle build
+    # here: build_android.sh builds the release's library with it and fails
+    # unless the release compile database records it.
+    env:
+      R47_PGO_PROFILE_PATH: ${{ github.workspace }}/ci-artifacts/release-pgo/r47-host-core.profdata
     outputs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
       unsigned_artifact_name: ${{ steps.meta.outputs.unsigned_artifact_name }}
       unsigned_artifact_id: ${{ steps.upload-unsigned.outputs.artifact-id }}
-      pgo_profile_artifact_id: ${{ steps.upload-pgo-profile.outputs.artifact-id }}
       apk_artifact_name: ${{ steps.meta.outputs.apk_artifact_name }}
       release_bundle_name: ${{ steps.meta.outputs.release_bundle_name }}
       release_apk_name: ${{ steps.meta.outputs.release_apk_name }}
@@ -417,22 +589,6 @@ jobs:
           cmake-version: ${{ steps.defaults.outputs.cmake_version }}
           ndk-version: ${{ steps.defaults.outputs.ndk_version }}
 
-      - name: Install matching host LLVM profiling runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          ndk_root="${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}"
-          clang_bin="$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
-          llvm_major="$($clang_bin --version | sed -nE '1s/.*clang version ([0-9]+).*/\1/p')"
-
-          if [[ -z "$llvm_major" ]]; then
-            echo "Failed to determine LLVM major version from $clang_bin" >&2
-            exit 1
-          fi
-
-          bash ./scripts/android/install_host_llvm_toolchain.sh "$llvm_major"
-
       - name: Make scripts executable
         shell: bash
         run: |
@@ -483,9 +639,15 @@ jobs:
           echo "release_bundle_name=$R47_ANDROID_RELEASE_AAB_NAME" >> "$GITHUB_OUTPUT"
           echo "release_apk_name=$R47_ANDROID_RELEASE_APK_NAME" >> "$GITHUB_OUTPUT"
 
-      # The same build path as android-ci's dev build: the wrapper collects the
-      # profile, then builds the APK and the bundle with it in one Gradle run, and
-      # fails unless the release library's compile database records the profile.
+      - name: Download the release PGO profile
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.collect-release-pgo-profile.outputs.pgo_profile_artifact_id }}
+          path: ci-artifacts/release-pgo
+
+      # The same build path as android-ci's dev build: the wrapper builds the APK
+      # and the bundle with the downloaded profile in one Gradle run, and fails
+      # unless the release library's compile database records it.
       # R47_RELEASE_CHANNEL=prod builds them unsigned with the release's numbers.
       - name: Build unsigned release APK and bundle
         shell: bash
@@ -494,7 +656,6 @@ jobs:
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
           R47_GRADLE_ARGS: '--daemon --stacktrace --console=plain --warning-mode all'
-          R47_PGO_OUTPUT_DIR: ${{ github.workspace }}/ci-artifacts/pgo
           R47_RELEASE_CHANNEL: prod
           R47_VERSION_CODE: ${{ needs.resolve-release-inputs.outputs.version_code }}
           R47_VERSION_NAME: ${{ needs.resolve-release-inputs.outputs.version_name }}
@@ -510,7 +671,6 @@ jobs:
           mkdir -p ci-artifacts/logs
           ./scripts/android/build_android.sh \
             --run-sim-tests \
-            --collect-host-pgo \
             2>&1 | tee ci-artifacts/logs/build-android-release.log
 
       # The host tools that generated shipped code, for the signing job's evidence.
@@ -582,29 +742,6 @@ jobs:
           path: ci-artifacts/logs/
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Upload host-core PGO artifact
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ steps.meta.outputs.artifact_name }}-host-core-pgo
-          path: |
-            ci-artifacts/pgo/
-            ci-artifacts/logs/build-android-release.log
-          if-no-files-found: warn
-          retention-days: 30
-
-      # The profile alone, 828 KB in the 0.3.0 dry run, where the artifact above
-      # unpacks to 294 MB: verify-production-release compiles its device tests and
-      # its smoke build with the bytes this build used.
-      - name: Upload the release PGO profile
-        id: upload-pgo-profile
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ steps.meta.outputs.artifact_name }}-pgo-profile
-          path: ci-artifacts/pgo/r47-host-core.profdata
-          if-no-files-found: error
-          retention-days: 7
 
       - name: Upload unsigned release assets
         id: upload-unsigned
@@ -918,7 +1055,7 @@ jobs:
     needs:
       - resolve-release-inputs
       - resolve-upstream-core
-      - build-production-release-bundle
+      - collect-release-pgo-profile
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     env:
@@ -1054,7 +1191,7 @@ jobs:
       - name: Download the release PGO profile
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          artifact-ids: ${{ needs.build-production-release-bundle.outputs.pgo_profile_artifact_id }}
+          artifact-ids: ${{ needs.collect-release-pgo-profile.outputs.pgo_profile_artifact_id }}
           path: ci-artifacts/release-pgo
 
       # The app as it ships, R8, resource shrinking, PGO, no test bridge, built for
@@ -1065,7 +1202,7 @@ jobs:
         env:
           R47_VERSION_CODE_INPUT: ${{ needs.resolve-release-inputs.outputs.version_code }}
           R47_VERSION_NAME_INPUT: ${{ needs.resolve-release-inputs.outputs.version_name }}
-          R47_UPSTREAM_VERSION: ${{ needs.build-production-release-bundle.outputs.upstream_version }}
+          R47_UPSTREAM_VERSION: ${{ needs.collect-release-pgo-profile.outputs.upstream_version }}
           R47_RELEASE_STORE_FILE: ${{ steps.release-keystore.outputs.keystore_path }}
           R47_RELEASE_STORE_PASSWORD: throwaway
           R47_RELEASE_KEY_ALIAS: verify

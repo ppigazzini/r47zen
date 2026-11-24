@@ -22,6 +22,7 @@ flowchart TD
   C[upstream-release-gate]
   D[upstream-simulator-sanity]
   E[python-contracts]
+  P[collect-pgo-profile]
   F[android-build-test-package<br/>unsigned, no secrets]
   S[sign-dev-prerelease]
   U[upstream-suite-arm64<br/>arm64 runner]
@@ -32,17 +33,20 @@ flowchart TD
   A --> B --> C
   C --> D
   C --> E
+  E --> P
   E --> F
+  E --> G
+  P -->|PGO profile| F
+  P -->|PGO profile| G
   F --> S
   F --> U
-  E --> G
-  F -->|PGO profile| G
   D --> H
   S --> H
   G --> H
   C --> R
   D --> R
   E --> R
+  P --> R
   F --> R
   S --> R
   G --> R
@@ -55,11 +59,11 @@ flowchart TD
 - run the maintained Python contract suite as its own lane that gates the
   Android build and test lanes
 - keep upstream simulator correctness separate from Android packaging and tests
-- build the dev APK and bundle and the release ones through one path,
-  `build_android.sh --collect-host-pgo`, which collects the host-core PGO
-  profile and builds with it, with no emulator profiling
-- run each lane's device tests on that profile and launch a shipped-shape
-  build on the emulator, so neither lane tests code it does not ship
+- collect one host-core PGO profile per lane, in its own job, and build the
+  dev APK and bundle, or the release ones, and run the device tests on that
+  same file, so neither lane tests code it does not ship, with no emulator
+  profiling
+- launch a shipped-shape build on the emulator in both lanes
 - run Android lint explicitly instead of assuming Gradle builds cover it
 - keep external `uses:` pins on full-length commit SHAs and keep the reviewed
   tag comment on the same line so the workflow stays auditable and
@@ -419,8 +423,9 @@ It:
   integrity); this is the run that gates, because `ci-required` needs this job
 - writes the upstream provenance report to the job summary
 
-It gates `android-build-test-package` and `android-tests`, so a contract drift
-fails fast before the Android build and instrumentation lanes run. See
+It gates `collect-pgo-profile`, `android-build-test-package`, and
+`android-tests`, so a contract drift fails fast before the Android profile,
+build, and instrumentation lanes run. See
 `08-tests-and-contracts.md` for the contract-to-suite map.
 
 The provenance summary step is deliberately report-only and runs with
@@ -433,6 +438,40 @@ in the job summary, with `--classify-drift`'s verdict, means an upstream advance
 that moves a derived golden is visible at a glance, apart from the daily moves
 that change none, instead of buried in the suite log. See
 [08-tests-and-contracts.md](08-tests-and-contracts.md) for the ledger itself.
+
+### `collect-pgo-profile`
+
+This job collects the host-core PGO profile that the dev APK's library is built
+with and the device tests run on, once for both jobs. It runs after
+[`python-contracts`](#python-contracts), which gates it, and holds no signing
+input.
+
+It:
+
+- provisions the Android SDK, NDK, and CMake, xlsxio, and the Linux build
+  dependencies, with no JDK and no Gradle, since it stops before Gradle runs
+- derives the Linux host LLVM major from the pinned NDK `clang`, then installs
+  matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
+  `libclang-rt-<major>-dev` packages with
+  `scripts/android/install_host_llvm_toolchain.sh` so the host PGO runtime
+  shim does not drift onto the runner-default LLVM toolchain. The host runtime
+  is the collector's alone, so no other Android job installs it
+- syncs the authoritative upstream tree
+- runs `./scripts/android/build_android.sh --pgo-profile-only`, which resolves
+  the upstream commit, builds the simulator, stages the native inputs, and runs
+  the collector, then stops
+- uploads the profile alone as `r47zen-<upstream short>-<android short>-pgo-profile`
+  and outputs its artifact id, `pgo_profile_artifact_id`, for
+  [`android-build-test-package`](#android-build-test-package) and
+  [`android-tests`](#android-tests), and uploads the whole collector output,
+  profiles, logs, and the collection log, as `-host-core-pgo`
+
+It runs on the same runner image as the other jobs. The build job and
+`android-tests` start together when it ends, and both use its one file: a
+second collection of the same commit gives different bytes, since the
+collector's program fixtures redraw and fire timers on the clock, and a
+profile that differs a little can compile a different library
+([04](04-native-core-and-jni.md)).
 
 ### `android-build-test-package`
 
@@ -449,21 +488,18 @@ It:
   emulator and system image for the test and release jobs and leaves them out
   of this build lane. The signing jobs use `setup-signing-tools` instead (see
   [Signing isolation](#signing-isolation))
-- derives the Linux host LLVM major from the pinned NDK `clang`, then installs
-  matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
-  `libclang-rt-<major>-dev` packages with
-  `scripts/android/install_host_llvm_toolchain.sh` so the host PGO runtime
-  shim does not drift onto the runner-default LLVM toolchain
 - syncs the authoritative upstream tree
+- downloads the profile [`collect-pgo-profile`](#collect-pgo-profile) uploaded,
+  by the artifact id it outputs, and points `R47_PGO_PROFILE_PATH` at it for the
+  whole job
 - runs `scripts/android/check_native_format.sh` before the build, since it
   needs only the pinned NDK's `clang-format`: it checks the Android-owned glue
   against `android/app/src/main/cpp/r47zen/.clang-format`
-- runs `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo`,
-  the release lane's build path: it collects the host-core PGO profile, builds
-  the APK and the bundle with it in one Gradle run, and fails unless the
-  release library's compile database records the profile.
-  `upstream-simulator-sanity` runs upstream's stock suite, so this job does not
-  run it again
+- runs `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh`, the
+  release lane's build path: it builds the APK and the bundle with that profile
+  in one Gradle run, and fails unless the release library's compile database
+  records the profile. `upstream-simulator-sanity` runs upstream's stock suite,
+  so this job does not run it again
 - runs `scripts/security/check_native_hardening.sh` on every packaged arm64
   `libr47zen.so` and fails the job when a mitigation is missing: AArch64
   branch protection (BTI/PAC), full RELRO, a non-executable stack, no
@@ -487,10 +523,7 @@ It:
   or the bundle carries a JAR signature. The bundle, which no dev prerelease
   publishes, is kept as the `r47zen-<upstream short>-<android short>-bundle`
   artifact, so every run builds the format Play takes
-- uploads the profile alone as `r47zen-<upstream short>-<android short>-pgo-profile`
-  and outputs its artifact id, `pgo_profile_artifact_id`, for
-  [`android-tests`](#android-tests)
-- after the APK and PGO uploads, runs
+- after the APK upload, runs
   `scripts/workload-regressions/run_upstream_suite_android_config.sh`:
   upstream's suite as the app builds the core, with mini-gmp, R47, and the
   compiler and flags the release's `compile_commands.json` records
@@ -512,14 +545,14 @@ It:
   dev prerelease; upstream moves most days, so the third holds only until
   upstream next moves after a re-export. The build-log artifact carries the
   exporter's log
-- uploads the build log, the host-core PGO artifact, and the unsigned APK as
+- uploads the build log and the unsigned APK as
   `r47zen-<upstream short>-<android short>-unsigned` for `sign-dev-prerelease`
 
-That means the dev-prerelease packaging lane owns the full
+That means `collect-pgo-profile` and this job together own the full
 normal-pull-request host-core optimization sequence:
 
-- the host-side PGO collector runs under the same wrapper-owned lane and
-  produces the `.profdata` artifact CI uploads;
+- the host-side PGO collector runs in `collect-pgo-profile`, through the same
+  wrapper, and produces the `.profdata` artifact CI uploads;
   `collect_host_pgo_profile.sh --help` names what it trains on
 - the canonical host workload set of the five imported `.p47` fixtures remains
   the focused Android bridge compatibility harness exposed by
@@ -567,15 +600,15 @@ normal-pull-request host-core optimization sequence:
   a data race between them fails the lane. `SPIRALk` alone may end on the outer
   timeout as degraded coverage. No emulator
 - the collector still resolves `clang` and `llvm-profdata` from that same
-  pinned NDK, while the Linux lane installs the matching host
+  pinned NDK, while `collect-pgo-profile` installs the matching host
   `libclang_rt.profile` runtime for the derived LLVM major through the explicit
   CI package step
 - the Android emulator lane remains narrower and still owns only the five
   staged `.p47` `PROGRAMS` fixtures
-- the APK and bundle that profile builds come out of that same wrapper-owned
-  build step, with the wrapper's check that the release library's compile
-  database records the profile, so the build log records the collector, the
-  build that consumes its profile, and the check in one place
+- the APK and bundle come out of this job's wrapper-owned build step, built with
+  the profile, with the wrapper's check that the release library's compile
+  database records it, so the build log records the build that consumes the
+  profile and the check
 
 This lane is the canonical reference for the full Android dev-prerelease build
 contract.
@@ -669,12 +702,12 @@ does for a release.
 
 It:
 
-- needs [`android-build-test-package`](#android-build-test-package) and
-  downloads the PGO profile that job built the dev APK's library with, by the
-  artifact id it outputs; `R47_PGO_PROFILE_PATH` points at it for the whole
-  job, so every Gradle build here, the instrumented one, the connected tests',
-  and the shipped-shape one, compiles the release library with it. The cost
-  is wall time: this job starts when the build job ends, not beside it
+- needs [`collect-pgo-profile`](#collect-pgo-profile) and downloads its PGO
+  profile, the one the dev APK's library is built with, by the artifact id that
+  job outputs; `R47_PGO_PROFILE_PATH` points at it for the whole job, so every
+  Gradle build here, the instrumented one, the connected tests', and the
+  shipped-shape one, compiles the release library with it. It runs beside the
+  build job, which needs the same profile and nothing from this one
 - provisions the same toolchains and upstream sync inputs as the build lane
 - builds the shipped-shape release for the launch smoke first: `assembleRelease`
   for `x86_64` with R8, resource shrinking, the profile, and no test bridge,
@@ -828,7 +861,7 @@ protection, not the individual test jobs. Nothing requires it: `main` takes
 direct pushes by maintainer decision, so a red `ci-required` reports the
 failure but blocks no push. It runs with `if: always()` and
 `needs` the release gate plus every test lane
-(`upstream-simulator-sanity`, `python-contracts`,
+(`upstream-simulator-sanity`, `python-contracts`, `collect-pgo-profile`,
 `android-build-test-package`, `sign-dev-prerelease`, `android-tests`,
 `upstream-suite-arm64`).
 `sign-dev-prerelease` is in the set because it runs the packaging evidence
@@ -856,6 +889,7 @@ flowchart TD
   B[resolve-release-inputs]
   C[resolve-upstream-core]
   G[require-green-ci<br/>the pair's -dev release]
+  O[collect-release-pgo-profile<br/>unsigned, no secrets]
   E[build-production-release-bundle<br/>unsigned, no secrets]
   S[sign-production-release<br/>production-release environment]
   D[sign-dry-run<br/>dry run only, key made in the job]
@@ -871,12 +905,14 @@ flowchart TD
   A --> C
   B --> G
   C --> G
+  G --> O
+  O -->|PGO profile| E
+  O -->|PGO profile| V
   G --> E
   B --> E
   C --> E
   E --> S
   E --> D
-  E --> V
   B --> V
   C --> V
   V --> S
@@ -893,6 +929,19 @@ flowchart TD
   I --> P
   P --> K
 ```
+
+### `collect-release-pgo-profile`
+
+Runs on `main`, or in a dry run, after the two resolve jobs and
+`require-green-ci`, and holds no signing input. It is
+[`collect-pgo-profile`](#collect-pgo-profile) for a release: it provisions the
+NDK, CMake, xlsxio, and the host LLVM packages that collection needs, syncs the
+resolved upstream tree, runs `./scripts/android/build_android.sh
+--pgo-profile-only`, and uploads the profile alone, and the whole collector
+output, as `-pgo-profile` and `-host-core-pgo`. `build-production-release-bundle`
+and `verify-production-release` both download that one file, by the artifact id
+it outputs, so they start together and the device tests run the code the shipped
+library is built with.
 
 ### `build-production-release-bundle`
 
@@ -916,16 +965,15 @@ This workflow:
   revision locally instead is done through the Git-ignored `upstream.lock`, never
   by pinning the Git-tracked `upstream.source`
 - syncs the resolved authoritative upstream tree
-- derives the Linux host LLVM major from the pinned NDK `clang`, then installs
-  the matching `clang-<major>`, `clang-tools-<major>`, `lld-<major>`, and
-  `libclang-rt-<major>-dev` packages before collecting host profiles
-- runs `R47_RELEASE_CHANNEL=prod ./scripts/android/build_android.sh --run-sim-tests --collect-host-pgo`
+- downloads the profile [`collect-release-pgo-profile`](#collect-release-pgo-profile)
+  uploaded, by the artifact id it outputs, and points `R47_PGO_PROFILE_PATH` at
+  it for the whole job
+- runs `R47_RELEASE_CHANNEL=prod ./scripts/android/build_android.sh --run-sim-tests`
   with the release's version code and name, the build path
   [`android-build-test-package`](#android-build-test-package) runs for a dev
-  build: it writes `ci-artifacts/pgo/r47-host-core.profdata`, builds
-  `:app:assembleRelease :app:bundleRelease` with it in one Gradle run, unsigned
-  and without the test bridge, and fails unless the release library's compile
-  database records the profile; `--run-sim-tests` runs upstream's
+  build: it builds `:app:assembleRelease :app:bundleRelease` with that profile
+  in one Gradle run, unsigned and without the test bridge, and fails unless the
+  release library's compile database records it; `--run-sim-tests` runs upstream's
   stock suite, since this workflow has no sanity job; it does not run upstream's
   suite on the app's configuration, which would be a new gate on a release
   ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration))
@@ -969,8 +1017,8 @@ This workflow:
   that release's tag, and pass it to Gradle as `r47.upstreamVersion` for the
   About line's core line
   ([01](01-build-and-source-layout.md#checked-in-defaults))
-- uploads the release build logs, the host-core PGO artifact bundle, and the
-  unsigned APK, unsigned AAB, `mapping.txt`, and `native-debug-symbols.zip` as
+- uploads the release build logs, and the unsigned APK, unsigned AAB,
+  `mapping.txt`, and `native-debug-symbols.zip` as
   `r47zen_<version>_<upstream short>_<android short>-unsigned`
 
 ### Dry run
@@ -1228,13 +1276,13 @@ The limits:
 
 ### `verify-production-release`
 
-Runs on `main`, or in a dry run, after the build job and without the
-environment, because it holds no secret; the signing jobs wait for it. It
-downloads the build job's PGO profile, a separate artifact, by artifact ID and points `R47_PGO_PROFILE_PATH` at it for the whole job, so every
-native build here compiles with the bytes the shipped library was built with.
-Waiting for the build job costs wall time but no job minutes; collecting a
-profile in this job instead would cost job minutes and need not give the same
-bytes.
+Runs on `main`, or in a dry run, beside the build job and without the
+environment, because it holds no secret; the signing jobs wait for both. It
+downloads the PGO profile [`collect-release-pgo-profile`](#collect-release-pgo-profile)
+collected, a separate artifact, by artifact ID and points `R47_PGO_PROFILE_PATH`
+at it for the whole job, so every native build here compiles with the bytes the
+shipped library is built with. Collecting a profile in this job instead would
+cost job minutes and need not give the same bytes.
 
 It builds `:app:assembleRelease` as it ships, R8, resource shrinking, the
 profile, no test bridge, for `x86_64` only, and keeps that APK. It then
@@ -1578,11 +1626,11 @@ The Android workflows publish these artifact classes:
   `upstream-suite-arm64`
 - signed dev-prerelease APK packaging evidence and compliance outputs
 - Android JVM and instrumentation test reports and logs
-- host-core PGO profiles from the Linux packaging lane and the protected
-  release workflow, and each lane's profile alone as `-pgo-profile` for its
-  test job; each lane's build log records the wrapper-owned collector, the
-  build that consumes the profile, and the wrapper's check that the release
-  library's compile database records it
+- host-core PGO profiles from each lane's profile job, `collect-pgo-profile` and
+  `collect-release-pgo-profile`, and that profile alone as `-pgo-profile` for
+  the lane's build and test jobs; the profile job's log records the collector,
+  and the build log the build that consumes the profile and the wrapper's
+  check that the release library's compile database records it
 - the dev lane's unsigned bundle, `-bundle`, which no dev prerelease publishes
 - protected-release workflow artifact bundles for the signed AAB and the signed
   APK, plus the versioned GitHub release assets published from those bundles
@@ -1710,8 +1758,8 @@ are.
   about one authoritative core revision per run.
 - Keep logs uploadable even on failure. Build and emulator issues are harder to
   triage when the workflow stops before publishing its logs.
-- Keep the collector-driven host-core fixture contract in
-  `android-build-test-package`; the plain host workload runner stays in
+- Keep the collector in `collect-pgo-profile` alone, so one collection serves
+  the build and the test job; the plain host workload runner stays in
   `linux-ci.yml`'s `host-workload-regressions`, not in `android-ci.yml`.
 - Keep emulator-only ABI overrides temporary and scoped to the Android test
   lane.

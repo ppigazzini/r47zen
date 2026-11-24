@@ -389,9 +389,12 @@ Public maintainer entry points:
   which skips the script's own native steps and refuses stale staged native
   inputs.
   `--collect-host-pgo` is a full-build-only flag: the wrapper runs the host-side
-  PGO collector after staging and the clean and before Gradle, builds with the
-  profile it collected, and, for a release build, fails unless the newest
-  release `compile_commands.json` of every packaged ABI records
+  PGO collector after staging and the clean and before Gradle, and builds with
+  the profile it collected. `--pgo-profile-only`, what CI's profile jobs run,
+  stops after the collection, before Gradle. A build with
+  `R47_PGO_PROFILE_PATH` set, as CI's build jobs run, builds with that file.
+  Either way a release build fails unless the newest release
+  `compile_commands.json` of every packaged ABI records
   `-fprofile-use=<that profile>`; `--host-pgo-output-dir` chooses the emitted
   `.profdata` location. `R47_RELEASE_CHANNEL=dev` builds the dev release APK
   and bundle, as android-ci does, and `R47_RELEASE_CHANNEL=prod` the production
@@ -420,9 +423,10 @@ Public maintainer entry points:
   incompatible with `--android-only`.
 - `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo`,
   then `bash scripts/workload-regressions/run_upstream_suite_android_config.sh`,
-  is the CI-matching Android build lane: the wrapper collects the host-core
-  profile and builds the APK and bundle with it, and the script runs upstream's
-  suite as the app builds the core, with that profile
+  is the CI-matching Android build lane in one run: CI splits it into a profile
+  job, `--pgo-profile-only`, and a build job with `R47_PGO_PROFILE_PATH`. The
+  wrapper builds the APK and bundle with the collected profile, and the script
+  runs upstream's suite as the app builds the core, with that profile
   ([08](08-tests-and-contracts.md#upstream-suite-on-the-apps-configuration)).
 - `cd android && ./gradlew assembleDebug` refreshes a stale staged tree itself:
   `prepareStagedNativeInputs` runs before the native build. Its prerequisites

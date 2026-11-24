@@ -94,6 +94,7 @@ flowchart TD
   A[resolve-release-inputs]
   B[resolve-upstream-core]
   R[require-green-ci]
+  P[collect-release-pgo-profile]
   C[build-production-release-bundle]
   D[verify-production-release]
   E[sign-production-release]
@@ -104,12 +105,16 @@ flowchart TD
 
   A --> R
   B --> R
+  R --> P
+  A --> P
+  B --> P
   R --> C
   A --> C
   B --> C
+  P --> C
+  P --> D
   A --> D
   B --> D
-  C --> D
   C --> E --> F --> G
   D --> E
   A --> S
@@ -119,9 +124,10 @@ flowchart TD
   G --> H
 ```
 
-`verify-production-release` runs the emulator lane with the build job's PGO
-profile and launches an `x86_64` build in the shipped shape, and nothing is
-published until it passes.
+`collect-release-pgo-profile` collects one profile; `build-production-release-bundle`
+builds the release with it, and `verify-production-release`, beside it, runs the
+emulator lane on it and launches an `x86_64` build in the shipped shape. Nothing
+is published until both pass.
 
 ## After it finishes
 

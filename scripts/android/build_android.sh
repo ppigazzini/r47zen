@@ -26,7 +26,11 @@
 #   * --collect-host-pgo collects the host-core profile before Gradle runs and
 #     builds with it, so the release library this script packages is the
 #     profile-guided one a release ships, and the script fails unless the
-#     release compile database records that profile.
+#     release compile database records that profile. A build given
+#     R47_PGO_PROFILE_PATH instead builds with that file and makes the same
+#     check.
+#   * --pgo-profile-only stops after the collection, before Gradle: the CI
+#     job that collects the profile for both its build and its test job.
 #
 # NOT done here: Android lint.
 # android/docs/dev/01-build-and-source-layout.md owns each flag; --help lists
@@ -66,13 +70,14 @@ RUN_SIM_TESTS=false
 VERIFY_PACKAGING=false
 VERIFY_PACKAGING_DIR=""
 COLLECT_HOST_PGO=false
+PGO_PROFILE_ONLY=false
 HOST_PGO_OUTPUT_DIR="${R47_PGO_OUTPUT_DIR-}"
 DEFAULT_HOST_PGO_OUTPUT_DIR="$ANDROID_PROJECT_DIR/build/host-pgo"
 COLLECTED_HOST_PGO_PROFILE_PATH=""
 
 usage() {
     cat <<'EOF'
-Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--run-sim-tests] [--collect-host-pgo] [--host-pgo-output-dir <dir>] [--verify-packaging] [--verify-packaging-dir <dir>]
+Usage: ./scripts/android/build_android.sh [--android-only] [--doctor] [--run-sim-tests] [--collect-host-pgo] [--pgo-profile-only] [--host-pgo-output-dir <dir>] [--verify-packaging] [--verify-packaging-dir <dir>]
 
 Modes:
     --android-only         Skip this script's native steps; refuse stale staged inputs, then run Gradle.
@@ -80,6 +85,7 @@ Modes:
                            upstream lock, and staged inputs; exit 1 on what the build cannot provide.
     --run-sim-tests        Run the simulator/native Meson test suite from the Android full-build path.
     --collect-host-pgo     Collect a host-core PGO profile, then build the app with it.
+    --pgo-profile-only     Stage and collect the profile, then stop before Gradle.
 
 Options:
     --host-pgo-output-dir <dir>   Write the collected profile to <dir>; implies --collect-host-pgo.
@@ -305,6 +311,11 @@ while [ "$#" -gt 0 ]; do
             ;;
         --run-sim-tests)
             RUN_SIM_TESTS=true
+            shift
+            ;;
+        --pgo-profile-only)
+            PGO_PROFILE_ONLY=true
+            COLLECT_HOST_PGO=true
             shift
             ;;
         --collect-host-pgo)
@@ -959,7 +970,11 @@ if [ "$ANDROID_ONLY" = true ] && [ "$RUN_SIM_TESTS" = true ]; then
 fi
 
 if [ "$ANDROID_ONLY" = true ] && [ "$COLLECT_HOST_PGO" = true ]; then
-    fail "--collect-host-pgo requires the full Android build path. Run without --android-only."
+    fail "--collect-host-pgo and --pgo-profile-only require the full Android build path. Run without --android-only."
+fi
+
+if [ "$PGO_PROFILE_ONLY" = true ] && { [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; }; then
+    fail "--pgo-profile-only builds no APK, so it has no packaging to verify."
 fi
 
 [ -n "$R47_CMAKE_BIN" ] || fail "No usable cmake executable found. Install cmake or Android SDK CMake $R47_CMAKE_VERSION."
@@ -1021,6 +1036,16 @@ else
 fi
 
 ensure_canonical_font_assets_available
+
+# The collector needs only the staged tree: it builds upstream's testSuite with
+# the NDK's clang and renames its keys to the staged paths the app compiles.
+if [ "$PGO_PROFILE_ONLY" = true ]; then
+    run_host_pgo_collector
+    sha256sum "$COLLECTED_HOST_PGO_PROFILE_PATH"
+    echo "SUCCESS: PGO profile collected at: $COLLECTED_HOST_PGO_PROFILE_PATH"
+    exit 0
+fi
+
 write_local_properties
 
 cd "$ANDROID_PROJECT_DIR"

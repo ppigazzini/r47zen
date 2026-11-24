@@ -1420,10 +1420,12 @@ Android compatibility layer.
   (`--help` lists it), so the two are separate verification surfaces
 - `scripts/workload-regressions/host_workload_regression.c` is the harness that
   drives the wait, pause, progress, and workload-run behavior behind that lane
-- `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo`
-  is the normal pull-request owner of the host-side PGO collector, of the dev
-  APK and bundle built with its profile, and of the wrapper's check that the
-  release library's compile database records that profile; the same job then runs
+- `collect-pgo-profile` and `android-build-test-package` together are the
+  normal pull-request owners of the host-side PGO collector, of the dev APK and
+  bundle built with its profile, and of the wrapper's check that the release
+  library's compile database records that profile; one local
+  `R47_RELEASE_CHANNEL=dev ./scripts/android/build_android.sh --collect-host-pgo`
+  runs both halves. The build job then runs
   upstream's suite on the app's configuration
   ([below](#upstream-suite-on-the-apps-configuration)), not a second stock run.
   The release lane, which has no sanity job, runs `--run-sim-tests`, the stock
@@ -1451,13 +1453,13 @@ Android compatibility layer.
   `upstream-simulator-sanity`, `python-contracts`,
   `android-build-test-package`, `sign-dev-prerelease`, `android-tests`, and
   `upstream-suite-arm64` -- and `ci-required` needs all of them
-- `.github/workflows/android-release.yml` builds through the same path as
-  `android-build-test-package`, `R47_RELEASE_CHANNEL=prod build_android.sh
-  --collect-host-pgo`, which builds the APK and bundle unsigned with the
-  profile it collects; its emulator job, with that build's profile, runs lint,
-  JVM tests, the instrumentation tests, and `run_shipped_build_smoke.sh` on an
-  `x86_64` build in the shipped shape, as `android-tests` does for a dev
-  build, and
+- `.github/workflows/android-release.yml` collects one profile in
+  `collect-release-pgo-profile`, builds the APK and bundle unsigned with it
+  through the same path as `android-build-test-package`,
+  `R47_RELEASE_CHANNEL=prod build_android.sh`, and runs its emulator job on the
+  same file: lint, JVM tests, the instrumentation tests, and
+  `run_shipped_build_smoke.sh` on an `x86_64` build in the shipped shape, as
+  `android-tests` does for a dev build, and
   `sign-production-release`
   signs the outputs before it publishes release evidence
 - `scripts/android/run_production_signing_scope_contract.sh` and
@@ -1613,7 +1615,7 @@ guards or proves itself on seeded fixtures (it can fail), or only reads text
 | `run_legacy_printf_contract.sh` | `r47zen/legacy_printf.c`, built with the host `cc` under AddressSanitizer and UBSan, formats as glibc's `vsnprintf` does, result, text, and truncation alike, at each buffer size from 0 to 80, on formats carrying the core's glyph bytes and every conversion and length the core uses; refuses `%n` and a positional argument; and takes only a format with a byte over 0x7f; the app's CMakeLists wraps all eight `sprintf` and `snprintf` entries, the glue lists the file, and each v-form wrapper leaves an ASCII format, and every call from API 28, to the platform | yes, a host-built formatter |
 | `run_shipped_symbols_contract.sh` | `check_shipped_symbols.sh` passes a library with no test entry point and fails one exporting a `ProgramLoadTestBridge` JNI function, an `r47_test_bridge_` function, or `main`, built here with the host `cc`; `collect_packaging_evidence.sh` runs it on every library of the APK and the bundle | yes, built libraries |
 | `run_core_source_archive_contract.sh` | `archive_core_source.sh`, on a fixture repository over `file://`, archives the commit asked, not the tip, under `c47-<commit>/` with the tree's files and without `docs/`, and refuses a short hash and an absent commit, leaving no file; `package-core-source` archives the commit `resolve-upstream-core` resolved, and the production publish needs it, checks the archive's top directory, attaches, attests, and verifies it, and keeps it in a re-cut; the dev publish archives the resolved commit, refuses a build naming another, and attaches it; each wiring check fails its seed | yes, fixture repository |
-| `run_shipped_build_smoke_contract.sh` | `run_shipped_build_smoke.sh` against a fake `adb`: passes a launch that stays up and a crash buffer naming only another package, and fails a Java exception or a native tombstone naming the package, a process that died or restarted, a refused install, and a launch without `Status: ok`; and in each lane, `build-production-release-bundle` with `verify-production-release` and `android-build-test-package` with `android-tests`, the build job builds through `build_android.sh --collect-host-pgo`, names no profile of its own, and outputs its profile's artifact ID, and the test job needs it, downloads that profile by artifact ID, sets `R47_PGO_PROFILE_PATH` for the whole job with no step override, builds the smoke APK with no R8 or test-bridge override, and runs the smoke, each wiring check failing its seed in each lane. The check that the build consumed the profile is `build_android.sh`'s own, on the release compile database | yes, a fake `adb` |
+| `run_shipped_build_smoke_contract.sh` | `run_shipped_build_smoke.sh` against a fake `adb`: passes a launch that stays up and a crash buffer naming only another package, and fails a Java exception or a native tombstone naming the package, a process that died or restarted, a refused install, and a launch without `Status: ok`; and in each lane, `collect-release-pgo-profile` with `build-production-release-bundle` and `verify-production-release`, and `collect-pgo-profile` with `android-build-test-package` and `android-tests`, the profile job collects through `build_android.sh --pgo-profile-only` and outputs its profile's artifact ID, and the build and test jobs each need it, download that profile by artifact ID, set `R47_PGO_PROFILE_PATH` for the whole job with no step override, and collect no profile of their own; the build job builds through `build_android.sh`, and the test job builds the smoke APK with no R8 or test-bridge override and runs the smoke, each wiring check failing its seed in each lane. The check that the build consumed the profile is `build_android.sh`'s own, on the release compile database | yes, a fake `adb` |
 | `run_evidence_abi_contract.sh` | `collect_packaging_evidence.sh` refuses to run without `--expected-abis`, and on a fixture bundle passes the expected ABI and fails a missing or an extra one, so the AAB's `base/lib/` is checked as the APK's `lib/` is | yes, a fixture bundle |
 | `run_host_tools_record_contract.sh` | `describe_host_tools.sh`, on fake tools alone on its PATH, prints `meson <v> ninja <v> <gcc or clang> <v> <libfreetype6 or freetype2> <v>` with each version cut to the evidence's text characters, names clang, falls back to pkg-config without dpkg, and prints `absent` for a missing tool; both build jobs record it, both signing paths pass it, and `collect_packaging_evidence.sh` writes `host_tools` and refuses another shape | yes, fake tools |
 | `run_published_artifacts_verifier_contract.sh` | `verify_published_release_artifacts.sh` accepts a valid release and rejects tampered bytes, a wrong version, a leaked ABI, a wrong signing mode, an unsigned APK, a release with no `host_tools` record, signer mismatches, and a signed release checked with no pin or a malformed one, each on the check named for it; the tracked release and prerelease signer pins are 64 hex digits each, the README states both, the release workflow passes the release pin, and `sign-dev-prerelease` holds the dev APK to the prerelease pin | yes, synthetic evidence |
