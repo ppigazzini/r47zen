@@ -193,6 +193,17 @@ static uint64_t resolve_program_timeout_ms(uint64_t default_timeout_ms) {
   return default_timeout_ms * (uint64_t)scale;
 }
 
+// HOST_WORKLOAD_RUN_TO_COMPLETION turns every bounded stop off, so a program
+// runs to its own end: the PGO collector sets it, so the work it profiles is the
+// program's and not however much a stop window holds on that runner. The
+// scenario's timeout_ms stays the safety bound, and the correctness lane, which
+// leaves it unset, keeps testing the stop.
+static bool run_to_completion_requested(void) {
+  const char *value = getenv("HOST_WORKLOAD_RUN_TO_COMPLETION");
+  return value != NULL &&
+         (strcmp(value, "1") == 0 || strcmp(value, "true") == 0);
+}
+
 static bool ensure_directory(const char *path) {
   struct stat st;
   if (stat(path, &st) == 0) {
@@ -453,6 +464,8 @@ static workload_result_t run_program_fixture_workload(
   uint64_t lcd_refresh_count = 0;
   uint64_t timeout_ms = resolve_program_timeout_ms(scenario->timeout_ms);
   int16_t run_function_id = ITM_RS;
+  const stop_policy_t stop_policy =
+      run_to_completion_requested() ? STOP_POLICY_NONE : scenario->stop_policy;
 
   if (scenario->source == WORKLOAD_SOURCE_PROGRAM_FILE) {
     if (!stage_program_file(runtime_dir, program_root, scenario->program_name)) {
@@ -550,7 +563,7 @@ static workload_result_t run_program_fixture_workload(
       activity_started_at = now;
     }
 
-    if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
+    if (stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
         activity_started_at != 0u &&
         now - activity_started_at >= scenario->stop_after_activity_ms &&
         now - last_direct_stop_request_at >= 250u &&
@@ -567,7 +580,7 @@ static workload_result_t run_program_fixture_workload(
   }
 
   if (!atomic_load(&worker.done)) {
-    if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
+    if (stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
         activity_started_at != 0u) {
       fprintf(stderr,
               "WARN: %s bounded interrupt timed out "
@@ -628,7 +641,7 @@ static workload_result_t run_program_fixture_workload(
   }
   // A bounded-stop scenario tests the stop only if its R/S was pushed: a program
   // that ends by itself inside the window would pass without it.
-  if (scenario->stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
+  if (stop_policy == STOP_POLICY_DIRECT_AFTER_ACTIVITY &&
       !requested_direct_stop) {
     fprintf(stderr,
             "ERROR: %s finished before any direct stop was requested, so the "
@@ -766,7 +779,9 @@ static const program_fixture_scenario_t kProgramFixtureScenarios[] = {
      // the optimization level (measured on upstream b847c584: 2.6-3.0 s at -O2
      // and 4.4-5.9 s at -O0 on one host, 2.7 s at -O0 on a hosted runner). A
      // window near that lets a fast machine finish first and fail the stop-seam
-     // check. ProgramFixtureInstrumentedTest.kt holds the same window.
+     // check. ProgramFixtureInstrumentedTest.kt holds the same window. The PGO
+     // collector runs it to that end instead (HOST_WORKLOAD_RUN_TO_COMPLETION),
+     // under timeout_ms.
      .stop_policy = STOP_POLICY_DIRECT_AFTER_ACTIVITY,
      .stop_after_activity_ms = 500u},
     {.program_name = "NQueens.p47",

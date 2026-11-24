@@ -558,8 +558,13 @@ run_program_fixture_profile_overlay() {
     # lane, not here. Tolerate a fixture's own runtime failure (e.g. a value
     # oracle that drifted under a new upstream) as degraded coverage so it cannot
     # break the Android build. Compile and setup failures still propagate. The
-    # toggle is scoped to this overlay subprocess only.
+    # toggles are scoped to this overlay subprocess only.
+    # HOST_WORKLOAD_RUN_TO_COMPLETION runs a fixture the correctness lane stops
+    # after a time window, MANSLV2, to its own end instead, under its timeout:
+    # a window holds as much work as the runner does in it, so the profile
+    # would change with the runner's speed.
     HOST_WORKLOAD_TOLERATE_FIXTURE_FAILURE=true \
+        HOST_WORKLOAD_RUN_TO_COMPLETION=true \
         python3 - "$PROGRAM_FIXTURE_LOG_PATH" "$runtime_cwd" "$SCRIPT_DIR/run_workload_regressions.sh" <<'PY'
 import os
 import subprocess
@@ -581,6 +586,12 @@ elapsed = time.perf_counter() - start
 if proc.returncode != 0:
     sys.stderr.write(f"program-fixture overlay exited with {proc.returncode}; see {log_path}\n")
     sys.exit(proc.returncode)
+# A fixture that failed or hit its timeout trained less than it should, and on
+# a timeout as much as the runner's speed allowed: say so in the build log.
+with open(log_path, encoding="utf-8", errors="replace") as log_file:
+    for line in log_file:
+        if "degraded" in line:
+            sys.stderr.write(f"WARN: {line.strip()}\n")
 print(f"{elapsed:.6f}")
 PY
 }

@@ -427,8 +427,16 @@ on it, but neither looks for a race.
   upstream `src/testSuite/testSuite` target with the pinned NDK Clang and
   `llvm-profdata` under ThinLTO plus LLVM IRPGO instrumentation, and runs the
   imported `.p47` overlay through the same host path, so the profile also covers
-  graph, pause, wait, and LCD workloads. Its `--help` names the training corpus and
-  the `libclang_rt.profile` shim.
+  graph, pause, wait, and LCD workloads, and mini-gmp, which the suite, built
+  with the full GMP, does not run. The overlay sets
+  `HOST_WORKLOAD_RUN_TO_COMPLETION`, so `MANSLV2`, which the correctness lane
+  stops after its `stop_after_activity_ms`, runs to its own end instead, under
+  its `timeout_ms`: a time window holds as much work as the runner does in it,
+  and a profile that changes with the runner's speed compiles a different
+  library. What still follows the clock is LCD redraws and timers, so two
+  collections of one commit differ in a few functions and some build a
+  different library. A fixture that fails or hits its limit prints a
+  `WARN:` line in the build log. Its `--help` names the training corpus and the `libclang_rt.profile` shim.
   `./scripts/android/build_android.sh --collect-host-pgo` runs it before Gradle,
   builds the app with the profile, and fails unless the release library's
   compile database records it
