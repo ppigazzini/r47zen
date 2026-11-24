@@ -191,7 +191,11 @@ flowchart LR
   keeps the keysym of the PC event `pc_keyboard.c` was handling when it pushed it.
   Left out, for want of an Android
   counterpart: Ctrl+P, GTK's printer window, and Ctrl+H, Ctrl+M, and Ctrl+K, the
-  screen, menu, and X register images `src/c47-gtk/hal/lcd.c` copies. Not ported
+  screen, menu, and X register images `src/c47-gtk/hal/lcd.c` copies. The
+  simulator's `--ff` switch (`forceFf`) is left out too: with it a released
+  Shift steps none, f, g instead of pressing the layout's shift key, but only
+  the simulator's command line sets it, so `releaseShift` takes the chain GTK
+  falls to with it off. Not ported
   either: GTK chooses its rows at run time through `shortcutProfile`
   (`src/c47/defines.h`), so a calculator whose `calcModel` is C47 gets GTK's C47
   rows and any other model outside the R47 family (`isR47FAM`), such as DM42,

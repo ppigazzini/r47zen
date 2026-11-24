@@ -14,7 +14,7 @@
     },
     {
       "path": "src/c47-gtk/gtkGui.c",
-      "sha256": "7cfef996edf059a4759069b7b9894968742c8cccd2c4e6f8cd2439b47bd04f28"
+      "sha256": "258f1a76a63de8523d2590af293536bbe704807bbca39190cc739283c105b2c8"
     },
     {
       "path": "src/c47-gtk/hal/io.c",
@@ -67,7 +67,7 @@
   ],
   "recorded": {
     "recorded_on": "2026-11-24",
-    "upstream_commit": "8772b67484c343e3aa4768ad16f6ad8c7d2d8d62",
+    "upstream_commit": "76040c929a0fb2258edb718a78dd164dd24079a8",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 2
