@@ -26,7 +26,7 @@
     },
     {
       "path": "src/c47/assign.c",
-      "sha256": "fab99797fcca9570ff2e3635504d8dc53d16067f6deaf6d611079195e81518a5"
+      "sha256": "6c069614d320cb4d820610cdcf4293aa639708539bcadcace6546948618a3cab"
     },
     {
       "path": "src/c47/hal/audio.h",
@@ -66,8 +66,8 @@
     }
   ],
   "recorded": {
-    "recorded_on": "2026-11-22",
-    "upstream_commit": "64040c8d9ea5fe716fc3aecf06f4fccf45c74836",
+    "recorded_on": "2026-11-24",
+    "upstream_commit": "8772b67484c343e3aa4768ad16f6ad8c7d2d8d62",
     "upstream_url": "https://gitlab.com/rpncalculators/c43.git"
   },
   "schema": 2
