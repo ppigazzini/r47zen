@@ -4,8 +4,8 @@
 //
 // Boot the core headless through the Android bridge, drive it into the named
 // scene the way a user would where that is simple (typed digits through
-// r47_paste_number, functions through r47_send_sim_function), redraw, and write
-// the 400 x 240 LCD as SVG. scripts/site-screens/render_site_screens.sh builds
+// r47_paste_number, functions through runFunction), redraw, and write the
+// 400 x 240 LCD as SVG. scripts/site-screens/render_site_screens.sh builds
 // this file against the staged core and runs every scene scenes.txt lists.
 //
 // The SVG is this repo's own text, not upstream's: site_screen_svg.c writes one
@@ -13,6 +13,10 @@
 // this process, so an upstream commit can still make it write anything;
 // scripts/site-screens/check_screens_artifact.sh refuses a file that strays from
 // this shape before the Pages site publishes it.
+//
+// main boots the core and drives every scene on its own thread and starts no
+// other, so it is the calculator thread: it calls core code directly, with no
+// lock, as host_workload_regression.c does.
 
 #include "keypad_fixture_bridge.h"
 #include "screen.h"
@@ -31,22 +35,20 @@
 // changes the signature.
 #include "jni_bridge.h"
 
-// Type a number and close its entry, as the next key would: runFunction, which
-// r47_send_sim_function calls, acts on X without closing the entry first.
+// Type a number and close its entry, as the next key would: runFunction acts on
+// X without closing the entry first.
 static bool type_number(const char *tokens) {
   if (!r47_paste_number(tokens)) {
     fprintf(stderr, "ERROR: the core refused the number %s\n", tokens);
     return false;
   }
-  pthread_mutex_lock(&screenMutex);
   if (calcMode == CM_NIM) {
     closeNim();
   }
-  pthread_mutex_unlock(&screenMutex);
   return true;
 }
 
-static void press(int16_t item) { r47_send_sim_function(item); }
+static void press(int16_t item) { runFunction(item); }
 
 // The runtime folder the core boots in, and upstream's program folder; main sets
 // both, absolute, before the core moves its working directory.
@@ -89,11 +91,9 @@ static bool scene_matrix(void) {
       stringToReal34(cells[row][col], &matrix.matrixElements[row * 3 + col]);
     }
   }
-  pthread_mutex_lock(&screenMutex);
   convertReal34MatrixToReal34MatrixRegister(&matrix, REGISTER_X);
   realMatrixFree(&matrix);
   fnEditMatrix(NOPARAM);
-  pthread_mutex_unlock(&screenMutex);
   return true;
 }
 
@@ -114,7 +114,6 @@ static void set_window(double lx, double ux, double ly, double uy) {
 // sets it up: a new equation, its one variable resolved, then a plot.
 static bool scene_plot(void) {
   press(ITM_RAD);
-  pthread_mutex_lock(&screenMutex);
   fnEqNew(NOPARAM);
   setEquation(currentFormula, "x*sin(x)");
   currentSolverStatus = (currentSolverStatus & ~SOLVER_STATUS_EQUATION_MODE) |
@@ -127,7 +126,6 @@ static bool scene_plot(void) {
   set_window(-10.0, 10.0, -10.0, 10.0);
   PLOT_ZMY = zoomOverride;
   fnEqSolvGraph(EQ_PLOT_LU);
-  pthread_mutex_unlock(&screenMutex);
   return true;
 }
 
@@ -171,12 +169,10 @@ static bool scene_program(void) {
     return false;
   }
 
-  pthread_mutex_lock(&screenMutex);
   // As the workload harness notes, every real dispatch path clears
   // dynamicMenuItem before it touches programs; fnLoadProgram reads it.
   dynamicMenuItem = -1;
   fnLoadProgram(NOPARAM);
-  pthread_mutex_unlock(&screenMutex);
   if (numberOfPrograms == 0u) {
     fprintf(stderr, "ERROR: the core loaded no program from %s\n", source);
     return false;
@@ -247,7 +243,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "ERROR: cannot create a runtime directory\n");
     return 1;
   }
-  r47_initialize_native_bridge_state();
   snprintf(g_runtime_dir, sizeof(g_runtime_dir), "%s", runtime_dir);
   r47_native_preinit_path(runtime_dir);
   r47_init_runtime();
